@@ -1,0 +1,113 @@
+/* Estilos Generales */
+body {
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+}
+
+#app-root {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Sidebar (Menú Lateral) */
+.sidebar {
+    width: 260px;
+    background-color: #111827; /* gray-900 */
+    color: white;
+    position: fixed;
+    left: -260px;
+    top: 0;
+    bottom: 0;
+    transition: left 0.3s ease-in-out;
+    z-index: 40;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar.open {
+    left: 0;
+}
+
+/* Contenido Principal */
+.main-content {
+    flex-grow: 1;
+    transition: margin-left 0.3s ease-in-out;
+    width: 100%;
+}
+
+/* Estilos de Navegación del Menú */
+.menu-category {
+    margin-bottom: 1rem;
+}
+
+.category-title {
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #9ca3af; /* gray-400 */
+    text-transform: uppercase;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.nav-link {
+    display: block;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    color: #d1d5db; /* gray-300 */
+    text-decoration: none;
+    transition: background-color 0.2s, color 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.nav-link:hover {
+    background-color: #374151; /* gray-700 */
+    color: white;
+}
+
+.nav-link.active {
+    background-color: #4f46e5; /* indigo-600 */
+    color: white;
+    font-weight: 600;
+}
+
+
+/* Estilos para Pantallas Grandes (Escritorio) */
+@media (min-width: 768px) {
+    .sidebar {
+        left: 0;
+        position: relative;
+    }
+    .main-content {
+        margin-left: 0;
+    }
+    #sidebar-toggle-mobile {
+        display: none;
+    }
+
+    /* Estilos para el menú colapsado en escritorio */
+    .sidebar.collapsed {
+        width: 80px;
+    }
+    
+    .sidebar.collapsed #sidebar-title,
+    .sidebar.collapsed .nav-link span {
+       display: none;
+    }
+    
+    .sidebar.collapsed .category-title {
+       text-align: center;
+       font-size: 0.6rem;
+    }
+
+    .sidebar.collapsed .nav-link {
+        justify-content: center;
+        display: flex;
+    }
+}
+

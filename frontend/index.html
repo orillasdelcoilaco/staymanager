@@ -3,10 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StayManager - Prueba</title>
+    <title>StayManager</title>
+    <!-- Ruta absoluta para los estilos -->
+    <link rel="stylesheet" href="/public/css/style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body style="font-family: sans-serif; display: grid; place-content: center; height: 100vh; margin: 0;">
-    <h1>¡Hola Mundo! El servidor funciona.</h1>
+<body class="bg-gray-50">
+    <div id="app-root">
+        <!-- El contenido de la aplicación será renderizado aquí por JavaScript -->
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        
+        // --- IMPORTANTE: Reemplaza esto con la configuración de tu proyecto de Firebase ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBucD7V3f9ffAXcGXYS2yfwHJKeciXnpN4", // Pega tu apiKey aquí
+            authDomain: "staymanager-prod-472122.firebaseapp.com",
+            projectId: "staymanager-prod-472122",
+            storageBucket: "staymanager-prod-472122.appspot.com",
+            messagingSenderId: "112366912789", // Pega tu messagingSenderId aquí
+            appId: "1:112366912789:web:1ec40181a8caa90bed951c" // Pega tu appId aquí
+        };
+        // -----------------------------------------------------------------------------
+
+        // Inicializa Firebase y lo hace accesible globalmente
+        window.firebaseApp = initializeApp(firebaseConfig);
+    </script>
+
+    <!-- El router ahora es el punto de entrada principal de la aplicación -->
+    <script type="module" src="/src/router.js"></script>
 </body>
 </html>
 
