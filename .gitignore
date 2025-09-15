@@ -1,0 +1,6 @@
+# Archivos de credenciales y secretos
+# NUNCA subir este archivo a GitHub
+backend/serviceAccountKey.json
+
+# Dependencias de Node.js
+backend/node_modules

@@ -1,0 +1,16 @@
+    {
+      "name": "staymanager-backend",
+      "version": "1.0.0",
+      "description": "Backend for StayManager",
+      "main": "index.js",
+      "scripts": {
+        "start": "node index.js"
+      },
+      "author": "",
+      "license": "ISC",
+      "dependencies": {
+        "express": "^4.19.2"
+      }
+    }
+    
+
