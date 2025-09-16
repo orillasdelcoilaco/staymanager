@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 
 // --- Importar Rutas y Middlewares ---
 const authRoutes = require('./routes/auth.js');
-const propiedadesRoutes = require('./routes/propiedades.js');
+// const propiedadesRoutes = require('./routes/propiedades.js'); // <-- AHORA TAMBIÉN DESACTIVADO
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 
 // --- Carga de Credenciales y Configuración de Firebase ---
