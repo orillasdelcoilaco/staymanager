@@ -20,7 +20,6 @@ try {
     console.log('Firebase Admin SDK inicializado correctamente.');
 } catch (error) {
     console.error("Error al inicializar Firebase Admin SDK:", error);
-    console.error("Asegúrate de que el archivo 'serviceAccountKey.json' existe en la carpeta 'backend' para desarrollo local.");
     process.exit(1);
 }
 
@@ -33,7 +32,7 @@ const allowedOrigins = [
     'https://orillasdelcoilaco.cl',
     'http://localhost:3001',
     'http://127.0.0.1:3001',
-    'https://staymanager-zm1j.onrender.com' // Añadido para producción
+    'https://staymanager-unzh.onrender.com' // <-- AÑADIDO PARA PRODUCCIÓN
 ];
 const corsOptions = {
   origin: (origin, callback) => {
@@ -48,22 +47,13 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// --- Sirviendo el Frontend Estático (Configuración Definitiva) ---
-const frontendPath = path.join(__dirname, '..', 'frontend');
-app.use(express.static(frontendPath));
-
 // --- Rutas de la API ---
-// Rutas públicas de autenticación
 app.use('/auth', authRoutes(admin, db));
 
-// Creación de un router para las rutas privadas
 const apiRouter = express.Router();
-
-// El middleware ahora recibe 'db' además de 'admin'
 const authMiddleware = createAuthMiddleware(admin, db);
-apiRouter.use(authMiddleware); // <-- Guardia de seguridad para todas las rutas de /api
+apiRouter.use(authMiddleware);
 
-// Rutas de marcador de posición (ahora protegidas)
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 apiRouter.get('/gestion-diaria', (req, res) => res.json({ success: true, message: 'Respuesta para Gestión Diaria' }));
 apiRouter.get('/calendario', (req, res) => res.json({ success: true, message: 'Respuesta para Calendario' }));
@@ -71,7 +61,11 @@ apiRouter.get('/clientes', (req, res) => res.json({ success: true, message: 'Res
 
 app.use('/api', apiRouter);
 
-// --- Manejo de la SPA (Single-Page Application) ---
+// --- Sirviendo el Frontend Estático ---
+const frontendPath = path.join(__dirname, '..', 'frontend');
+app.use(express.static(frontendPath));
+
+// --- Manejo de la SPA ---
 app.get('*', (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
 });
