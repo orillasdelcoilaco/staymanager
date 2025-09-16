@@ -142,7 +142,7 @@ export async function render() {
                     </div>
                      <div class="mt-6">
                         <label for="descripcion" class="block text-sm font-medium text-gray-700">Descripción</label>
-                        <textarea id="descripcion" name="descripcion" rows="6" class="mt-1 form-input"></textarea>
+                        <textarea id="descripcion" name="descripcion" rows="6" class="mt-1 form-input" style="min-height: 150px;"></textarea>
                     </div>
                     <hr class="my-6">
                     <div>

@@ -10,11 +10,6 @@ body {
     min-height: 100vh;
 }
 
-/* Forzar la altura del textarea de descripción en el modal */
-#propiedad-form #descripcion {
-    min-height: 150px;
-}
-
 /* --- SECCIÓN DE LAYOUT REESTRUCTURADA --- */
 
 /* Sidebar (Mobile First) */
