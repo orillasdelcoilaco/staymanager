@@ -8,12 +8,16 @@ export function renderAppLayout() {
     const appRoot = document.getElementById('app-root');
     appRoot.innerHTML = `
         <div id="app-container" class="flex min-h-screen">
+            <div id="sidebar-overlay" class="sidebar-overlay"></div>
             <aside id="sidebar" class="sidebar">
                 <div class="sidebar-header">
                     <div class="flex items-center justify-between p-4">
                         <h1 id="sidebar-title" class="text-xl font-bold text-white"><span>StayManager</span></h1>
                         <button id="sidebar-toggle-desktop" class="p-2 rounded-md text-gray-300 hover:bg-gray-700 hover:text-white hidden md:block">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                        <button id="sidebar-close-mobile" class="p-2 rounded-md text-gray-300 hover:bg-gray-700 hover:text-white md:hidden">
+                             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                     </div>
                 </div>
@@ -41,9 +45,9 @@ export function renderAppLayout() {
     // Configurar información del usuario y eventos
     const authInfo = document.getElementById('auth-info');
     authInfo.innerHTML = `
-        <span class="text-sm font-semibold text-gray-700 hidden sm:block">${currentUser.nombreEmpresa}</span>
+        <span class="text-sm font-semibold text-gray-700 truncate">${currentUser.nombreEmpresa}</span>
         <span class="text-sm text-gray-600 hidden sm:block">${currentUser.email}</span>
-        <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700">Cerrar Sesión</button>
+        <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 flex-shrink-0">Cerrar Sesión</button>
     `;
     document.getElementById('logout-btn').addEventListener('click', () => {
         logout();
@@ -77,12 +81,30 @@ export async function checkAuthAndRender() {
 
 function setupSidebarToggle() {
     const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
     const mainContent = document.getElementById('main-content');
     const toggleMobileBtn = document.getElementById('sidebar-toggle-mobile');
+    const closeMobileBtn = document.getElementById('sidebar-close-mobile');
     const toggleDesktopBtn = document.getElementById('sidebar-toggle-desktop');
 
+    const openMobileMenu = () => {
+        sidebar.classList.add('open');
+        overlay.classList.add('visible');
+    };
+
+    const closeMobileMenu = () => {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('visible');
+    };
+
     if (toggleMobileBtn) {
-        toggleMobileBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
+        toggleMobileBtn.addEventListener('click', openMobileMenu);
+    }
+    if (closeMobileBtn) {
+        closeMobileBtn.addEventListener('click', closeMobileMenu);
+    }
+    if (overlay) {
+        overlay.addEventListener('click', closeMobileMenu);
     }
     if (toggleDesktopBtn) {
         toggleDesktopBtn.addEventListener('click', () => {

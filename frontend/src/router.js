@@ -118,15 +118,15 @@ export function renderMenu() {
     if (!nav) return;
 
     let menuHtml = '';
-    menuConfig.forEach(item => {
-        // Función auxiliar para renderizar un enlace
-        const renderLink = (linkItem) => {
-            const firstSpaceIndex = linkItem.name.indexOf(' ');
-            const icon = linkItem.name.substring(0, firstSpaceIndex);
-            const text = linkItem.name.substring(firstSpaceIndex + 1);
-            return `<li><a href="${linkItem.path}" class="nav-link" data-path="${linkItem.path}">${icon} <span class="link-text">${text}</span></a></li>`;
-        };
+    // Función auxiliar para renderizar un enlace
+    const renderLink = (linkItem) => {
+        const firstSpaceIndex = linkItem.name.indexOf(' ');
+        const icon = linkItem.name.substring(0, firstSpaceIndex);
+        const text = linkItem.name.substring(firstSpaceIndex + 1);
+        return `<li><a href="${linkItem.path}" class="nav-link" data-path="${linkItem.path}">${icon} <span class="link-text">${text}</span></a></li>`;
+    };
 
+    menuConfig.forEach(item => {
         if (item.children) {
             menuHtml += `<div class="menu-category">
                             <span class="category-title">${item.name}</span>
@@ -146,6 +146,14 @@ export function renderMenu() {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             const path = e.currentTarget.getAttribute('href');
+            
+            // Cierra el menú en móvil antes de navegar
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar && sidebar.classList.contains('open')) {
+                sidebar.classList.remove('open');
+                document.getElementById('sidebar-overlay').classList.remove('visible');
+            }
+            
             if (path !== '#') {
                 handleNavigation(path);
             }
