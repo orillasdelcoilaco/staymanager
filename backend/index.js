@@ -77,15 +77,3 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Servidor de StayManager escuchando en http://localhost:${PORT}`);
 });
-```
-
-### Siguientes Pasos
-
-1.  **Guarda** el archivo `index.js` actualizado.
-2.  **Sube el cambio a GitHub:**
-    ```bash
-    git add .
-    git commit -m "Config: Añadir nueva URL de produccion a la lista de CORS"
-    git push origin main
-    
-
