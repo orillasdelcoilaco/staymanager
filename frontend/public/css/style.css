@@ -2,6 +2,7 @@
 body {
     font-family: 'Inter', sans-serif;
     margin: 0;
+    overflow-x: hidden; /* Prevenir scroll horizontal */
 }
 
 #app-root {
@@ -9,29 +10,74 @@ body {
     min-height: 100vh;
 }
 
-/* Forzar el ancho completo del contenido principal */
+/* Forzar la altura del textarea de descripción en el modal */
+#propiedad-form #descripcion {
+    min-height: 150px;
+}
+
+/* --- SECCIÓN DE LAYOUT REESTRUCTURADA --- */
+
+/* Sidebar (Mobile First) */
+.sidebar {
+    background-color: #111827;
+    color: white;
+    width: 260px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+}
+.sidebar.open {
+    transform: translateX(0);
+}
+
+/* Contenido Principal (Mobile First) */
+.main-content {
+    width: 100%;
+    flex-grow: 1;
+    transition: padding-left 0.3s ease-in-out;
+    padding-left: 0;
+}
+
 #view-content {
     width: 100%;
-    max-width: none !important; /* Asegura que se anule cualquier max-width */
-    padding: 1.5rem; /* py-6 */
+    padding: 1.5rem;
 }
 @media (min-width: 640px) {
    #view-content {
-     padding-left: 1.5rem; /* sm:px-6 */
+     padding-left: 1.5rem;
      padding-right: 1.5rem;
    }
 }
 @media (min-width: 1024px) {
    #view-content {
-     padding-left: 2rem; /* lg:px-8 */
+     padding-left: 2rem;
      padding-right: 2rem;
    }
 }
 
-/* Forzar la altura del textarea de descripción en el modal */
-#propiedad-form #descripcion {
-    min-height: 150px; /* Altura mínima para el campo de descripción */
+/* Estilos para Pantallas Grandes (Escritorio) */
+@media (min-width: 768px) {
+    .sidebar {
+        transform: translateX(0); /* Siempre visible */
+    }
+    .main-content {
+        padding-left: 260px; /* Crear espacio para el menú */
+    }
+    .sidebar.collapsed {
+        width: 80px;
+    }
+    .main-content.sidebar-collapsed {
+        padding-left: 80px; /* Reducir espacio cuando el menú está colapsado */
+    }
 }
+
+/* --- FIN SECCIÓN REESTRUCTURADA --- */
 
 /* Modal Styles */
 .modal {
@@ -61,29 +107,9 @@ body {
     max-width: 500px;
 }
 
-/* Sidebar (Menú Lateral) */
-.sidebar {
-    width: 260px;
-    background-color: #111827; /* gray-900 */
-    color: white;
-    position: fixed;
-    left: -260px;
-    top: 0;
-    bottom: 0;
-    transition: left 0.3s ease-in-out, width 0.3s ease-in-out;
-    z-index: 40;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-}
-
 .sidebar nav {
     overflow-y: auto;
     overflow-x: hidden;
-}
-
-.sidebar.open {
-    left: 0;
 }
 
 /* Overlay para menú móvil */
@@ -105,14 +131,13 @@ body {
     visibility: visible;
 }
 
-
 /* Footer del Sidebar */
 .sidebar-footer {
     padding: 1rem;
     margin-top: auto;
     text-align: center;
     font-size: 0.7rem;
-    color: #9ca3af; /* gray-400 */
+    color: #9ca3af;
     white-space: normal;
 }
 
@@ -121,24 +146,13 @@ body {
     line-height: 1.2;
 }
 
-
-/* Contenido Principal */
-.main-content {
-    flex-grow: 1;
-    transition: margin-left 0.3s ease-in-out;
-    width: 100%;
-}
-
 /* Estilos de Navegación del Menú */
-.menu-category {
-    margin-bottom: 1rem;
-}
-
+.menu-category { margin-bottom: 1rem; }
 .category-title {
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
     font-weight: 600;
-    color: #d1d5db; /* gray-300 */
+    color: #d1d5db;
     text-transform: uppercase;
     display: block;
     white-space: nowrap;
@@ -151,7 +165,7 @@ body {
     align-items: center;
     padding: 0.75rem 1rem;
     font-size: 0.875rem;
-    color: #d1d5db; /* gray-300 */
+    color: #d1d5db;
     text-decoration: none;
     transition: background-color 0.2s, color 0.2s;
     white-space: nowrap;
@@ -160,46 +174,26 @@ body {
 }
 
 .nav-link:hover {
-    background-color: #374151; /* gray-700 */
+    background-color: #374151;
     color: white;
 }
 
 .nav-link.active {
-    background-color: #4f46e5; /* indigo-600 */
+    background-color: #4f46e5;
     color: white;
     font-weight: 600;
 }
 
-
-/* Estilos para Pantallas Grandes (Escritorio) */
+/* Ocultar elementos en menú colapsado */
 @media (min-width: 768px) {
-    .sidebar {
-        left: 0;
-        position: relative;
-    }
-    .main-content {
-        margin-left: 0;
-    }
-    #sidebar-toggle-mobile {
-        display: none;
-    }
+    #sidebar-toggle-mobile { display: none; }
 
-    /* Estilos para el menú colapsado en escritorio */
-    .sidebar.collapsed {
-        width: 80px;
-    }
-    
     .sidebar.collapsed #sidebar-title span,
     .sidebar.collapsed .sidebar-footer,
     .sidebar.collapsed .category-title {
        display: none;
     }
     
-    .sidebar.collapsed .link-text {
-        display: none;
-    }
-
-    .sidebar.collapsed .nav-link {
-        justify-content: center;
-    }
+    .sidebar.collapsed .link-text { display: none; }
+    .sidebar.collapsed .nav-link { justify-content: center; }
 }

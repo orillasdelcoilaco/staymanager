@@ -6,7 +6,7 @@ let currentUser = null;
 export function renderAppLayout() {
     const appRoot = document.getElementById('app-root');
     appRoot.innerHTML = `
-        <div id="app-container" class="flex min-h-screen">
+        <div id="app-container" class="relative min-h-screen md:flex">
             <div id="sidebar-overlay" class="sidebar-overlay"></div>
             <aside id="sidebar" class="sidebar">
                 <div class="sidebar-header">
@@ -58,12 +58,10 @@ export function renderAppLayout() {
 
 export async function checkAuthAndRender() {
     const token = localStorage.getItem('idToken');
-    
     if (!token) {
         currentUser = null;
         return false;
     }
-    
     try {
         const userData = await fetchAPI('/auth/me'); 
         currentUser = userData;
@@ -97,10 +95,11 @@ function setupSidebarToggle() {
     if (toggleMobileBtn) toggleMobileBtn.addEventListener('click', openMobileMenu);
     if (closeMobileBtn) closeMobileBtn.addEventListener('click', closeMobileMenu);
     if (overlay) overlay.addEventListener('click', closeMobileMenu);
+    
     if (toggleDesktopBtn) {
         toggleDesktopBtn.addEventListener('click', () => {
             sidebar.classList.toggle('collapsed');
-            mainContent.classList.toggle('collapsed');
+            mainContent.classList.toggle('sidebar-collapsed');
         });
     }
 }
