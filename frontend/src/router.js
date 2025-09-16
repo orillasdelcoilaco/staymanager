@@ -8,7 +8,7 @@ const views = {
     '/gestion-diaria': () => import('./views/gestionDiaria.js'),
     '/calendario': () => import('./views/calendario.js'),
     '/clientes': () => import('./views/clientes.js'),
-    '/gestionar-alojamientos': () => import('./views/gestionarAlojamientos.js'), // <-- AÑADIDO
+    '/gestionar-alojamientos': () => import('./views/gestionarAlojamientos.js'),
 };
 
 // Configuración del menú lateral
@@ -36,7 +36,7 @@ const menuConfig = [
             { name: '👥 Gestionar Clientes', path: '/clientes', id: 'clientes' },
             { name: '🏨 Gestionar Reservas', path: '#', id: 'gestionar-reservas' },
             { name: '📈 Gestionar Tarifas', path: '#', id: 'gestionar-tarifas' },
-            { name: '🏡 Gestionar Alojamientos', path: '/gestionar-alojamientos', id: 'gestionar-alojamientos' }, // <-- ACTUALIZADO
+            { name: '🏡 Gestionar Alojamientos', path: '/gestionar-alojamientos', id: 'gestionar-alojamientos' },
         ]
     },
     {
@@ -86,11 +86,13 @@ async function loadView(path) {
         }
         
         const viewLoader = views[path] || views['/']; 
-        const { render, afterRender } = await viewLoader(); // <-- Obtenemos afterRender
-        document.getElementById('view-content').innerHTML = await render();
+        const viewModule = await viewLoader(); // <-- Obtenemos el módulo completo
         
-        if (afterRender) { // <-- Si la vista tiene una función afterRender, la llamamos
-            afterRender();
+        document.getElementById('view-content').innerHTML = await viewModule.render();
+        
+        // Verificamos de forma segura si afterRender existe antes de llamarlo
+        if (viewModule.afterRender && typeof viewModule.afterRender === 'function') {
+            viewModule.afterRender();
         }
 
         updateActiveLink(path);
