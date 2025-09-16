@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 
 // --- Importar Rutas y Middlewares ---
 const authRoutes = require('./routes/auth.js');
-// const propiedadesRoutes = require('./routes/propiedades.js'); // <-- AHORA TAMBIÉN DESACTIVADO
+const propiedadesRoutes = require('./routes/propiedades.js'); // <-- REACTIVADO
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 
 // --- Carga de Credenciales y Configuración de Firebase ---
@@ -62,7 +62,7 @@ const authMiddleware = createAuthMiddleware(admin, db);
 apiRouter.use(authMiddleware); 
 
 // Rutas protegidas
-// apiRouter.use('/propiedades', propiedadesRoutes(db)); // <-- TEMPORALMENTE DESACTIVADO PARA DIAGNÓSTICO
+apiRouter.use('/propiedades', propiedadesRoutes(db)); // <-- REACTIVADO
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 
 // Montamos el enrutador principal en /api

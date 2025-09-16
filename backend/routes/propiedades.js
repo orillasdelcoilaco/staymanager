@@ -9,10 +9,9 @@ const {
 module.exports = (db) => {
     const router = express.Router();
 
-    // POST /api/propiedades - Crear una nueva propiedad
+    // POST /api/propiedades
     router.post('/', async (req, res) => {
         try {
-            // El empresaId viene del authMiddleware, asegurando que el usuario solo puede crear en su propia empresa
             const { empresaId } = req.user;
             const nuevaPropiedad = await crearPropiedad(db, empresaId, req.body);
             res.status(201).json(nuevaPropiedad);
@@ -22,7 +21,7 @@ module.exports = (db) => {
         }
     });
 
-    // GET /api/propiedades - Obtener todas las propiedades de la empresa del usuario
+    // GET /api/propiedades
     router.get('/', async (req, res) => {
         try {
             const { empresaId } = req.user;
@@ -34,7 +33,7 @@ module.exports = (db) => {
         }
     });
 
-    // PUT /api/propiedades/:id - Actualizar una propiedad
+    // PUT /api/propiedades/:id
     router.put('/:id', async (req, res) => {
         try {
             const { empresaId } = req.user;
@@ -47,13 +46,13 @@ module.exports = (db) => {
         }
     });
 
-    // DELETE /api/propiedades/:id - Eliminar una propiedad
+    // DELETE /api/propiedades/:id
     router.delete('/:id', async (req, res) => {
         try {
             const { empresaId } = req.user;
             const { id } = req.params;
             await eliminarPropiedad(db, empresaId, id);
-            res.status(204).send(); // 204 No Content es la respuesta estándar para un delete exitoso
+            res.status(204).send();
         } catch (error) {
             console.error("Error al eliminar propiedad:", error);
             res.status(500).json({ error: error.message });
