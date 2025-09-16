@@ -37,7 +37,7 @@ export function renderAppLayout() {
                         <div id="auth-info" class="flex items-center space-x-4"></div>
                     </div>
                 </header>
-                <main id="view-content" class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8"></main>
+                <main id="view-content" class="mx-auto py-6 sm:px-6 lg:px-8 w-full"></main>
             </div>
         </div>
     `;
