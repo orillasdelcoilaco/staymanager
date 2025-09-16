@@ -9,6 +9,33 @@ body {
     min-height: 100vh;
 }
 
+/* --- NUEVAS REGLAS --- */
+/* Forzar el ancho completo del contenido principal */
+#view-content {
+    width: 100%;
+    max-width: none !important; /* Asegura que se anule cualquier max-width */
+    padding: 1.5rem; /* py-6 */
+}
+@media (min-width: 640px) {
+   #view-content {
+     padding-left: 1.5rem; /* sm:px-6 */
+     padding-right: 1.5rem;
+   }
+}
+@media (min-width: 1024px) {
+   #view-content {
+     padding-left: 2rem; /* lg:px-8 */
+     padding-right: 2rem;
+   }
+}
+
+/* Forzar la altura del textarea de descripción en el modal */
+#propiedad-form #descripcion {
+    min-height: 150px; /* Altura mínima para el campo de descripción */
+}
+/* --- FIN NUEVAS REGLAS --- */
+
+
 /* Modal Styles */
 .modal {
     position: fixed;
