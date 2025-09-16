@@ -3,7 +3,6 @@ import { fetchAPI, logout } from './api.js';
 
 let currentUser = null;
 
-// Esta función se exporta para ser llamada por el router
 export function renderAppLayout() {
     const appRoot = document.getElementById('app-root');
     appRoot.innerHTML = `
@@ -42,7 +41,6 @@ export function renderAppLayout() {
         </div>
     `;
     
-    // Configurar información del usuario y eventos
     const authInfo = document.getElementById('auth-info');
     authInfo.innerHTML = `
         <span class="text-sm font-semibold text-gray-700 truncate">${currentUser.nombreEmpresa}</span>
@@ -67,7 +65,6 @@ export async function checkAuthAndRender() {
     }
     
     try {
-        // Verificar el token con el backend para obtener los datos del usuario
         const userData = await fetchAPI('/auth/me'); 
         currentUser = userData;
         return true;
@@ -97,15 +94,9 @@ function setupSidebarToggle() {
         overlay.classList.remove('visible');
     };
 
-    if (toggleMobileBtn) {
-        toggleMobileBtn.addEventListener('click', openMobileMenu);
-    }
-    if (closeMobileBtn) {
-        closeMobileBtn.addEventListener('click', closeMobileMenu);
-    }
-    if (overlay) {
-        overlay.addEventListener('click', closeMobileMenu);
-    }
+    if (toggleMobileBtn) toggleMobileBtn.addEventListener('click', openMobileMenu);
+    if (closeMobileBtn) closeMobileBtn.addEventListener('click', closeMobileMenu);
+    if (overlay) overlay.addEventListener('click', closeMobileMenu);
     if (toggleDesktopBtn) {
         toggleDesktopBtn.addEventListener('click', () => {
             sidebar.classList.toggle('collapsed');

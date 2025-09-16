@@ -9,7 +9,6 @@ body {
     min-height: 100vh;
 }
 
-/* --- NUEVAS REGLAS --- */
 /* Forzar el ancho completo del contenido principal */
 #view-content {
     width: 100%;
@@ -33,8 +32,6 @@ body {
 #propiedad-form #descripcion {
     min-height: 150px; /* Altura mínima para el campo de descripción */
 }
-/* --- FIN NUEVAS REGLAS --- */
-
 
 /* Modal Styles */
 .modal {

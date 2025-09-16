@@ -1,7 +1,5 @@
 import { checkAuthAndRender, renderAppLayout } from './app.js';
 
-// --- Configuración de Vistas ---
-// Mapea las rutas a funciones que importan dinámicamente los módulos de las vistas.
 const views = {
     '/login': () => import('./views/login.js'),
     '/': () => import('./views/dashboard.js'),
@@ -11,7 +9,6 @@ const views = {
     '/gestionar-alojamientos': () => import('./views/gestionarAlojamientos.js'),
 };
 
-// Configuración del menú lateral
 const menuConfig = [
     { name: '📊 Dashboard', path: '/', id: 'dashboard' },
     { 
@@ -53,12 +50,8 @@ const menuConfig = [
     }
 ];
 
-// --- Lógica del Router ---
-
 export async function handleNavigation(path) {
-    if (path !== '/login') {
-        sessionStorage.setItem('lastPath', path);
-    }
+    if (path !== '/login') sessionStorage.setItem('lastPath', path);
     window.history.pushState({}, '', path);
     await loadView(path);
 }
@@ -67,10 +60,7 @@ async function loadView(path) {
     const isAuthenticated = await checkAuthAndRender();
     const appRoot = document.getElementById('app-root');
     
-    if (!isAuthenticated && path !== '/login') {
-        return handleNavigation('/login');
-    }
-
+    if (!isAuthenticated && path !== '/login') return handleNavigation('/login');
     if (isAuthenticated && path === '/login') {
         const lastPath = sessionStorage.getItem('lastPath') || '/';
         return handleNavigation(lastPath);
@@ -80,17 +70,13 @@ async function loadView(path) {
         const { renderLogin } = await views['/login']();
         renderLogin(appRoot);
     } else {
-        const viewContentDiv = document.getElementById('view-content');
-        if (!viewContentDiv) {
-            renderAppLayout();
-        }
+        if (!document.getElementById('view-content')) renderAppLayout();
         
         const viewLoader = views[path] || views['/']; 
-        const viewModule = await viewLoader(); // <-- Obtenemos el módulo completo
+        const viewModule = await viewLoader();
         
         document.getElementById('view-content').innerHTML = await viewModule.render();
         
-        // Verificamos de forma segura si afterRender existe antes de llamarlo
         if (viewModule.afterRender && typeof viewModule.afterRender === 'function') {
             viewModule.afterRender();
         }
@@ -103,7 +89,6 @@ export function renderMenu() {
     const nav = document.getElementById('main-nav');
     if (!nav) return;
 
-    let menuHtml = '';
     const renderLink = (linkItem) => {
         const firstSpaceIndex = linkItem.name.indexOf(' ');
         const icon = linkItem.name.substring(0, firstSpaceIndex);
@@ -111,14 +96,11 @@ export function renderMenu() {
         return `<li><a href="${linkItem.path}" class="nav-link" data-path="${linkItem.path}">${icon} <span class="link-text">${text}</span></a></li>`;
     };
 
+    let menuHtml = '';
     menuConfig.forEach(item => {
         if (item.children) {
-            menuHtml += `<div class="menu-category">
-                            <span class="category-title">${item.name}</span>
-                            <ul>`;
-            item.children.forEach(child => {
-                menuHtml += renderLink(child);
-            });
+            menuHtml += `<div class="menu-category"><span class="category-title">${item.name}</span><ul>`;
+            item.children.forEach(child => { menuHtml += renderLink(child); });
             menuHtml += `</ul></div>`;
         } else {
             menuHtml += `<ul>${renderLink(item)}</ul>`;
@@ -126,37 +108,27 @@ export function renderMenu() {
     });
     nav.innerHTML = menuHtml;
 
-    document.querySelectorAll('.nav-link').forEach(link => {
+    nav.querySelectorAll('.nav-link').forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             const path = e.currentTarget.getAttribute('href');
             
             const sidebar = document.getElementById('sidebar');
-            if (sidebar && sidebar.classList.contains('open')) {
+            if (sidebar?.classList.contains('open')) {
                 sidebar.classList.remove('open');
                 document.getElementById('sidebar-overlay').classList.remove('visible');
             }
             
-            if (path !== '#') {
-                handleNavigation(path);
-            }
+            if (path !== '#') handleNavigation(path);
         });
     });
 }
 
 function updateActiveLink(path) {
     document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.remove('active');
-        if (link.getAttribute('href') === path) {
-            link.classList.add('active');
-        }
+        link.classList.toggle('active', link.getAttribute('href') === path);
     });
 }
 
-window.addEventListener('popstate', () => {
-    loadView(window.location.pathname);
-});
-
-document.addEventListener('DOMContentLoaded', () => {
-    loadView(window.location.pathname);
-});
+window.addEventListener('popstate', () => loadView(window.location.pathname));
+document.addEventListener('DOMContentLoaded', () => loadView(window.location.pathname));

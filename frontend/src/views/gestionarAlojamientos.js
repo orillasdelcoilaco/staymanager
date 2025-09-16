@@ -3,7 +3,6 @@ import { fetchAPI } from '../api.js';
 let propiedades = [];
 let editandoPropiedad = null;
 
-// Lógica para manejar el modal
 function abrirModal(propiedad = null) {
     const modal = document.getElementById('propiedad-modal');
     const form = document.getElementById('propiedad-form');
@@ -12,25 +11,21 @@ function abrirModal(propiedad = null) {
     if (propiedad) {
         editandoPropiedad = propiedad;
         modalTitle.textContent = `Editar Alojamiento: ${propiedad.nombre}`;
-        // Llenar campos de texto y número
         form.nombre.value = propiedad.nombre || '';
         form.linkFotos.value = propiedad.linkFotos || '';
         form.numPiezas.value = propiedad.numPiezas || 0;
         form.numBanos.value = propiedad.numBanos || 0;
         form.descripcion.value = propiedad.descripcion || '';
         form.capacidad.value = propiedad.capacidad || 0;
-        // Llenar campos de camas (con valores por defecto si no existen)
         form.matrimoniales.value = propiedad.camas?.matrimoniales || 0;
         form.plazaYMedia.value = propiedad.camas?.plazaYMedia || 0;
         form.camarotes.value = propiedad.camas?.camarotes || 0;
-        // Llenar checkboxes de equipamiento
         form.tinaja.checked = propiedad.equipamiento?.tinaja || false;
         form.parrilla.checked = propiedad.equipamiento?.parrilla || false;
         form.terrazaTechada.checked = propiedad.equipamiento?.terrazaTechada || false;
         form.juegoDeTerraza.checked = propiedad.equipamiento?.juegoDeTerraza || false;
         form.piezaEnSuite.checked = propiedad.equipamiento?.piezaEnSuite || false;
         form.dosPisos.checked = propiedad.equipamiento?.dosPisos || false;
-
     } else {
         editandoPropiedad = null;
         modalTitle.textContent = 'Nuevo Alojamiento';
@@ -46,7 +41,6 @@ function cerrarModal() {
     editandoPropiedad = null;
 }
 
-// Lógica para renderizar la tabla de propiedades
 function renderTabla() {
     const tbody = document.getElementById('propiedades-tbody');
     if (!tbody) return;
@@ -70,9 +64,7 @@ function renderTabla() {
     `).join('');
 }
 
-// Lógica principal de la vista
 export async function render() {
-    // Obtener los datos iniciales
     try {
         propiedades = await fetchAPI('/propiedades');
     } catch (error) {
@@ -80,7 +72,6 @@ export async function render() {
         return `<p class="text-red-500">Error al cargar los datos. Por favor, intente de nuevo.</p>`;
     }
 
-    // Devolver el HTML de la vista
     return `
         <div class="bg-white p-8 rounded-lg shadow">
             <div class="flex justify-between items-center mb-6">
@@ -108,7 +99,7 @@ export async function render() {
         <div id="propiedad-modal" class="modal hidden">
             <div class="modal-content !max-w-3xl">
                 <div class="flex justify-between items-center pb-3 border-b mb-4">
-                    <h3 id="modal-title" class="text-xl font-semibold">Nuevo Alojamiento</h3>
+                    <h3 id="modal-title" class="text-xl font-semibold"></h3>
                     <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
                 </div>
                 <form id="propiedad-form">
@@ -175,7 +166,6 @@ export async function render() {
     `;
 }
 
-// Función auxiliar para generar checkboxes
 function checkbox(id, label) {
     return `
         <label for="${id}" class="flex items-center space-x-2 text-sm">
@@ -185,19 +175,18 @@ function checkbox(id, label) {
     `;
 }
 
-// Post-render, para añadir event listeners
 export function afterRender() {
     renderTabla();
 
-    // Event listeners para los botones principales
+    const form = document.getElementById('propiedad-form');
+    const tbody = document.getElementById('propiedades-tbody');
+    
     document.getElementById('add-propiedad-btn').addEventListener('click', () => abrirModal());
     document.getElementById('close-modal-btn').addEventListener('click', cerrarModal);
     document.getElementById('cancel-btn').addEventListener('click', cerrarModal);
 
-    // Event listener para el formulario
-    document.getElementById('propiedad-form').addEventListener('submit', async (e) => {
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const form = e.target;
         const datos = {
             nombre: form.nombre.value,
             capacidad: parseInt(form.capacidad.value),
@@ -221,20 +210,10 @@ export function afterRender() {
         };
 
         try {
-            if (editandoPropiedad) {
-                // Actualizar
-                await fetchAPI(`/propiedades/${editandoPropiedad.id}`, {
-                    method: 'PUT',
-                    body: datos
-                });
-            } else {
-                // Crear
-                await fetchAPI('/propiedades', {
-                    method: 'POST',
-                    body: datos
-                });
-            }
-            // Recargar la lista de propiedades
+            const endpoint = editandoPropiedad ? `/propiedades/${editandoPropiedad.id}` : '/propiedades';
+            const method = editandoPropiedad ? 'PUT' : 'POST';
+            await fetchAPI(endpoint, { method, body: datos });
+            
             propiedades = await fetchAPI('/propiedades');
             renderTabla();
             cerrarModal();
@@ -243,8 +222,6 @@ export function afterRender() {
         }
     });
 
-    // Event listeners para los botones de la tabla
-    const tbody = document.getElementById('propiedades-tbody');
     tbody.addEventListener('click', async (e) => {
         const target = e.target;
         if (!target.classList.contains('edit-btn') && !target.classList.contains('delete-btn')) return;
