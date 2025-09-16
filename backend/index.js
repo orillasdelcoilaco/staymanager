@@ -13,6 +13,11 @@ try {
         ? require('/etc/secrets/serviceAccountKey.json')
         : require('./serviceAccountKey.json');
 
+    // --- LÍNEA DE DEPURACIÓN AÑADIDA ---
+    // Esta línea nos dirá exactamente qué proyecto está usando el backend.
+    console.log(`[DEBUG] Iniciando Firebase Admin SDK para el proyecto: ${serviceAccount.project_id}`);
+    // ------------------------------------
+
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });
@@ -32,7 +37,7 @@ const allowedOrigins = [
     'https://orillasdelcoilaco.cl',
     'http://localhost:3001',
     'http://127.0.0.1:3001',
-    'https://staymanager-unzh.onrender.com' // <-- AÑADIDO PARA PRODUCCIÓN
+    'https://staymanager-unzh.onrender.com'
 ];
 const corsOptions = {
   origin: (origin, callback) => {
