@@ -51,17 +51,20 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 // --- Rutas de la API ---
-app.use('/auth', authRoutes(admin, db));
-
 const apiRouter = express.Router();
+
+// Las rutas de autenticación ahora se montan dentro del enrutador principal de la API
+apiRouter.use('/auth', authRoutes(admin, db));
+
 const authMiddleware = createAuthMiddleware(admin, db);
-apiRouter.use(authMiddleware);
+apiRouter.use(authMiddleware); // Middleware se aplica a las rutas de abajo
 
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 apiRouter.get('/gestion-diaria', (req, res) => res.json({ success: true, message: 'Respuesta para Gestión Diaria' }));
 apiRouter.get('/calendario', (req, res) => res.json({ success: true, message: 'Respuesta para Calendario' }));
 apiRouter.get('/clientes', (req, res) => res.json({ success: true, message: 'Respuesta para Clientes' }));
 
+// Montamos el enrutador principal en /api
 app.use('/api', apiRouter);
 
 // --- Sirviendo el Frontend Estático ---

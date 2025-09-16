@@ -4,7 +4,9 @@ export function logout() {
 }
 
 export async function register(data) {
-    const response = await fetch('/auth/register', {
+    // La ruta de registro es pública, no necesita token, por eso se maneja aparte
+    // pero ahora la centralizamos para que use la misma URL base.
+    const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -65,4 +67,3 @@ export async function fetchAPI(endpoint, options = {}) {
         throw error;
     }
 }
-

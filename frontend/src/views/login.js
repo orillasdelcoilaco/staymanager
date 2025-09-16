@@ -88,7 +88,7 @@ export function renderLogin(container) {
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const idToken = await userCredential.user.getIdToken();
                 localStorage.setItem('idToken', idToken);
-                alert(`¡Empresa "${result.nombreEmpresa}" registrada con éxito!`);
+                alert(`¡Empresa "${nombreEmpresa}" registrada con éxito!`);
                 handleNavigation('/'); // Redirige al dashboard
             }
         } catch (error) {
@@ -100,4 +100,3 @@ export function renderLogin(container) {
         }
     });
 }
-
