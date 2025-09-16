@@ -10,25 +10,49 @@ const views = {
     '/clientes': () => import('./views/clientes.js'),
 };
 
-// Configuración del menú lateral
+// Configuración del menú lateral (NUEVA ESTRUCTURA)
+// Los paths '#' son temporales para los items sin vista aún.
 const menuConfig = [
     { name: '📊 Dashboard', path: '/', id: 'dashboard' },
     { 
-        name: '⚙️ Gestión Operativa',
-        id: 'gestion-operativa',
+        name: '💼 Flujo de Trabajo',
+        id: 'flujo-trabajo',
         children: [
-            { name: 'Gestión Diaria', path: '/gestion-diaria', id: 'gestion-diaria' },
-            { name: 'Calendario', path: '/calendario', id: 'calendario' },
+            { name: '☀️ Gestión Diaria', path: '/gestion-diaria', id: 'gestion-diaria' },
+            { name: '📅 Calendario', path: '/calendario', id: 'calendario' },
+            { name: '📄 Generar Reportes Rápidos', path: '#', id: 'reportes-rapidos' },
+            { name: '➕ Agregar Propuesta', path: '#', id: 'agregar-propuesta' },
+            { name: '🗂️ Gestionar Propuestas', path: '#', id: 'gestionar-propuestas' },
+            { name: '💬 Generar mensajes', path: '#', id: 'generar-mensajes' },
+            { name: '💲 Generar Presupuestos', path: '#', id: 'generar-presupuestos' },
         ]
     },
     {
-        name: '📈 Ventas y Clientes',
-        id: 'ventas-clientes',
+        name: '🛠️ Herramientas',
+        id: 'herramientas',
         children: [
-            { name: 'Clientes', path: '/clientes', id: 'clientes' }
+            { name: '🔄 Sincronizar Datos', path: '#', id: 'sincronizar-datos' },
+            { name: '⚙️ Procesar y Consolidar', path: '#', id: 'procesar-consolidar' },
+            { name: '👥 Gestionar Clientes', path: '/clientes', id: 'clientes' },
+            { name: '🏨 Gestionar Reservas', path: '#', id: 'gestionar-reservas' },
+            { name: '📈 Gestionar Tarifas', path: '#', id: 'gestionar-tarifas' },
+            { name: '🏡 Gestionar Alojamientos', path: '#', id: 'gestionar-alojamientos' },
         ]
     },
+    {
+        name: '⚙️ Configuración',
+        id: 'configuracion',
+        children: [
+            { name: '🏢 Empresa', path: '#', id: 'config-empresa' },
+            { name: '🔄 Conversión Alojamientos', path: '#', id: 'config-conversion' },
+            { name: '👤 Autorizar Google Contacts', path: '#', id: 'config-google' },
+            { name: '🔧 Reparar Estados de Reservas', path: '#', id: 'reparar-estados' },
+            { name: '📞 Reparar Teléfonos Faltantes', path: '#', id: 'reparar-telefonos' },
+            { name: '🗓️ Sincronizar Calendarios (iCal)', path: '#', id: 'sincronizar-ical' },
+        ]
+    }
 ];
+
 
 // --- Lógica del Router ---
 
@@ -95,16 +119,24 @@ export function renderMenu() {
 
     let menuHtml = '';
     menuConfig.forEach(item => {
+        // Función auxiliar para renderizar un enlace
+        const renderLink = (linkItem) => {
+            const firstSpaceIndex = linkItem.name.indexOf(' ');
+            const icon = linkItem.name.substring(0, firstSpaceIndex);
+            const text = linkItem.name.substring(firstSpaceIndex + 1);
+            return `<li><a href="${linkItem.path}" class="nav-link" data-path="${linkItem.path}">${icon} <span class="link-text">${text}</span></a></li>`;
+        };
+
         if (item.children) {
             menuHtml += `<div class="menu-category">
                             <span class="category-title">${item.name}</span>
                             <ul>`;
             item.children.forEach(child => {
-                menuHtml += `<li><a href="${child.path}" class="nav-link" data-path="${child.path}">${child.name}</a></li>`;
+                menuHtml += renderLink(child);
             });
             menuHtml += `</ul></div>`;
         } else {
-            menuHtml += `<ul><li><a href="${item.path}" class="nav-link single-link" data-path="${item.path}">${item.name}</a></li></ul>`;
+            menuHtml += `<ul>${renderLink(item)}</ul>`;
         }
     });
     nav.innerHTML = menuHtml;
@@ -113,8 +145,10 @@ export function renderMenu() {
     document.querySelectorAll('.nav-link').forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
-            const path = e.target.getAttribute('href');
-            handleNavigation(path);
+            const path = e.currentTarget.getAttribute('href');
+            if (path !== '#') {
+                handleNavigation(path);
+            }
         });
     });
 }
@@ -143,4 +177,3 @@ window.addEventListener('popstate', () => {
 document.addEventListener('DOMContentLoaded', () => {
     loadView(window.location.pathname);
 });
-

@@ -21,14 +21,22 @@ const createAuthMiddleware = (admin, db) => async (req, res, next) => {
 
         // Asumimos que un usuario solo puede pertenecer a una empresa por ahora
         const userDoc = userSnapshot.docs[0];
-        const empresaId = userDoc.ref.parent.parent.id; // Navega dos niveles hacia arriba para obtener el ID de la empresa
+        const empresaId = userDoc.ref.parent.parent.id;
+
+        // Obtener el nombre de la empresa
+        const empresaDoc = await db.collection('empresas').doc(empresaId).get();
+        if (!empresaDoc.exists) {
+            return res.status(404).json({ error: 'La empresa asociada a este usuario no fue encontrada.' });
+        }
+        const nombreEmpresa = empresaDoc.data().nombre;
 
         // Adjuntamos la información clave a la solicitud para uso posterior
         req.user = {
             uid: decodedToken.uid,
             email: decodedToken.email,
             empresaId: empresaId,
-            rol: userDoc.data().rol
+            rol: userDoc.data().rol,
+            nombreEmpresa: nombreEmpresa
         };
 
         next();
@@ -39,4 +47,3 @@ const createAuthMiddleware = (admin, db) => async (req, res, next) => {
 };
 
 module.exports = { createAuthMiddleware };
-

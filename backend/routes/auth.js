@@ -32,10 +32,10 @@ module.exports = (admin, db) => {
             uid: req.user.uid,
             email: req.user.email,
             empresaId: req.user.empresaId,
-            rol: req.user.rol
+            rol: req.user.rol,
+            nombreEmpresa: req.user.nombreEmpresa
         });
     });
 
     return router;
 };
-

@@ -9,13 +9,19 @@ export function renderAppLayout() {
     appRoot.innerHTML = `
         <div id="app-container" class="flex min-h-screen">
             <aside id="sidebar" class="sidebar">
-                <div class="flex items-center justify-between p-4">
-                    <h1 id="sidebar-title" class="text-xl font-bold text-white"><span>StayManager</span></h1>
-                    <button id="sidebar-toggle-desktop" class="p-2 rounded-md text-gray-300 hover:bg-gray-700 hover:text-white hidden md:block">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                    </button>
+                <div class="sidebar-header">
+                    <div class="flex items-center justify-between p-4">
+                        <h1 id="sidebar-title" class="text-xl font-bold text-white"><span>StayManager</span></h1>
+                        <button id="sidebar-toggle-desktop" class="p-2 rounded-md text-gray-300 hover:bg-gray-700 hover:text-white hidden md:block">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                    </div>
                 </div>
-                <nav id="main-nav" class="mt-4"></nav>
+                <nav id="main-nav" class="flex-grow mt-4"></nav>
+                <footer class="sidebar-footer">
+                    <p>Desarrollado por Sacatines SPA</p>
+                    <p>Todos los derechos reservados V 1.0.0</p>
+                </footer>
             </aside>
             <div id="main-content" class="main-content">
                 <header class="bg-white shadow-sm">
@@ -35,6 +41,7 @@ export function renderAppLayout() {
     // Configurar información del usuario y eventos
     const authInfo = document.getElementById('auth-info');
     authInfo.innerHTML = `
+        <span class="text-sm font-semibold text-gray-700 hidden sm:block">${currentUser.nombreEmpresa}</span>
         <span class="text-sm text-gray-600 hidden sm:block">${currentUser.email}</span>
         <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700">Cerrar Sesión</button>
     `;
@@ -84,4 +91,3 @@ function setupSidebarToggle() {
         });
     }
 }
-
