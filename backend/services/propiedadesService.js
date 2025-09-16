@@ -8,7 +8,7 @@ const admin = require('firebase-admin');
  * Crea una nueva propiedad para una empresa específica.
  * @param {object} db - La instancia de Firestore.
  * @param {string} empresaId - El ID de la empresa a la que pertenece la propiedad.
- * @param {object} datosPropiedad - Los datos de la propiedad a crear (ej. { nombre, capacidad }).
+ * @param {object} datosPropiedad - Los datos de la propiedad a crear.
  * @returns {Promise<object>} - La propiedad recién creada con su ID.
  */
 const crearPropiedad = async (db, empresaId, datosPropiedad) => {
@@ -18,8 +18,27 @@ const crearPropiedad = async (db, empresaId, datosPropiedad) => {
 
     const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc();
     
+    // Estructuramos el objeto completo de la propiedad con valores por defecto
     const nuevaPropiedad = {
-        ...datosPropiedad,
+        nombre: datosPropiedad.nombre,
+        capacidad: datosPropiedad.capacidad,
+        descripcion: datosPropiedad.descripcion || '',
+        linkFotos: datosPropiedad.linkFotos || '',
+        numPiezas: datosPropiedad.numPiezas || 0,
+        numBanos: datosPropiedad.numBanos || 0,
+        camas: {
+            matrimoniales: datosPropiedad.camas?.matrimoniales || 0,
+            plazaYMedia: datosPropiedad.camas?.plazaYMedia || 0,
+            camarotes: datosPropiedad.camas?.camarotes || 0,
+        },
+        equipamiento: {
+            tinaja: datosPropiedad.equipamiento?.tinaja || false,
+            parrilla: datosPropiedad.equipamiento?.parrilla || false,
+            terrazaTechada: datosPropiedad.equipamiento?.terrazaTechada || false,
+            juegoDeTerraza: datosPropiedad.equipamiento?.juegoDeTerraza || false,
+            piezaEnSuite: datosPropiedad.equipamiento?.piezaEnSuite || false,
+            dosPisos: datosPropiedad.equipamiento?.dosPisos || false,
+        },
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
     };
     
@@ -60,8 +79,9 @@ const obtenerPropiedadesPorEmpresa = async (db, empresaId) => {
 const actualizarPropiedad = async (db, empresaId, propiedadId, datosActualizados) => {
     const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
     
+    // Usamos merge: true para no tener que enviar el objeto completo cada vez
+    await propiedadRef.set(datosActualizados, { merge: true });
     await propiedadRef.update({
-        ...datosActualizados,
         fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
     });
 
