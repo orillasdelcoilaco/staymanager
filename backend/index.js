@@ -62,7 +62,7 @@ const authMiddleware = createAuthMiddleware(admin, db);
 apiRouter.use(authMiddleware); 
 
 // Rutas protegidas
-apiRouter.use('/propiedades', propiedadesRoutes(db));
+// apiRouter.use('/propiedades', propiedadesRoutes(db)); // <-- TEMPORALMENTE DESACTIVADO PARA DIAGNÓSTICO
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 
 // Montamos el enrutador principal en /api
