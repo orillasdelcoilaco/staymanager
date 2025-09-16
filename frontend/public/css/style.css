@@ -30,7 +30,7 @@ body {
     display: flex;
     flex-direction: column;
     transform: translateX(-100%);
-    transition: transform 0.3s ease-in-out;
+    transition: transform 0.3s ease-in-out, width 0.3s ease-in-out;
 }
 .sidebar.open {
     transform: translateX(0);
@@ -81,119 +81,58 @@ body {
 
 /* Modal Styles */
 .modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-    padding: 1rem;
+    display: flex; justify-content: center; align-items: center;
+    z-index: 1000; padding: 1rem;
 }
-
-.modal.hidden {
-    display: none;
-}
-
+.modal.hidden { display: none; }
 .modal-content {
-    background-color: white;
-    padding: 2rem;
-    border-radius: 8px;
+    background-color: white; padding: 2rem; border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    width: 100%;
-    max-width: 500px;
+    width: 100%; max-width: 500px;
 }
 
-.sidebar nav {
-    overflow-y: auto;
-    overflow-x: hidden;
-}
+.sidebar nav { overflow-y: auto; overflow-x: hidden; }
 
 /* Overlay para menú móvil */
 .sidebar-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background-color: rgba(0, 0, 0, 0.5);
-    z-index: 39;
-    opacity: 0;
-    visibility: hidden;
+    z-index: 39; opacity: 0; visibility: hidden;
     transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
 }
-
-.sidebar-overlay.visible {
-    opacity: 1;
-    visibility: visible;
-}
+.sidebar-overlay.visible { opacity: 1; visibility: visible; }
 
 /* Footer del Sidebar */
 .sidebar-footer {
-    padding: 1rem;
-    margin-top: auto;
-    text-align: center;
-    font-size: 0.7rem;
-    color: #9ca3af;
-    white-space: normal;
+    padding: 1rem; margin-top: auto; text-align: center;
+    font-size: 0.7rem; color: #9ca3af; white-space: normal;
 }
-
-.sidebar-footer p {
-    margin: 0;
-    line-height: 1.2;
-}
+.sidebar-footer p { margin: 0; line-height: 1.2; }
 
 /* Estilos de Navegación del Menú */
 .menu-category { margin-bottom: 1rem; }
 .category-title {
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #d1d5db;
-    text-transform: uppercase;
-    display: block;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 600;
+    color: #d1d5db; text-transform: uppercase; display: block;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-
 .nav-link {
-    display: flex; 
-    align-items: center;
-    padding: 0.75rem 1rem;
-    font-size: 0.875rem;
-    color: #d1d5db;
-    text-decoration: none;
+    display: flex; align-items: center; padding: 0.75rem 1rem;
+    font-size: 0.875rem; color: #d1d5db; text-decoration: none;
     transition: background-color 0.2s, color 0.2s;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-
-.nav-link:hover {
-    background-color: #374151;
-    color: white;
-}
-
-.nav-link.active {
-    background-color: #4f46e5;
-    color: white;
-    font-weight: 600;
-}
+.nav-link:hover { background-color: #374151; color: white; }
+.nav-link.active { background-color: #4f46e5; color: white; font-weight: 600; }
 
 /* Ocultar elementos en menú colapsado */
 @media (min-width: 768px) {
     #sidebar-toggle-mobile { display: none; }
-
     .sidebar.collapsed #sidebar-title span,
     .sidebar.collapsed .sidebar-footer,
-    .sidebar.collapsed .category-title {
-       display: none;
-    }
-    
+    .sidebar.collapsed .category-title { display: none; }
     .sidebar.collapsed .link-text { display: none; }
     .sidebar.collapsed .nav-link { justify-content: center; }
 }

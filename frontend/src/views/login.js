@@ -4,7 +4,7 @@ import { handleNavigation } from '../router.js';
 
 export function renderLogin(container) {
     container.innerHTML = `
-        <div class="flex items-center justify-center min-h-screen bg-gray-100">
+        <div class="w-full flex items-center justify-center min-h-screen bg-gray-100">
             <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
                 <div>
                     <h2 id="form-title" class="text-2xl font-bold text-center text-gray-900">Iniciar Sesión</h2>
@@ -81,10 +81,8 @@ export function renderLogin(container) {
                 if (!nombreEmpresa) {
                     throw new Error('El nombre de la empresa es obligatorio.');
                 }
-                // Llama a nuestra API para registrar la empresa y el usuario en Firestore
-                const result = await registerAPI({ nombreEmpresa, email, password });
+                await registerAPI({ nombreEmpresa, email, password });
                 
-                // Luego, inicia sesión con el usuario recién creado para obtener su token
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const idToken = await userCredential.user.getIdToken();
                 localStorage.setItem('idToken', idToken);
