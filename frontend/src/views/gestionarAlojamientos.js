@@ -106,43 +106,43 @@ export async function render() {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre Alojamiento</label>
-                            <input type="text" id="nombre" name="nombre" required class="mt-1 form-input">
+                            <input type="text" id="nombre" name="nombre" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                         <div>
                             <label for="linkFotos" class="block text-sm font-medium text-gray-700">Link a Fotos</label>
-                            <input type="url" id="linkFotos" name="linkFotos" class="mt-1 form-input">
+                            <input type="url" id="linkFotos" name="linkFotos" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                         <div>
                             <label for="numPiezas" class="block text-sm font-medium text-gray-700">Nº Piezas</label>
-                            <input type="number" id="numPiezas" name="numPiezas" class="mt-1 form-input">
+                            <input type="number" id="numPiezas" name="numPiezas" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                         <div>
                             <label for="numBanos" class="block text-sm font-medium text-gray-700">Nº Baños</label>
-                            <input type="number" id="numBanos" name="numBanos" class="mt-1 form-input">
+                            <input type="number" id="numBanos" name="numBanos" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                     </div>
                     <hr class="my-6">
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
                         <div>
                             <label for="matrimoniales" class="block text-sm font-medium text-gray-700">Matrimoniales</label>
-                            <input type="number" id="matrimoniales" name="matrimoniales" class="mt-1 form-input">
+                            <input type="number" id="matrimoniales" name="matrimoniales" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                         <div>
                             <label for="plazaYMedia" class="block text-sm font-medium text-gray-700">1.5 Plazas</label>
-                            <input type="number" id="plazaYMedia" name="plazaYMedia" class="mt-1 form-input">
+                            <input type="number" id="plazaYMedia" name="plazaYMedia" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                          <div>
                             <label for="camarotes" class="block text-sm font-medium text-gray-700">Camarotes</label>
-                            <input type="number" id="camarotes" name="camarotes" class="mt-1 form-input">
+                            <input type="number" id="camarotes" name="camarotes" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                         <div>
                             <label for="capacidad" class="block text-sm font-medium text-gray-700">Capacidad Calculada</label>
-                            <input type="number" id="capacidad" name="capacidad" required class="mt-1 form-input">
+                            <input type="number" id="capacidad" name="capacidad" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                     </div>
                      <div class="mt-6">
                         <label for="descripcion" class="block text-sm font-medium text-gray-700">Descripción</label>
-                        <textarea id="descripcion" name="descripcion" rows="6" class="mt-1 form-input" style="min-height: 150px;"></textarea>
+                        <textarea id="descripcion" name="descripcion" rows="6" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" style="min-height: 150px;"></textarea>
                     </div>
                     <hr class="my-6">
                     <div>
