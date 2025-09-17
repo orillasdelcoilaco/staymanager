@@ -7,6 +7,7 @@ const views = {
     '/calendario': () => import('./views/calendario.js'),
     '/clientes': () => import('./views/clientes.js'),
     '/gestionar-alojamientos': () => import('./views/gestionarAlojamientos.js'),
+    '/gestionar-canales': () => import('./views/gestionarCanales.js'), // <-- AÑADIDO
 };
 
 const menuConfig = [
@@ -32,7 +33,7 @@ const menuConfig = [
             { name: '⚙️ Procesar y Consolidar', path: '#', id: 'procesar-consolidar' },
             { name: '👥 Gestionar Clientes', path: '/clientes', id: 'clientes' },
             { name: '🏨 Gestionar Reservas', path: '#', id: 'gestionar-reservas' },
-            { name: '📈 Gestionar Tarifas', path: '#', id: 'gestionar-tarifas' },
+            { name: '📈 Gestionar Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' }, // <-- He activado esta ruta también
             { name: '🏡 Gestionar Alojamientos', path: '/gestionar-alojamientos', id: 'gestionar-alojamientos' },
         ]
     },
@@ -41,6 +42,7 @@ const menuConfig = [
         id: 'configuracion',
         children: [
             { name: '🏢 Empresa', path: '#', id: 'config-empresa' },
+            { name: '📡 Gestionar Canales', path: '/gestionar-canales', id: 'gestionar-canales' }, // <-- AÑADIDO
             { name: '🔄 Conversión Alojamientos', path: '#', id: 'config-conversion' },
             { name: '👤 Autorizar Google Contacts', path: '#', id: 'config-google' },
             { name: '🔧 Reparar Estados de Reservas', path: '#', id: 'reparar-estados' },
@@ -50,6 +52,7 @@ const menuConfig = [
     }
 ];
 
+// --- Lógica del Router (sin cambios) ---
 export async function handleNavigation(path) {
     if (path !== '/login') sessionStorage.setItem('lastPath', path);
     window.history.pushState({}, '', path);
