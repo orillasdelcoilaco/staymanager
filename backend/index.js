@@ -6,7 +6,8 @@ const admin = require('firebase-admin');
 // --- Importar Rutas y Middlewares ---
 const authRoutes = require('./routes/auth.js');
 const propiedadesRoutes = require('./routes/propiedades.js');
-const canalesRoutes = require('./routes/canales.js'); // <-- AÑADIDO
+const canalesRoutes = require('./routes/canales.js');
+const tarifasRoutes = require('./routes/tarifas.js'); // <-- AÑADIDO
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 
 // --- Carga de Credenciales y Configuración de Firebase ---
@@ -59,7 +60,8 @@ const authMiddleware = createAuthMiddleware(admin, db);
 apiRouter.use(authMiddleware); 
 
 apiRouter.use('/propiedades', propiedadesRoutes(db));
-apiRouter.use('/canales', canalesRoutes(db)); // <-- AÑADIDO
+apiRouter.use('/canales', canalesRoutes(db));
+apiRouter.use('/tarifas', tarifasRoutes(db)); // <-- AÑADIDO
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 
 app.use('/api', apiRouter);

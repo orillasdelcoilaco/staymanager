@@ -2,12 +2,13 @@ import { checkAuthAndRender, renderAppLayout } from './app.js';
 
 const views = {
     '/login': () => import('./views/login.js'),
-    '/': () => import('./views/dashboard.js'),
+    '/': () => import('./views.dashboard.js'),
     '/gestion-diaria': () => import('./views/gestionDiaria.js'),
     '/calendario': () => import('./views/calendario.js'),
     '/clientes': () => import('./views/clientes.js'),
     '/gestionar-alojamientos': () => import('./views/gestionarAlojamientos.js'),
-    '/gestionar-canales': () => import('./views/gestionarCanales.js'), // <-- AÑADIDO
+    '/gestionar-canales': () => import('./views/gestionarCanales.js'),
+    '/gestionar-tarifas': () => import('./views/gestionarTarifas.js'), // <-- AÑADIDO
 };
 
 const menuConfig = [
@@ -33,7 +34,7 @@ const menuConfig = [
             { name: '⚙️ Procesar y Consolidar', path: '#', id: 'procesar-consolidar' },
             { name: '👥 Gestionar Clientes', path: '/clientes', id: 'clientes' },
             { name: '🏨 Gestionar Reservas', path: '#', id: 'gestionar-reservas' },
-            { name: '📈 Gestionar Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' }, // <-- He activado esta ruta también
+            { name: '📈 Gestionar Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' },
             { name: '🏡 Gestionar Alojamientos', path: '/gestionar-alojamientos', id: 'gestionar-alojamientos' },
         ]
     },
@@ -42,7 +43,7 @@ const menuConfig = [
         id: 'configuracion',
         children: [
             { name: '🏢 Empresa', path: '#', id: 'config-empresa' },
-            { name: '📡 Gestionar Canales', path: '/gestionar-canales', id: 'gestionar-canales' }, // <-- AÑADIDO
+            { name: '📡 Gestionar Canales', path: '/gestionar-canales', id: 'gestionar-canales' },
             { name: '🔄 Conversión Alojamientos', path: '#', id: 'config-conversion' },
             { name: '👤 Autorizar Google Contacts', path: '#', id: 'config-google' },
             { name: '🔧 Reparar Estados de Reservas', path: '#', id: 'reparar-estados' },
