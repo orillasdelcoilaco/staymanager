@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 
 // --- Importar Rutas y Middlewares ---
 const authRoutes = require('./routes/auth.js');
-const propiedadesRoutes = require('./routes/propiedades.js'); // <-- REACTIVADO
+const propiedadesRoutes = require('./routes/propiedades.js');
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 
 // --- Carga de Credenciales y Configuración de Firebase ---
@@ -14,7 +14,6 @@ try {
         ? require('/etc/secrets/serviceAccountKey.json')
         : require('./serviceAccountKey.json');
 
-    // --- LÍNEA DE DEPURACIÓN ---
     console.log(`[DEBUG] Iniciando Firebase Admin SDK para el proyecto: ${serviceAccount.project_id}`);
     
     admin.initializeApp({
@@ -36,7 +35,7 @@ const allowedOrigins = [
     'https://orillasdelcoilaco.cl',
     'http://localhost:3001',
     'http://127.0.0.1:3001',
-    'https://suite-manager.onrender.com' // <-- REEMPLAZA ESTO CON TU URL
+    'https://suite-manager.onrender.com'
 ];
 const corsOptions = {
   origin: (origin, callback) => {
@@ -53,26 +52,20 @@ app.use(express.json());
 
 // --- Rutas de la API ---
 const apiRouter = express.Router();
-
-// Las rutas de autenticación se montan aquí (no requieren authMiddleware)
 apiRouter.use('/auth', authRoutes(admin, db));
 
-// Middleware de autenticación se aplica a todas las rutas de abajo
 const authMiddleware = createAuthMiddleware(admin, db);
 apiRouter.use(authMiddleware); 
 
-// Rutas protegidas
-apiRouter.use('/propiedades', propiedadesRoutes(db)); // <-- REACTIVADO
+apiRouter.use('/propiedades', propiedadesRoutes(db));
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 
-// Montamos el enrutador principal en /api
 app.use('/api', apiRouter);
 
 // --- Sirviendo el Frontend Estático ---
 const frontendPath = path.join(__dirname, '..', 'frontend');
 app.use(express.static(frontendPath));
 
-// --- Manejo de la SPA ---
 app.get('*', (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
 });

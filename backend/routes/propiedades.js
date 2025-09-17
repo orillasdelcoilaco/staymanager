@@ -9,7 +9,6 @@ const {
 module.exports = (db) => {
     const router = express.Router();
 
-    // POST /api/propiedades
     router.post('/', async (req, res) => {
         try {
             const { empresaId } = req.user;
@@ -21,7 +20,6 @@ module.exports = (db) => {
         }
     });
 
-    // GET /api/propiedades
     router.get('/', async (req, res) => {
         try {
             const { empresaId } = req.user;
@@ -33,7 +31,6 @@ module.exports = (db) => {
         }
     });
 
-    // PUT /api/propiedades/:id
     router.put('/:id', async (req, res) => {
         try {
             const { empresaId } = req.user;
@@ -46,7 +43,6 @@ module.exports = (db) => {
         }
     });
 
-    // DELETE /api/propiedades/:id
     router.delete('/:id', async (req, res) => {
         try {
             const { empresaId } = req.user;

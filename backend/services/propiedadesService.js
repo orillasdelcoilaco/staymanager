@@ -1,8 +1,5 @@
 const admin = require('firebase-admin');
 
-/**
- * Contiene la lógica de negocio para la gestión de propiedades (alojamientos).
- */
 const crearPropiedad = async (db, empresaId, datosPropiedad) => {
     if (!empresaId || !datosPropiedad.nombre || !datosPropiedad.capacidad) {
         throw new Error('El ID de la empresa, el nombre y la capacidad de la propiedad son requeridos.');
