@@ -296,3 +296,10 @@ export function afterRender() {
         if (target.classList.contains('delete-btn')) {
             if (confirm('¿Estás seguro de que quieres eliminar este período de tarifa?')) {
                 fetchAPI(`/tarifas/${id}`, { method: 'DELETE' }).then(async () => {
+                    tarifas = await fetchAPI('/tarifas');
+                    renderTabla();
+                }).catch(error => alert(`Error al eliminar: ${error.message}`));
+            }
+        }
+    });
+}
