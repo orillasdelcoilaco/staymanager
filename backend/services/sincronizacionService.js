@@ -3,7 +3,28 @@ const { crearOActualizarCliente } = require('./clientesService');
 const { crearOActualizarReserva } = require('./reservasService');
 const { obtenerConversionesPorEmpresa } = require('./conversionesService');
 const { obtenerCanalesPorEmpresa } = require('./canalesService');
+const { obtenerMapeosPorEmpresa } = require('./mapeosService'); // <-- ¡NUEVO!
 const { obtenerValorDolar } = require('./dolarService');
+
+/**
+ * Función auxiliar inteligente que usa las reglas de mapeo para encontrar un valor.
+ * @param {object} fila - El objeto que representa la fila del archivo.
+ * @param {string} campoInterno - El nombre de nuestro campo interno (ej: 'fechaLlegada').
+ * @param {Array<object>} mapeosDelCanal - Las reglas de mapeo para el canal de la fila.
+ * @returns {any} - El valor encontrado o undefined.
+ */
+const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
+    const mapeo = mapeosDelCanal.find(m => m.campoInterno === campoInterno);
+    if (!mapeo) {
+        return undefined; // No hay regla de mapeo para este campo
+    }
+    for (const nombreExterno of mapeo.nombresExternos) {
+        if (fila[nombreExterno] !== undefined) {
+            return fila[nombreExterno];
+        }
+    }
+    return undefined;
+};
 
 /**
  * Procesa un archivo de reservas (CSV o XLS) y consolida los datos.
@@ -14,9 +35,10 @@ const procesarArchivoReservas = async (db, empresaId, bufferArchivo) => {
     const sheet = workbook.Sheets[sheetName];
     const jsonData = xlsx.utils.sheet_to_json(sheet, { raw: false });
 
-    // Cargar datos necesarios para el procesamiento una sola vez
-    const conversiones = await obtenerConversionesPorEmpresa(db, empresaId);
+    // Cargar todas las reglas y datos necesarios una sola vez
+    const conversionesAlojamiento = await obtenerConversionesPorEmpresa(db, empresaId);
     const canales = await obtenerCanalesPorEmpresa(db, empresaId);
+    const mapeos = await obtenerMapeosPorEmpresa(db, empresaId); // <-- ¡NUEVO!
     const valorDolarHoy = await obtenerValorDolar(new Date());
 
     let resultados = {
@@ -28,60 +50,82 @@ const procesarArchivoReservas = async (db, empresaId, bufferArchivo) => {
     };
 
     for (const fila of jsonData) {
+        let idFilaParaError = 'N/A';
         try {
-            // 1. Identificar Canal
-            const canalNombre = fila.Canal || 'Desconocido';
+            // 1. Identificar Canal y sus reglas de mapeo
+            const canalNombre = fila.Canal || 'Desconocido'; // Asumimos que la columna 'Canal' siempre existe
             const canal = canales.find(c => c.nombre.toLowerCase() === canalNombre.toLowerCase());
+            const mapeosDelCanal = canal ? mapeos.filter(m => m.canalId === canal.id) : [];
 
-            // 2. Identificar Alojamiento usando la Tabla de Conversión
+            // Usamos la nueva función inteligente para obtener todos los datos
+            const idReservaCanal = obtenerValorConMapeo(fila, 'idReservaCanal', mapeosDelCanal);
+            idFilaParaError = idReservaCanal || 'N/A';
+
+            const estado = obtenerValorConMapeo(fila, 'estado', mapeosDelCanal);
+            const fechaReserva = obtenerValorConMapeo(fila, 'fechaReserva', mapeosDelCanal);
+            const fechaLlegada = obtenerValorConMapeo(fila, 'fechaLlegada', mapeosDelCanal);
+            const fechaSalida = obtenerValorConMapeo(fila, 'fechaSalida', mapeosDelCanal);
+            const totalNoches = obtenerValorConMapeo(fila, 'totalNoches', mapeosDelCanal);
+            const invitados = obtenerValorConMapeo(fila, 'invitados', mapeosDelCanal);
+            const nombreCliente = obtenerValorConMapeo(fila, 'nombreCliente', mapeosDelCanal);
+            const correoCliente = obtenerValorConMapeo(fila, 'correoCliente', mapeosDelCanal);
+            const telefonoCliente = obtenerValorConMapeo(fila, 'telefonoCliente', mapeosDelCanal);
+            const monedaCruda = obtenerValorConMapeo(fila, 'moneda', mapeosDelCanal);
+            const valorTotalCrudo = obtenerValorConMapeo(fila, 'valorTotal', mapeosDelCanal);
+            const comision = obtenerValorConMapeo(fila, 'comision', mapeosDelCanal);
+            const abono = obtenerValorConMapeo(fila, 'abono', mapeosDelCanal);
+            const pendiente = obtenerValorConMapeo(fila, 'pendiente', mapeosDelCanal);
+            const nombreExternoAlojamiento = obtenerValorConMapeo(fila, 'alojamientoNombre', mapeosDelCanal);
+            const pais = obtenerValorConMapeo(fila, 'pais', mapeosDelCanal);
+
+            // 2. Identificar Alojamiento (conversión de valor)
             let alojamientoId = null;
             let alojamientoNombre = 'Alojamiento no identificado';
-            const nombreExterno = fila.Alojamiento || '';
-            const conversion = conversiones.find(c => c.nombreExterno.trim().toLowerCase() === nombreExterno.trim().toLowerCase());
-            
+            const conversion = conversionesAlojamiento.find(c => c.nombreExterno.trim().toLowerCase() === nombreExternoAlojamiento?.trim().toLowerCase());
             if (conversion) {
                 alojamientoId = conversion.alojamientoId;
                 alojamientoNombre = conversion.alojamientoNombre;
             }
 
             // 3. Crear o Actualizar Cliente
-            const datosCliente = {
-                nombre: fila.Nombre || 'Cliente por Asignar',
-                telefono: fila.Telefono, // El servicio se encarga del teléfono genérico si es nulo
-                email: fila.Correo || '',
-                pais: fila.Pais || ''
-            };
-            const cliente = await crearOActualizarCliente(db, empresaId, datosCliente);
+            const cliente = await crearOActualizarCliente(db, empresaId, {
+                nombre: nombreCliente,
+                telefono: telefonoCliente,
+                email: correoCliente,
+                pais: pais
+            });
             if (cliente.fechaCreacion) resultados.clientesCreados++;
 
             // 4. Procesar Valores y Moneda
-            let valorCLP = parseFloat(fila['Valor CLP']) || 0;
-            if (fila.Moneda === 'USD' && fila['Valor Dolar']) {
-                valorCLP = parseFloat(fila['Valor Dolar']) * valorDolarHoy;
+            const moneda = monedaCruda?.toString().toUpperCase().includes('USD') ? 'USD' : 'CLP';
+            let valorTotal = 0;
+            if (moneda === 'USD') {
+                valorTotal = (parseFloat(valorTotalCrudo?.toString().replace(/[^0-9.-]+/g,"")) || 0) * valorDolarHoy;
+            } else {
+                valorTotal = parseFloat(valorTotalCrudo) || 0;
             }
 
             // 5. Construir Objeto de Reserva
             const datosReserva = {
-                idReservaCanal: fila.Reserva?.toString() || `sin-id-${Date.now()}`,
+                idReservaCanal: idReservaCanal?.toString() || `sin-id-${Date.now()}`,
                 canalId: canal ? canal.id : null,
                 canalNombre: canalNombre,
-                estado: fila.Estado || 'Pendiente',
-                fechaReserva: fila['Fecha reserva'],
-                fechaLlegada: fila['Fecha Llegada'],
-                fechaSalida: fila['Fecha Salida'],
-                totalNoches: parseInt(fila['Total Noches']) || 0,
-                cantidadHuespedes: parseInt(fila.Invitados) || 0,
+                estado: estado || 'Pendiente',
+                fechaReserva: fechaReserva,
+                fechaLlegada: fechaLlegada,
+                fechaSalida: fechaSalida,
+                totalNoches: parseInt(totalNoches) || 0,
+                cantidadHuespedes: parseInt(invitados) || 0,
                 clienteId: cliente.id,
                 alojamientoId: alojamientoId,
                 alojamientoNombre: alojamientoNombre,
-                moneda: fila.Moneda || 'CLP',
+                moneda: moneda,
                 valores: {
-                    valorTotal: valorCLP,
-                    comision: parseFloat(fila.Comision) || 0,
-                    abono: parseFloat(fila.Abono) || 0,
-                    pendiente: parseFloat(fila.Pendiente) || 0
+                    valorTotal: valorTotal,
+                    comision: parseFloat(comision?.toString().replace(/[^0-9.-]+/g,"")) || 0,
+                    abono: parseFloat(abono) || 0,
+                    pendiente: parseFloat(pendiente) || 0
                 },
-                // TODO: Mapear historial de pagos si es necesario
             };
             
             // 6. Crear o Actualizar Reserva
@@ -91,7 +135,7 @@ const procesarArchivoReservas = async (db, empresaId, bufferArchivo) => {
 
         } catch (error) {
             console.error('Error procesando fila:', fila, error);
-            resultados.errores.push({ fila: fila.Reserva || 'N/A', error: error.message });
+            resultados.errores.push({ fila: idFilaParaError, error: error.message });
         }
     }
 

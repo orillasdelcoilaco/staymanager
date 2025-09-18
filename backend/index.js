@@ -11,10 +11,11 @@ const tarifasRoutes = require('./routes/tarifas.js');
 const conversionesRoutes = require('./routes/conversiones.js');
 const clientesRoutes = require('./routes/clientes.js');
 const reservasRoutes = require('./routes/reservas.js');
-const sincronizacionRoutes = require('./routes/sincronizacion.js'); // <-- AÑADIDO
+const sincronizacionRoutes = require('./routes/sincronizacion.js');
+const mapeosRoutes = require('./routes/mapeos.js'); // <-- AÑADIDO
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 
-// ... (resto del código de configuración de Firebase se mantiene igual)
+// --- Carga de Credenciales y Configuración de Firebase ---
 try {
     const serviceAccount = process.env.RENDER
         ? require('/etc/secrets/serviceAccountKey.json')
@@ -22,11 +23,12 @@ try {
 
     console.log(`[DEBUG] Iniciando Firebase Admin SDK para el proyecto: ${serviceAccount.project_id}`);
     
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-    
-    console.log('Firebase Admin SDK inicializado correctamente.');
+    if (!admin.apps.length) {
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount)
+        });
+        console.log('Firebase Admin SDK inicializado correctamente.');
+    }
 } catch (error) {
     console.error("Error al inicializar Firebase Admin SDK:", error);
     process.exit(1);
@@ -36,7 +38,7 @@ const db = admin.firestore();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ... (resto del código de configuración de CORS se mantiene igual)
+// --- Configuración de CORS ---
 const allowedOrigins = [
     'https://orillasdelcoilaco.cl',
     'http://localhost:3001',
@@ -69,7 +71,8 @@ apiRouter.use('/tarifas', tarifasRoutes(db));
 apiRouter.use('/conversiones', conversionesRoutes(db));
 apiRouter.use('/clientes', clientesRoutes(db));
 apiRouter.use('/reservas', reservasRoutes(db));
-apiRouter.use('/sincronizar', sincronizacionRoutes(db)); // <-- AÑADIDO
+apiRouter.use('/sincronizar', sincronizacionRoutes(db));
+apiRouter.use('/mapeos', mapeosRoutes(db)); // <-- AÑADIDO
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 
 app.use('/api', apiRouter);
