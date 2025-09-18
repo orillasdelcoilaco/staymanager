@@ -65,7 +65,12 @@ export async function render() {
             fetchAPI('/canales')
         ]);
     } catch (error) {
-        return `<p class="text-red-500">Error al cargar los datos. Por favor, intente de nuevo.</p>`;
+        console.error("Error al cargar datos para mapeo:", error);
+        return `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                    <strong class="font-bold">Error al cargar los datos.</strong>
+                    <span class="block sm:inline">No se pudo comunicar con el servidor. Es posible que falte un índice en Firestore.</span>
+                    <p class="text-xs mt-2 font-mono">${error.message}</p>
+                </div>`;
     }
 
     return `
@@ -97,6 +102,10 @@ export async function render() {
 }
 
 export function afterRender() {
+    // Si el render falló, los elementos no existirán. Hacemos una comprobación.
+    const container = document.getElementById('mapeo-container');
+    if (!container) return; 
+
     renderizarFormulario();
 
     document.getElementById('guardar-mapeo-btn').addEventListener('click', async () => {
@@ -116,7 +125,6 @@ export function afterRender() {
             const campoInterno = input.dataset.campoInterno;
             const nombresExternos = input.value;
 
-            // Solo guardamos si hay algo que guardar
             if (nombresExternos.trim()) {
                 const datos = {
                     canalId,
@@ -124,7 +132,6 @@ export function afterRender() {
                     campoInterno,
                     nombresExternos
                 };
-                // Usamos el endpoint de guardar/actualizar
                 promesas.push(fetchAPI('/mapeos', { method: 'POST', body: datos }));
             }
         });
@@ -132,7 +139,6 @@ export function afterRender() {
         try {
             await Promise.all(promesas);
             alert(`Mapeo para el canal "${canalNombre}" guardado con éxito.`);
-            // Recargamos los mapeos para tener la info más reciente
             mapeos = await fetchAPI('/mapeos');
         } catch (error) {
             alert(`Error al guardar el mapeo: ${error.message}`);
