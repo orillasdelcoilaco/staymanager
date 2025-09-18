@@ -5,47 +5,32 @@ const views = {
     '/': () => import('./views/dashboard.js'),
     '/gestion-diaria': () => import('./views/gestionDiaria.js'),
     '/calendario': () => import('./views/calendario.js'),
-    '/clientes': () => import('./views/clientes.js'),
+    '/clientes': () => import('./views/gestionarClientes.js'),
     '/gestionar-alojamientos': () => import('./views/gestionarAlojamientos.js'),
     '/gestionar-canales': () => import('./views/gestionarCanales.js'),
     '/gestionar-tarifas': () => import('./views/gestionarTarifas.js'),
-    '/conversion-alojamientos': () => import('./views/conversionAlojamientos.js'), // <-- AÑADIDO
+    '/conversion-alojamientos': () => import('./views/conversionAlojamientos.js'),
+    '/procesar-y-consolidar': () => import('./views/procesarYConsolidar.js'), // <-- AÑADIDO
 };
 
 const menuConfig = [
-    { name: '📊 Dashboard', path: '/', id: 'dashboard' },
-    { 
-        name: '💼 Flujo de Trabajo',
-        id: 'flujo-trabajo',
-        children: [
-            { name: '☀️ Gestión Diaria', path: '/gestion-diaria', id: 'gestion-diaria' },
-            { name: '📅 Calendario', path: '/calendario', id: 'calendario' },
-            // ... (otros items)
-        ]
-    },
+    // ... (otras secciones del menú)
     {
         name: '🛠️ Herramientas',
         id: 'herramientas',
         children: [
-            // ... (otros items)
+            { name: '🔄 Sincronizar Datos', path: '#', id: 'sincronizar-datos' },
+            { name: '⚙️ Procesar y Consolidar', path: '/procesar-y-consolidar', id: 'procesar-consolidar' }, // <-- ACTUALIZADO
+            { name: '👥 Gestionar Clientes', path: '/clientes', id: 'clientes' },
+            { name: '🏨 Gestionar Reservas', path: '#', id: 'gestionar-reservas' },
             { name: '📈 Gestionar Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' },
             { name: '🏡 Gestionar Alojamientos', path: '/gestionar-alojamientos', id: 'gestionar-alojamientos' },
         ]
     },
-    {
-        name: '⚙️ Configuración',
-        id: 'configuracion',
-        children: [
-            { name: '🏢 Empresa', path: '#', id: 'config-empresa' },
-            { name: '📡 Gestionar Canales', path: '/gestionar-canales', id: 'gestionar-canales' },
-            { name: '🔄 Conversión Alojamientos', path: '/conversion-alojamientos', id: 'config-conversion' }, // <-- ACTUALIZADO
-            // ... (otros items)
-        ]
-    }
+    // ... (otras secciones del menú)
 ];
 
 // --- Lógica del Router (se mantiene igual, solo se muestra la parte relevante para brevedad) ---
-
 export async function handleNavigation(path) {
     if (path !== '/login') sessionStorage.setItem('lastPath', path);
     window.history.pushState({}, '', path);
@@ -54,29 +39,22 @@ export async function handleNavigation(path) {
 
 async function loadView(path) {
     const isAuthenticated = await checkAuthAndRender();
-    const appRoot = document.getElementById('app-root');
-    
     if (!isAuthenticated && path !== '/login') return handleNavigation('/login');
     if (isAuthenticated && path === '/login') {
         const lastPath = sessionStorage.getItem('lastPath') || '/';
         return handleNavigation(lastPath);
     }
     
+    const appRoot = document.getElementById('app-root');
     if (path === '/login') {
         const { renderLogin } = await views['/login']();
         renderLogin(appRoot);
     } else {
         if (!document.getElementById('view-content')) renderAppLayout();
-        
         const viewLoader = views[path] || views['/']; 
         const viewModule = await viewLoader();
-        
         document.getElementById('view-content').innerHTML = await viewModule.render();
-        
-        if (viewModule.afterRender && typeof viewModule.afterRender === 'function') {
-            viewModule.afterRender();
-        }
-
+        if (viewModule.afterRender) viewModule.afterRender();
         updateActiveLink(path);
     }
 }
@@ -84,16 +62,6 @@ async function loadView(path) {
 export function renderMenu() {
     const nav = document.getElementById('main-nav');
     if (!nav) return;
-
-    // Se reconstruye el menú completo para asegurar consistencia
-    let menuHtml = '';
-    const renderLink = (linkItem) => {
-        const firstSpaceIndex = linkItem.name.indexOf(' ');
-        const icon = linkItem.name.substring(0, firstSpaceIndex);
-        const text = linkItem.name.substring(firstSpaceIndex + 1);
-        return `<li><a href="${linkItem.path}" class="nav-link" data-path="${linkItem.path}">${icon} <span class="link-text">${text}</span></a></li>`;
-    };
-    
     const fullMenuConfig = [
         { name: '📊 Dashboard', path: '/', id: 'dashboard' },
         { 
@@ -114,7 +82,7 @@ export function renderMenu() {
             id: 'herramientas',
             children: [
                 { name: '🔄 Sincronizar Datos', path: '#', id: 'sincronizar-datos' },
-                { name: '⚙️ Procesar y Consolidar', path: '#', id: 'procesar-consolidar' },
+                { name: '⚙️ Procesar y Consolidar', path: '/procesar-y-consolidar', id: 'procesar-consolidar' },
                 { name: '👥 Gestionar Clientes', path: '/clientes', id: 'clientes' },
                 { name: '🏨 Gestionar Reservas', path: '#', id: 'gestionar-reservas' },
                 { name: '📈 Gestionar Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' },
@@ -135,7 +103,13 @@ export function renderMenu() {
             ]
         }
     ];
-
+    let menuHtml = '';
+    const renderLink = (linkItem) => {
+        const firstSpaceIndex = linkItem.name.indexOf(' ');
+        const icon = linkItem.name.substring(0, firstSpaceIndex);
+        const text = linkItem.name.substring(firstSpaceIndex + 1);
+        return `<li><a href="${linkItem.path}" class="nav-link" data-path="${linkItem.path}">${icon} <span class="link-text">${text}</span></a></li>`;
+    };
     fullMenuConfig.forEach(item => {
         if (item.children) {
             menuHtml += `<div class="menu-category"><span class="category-title">${item.name}</span><ul>`;
@@ -146,18 +120,15 @@ export function renderMenu() {
         }
     });
     nav.innerHTML = menuHtml;
-
     nav.querySelectorAll('.nav-link').forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             const path = e.currentTarget.getAttribute('href');
-            
             const sidebar = document.getElementById('sidebar');
             if (sidebar?.classList.contains('open')) {
                 sidebar.classList.remove('open');
                 document.getElementById('sidebar-overlay').classList.remove('visible');
             }
-            
             if (path !== '#') handleNavigation(path);
         });
     });

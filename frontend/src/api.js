@@ -4,8 +4,6 @@ export function logout() {
 }
 
 export async function register(data) {
-    // La ruta de registro es pública, no necesita token, por eso se maneja aparte
-    // pero ahora la centralizamos para que use la misma URL base.
     const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -22,8 +20,6 @@ export async function register(data) {
 export async function fetchAPI(endpoint, options = {}) {
     const token = localStorage.getItem('idToken');
     if (!token) {
-        // Si no hay token, no podemos hacer una llamada autenticada.
-        // El router se encargará de redirigir a /login.
         throw new Error('No autenticado');
     }
 
@@ -32,7 +28,8 @@ export async function fetchAPI(endpoint, options = {}) {
         'Authorization': `Bearer ${token}`
     };
 
-    // Si el body no es FormData, lo convertimos a JSON
+    // Si el body es FormData, el navegador establece el Content-Type automáticamente.
+    // Si no lo es, lo convertimos a JSON.
     if (!(options.body instanceof FormData)) {
         headers['Content-Type'] = 'application/json';
         if (options.body) {
@@ -40,15 +37,14 @@ export async function fetchAPI(endpoint, options = {}) {
         }
     }
     
-    // El servidor se ejecuta en el mismo origen, no necesitamos la URL completa.
     const url = `/api${endpoint}`;
 
     try {
         const response = await fetch(url, { ...options, headers });
 
         if (response.status === 401) {
-            logout(); // Si el token es inválido, cerramos sesión.
-            window.location.hash = '/login'; // Redirigimos al login
+            logout();
+            window.location.hash = '/login';
             throw new Error('Sesión expirada o inválida.');
         }
 

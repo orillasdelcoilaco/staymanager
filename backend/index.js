@@ -8,10 +8,13 @@ const authRoutes = require('./routes/auth.js');
 const propiedadesRoutes = require('./routes/propiedades.js');
 const canalesRoutes = require('./routes/canales.js');
 const tarifasRoutes = require('./routes/tarifas.js');
-const conversionesRoutes = require('./routes/conversiones.js'); // <-- AÑADIDO
+const conversionesRoutes = require('./routes/conversiones.js');
+const clientesRoutes = require('./routes/clientes.js');
+const reservasRoutes = require('./routes/reservas.js');
+const sincronizacionRoutes = require('./routes/sincronizacion.js'); // <-- AÑADIDO
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 
-// --- Carga de Credenciales y Configuración de Firebase ---
+// ... (resto del código de configuración de Firebase se mantiene igual)
 try {
     const serviceAccount = process.env.RENDER
         ? require('/etc/secrets/serviceAccountKey.json')
@@ -33,7 +36,7 @@ const db = admin.firestore();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// --- Configuración de CORS ---
+// ... (resto del código de configuración de CORS se mantiene igual)
 const allowedOrigins = [
     'https://orillasdelcoilaco.cl',
     'http://localhost:3001',
@@ -63,7 +66,10 @@ apiRouter.use(authMiddleware);
 apiRouter.use('/propiedades', propiedadesRoutes(db));
 apiRouter.use('/canales', canalesRoutes(db));
 apiRouter.use('/tarifas', tarifasRoutes(db));
-apiRouter.use('/conversiones', conversionesRoutes(db)); // <-- AÑADIDO
+apiRouter.use('/conversiones', conversionesRoutes(db));
+apiRouter.use('/clientes', clientesRoutes(db));
+apiRouter.use('/reservas', reservasRoutes(db));
+apiRouter.use('/sincronizar', sincronizacionRoutes(db)); // <-- AÑADIDO
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 
 app.use('/api', apiRouter);
