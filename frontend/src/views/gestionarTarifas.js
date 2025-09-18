@@ -71,7 +71,35 @@ function cerrarModalEditar() {
 function renderTabla() {
     const tbody = document.getElementById('tarifas-tbody');
     if (!tbody) return;
-    tbody.innerHTML = tarifas.map(t => {
+
+    // Función para extraer el número de un string (ej: "Cabaña 10" -> 10)
+    const extraerNumero = (texto) => {
+        const match = texto.match(/\d+/);
+        return match ? parseInt(match[0], 10) : 0;
+    };
+
+    // Ordenamiento inteligente
+    const tarifasOrdenadas = [...tarifas].sort((a, b) => {
+        const numA = extraerNumero(a.alojamientoNombre);
+        const numB = extraerNumero(b.alojamientoNombre);
+
+        // Primero, comparar por el número extraído del nombre del alojamiento
+        if (numA !== numB) {
+            return numA - numB;
+        }
+        
+        // Si los números son iguales (o no hay), comparar por el nombre completo
+        const nombreA = a.alojamientoNombre.toLowerCase();
+        const nombreB = b.alojamientoNombre.toLowerCase();
+        if (nombreA !== nombreB) {
+            return nombreA.localeCompare(nombreB);
+        }
+
+        // Si los alojamientos son idénticos, ordenar por fecha de inicio descendente
+        return new Date(b.fechaInicio) - new Date(a.fechaInicio);
+    });
+
+    tbody.innerHTML = tarifasOrdenadas.map(t => {
         const preciosHtml = canales.map(c => {
             const precio = t.precios[c.id];
             return `<li><strong>${c.nombre}:</strong> ${precio ? `${new Intl.NumberFormat().format(precio.valor)} ${precio.moneda}` : 'No definido'}</li>`;
@@ -268,10 +296,3 @@ export function afterRender() {
         if (target.classList.contains('delete-btn')) {
             if (confirm('¿Estás seguro de que quieres eliminar este período de tarifa?')) {
                 fetchAPI(`/tarifas/${id}`, { method: 'DELETE' }).then(async () => {
-                    tarifas = await fetchAPI('/tarifas');
-                    renderTabla();
-                }).catch(error => alert(`Error al eliminar: ${error.message}`));
-            }
-        }
-    });
-}

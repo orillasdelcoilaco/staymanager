@@ -21,7 +21,11 @@ const crearTarifa = async (db, empresaId, datosTarifa) => {
 };
 
 const obtenerTarifasPorEmpresa = async (db, empresaId) => {
-    const tarifasSnapshot = await db.collection('empresas').doc(empresaId).collection('tarifas').orderBy('fechaInicio', 'desc').get();
+    // Ordenamos por nombre de alojamiento y luego por fecha de inicio descendente
+    const tarifasSnapshot = await db.collection('empresas').doc(empresaId).collection('tarifas')
+        .orderBy('alojamientoNombre', 'asc')
+        .orderBy('fechaInicio', 'desc')
+        .get();
     
     if (tarifasSnapshot.empty) {
         return [];
