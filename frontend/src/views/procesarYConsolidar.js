@@ -1,16 +1,51 @@
 import { fetchAPI } from '../api.js';
 
-let canales = [];
-
 function mostrarResultados(resultados) {
-    // ... (sin cambios)
+    const container = document.getElementById('resultados-container');
+    if (!container) return;
+
+    const { totalFilas, reservasCreadas, reservasActualizadas, clientesCreados, filasIgnoradas, errores } = resultados.data;
+
+    let erroresHtml = '';
+    if (errores && errores.length > 0) {
+        erroresHtml = `
+            <h4 class="font-semibold text-red-700 mt-4">Errores encontrados (${errores.length}):</h4>
+            <ul class="list-disc list-inside text-sm text-red-600 max-h-40 overflow-y-auto">
+                ${errores.map(e => `<li>Reserva <strong>${e.fila}</strong>: ${e.error}</li>`).join('')}
+            </ul>
+        `;
+    }
+
+    container.innerHTML = `
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg relative" role="alert">
+            <strong class="font-bold">¡Proceso completado!</strong>
+            <ul class="mt-2 list-disc list-inside">
+                <li>Total de filas leídas en el archivo: <strong>${totalFilas}</strong></li>
+                <li>Filas ignoradas (ej: pagos de Airbnb): <strong>${filasIgnoradas}</strong></li>
+                <li>Reservas nuevas creadas: <strong>${reservasCreadas}</strong></li>
+                <li>Reservas existentes actualizadas: <strong>${reservasActualizadas}</strong></li>
+                <li>Clientes nuevos creados: <strong>${clientesCreados}</strong></li>
+            </ul>
+            ${erroresHtml}
+        </div>
+    `;
+    container.classList.remove('hidden');
 }
 
 function mostrarEstado(mensaje, esError = false) {
-    // ... (sin cambios)
+    const container = document.getElementById('resultados-container');
+    if (!container) return;
+    const color = esError ? 'red' : 'blue';
+    container.innerHTML = `
+        <div class="bg-${color}-100 border border-${color}-400 text-${color}-700 px-4 py-3 rounded-lg relative">
+            <p>${mensaje}</p>
+        </div>
+    `;
+    container.classList.remove('hidden');
 }
 
 export async function render() {
+    let canales = [];
     try {
         canales = await fetchAPI('/canales');
     } catch (error) {
