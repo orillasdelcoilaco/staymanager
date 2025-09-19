@@ -7,13 +7,10 @@ const admin = require('firebase-admin');
  */
 const normalizarTelefono = (telefono) => {
     if (!telefono) return null;
-    // Elimina caracteres no numéricos y el signo '+' inicial si existe
     let fono = telefono.toString().replace(/\D/g, '');
-    // Si empieza con 569 y tiene 11 dígitos, es un móvil chileno válido
     if (fono.startsWith('569') && fono.length === 11) {
         return fono;
     }
-    // Si no, devuelve el número limpio para otros casos
     return fono;
 };
 
@@ -22,32 +19,49 @@ const normalizarTelefono = (telefono) => {
  */
 
 const crearOActualizarCliente = async (db, empresaId, datosCliente) => {
-    const telefono = normalizarTelefono(datosCliente.telefono) || '56999999999';
+    const telefonoNormalizado = normalizarTelefono(datosCliente.telefono);
+    const telefonoParaBuscar = telefonoNormalizado || '56999999999';
 
     const clientesRef = db.collection('empresas').doc(empresaId).collection('clientes');
-    const q = clientesRef.where('telefonoNormalizado', '==', telefono);
-    const snapshot = await q.get();
 
-    if (snapshot.empty) {
-        // --- Crear Cliente Nuevo ---
+    // Si el teléfono es el genérico, siempre creamos un cliente nuevo para evitar colisiones.
+    if (telefonoParaBuscar === '56999999999') {
         const nuevoClienteRef = clientesRef.doc();
         const nuevoCliente = {
             id: nuevoClienteRef.id,
             nombre: datosCliente.nombre || 'Cliente por Asignar',
             email: datosCliente.email || '',
             telefono: datosCliente.telefono || '56999999999',
-            telefonoNormalizado: telefono,
+            telefonoNormalizado: telefonoParaBuscar,
             pais: datosCliente.pais || '',
             fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
-            origen: datosCliente.origen || 'Manual'
+            origen: datosCliente.origen || 'Importado'
+        };
+        await nuevoClienteRef.set(nuevoCliente);
+        return nuevoCliente;
+    }
+
+    // Si el teléfono es único, buscamos si ya existe para actualizarlo.
+    const q = clientesRef.where('telefonoNormalizado', '==', telefonoParaBuscar);
+    const snapshot = await q.get();
+
+    if (snapshot.empty) {
+        const nuevoClienteRef = clientesRef.doc();
+        const nuevoCliente = {
+            id: nuevoClienteRef.id,
+            nombre: datosCliente.nombre || 'Cliente por Asignar',
+            email: datosCliente.email || '',
+            telefono: datosCliente.telefono,
+            telefonoNormalizado: telefonoParaBuscar,
+            pais: datosCliente.pais || '',
+            fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
+            origen: datosCliente.origen || 'Importado'
         };
         await nuevoClienteRef.set(nuevoCliente);
         return nuevoCliente;
     } else {
-        // --- Actualizar Cliente Existente ---
         const clienteDoc = snapshot.docs[0];
         const datosAActualizar = {
-            // Solo actualizamos si el dato nuevo tiene valor y el antiguo no
             nombre: clienteDoc.data().nombre === 'Cliente por Asignar' ? (datosCliente.nombre || 'Cliente por Asignar') : clienteDoc.data().nombre,
             email: clienteDoc.data().email ? clienteDoc.data().email : (datosCliente.email || ''),
             fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
@@ -65,7 +79,6 @@ const obtenerClientesPorEmpresa = async (db, empresaId) => {
 
 const actualizarCliente = async (db, empresaId, clienteId, datosActualizados) => {
     const clienteRef = db.collection('empresas').doc(empresaId).collection('clientes').doc(clienteId);
-    // Al actualizar manualmente, sí permitimos cambiar el teléfono
     if (datosActualizados.telefono) {
         datosActualizados.telefonoNormalizado = normalizarTelefono(datosActualizados.telefono);
     }
@@ -77,7 +90,6 @@ const actualizarCliente = async (db, empresaId, clienteId, datosActualizados) =>
 };
 
 const eliminarCliente = async (db, empresaId, clienteId) => {
-    // Nota: Considerar qué pasa con las reservas asociadas a este cliente en el futuro.
     const clienteRef = db.collection('empresas').doc(empresaId).collection('clientes').doc(clienteId);
     await clienteRef.delete();
 };

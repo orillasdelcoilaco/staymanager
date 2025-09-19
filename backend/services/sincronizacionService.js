@@ -42,14 +42,12 @@ const procesarArchivoReservas = async (db, empresaId, bufferArchivo) => {
     for (const fila of jsonData) {
         let idFilaParaError = 'N/A';
         try {
-            // Lógica especial para Airbnb: ignorar filas que no son de reservación
             const tipoFila = fila.Tipo || '';
             if (tipoFila && tipoFila !== 'Reservación') {
                  resultados.filasIgnoradas++;
                  continue;
             }
 
-            // 1. Identificar Canal y sus reglas de mapeo
             const mapeoParaNombreCanal = mapeos.find(m => m.campoInterno === 'canalNombre');
             let canalNombre = 'Desconocido';
             if (mapeoParaNombreCanal) {
@@ -64,15 +62,21 @@ const procesarArchivoReservas = async (db, empresaId, bufferArchivo) => {
             const idReservaCanal = obtenerValorConMapeo(fila, 'idReservaCanal', mapeosDelCanal);
             idFilaParaError = idReservaCanal || 'Fila sin ID';
 
+            let nombreCliente = obtenerValorConMapeo(fila, 'nombreCliente', mapeosDelCanal);
+            const telefonoCliente = obtenerValorConMapeo(fila, 'telefonoCliente', mapeosDelCanal);
+
+            // Si no hay teléfono (caso Airbnb), creamos un nombre compuesto para asegurar un cliente único.
+            if (!telefonoCliente) {
+                nombreCliente = `${nombreCliente} - ${idReservaCanal} - ${canalNombre}`;
+            }
+
             const estado = obtenerValorConMapeo(fila, 'estado', mapeosDelCanal);
             const fechaReserva = obtenerValorConMapeo(fila, 'fechaReserva', mapeosDelCanal);
             const fechaLlegada = obtenerValorConMapeo(fila, 'fechaLlegada', mapeosDelCanal);
             const fechaSalida = obtenerValorConMapeo(fila, 'fechaSalida', mapeosDelCanal);
             const totalNoches = obtenerValorConMapeo(fila, 'totalNoches', mapeosDelCanal);
             const invitados = obtenerValorConMapeo(fila, 'invitados', mapeosDelCanal);
-            const nombreCliente = obtenerValorConMapeo(fila, 'nombreCliente', mapeosDelCanal);
             const correoCliente = obtenerValorConMapeo(fila, 'correoCliente', mapeosDelCanal);
-            const telefonoCliente = obtenerValorConMapeo(fila, 'telefonoCliente', mapeosDelCanal);
             const valorTotalCrudo = obtenerValorConMapeo(fila, 'valorTotal', mapeosDelCanal);
             const comision = obtenerValorConMapeo(fila, 'comision', mapeosDelCanal);
             const abono = obtenerValorConMapeo(fila, 'abono', mapeosDelCanal);
@@ -80,7 +84,6 @@ const procesarArchivoReservas = async (db, empresaId, bufferArchivo) => {
             const nombreExternoAlojamiento = obtenerValorConMapeo(fila, 'alojamientoNombre', mapeosDelCanal);
             const pais = obtenerValorConMapeo(fila, 'pais', mapeosDelCanal);
 
-            // 2. Identificar Alojamiento (haciendo la búsqueda a prueba de fallos)
             let alojamientoId = null;
             let alojamientoNombre = 'Alojamiento no identificado';
             const nombreExternoNormalizado = (nombreExternoAlojamiento || '').trim().toLowerCase();
@@ -92,7 +95,6 @@ const procesarArchivoReservas = async (db, empresaId, bufferArchivo) => {
                 }
             }
             
-            // 3. Crear o Actualizar Cliente
             const cliente = await crearOActualizarCliente(db, empresaId, {
                 nombre: nombreCliente,
                 telefono: telefonoCliente,
@@ -101,7 +103,6 @@ const procesarArchivoReservas = async (db, empresaId, bufferArchivo) => {
             });
             if (cliente.fechaCreacion) resultados.clientesCreados++;
 
-            // 4. Procesar Valores y Moneda
             const moneda = valorTotalCrudo?.toString().toUpperCase().includes('USD') ? 'USD' : 'CLP';
             let valorTotal = 0;
             if (valorTotalCrudo) {
@@ -109,7 +110,6 @@ const procesarArchivoReservas = async (db, empresaId, bufferArchivo) => {
                  valorTotal = moneda === 'USD' ? valorNumerico * valorDolarHoy : valorNumerico;
             }
 
-            // 5. Construir Objeto de Reserva (con valores por defecto para fechas)
             const datosReserva = {
                 idReservaCanal: idReservaCanal?.toString() || `sin-id-${Date.now()}`,
                 canalId: canal ? canal.id : null,
@@ -132,7 +132,6 @@ const procesarArchivoReservas = async (db, empresaId, bufferArchivo) => {
                 },
             };
             
-            // 6. Crear o Actualizar Reserva
             const resultadoReserva = await crearOActualizarReserva(db, empresaId, datosReserva);
             if(resultadoReserva.status === 'creada') resultados.reservasCreadas++;
             if(resultadoReserva.status === 'actualizada') resultados.reservasActualizadas++;
