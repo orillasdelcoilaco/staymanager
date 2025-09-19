@@ -7,6 +7,7 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     const snapshot = await q.get();
 
     if (snapshot.empty) {
+        // --- La reserva es nueva, se crea como antes ---
         const nuevaReservaRef = reservasRef.doc();
         const nuevaReserva = {
             id: nuevaReservaRef.id,
@@ -16,25 +17,54 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
         await nuevaReservaRef.set(nuevaReserva);
         return { reserva: nuevaReserva, status: 'creada' };
     } else {
+        // --- La reserva ya existe, aplicamos la lógica de actualización inteligente ---
         const reservaDoc = snapshot.docs[0];
         const reservaExistente = reservaDoc.data();
         
-        // Comparamos solo el estado, que es lo más probable que cambie en una re-importación
+        let hayCambios = false;
+        const datosAActualizar = {};
+
+        // 1. Comparamos el estado
         if (reservaExistente.estado !== datosReserva.estado) {
-            const datosAActualizar = {
-                ...datosReserva,
-                fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
-            };
+            datosAActualizar.estado = datosReserva.estado;
+            hayCambios = true;
+        }
+
+        // 2. Comparamos el alojamiento (reparamos si no estaba identificado)
+        if (reservaExistente.alojamientoId === null && datosReserva.alojamientoId !== null) {
+            datosAActualizar.alojamientoId = datosReserva.alojamientoId;
+            datosAActualizar.alojamientoNombre = datosReserva.alojamientoNombre;
+            hayCambios = true;
+        }
+
+        // 3. Comparamos las fechas (reparamos si faltaban)
+        if (reservaExistente.fechaLlegada === null && datosReserva.fechaLlegada !== null) {
+            datosAActualizar.fechaLlegada = datosReserva.fechaLlegada;
+            hayCambios = true;
+        }
+        if (reservaExistente.fechaSalida === null && datosReserva.fechaSalida !== null) {
+            datosAActualizar.fechaSalida = datosReserva.fechaSalida;
+            hayCambios = true;
+        }
+        
+        // Si detectamos algún cambio, actualizamos y reportamos
+        if (hayCambios) {
+            datosAActualizar.fechaActualizacion = admin.firestore.FieldValue.serverTimestamp();
             await reservaDoc.ref.update(datosAActualizar);
-            return { reserva: { id: reservaDoc.id, ...datosAActualizar }, status: 'actualizada' };
+            const dataActualizada = { ...reservaExistente, ...datosAActualizar };
+            return { reserva: dataActualizada, status: 'actualizada' };
         } else {
+            // Si no hay ningún cambio, no hacemos nada
             return { reserva: reservaExistente, status: 'sin_cambios' };
         }
     }
 };
 
 const obtenerReservasPorEmpresa = async (db, empresaId) => {
-    const snapshot = await db.collection('empresas').doc(empresaId).collection('reservas').orderBy('fechaLlegada', 'desc').get();
+    const snapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
+        .orderBy('alojamientoNombre', 'asc')
+        .orderBy('fechaInicio', 'desc')
+        .get();
     if (snapshot.empty) return [];
     return snapshot.docs.map(doc => doc.data());
 };
@@ -43,7 +73,6 @@ const eliminarReserva = async (db, empresaId, reservaId) => {
     const reservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(reservaId);
     await reservaRef.delete();
 };
-
 
 module.exports = {
     crearOActualizarReserva,
