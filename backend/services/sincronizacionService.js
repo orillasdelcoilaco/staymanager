@@ -44,10 +44,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
             const idReservaCanal = obtenerValorConMapeo(fila, 'idReservaCanal', mapeosDelCanal);
             if (idReservaCanal) idFilaParaError = idReservaCanal;
 
-            // Filtro inteligente para Airbnb y otros reportes con filas extra
             const tipoFila = obtenerValorConMapeo(fila, 'tipoFila', mapeosDelCanal);
-            // Si hay una columna de tipo y no es una reserva, la ignoramos.
-            // Y si no hay ID de reserva, tampoco es una reserva válida.
             if ((tipoFila && tipoFila.toLowerCase() !== 'reservación') || !idReservaCanal) {
                  resultados.filasIgnoradas++;
                  continue;
@@ -62,7 +59,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
             
             if (!telefonoCliente) {
                 const nombreBase = nombreCliente || 'Huésped';
-                const idReservaBase = idReservaCanal; // Ya sabemos que existe
+                const idReservaBase = idReservaCanal;
                 datosParaCliente.nombre = `${nombreBase} - ${idReservaBase} - ${canalNombre}`;
                 datosParaCliente.idCompuesto = `${nombreBase}-${idReservaBase}-${canalNombre}`.replace(/\s+/g, '-').toLowerCase();
             }
@@ -79,7 +76,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
             const valorTotalCrudo = obtenerValorConMapeo(fila, 'valorTotal', mapeosDelCanal);
             const comision = obtenerValorConMapeo(fila, 'comision', mapeosDelCanal);
             const abono = obtenerValorConMapeo(fila, 'abono', mapeosDelCanal);
-            const pendiente = obtenerValorConMpeo(fila, 'pendiente', mapeosDelCanal);
+            const pendiente = obtenerValorConMapeo(fila, 'pendiente', mapeosDelCanal); // <-- CORRECCIÓN DEL TYPO AQUÍ
             const nombreExternoAlojamiento = obtenerValorConMapeo(fila, 'alojamientoNombre', mapeosDelCanal);
 
             let alojamientoId = null;
