@@ -41,16 +41,19 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
     for (const [index, fila] of jsonData.entries()) {
         let idFilaParaError = `Fila ${index + 2}`;
         try {
+            const idReservaCanal = obtenerValorConMapeo(fila, 'idReservaCanal', mapeosDelCanal);
+            if (idReservaCanal) idFilaParaError = idReservaCanal;
+
+            // Filtro inteligente para Airbnb y otros reportes con filas extra
             const tipoFila = obtenerValorConMapeo(fila, 'tipoFila', mapeosDelCanal);
-            if (tipoFila && tipoFila !== 'Reservación') {
+            // Si hay una columna de tipo y no es una reserva, la ignoramos.
+            // Y si no hay ID de reserva, tampoco es una reserva válida.
+            if ((tipoFila && tipoFila.toLowerCase() !== 'reservación') || !idReservaCanal) {
                  resultados.filasIgnoradas++;
                  continue;
             }
 
-            const idReservaCanal = obtenerValorConMapeo(fila, 'idReservaCanal', mapeosDelCanal);
-            if (idReservaCanal) idFilaParaError = idReservaCanal;
-
-            const nombreCliente = obtenerValorConMapeo(fila, 'nombreCliente', mapeosDelCanal);
+            let nombreCliente = obtenerValorConMapeo(fila, 'nombreCliente', mapeosDelCanal);
             const telefonoCliente = obtenerValorConMapeo(fila, 'telefonoCliente', mapeosDelCanal);
             const correoCliente = obtenerValorConMapeo(fila, 'correoCliente', mapeosDelCanal);
             const pais = obtenerValorConMapeo(fila, 'pais', mapeosDelCanal);
@@ -59,7 +62,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
             
             if (!telefonoCliente) {
                 const nombreBase = nombreCliente || 'Huésped';
-                const idReservaBase = idReservaCanal || 'Sin-ID';
+                const idReservaBase = idReservaCanal; // Ya sabemos que existe
                 datosParaCliente.nombre = `${nombreBase} - ${idReservaBase} - ${canalNombre}`;
                 datosParaCliente.idCompuesto = `${nombreBase}-${idReservaBase}-${canalNombre}`.replace(/\s+/g, '-').toLowerCase();
             }
@@ -76,7 +79,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
             const valorTotalCrudo = obtenerValorConMapeo(fila, 'valorTotal', mapeosDelCanal);
             const comision = obtenerValorConMapeo(fila, 'comision', mapeosDelCanal);
             const abono = obtenerValorConMapeo(fila, 'abono', mapeosDelCanal);
-            const pendiente = obtenerValorConMapeo(fila, 'pendiente', mapeosDelCanal);
+            const pendiente = obtenerValorConMpeo(fila, 'pendiente', mapeosDelCanal);
             const nombreExternoAlojamiento = obtenerValorConMapeo(fila, 'alojamientoNombre', mapeosDelCanal);
 
             let alojamientoId = null;
@@ -98,7 +101,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
             }
 
             const datosReserva = {
-                idReservaCanal: idReservaCanal?.toString() || `sin-id-${Date.now()}`,
+                idReservaCanal: idReservaCanal.toString(),
                 canalId: canalId,
                 canalNombre: canalNombre,
                 estado: estado || 'Pendiente',
