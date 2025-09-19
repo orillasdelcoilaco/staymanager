@@ -33,6 +33,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
         totalFilas: jsonData.length,
         reservasCreadas: 0,
         reservasActualizadas: 0,
+        reservasSinCambios: 0, // <-- Nuevo contador
         clientesCreados: 0,
         filasIgnoradas: 0,
         errores: []
@@ -49,7 +50,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
                  resultados.filasIgnoradas++;
                  continue;
             }
-
+            
             let nombreCliente = obtenerValorConMapeo(fila, 'nombreCliente', mapeosDelCanal);
             const telefonoCliente = obtenerValorConMapeo(fila, 'telefonoCliente', mapeosDelCanal);
             const correoCliente = obtenerValorConMapeo(fila, 'correoCliente', mapeosDelCanal);
@@ -64,10 +65,11 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
                 datosParaCliente.idCompuesto = `${nombreBase}-${idReservaBase}-${canalNombre}`.replace(/\s+/g, '-').toLowerCase();
             }
 
-            const cliente = await crearOActualizarCliente(db, empresaId, datosParaCliente);
-            if (!cliente.fechaActualizacion) resultados.clientesCreados++;
+            const resultadoCliente = await crearOActualizarCliente(db, empresaId, datosParaCliente);
+            if (resultadoCliente.status === 'creado') resultados.clientesCreados++;
             
             const estado = obtenerValorConMapeo(fila, 'estado', mapeosDelCanal);
+            // ... (resto de la lógica de obtención de valores)
             const fechaReserva = obtenerValorConMapeo(fila, 'fechaReserva', mapeosDelCanal);
             const fechaLlegada = obtenerValorConMapeo(fila, 'fechaLlegada', mapeosDelCanal);
             const fechaSalida = obtenerValorConMapeo(fila, 'fechaSalida', mapeosDelCanal);
@@ -76,9 +78,9 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
             const valorTotalCrudo = obtenerValorConMapeo(fila, 'valorTotal', mapeosDelCanal);
             const comision = obtenerValorConMapeo(fila, 'comision', mapeosDelCanal);
             const abono = obtenerValorConMapeo(fila, 'abono', mapeosDelCanal);
-            const pendiente = obtenerValorConMapeo(fila, 'pendiente', mapeosDelCanal); // <-- CORRECCIÓN DEL TYPO AQUÍ
+            const pendiente = obtenerValorConMapeo(fila, 'pendiente', mapeosDelCanal);
             const nombreExternoAlojamiento = obtenerValorConMapeo(fila, 'alojamientoNombre', mapeosDelCanal);
-
+            
             let alojamientoId = null;
             let alojamientoNombre = 'Alojamiento no identificado';
             const nombreExternoNormalizado = (nombreExternoAlojamiento || '').trim().toLowerCase();
@@ -89,7 +91,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
                     alojamientoNombre = conversion.alojamientoNombre;
                 }
             }
-            
+
             const moneda = valorTotalCrudo?.toString().toUpperCase().includes('USD') ? 'USD' : 'CLP';
             let valorTotal = 0;
             if (valorTotalCrudo) {
@@ -107,7 +109,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
                 fechaSalida: fechaSalida || null,
                 totalNoches: parseInt(totalNoches) || 0,
                 cantidadHuespedes: parseInt(invitados) || 0,
-                clienteId: cliente.id,
+                clienteId: resultadoCliente.cliente.id,
                 alojamientoId: alojamientoId,
                 alojamientoNombre: alojamientoNombre,
                 moneda: moneda,
@@ -122,6 +124,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
             const resultadoReserva = await crearOActualizarReserva(db, empresaId, datosReserva);
             if(resultadoReserva.status === 'creada') resultados.reservasCreadas++;
             if(resultadoReserva.status === 'actualizada') resultados.reservasActualizadas++;
+            if(resultadoReserva.status === 'sin_cambios') resultados.reservasSinCambios++;
 
         } catch (error) {
             console.error('Error procesando fila:', fila, error);

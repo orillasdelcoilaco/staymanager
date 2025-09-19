@@ -16,14 +16,8 @@ const crearOActualizarCliente = async (db, empresaId, datosCliente) => {
         const snapshot = await q.get();
         if (!snapshot.empty) {
             const clienteDoc = snapshot.docs[0];
-            const datosAActualizar = {
-                nombre: clienteDoc.data().nombre === 'Cliente por Asignar' ? (datosCliente.nombre || 'Cliente por Asignar') : clienteDoc.data().nombre,
-                email: clienteDoc.data().email ? clienteDoc.data().email : (datosCliente.email || ''),
-                fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
-            };
-            await clienteDoc.ref.update(datosAActualizar);
-            const clienteData = clienteDoc.data();
-            return { ...clienteData, ...datosAActualizar };
+            // Lógica de actualización si es necesario en el futuro
+            return { cliente: clienteDoc.data(), status: 'encontrado' };
         }
     }
 
@@ -31,7 +25,7 @@ const crearOActualizarCliente = async (db, empresaId, datosCliente) => {
         const q = clientesRef.where('idCompuesto', '==', datosCliente.idCompuesto);
         const snapshot = await q.get();
         if (!snapshot.empty) {
-            return snapshot.docs[0].data();
+            return { cliente: snapshot.docs[0].data(), status: 'encontrado' };
         }
     }
 
@@ -48,7 +42,7 @@ const crearOActualizarCliente = async (db, empresaId, datosCliente) => {
         origen: 'Importado'
     };
     await nuevoClienteRef.set(nuevoCliente);
-    return nuevoCliente;
+    return { cliente: nuevoCliente, status: 'creado' };
 };
 
 const obtenerClientesPorEmpresa = async (db, empresaId) => {
@@ -62,10 +56,7 @@ const actualizarCliente = async (db, empresaId, clienteId, datosActualizados) =>
     if (datosActualizados.telefono) {
         datosActualizados.telefonoNormalizado = normalizarTelefono(datosActualizados.telefono);
     }
-    await clienteRef.update({
-        ...datosActualizados,
-        fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
-    });
+    await clienteRef.update({ ...datosActualizados, fechaActualizacion: admin.firestore.FieldValue.serverTimestamp() });
     return { id: clienteId, ...datosActualizados };
 };
 

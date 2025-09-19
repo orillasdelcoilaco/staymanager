@@ -1,18 +1,12 @@
 const admin = require('firebase-admin');
 
-/**
- * Contiene la lógica de negocio para la gestión de reservas.
- */
-
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
     
-    // Usamos el ID de la reserva del canal como identificador único para evitar duplicados
     const q = reservasRef.where('idReservaCanal', '==', datosReserva.idReservaCanal);
     const snapshot = await q.get();
 
     if (snapshot.empty) {
-        // --- Crear Reserva Nueva ---
         const nuevaReservaRef = reservasRef.doc();
         const nuevaReserva = {
             id: nuevaReservaRef.id,
@@ -20,16 +14,22 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
             fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
         };
         await nuevaReservaRef.set(nuevaReserva);
-        return { ...nuevaReserva, status: 'creada' };
+        return { reserva: nuevaReserva, status: 'creada' };
     } else {
-        // --- Actualizar Reserva Existente ---
         const reservaDoc = snapshot.docs[0];
-        const datosAActualizar = {
-            ...datosReserva, // Sobrescribimos con los datos más recientes del reporte
-            fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
-        };
-        await reservaDoc.ref.update(datosAActualizar);
-        return { id: reservaDoc.id, ...datosAActualizar, status: 'actualizada' };
+        const reservaExistente = reservaDoc.data();
+        
+        // Comparamos solo el estado, que es lo más probable que cambie en una re-importación
+        if (reservaExistente.estado !== datosReserva.estado) {
+            const datosAActualizar = {
+                ...datosReserva,
+                fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
+            };
+            await reservaDoc.ref.update(datosAActualizar);
+            return { reserva: { id: reservaDoc.id, ...datosAActualizar }, status: 'actualizada' };
+        } else {
+            return { reserva: reservaExistente, status: 'sin_cambios' };
+        }
     }
 };
 
