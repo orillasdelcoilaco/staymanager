@@ -1,74 +1,54 @@
 const admin = require('firebase-admin');
 
-/**
- * Normaliza un número de teléfono para usarlo como ID.
- * @param {string} telefono - El número de teléfono.
- * @returns {string|null} - El número normalizado o null si no es válido.
- */
 const normalizarTelefono = (telefono) => {
     if (!telefono) return null;
     let fono = telefono.toString().replace(/\D/g, '');
-    if (fono.startsWith('569') && fono.length === 11) {
-        return fono;
-    }
+    if (fono.startsWith('569') && fono.length === 11) return fono;
     return fono;
 };
 
-/**
- * Contiene la lógica de negocio para la gestión de clientes.
- */
-
 const crearOActualizarCliente = async (db, empresaId, datosCliente) => {
-    const telefonoNormalizado = normalizarTelefono(datosCliente.telefono);
-    const telefonoParaBuscar = telefonoNormalizado || '56999999999';
-
     const clientesRef = db.collection('empresas').doc(empresaId).collection('clientes');
-
-    // Si el teléfono es el genérico, siempre creamos un cliente nuevo para evitar colisiones.
-    if (telefonoParaBuscar === '56999999999') {
-        const nuevoClienteRef = clientesRef.doc();
-        const nuevoCliente = {
-            id: nuevoClienteRef.id,
-            nombre: datosCliente.nombre || 'Cliente por Asignar',
-            email: datosCliente.email || '',
-            telefono: datosCliente.telefono || '56999999999',
-            telefonoNormalizado: telefonoParaBuscar,
-            pais: datosCliente.pais || '',
-            fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
-            origen: datosCliente.origen || 'Importado'
-        };
-        await nuevoClienteRef.set(nuevoCliente);
-        return nuevoCliente;
+    
+    const telefonoNormalizado = normalizarTelefono(datosCliente.telefono);
+    if (telefonoNormalizado) {
+        const q = clientesRef.where('telefonoNormalizado', '==', telefonoNormalizado);
+        const snapshot = await q.get();
+        if (!snapshot.empty) {
+            const clienteDoc = snapshot.docs[0];
+            const datosAActualizar = {
+                nombre: clienteDoc.data().nombre === 'Cliente por Asignar' ? (datosCliente.nombre || 'Cliente por Asignar') : clienteDoc.data().nombre,
+                email: clienteDoc.data().email ? clienteDoc.data().email : (datosCliente.email || ''),
+                fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
+            };
+            await clienteDoc.ref.update(datosAActualizar);
+            const clienteData = clienteDoc.data();
+            return { ...clienteData, ...datosAActualizar };
+        }
     }
 
-    // Si el teléfono es único, buscamos si ya existe para actualizarlo.
-    const q = clientesRef.where('telefonoNormalizado', '==', telefonoParaBuscar);
-    const snapshot = await q.get();
-
-    if (snapshot.empty) {
-        const nuevoClienteRef = clientesRef.doc();
-        const nuevoCliente = {
-            id: nuevoClienteRef.id,
-            nombre: datosCliente.nombre || 'Cliente por Asignar',
-            email: datosCliente.email || '',
-            telefono: datosCliente.telefono,
-            telefonoNormalizado: telefonoParaBuscar,
-            pais: datosCliente.pais || '',
-            fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
-            origen: datosCliente.origen || 'Importado'
-        };
-        await nuevoClienteRef.set(nuevoCliente);
-        return nuevoCliente;
-    } else {
-        const clienteDoc = snapshot.docs[0];
-        const datosAActualizar = {
-            nombre: clienteDoc.data().nombre === 'Cliente por Asignar' ? (datosCliente.nombre || 'Cliente por Asignar') : clienteDoc.data().nombre,
-            email: clienteDoc.data().email ? clienteDoc.data().email : (datosCliente.email || ''),
-            fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
-        };
-        await clienteDoc.ref.update(datosAActualizar);
-        return { id: clienteDoc.id, ...clienteDoc.data(), ...datosAActualizar };
+    if (datosCliente.idCompuesto) {
+        const q = clientesRef.where('idCompuesto', '==', datosCliente.idCompuesto);
+        const snapshot = await q.get();
+        if (!snapshot.empty) {
+            return snapshot.docs[0].data();
+        }
     }
+
+    const nuevoClienteRef = clientesRef.doc();
+    const nuevoCliente = {
+        id: nuevoClienteRef.id,
+        nombre: datosCliente.nombre || 'Cliente por Asignar',
+        email: datosCliente.email || '',
+        telefono: datosCliente.telefono || '56999999999',
+        telefonoNormalizado: telefonoNormalizado,
+        idCompuesto: datosCliente.idCompuesto || null,
+        pais: datosCliente.pais || '',
+        fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
+        origen: 'Importado'
+    };
+    await nuevoClienteRef.set(nuevoCliente);
+    return nuevoCliente;
 };
 
 const obtenerClientesPorEmpresa = async (db, empresaId) => {

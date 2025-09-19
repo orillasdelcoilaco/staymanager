@@ -8,13 +8,9 @@ const { obtenerValorDolar } = require('./dolarService');
 
 const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
     const mapeo = mapeosDelCanal.find(m => m.campoInterno === campoInterno);
-    if (!mapeo || !mapeo.nombresExternos) {
-        return undefined;
-    }
+    if (!mapeo || !mapeo.nombresExternos) return undefined;
     for (const nombreExterno of mapeo.nombresExternos) {
-        if (fila[nombreExterno] !== undefined) {
-            return fila[nombreExterno];
-        }
+        if (fila[nombreExterno] !== undefined) return fila[nombreExterno];
     }
     return undefined;
 };
@@ -30,7 +26,8 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
     const valorDolarHoy = await obtenerValorDolar(new Date());
 
     const mapeosDelCanal = todosLosMapeos.filter(m => m.canalId === canalId);
-    const canalNombre = mapeosDelCanal.length > 0 ? mapeosDelCanal[0].canalNombre : 'Canal Desconocido';
+    const canal = (await obtenerCanalesPorEmpresa(db, empresaId)).find(c => c.id === canalId);
+    const canalNombre = canal ? canal.nombre : 'Canal Desconocido';
 
     let resultados = {
         totalFilas: jsonData.length,
@@ -41,27 +38,34 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
         errores: []
     };
 
-    for (const fila of jsonData) {
-        let idFilaParaError = 'N/A';
+    for (const [index, fila] of jsonData.entries()) {
+        let idFilaParaError = `Fila ${index + 2}`;
         try {
-            const tipoFila = fila.Tipo || '';
+            const tipoFila = obtenerValorConMapeo(fila, 'tipoFila', mapeosDelCanal);
             if (tipoFila && tipoFila !== 'Reservación') {
                  resultados.filasIgnoradas++;
                  continue;
             }
 
             const idReservaCanal = obtenerValorConMapeo(fila, 'idReservaCanal', mapeosDelCanal);
-            idFilaParaError = idReservaCanal || 'Fila sin ID';
+            if (idReservaCanal) idFilaParaError = idReservaCanal;
 
-            let nombreCliente = obtenerValorConMapeo(fila, 'nombreCliente', mapeosDelCanal);
+            const nombreCliente = obtenerValorConMapeo(fila, 'nombreCliente', mapeosDelCanal);
             const telefonoCliente = obtenerValorConMapeo(fila, 'telefonoCliente', mapeosDelCanal);
+            const correoCliente = obtenerValorConMapeo(fila, 'correoCliente', mapeosDelCanal);
+            const pais = obtenerValorConMapeo(fila, 'pais', mapeosDelCanal);
 
-            // Si no hay teléfono (caso Airbnb), creamos un nombre compuesto para asegurar un cliente único.
+            let datosParaCliente = { nombre: nombreCliente, telefono: telefonoCliente, email: correoCliente, pais: pais };
+            
             if (!telefonoCliente) {
                 const nombreBase = nombreCliente || 'Huésped';
-                const idReservaBase = idReservaCanal || 'Sin ID';
-                nombreCliente = `${nombreBase} - ${idReservaBase} - ${canalNombre}`;
+                const idReservaBase = idReservaCanal || 'Sin-ID';
+                datosParaCliente.nombre = `${nombreBase} - ${idReservaBase} - ${canalNombre}`;
+                datosParaCliente.idCompuesto = `${nombreBase}-${idReservaBase}-${canalNombre}`.replace(/\s+/g, '-').toLowerCase();
             }
+
+            const cliente = await crearOActualizarCliente(db, empresaId, datosParaCliente);
+            if (!cliente.fechaActualizacion) resultados.clientesCreados++;
             
             const estado = obtenerValorConMapeo(fila, 'estado', mapeosDelCanal);
             const fechaReserva = obtenerValorConMapeo(fila, 'fechaReserva', mapeosDelCanal);
@@ -69,13 +73,11 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
             const fechaSalida = obtenerValorConMapeo(fila, 'fechaSalida', mapeosDelCanal);
             const totalNoches = obtenerValorConMapeo(fila, 'totalNoches', mapeosDelCanal);
             const invitados = obtenerValorConMapeo(fila, 'invitados', mapeosDelCanal);
-            const correoCliente = obtenerValorConMapeo(fila, 'correoCliente', mapeosDelCanal);
             const valorTotalCrudo = obtenerValorConMapeo(fila, 'valorTotal', mapeosDelCanal);
             const comision = obtenerValorConMapeo(fila, 'comision', mapeosDelCanal);
             const abono = obtenerValorConMapeo(fila, 'abono', mapeosDelCanal);
             const pendiente = obtenerValorConMapeo(fila, 'pendiente', mapeosDelCanal);
             const nombreExternoAlojamiento = obtenerValorConMapeo(fila, 'alojamientoNombre', mapeosDelCanal);
-            const pais = obtenerValorConMapeo(fila, 'pais', mapeosDelCanal);
 
             let alojamientoId = null;
             let alojamientoNombre = 'Alojamiento no identificado';
@@ -88,14 +90,6 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
                 }
             }
             
-            const cliente = await crearOActualizarCliente(db, empresaId, {
-                nombre: nombreCliente,
-                telefono: telefonoCliente,
-                email: correoCliente,
-                pais: pais
-            });
-            if (cliente.fechaCreacion) resultados.clientesCreados++;
-
             const moneda = valorTotalCrudo?.toString().toUpperCase().includes('USD') ? 'USD' : 'CLP';
             let valorTotal = 0;
             if (valorTotalCrudo) {
