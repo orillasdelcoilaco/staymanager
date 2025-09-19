@@ -3,20 +3,13 @@ const { crearOActualizarCliente } = require('./clientesService');
 const { crearOActualizarReserva } = require('./reservasService');
 const { obtenerConversionesPorEmpresa } = require('./conversionesService');
 const { obtenerCanalesPorEmpresa } = require('./canalesService');
-const { obtenerMapeosPorEmpresa } = require('./mapeosService'); // <-- ¡NUEVO!
+const { obtenerMapeosPorEmpresa } = require('./mapeosService');
 const { obtenerValorDolar } = require('./dolarService');
 
-/**
- * Función auxiliar inteligente que usa las reglas de mapeo para encontrar un valor.
- * @param {object} fila - El objeto que representa la fila del archivo.
- * @param {string} campoInterno - El nombre de nuestro campo interno (ej: 'fechaLlegada').
- * @param {Array<object>} mapeosDelCanal - Las reglas de mapeo para el canal de la fila.
- * @returns {any} - El valor encontrado o undefined.
- */
 const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
     const mapeo = mapeosDelCanal.find(m => m.campoInterno === campoInterno);
     if (!mapeo || !mapeo.nombresExternos) {
-        return undefined; // No hay regla de mapeo para este campo
+        return undefined;
     }
     for (const nombreExterno of mapeo.nombresExternos) {
         if (fila[nombreExterno] !== undefined) {
@@ -26,19 +19,15 @@ const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
     return undefined;
 };
 
-/**
- * Procesa un archivo de reservas (CSV o XLS) y consolida los datos.
- */
 const procesarArchivoReservas = async (db, empresaId, bufferArchivo) => {
     const workbook = xlsx.read(bufferArchivo, { type: 'buffer', cellDates: true });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const jsonData = xlsx.utils.sheet_to_json(sheet, { raw: false });
 
-    // Cargar todas las reglas y datos necesarios una sola vez
     const conversionesAlojamiento = await obtenerConversionesPorEmpresa(db, empresaId);
     const canales = await obtenerCanalesPorEmpresa(db, empresaId);
-    const mapeos = await obtenerMapeosPorEmpresa(db, empresaId); // <-- ¡NUEVO!
+    const mapeos = await obtenerMapeosPorEmpresa(db, empresaId);
     const valorDolarHoy = await obtenerValorDolar(new Date());
 
     let resultados = {
@@ -53,21 +42,25 @@ const procesarArchivoReservas = async (db, empresaId, bufferArchivo) => {
     for (const fila of jsonData) {
         let idFilaParaError = 'N/A';
         try {
-            // Lógica especial para Airbnb: ignorar filas de pago (Payout)
-            if (fila.Tipo === 'Payout' || fila.Tipo === 'Ajuste') {
+            // Lógica especial para Airbnb: ignorar filas que no son de reservación
+            const tipoFila = fila.Tipo || '';
+            if (tipoFila && tipoFila !== 'Reservación') {
                  resultados.filasIgnoradas++;
                  continue;
             }
 
             // 1. Identificar Canal y sus reglas de mapeo
-            // El mapeo para 'canalNombre' nos dirá cómo encontrar el nombre del canal en el reporte
-            const mapeoCanal = mapeos.find(m => m.campoInterno === 'canalNombre');
-            const canalNombre = mapeoCanal ? obtenerValorConMapeo(fila, 'canalNombre', [mapeoCanal]) : fila.Canal || 'Desconocido';
+            const mapeoParaNombreCanal = mapeos.find(m => m.campoInterno === 'canalNombre');
+            let canalNombre = 'Desconocido';
+            if (mapeoParaNombreCanal) {
+                 canalNombre = obtenerValorConMapeo(fila, 'canalNombre', [mapeoParaNombreCanal]) || canalNombre;
+            } else if (fila.Canal) {
+                 canalNombre = fila.Canal;
+            }
             
             const canal = canales.find(c => c.nombre.toLowerCase() === canalNombre.toLowerCase());
             const mapeosDelCanal = canal ? mapeos.filter(m => m.canalId === canal.id) : [];
 
-            // Usamos la nueva función inteligente para obtener todos los datos
             const idReservaCanal = obtenerValorConMapeo(fila, 'idReservaCanal', mapeosDelCanal);
             idFilaParaError = idReservaCanal || 'Fila sin ID';
 
@@ -87,15 +80,18 @@ const procesarArchivoReservas = async (db, empresaId, bufferArchivo) => {
             const nombreExternoAlojamiento = obtenerValorConMapeo(fila, 'alojamientoNombre', mapeosDelCanal);
             const pais = obtenerValorConMapeo(fila, 'pais', mapeosDelCanal);
 
-            // 2. Identificar Alojamiento (conversión de valor)
+            // 2. Identificar Alojamiento (haciendo la búsqueda a prueba de fallos)
             let alojamientoId = null;
             let alojamientoNombre = 'Alojamiento no identificado';
-            const conversion = conversionesAlojamiento.find(c => c.nombreExterno.trim().toLowerCase() === nombreExternoAlojamiento?.trim().toLowerCase());
-            if (conversion) {
-                alojamientoId = conversion.alojamientoId;
-                alojamientoNombre = conversion.alojamientoNombre;
+            const nombreExternoNormalizado = (nombreExternoAlojamiento || '').trim().toLowerCase();
+            if (nombreExternoNormalizado) {
+                const conversion = conversionesAlojamiento.find(c => c.nombreExterno.trim().toLowerCase() === nombreExternoNormalizado);
+                if (conversion) {
+                    alojamientoId = conversion.alojamientoId;
+                    alojamientoNombre = conversion.alojamientoNombre;
+                }
             }
-
+            
             // 3. Crear o Actualizar Cliente
             const cliente = await crearOActualizarCliente(db, empresaId, {
                 nombre: nombreCliente,
@@ -113,15 +109,15 @@ const procesarArchivoReservas = async (db, empresaId, bufferArchivo) => {
                  valorTotal = moneda === 'USD' ? valorNumerico * valorDolarHoy : valorNumerico;
             }
 
-            // 5. Construir Objeto de Reserva
+            // 5. Construir Objeto de Reserva (con valores por defecto para fechas)
             const datosReserva = {
                 idReservaCanal: idReservaCanal?.toString() || `sin-id-${Date.now()}`,
                 canalId: canal ? canal.id : null,
                 canalNombre: canalNombre,
                 estado: estado || 'Pendiente',
                 fechaReserva: fechaReserva || new Date(),
-                fechaLlegada: fechaLlegada,
-                fechaSalida: fechaSalida,
+                fechaLlegada: fechaLlegada || null,
+                fechaSalida: fechaSalida || null,
                 totalNoches: parseInt(totalNoches) || 0,
                 cantidadHuespedes: parseInt(invitados) || 0,
                 clienteId: cliente.id,
