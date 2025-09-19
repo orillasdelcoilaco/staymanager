@@ -2,20 +2,23 @@ const xlsx = require('xlsx');
 const { crearOActualizarCliente } = require('./clientesService');
 const { crearOActualizarReserva } = require('./reservasService');
 const { obtenerConversionesPorEmpresa } = require('./conversionesService');
+const { obtenerCanalesPorEmpresa } = require('./canalesService');
 const { obtenerMapeosPorEmpresa } = require('./mapeosService');
 const { obtenerValorDolar } = require('./dolarService');
 
 const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
     const mapeo = mapeosDelCanal.find(m => m.campoInterno === campoInterno);
-    if (!mapeo || !mapeo.nombresExternos) return undefined;
-    
+    if (!mapeo || !mapeo.nombresExternos) {
+        return undefined;
+    }
     for (const nombreExterno of mapeo.nombresExternos) {
-        if (fila[nombreExterno] !== undefined) return fila[nombreExterno];
+        if (fila[nombreExterno] !== undefined) {
+            return fila[nombreExterno];
+        }
     }
     return undefined;
 };
 
-// El servicio ahora recibe el canalId como un parámetro explícito
 const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) => {
     const workbook = xlsx.read(bufferArchivo, { type: 'buffer', cellDates: true });
     const sheetName = workbook.SheetNames[0];
@@ -29,7 +32,14 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
     const mapeosDelCanal = todosLosMapeos.filter(m => m.canalId === canalId);
     const canalNombre = mapeosDelCanal.length > 0 ? mapeosDelCanal[0].canalNombre : 'Canal Desconocido';
 
-    let resultados = { /* ... (igual que antes) */ };
+    let resultados = {
+        totalFilas: jsonData.length,
+        reservasCreadas: 0,
+        reservasActualizadas: 0,
+        clientesCreados: 0,
+        filasIgnoradas: 0,
+        errores: []
+    };
 
     for (const fila of jsonData) {
         let idFilaParaError = 'N/A';
@@ -40,25 +50,84 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
                  continue;
             }
 
-            // Ya no necesitamos adivinar el canal, lo recibimos directamente.
-            // Obtenemos todos los datos usando las reglas de mapeo del canal especificado.
             const idReservaCanal = obtenerValorConMapeo(fila, 'idReservaCanal', mapeosDelCanal);
             idFilaParaError = idReservaCanal || 'Fila sin ID';
 
             let nombreCliente = obtenerValorConMapeo(fila, 'nombreCliente', mapeosDelCanal);
             const telefonoCliente = obtenerValorConMapeo(fila, 'telefonoCliente', mapeosDelCanal);
 
+            // Si no hay teléfono (caso Airbnb), creamos un nombre compuesto para asegurar un cliente único.
             if (!telefonoCliente) {
                 const nombreBase = nombreCliente || 'Huésped';
                 const idReservaBase = idReservaCanal || 'Sin ID';
                 nombreCliente = `${nombreBase} - ${idReservaBase} - ${canalNombre}`;
             }
-
+            
             const estado = obtenerValorConMapeo(fila, 'estado', mapeosDelCanal);
             const fechaReserva = obtenerValorConMapeo(fila, 'fechaReserva', mapeosDelCanal);
-            // ... (resto de la lógica de obtención de valores y procesamiento se mantiene igual)
+            const fechaLlegada = obtenerValorConMapeo(fila, 'fechaLlegada', mapeosDelCanal);
+            const fechaSalida = obtenerValorConMapeo(fila, 'fechaSalida', mapeosDelCanal);
+            const totalNoches = obtenerValorConMapeo(fila, 'totalNoches', mapeosDelCanal);
+            const invitados = obtenerValorConMapeo(fila, 'invitados', mapeosDelCanal);
+            const correoCliente = obtenerValorConMapeo(fila, 'correoCliente', mapeosDelCanal);
+            const valorTotalCrudo = obtenerValorConMapeo(fila, 'valorTotal', mapeosDelCanal);
+            const comision = obtenerValorConMapeo(fila, 'comision', mapeosDelCanal);
+            const abono = obtenerValorConMapeo(fila, 'abono', mapeosDelCanal);
+            const pendiente = obtenerValorConMapeo(fila, 'pendiente', mapeosDelCanal);
+            const nombreExternoAlojamiento = obtenerValorConMapeo(fila, 'alojamientoNombre', mapeosDelCanal);
+            const pais = obtenerValorConMapeo(fila, 'pais', mapeosDelCanal);
+
+            let alojamientoId = null;
+            let alojamientoNombre = 'Alojamiento no identificado';
+            const nombreExternoNormalizado = (nombreExternoAlojamiento || '').trim().toLowerCase();
+            if (nombreExternoNormalizado) {
+                const conversion = conversionesAlojamiento.find(c => c.nombreExterno.trim().toLowerCase() === nombreExternoNormalizado);
+                if (conversion) {
+                    alojamientoId = conversion.alojamientoId;
+                    alojamientoNombre = conversion.alojamientoNombre;
+                }
+            }
             
-            // ... (resto del bucle)
+            const cliente = await crearOActualizarCliente(db, empresaId, {
+                nombre: nombreCliente,
+                telefono: telefonoCliente,
+                email: correoCliente,
+                pais: pais
+            });
+            if (cliente.fechaCreacion) resultados.clientesCreados++;
+
+            const moneda = valorTotalCrudo?.toString().toUpperCase().includes('USD') ? 'USD' : 'CLP';
+            let valorTotal = 0;
+            if (valorTotalCrudo) {
+                 const valorNumerico = parseFloat(valorTotalCrudo.toString().replace(/[^0-9.,-]+/g, "").replace(',', '.'));
+                 valorTotal = moneda === 'USD' ? valorNumerico * valorDolarHoy : valorNumerico;
+            }
+
+            const datosReserva = {
+                idReservaCanal: idReservaCanal?.toString() || `sin-id-${Date.now()}`,
+                canalId: canalId,
+                canalNombre: canalNombre,
+                estado: estado || 'Pendiente',
+                fechaReserva: fechaReserva || new Date(),
+                fechaLlegada: fechaLlegada || null,
+                fechaSalida: fechaSalida || null,
+                totalNoches: parseInt(totalNoches) || 0,
+                cantidadHuespedes: parseInt(invitados) || 0,
+                clienteId: cliente.id,
+                alojamientoId: alojamientoId,
+                alojamientoNombre: alojamientoNombre,
+                moneda: moneda,
+                valores: {
+                    valorTotal: valorTotal,
+                    comision: parseFloat(comision?.toString().replace(/[^0-9.,-]+/g, "").replace(',', '.')) || 0,
+                    abono: parseFloat(abono) || 0,
+                    pendiente: parseFloat(pendiente) || 0
+                },
+            };
+            
+            const resultadoReserva = await crearOActualizarReserva(db, empresaId, datosReserva);
+            if(resultadoReserva.status === 'creada') resultados.reservasCreadas++;
+            if(resultadoReserva.status === 'actualizada') resultados.reservasActualizadas++;
 
         } catch (error) {
             console.error('Error procesando fila:', fila, error);
