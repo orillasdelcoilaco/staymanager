@@ -12,6 +12,7 @@ const views = {
     '/conversion-alojamientos': () => import('./views/conversionAlojamientos.js'),
     '/mapeo-reportes': () => import('./views/mapeoReportes.js'),
     '/procesar-y-consolidar': () => import('./views/procesarYConsolidar.js'),
+    '/gestionar-reservas': () => import('./views/gestionarReservas.js'), // <-- AÑADIDO
 };
 
 const menuConfig = [
@@ -36,7 +37,7 @@ const menuConfig = [
             { name: '🔄 Sincronizar Datos', path: '#', id: 'sincronizar-datos' },
             { name: '⚙️ Procesar y Consolidar', path: '/procesar-y-consolidar', id: 'procesar-consolidar' },
             { name: '👥 Gestionar Clientes', path: '/clientes', id: 'clientes' },
-            { name: '🏨 Gestionar Reservas', path: '#', id: 'gestionar-reservas' },
+            { name: '🏨 Gestionar Reservas', path: '/gestionar-reservas', id: 'gestionar-reservas' }, // <-- ACTUALIZADO
             { name: '📈 Gestionar Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' },
             { name: '🏡 Gestionar Alojamientos', path: '/gestionar-alojamientos', id: 'gestionar-alojamientos' },
         ]
@@ -57,6 +58,7 @@ const menuConfig = [
     }
 ];
 
+// --- Lógica del Router (sin cambios en las funciones) ---
 export async function handleNavigation(path) {
     if (path !== '/login') sessionStorage.setItem('lastPath', path);
     window.history.pushState({}, '', path);
