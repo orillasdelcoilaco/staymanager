@@ -4,11 +4,12 @@ let mapeos = [];
 let canales = [];
 let canalSiendoEditado = null;
 
+// Lista de campos internos que nuestro sistema entiende
 const camposInternos = [
     { id: 'idReservaCanal', nombre: 'ID de Reserva' },
-    { id: 'canalNombre', nombre: 'Nombre del Canal' },
+    { id: 'canalNombre', nombre: 'Nombre del Canal (en el reporte)' },
     { id: 'estado', nombre: 'Estado de la Reserva' },
-    { id: 'fechaReserva', nombre: 'Fecha de Creación' },
+    { id: 'fechaReserva', nombre: 'Fecha de Creación de la Reserva' },
     { id: 'fechaLlegada', nombre: 'Fecha de Llegada (Check-in)' },
     { id: 'fechaSalida', nombre: 'Fecha de Salida (Check-out)' },
     { id: 'totalNoches', nombre: 'Total de Noches' },
@@ -16,12 +17,11 @@ const camposInternos = [
     { id: 'nombreCliente', nombre: 'Nombre del Cliente' },
     { id: 'correoCliente', nombre: 'Email del Cliente' },
     { id: 'telefonoCliente', nombre: 'Teléfono del Cliente' },
-    { id: 'moneda', nombre: 'Moneda del Precio' },
-    { id: 'valorTotal', nombre: 'Valor Total' },
+    { id: 'valorTotal', nombre: 'Valor Total de la Reserva' },
     { id: 'comision', nombre: 'Comisión' },
     { id: 'abono', nombre: 'Abono' },
     { id: 'pendiente', nombre: 'Pendiente de Pago' },
-    { id: 'alojamientoNombre', nombre: 'Nombre del Alojamiento' },
+    { id: 'alojamientoNombre', nombre: 'Nombre del Alojamiento (en el reporte)' },
     { id: 'pais', nombre: 'País del Cliente' },
 ];
 
@@ -151,22 +151,23 @@ export function afterRender() {
         if (!canalSiendoEditado) return;
 
         const inputs = document.querySelectorAll('.mapeo-input-modal');
-        const promesas = [];
+        const mapeosParaGuardar = [];
 
         inputs.forEach(input => {
-            promesas.push(fetchAPI('/mapeos', {
-                method: 'POST',
-                body: {
-                    canalId: canalSiendoEditado.id,
-                    canalNombre: canalSiendoEditado.nombre,
-                    campoInterno: input.dataset.campoInterno,
-                    nombresExternos: input.value
-                }
-            }));
+            mapeosParaGuardar.push({
+                campoInterno: input.dataset.campoInterno,
+                nombresExternos: input.value
+            });
         });
 
         try {
-            await Promise.all(promesas);
+            await fetchAPI(`/mapeos/${canalSiendoEditado.id}`, {
+                method: 'POST',
+                body: {
+                    mapeos: mapeosParaGuardar
+                }
+            });
+
             alert(`Mapeo para "${canalSiendoEditado.nombre}" guardado con éxito.`);
             mapeos = await fetchAPI('/mapeos'); // Actualizamos los mapeos locales
             cerrarModal();

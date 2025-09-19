@@ -1,13 +1,13 @@
 const express = require('express');
 const {
-    guardarMapeo,
-    obtenerMapeosPorEmpresa,
-    eliminarMapeo
+    guardarMapeosPorCanal,
+    obtenerMapeosPorEmpresa
 } = require('../services/mapeosService');
 
 module.exports = (db) => {
     const router = express.Router();
 
+    // Obtiene todos los mapeos de la empresa
     router.get('/', async (req, res) => {
         try {
             const mapeos = await obtenerMapeosPorEmpresa(db, req.user.empresaId);
@@ -17,19 +17,13 @@ module.exports = (db) => {
         }
     });
 
-    router.post('/', async (req, res) => {
+    // Guarda o actualiza todas las reglas de mapeo para un canal específico
+    router.post('/:canalId', async (req, res) => {
         try {
-            const nuevoMapeo = await guardarMapeo(db, req.user.empresaId, req.body);
-            res.status(201).json(nuevoMapeo);
-        } catch (error) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-    
-    router.delete('/:id', async (req, res) => {
-        try {
-            await eliminarMapeo(db, req.user.empresaId, req.params.id);
-            res.status(204).send();
+            const { canalId } = req.params;
+            const { mapeos } = req.body; // Espera un array de objetos de mapeo
+            await guardarMapeosPorCanal(db, req.user.empresaId, canalId, mapeos);
+            res.status(200).json({ message: 'Mapeos guardados con éxito.' });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
