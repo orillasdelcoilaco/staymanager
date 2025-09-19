@@ -61,10 +61,8 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
 };
 
 const obtenerReservasPorEmpresa = async (db, empresaId) => {
-    const snapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
-        .orderBy('alojamientoNombre', 'asc')
-        .orderBy('fechaInicio', 'desc')
-        .get();
+    // La consulta de ordenamiento la haremos en el frontend para evitar índices complejos
+    const snapshot = await db.collection('empresas').doc(empresaId).collection('reservas').orderBy('fechaLlegada', 'desc').get();
     if (snapshot.empty) return [];
     return snapshot.docs.map(doc => doc.data());
 };
