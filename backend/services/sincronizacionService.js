@@ -15,25 +15,19 @@ const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
     return undefined;
 };
 
-// --- LÓGICA DE FECHAS REPLICADA DEL PROYECTO ORIGINAL ---
 const parsearFechaSODC = (fechaStr) => {
     console.log(`[FECHA SODC] Parseando: "${fechaStr}"`);
     if (!fechaStr) return null;
     
-    // Divide por espacio, / o : para separar día, mes, año, hora...
     const parts = fechaStr.toString().split(/[\s/:]+/);
     
     if (parts.length >= 3) {
         let dia = parseInt(parts[0], 10);
-        let mes = parseInt(parts[1], 10) - 1; // Mes en JS es 0-11
+        let mes = parseInt(parts[1], 10) - 1;
         let anio = parseInt(parts[2], 10);
 
-        if (anio < 100) {
-            anio += 2000;
-        }
+        if (anio < 100) anio += 2000;
 
-        // Corrección para formatos ambiguos como 08/10/2025 (puede ser 8 de Oct o 10 de Ago)
-        // El sistema original no parece tener lógica para esto, así que asumimos D/M/A
         const date = new Date(Date.UTC(anio, mes, dia));
         if (!isNaN(date.getTime())) {
             console.log(`[FECHA SODC] Éxito. Resultado: ${date.toISOString()}`);
@@ -76,15 +70,18 @@ const normalizarString = (texto) => {
 };
 
 const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, nombreArchivoOriginal = '') => {
-    const esArchivoSODC = nombreArchivoOriginal.toLowerCase().startsWith('mphb-bookings');
-    
     let jsonData;
+    const esArchivoSODC = nombreArchivoOriginal.toLowerCase().startsWith('mphb-bookings');
+
     if (esArchivoSODC) {
-        const workbook = xlsx.read(bufferArchivo, { type: 'buffer', cellDates: true, codepage: 1252 });
+        console.log('Detectado archivo SODC. Usando decodificación "latin1".');
+        const csvData = bufferArchivo.toString('latin1'); // Decodificación especial
+        const workbook = xlsx.read(csvData, { type: 'string' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         jsonData = xlsx.utils.sheet_to_json(sheet, { raw: false });
     } else {
+        console.log('Detectado archivo estándar. Usando decodificación por defecto.');
         const workbook = xlsx.read(bufferArchivo, { type: 'buffer', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
