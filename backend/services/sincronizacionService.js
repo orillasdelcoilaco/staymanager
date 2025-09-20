@@ -27,7 +27,7 @@ const parsearFecha = (fechaInput) => {
     
     const fechaStr = fechaInput.toString().trim();
 
-    // Intento 1: Formatos D/M/YYYY o D/M/YY (con año de 4 o 2 dígitos)
+    // Intento 1: Formatos D/M/YYYY o D/M/YY (con año de 4 o 2 dígitos), ignorando la hora.
     const matchLatino = fechaStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{2,4})/);
     if (matchLatino) {
         const dia = parseInt(matchLatino[1], 10);
@@ -66,7 +66,8 @@ const normalizarString = (texto) => {
 };
 
 const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) => {
-    const workbook = xlsx.read(bufferArchivo, { type: 'buffer', cellDates: true });
+    // Solución: Usar codepage 1252 para leer correctamente CSV con tildes (ej: 'Día de llegada')
+    const workbook = xlsx.read(bufferArchivo, { type: 'buffer', cellDates: true, codepage: 1252 });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const jsonData = xlsx.utils.sheet_to_json(sheet, { raw: false });
@@ -92,12 +93,6 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
     for (const [index, fila] of jsonData.entries()) {
         let idFilaParaError = `Fila ${index + 2}`;
         try {
-            if (index === 0) { // Solo para la primera fila de datos
-                console.log('--- NOMBRES DE COLUMNAS DETECTADOS POR EL SERVIDOR ---');
-                console.log(Object.keys(fila));
-                console.log('----------------------------------------------------');
-            }
-
             const idReservaCanal = obtenerValorConMapeo(fila, 'idReservaCanal', mapeosDelCanal);
             if (idReservaCanal) idFilaParaError = idReservaCanal;
 
