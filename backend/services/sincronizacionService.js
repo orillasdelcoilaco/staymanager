@@ -34,20 +34,25 @@ const parsearFecha = (fechaInput) => {
     }
     
     const fechaStr = fechaInput.toString().trim();
-    
-    // Intento 1: Formato D/M/YYYY o DD/MM/YYYY
-    const matchLatino = fechaStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{4})/);
+
+    // Intento 1: Formatos D/M/YYYY o D/M/YY (con año de 4 o 2 dígitos)
+    const matchLatino = fechaStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{2,4})/);
     if (matchLatino) {
-        console.log('[FECHA] Detectado formato D/M/YYYY.');
+        console.log('[FECHA] Detectado formato D/M/Y.');
         const dia = parseInt(matchLatino[1], 10);
         const mes = parseInt(matchLatino[2], 10) - 1; // Mes es 0-indexado
-        const anio = parseInt(matchLatino[3], 10);
+        let anio = parseInt(matchLatino[3], 10);
+        
+        if (anio < 100) {
+            anio += 2000;
+        }
+
         const date = new Date(Date.UTC(anio, mes, dia));
         if (!isNaN(date.getTime())) {
-            console.log(`[FECHA] Éxito con formato D/M/YYYY. Resultado: ${date.toISOString()}`);
+            console.log(`[FECHA] Éxito con formato D/M/Y. Resultado: ${date.toISOString()}`);
             return date;
         } else {
-            console.log('[FECHA] Falló la creación de fecha con formato D/M/YYYY a pesar del match.');
+            console.log('[FECHA] Falló la creación de fecha con formato D/M/Y a pesar del match.');
         }
     }
 
