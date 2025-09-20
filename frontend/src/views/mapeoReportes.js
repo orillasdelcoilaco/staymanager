@@ -40,14 +40,17 @@ function abrirModal(canal) {
 
     fieldsContainer.innerHTML = camposInternos.map(campo => {
         const mapeoExistente = mapeosDelCanal.find(m => m.campoInterno === campo.id);
-        const nombresExternos = mapeoExistente ? mapeoExistente.nombresExternos.join(', ') : '';
+        const nombresExternos = mapeoExistente ? mapeoExistente.nombresExternos.join('; ') : '';
         return `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                 <label for="modal-campo-${campo.id}" class="text-sm font-medium text-gray-700 md:justify-self-end">${campo.nombre}:</label>
-                <input type="text" id="modal-campo-${campo.id}" data-campo-interno="${campo.id}" 
-                       value="${nombresExternos}"
-                       placeholder="Ej: Check-in, Fecha Llegada, Arrival Date"
-                       class="form-input mapeo-input-modal">
+                <div>
+                    <input type="text" id="modal-campo-${campo.id}" data-campo-interno="${campo.id}" 
+                           value="${nombresExternos}"
+                           placeholder="Ej: Check-in; Fecha Llegada; Arrival Date"
+                           class="form-input mapeo-input-modal">
+                    <p class="text-xs text-gray-500 mt-1">Separe los posibles nombres de columna con punto y coma (;).</p>
+                </div>
             </div>
         `;
     }).join('');

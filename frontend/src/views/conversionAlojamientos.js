@@ -108,6 +108,7 @@ export async function render() {
                     <div class="mb-4">
                         <label for="nombreExterno" class="block text-sm font-medium text-gray-700">Nombre del Alojamiento en el Reporte</label>
                         <input type="text" id="nombreExterno" name="nombreExterno" required class="mt-1 form-input">
+                        <p class="text-xs text-gray-500 mt-1">Si hay varios nombres posibles, sepáralos con punto y coma (;).</p>
                     </div>
                     <div class="flex justify-end pt-4 mt-4 border-t">
                         <button type="button" id="cancel-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md mr-2 hover:bg-gray-300">Cancelar</button>

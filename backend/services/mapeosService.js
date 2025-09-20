@@ -25,8 +25,8 @@ const guardarMapeosPorCanal = async (db, empresaId, canalId, mapeos) => {
             id: mapeoId,
             canalId: canalId,
             campoInterno: campoInterno,
-            // Convertimos el string separado por comas en un array limpio
-            nombresExternos: nombresExternos.split(',').map(s => s.trim()).filter(Boolean),
+            // Convertimos el string separado por punto y coma en un array limpio
+            nombresExternos: nombresExternos.split(';').map(s => s.trim()).filter(Boolean),
             fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
         };
 

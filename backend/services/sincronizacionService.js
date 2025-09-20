@@ -114,18 +114,14 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
             const nombreExternoNormalizado = normalizarString(nombreExternoAlojamiento);
 
             if (nombreExternoNormalizado) {
-                // Filtra las conversiones solo para el canal actual.
                 const conversionesDelCanal = conversionesAlojamiento.filter(c => c.canalId === canalId);
                 
                 let conversionEncontrada = null;
-                // Itera sobre cada regla de conversión del canal.
                 for (const conversion of conversionesDelCanal) {
-                    // Divide los nombres externos por coma y los normaliza.
-                    const posiblesNombres = conversion.nombreExterno.split(',').map(nombre => normalizarString(nombre));
-                    // Comprueba si el nombre del reporte está en la lista de nombres posibles.
+                    const posiblesNombres = conversion.nombreExterno.split(';').map(nombre => normalizarString(nombre));
                     if (posiblesNombres.includes(nombreExternoNormalizado)) {
                         conversionEncontrada = conversion;
-                        break; // Si se encuentra, se detiene la búsqueda.
+                        break;
                     }
                 }
 
