@@ -45,6 +45,7 @@ const normalizarString = (texto) => {
 };
 
 const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) => {
+    console.log('--- INICIO DEL PROCESO DE SINCRONIZACIÓN ---');
     const workbook = xlsx.read(bufferArchivo, { type: 'buffer', cellDates: true });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
@@ -57,6 +58,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
     const mapeosDelCanal = todosLosMapeos.filter(m => m.canalId === canalId);
     const canal = (await obtenerCanalesPorEmpresa(db, empresaId)).find(c => c.id === canalId);
     const canalNombre = canal ? canal.nombre : 'Canal Desconocido';
+    console.log(`Procesando para el canal: ${canalNombre} (ID: ${canalId})`);
 
     let resultados = {
         totalFilas: jsonData.length,
@@ -74,9 +76,13 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
             const idReservaCanal = obtenerValorConMapeo(fila, 'idReservaCanal', mapeosDelCanal);
             if (idReservaCanal) idFilaParaError = idReservaCanal;
 
+            // --- LOG INICIO DE PROCESAMIENTO DE FILA ---
+            console.log(`\n--- Procesando Fila ${index + 2} (ID Reserva: ${idReservaCanal || 'N/A'}) ---`);
+
             const tipoFila = obtenerValorConMapeo(fila, 'tipoFila', mapeosDelCanal);
             if ((tipoFila && tipoFila.toLowerCase() !== 'reservación') || !idReservaCanal) {
                  resultados.filasIgnoradas++;
+                 console.log('Fila ignorada (no es una reserva o no tiene ID).');
                  continue;
             }
 
@@ -109,18 +115,26 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
             const pendiente = obtenerValorConMapeo(fila, 'pendiente', mapeosDelCanal);
             const nombreExternoAlojamiento = obtenerValorConMapeo(fila, 'alojamientoNombre', mapeosDelCanal);
 
+            // --- LOGS PARA DEPURACIÓN DE ALOJAMIENTOS ---
+            console.log(`[ALOJAMIENTO] Nombre extraído del reporte: "${nombreExternoAlojamiento}"`);
+            
             let alojamientoId = null;
             let alojamientoNombre = 'Alojamiento no identificado';
             const nombreExternoNormalizado = normalizarString(nombreExternoAlojamiento);
+            console.log(`[ALOJAMIENTO] Nombre normalizado para búsqueda: "${nombreExternoNormalizado}"`);
 
             if (nombreExternoNormalizado) {
                 const conversionesDelCanal = conversionesAlojamiento.filter(c => c.canalId === canalId);
+                console.log(`[ALOJAMIENTO] Se encontraron ${conversionesDelCanal.length} reglas de conversión para este canal.`);
                 
                 let conversionEncontrada = null;
                 for (const conversion of conversionesDelCanal) {
                     const posiblesNombres = conversion.nombreExterno.split(';').map(nombre => normalizarString(nombre));
+                    console.log(`[ALOJAMIENTO] Verificando regla "${conversion.alojamientoNombre}". Nombres posibles normalizados: [${posiblesNombres.join(', ')}]`);
+                    
                     if (posiblesNombres.includes(nombreExternoNormalizado)) {
                         conversionEncontrada = conversion;
+                        console.log(`[ALOJAMIENTO] ¡ÉXITO! Se encontró coincidencia.`);
                         break;
                     }
                 }
@@ -128,8 +142,14 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
                 if (conversionEncontrada) {
                     alojamientoId = conversionEncontrada.alojamientoId;
                     alojamientoNombre = conversionEncontrada.alojamientoNombre;
+                } else {
+                    console.log('[ALOJAMIENTO] FALLO. No se encontró ninguna regla de conversión coincidente.');
                 }
+            } else {
+                console.log('[ALOJAMIENTO] No se extrajo un nombre de alojamiento del reporte, se omite la búsqueda.');
             }
+             // --- FIN DE LOGS ---
+
             
             const moneda = valorTotalCrudo?.toString().toUpperCase().includes('USD') ? 'USD' : 'CLP';
             let valorTotal = 0;
@@ -170,7 +190,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
             resultados.errores.push({ fila: idFilaParaError, error: error.message });
         }
     }
-
+    console.log('--- FIN DEL PROCESO DE SINCRONIZACIÓN ---');
     return resultados;
 };
 
