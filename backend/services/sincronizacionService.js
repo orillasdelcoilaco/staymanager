@@ -16,35 +16,51 @@ const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
 };
 
 const parsearFecha = (fechaInput) => {
-    if (!fechaInput) return null;
-    if (fechaInput instanceof Date) return fechaInput;
+    console.log(`[FECHA] Iniciando parseo. Input: "${fechaInput}" (Tipo: ${typeof fechaInput})`);
+    if (!fechaInput) {
+        console.log('[FECHA] Input nulo o vacío, retornando null.');
+        return null;
+    }
+    if (fechaInput instanceof Date) {
+        console.log('[FECHA] El input ya es un objeto Date. Retornando directamente.');
+        return fechaInput;
+    }
 
     if (typeof fechaInput === 'number') {
         const fechaBase = new Date(Date.UTC(1899, 11, 30));
         fechaBase.setUTCDate(fechaBase.getUTCDate() + fechaInput);
+        console.log(`[FECHA] Input es numérico (Excel). Convertido a: ${fechaBase.toISOString()}`);
         return fechaBase;
     }
     
     const fechaStr = fechaInput.toString().trim();
-
-    // Intento 1: Formato D/M/YYYY o DD/MM/YYYY (prioritario para CSV)
+    
+    // Intento 1: Formato D/M/YYYY o DD/MM/YYYY
     const matchLatino = fechaStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{4})/);
     if (matchLatino) {
-        // Usamos Date.UTC para crear la fecha sin interferencia de la zona horaria del servidor.
-        // new Date(año, mes - 1, día)
-        const date = new Date(Date.UTC(parseInt(matchLatino[3], 10), parseInt(matchLatino[2], 10) - 1, parseInt(matchLatino[1], 10)));
+        console.log('[FECHA] Detectado formato D/M/YYYY.');
+        const dia = parseInt(matchLatino[1], 10);
+        const mes = parseInt(matchLatino[2], 10) - 1; // Mes es 0-indexado
+        const anio = parseInt(matchLatino[3], 10);
+        const date = new Date(Date.UTC(anio, mes, dia));
         if (!isNaN(date.getTime())) {
+            console.log(`[FECHA] Éxito con formato D/M/YYYY. Resultado: ${date.toISOString()}`);
             return date;
+        } else {
+            console.log('[FECHA] Falló la creación de fecha con formato D/M/YYYY a pesar del match.');
         }
     }
 
-    // Intento 2: Parseo directo como fallback (cubre ISO 8601, YYYY-MM-DD, y algunos formatos americanos)
+    // Intento 2: Parseo directo como fallback
+    console.log('[FECHA] Intentando parseo directo...');
     const date = new Date(fechaStr);
     if (!isNaN(date.getTime())) {
+        console.log(`[FECHA] Éxito con parseo directo. Resultado: ${date.toISOString()}`);
         return date;
     }
 
-    return null; // Si todos los intentos fallan
+    console.log('[FECHA] FALLO TOTAL. No se pudo convertir el string a una fecha válida. Retornando null.');
+    return null;
 };
 
 
