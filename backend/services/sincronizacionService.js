@@ -25,12 +25,26 @@ const parsearFecha = (fechaInput) => {
         return fechaBase;
     }
     
-    const fechaStr = fechaInput.toString();
-    const date = new Date(fechaStr.replace(/(\d{2})[\\/.-](\d{2})[\\/.-](\d{4})/, '$3-$2-$1'));
-    if (!isNaN(date.getTime())) return date;
+    const fechaStr = fechaInput.toString().trim();
+
+    // Intento 1: Parseo directo (cubre ISO, YYYY-MM-DD, MM/DD/YYYY)
+    let date = new Date(fechaStr);
+    if (!isNaN(date.getTime())) {
+        return date;
+    }
+
+    // Intento 2: Parseo específico para formatos DD/MM/YYYY o DD-MM-YYYY
+    const match = fechaStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{4})$/);
+    if (match) {
+        // new Date(año, mes - 1, día)
+        date = new Date(match[3], match[2] - 1, match[1]);
+        if (!isNaN(date.getTime())) {
+            return date;
+        }
+    }
     
-    const americanDate = new Date(fechaStr);
-    return isNaN(americanDate.getTime()) ? null : americanDate;
+    // Si todos los intentos fallan, se devuelve null para evitar "Invalid Date"
+    return null;
 };
 
 const normalizarString = (texto) => {
