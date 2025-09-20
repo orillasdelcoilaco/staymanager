@@ -27,25 +27,26 @@ const parsearFecha = (fechaInput) => {
     
     const fechaStr = fechaInput.toString().trim();
 
-    // Intento 1: Parseo directo (cubre ISO, YYYY-MM-DD, MM/DD/YYYY)
-    let date = new Date(fechaStr);
-    if (!isNaN(date.getTime())) {
-        return date;
-    }
-
-    // Intento 2: Parseo específico para formatos DD/MM/YYYY o DD-MM-YYYY
-    const match = fechaStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{4})$/);
-    if (match) {
+    // Intento 1: Formato D/M/YYYY o DD/MM/YYYY (prioritario para CSV)
+    const matchLatino = fechaStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{4})/);
+    if (matchLatino) {
+        // Usamos Date.UTC para crear la fecha sin interferencia de la zona horaria del servidor.
         // new Date(año, mes - 1, día)
-        date = new Date(match[3], match[2] - 1, match[1]);
+        const date = new Date(Date.UTC(parseInt(matchLatino[3], 10), parseInt(matchLatino[2], 10) - 1, parseInt(matchLatino[1], 10)));
         if (!isNaN(date.getTime())) {
             return date;
         }
     }
-    
-    // Si todos los intentos fallan, se devuelve null para evitar "Invalid Date"
-    return null;
+
+    // Intento 2: Parseo directo como fallback (cubre ISO 8601, YYYY-MM-DD, y algunos formatos americanos)
+    const date = new Date(fechaStr);
+    if (!isNaN(date.getTime())) {
+        return date;
+    }
+
+    return null; // Si todos los intentos fallan
 };
+
 
 const normalizarString = (texto) => {
     if (!texto) return '';
