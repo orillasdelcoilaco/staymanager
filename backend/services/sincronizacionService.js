@@ -20,7 +20,6 @@ const parsearFecha = (fechaInput) => {
     if (fechaInput instanceof Date) return fechaInput;
 
     if (typeof fechaInput === 'number') {
-        // Corrección para fechas serializadas de Excel (número de días desde 1900)
         const fechaBase = new Date(Date.UTC(1899, 11, 30));
         fechaBase.setUTCDate(fechaBase.getUTCDate() + fechaInput);
         return fechaBase;
@@ -34,6 +33,16 @@ const parsearFecha = (fechaInput) => {
     return isNaN(americanDate.getTime()) ? null : americanDate;
 };
 
+const normalizarString = (texto) => {
+    if (!texto) return '';
+    return texto
+        .toString()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, ' ');
+};
 
 const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) => {
     const workbook = xlsx.read(bufferArchivo, { type: 'buffer', cellDates: true });
@@ -102,15 +111,27 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
 
             let alojamientoId = null;
             let alojamientoNombre = 'Alojamiento no identificado';
-            const nombreExternoNormalizado = (nombreExternoAlojamiento || '').trim().toLowerCase();
+            const nombreExternoNormalizado = normalizarString(nombreExternoAlojamiento);
+
             if (nombreExternoNormalizado) {
-                const conversion = conversionesAlojamiento.find(c => 
-                    c.canalId === canalId && 
-                    c.nombreExterno.trim().toLowerCase() === nombreExternoNormalizado
-                );
-                if (conversion) {
-                    alojamientoId = conversion.alojamientoId;
-                    alojamientoNombre = conversion.alojamientoNombre;
+                // Filtra las conversiones solo para el canal actual.
+                const conversionesDelCanal = conversionesAlojamiento.filter(c => c.canalId === canalId);
+                
+                let conversionEncontrada = null;
+                // Itera sobre cada regla de conversión del canal.
+                for (const conversion of conversionesDelCanal) {
+                    // Divide los nombres externos por coma y los normaliza.
+                    const posiblesNombres = conversion.nombreExterno.split(',').map(nombre => normalizarString(nombre));
+                    // Comprueba si el nombre del reporte está en la lista de nombres posibles.
+                    if (posiblesNombres.includes(nombreExternoNormalizado)) {
+                        conversionEncontrada = conversion;
+                        break; // Si se encuentra, se detiene la búsqueda.
+                    }
+                }
+
+                if (conversionEncontrada) {
+                    alojamientoId = conversionEncontrada.alojamientoId;
+                    alojamientoNombre = conversionEncontrada.alojamientoNombre;
                 }
             }
             
