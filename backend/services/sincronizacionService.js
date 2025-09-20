@@ -66,7 +66,7 @@ const normalizarString = (texto) => {
 };
 
 const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) => {
-    // Solución: Usar codepage 1252 para leer correctamente CSV con tildes (ej: 'Día de llegada')
+    // Re-activamos la opción de codepage para forzar la lectura correcta
     const workbook = xlsx.read(bufferArchivo, { type: 'buffer', cellDates: true, codepage: 1252 });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
@@ -93,6 +93,13 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
     for (const [index, fila] of jsonData.entries()) {
         let idFilaParaError = `Fila ${index + 2}`;
         try {
+            // --- LOG DE DIAGNÓSTICO DE COLUMNAS ---
+            if (index === 0) { 
+                console.log('--- NOMBRES DE COLUMNAS DETECTADOS POR EL SERVIDOR ---');
+                console.log(Object.keys(fila));
+                console.log('----------------------------------------------------');
+            }
+
             const idReservaCanal = obtenerValorConMapeo(fila, 'idReservaCanal', mapeosDelCanal);
             if (idReservaCanal) idFilaParaError = idReservaCanal;
 
