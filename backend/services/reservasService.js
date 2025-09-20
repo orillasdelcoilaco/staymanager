@@ -25,24 +25,24 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
         const datosAActualizar = {};
 
         // 1. Comparamos el estado
-        if (reservaExistente.estado !== datosReserva.estado) {
+        if (reservaExistente.estado !== datosReserva.estado && datosReserva.estado) {
             datosAActualizar.estado = datosReserva.estado;
             hayCambios = true;
         }
 
-        // 2. Comparamos el alojamiento (reparamos si no estaba identificado)
-        if (reservaExistente.alojamientoId === null && datosReserva.alojamientoId !== null) {
+        // 2. Reparamos el alojamiento si no estaba identificado
+        if (!reservaExistente.alojamientoId && datosReserva.alojamientoId) {
             datosAActualizar.alojamientoId = datosReserva.alojamientoId;
             datosAActualizar.alojamientoNombre = datosReserva.alojamientoNombre;
             hayCambios = true;
         }
 
-        // 3. Comparamos las fechas (reparamos si faltaban)
-        if (reservaExistente.fechaLlegada === null && datosReserva.fechaLlegada !== null) {
+        // 3. Reparamos las fechas si faltaban
+        if (!reservaExistente.fechaLlegada && datosReserva.fechaLlegada) {
             datosAActualizar.fechaLlegada = datosReserva.fechaLlegada;
             hayCambios = true;
         }
-        if (reservaExistente.fechaSalida === null && datosReserva.fechaSalida !== null) {
+        if (!reservaExistente.fechaSalida && datosReserva.fechaSalida) {
             datosAActualizar.fechaSalida = datosReserva.fechaSalida;
             hayCambios = true;
         }

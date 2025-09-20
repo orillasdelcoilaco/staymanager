@@ -15,22 +15,21 @@ const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
     return undefined;
 };
 
-// --- NUEVA FUNCIÓN INTELIGENTE PARA FECHAS ---
 const parsearFecha = (fechaInput) => {
     if (!fechaInput) return null;
-    // Si ya es un objeto Date (leído desde un .xls), lo retornamos.
-    if (fechaInput instanceof Date) {
-        return fechaInput;
+    if (fechaInput instanceof Date) return fechaInput;
+
+    if (typeof fechaInput === 'number') {
+        // Corrección para fechas serializadas de Excel (número de días desde 1900)
+        const fechaBase = new Date(Date.UTC(1899, 11, 30));
+        fechaBase.setUTCDate(fechaBase.getUTCDate() + fechaInput);
+        return fechaBase;
     }
-    // Si es un string, intentamos convertirlo.
+    
     const fechaStr = fechaInput.toString();
-    // Intenta varios formatos comunes (DD/MM/YYYY, YYYY-MM-DD, etc.)
-    // Esta expresión regular maneja formatos con / . o -
     const date = new Date(fechaStr.replace(/(\d{2})[\\/.-](\d{2})[\\/.-](\d{4})/, '$3-$2-$1'));
-    // Si la conversión es válida, la retornamos, si no, intentamos con el formato americano
-    if (!isNaN(date.getTime())) {
-        return date;
-    }
+    if (!isNaN(date.getTime())) return date;
+    
     const americanDate = new Date(fechaStr);
     return isNaN(americanDate.getTime()) ? null : americanDate;
 };
@@ -105,7 +104,10 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
             let alojamientoNombre = 'Alojamiento no identificado';
             const nombreExternoNormalizado = (nombreExternoAlojamiento || '').trim().toLowerCase();
             if (nombreExternoNormalizado) {
-                const conversion = conversionesAlojamiento.find(c => c.nombreExterno.trim().toLowerCase() === nombreExternoNormalizado);
+                const conversion = conversionesAlojamiento.find(c => 
+                    c.canalId === canalId && 
+                    c.nombreExterno.trim().toLowerCase() === nombreExternoNormalizado
+                );
                 if (conversion) {
                     alojamientoId = conversion.alojamientoId;
                     alojamientoNombre = conversion.alojamientoNombre;
