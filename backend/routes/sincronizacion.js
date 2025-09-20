@@ -23,7 +23,8 @@ module.exports = (db) => {
             const { empresaId } = req.user;
             const buffer = req.file.buffer;
             
-            const resultados = await procesarArchivoReservas(db, empresaId, canalId, buffer);
+            // Pasamos el nombre original del archivo al servicio para la detección
+            const resultados = await procesarArchivoReservas(db, empresaId, canalId, buffer, req.file.originalname);
             
             res.status(200).json({
                 message: 'Archivo procesado con éxito.',

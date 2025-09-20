@@ -114,8 +114,10 @@ export function afterRender() {
         mostrarEstado('Subiendo y procesando el archivo, esto puede tardar unos momentos...');
 
         const canalId = canalSelect.value;
+        const archivo = inputFile.files[0];
         const formData = new FormData();
-        formData.append('archivoReservas', inputFile.files[0]);
+        // Añadimos el archivo con su nombre original
+        formData.append('archivoReservas', archivo, archivo.name);
 
         try {
             const resultados = await fetchAPI(`/sincronizar/upload/${canalId}`, {

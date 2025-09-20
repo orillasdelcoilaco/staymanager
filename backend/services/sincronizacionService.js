@@ -16,31 +16,22 @@ const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
 };
 
 const parsearFecha = (fechaInput) => {
-    console.log(`[FECHA] Iniciando parseo. Input: "${fechaInput}" (Tipo: ${typeof fechaInput})`);
-    if (!fechaInput) {
-        console.log('[FECHA] Input nulo o vacío, retornando null.');
-        return null;
-    }
-    if (fechaInput instanceof Date) {
-        console.log('[FECHA] El input ya es un objeto Date. Retornando directamente.');
-        return fechaInput;
-    }
+    if (!fechaInput) return null;
+    if (fechaInput instanceof Date) return fechaInput;
 
     if (typeof fechaInput === 'number') {
         const fechaBase = new Date(Date.UTC(1899, 11, 30));
         fechaBase.setUTCDate(fechaBase.getUTCDate() + fechaInput);
-        console.log(`[FECHA] Input es numérico (Excel). Convertido a: ${fechaBase.toISOString()}`);
         return fechaBase;
     }
     
     const fechaStr = fechaInput.toString().trim();
 
-    // Intento 1: Formatos D/M/YYYY o D/M/YY (con año de 4 o 2 dígitos)
+    // Intento 1: Formatos D/M/YYYY o D/M/YY (con año de 4 o 2 dígitos), ignorando la hora.
     const matchLatino = fechaStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{2,4})/);
     if (matchLatino) {
-        console.log('[FECHA] Detectado formato D/M/Y.');
         const dia = parseInt(matchLatino[1], 10);
-        const mes = parseInt(matchLatino[2], 10) - 1; // Mes es 0-indexado
+        const mes = parseInt(matchLatino[2], 10) - 1;
         let anio = parseInt(matchLatino[3], 10);
         
         if (anio < 100) {
@@ -49,22 +40,16 @@ const parsearFecha = (fechaInput) => {
 
         const date = new Date(Date.UTC(anio, mes, dia));
         if (!isNaN(date.getTime())) {
-            console.log(`[FECHA] Éxito con formato D/M/Y. Resultado: ${date.toISOString()}`);
             return date;
-        } else {
-            console.log('[FECHA] Falló la creación de fecha con formato D/M/Y a pesar del match.');
         }
     }
 
     // Intento 2: Parseo directo como fallback
-    console.log('[FECHA] Intentando parseo directo...');
     const date = new Date(fechaStr);
     if (!isNaN(date.getTime())) {
-        console.log(`[FECHA] Éxito con parseo directo. Resultado: ${date.toISOString()}`);
         return date;
     }
 
-    console.log('[FECHA] FALLO TOTAL. No se pudo convertir el string a una fecha válida. Retornando null.');
     return null;
 };
 
@@ -80,12 +65,22 @@ const normalizarString = (texto) => {
         .replace(/\s+/g, ' ');
 };
 
-const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) => {
-    // Forzamos la codificación correcta para leer CSV con caracteres latinos.
-    const workbook = xlsx.read(bufferArchivo, { type: 'buffer', cellDates: true, codepage: 1252 });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    const jsonData = xlsx.utils.sheet_to_json(sheet, { raw: false });
+const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, nombreArchivoOriginal = '') => {
+    let jsonData;
+
+    // Lógica especializada para archivos SODC (mphb)
+    if (nombreArchivoOriginal.toLowerCase().startsWith('mphb-bookings')) {
+        const workbook = xlsx.read(bufferArchivo, { type: 'buffer', cellDates: true, codepage: 1252 });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        jsonData = xlsx.utils.sheet_to_json(sheet, { raw: false });
+    } else {
+        // Lógica estándar para otros archivos (ej: Airbnb)
+        const workbook = xlsx.read(bufferArchivo, { type: 'buffer', cellDates: true });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        jsonData = xlsx.utils.sheet_to_json(sheet, { raw: false });
+    }
 
     const conversionesAlojamiento = await obtenerConversionesPorEmpresa(db, empresaId);
     const todosLosMapeos = await obtenerMapeosPorEmpresa(db, empresaId);
@@ -108,12 +103,6 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo) =>
     for (const [index, fila] of jsonData.entries()) {
         let idFilaParaError = `Fila ${index + 2}`;
         try {
-            if (index === 0) {
-                console.log('--- NOMBRES DE COLUMNAS DETECTADOS POR EL SERVIDOR ---');
-                console.log(Object.keys(fila));
-                console.log('----------------------------------------------------');
-            }
-
             const idReservaCanal = obtenerValorConMapeo(fila, 'idReservaCanal', mapeosDelCanal);
             if (idReservaCanal) idFilaParaError = idReservaCanal;
 
