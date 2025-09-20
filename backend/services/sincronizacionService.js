@@ -15,7 +15,36 @@ const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
     return undefined;
 };
 
-const parsearFecha = (fechaInput) => {
+// --- LÓGICA DE FECHAS REPLICADA DEL PROYECTO ORIGINAL ---
+const parsearFechaSODC = (fechaStr) => {
+    console.log(`[FECHA SODC] Parseando: "${fechaStr}"`);
+    if (!fechaStr) return null;
+    
+    // Divide por espacio, / o : para separar día, mes, año, hora...
+    const parts = fechaStr.toString().split(/[\s/:]+/);
+    
+    if (parts.length >= 3) {
+        let dia = parseInt(parts[0], 10);
+        let mes = parseInt(parts[1], 10) - 1; // Mes en JS es 0-11
+        let anio = parseInt(parts[2], 10);
+
+        if (anio < 100) {
+            anio += 2000;
+        }
+
+        // Corrección para formatos ambiguos como 08/10/2025 (puede ser 8 de Oct o 10 de Ago)
+        // El sistema original no parece tener lógica para esto, así que asumimos D/M/A
+        const date = new Date(Date.UTC(anio, mes, dia));
+        if (!isNaN(date.getTime())) {
+            console.log(`[FECHA SODC] Éxito. Resultado: ${date.toISOString()}`);
+            return date;
+        }
+    }
+    console.log(`[FECHA SODC] FALLO. No se pudo parsear.`);
+    return null;
+}
+
+const parsearFechaGenerica = (fechaInput) => {
     if (!fechaInput) return null;
     if (fechaInput instanceof Date) return fechaInput;
 
@@ -26,25 +55,6 @@ const parsearFecha = (fechaInput) => {
     }
     
     const fechaStr = fechaInput.toString().trim();
-
-    // Intento 1: Formatos D/M/YYYY o D/M/YY (con año de 4 o 2 dígitos), ignorando la hora.
-    const matchLatino = fechaStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{2,4})/);
-    if (matchLatino) {
-        const dia = parseInt(matchLatino[1], 10);
-        const mes = parseInt(matchLatino[2], 10) - 1;
-        let anio = parseInt(matchLatino[3], 10);
-        
-        if (anio < 100) {
-            anio += 2000;
-        }
-
-        const date = new Date(Date.UTC(anio, mes, dia));
-        if (!isNaN(date.getTime())) {
-            return date;
-        }
-    }
-
-    // Intento 2: Parseo directo como fallback
     const date = new Date(fechaStr);
     if (!isNaN(date.getTime())) {
         return date;
@@ -66,16 +76,15 @@ const normalizarString = (texto) => {
 };
 
 const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, nombreArchivoOriginal = '') => {
+    const esArchivoSODC = nombreArchivoOriginal.toLowerCase().startsWith('mphb-bookings');
+    
     let jsonData;
-
-    // Lógica especializada para archivos SODC (mphb)
-    if (nombreArchivoOriginal.toLowerCase().startsWith('mphb-bookings')) {
+    if (esArchivoSODC) {
         const workbook = xlsx.read(bufferArchivo, { type: 'buffer', cellDates: true, codepage: 1252 });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         jsonData = xlsx.utils.sheet_to_json(sheet, { raw: false });
     } else {
-        // Lógica estándar para otros archivos (ej: Airbnb)
         const workbook = xlsx.read(bufferArchivo, { type: 'buffer', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
@@ -103,6 +112,12 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
     for (const [index, fila] of jsonData.entries()) {
         let idFilaParaError = `Fila ${index + 2}`;
         try {
+             if (index === 0) {
+                console.log('--- NOMBRES DE COLUMNAS DETECTADOS POR EL SERVIDOR ---');
+                console.log(Object.keys(fila));
+                console.log('----------------------------------------------------');
+            }
+
             const idReservaCanal = obtenerValorConMapeo(fila, 'idReservaCanal', mapeosDelCanal);
             if (idReservaCanal) idFilaParaError = idReservaCanal;
 
@@ -129,6 +144,8 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             const resultadoCliente = await crearOActualizarCliente(db, empresaId, datosParaCliente);
             if (resultadoCliente.status === 'creado') resultados.clientesCreados++;
             
+            const parsearFecha = esArchivoSODC ? parsearFechaSODC : parsearFechaGenerica;
+
             const estado = obtenerValorConMapeo(fila, 'estado', mapeosDelCanal);
             const fechaReserva = parsearFecha(obtenerValorConMapeo(fila, 'fechaReserva', mapeosDelCanal));
             const fechaLlegada = parsearFecha(obtenerValorConMapeo(fila, 'fechaLlegada', mapeosDelCanal));
