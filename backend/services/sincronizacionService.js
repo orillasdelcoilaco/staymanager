@@ -33,8 +33,13 @@ const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal, cabeceras) => 
         return undefined;
     }
     
-    const nombreExternoGuardado = mapeo.nombresExternos[0];
-    const index = cabeceras.findIndex(h => h && h.trim() === nombreExternoGuardado.trim());
+    const normalizarHeader = (header) => {
+        if (typeof header !== 'string') return '';
+        return header.trim().replace(/^"|"$/g, '').trim();
+    };
+
+    const nombreExternoGuardado = normalizarHeader(mapeo.nombresExternos[0]);
+    const index = cabeceras.findIndex(h => h && normalizarHeader(h) === nombreExternoGuardado);
 
     if (index !== -1) {
         return fila[index];

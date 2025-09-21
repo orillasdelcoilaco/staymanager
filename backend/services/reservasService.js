@@ -61,14 +61,25 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
 };
 
 const obtenerReservasPorEmpresa = async (db, empresaId) => {
-    const snapshot = await db.collection('empresas').doc(empresaId).collection('reservas').orderBy('fechaLlegada', 'desc').get();
-    if (snapshot.empty) return [];
+    const [reservasSnapshot, clientesSnapshot] = await Promise.all([
+        db.collection('empresas').doc(empresaId).collection('reservas').orderBy('fechaLlegada', 'desc').get(),
+        db.collection('empresas').doc(empresaId).collection('clientes').get()
+    ]);
 
-    return snapshot.docs.map(doc => {
+    if (reservasSnapshot.empty) return [];
+
+    const clientesMap = new Map();
+    clientesSnapshot.forEach(doc => {
+        clientesMap.set(doc.id, doc.data());
+    });
+
+    return reservasSnapshot.docs.map(doc => {
         const data = doc.data();
-        // Convertir Timestamps de Firestore a strings ISO para compatibilidad con el frontend
+        const cliente = clientesMap.get(data.clienteId);
+        
         return {
             ...data,
+            telefono: cliente ? cliente.telefono : 'N/A',
             fechaLlegada: data.fechaLlegada?.toDate().toISOString() || null,
             fechaSalida: data.fechaSalida?.toDate().toISOString() || null,
             fechaCreacion: data.fechaCreacion?.toDate().toISOString() || null,
