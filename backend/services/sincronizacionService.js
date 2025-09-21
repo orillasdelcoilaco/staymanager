@@ -28,12 +28,17 @@ const analizarCabeceras = async (buffer, nombreArchivo) => {
 
 const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal, cabeceras) => {
     const mapeo = mapeosDelCanal.find(m => m.campoInterno === campoInterno);
-    if (!mapeo || !mapeo.nombresExternos || mapeo.nombresExternos.length === 0) return undefined;
+    if (!mapeo || !mapeo.nombresExternos || mapeo.nombresExternos.length === 0) {
+        return undefined;
+    }
     
-    const nombreExterno = mapeo.nombresExternos[0];
-    const index = cabeceras.indexOf(nombreExterno);
+    const nombreExternoGuardado = mapeo.nombresExternos[0];
+    const index = cabeceras.findIndex(h => h && h.trim() === nombreExternoGuardado.trim());
 
-    return index !== -1 ? fila[index] : undefined;
+    if (index !== -1) {
+        return fila[index];
+    }
+    return undefined;
 };
 
 const parsearFecha = (dateValue) => {
@@ -62,38 +67,36 @@ const parsearFecha = (dateValue) => {
         if (year < 100) year += 2000;
 
         let day, month;
-        // Lógica para diferenciar MM/DD de DD/MM
-        if (part1 > 12) { // Si el primer número es > 12, tiene que ser el día (DD/MM/YYYY)
+        
+        if (part1 > 12) {
             day = part1;
             month = part2;
-        } else if (part2 > 12) { // Si el segundo número es > 12, tiene que ser el día (MM/DD/YYYY)
+        } else if (part2 > 12) {
             day = part2;
             month = part1;
         } else {
-            // Caso ambiguo (ej: 03/04/2025). Asumimos MM/DD/YYYY que es el formato de Airbnb.
             month = part1;
             day = part2;
         }
 
         const date = new Date(Date.UTC(year, month - 1, day));
-        // Verificamos que la fecha creada sea válida y corresponda a los componentes
+        
         if (date && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day) {
             console.log(`[parsearFecha] Parseo exitoso (formato con /). Fecha resultante: ${date.toISOString()}`);
             return date;
         }
     }
 
-    // Fallback para otros formatos como YYYY-MM-DD
     const date = new Date(dateStr);
     if (!isNaN(date.getTime())) {
         console.log(`[parsearFecha] Parseo exitoso (fallback). Fecha resultante: ${date.toISOString()}`);
-        // Devolvemos en UTC para consistencia
         return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     }
 
     console.log(`[parsearFecha] No se pudo parsear la fecha. Retornando null.`);
     return null;
 };
+
 
 const normalizarString = (texto) => {
     if (!texto) return '';
@@ -165,7 +168,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 const valorNumerico = parseFloat(valorTotalCrudo.toString().replace(/[^0-9.,$]+/g, "").replace(',', '.'));
                 valorTotal = moneda === 'USD' ? valorNumerico * valorDolarHoy : valorNumerico;
             }
-
+            
             console.log(`--- Procesando Fila ${index + 2} (Reserva: ${idReservaCanal}) ---`);
             const fechaLlegadaCruda = get('fechaLlegada');
             const fechaSalidaCruda = get('fechaSalida');
@@ -191,7 +194,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             if (!datosReserva.fechaLlegada || !datosReserva.fechaSalida) {
                 console.error(`Error de fecha en fila ${index + 2}: Llegada o Salida inválida. Saltando...`);
                 resultados.errores.push({ fila: idFilaParaError, error: 'Fecha de llegada o salida no pudo ser interpretada.' });
-                continue;
+                continue; // Saltar esta fila
             }
             
             const res = await crearOActualizarReserva(db, empresaId, datosReserva);
