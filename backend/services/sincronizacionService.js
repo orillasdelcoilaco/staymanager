@@ -153,20 +153,22 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 resultados.errores.push({ fila: idFilaParaError, error: 'Fechas de llegada o salida inválidas.' });
                 continue;
             }
+            
+            const nombre = get('nombreCliente') || '';
+            const apellido = get('apellidoCliente') || '';
+            const nombreClienteCompleto = `${nombre} ${apellido}`.trim();
 
-            const nombreCliente = get('nombreCliente');
             const telefonoCliente = get('telefonoCliente');
             const correoCliente = get('correoCliente');
             let pais = get('pais') || 'CL';
-            let datosParaCliente = { nombre: nombreCliente, telefono: telefonoCliente, email: correoCliente, pais };
+            let datosParaCliente = { nombre: nombreClienteCompleto, telefono: telefonoCliente, email: correoCliente, pais };
             if (!telefonoCliente) {
-                const nombreBase = nombreCliente || 'Huésped';
-                datosParaCliente.nombre = `${nombreBase} - ${idReservaCanal} - ${canalNombre}`;
-                datosParaCliente.idCompuesto = `${nombreBase}-${idReservaCanal}-${canalNombre}`.replace(/\s+/g, '-').toLowerCase();
+                const idCompuesto = `${nombreClienteCompleto}-${idReservaCanal}-${canalNombre}`.replace(/\s+/g, '-').toLowerCase();
+                datosParaCliente.idCompuesto = idCompuesto;
             }
             const resultadoCliente = await crearOActualizarCliente(db, empresaId, datosParaCliente);
             if (resultadoCliente.status === 'creado') resultados.clientesCreados++;
-
+            
             const nombreExternoAlojamiento = get('alojamientoNombre');
             let alojamientoId = null;
             let alojamientoNombre = 'Alojamiento no identificado';

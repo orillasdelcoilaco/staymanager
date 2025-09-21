@@ -11,6 +11,7 @@ const camposInternos = [
     { id: 'fechaLlegada', nombre: 'Fecha de Llegada (Check-in)', requerido: true },
     { id: 'fechaSalida', nombre: 'Fecha de Salida (Check-out)', requerido: true },
     { id: 'nombreCliente', nombre: 'Nombre del Cliente', requerido: true },
+    { id: 'apellidoCliente', nombre: 'Apellido del Cliente (Opcional)', requerido: false },
     { id: 'estado', nombre: 'Estado de la Reserva' },
     { id: 'fechaReserva', nombre: 'Fecha de Creación de la Reserva' },
     { id: 'totalNoches', nombre: 'Total de Noches' },
