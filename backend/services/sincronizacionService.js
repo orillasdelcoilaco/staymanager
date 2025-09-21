@@ -8,38 +8,25 @@ const { obtenerValorDolar } = require('./dolarService');
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 
 const leerArchivo = (buffer, nombreArchivo) => {
-    // Al pasar el buffer directamente, la librería xlsx se encarga de la detección de formato y codificación.
-    // Se mantiene cellDates para asegurar que las fechas se interpreten como objetos Date siempre que sea posible.
     const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
-    // header: 1 para obtener un array de arrays, raw: false para obtener valores formateados.
     return xlsx.utils.sheet_to_json(sheet, { header: 1, raw: false });
 };
 
 const analizarCabeceras = async (buffer, nombreArchivo) => {
     const rows = leerArchivo(buffer, nombreArchivo);
-    return rows.length > 0 ? rows[0].filter(Boolean) : []; // Devuelve la primera fila (cabeceras)
+    return rows.length > 0 ? rows[0].filter(Boolean) : [];
 };
 
-const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal, cabeceras) => {
+const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
     const mapeo = mapeosDelCanal.find(m => m.campoInterno === campoInterno);
-    if (!mapeo || !mapeo.nombresExternos || mapeo.nombresExternos.length === 0) {
+    
+    if (!mapeo || typeof mapeo.columnaIndex !== 'number' || mapeo.columnaIndex < 0) {
         return undefined;
     }
     
-    const normalizarHeader = (header) => {
-        if (typeof header !== 'string') return '';
-        return header.trim().replace(/^"|"$/g, '').trim();
-    };
-
-    const nombreExternoGuardado = normalizarHeader(mapeo.nombresExternos[0]);
-    const index = cabeceras.findIndex(h => h && normalizarHeader(h) === nombreExternoGuardado);
-
-    if (index !== -1) {
-        return fila[index];
-    }
-    return undefined;
+    return fila[mapeo.columnaIndex];
 };
 
 const parsearFecha = (dateValue) => {
@@ -63,16 +50,13 @@ const parsearFecha = (dateValue) => {
         let year = parseInt(match[3], 10);
         if (year < 100) year += 2000;
 
-        // Se crea la fecha asumiendo siempre el formato DD/MM/YYYY
         const date = new Date(Date.UTC(year, month - 1, day));
         
-        // Se valida que la fecha creada sea coherente (ej: no es 31 de febrero)
         if (date && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day) {
             return date;
         }
     }
 
-    // Fallback para otros formatos si el regex principal falla
     const date = new Date(dateStr);
     if (!isNaN(date.getTime())) {
         return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -125,7 +109,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
     for (const [index, filaArray] of datosJson.entries()) {
         let idFilaParaError = `Fila ${index + 2}`;
         try {
-            const get = (campo) => obtenerValorConMapeo(filaArray, campo, mapeosDelCanal, cabeceras);
+            const get = (campo) => obtenerValorConMapeo(filaArray, campo, mapeosDelCanal);
 
             const idReservaCanal = get('idReservaCanal');
             if (idReservaCanal) idFilaParaError = idReservaCanal;

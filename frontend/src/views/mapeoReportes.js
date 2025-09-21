@@ -36,7 +36,7 @@ function renderizarCamposMapeo() {
 
     fieldsContainer.innerHTML = camposInternos.map(campo => {
         const mapeoExistente = mapeosDelCanal.find(m => m.campoInterno === campo.id);
-        const valorGuardado = (mapeoExistente && mapeoExistente.nombresExternos.length > 0) ? mapeoExistente.nombresExternos[0] : '';
+        const valorGuardado = (mapeoExistente && cabecerasArchivo[mapeoExistente.columnaIndex]) ? cabecerasArchivo[mapeoExistente.columnaIndex] : '';
         
         return `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
@@ -54,12 +54,11 @@ function renderizarCamposMapeo() {
         `;
     }).join('');
 
-    // Pre-seleccionar valores guardados
     fieldsContainer.querySelectorAll('select').forEach(select => {
         const campoId = select.dataset.campoInterno;
         const mapeo = mapeosDelCanal.find(m => m.campoInterno === campoId);
-        if (mapeo && mapeo.nombresExternos.length > 0) {
-            select.value = mapeo.nombresExternos[0];
+        if (mapeo && typeof mapeo.columnaIndex === 'number' && cabecerasArchivo[mapeo.columnaIndex]) {
+            select.value = cabecerasArchivo[mapeo.columnaIndex];
         }
     });
 
@@ -184,11 +183,15 @@ export function afterRender() {
         const selects = document.querySelectorAll('.mapeo-select');
         const mapeosParaGuardar = [];
         selects.forEach(select => {
-            if (select.value) { // Solo guardar si se ha seleccionado una columna
-                mapeosParaGuardar.push({
-                    campoInterno: select.dataset.campoInterno,
-                    nombreExterno: select.value
-                });
+            const nombreColumna = select.value;
+            if (nombreColumna) {
+                const index = cabecerasArchivo.indexOf(nombreColumna);
+                if (index !== -1) {
+                    mapeosParaGuardar.push({
+                        campoInterno: select.dataset.campoInterno,
+                        columnaIndex: index
+                    });
+                }
             }
         });
         
