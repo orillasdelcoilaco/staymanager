@@ -3,12 +3,30 @@ import { fetchAPI } from '../api.js';
 let todasLasReservas = [];
 let clientes = [];
 
-// Función para buscar el nombre de un cliente por su ID
+// --- NUEVA FUNCIÓN --- para normalizar la visualización de teléfonos
+function formatTelefono(telefono) {
+    if (!telefono) return 'N/A';
+    // Elimina todo lo que no sea un dígito
+    const digitos = telefono.toString().replace(/\D/g, '');
+    
+    // Maneja casos comunes de números chilenos
+    if (digitos.startsWith('569') && digitos.length === 11) {
+        return digitos;
+    }
+    if (digitos.length === 9 && digitos.startsWith('9')) {
+        return `56${digitos}`;
+    }
+    if (digitos.length === 8) { // Asume que falta el 9
+        return `569${digitos}`;
+    }
+    // Devuelve el número limpio si no coincide con los patrones
+    return digitos || 'N/A';
+}
+
 function obtenerCliente(clienteId) {
     return clientes.find(c => c.id === clienteId) || {};
 }
 
-// Lógica de la Tabla y Búsqueda
 function renderTabla(filtro = '') {
     const tbody = document.getElementById('reservas-tbody');
     if (!tbody) return;
@@ -33,32 +51,34 @@ function renderTabla(filtro = '') {
         if (!dateString) return '-';
         const date = new Date(dateString);
         if (isNaN(date.getTime())) {
-            return 'Fecha inválida';
+            return 'Inválida';
         }
-        return date.toLocaleDateString('es-CL', { timeZone: 'UTC' });
+        return date.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
     };
-
+    
+    // --- MODIFICADO --- Se aplica la clase text-xs para reducir tamaño de letra
+    // Se reduce el padding (py-2 px-3) para una tabla más compacta
+    // Se llama a la nueva función formatTelefono
     tbody.innerHTML = reservasFiltradas.map(r => {
         const cliente = obtenerCliente(r.clienteId);
         return `
-        <tr class="border-b">
-            <td class="py-3 px-4">${cliente.nombre || 'Cliente no encontrado'}</td>
-            <td class="py-3 px-4">${r.telefono || 'N/A'}</td>
-            <td class="py-3 px-4">${r.idReservaCanal}</td>
-            <td class="py-3 px-4">${r.alojamientoNombre}</td>
-            <td class="py-3 px-4">${r.canalNombre}</td>
-            <td class="py-3 px-4">${formatDate(r.fechaLlegada)}</td>
-            <td class="py-3 px-4">${formatDate(r.fechaSalida)}</td>
-            <td class="py-3 px-4">${r.estado}</td>
-            <td class="py-3 px-4">
-                <button data-id="${r.id}" class="edit-btn text-indigo-600 hover:text-indigo-800 text-sm font-medium mr-3">Editar</button>
-                <button data-id="${r.id}" class="delete-btn text-red-600 hover:text-red-800 text-sm font-medium">Eliminar</button>
+        <tr class="border-b text-xs hover:bg-gray-50">
+            <td class="py-2 px-3">${cliente.nombre || 'Cliente no encontrado'}</td>
+            <td class="py-2 px-3 font-mono">${formatTelefono(r.telefono)}</td>
+            <td class="py-2 px-3">${r.idReservaCanal}</td>
+            <td class="py-2 px-3">${r.alojamientoNombre}</td>
+            <td class="py-2 px-3">${r.canalNombre}</td>
+            <td class="py-2 px-3 whitespace-nowrap">${formatDate(r.fechaLlegada)}</td>
+            <td class="py-2 px-3 whitespace-nowrap">${formatDate(r.fechaSalida)}</td>
+            <td class="py-2 px-3">${r.estado}</td>
+            <td class="py-2 px-3 whitespace-nowrap">
+                <button data-id="${r.id}" class="edit-btn text-indigo-600 hover:text-indigo-800 font-medium">Editar</button>
+                <button data-id="${r.id}" class="delete-btn text-red-600 hover:text-red-800 font-medium ml-2">Eliminar</button>
             </td>
         </tr>
     `}).join('');
 }
 
-// Lógica Principal de la Vista
 export async function render() {
     try {
         [todasLasReservas, clientes] = await Promise.all([
@@ -69,6 +89,8 @@ export async function render() {
         return `<p class="text-red-500">Error al cargar las reservas. Por favor, intente de nuevo.</p>`;
     }
 
+    // --- MODIFICADO --- Se cambia el texto de los encabezados para ser más cortos y claros
+    // Se reduce el padding en la clase 'th' (definida en style.css, pero aquí se controla el texto)
     return `
         <div class="bg-white p-8 rounded-lg shadow">
             <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
@@ -81,15 +103,15 @@ export async function render() {
                 <table class="min-w-full bg-white">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="th">Cliente</th>
-                            <th class="th">Teléfono</th>
-                            <th class="th">ID Reserva</th>
-                            <th class="th">Alojamiento</th>
-                            <th class="th">Canal</th>
-                            <th class="th">Llegada</th>
-                            <th class="th">Salida</th>
-                            <th class="th">Estado</th>
-                            <th class="th">Acciones</th>
+                            <th class="th text-xs py-2 px-3">Cliente</th>
+                            <th class="th text-xs py-2 px-3">Teléfono</th>
+                            <th class="th text-xs py-2 px-3">ID Canal</th>
+                            <th class="th text-xs py-2 px-3">Alojamiento</th>
+                            <th class="th text-xs py-2 px-3">Canal</th>
+                            <th class="th text-xs py-2 px-3">Check-in</th>
+                            <th class="th text-xs py-2 px-3">Check-out</th>
+                            <th class="th text-xs py-2 px-3">Estado</th>
+                            <th class="th text-xs py-2 px-3">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="reservas-tbody"></tbody>
@@ -106,14 +128,12 @@ export function afterRender() {
     renderTabla();
     searchInput.addEventListener('input', (e) => renderTabla(e.target.value));
 
-    // Event listeners para los botones de acción (a implementar en el futuro)
     document.getElementById('reservas-tbody').addEventListener('click', async (e) => {
         const target = e.target;
         const id = target.dataset.id;
         if (!id) return;
 
         if (target.classList.contains('edit-btn')) {
-            // Lógica para editar
             alert(`Funcionalidad de editar para la reserva ${id} se implementará a continuación.`);
         }
 
