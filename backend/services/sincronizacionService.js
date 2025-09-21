@@ -37,43 +37,43 @@ const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal, cabeceras) => 
 };
 
 const parsearFecha = (dateValue) => {
+    console.log(`[parsearFecha] Recibido valor crudo: '${dateValue}' (Tipo: ${typeof dateValue})`);
     if (!dateValue) return null;
-    if (dateValue instanceof Date && !isNaN(dateValue)) return dateValue;
-
-    if (typeof dateValue === 'number') {
-        // Corrección para fechas de Excel (número de días desde 1899-12-30)
-        return new Date(Date.UTC(1899, 11, 30, 0, 0, 0, 0) + dateValue * 86400000);
+    if (dateValue instanceof Date && !isNaN(dateValue)) {
+        console.log(`[parsearFecha] Es una instancia de Date válida. Retornando: ${dateValue.toISOString()}`);
+        return dateValue;
     }
-
-    if (typeof dateValue !== 'string') return null;
-
-    let date;
+    if (typeof dateValue === 'number') {
+        const date = new Date(Date.UTC(1899, 11, 30, 0, 0, 0, 0) + dateValue * 86400000);
+        console.log(`[parsearFecha] Es un número (Excel). Convertido a: ${date.toISOString()}`);
+        return date;
+    }
+    if (typeof dateValue !== 'string') {
+        console.log(`[parsearFecha] No es un string válido. Retornando null.`);
+        return null;
+    }
+    
     const dateStr = dateValue.trim();
+    let date;
 
-    // Intenta formato AAAA-MM-DD
-    if (/^\d{4}[\\/.-]\d{1,2}[\\/.-]\d{1,2}/.test(dateStr)) {
+    if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
         date = new Date(dateStr.substring(0, 10) + 'T00:00:00Z');
-    // Intenta formato DD/MM/AAAA o DD-MM-AAAA
-    } else if (/^\d{1,2}[\\/.-]\d{1,2}[\\/.-]\d{2,4}/.test(dateStr)) {
-        const parts = dateStr.substring(0, 10).split(/[\\/.-]/);
-        if (parts.length === 3) {
-            const day = parts[0];
-            const month = parts[1];
-            let year = parts[2];
-            if (year.length === 2) year = `20${year}`;
-            date = new Date(`${year}-${month}-${day}T00:00:00Z`);
-        }
+    } else if (/^\d{2}\/\d{2}\/\d{4}/.test(dateStr)) {
+        const [day, month, year] = dateStr.split('/');
+        date = new Date(`${year}-${month}-${day}T00:00:00Z`);
     } else {
-        // Como último recurso, intenta que el motor de JS lo parsee
         date = new Date(dateStr);
     }
 
-    if (date && !isNaN(date.getTime())) {
+    if (!isNaN(date)) {
+        console.log(`[parsearFecha] Parseo exitoso. Fecha resultante: ${date.toISOString()}`);
         return date;
     }
-
+    
+    console.log(`[parsearFecha] No se pudo parsear la fecha. Retornando null.`);
     return null;
-};
+}
+
 
 const normalizarString = (texto) => {
     if (!texto) return '';
@@ -145,13 +145,20 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 const valorNumerico = parseFloat(valorTotalCrudo.toString().replace(/[^0-9.,$]+/g, "").replace(',', '.'));
                 valorTotal = moneda === 'USD' ? valorNumerico * valorDolarHoy : valorNumerico;
             }
+            
+            console.log(`--- Procesando Fila ${index + 2} (Reserva: ${idReservaCanal}) ---`);
+            const fechaLlegadaCruda = get('fechaLlegada');
+            const fechaSalidaCruda = get('fechaSalida');
+            console.log(`Valor crudo para fechaLlegada: '${fechaLlegadaCruda}'`);
+            console.log(`Valor crudo para fechaSalida: '${fechaSalidaCruda}'`);
+
 
             const datosReserva = {
                 idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
                 estado: get('estado') || 'Pendiente',
                 fechaReserva: parsearFecha(get('fechaReserva')),
-                fechaLlegada: parsearFecha(get('fechaLlegada')),
-                fechaSalida: parsearFecha(get('fechaSalida')),
+                fechaLlegada: parsearFecha(fechaLlegadaCruda),
+                fechaSalida: parsearFecha(fechaSalidaCruda),
                 totalNoches: parseInt(get('totalNoches')) || 0,
                 cantidadHuespedes: parseInt(get('invitados')) || 0,
                 clienteId: resultadoCliente.cliente.id,
@@ -163,6 +170,13 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                     pendiente: parseFloat(get('pendiente')) || 0
                 },
             };
+            
+            if (!datosReserva.fechaLlegada || !datosReserva.fechaSalida) {
+                console.error(`Error de fecha en fila ${index + 2}: Llegada o Salida inválida. Saltando...`);
+                resultados.errores.push({ fila: idFilaParaError, error: 'Fecha de llegada o salida no pudo ser interpretada.' });
+                continue; // Saltar esta fila
+            }
+
             
             const res = await crearOActualizarReserva(db, empresaId, datosReserva);
             if(res.status === 'creada') resultados.reservasCreadas++;
