@@ -8,17 +8,12 @@ const { obtenerValorDolar } = require('./dolarService');
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 
 const leerArchivo = (buffer, nombreArchivo) => {
-    const esCsv = nombreArchivo && nombreArchivo.toLowerCase().endsWith('.csv');
-    // Para CSVs con caracteres latinos, usamos decodificación 'latin1' (Windows-1252)
-    const opcionesLectura = esCsv 
-        ? { type: buffer.toString('latin1').startsWith('"') ? 'string' : 'buffer', codepage: 1252 } 
-        : { type: 'buffer' };
-    
-    const data = esCsv && opcionesLectura.type === 'string' ? buffer.toString('latin1') : buffer;
-    
-    const workbook = xlsx.read(data, { ...opcionesLectura, cellDates: true });
+    // Al pasar el buffer directamente, la librería xlsx se encarga de la detección de formato y codificación.
+    // Se mantiene cellDates para asegurar que las fechas se interpreten como objetos Date siempre que sea posible.
+    const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
+    // header: 1 para obtener un array de arrays, raw: false para obtener valores formateados.
     return xlsx.utils.sheet_to_json(sheet, { header: 1, raw: false });
 };
 
