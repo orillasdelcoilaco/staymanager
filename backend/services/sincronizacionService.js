@@ -36,42 +36,43 @@ const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal, cabeceras) => 
     return index !== -1 ? fila[index] : undefined;
 };
 
-const parsearFecha = (fechaInput) => {
-    if (!fechaInput) return null;
-    if (fechaInput instanceof Date && !isNaN(fechaInput)) return fechaInput;
+const parsearFecha = (dateValue) => {
+    if (!dateValue) return null;
+    if (dateValue instanceof Date && !isNaN(dateValue)) return dateValue;
 
-    if (typeof fechaInput === 'number') {
-        const fechaBase = new Date(Date.UTC(1899, 11, 30));
-        fechaBase.setUTCDate(fechaBase.getUTCDate() + fechaInput);
-        return fechaBase;
+    if (typeof dateValue === 'number') {
+        // Corrección para fechas de Excel (número de días desde 1899-12-30)
+        return new Date(Date.UTC(1899, 11, 30, 0, 0, 0, 0) + dateValue * 86400000);
     }
 
-    const fechaStr = fechaInput.toString().trim();
+    if (typeof dateValue !== 'string') return null;
 
-    let match = fechaStr.match(/^(\d{4})[\\/.-](\d{1,2})[\\/.-](\d{1,2})/);
-    if (match) {
-        const anio = parseInt(match[1], 10);
-        const mes = parseInt(match[2], 10) - 1;
-        const dia = parseInt(match[3], 10);
-        const date = new Date(Date.UTC(anio, mes, dia));
-        if (!isNaN(date.getTime())) return date;
+    let date;
+    const dateStr = dateValue.trim();
+
+    // Intenta formato AAAA-MM-DD
+    if (/^\d{4}[\\/.-]\d{1,2}[\\/.-]\d{1,2}/.test(dateStr)) {
+        date = new Date(dateStr.substring(0, 10) + 'T00:00:00Z');
+    // Intenta formato DD/MM/AAAA o DD-MM-AAAA
+    } else if (/^\d{1,2}[\\/.-]\d{1,2}[\\/.-]\d{2,4}/.test(dateStr)) {
+        const parts = dateStr.substring(0, 10).split(/[\\/.-]/);
+        if (parts.length === 3) {
+            const day = parts[0];
+            const month = parts[1];
+            let year = parts[2];
+            if (year.length === 2) year = `20${year}`;
+            date = new Date(`${year}-${month}-${day}T00:00:00Z`);
+        }
+    } else {
+        // Como último recurso, intenta que el motor de JS lo parsee
+        date = new Date(dateStr);
     }
 
-    match = fechaStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{2,4})/);
-    if (match) {
-        let dia = parseInt(match[1], 10);
-        let mes = parseInt(match[2], 10) - 1;
-        let anio = parseInt(match[3], 10);
-        if (anio < 100) anio += 2000;
-        
-        if (dia > 12 && mes > 12) return null;
-        
-        const date = new Date(Date.UTC(anio, mes, dia));
-        if (!isNaN(date.getTime())) return date;
+    if (date && !isNaN(date.getTime())) {
+        return date;
     }
 
-    const date = new Date(fechaStr);
-    return !isNaN(date.getTime()) ? date : null;
+    return null;
 };
 
 const normalizarString = (texto) => {
