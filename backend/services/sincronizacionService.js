@@ -61,33 +61,23 @@ const parsearFecha = (dateValue) => {
     }
 
     const dateStr = dateValue.trim();
-    let match = dateStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{2,4})/);
+    const match = dateStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{2,4})/);
     if (match) {
-        let part1 = parseInt(match[1], 10);
-        let part2 = parseInt(match[2], 10);
+        const day = parseInt(match[1], 10);
+        const month = parseInt(match[2], 10);
         let year = parseInt(match[3], 10);
         if (year < 100) year += 2000;
 
-        let day, month;
-        
-        if (part1 > 12) {
-            day = part1;
-            month = part2;
-        } else if (part2 > 12) {
-            day = part2;
-            month = part1;
-        } else {
-            month = part1;
-            day = part2;
-        }
-
+        // Se crea la fecha asumiendo siempre el formato DD/MM/YYYY
         const date = new Date(Date.UTC(year, month - 1, day));
         
+        // Se valida que la fecha creada sea coherente (ej: no es 31 de febrero)
         if (date && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day) {
             return date;
         }
     }
 
+    // Fallback para otros formatos si el regex principal falla
     const date = new Date(dateStr);
     if (!isNaN(date.getTime())) {
         return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
