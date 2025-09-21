@@ -30,8 +30,8 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
             hayCambios = true;
         }
 
-        // 2. Reparamos el alojamiento si no estaba identificado
-        if (!reservaExistente.alojamientoId && datosReserva.alojamientoId) {
+        // 2. Reparamos el alojamiento si no estaba identificado o es el placeholder
+        if ((!reservaExistente.alojamientoId || reservaExistente.alojamientoNombre === 'Alojamiento no identificado') && datosReserva.alojamientoId) {
             datosAActualizar.alojamientoId = datosReserva.alojamientoId;
             datosAActualizar.alojamientoNombre = datosReserva.alojamientoNombre;
             hayCambios = true;
