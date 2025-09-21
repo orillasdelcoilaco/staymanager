@@ -5,6 +5,7 @@ const { obtenerConversionesPorEmpresa } = require('./conversionesService');
 const { obtenerCanalesPorEmpresa } = require('./canalesService');
 const { obtenerMapeosPorEmpresa } = require('./mapeosService');
 const { obtenerValorDolar } = require('./dolarService');
+const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 
 const leerArchivo = (buffer, nombreArchivo) => {
     const esCsv = nombreArchivo && nombreArchivo.toLowerCase().endsWith('.csv');
@@ -42,19 +43,15 @@ const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal, cabeceras) => 
 };
 
 const parsearFecha = (dateValue) => {
-    console.log(`[parsearFecha] Recibido valor crudo: '${dateValue}' (Tipo: ${typeof dateValue})`);
     if (!dateValue) return null;
     if (dateValue instanceof Date && !isNaN(dateValue)) {
-        console.log(`[parsearFecha] Es una instancia de Date válida. Retornando: ${dateValue.toISOString()}`);
         return dateValue;
     }
     if (typeof dateValue === 'number') {
         const date = new Date(Date.UTC(1899, 11, 30, 0, 0, 0, 0) + dateValue * 86400000);
-        console.log(`[parsearFecha] Es un número (Excel). Convertido a: ${date.toISOString()}`);
         return date;
     }
     if (typeof dateValue !== 'string') {
-        console.log(`[parsearFecha] No es un string válido. Retornando null.`);
         return null;
     }
 
@@ -82,25 +79,33 @@ const parsearFecha = (dateValue) => {
         const date = new Date(Date.UTC(year, month - 1, day));
         
         if (date && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day) {
-            console.log(`[parsearFecha] Parseo exitoso (formato con /). Fecha resultante: ${date.toISOString()}`);
             return date;
         }
     }
 
     const date = new Date(dateStr);
     if (!isNaN(date.getTime())) {
-        console.log(`[parsearFecha] Parseo exitoso (fallback). Fecha resultante: ${date.toISOString()}`);
         return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     }
 
-    console.log(`[parsearFecha] No se pudo parsear la fecha. Retornando null.`);
     return null;
 };
-
 
 const normalizarString = (texto) => {
     if (!texto) return '';
     return texto.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, ' ');
+};
+
+const normalizarEstado = (estado) => {
+    if (!estado) return 'Confirmada';
+    const estadoLower = estado.toString().toLowerCase();
+    if (estadoLower.includes('cancel') || estadoLower.includes('cancellation')) {
+        return 'Cancelada';
+    }
+    if (estadoLower.includes('ok') || estadoLower.includes('confirm')) {
+        return 'Confirmada';
+    }
+    return 'Confirmada'; 
 };
 
 const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, nombreArchivoOriginal = '') => {
@@ -112,13 +117,18 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
     const cabeceras = rows[0];
     const datosJson = rows.slice(1);
 
-    const conversionesAlojamiento = await obtenerConversionesPorEmpresa(db, empresaId);
-    const todosLosMapeos = await obtenerMapeosPorEmpresa(db, empresaId);
-    const valorDolarHoy = await obtenerValorDolar(new Date());
+    const [conversionesAlojamiento, todosLosMapeos, canales, propiedades] = await Promise.all([
+        obtenerConversionesPorEmpresa(db, empresaId),
+        obtenerMapeosPorEmpresa(db, empresaId),
+        obtenerCanalesPorEmpresa(db, empresaId),
+        obtenerPropiedadesPorEmpresa(db, empresaId)
+    ]);
 
     const mapeosDelCanal = todosLosMapeos.filter(m => m.canalId === canalId);
-    const canal = (await obtenerCanalesPorEmpresa(db, empresaId)).find(c => c.id === canalId);
-    const canalNombre = canal ? canal.nombre : 'Canal Desconocido';
+    const canal = canales.find(c => c.id === canalId);
+    if (!canal) throw new Error(`El canal con ID ${canalId} no fue encontrado.`);
+    const canalNombre = canal.nombre;
+    const monedaCanal = canal.moneda || 'CLP';
     
     let resultados = { totalFilas: datosJson.length, reservasCreadas: 0, reservasActualizadas: 0, reservasSinCambios: 0, clientesCreados: 0, filasIgnoradas: 0, errores: [] };
 
@@ -136,10 +146,18 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 continue;
             }
 
+            const fechaLlegada = parsearFecha(get('fechaLlegada'));
+            const fechaSalida = parsearFecha(get('fechaSalida'));
+
+            if (!fechaLlegada || !fechaSalida || fechaSalida <= fechaLlegada) {
+                resultados.errores.push({ fila: idFilaParaError, error: 'Fechas de llegada o salida inválidas.' });
+                continue;
+            }
+
             const nombreCliente = get('nombreCliente');
             const telefonoCliente = get('telefonoCliente');
             const correoCliente = get('correoCliente');
-            const pais = get('pais');
+            let pais = get('pais') || 'CL';
             let datosParaCliente = { nombre: nombreCliente, telefono: telefonoCliente, email: correoCliente, pais };
             if (!telefonoCliente) {
                 const nombreBase = nombreCliente || 'Huésped';
@@ -152,37 +170,37 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             const nombreExternoAlojamiento = get('alojamientoNombre');
             let alojamientoId = null;
             let alojamientoNombre = 'Alojamiento no identificado';
+            let capacidadAlojamiento = 0;
             const nombreExternoNormalizado = normalizarString(nombreExternoAlojamiento);
             if (nombreExternoNormalizado) {
                 const conversion = conversionesAlojamiento.find(c => c.canalId === canalId && c.nombreExterno.split(';').map(normalizarString).includes(nombreExternoNormalizado));
                 if (conversion) {
                     alojamientoId = conversion.alojamientoId;
                     alojamientoNombre = conversion.alojamientoNombre;
+                    const propiedad = propiedades.find(p => p.id === alojamientoId);
+                    if (propiedad) capacidadAlojamiento = propiedad.capacidad;
                 }
             }
 
-            const valorTotalCrudo = get('valorTotal');
-            const moneda = valorTotalCrudo?.toString().toUpperCase().includes('USD') ? 'USD' : 'CLP';
-            let valorTotal = 0;
-            if (valorTotalCrudo) {
-                const valorNumerico = parseFloat(valorTotalCrudo.toString().replace(/[^0-9.,$]+/g, "").replace(',', '.'));
-                valorTotal = moneda === 'USD' ? valorNumerico * valorDolarHoy : valorNumerico;
+            let valorTotal = parseFloat(get('valorTotal')?.toString().replace(/[^0-9.,$]+/g, "").replace(',', '.')) || 0;
+            if (monedaCanal === 'USD') {
+                const valorDolarDia = await obtenerValorDolar(fechaLlegada);
+                valorTotal = valorTotal * valorDolarDia;
             }
-            
-            console.log(`--- Procesando Fila ${index + 2} (Reserva: ${idReservaCanal}) ---`);
-            const fechaLlegadaCruda = get('fechaLlegada');
-            const fechaSalidaCruda = get('fechaSalida');
-            
+
+            const totalNoches = Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24));
+
             const datosReserva = {
                 idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
-                estado: get('estado') || 'Pendiente',
+                estado: normalizarEstado(get('estado')),
                 fechaReserva: parsearFecha(get('fechaReserva')),
-                fechaLlegada: parsearFecha(fechaLlegadaCruda),
-                fechaSalida: parsearFecha(fechaSalidaCruda),
-                totalNoches: parseInt(get('totalNoches')) || 0,
-                cantidadHuespedes: parseInt(get('invitados')) || 0,
+                fechaLlegada,
+                fechaSalida,
+                totalNoches: totalNoches > 0 ? totalNoches : 1,
+                cantidadHuespedes: parseInt(get('invitados')) || capacidadAlojamiento,
                 clienteId: resultadoCliente.cliente.id,
-                alojamientoId, alojamientoNombre, moneda,
+                alojamientoId, alojamientoNombre,
+                moneda: 'CLP',
                 valores: {
                     valorTotal,
                     comision: parseFloat(get('comision')?.toString().replace(/[^0-9.,$]+/g, "").replace(',', '.')) || 0,
@@ -190,12 +208,6 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                     pendiente: parseFloat(get('pendiente')) || 0
                 },
             };
-            
-            if (!datosReserva.fechaLlegada || !datosReserva.fechaSalida) {
-                console.error(`Error de fecha en fila ${index + 2}: Llegada o Salida inválida. Saltando...`);
-                resultados.errores.push({ fila: idFilaParaError, error: 'Fecha de llegada o salida no pudo ser interpretada.' });
-                continue; // Saltar esta fila
-            }
             
             const res = await crearOActualizarReserva(db, empresaId, datosReserva);
             if(res.status === 'creada') resultados.reservasCreadas++;

@@ -15,6 +15,7 @@ const crearCanal = async (db, empresaId, datosCanal) => {
         nombre: datosCanal.nombre,
         clienteIdCanal: datosCanal.clienteIdCanal || '',
         descripcion: datosCanal.descripcion || '',
+        moneda: datosCanal.moneda || 'CLP', // <-- AÑADIDO
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
     };
     

@@ -15,10 +15,12 @@ function abrirModal(canal = null) {
         form.nombre.value = canal.nombre;
         form.clienteIdCanal.value = canal.clienteIdCanal || '';
         form.descripcion.value = canal.descripcion || '';
+        form.moneda.value = canal.moneda || 'CLP'; // <-- AÑADIDO
     } else {
         editandoCanal = null;
         modalTitle.textContent = 'Nuevo Canal';
         form.reset();
+        form.moneda.value = 'CLP'; // <-- AÑADIDO
     }
     
     modal.classList.remove('hidden');
@@ -36,7 +38,7 @@ function renderTabla() {
     if (!tbody) return;
 
     if (canales.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-gray-500 py-4">No hay canales registrados.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">No hay canales registrados.</td></tr>';
         return;
     }
 
@@ -44,6 +46,7 @@ function renderTabla() {
         <tr class="border-b">
             <td class="py-3 px-4 font-medium">${c.nombre}</td>
             <td class="py-3 px-4">${c.clienteIdCanal || '-'}</td>
+            <td class="py-3 px-4">${c.moneda}</td>
             <td class="py-3 px-4 truncate max-w-sm">${c.descripcion || '-'}</td>
             <td class="py-3 px-4">
                 <button data-id="${c.id}" class="edit-btn text-indigo-600 hover:text-indigo-800 text-sm font-medium mr-3">Editar</button>
@@ -52,6 +55,7 @@ function renderTabla() {
         </tr>
     `).join('');
 }
+
 
 // Lógica principal de la vista
 export async function render() {
@@ -74,10 +78,11 @@ export async function render() {
                 <table class="min-w-full bg-white">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="text-left py-3 px-4 font-semibold text-sm text-gray-600">Nombre</th>
-                            <th class="text-left py-3 px-4 font-semibold text-sm text-gray-600">ID Cliente del Canal</th>
-                            <th class="text-left py-3 px-4 font-semibold text-sm text-gray-600">Descripción</th>
-                            <th class="text-left py-3 px-4 font-semibold text-sm text-gray-600">Acciones</th>
+                            <th class="th">Nombre</th>
+                            <th class="th">ID Cliente del Canal</th>
+                            <th class="th">Moneda Reporte</th>
+                            <th class="th">Descripción</th>
+                            <th class="th">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="canales-tbody"></tbody>
@@ -92,17 +97,26 @@ export async function render() {
                     <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800">&times;</button>
                 </div>
                 <form id="canal-form">
-                    <div class="mb-4">
-                        <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre del Canal</label>
-                        <input type="text" id="nombre" name="nombre" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="mb-4">
+                            <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre del Canal</label>
+                            <input type="text" id="nombre" name="nombre" required class="mt-1 form-input">
+                        </div>
+                        <div class="mb-4">
+                            <label for="moneda" class="block text-sm font-medium text-gray-700">Moneda del Reporte</label>
+                            <select id="moneda" name="moneda" class="mt-1 form-select">
+                                <option value="CLP">CLP (Peso Chileno)</option>
+                                <option value="USD">USD (Dólar Americano)</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="mb-4">
                         <label for="clienteIdCanal" class="block text-sm font-medium text-gray-700">ID de Cliente (Opcional)</label>
-                        <input type="text" id="clienteIdCanal" name="clienteIdCanal" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <input type="text" id="clienteIdCanal" name="clienteIdCanal" class="mt-1 form-input">
                     </div>
                     <div class="mb-4">
                         <label for="descripcion" class="block text-sm font-medium text-gray-700">Descripción (Opcional)</label>
-                        <textarea id="descripcion" name="descripcion" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                        <textarea id="descripcion" name="descripcion" rows="3" class="mt-1 form-input"></textarea>
                     </div>
                     <div class="flex justify-end pt-4">
                         <button type="button" id="cancel-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md mr-2 hover:bg-gray-300">Cancelar</button>
@@ -129,7 +143,8 @@ export function afterRender() {
         const datos = {
             nombre: form.nombre.value,
             clienteIdCanal: form.clienteIdCanal.value,
-            descripcion: form.descripcion.value
+            descripcion: form.descripcion.value,
+            moneda: form.moneda.value // <-- AÑADIDO
         };
 
         try {
