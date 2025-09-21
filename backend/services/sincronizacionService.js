@@ -38,20 +38,38 @@ const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal, cabeceras) => 
 
 const parsearFecha = (fechaInput) => {
     if (!fechaInput) return null;
-    if (fechaInput instanceof Date) return fechaInput;
+    if (fechaInput instanceof Date && !isNaN(fechaInput)) return fechaInput;
+
     if (typeof fechaInput === 'number') {
         const fechaBase = new Date(Date.UTC(1899, 11, 30));
         fechaBase.setUTCDate(fechaBase.getUTCDate() + fechaInput);
         return fechaBase;
     }
+
     const fechaStr = fechaInput.toString().trim();
-    const matchLatino = fechaStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{2,4})/);
-    if (matchLatino) {
-        let dia = parseInt(matchLatino[1], 10), mes = parseInt(matchLatino[2], 10) - 1, anio = parseInt(matchLatino[3], 10);
-        if (anio < 100) anio += 2000;
+
+    let match = fechaStr.match(/^(\d{4})[\\/.-](\d{1,2})[\\/.-](\d{1,2})/);
+    if (match) {
+        const anio = parseInt(match[1], 10);
+        const mes = parseInt(match[2], 10) - 1;
+        const dia = parseInt(match[3], 10);
         const date = new Date(Date.UTC(anio, mes, dia));
         if (!isNaN(date.getTime())) return date;
     }
+
+    match = fechaStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{2,4})/);
+    if (match) {
+        let dia = parseInt(match[1], 10);
+        let mes = parseInt(match[2], 10) - 1;
+        let anio = parseInt(match[3], 10);
+        if (anio < 100) anio += 2000;
+        
+        if (dia > 12 && mes > 12) return null;
+        
+        const date = new Date(Date.UTC(anio, mes, dia));
+        if (!isNaN(date.getTime())) return date;
+    }
+
     const date = new Date(fechaStr);
     return !isNaN(date.getTime()) ? date : null;
 };

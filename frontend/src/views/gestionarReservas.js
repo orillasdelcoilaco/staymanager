@@ -25,14 +25,23 @@ function renderTabla(filtro = '') {
         tbody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-500 py-4">No se encontraron reservas.</td></tr>';
         return;
     }
+    
+    const formatDate = (dateString) => {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) {
+            return 'Fecha inválida';
+        }
+        return date.toLocaleDateString();
+    };
 
     tbody.innerHTML = reservasFiltradas.map(r => `
         <tr class="border-b">
             <td class="py-3 px-4">${obtenerNombreCliente(r.clienteId)}</td>
             <td class="py-3 px-4">${r.alojamientoNombre}</td>
             <td class="py-3 px-4">${r.canalNombre}</td>
-            <td class="py-3 px-4">${r.fechaLlegada ? new Date(r.fechaLlegada).toLocaleDateString() : '-'}</td>
-            <td class="py-3 px-4">${r.fechaSalida ? new Date(r.fechaSalida).toLocaleDateString() : '-'}</td>
+            <td class="py-3 px-4">${formatDate(r.fechaLlegada)}</td>
+            <td class="py-3 px-4">${formatDate(r.fechaSalida)}</td>
             <td class="py-3 px-4 text-center">${r.totalNoches}</td>
             <td class="py-3 px-4 text-center">${r.cantidadHuespedes}</td>
             <td class="py-3 px-4">${r.estado}</td>
