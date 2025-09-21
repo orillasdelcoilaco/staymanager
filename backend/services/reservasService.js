@@ -61,10 +61,21 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
 };
 
 const obtenerReservasPorEmpresa = async (db, empresaId) => {
-    // La consulta de ordenamiento la haremos en el frontend para evitar índices complejos
     const snapshot = await db.collection('empresas').doc(empresaId).collection('reservas').orderBy('fechaLlegada', 'desc').get();
     if (snapshot.empty) return [];
-    return snapshot.docs.map(doc => doc.data());
+
+    return snapshot.docs.map(doc => {
+        const data = doc.data();
+        // Convertir Timestamps de Firestore a strings ISO para compatibilidad con el frontend
+        return {
+            ...data,
+            fechaLlegada: data.fechaLlegada?.toDate().toISOString() || null,
+            fechaSalida: data.fechaSalida?.toDate().toISOString() || null,
+            fechaCreacion: data.fechaCreacion?.toDate().toISOString() || null,
+            fechaActualizacion: data.fechaActualizacion?.toDate().toISOString() || null,
+            fechaReserva: data.fechaReserva?.toDate().toISOString() || null
+        };
+    });
 };
 
 const eliminarReserva = async (db, empresaId, reservaId) => {

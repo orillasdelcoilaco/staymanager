@@ -18,21 +18,21 @@ function renderTabla(filtro = '') {
     const reservasFiltradas = todasLasReservas.filter(r => 
         obtenerNombreCliente(r.clienteId).toLowerCase().includes(filtroLowerCase) ||
         r.alojamientoNombre.toLowerCase().includes(filtroLowerCase) ||
-        r.idReservaCanal.toLowerCase().includes(filtroLowerCase)
+        (r.idReservaCanal && r.idReservaCanal.toLowerCase().includes(filtroLowerCase))
     );
 
     if (reservasFiltradas.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-500 py-4">No se encontraron reservas.</td></tr>';
         return;
     }
-    
+
     const formatDate = (dateString) => {
         if (!dateString) return '-';
         const date = new Date(dateString);
         if (isNaN(date.getTime())) {
             return 'Fecha inválida';
         }
-        return date.toLocaleDateString();
+        return date.toLocaleDateString('es-CL', { timeZone: 'UTC' });
     };
 
     tbody.innerHTML = reservasFiltradas.map(r => `
@@ -42,8 +42,8 @@ function renderTabla(filtro = '') {
             <td class="py-3 px-4">${r.canalNombre}</td>
             <td class="py-3 px-4">${formatDate(r.fechaLlegada)}</td>
             <td class="py-3 px-4">${formatDate(r.fechaSalida)}</td>
-            <td class="py-3 px-4 text-center">${r.totalNoches}</td>
-            <td class="py-3 px-4 text-center">${r.cantidadHuespedes}</td>
+            <td class="py-3 px-4 text-center">${r.totalNoches || '-'}</td>
+            <td class="py-3 px-4 text-center">${r.cantidadHuespedes || '-'}</td>
             <td class="py-3 px-4">${r.estado}</td>
         </tr>
     `).join('');
