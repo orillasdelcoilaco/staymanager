@@ -1,6 +1,7 @@
 const express = require('express');
 const {
     obtenerReservasPorEmpresa,
+    actualizarReservaManualmente,
     eliminarReserva
 } = require('../services/reservasService');
 
@@ -11,6 +12,15 @@ module.exports = (db) => {
         try {
             const reservas = await obtenerReservasPorEmpresa(db, req.user.empresaId);
             res.status(200).json(reservas);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    router.put('/:id', async (req, res) => {
+        try {
+            const reservaActualizada = await actualizarReservaManualmente(db, req.user.empresaId, req.params.id, req.body);
+            res.status(200).json(reservaActualizada);
         } catch (error) {
             res.status(500).json({ error: error.message });
         }

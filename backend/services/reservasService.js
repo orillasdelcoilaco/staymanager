@@ -2,62 +2,81 @@ const admin = require('firebase-admin');
 
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
-    
     const q = reservasRef.where('idReservaCanal', '==', datosReserva.idReservaCanal);
     const snapshot = await q.get();
 
     if (snapshot.empty) {
-        // --- La reserva es nueva, se crea como antes ---
         const nuevaReservaRef = reservasRef.doc();
         const nuevaReserva = {
             id: nuevaReservaRef.id,
             ...datosReserva,
-            fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
+            fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
+            edicionesManuales: {}
         };
         await nuevaReservaRef.set(nuevaReserva);
         return { reserva: nuevaReserva, status: 'creada' };
     } else {
-        // --- La reserva ya existe, aplicamos la lógica de actualización inteligente ---
         const reservaDoc = snapshot.docs[0];
         const reservaExistente = reservaDoc.data();
+        const ediciones = reservaExistente.edicionesManuales || {};
         
         let hayCambios = false;
         const datosAActualizar = {};
 
-        // 1. Comparamos el estado
-        if (reservaExistente.estado !== datosReserva.estado && datosReserva.estado) {
+        if (!ediciones.estado && reservaExistente.estado !== datosReserva.estado && datosReserva.estado) {
             datosAActualizar.estado = datosReserva.estado;
             hayCambios = true;
         }
 
-        // 2. Reparamos el alojamiento si no estaba identificado o es el placeholder
-        if ((!reservaExistente.alojamientoId || reservaExistente.alojamientoNombre === 'Alojamiento no identificado') && datosReserva.alojamientoId) {
+        if (!ediciones.alojamientoId && (!reservaExistente.alojamientoId || reservaExistente.alojamientoNombre === 'Alojamiento no identificado') && datosReserva.alojamientoId) {
             datosAActualizar.alojamientoId = datosReserva.alojamientoId;
             datosAActualizar.alojamientoNombre = datosReserva.alojamientoNombre;
             hayCambios = true;
         }
 
-        // 3. Reparamos las fechas si faltaban
-        if (!reservaExistente.fechaLlegada && datosReserva.fechaLlegada) {
+        if (!ediciones.fechaLlegada && !reservaExistente.fechaLlegada && datosReserva.fechaLlegada) {
             datosAActualizar.fechaLlegada = datosReserva.fechaLlegada;
             hayCambios = true;
         }
-        if (!reservaExistente.fechaSalida && datosReserva.fechaSalida) {
+        if (!ediciones.fechaSalida && !reservaExistente.fechaSalida && datosReserva.fechaSalida) {
             datosAActualizar.fechaSalida = datosReserva.fechaSalida;
             hayCambios = true;
         }
         
-        // Si detectamos algún cambio, actualizamos y reportamos
         if (hayCambios) {
             datosAActualizar.fechaActualizacion = admin.firestore.FieldValue.serverTimestamp();
             await reservaDoc.ref.update(datosAActualizar);
             const dataActualizada = { ...reservaExistente, ...datosAActualizar };
             return { reserva: dataActualizada, status: 'actualizada' };
         } else {
-            // Si no hay ningún cambio, no hacemos nada
             return { reserva: reservaExistente, status: 'sin_cambios' };
         }
     }
+};
+
+const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevos) => {
+    const reservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(reservaId);
+    const reservaDoc = await reservaRef.get();
+    if (!reservaDoc.exists) {
+        throw new Error('La reserva no existe.');
+    }
+    const reservaExistente = reservaDoc.data();
+    const edicionesManuales = reservaExistente.edicionesManuales || {};
+
+    const datosAActualizar = { ...datosNuevos };
+
+    // Compara campo por campo para marcar las ediciones manuales
+    Object.keys(datosNuevos).forEach(key => {
+        if (JSON.stringify(reservaExistente[key]) !== JSON.stringify(datosNuevos[key])) {
+            edicionesManuales[key] = true;
+        }
+    });
+
+    datosAActualizar.edicionesManuales = edicionesManuales;
+    datosAActualizar.fechaActualizacion = admin.firestore.FieldValue.serverTimestamp();
+    
+    await reservaRef.update(datosAActualizar);
+    return { id: reservaId, ...datosAActualizar };
 };
 
 const obtenerReservasPorEmpresa = async (db, empresaId) => {
@@ -69,9 +88,7 @@ const obtenerReservasPorEmpresa = async (db, empresaId) => {
     if (reservasSnapshot.empty) return [];
 
     const clientesMap = new Map();
-    clientesSnapshot.forEach(doc => {
-        clientesMap.set(doc.id, doc.data());
-    });
+    clientesSnapshot.forEach(doc => clientesMap.set(doc.id, doc.data()));
 
     return reservasSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -80,6 +97,7 @@ const obtenerReservasPorEmpresa = async (db, empresaId) => {
         return {
             ...data,
             telefono: cliente ? cliente.telefono : 'N/A',
+            nombreCliente: cliente ? cliente.nombre : 'Cliente no encontrado',
             fechaLlegada: data.fechaLlegada?.toDate().toISOString() || null,
             fechaSalida: data.fechaSalida?.toDate().toISOString() || null,
             fechaCreacion: data.fechaCreacion?.toDate().toISOString() || null,
@@ -97,5 +115,6 @@ const eliminarReserva = async (db, empresaId, reservaId) => {
 module.exports = {
     crearOActualizarReserva,
     obtenerReservasPorEmpresa,
+    actualizarReservaManualmente,
     eliminarReserva
 };

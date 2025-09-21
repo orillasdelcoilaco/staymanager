@@ -10,7 +10,6 @@ const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 const leerArchivo = (buffer, nombreArchivo) => {
     const esCsv = nombreArchivo && nombreArchivo.toLowerCase().endsWith('.csv');
 
-    // Solución definitiva: Si es CSV, lo decodificamos explícitamente como UTF-8.
     if (esCsv) {
         const data = buffer.toString('utf8');
         const workbook = xlsx.read(data, { type: 'string', cellDates: true });
@@ -19,7 +18,6 @@ const leerArchivo = (buffer, nombreArchivo) => {
         return xlsx.utils.sheet_to_json(sheet, { header: 1, raw: false });
     }
 
-    // Para otros formatos (.xlsx), el método del buffer sigue siendo el mejor.
     const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
@@ -55,15 +53,39 @@ const parsearFecha = (dateValue) => {
     }
 
     const dateStr = dateValue.trim();
-    const match = dateStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{2,4})/);
+
+    let match = dateStr.match(/^(\d{4})[\\/.-](\d{1,2})[\\/.-](\d{1,2})/);
     if (match) {
-        const day = parseInt(match[1], 10);
+        const year = parseInt(match[1], 10);
         const month = parseInt(match[2], 10);
+        const day = parseInt(match[3], 10);
+        const date = new Date(Date.UTC(year, month - 1, day));
+        if (date && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day) {
+            return date;
+        }
+    }
+
+    match = dateStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{2,4})/);
+    if (match) {
+        let part1 = parseInt(match[1], 10);
+        let part2 = parseInt(match[2], 10);
         let year = parseInt(match[3], 10);
         if (year < 100) year += 2000;
 
-        const date = new Date(Date.UTC(year, month - 1, day));
+        let day, month;
         
+        if (part1 > 12) { 
+            day = part1;
+            month = part2;
+        } else if (part2 > 12) { 
+            day = part2;
+            month = part1;
+        } else {
+            month = part1;
+            day = part2;
+        }
+
+        const date = new Date(Date.UTC(year, month - 1, day));
         if (date && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day) {
             return date;
         }
@@ -132,12 +154,12 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 continue;
             }
 
-            const fechaLlegada = parsearFecha(get('fechaLlegada'));
-            const fechaSalida = parsearFecha(get('fechaSalida'));
+            let fechaLlegada = parsearFecha(get('fechaLlegada'));
+            let fechaSalida = parsearFecha(get('fechaSalida'));
 
-            if (!fechaLlegada || !fechaSalida || fechaSalida <= fechaLlegada) {
-                resultados.errores.push({ fila: idFilaParaError, error: 'Fechas de llegada o salida inválidas.' });
-                continue;
+            if (fechaLlegada && fechaSalida && fechaSalida <= fechaLlegada) {
+                fechaLlegada = null;
+                fechaSalida = null;
             }
             
             const nombre = get('nombreCliente') || '';
@@ -171,12 +193,12 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             }
 
             let valorTotal = parseFloat(get('valorTotal')?.toString().replace(/[^0-9.,$]+/g, "").replace(',', '.')) || 0;
-            if (monedaCanal === 'USD') {
+            if (monedaCanal === 'USD' && fechaLlegada) {
                 const valorDolarDia = await obtenerValorDolar(fechaLlegada);
                 valorTotal = valorTotal * valorDolarDia;
             }
 
-            const totalNoches = Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24));
+            const totalNoches = (fechaLlegada && fechaSalida) ? Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24)) : 0;
 
             const datosReserva = {
                 idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
