@@ -8,9 +8,12 @@ const { obtenerValorDolar } = require('./dolarService');
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 
 const leerArchivo = (buffer, nombreArchivo) => {
+    // Al pasar el buffer directamente, la librería xlsx se encarga de la detección de formato y codificación.
+    // Se mantiene cellDates para asegurar que las fechas se interpreten como objetos Date siempre que sea posible.
     const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
+    // header: 1 para obtener un array de arrays, raw: false para obtener valores formateados.
     return xlsx.utils.sheet_to_json(sheet, { header: 1, raw: false });
 };
 
@@ -50,13 +53,16 @@ const parsearFecha = (dateValue) => {
         let year = parseInt(match[3], 10);
         if (year < 100) year += 2000;
 
+        // Se crea la fecha asumiendo siempre el formato DD/MM/YYYY
         const date = new Date(Date.UTC(year, month - 1, day));
         
+        // Se valida que la fecha creada sea coherente (ej: no es 31 de febrero)
         if (date && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day) {
             return date;
         }
     }
 
+    // Fallback para otros formatos si el regex principal falla
     const date = new Date(dateStr);
     if (!isNaN(date.getTime())) {
         return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -143,20 +149,44 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             const resultadoCliente = await crearOActualizarCliente(db, empresaId, datosParaCliente);
             if (resultadoCliente.status === 'creado') resultados.clientesCreados++;
             
+            // --- INICIO DE LOGS DE DEPURACIÓN ---
             const nombreExternoAlojamiento = get('alojamientoNombre');
+            console.log(`\n--- [DEBUG] Fila ${index + 2} (ID Reserva: ${idFilaParaError}) ---`);
+            console.log(`[DEBUG] 1. Nombre Alojamiento leído del archivo: "${nombreExternoAlojamiento}"`);
+
             let alojamientoId = null;
             let alojamientoNombre = 'Alojamiento no identificado';
             let capacidadAlojamiento = 0;
             const nombreExternoNormalizado = normalizarString(nombreExternoAlojamiento);
+            console.log(`[DEBUG] 2. Nombre normalizado del archivo: "${nombreExternoNormalizado}"`);
+
             if (nombreExternoNormalizado) {
-                const conversion = conversionesAlojamiento.find(c => c.canalId === canalId && c.nombreExterno.split(';').map(normalizarString).includes(nombreExternoNormalizado));
+                const conversionesDelCanal = conversionesAlojamiento.filter(c => c.canalId === canalId);
+                console.log(`[DEBUG] 3. Buscando en ${conversionesDelCanal.length} regla(s) de conversión para el canal "${canalNombre}":`);
+                conversionesDelCanal.forEach(regla => {
+                    console.log(`   - Regla para "${regla.alojamientoNombre}" espera los nombres normalizados: [${regla.nombreExterno.split(';').map(normalizarString).join(', ')}]`);
+                });
+
+                const conversion = conversionesDelCanal.find(c => 
+                    c.nombreExterno.split(';').map(normalizarString).includes(nombreExternoNormalizado)
+                );
+
                 if (conversion) {
+                    console.log(`[DEBUG] 4. ¡ÉXITO! Se encontró coincidencia con la regla para "${conversion.alojamientoNombre}".`);
                     alojamientoId = conversion.alojamientoId;
                     alojamientoNombre = conversion.alojamientoNombre;
                     const propiedad = propiedades.find(p => p.id === alojamientoId);
                     if (propiedad) capacidadAlojamiento = propiedad.capacidad;
+                } else {
+                    console.log(`[DEBUG] 4. ¡FALLO! No se encontró ninguna regla de conversión que coincida.`);
                 }
+            } else {
+                console.log(`[DEBUG] 3. El nombre del alojamiento en el archivo está vacío o no se pudo mapear. Saltando búsqueda.`);
             }
+
+            console.log(`[DEBUG] 5. Alojamiento asignado finalmente: ID="${alojamientoId}", Nombre="${alojamientoNombre}"`);
+            console.log(`--------------------------------------------------`);
+            // --- FIN DE LOGS DE DEPURACIÓN ---
 
             let valorTotal = parseFloat(get('valorTotal')?.toString().replace(/[^0-9.,$]+/g, "").replace(',', '.')) || 0;
             if (monedaCanal === 'USD') {
