@@ -1,15 +1,7 @@
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 const { obtenerReservasPorEmpresa } = require('./reservasService');
 
-// Función para generar un color único basado en el ID del alojamiento
-const generarColorPastel = (str) => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
-    return '#' + '00000'.substring(0, 6 - c.length) + c;
-};
+// La función generarColorPastel ya no es necesaria y se ha eliminado.
 
 const obtenerDatosCalendario = async (db, empresaId) => {
     // 1. Obtener todas las propiedades para usarlas como "recursos"
@@ -28,14 +20,14 @@ const obtenerDatosCalendario = async (db, empresaId) => {
             title: r.nombreCliente,
             start: r.fechaLlegada,
             end: r.fechaSalida,
-            backgroundColor: generarColorPastel(r.alojamientoId),
-            borderColor: generarColorPastel(r.alojamientoId),
+            // Las propiedades de color ahora se manejarán en el frontend
             extendedProps: {
                 idReserva: r.id,
                 alojamientoNombre: r.alojamientoNombre,
                 clienteNombre: r.nombreCliente,
                 telefono: r.telefono,
                 estado: r.estado,
+                canalNombre: r.canalNombre, // <-- CAMBIO CLAVE: Se añade el nombre del canal
                 totalNoches: r.totalNoches,
                 huespedes: r.cantidadHuespedes
             }

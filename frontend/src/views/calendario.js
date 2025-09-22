@@ -2,6 +2,15 @@ import { fetchAPI } from '../api.js';
 
 let calendar;
 
+// Paleta de colores para los canales de venta
+const channelColors = {
+    'Booking.com': '#003580',
+    'Airbnb': '#FF5A5F',
+    'Expedia': '#003050',
+    'Directo': '#2ECC71',
+    'Otro': '#95A5A6'
+};
+
 function renderModalInfo(eventInfo) {
     const modal = document.getElementById('calendario-modal');
     const props = eventInfo.event.extendedProps;
@@ -17,6 +26,14 @@ function renderModalInfo(eventInfo) {
 
 export async function render() {
     return `
+        <style>
+            /* --- INICIO DE CAMBIOS --- */
+            /* Estilo para resaltar el día de hoy */
+            .fc-day-today {
+                background-color: rgba(253, 224, 71, 0.2) !important; /* Amarillo claro semitransparente */
+            }
+            /* --- FIN DE CAMBIOS --- */
+        </style>
         <div class="bg-white p-6 rounded-lg shadow">
             <h2 class="text-2xl font-semibold text-gray-900 mb-4">Calendario de Ocupación</h2>
             <div id='calendar'></div>
@@ -51,7 +68,7 @@ export async function afterRender() {
             schedulerLicenseKey: 'GPL-My-Project-Is-Open-Source',
             initialView: 'resourceTimelineMonth',
             locale: 'es',
-            height: '80vh', // <-- CAMBIO CLAVE: Se establece una altura flexible
+            height: '80vh',
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',
@@ -61,7 +78,19 @@ export async function afterRender() {
             events: eventos,
             eventClick: (info) => {
                 renderModalInfo(info);
+            },
+            // --- INICIO DE CAMBIOS ---
+            // Asigna el color a cada evento según su canal
+            eventDataTransform: function(eventData) {
+                const canal = eventData.extendedProps.canalNombre || 'Otro';
+                const color = channelColors[canal] || channelColors['Otro'];
+                return {
+                    ...eventData,
+                    backgroundColor: color,
+                    borderColor: color
+                };
             }
+            // --- FIN DE CAMBIOS ---
         });
 
         calendar.render();
