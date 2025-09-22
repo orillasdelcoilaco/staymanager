@@ -17,12 +17,6 @@ function renderModalInfo(eventInfo) {
 
 export async function render() {
     return `
-        <style>
-            /* Estilos para hacer el calendario más compacto y legible */
-            .fc-toolbar-title { font-size: 1.25em !important; }
-            .fc-event { font-size: 0.75em !important; padding: 2px 4px !important; }
-            .fc-resource-lane { height: 40px !important; }
-        </style>
         <div class="bg-white p-6 rounded-lg shadow">
             <h2 class="text-2xl font-semibold text-gray-900 mb-4">Calendario de Ocupación</h2>
             <div id='calendar'></div>
@@ -57,6 +51,7 @@ export async function afterRender() {
             schedulerLicenseKey: 'GPL-My-Project-Is-Open-Source',
             initialView: 'resourceTimelineMonth',
             locale: 'es',
+            height: '80vh', // <-- CAMBIO CLAVE: Se establece una altura flexible
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',
