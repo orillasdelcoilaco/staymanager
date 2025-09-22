@@ -23,25 +23,35 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
         let hayCambios = false;
         const datosAActualizar = {};
 
+        // Lógica de actualización para el estado
         if (!ediciones.estado && reservaExistente.estado !== datosReserva.estado && datosReserva.estado) {
             datosAActualizar.estado = datosReserva.estado;
             hayCambios = true;
         }
 
+        // Lógica de actualización para el alojamiento
         if (!ediciones.alojamientoId && (!reservaExistente.alojamientoId || reservaExistente.alojamientoNombre === 'Alojamiento no identificado') && datosReserva.alojamientoId) {
             datosAActualizar.alojamientoId = datosReserva.alojamientoId;
             datosAActualizar.alojamientoNombre = datosReserva.alojamientoNombre;
             hayCambios = true;
         }
 
-        if (!ediciones.fechaLlegada && !reservaExistente.fechaLlegada && datosReserva.fechaLlegada) {
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Lógica mejorada para actualizar fechas si son diferentes
+        const fechaLlegadaExistente = reservaExistente.fechaLlegada?.toDate().getTime();
+        const fechaLlegadaNueva = datosReserva.fechaLlegada?.getTime();
+        if (!ediciones.fechaLlegada && fechaLlegadaExistente !== fechaLlegadaNueva && fechaLlegadaNueva) {
             datosAActualizar.fechaLlegada = datosReserva.fechaLlegada;
             hayCambios = true;
         }
-        if (!ediciones.fechaSalida && !reservaExistente.fechaSalida && datosReserva.fechaSalida) {
+
+        const fechaSalidaExistente = reservaExistente.fechaSalida?.toDate().getTime();
+        const fechaSalidaNueva = datosReserva.fechaSalida?.getTime();
+        if (!ediciones.fechaSalida && fechaSalidaExistente !== fechaSalidaNueva && fechaSalidaNueva) {
             datosAActualizar.fechaSalida = datosReserva.fechaSalida;
             hayCambios = true;
         }
+        // --- FIN DE LA MODIFICACIÓN ---
         
         if (hayCambios) {
             datosAActualizar.fechaActualizacion = admin.firestore.FieldValue.serverTimestamp();
@@ -65,7 +75,6 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
 
     const datosAActualizar = { ...datosNuevos };
 
-    // Compara campo por campo para marcar las ediciones manuales
     Object.keys(datosNuevos).forEach(key => {
         if (JSON.stringify(reservaExistente[key]) !== JSON.stringify(datosNuevos[key])) {
             edicionesManuales[key] = true;

@@ -39,7 +39,7 @@ const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
     return fila[mapeo.columnaIndex];
 };
 
-const parsearFecha = (dateValue) => {
+const parsearFecha = (dateValue, channelName = '') => {
     if (!dateValue) return null;
     if (dateValue instanceof Date && !isNaN(dateValue)) {
         return dateValue;
@@ -52,52 +52,50 @@ const parsearFecha = (dateValue) => {
         return null;
     }
 
-    const dateStr = dateValue.trim();
+    const dateStr = dateValue.trim().split(' ')[0];
 
-    let match = dateStr.match(/^(\d{4})[\\/.-](\d{1,2})[\\/.-](\d{1,2})/);
+    // Intento 1: Formato YYYY-MM-DD (Booking.com)
+    let match = dateStr.match(/^(\d{4})[\\/.-](\d{1,2})[\\/.-](\d{1,2})$/);
     if (match) {
-        const year = parseInt(match[1], 10);
-        const month = parseInt(match[2], 10);
-        const day = parseInt(match[3], 10);
+        const [_, year, month, day] = match.map(Number);
         const date = new Date(Date.UTC(year, month - 1, day));
-        if (date && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day) {
-            return date;
-        }
+        if (!isNaN(date) && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1) return date;
     }
 
-    match = dateStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{2,4})/);
+    // Intento 2: Formatos ambiguos DD/MM/YYYY o MM/DD/YYYY
+    match = dateStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{2,4})$/);
     if (match) {
-        let part1 = parseInt(match[1], 10);
-        let part2 = parseInt(match[2], 10);
-        let year = parseInt(match[3], 10);
+        let [_, part1, part2, year] = match.map(Number);
         if (year < 100) year += 2000;
 
         let day, month;
         
-        if (part1 > 12) { 
+        // Usamos el nombre del canal para resolver la ambigüedad
+        if (channelName === 'Airbnb') { // Airbnb usa MM/DD/YYYY
+            month = part1;
+            day = part2;
+        } else { // El resto (SODC) usa DD/MM/YYYY por defecto
             day = part1;
             month = part2;
-        } else if (part2 > 12) { 
-            day = part2;
-            month = part1;
-        } else {
-            month = part1;
-            day = part2;
         }
 
-        const date = new Date(Date.UTC(year, month - 1, day));
-        if (date && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day) {
-            return date;
+        if (month > 0 && month <= 12) {
+            const date = new Date(Date.UTC(year, month - 1, day));
+            if (!isNaN(date) && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day) {
+                return date;
+            }
         }
     }
 
-    const date = new Date(dateStr);
-    if (!isNaN(date.getTime())) {
-        return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    // Fallback genérico
+    const genericDate = new Date(dateStr);
+    if (!isNaN(genericDate.getTime())) {
+        return new Date(Date.UTC(genericDate.getFullYear(), genericDate.getMonth(), genericDate.getDate()));
     }
 
     return null;
 };
+
 
 const normalizarString = (texto) => {
     if (!texto) return '';
@@ -154,12 +152,15 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 continue;
             }
 
-            let fechaLlegada = parsearFecha(get('fechaLlegada'));
-            let fechaSalida = parsearFecha(get('fechaSalida'));
+            let fechaLlegada = parsearFecha(get('fechaLlegada'), canalNombre);
+            let fechaSalida = parsearFecha(get('fechaSalida'), canalNombre);
 
-            if (fechaLlegada && fechaSalida && fechaSalida <= fechaLlegada) {
-                fechaLlegada = null;
-                fechaSalida = null;
+            if (!fechaLlegada || !fechaSalida) {
+                throw new Error(`No se pudieron interpretar las fechas para la reserva.`);
+            }
+
+            if (fechaSalida <= fechaLlegada) {
+                throw new Error('La fecha de salida debe ser posterior a la de llegada.');
             }
             
             const nombre = get('nombreCliente') || '';
@@ -203,7 +204,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             const datosReserva = {
                 idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
                 estado: normalizarEstado(get('estado')),
-                fechaReserva: parsearFecha(get('fechaReserva')),
+                fechaReserva: parsearFecha(get('fechaReserva'), canalNombre),
                 fechaLlegada,
                 fechaSalida,
                 totalNoches: totalNoches > 0 ? totalNoches : 1,
