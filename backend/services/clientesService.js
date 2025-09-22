@@ -7,14 +7,13 @@ const normalizarTelefono = (telefono) => {
     return fono;
 };
 
-// --- NUEVA FUNCIÓN --- para dar formato de Título a los nombres
 const normalizarNombre = (nombre) => {
     if (!nombre) return '';
     return nombre
         .toString()
         .toLowerCase()
         .trim()
-        .replace(/\s+/g, ' ') // Reemplaza múltiples espacios por uno solo
+        .replace(/\s+/g, ' ') 
         .split(' ')
         .map(palabra => palabra.charAt(0).toUpperCase() + palabra.slice(1))
         .join(' ');
@@ -26,14 +25,12 @@ const crearOActualizarCliente = async (db, empresaId, datosCliente) => {
     const telefonoNormalizado = normalizarTelefono(datosCliente.telefono);
     const nombreNormalizado = normalizarNombre(datosCliente.nombre);
 
-    // Busca por teléfono si está disponible
     if (telefonoNormalizado) {
         const q = clientesRef.where('telefonoNormalizado', '==', telefonoNormalizado);
         const snapshot = await q.get();
         if (!snapshot.empty) {
             const clienteDoc = snapshot.docs[0];
             const clienteExistente = clienteDoc.data();
-            // Si el nombre en la BD no coincide con el nombre normalizado, lo actualiza
             if (clienteExistente.nombre !== nombreNormalizado) {
                 await clienteDoc.ref.update({ nombre: nombreNormalizado });
                 clienteExistente.nombre = nombreNormalizado;
@@ -42,14 +39,12 @@ const crearOActualizarCliente = async (db, empresaId, datosCliente) => {
         }
     }
 
-    // Busca por ID compuesto si no hay teléfono
     if (datosCliente.idCompuesto) {
         const q = clientesRef.where('idCompuesto', '==', datosCliente.idCompuesto);
         const snapshot = await q.get();
         if (!snapshot.empty) {
             const clienteDoc = snapshot.docs[0];
             const clienteExistente = clienteDoc.data();
-             // Si el nombre en la BD no coincide con el nombre normalizado, lo actualiza
             if (clienteExistente.nombre !== nombreNormalizado) {
                 await clienteDoc.ref.update({ nombre: nombreNormalizado });
                 clienteExistente.nombre = nombreNormalizado;
@@ -58,7 +53,6 @@ const crearOActualizarCliente = async (db, empresaId, datosCliente) => {
         }
     }
 
-    // Si no se encuentra, se crea un nuevo cliente con el nombre ya normalizado
     const nuevoClienteRef = clientesRef.doc();
     const nuevoCliente = {
         id: nuevoClienteRef.id,
@@ -68,6 +62,9 @@ const crearOActualizarCliente = async (db, empresaId, datosCliente) => {
         telefonoNormalizado: telefonoNormalizado,
         idCompuesto: datosCliente.idCompuesto || null,
         pais: datosCliente.pais || '',
+        calificacion: datosCliente.calificacion || 0,
+        ubicacion: datosCliente.ubicacion || '',
+        notas: datosCliente.notas || '',
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
         origen: 'Importado'
     };
@@ -81,12 +78,38 @@ const obtenerClientesPorEmpresa = async (db, empresaId) => {
     return snapshot.docs.map(doc => doc.data());
 };
 
+const obtenerClientePorId = async (db, empresaId, clienteId) => {
+    const clienteRef = db.collection('empresas').doc(empresaId).collection('clientes').doc(clienteId);
+    const clienteDoc = await clienteRef.get();
+
+    if (!clienteDoc.exists) {
+        throw new Error('Cliente no encontrado');
+    }
+
+    const cliente = clienteDoc.data();
+
+    const reservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
+        .where('clienteId', '==', clienteId)
+        .orderBy('fechaLlegada', 'desc')
+        .get();
+
+    const reservas = reservasSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            ...data,
+            fechaLlegada: data.fechaLlegada?.toDate().toISOString() || null,
+            fechaSalida: data.fechaSalida?.toDate().toISOString() || null,
+        };
+    });
+
+    return { ...cliente, reservas };
+};
+
 const actualizarCliente = async (db, empresaId, clienteId, datosActualizados) => {
     const clienteRef = db.collection('empresas').doc(empresaId).collection('clientes').doc(clienteId);
     if (datosActualizados.telefono) {
         datosActualizados.telefonoNormalizado = normalizarTelefono(datosActualizados.telefono);
     }
-    // --- MODIFICADO --- Aplica la normalización al actualizar manualmente
     if (datosActualizados.nombre) {
         datosActualizados.nombre = normalizarNombre(datosActualizados.nombre);
     }
@@ -102,6 +125,7 @@ const eliminarCliente = async (db, empresaId, clienteId) => {
 module.exports = {
     crearOActualizarCliente,
     obtenerClientesPorEmpresa,
+    obtenerClientePorId,
     actualizarCliente,
     eliminarCliente
 };
