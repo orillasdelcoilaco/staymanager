@@ -12,6 +12,11 @@ body {
 
 /* --- SECCIÓN DE LAYOUT REFACTORIZADA --- */
 
+/* Contenedor principal de la aplicación */
+#app-container {
+    width: 100%; /* <-- ESTA LÍNEA ES LA SOLUCIÓN */
+}
+
 /* Sidebar (Mobile First - Comportamiento Overlay) */
 .sidebar {
     background-color: #111827;
@@ -57,28 +62,26 @@ body {
 /* Estilos para Pantallas Grandes (Escritorio - Layout Flexbox) */
 @media (min-width: 768px) {
     .sidebar {
-        position: static; /* Vuelve al flujo normal del documento */
-        transform: none; /* Anula la transformación de móvil */
-        height: 100vh; /* Ocupa toda la altura */
-        flex-shrink: 0; /* Evita que el sidebar se encoja */
+        position: static;
+        transform: none;
+        height: 100vh;
+        flex-shrink: 0;
     }
 
     .main-content {
-        flex: 1; /* Ocupa todo el espacio restante */
-        overflow-x: hidden; /* Previene desbordamiento horizontal */
-        transition: none; /* La transición de padding ya no es necesaria */
+        flex: 1;
+        overflow-x: hidden;
+        transition: none;
     }
     
     .sidebar.collapsed {
         width: 80px;
     }
     
-    /* El JS que añade 'sidebar-collapsed' a main-content ya no tiene efecto visual, lo cual está bien. */
     .main-content.sidebar-collapsed {
-        margin-left: 0; /* Reseteamos por si acaso */
+        margin-left: 0;
     }
 
-    /* El overlay no es necesario en escritorio */
     .sidebar-overlay {
         display: none;
     }
