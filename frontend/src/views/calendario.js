@@ -2,6 +2,23 @@ import { fetchAPI } from '../api.js';
 
 let calendar;
 
+// --- Nueva Función para Cargar el Script ---
+function loadFullCalendarScript() {
+    return new Promise((resolve, reject) => {
+        // Si ya está cargado, no hacer nada y resolver
+        if (window.FullCalendar) {
+            return resolve();
+        }
+        
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/fullcalendar-premium@6.1.15/index.global.min.js';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('No se pudo cargar el script de FullCalendar.'));
+        document.head.appendChild(script);
+    });
+}
+
+
 function renderModalInfo(eventInfo) {
     const modal = document.getElementById('calendario-modal');
     const props = eventInfo.event.extendedProps;
@@ -51,8 +68,13 @@ export async function afterRender() {
     const calendarEl = document.getElementById('calendar');
     
     try {
+        // 1. Esperar a que el script de FullCalendar esté listo
+        await loadFullCalendarScript();
+
+        // 2. Obtener los datos de la API
         const { recursos, eventos } = await fetchAPI('/calendario');
         
+        // 3. Ahora sí, inicializar el calendario
         calendar = new FullCalendar.Calendar(calendarEl, {
             schedulerLicenseKey: 'GPL-My-Project-Is-Open-Source',
             initialView: 'resourceTimelineMonth',
