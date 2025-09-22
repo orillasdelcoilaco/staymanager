@@ -2,21 +2,22 @@ import { fetchAPI } from '../api.js';
 
 let calendar;
 
-// Paleta de colores para los canales de venta
+// --- INICIO DE CAMBIOS: Paleta de colores actualizada ---
 const channelColors = {
-    'Booking.com': '#003580',
-    'Airbnb': '#FF5A5F',
-    'Expedia': '#003050',
-    'Directo': '#2ECC71',
-    'Otro': '#95A5A6'
+    'Booking.com': '#003580', // Azul para Booking
+    'SODC': '#2ECC71',        // Verde para SODC
+    'Directo': '#2ECC71',     // Verde para Directo/App
+    'Airbnb': '#E74C3C',      // Rojo para Airbnb
+    'Otro': '#95A5A6'         // Gris para el resto
 };
+// --- FIN DE CAMBIOS ---
 
 function renderModalInfo(eventInfo) {
     const modal = document.getElementById('calendario-modal');
     const props = eventInfo.event.extendedProps;
     document.getElementById('modal-title').textContent = `Reserva: ${props.clienteNombre}`;
     document.getElementById('modal-alojamiento').textContent = props.alojamientoNombre;
-    document.getElementById('modal-fechas').textContent = `${eventInfo.event.start.toLocaleDateString()} - ${eventInfo.event.end.toLocaleDateString()}`;
+    document.getElementById('modal-fechas').textContent = `${new Date(eventInfo.event.startStr).toLocaleDateString('es-CL', { timeZone: 'UTC' })} - ${new Date(eventInfo.event.endStr).toLocaleDateString('es-CL', { timeZone: 'UTC' })}`;
     document.getElementById('modal-noches').textContent = props.totalNoches;
     document.getElementById('modal-huespedes').textContent = props.huespedes;
     document.getElementById('modal-telefono').textContent = props.telefono;
@@ -27,12 +28,9 @@ function renderModalInfo(eventInfo) {
 export async function render() {
     return `
         <style>
-            /* --- INICIO DE CAMBIOS --- */
-            /* Estilo para resaltar el día de hoy */
             .fc-day-today {
-                background-color: rgba(253, 224, 71, 0.2) !important; /* Amarillo claro semitransparente */
+                background-color: rgba(253, 224, 71, 0.2) !important;
             }
-            /* --- FIN DE CAMBIOS --- */
         </style>
         <div class="bg-white p-6 rounded-lg shadow">
             <h2 class="text-2xl font-semibold text-gray-900 mb-4">Calendario de Ocupación</h2>
@@ -79,8 +77,6 @@ export async function afterRender() {
             eventClick: (info) => {
                 renderModalInfo(info);
             },
-            // --- INICIO DE CAMBIOS ---
-            // Asigna el color a cada evento según su canal
             eventDataTransform: function(eventData) {
                 const canal = eventData.extendedProps.canalNombre || 'Otro';
                 const color = channelColors[canal] || channelColors['Otro'];
@@ -90,7 +86,6 @@ export async function afterRender() {
                     borderColor: color
                 };
             }
-            // --- FIN DE CAMBIOS ---
         });
 
         calendar.render();
