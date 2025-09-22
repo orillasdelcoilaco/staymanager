@@ -10,9 +10,9 @@ body {
     min-height: 100vh;
 }
 
-/* --- SECCIÓN DE LAYOUT REESTRUCTURADA --- */
+/* --- SECCIÓN DE LAYOUT REFACTORIZADA --- */
 
-/* Sidebar (Mobile First) */
+/* Sidebar (Mobile First - Comportamiento Overlay) */
 .sidebar {
     background-color: #111827;
     color: white;
@@ -33,10 +33,8 @@ body {
 
 /* Contenido Principal (Mobile First) */
 .main-content {
-    width: 100%;
     flex-grow: 1;
-    transition: padding-left 0.3s ease-in-out;
-    padding-left: 0;
+    width: 100%;
 }
 
 #view-content {
@@ -56,23 +54,36 @@ body {
    }
 }
 
-/* Estilos para Pantallas Grandes (Escritorio) */
+/* Estilos para Pantallas Grandes (Escritorio - Layout Flexbox) */
 @media (min-width: 768px) {
     .sidebar {
-        transform: translateX(0); /* Siempre visible */
+        position: static; /* Vuelve al flujo normal del documento */
+        transform: none; /* Anula la transformación de móvil */
+        height: 100vh; /* Ocupa toda la altura */
+        flex-shrink: 0; /* Evita que el sidebar se encoja */
     }
+
     .main-content {
-        padding-left: 260px; /* Crear espacio para el menú */
+        flex: 1; /* Ocupa todo el espacio restante */
+        overflow-x: hidden; /* Previene desbordamiento horizontal */
+        transition: none; /* La transición de padding ya no es necesaria */
     }
+    
     .sidebar.collapsed {
         width: 80px;
     }
+    
+    /* El JS que añade 'sidebar-collapsed' a main-content ya no tiene efecto visual, lo cual está bien. */
     .main-content.sidebar-collapsed {
-        padding-left: 80px; /* Reducir espacio cuando el menú está colapsado */
+        margin-left: 0; /* Reseteamos por si acaso */
+    }
+
+    /* El overlay no es necesario en escritorio */
+    .sidebar-overlay {
+        display: none;
     }
 }
 
-/* --- FIN SECCIÓN REESTRUCTURADA --- */
 
 /* Modal Styles */
 .modal {
@@ -86,8 +97,8 @@ body {
     background-color: white; padding: 2rem; border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     width: 100%; max-width: 500px;
-    max-height: 90vh; /* <-- AÑADIDO: Limita la altura al 90% de la ventana */
-    overflow-y: auto; /* <-- AÑADIDO: Activa el scroll si el contenido se desborda */
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .sidebar nav { overflow-y: auto; overflow-x: hidden; }
