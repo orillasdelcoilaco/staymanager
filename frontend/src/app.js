@@ -6,7 +6,7 @@ let currentUser = null;
 export function renderAppLayout() {
     const appRoot = document.getElementById('app-root');
     appRoot.innerHTML = `
-        <div id="app-container" class="relative min-h-screen md:flex">
+        <div id="app-container" class="relative min-h-screen">
             <div id="sidebar-overlay" class="sidebar-overlay"></div>
             <aside id="sidebar" class="sidebar">
                 <div class="sidebar-header">
