@@ -11,8 +11,9 @@ const tarifasRoutes = require('./routes/tarifas.js');
 const conversionesRoutes = require('./routes/conversiones.js');
 const clientesRoutes = require('./routes/clientes.js');
 const reservasRoutes = require('./routes/reservas.js');
-const sincronizacionRoutes = require('./routes/sincronizacion.js'); // <-- Reactivado
-const mapeosRoutes = require('./routes/mapeos.js'); // <-- Reactivado
+const sincronizacionRoutes = require('./routes/sincronizacion.js');
+const mapeosRoutes = require('./routes/mapeos.js');
+const calendarioRoutes = require('./routes/calendario.js'); // <-- AÑADIDO
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 
 // --- Carga de Credenciales y Configuración de Firebase ---
@@ -71,8 +72,9 @@ apiRouter.use('/tarifas', tarifasRoutes(db));
 apiRouter.use('/conversiones', conversionesRoutes(db));
 apiRouter.use('/clientes', clientesRoutes(db));
 apiRouter.use('/reservas', reservasRoutes(db));
-apiRouter.use('/sincronizar', sincronizacionRoutes(db)); // <-- Reactivado
-apiRouter.use('/mapeos', mapeosRoutes(db)); // <-- Reactivado
+apiRouter.use('/sincronizar', sincronizacionRoutes(db));
+apiRouter.use('/mapeos', mapeosRoutes(db));
+apiRouter.use('/calendario', calendarioRoutes(db)); // <-- AÑADIDO
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 
 app.use('/api', apiRouter);

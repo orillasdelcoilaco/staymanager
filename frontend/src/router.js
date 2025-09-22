@@ -14,7 +14,7 @@ const views = {
     '/conversion-alojamientos': () => import('./views/conversionAlojamientos.js'),
     '/mapeo-reportes': () => import('./views/mapeoReportes.js'),
     '/procesar-y-consolidar': () => import('./views/procesarYConsolidar.js'),
-    '/gestionar-reservas': () => import('./views/gestionarReservas.js'), 
+    '/gestionar-reservas': () => import('./views/gestionarReservas.js'),
 };
 
 const menuConfig = [
