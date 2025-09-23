@@ -39,63 +39,49 @@ const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
     return fila[mapeo.columnaIndex];
 };
 
-const parsearFecha = (dateValue, channelName = '') => {
+const parsearFecha = (dateValue, formatoFecha = 'DD/MM/YYYY') => {
     if (!dateValue) return null;
-    if (dateValue instanceof Date && !isNaN(dateValue)) {
-        return dateValue;
-    }
+    if (dateValue instanceof Date && !isNaN(dateValue)) return dateValue;
     if (typeof dateValue === 'number') {
-        const date = new Date(Date.UTC(1899, 11, 30, 0, 0, 0, 0) + dateValue * 86400000);
-        return date;
+        return new Date(Date.UTC(1899, 11, 30, 0, 0, 0, 0) + dateValue * 86400000);
     }
-    if (typeof dateValue !== 'string') {
+    if (typeof dateValue !== 'string') return null;
+
+    const dateStr = dateValue.trim().split(' ')[0];
+    const match = dateStr.match(/^(\d{1,4})[\\/.-](\d{1,2})[\\/.-](\d{1,4})$/);
+
+    if (!match) {
+        const genericDate = new Date(dateStr);
+        if (!isNaN(genericDate.getTime())) {
+            return new Date(Date.UTC(genericDate.getFullYear(), genericDate.getMonth(), genericDate.getDate()));
+        }
         return null;
     }
 
-    const dateStr = dateValue.trim().split(' ')[0];
+    let day, month, year;
 
-    // Intento 1: Formato YYYY-MM-DD (Booking.com)
-    let match = dateStr.match(/^(\d{4})[\\/.-](\d{1,2})[\\/.-](\d{1,2})$/);
-    if (match) {
-        const [_, year, month, day] = match.map(Number);
-        const date = new Date(Date.UTC(year, month - 1, day));
-        if (!isNaN(date) && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1) return date;
+    switch (formatoFecha) {
+        case 'YYYY-MM-DD':
+            [_, year, month, day] = match.map(Number);
+            break;
+        case 'MM/DD/YYYY':
+            [_, month, day, year] = match.map(Number);
+            break;
+        case 'DD/MM/YYYY':
+        default:
+            [_, day, month, year] = match.map(Number);
+            break;
     }
 
-    // Intento 2: Formatos ambiguos DD/MM/YYYY o MM/DD/YYYY
-    match = dateStr.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{2,4})$/);
-    if (match) {
-        let [_, part1, part2, year] = match.map(Number);
-        if (year < 100) year += 2000;
-
-        let day, month;
-        
-        // Usamos el nombre del canal para resolver la ambigüedad
-        if (channelName === 'Airbnb') { // Airbnb usa MM/DD/YYYY
-            month = part1;
-            day = part2;
-        } else { // El resto (SODC) usa DD/MM/YYYY por defecto
-            day = part1;
-            month = part2;
-        }
-
-        if (month > 0 && month <= 12) {
-            const date = new Date(Date.UTC(year, month - 1, day));
-            if (!isNaN(date) && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day) {
-                return date;
-            }
-        }
-    }
-
-    // Fallback genérico
-    const genericDate = new Date(dateStr);
-    if (!isNaN(genericDate.getTime())) {
-        return new Date(Date.UTC(genericDate.getFullYear(), genericDate.getMonth(), genericDate.getDate()));
+    if (year < 100) year += 2000;
+    
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (!isNaN(date) && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day) {
+        return date;
     }
 
     return null;
 };
-
 
 const normalizarString = (texto) => {
     if (!texto) return '';
@@ -133,6 +119,8 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
     const mapeosDelCanal = todosLosMapeos.filter(m => m.canalId === canalId);
     const canal = canales.find(c => c.id === canalId);
     if (!canal) throw new Error(`El canal con ID ${canalId} no fue encontrado.`);
+    
+    const formatoFecha = canal.formatoFecha || 'DD/MM/YYYY'; // Usar el formato guardado o un default
     const canalNombre = canal.nombre;
     const monedaCanal = canal.moneda || 'CLP';
     
@@ -152,8 +140,8 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 continue;
             }
 
-            let fechaLlegada = parsearFecha(get('fechaLlegada'), canalNombre);
-            let fechaSalida = parsearFecha(get('fechaSalida'), canalNombre);
+            let fechaLlegada = parsearFecha(get('fechaLlegada'), formatoFecha);
+            let fechaSalida = parsearFecha(get('fechaSalida'), formatoFecha);
 
             if (!fechaLlegada || !fechaSalida) {
                 throw new Error(`No se pudieron interpretar las fechas para la reserva.`);
@@ -204,7 +192,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             const datosReserva = {
                 idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
                 estado: normalizarEstado(get('estado')),
-                fechaReserva: parsearFecha(get('fechaReserva'), canalNombre),
+                fechaReserva: parsearFecha(get('fechaReserva'), formatoFecha),
                 fechaLlegada,
                 fechaSalida,
                 totalNoches: totalNoches > 0 ? totalNoches : 1,

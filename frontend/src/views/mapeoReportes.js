@@ -3,7 +3,7 @@ import { fetchAPI } from '../api.js';
 let mapeos = [];
 let canales = [];
 let canalSiendoEditado = null;
-let cabecerasArchivo = []; // Para guardar las columnas del archivo subido
+let cabecerasArchivo = [];
 
 const camposInternos = [
     { id: 'idReservaCanal', nombre: 'ID de Reserva del Canal', requerido: true },
@@ -100,6 +100,9 @@ function abrirModal(canal) {
     document.getElementById('mapeo-editor').classList.add('hidden');
     document.getElementById('archivo-muestra-input').value = '';
     
+    // Establecer el valor guardado del formato de fecha, o un valor por defecto
+    document.getElementById('formato-fecha-select').value = canal.formatoFecha || 'DD/MM/YYYY';
+
     modal.classList.remove('hidden');
 }
 
@@ -146,20 +149,29 @@ export async function render() {
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700">1. Sube un archivo de ejemplo</label>
-                        <p class="text-xs text-gray-500 mb-2">El sistema leerá las columnas para que puedas mapearlas fácilmente.</p>
+                        <p class="text-xs text-gray-500 mb-2">El sistema leerá las columnas para que puedas mapearlas.</p>
                         <input type="file" id="archivo-muestra-input" class="form-input-file">
                         <div id="upload-status" class="mt-2 text-sm hidden"></div>
                     </div>
+                    
+                    <div class="border-t pt-4">
+                        <label for="formato-fecha-select" class="block text-sm font-medium text-gray-700">2. Define el Formato de Fecha del Reporte</label>
+                        <select id="formato-fecha-select" class="mt-1 form-select w-full md:w-1/2">
+                            <option value="DD/MM/YYYY">Día/Mes/Año (ej: 25/12/2025)</option>
+                            <option value="MM/DD/YYYY">Mes/Día/Año (ej: 12/25/2025)</option>
+                            <option value="YYYY-MM-DD">Año-Mes-Día (ej: 2025-12-25)</option>
+                        </select>
+                    </div>
 
                     <div id="mapeo-editor" class="hidden border-t pt-4">
-                        <label class="block text-sm font-medium text-gray-700">2. Asigna las columnas del archivo</label>
+                        <label class="block text-sm font-medium text-gray-700">3. Asigna las columnas del archivo</label>
                         <p class="text-xs text-gray-500 mb-4">Selecciona qué columna de tu archivo corresponde a cada campo del sistema.</p>
-                        <div id="mapeo-fields-container" class="space-y-3 max-h-[50vh] overflow-y-auto pr-4"></div>
+                        <div id="mapeo-fields-container" class="space-y-3 max-h-[40vh] overflow-y-auto pr-4"></div>
                     </div>
                 </div>
                 <div class="flex justify-end pt-6 mt-6 border-t">
                     <button type="button" id="cancel-btn" class="btn-secondary">Cancelar</button>
-                    <button type="button" id="guardar-mapeo-btn" class="btn-primary ml-2">Guardar Mapeo</button>
+                    <button type="button" id="guardar-mapeo-btn" class="btn-primary ml-2">Guardar Configuración</button>
                 </div>
             </div>
         </div>
@@ -195,13 +207,19 @@ export function afterRender() {
             }
         });
         
+        const formatoFecha = document.getElementById('formato-fecha-select').value;
+
         try {
             await fetchAPI(`/mapeos/${canalSiendoEditado.id}`, {
                 method: 'POST',
-                body: { mapeos: mapeosParaGuardar }
+                body: { 
+                    mapeos: mapeosParaGuardar,
+                    formatoFecha: formatoFecha 
+                }
             });
-            alert(`Mapeo para "${canalSiendoEditado.nombre}" guardado con éxito.`);
+            alert(`Configuración para "${canalSiendoEditado.nombre}" guardada con éxito.`);
             mapeos = await fetchAPI('/mapeos');
+            canales = await fetchAPI('/canales'); // Volver a cargar canales para obtener el formato de fecha actualizado
             cerrarModal();
         } catch (error) {
             alert(`Error al guardar: ${error.message}`);
