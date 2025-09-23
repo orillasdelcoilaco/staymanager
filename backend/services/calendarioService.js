@@ -1,8 +1,6 @@
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 const { obtenerReservasPorEmpresa } = require('./reservasService');
 
-// --- NUEVA FUNCIÓN ---
-// Para formatear fechas a YYYY-MM-DD sin problemas de zona horaria.
 const formatDateToISO = (date) => {
     const d = new Date(date);
     const year = d.getUTCFullYear();
@@ -20,17 +18,17 @@ const obtenerDatosCalendario = async (db, empresaId) => {
 
     const reservas = await obtenerReservasPorEmpresa(db, empresaId);
     const eventos = reservas
-        .filter(r => r.alojamientoId && r.fechaLlegada && r.fechaSalida)
+        // --- INICIO DEL CAMBIO ---
+        // Se añade la condición para filtrar solo por estado "Confirmada"
+        .filter(r => r.alojamientoId && r.fechaLlegada && r.fechaSalida && r.estado === 'Confirmada')
+        // --- FIN DEL CAMBIO ---
         .map(r => {
-            // --- INICIO DE CAMBIOS ---
-            // Corregimos la fecha de salida para que sea inclusiva
             const fechaSalidaCorrecta = new Date(r.fechaSalida);
             fechaSalidaCorrecta.setUTCDate(fechaSalidaCorrecta.getUTCDate() + 1);
 
             return {
                 resourceId: r.alojamientoId,
                 title: r.nombreCliente,
-                // Formateamos las fechas para evitar desfases de zona horaria
                 start: formatDateToISO(r.fechaLlegada),
                 end: formatDateToISO(fechaSalidaCorrecta),
                 extendedProps: {
@@ -44,7 +42,6 @@ const obtenerDatosCalendario = async (db, empresaId) => {
                     huespedes: r.cantidadHuespedes
                 }
             };
-            // --- FIN DE CAMBIOS ---
         });
 
     return { recursos, eventos };
