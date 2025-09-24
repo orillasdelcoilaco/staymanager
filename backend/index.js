@@ -13,6 +13,7 @@ const clientesRoutes = require('./routes/clientes.js');
 const reservasRoutes = require('./routes/reservas.js');
 const sincronizacionRoutes = require('./routes/sincronizacion.js');
 const mapeosRoutes = require('./routes/mapeos.js');
+const dolarRoutes = require('./routes/dolar.js'); // <-- AÑADIDO
 const calendarioRoutes = require('./routes/calendario.js'); // <-- AÑADIDO
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 
@@ -74,6 +75,7 @@ apiRouter.use('/clientes', clientesRoutes(db));
 apiRouter.use('/reservas', reservasRoutes(db));
 apiRouter.use('/sincronizar', sincronizacionRoutes(db));
 apiRouter.use('/mapeos', mapeosRoutes(db));
+apiRouter.use('/dolar', dolarRoutes(db)); // <-- AÑADIDO
 apiRouter.use('/calendario', calendarioRoutes(db)); // <-- AÑADIDO
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 

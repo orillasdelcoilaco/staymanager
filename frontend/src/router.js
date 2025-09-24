@@ -15,6 +15,7 @@ const views = {
     '/mapeo-reportes': () => import('./views/mapeoReportes.js'),
     '/procesar-y-consolidar': () => import('./views/procesarYConsolidar.js'),
     '/gestionar-reservas': () => import('./views/gestionarReservas.js'),
+    '/gestionar-dolar': () => import('./views/gestionarDolar.js'), // <-- AÑADIDO
     '/reparar-fechas': () => import('./views/repararFechas.js'),
 };
 
@@ -42,6 +43,7 @@ const menuConfig = [
             { name: '👥 Gestionar Clientes', path: '/clientes', id: 'clientes' },
             { name: '🏨 Gestionar Reservas', path: '/gestionar-reservas', id: 'gestionar-reservas' }, 
             { name: '📈 Gestionar Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' },
+            { name: '📈 Gestionar Valor Dólar', path: '/gestionar-dolar', id: 'gestionar-dolar' }, // <-- AÑADIDO
             { name: '🏡 Gestionar Alojamientos', path: '/gestionar-alojamientos', id: 'gestionar-alojamientos' },
             { name: '📡 Gestionar Canales', path: '/gestionar-canales', id: 'gestionar-canales' },
         ]
