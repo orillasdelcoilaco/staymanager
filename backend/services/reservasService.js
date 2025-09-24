@@ -2,7 +2,6 @@ const admin = require('firebase-admin');
 const { obtenerValorDolar } = require('./dolarService');
 
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
-    // ... (sin cambios en esta función)
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
     const q = reservasRef.where('idReservaCanal', '==', datosReserva.idReservaCanal);
     const snapshot = await q.get();
@@ -25,14 +24,17 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
             hayCambios = true;
         }
 
-        if ((datosAActualizar.moneda === 'USD' || reservaExistente.moneda === 'USD') && !reservaExistente.valorDolarDia && !ediciones['valores.valorTotal']) {
-            const valorDolar = await obtenerValorDolar(db, empresaId, reservaExistente.fechaLlegada.toDate());
-            if (valorDolar) {
-                datosAActualizar.valorDolarDia = valorDolar;
-                if (datosReserva.valores && datosReserva.valores.valorOriginal) {
+        const monedaEfectiva = datosAActualizar.moneda || reservaExistente.moneda;
+        if (monedaEfectiva === 'USD') {
+            const necesitaReparacion = !reservaExistente.valorDolarDia || !reservaExistente.valores?.valorOriginal;
+            if (necesitaReparacion && !ediciones['valores.valorTotal']) {
+                const valorDolar = await obtenerValorDolar(db, empresaId, reservaExistente.fechaLlegada.toDate());
+                if (valorDolar && datosReserva.valores?.valorOriginal) {
+                    datosAActualizar.valorDolarDia = valorDolar;
+                    datosAActualizar['valores.valorOriginal'] = datosReserva.valores.valorOriginal;
                     datosAActualizar['valores.valorTotal'] = datosReserva.valores.valorOriginal * valorDolar;
+                    hayCambios = true;
                 }
-                hayCambios = true;
             }
         }
         
@@ -128,7 +130,6 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
         throw new Error('Reserva no encontrada');
     }
     const data = doc.data();
-
     let clienteData = {};
     if (data.clienteId) {
         const clienteRef = db.collection('empresas').doc(empresaId).collection('clientes').doc(data.clienteId);
@@ -137,7 +138,6 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
             clienteData = clienteDoc.data();
         }
     }
-
     return {
         ...data,
         fechaLlegada: data.fechaLlegada?.toDate().toISOString().split('T')[0] || null,
