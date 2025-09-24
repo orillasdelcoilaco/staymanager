@@ -2,21 +2,20 @@ import { fetchAPI } from '../api.js';
 
 let calendar;
 
-// --- INICIO DE CAMBIOS: Paleta de colores actualizada ---
 const channelColors = {
-    'Booking.com': '#003580', // Azul para Booking
-    'SODC': '#2ECC71',        // Verde para SODC
-    'Directo': '#2ECC71',     // Verde para Directo/App
-    'Airbnb': '#E74C3C',      // Rojo para Airbnb
-    'Otro': '#95A5A6'         // Gris para el resto
+    'Booking.com': '#003580',
+    'SODC': '#2ECC71',
+    'Directo': '#2ECC71',
+    'Airbnb': '#E74C3C',
+    'Otro': '#95A5A6'
 };
-// --- FIN DE CAMBIOS ---
 
 function renderModalInfo(eventInfo) {
     const modal = document.getElementById('calendario-modal');
     const props = eventInfo.event.extendedProps;
     document.getElementById('modal-title').textContent = `Reserva: ${props.clienteNombre}`;
     document.getElementById('modal-alojamiento').textContent = props.alojamientoNombre;
+    // Corregido para manejar fechas como strings
     document.getElementById('modal-fechas').textContent = `${new Date(eventInfo.event.startStr).toLocaleDateString('es-CL', { timeZone: 'UTC' })} - ${new Date(eventInfo.event.endStr).toLocaleDateString('es-CL', { timeZone: 'UTC' })}`;
     document.getElementById('modal-noches').textContent = props.totalNoches;
     document.getElementById('modal-huespedes').textContent = props.huespedes;
@@ -65,7 +64,7 @@ export async function afterRender() {
         calendar = new FullCalendar.Calendar(calendarEl, {
             schedulerLicenseKey: 'GPL-My-Project-Is-Open-Source',
             initialView: 'resourceTimelineMonth',
-            locale: 'es',
+            locale: 'es', // <-- Esta línea activa el idioma español
             height: '80vh',
             headerToolbar: {
                 left: 'prev,next today',
