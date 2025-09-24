@@ -16,6 +16,7 @@ const views = {
     '/procesar-y-consolidar': () => import('./views/procesarYConsolidar.js'),
     '/gestionar-reservas': () => import('./views/gestionarReservas.js'),
     '/gestionar-dolar': () => import('./views/gestionarDolar.js'), // <-- AÑADIDO
+    '/reparar-dolar': () => import('./views/repararDolar.js'),
     '/reparar-fechas': () => import('./views/repararFechas.js'),
 };
 
@@ -58,6 +59,7 @@ const menuConfig = [
             { name: '👤 Autorizar Google Contacts', path: '#', id: 'config-google' },
             { name: '🔧 Reparar Fechas de Reservas', path: '/reparar-fechas', id: 'reparar-fechas' },
             { name: '📞 Reparar Teléfonos Faltantes', path: '#', id: 'reparar-telefonos' },
+            { name: '🔧 Reparar Dólar Histórico', path: '/reparar-dolar', id: 'reparar-dolar' },
             { name: '🗓️ Sincronizar Calendarios (iCal)', path: '#', id: 'sincronizar-ical' },
         ]
     }
