@@ -18,10 +18,7 @@ const processDolarCsv = (db, empresaId, buffer, year) => {
         readableStream
             .pipe(csv({ separator: ';' }))
             .on('data', (row) => {
-                // --- INICIO DEL CAMBIO ---
-                // Se accede a la primera columna por su posición, no por su nombre.
                 const day = parseInt(row[Object.keys(row)[0]]);
-                // --- FIN DEL CAMBIO ---
                 if (isNaN(day)) return;
 
                 for (const monthName of Object.keys(row).slice(1)) {
@@ -45,63 +42,101 @@ const processDolarCsv = (db, empresaId, buffer, year) => {
                 if (recordsToSave.length === 0) {
                     return resolve({ processed: 0, errors: 0, message: "No se encontraron registros válidos." });
                 }
-
+                
+                const collectionRef = db.collection('empresas').doc(empresaId).collection('valoresDolar');
                 const batch = db.batch();
-                recordsToSave.forEach(record => {
-                    const dateId = record.fecha.toISOString().split('T')[0];
-                    const docRef = db.collection('empresas').doc(empresaId).collection('valoresDolar').doc(dateId);
-                    batch.set(docRef, {
-                        valor: record.valor,
-                        fecha: admin.firestore.Timestamp.fromDate(record.fecha),
-                    });
-                });
+                let processedCount = 0;
 
-                try {
-                    await batch.commit();
-                    resolve({ processed: recordsToSave.length, errors: 0 });
-                } catch (error) {
-                    reject(error);
+                for (const record of recordsToSave) {
+                    const dateId = record.fecha.toISOString().split('T')[0];
+                    const docRef = collectionRef.doc(dateId);
+                    const doc = await docRef.get();
+
+                    // --- LÓGICA DE PROTECCIÓN ---
+                    // Solo escribir si el documento no existe o no fue modificado manualmente.
+                    if (!doc.exists || !doc.data().modificadoManualmente) {
+                        batch.set(docRef, {
+                            valor: record.valor,
+                            fecha: admin.firestore.Timestamp.fromDate(record.fecha),
+                            modificadoManualmente: false // Marcar como automático
+                        });
+                        processedCount++;
+                    }
                 }
+                
+                if (processedCount > 0) {
+                    await batch.commit();
+                }
+                resolve({ processed: processedCount, errors: 0 });
             })
             .on('error', (error) => reject(error));
     });
 };
 
 const obtenerValorDolar = async (db, empresaId, targetDate) => {
-    if (!(targetDate instanceof Date) || isNaN(targetDate)) {
-        return 950;
-    }
-
+    if (!(targetDate instanceof Date) || isNaN(targetDate)) return 950;
     const dateStr = targetDate.toISOString().split('T')[0];
     const dolarRef = db.collection('empresas').doc(empresaId).collection('valoresDolar').doc(dateStr);
-
     const doc = await dolarRef.get();
-    if (doc.exists && doc.data().valor) {
-        return doc.data().valor;
-    }
+    if (doc.exists && doc.data().valor) return doc.data().valor;
 
     const q = db.collection('empresas').doc(empresaId).collection('valoresDolar')
         .where('fecha', '<=', admin.firestore.Timestamp.fromDate(targetDate))
-        .orderBy('fecha', 'desc')
-        .limit(1);
-
+        .orderBy('fecha', 'desc').limit(1);
     const snapshot = await q.get();
-
     if (!snapshot.empty) {
         const ultimoValor = snapshot.docs[0].data().valor;
-        await dolarRef.set({
-            valor: ultimoValor,
-            fecha: admin.firestore.Timestamp.fromDate(targetDate)
-        });
+        await dolarRef.set({ valor: ultimoValor, fecha: admin.firestore.Timestamp.fromDate(targetDate), modificadoManualmente: false });
         return ultimoValor;
     }
-
     console.warn(`[DolarService] No se encontró valor del dólar para la fecha ${dateStr} o anteriores. Usando valor por defecto.`);
     return 950;
 };
 
+const getValoresPorMes = async (db, empresaId, year, month) => {
+    const startDate = new Date(Date.UTC(year, month - 1, 1));
+    const endDate = new Date(Date.UTC(year, month, 0));
+    const startTimestamp = admin.firestore.Timestamp.fromDate(startDate);
+    const endTimestamp = admin.firestore.Timestamp.fromDate(endDate);
+
+    const snapshot = await db.collection('empresas').doc(empresaId).collection('valoresDolar')
+        .where('fecha', '>=', startTimestamp)
+        .where('fecha', '<=', endTimestamp)
+        .orderBy('fecha', 'asc')
+        .get();
+
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({
+        id: doc.id,
+        fecha: doc.id,
+        valor: doc.data().valor,
+        modificadoManualmente: doc.data().modificadoManualmente || false // Devolver la bandera
+    }));
+};
+
+const guardarValorDolar = async (db, empresaId, data) => {
+    const { fecha, valor } = data;
+    if (!fecha || valor === undefined) throw new Error("La fecha y el valor son requeridos.");
+    
+    const docRef = db.collection('empresas').doc(empresaId).collection('valoresDolar').doc(fecha);
+    await docRef.set({
+        valor: parseFloat(valor),
+        fecha: admin.firestore.Timestamp.fromDate(new Date(fecha + 'T00:00:00Z')),
+        modificadoManualmente: true // Marcar como manual
+    });
+    return { id: docRef.id, fecha, valor, modificadoManualmente: true };
+};
+
+const eliminarValorDolar = async (db, empresaId, fecha) => {
+    if (!fecha) throw new Error("La fecha es requerida.");
+    const docRef = db.collection('empresas').doc(empresaId).collection('valoresDolar').doc(fecha);
+    await docRef.delete();
+};
 
 module.exports = {
     processDolarCsv,
-    obtenerValorDolar
+    obtenerValorDolar,
+    getValoresPorMes,
+    guardarValorDolar,
+    eliminarValorDolar
 };
