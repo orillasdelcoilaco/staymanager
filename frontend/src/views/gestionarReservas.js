@@ -4,12 +4,16 @@ let todasLasReservas = [];
 let clientes = [];
 let alojamientos = [];
 let editandoReserva = null;
+let clienteOriginal = null;
 
 function toggleDolarFields() {
     const form = document.getElementById('reserva-form-edit');
     const moneda = form.moneda.value;
     const dolarContainer = document.getElementById('dolar-container');
     const valorTotalInput = form.valorTotal;
+    const valorOriginalInput = form.valorOriginal;
+
+    valorOriginalInput.step = moneda === 'USD' ? '0.01' : '1';
 
     if (moneda === 'USD') {
         dolarContainer.style.display = 'grid';
@@ -27,7 +31,7 @@ function calcularValorFinal() {
     if (form.moneda.value === 'USD') {
         const valorOriginal = parseFloat(form.valorOriginal.value) || 0;
         const valorDolar = parseFloat(form.valorDolarDia.value) || 0;
-        form.valorTotal.value = (valorOriginal * valorDolar).toFixed(0);
+        form.valorTotal.value = Math.round(valorOriginal * valorDolar);
     }
 }
 
@@ -38,20 +42,22 @@ async function abrirModalEditar(reservaId) {
 
     try {
         editandoReserva = await fetchAPI(`/reservas/${reservaId}`);
+        clienteOriginal = { ...editandoReserva.cliente };
         
         document.getElementById('modal-title').textContent = `Editar Reserva: ${editandoReserva.idReservaCanal}`;
-
-        document.getElementById('cliente-select').innerHTML = clientes.map(c => `<option value="${c.id}" ${c.id === editandoReserva.clienteId ? 'selected' : ''}>${c.nombre}</option>`).join('');
         document.getElementById('alojamiento-select').innerHTML = alojamientos.map(a => `<option value="${a.id}" ${a.id === editandoReserva.alojamientoId ? 'selected' : ''}>${a.nombre}</option>`).join('');
 
         form.idReservaCanal.value = editandoReserva.idReservaCanal || '';
+        form.estado.value = editandoReserva.estado;
         form.fechaLlegada.value = editandoReserva.fechaLlegada;
         form.fechaSalida.value = editandoReserva.fechaSalida;
-        form.estado.value = editandoReserva.estado;
         form.moneda.value = editandoReserva.moneda || 'CLP';
         form.valorOriginal.value = editandoReserva.valores?.valorOriginal || 0;
         form.valorTotal.value = editandoReserva.valores?.valorTotal || 0;
         form.valorDolarDia.value = editandoReserva.valorDolarDia || '';
+        form.nombreCliente.value = editandoReserva.cliente.nombre || '';
+        form.telefonoCliente.value = editandoReserva.cliente.telefono || '';
+        form.emailCliente.value = editandoReserva.cliente.email || '';
         form.cantidadHuespedes.value = editandoReserva.cantidadHuespedes || 0;
 
         toggleDolarFields();
@@ -64,6 +70,7 @@ async function abrirModalEditar(reservaId) {
 function cerrarModalEditar() {
     document.getElementById('reserva-modal-edit').classList.add('hidden');
     editandoReserva = null;
+    clienteOriginal = null;
 }
 
 function renderTabla(filtro = '') {
@@ -92,7 +99,7 @@ function renderTabla(filtro = '') {
         const e = r.edicionesManuales || {};
         return `
         <tr class="border-b text-xs hover:bg-gray-50">
-            <td class="py-2 px-3">${e.clienteId ? lapiz : ''} ${r.nombreCliente}</td>
+            <td class="py-2 px-3">${e.clienteId || e.nombreCliente ? lapiz : ''} ${r.nombreCliente}</td>
             <td class="py-2 px-3 font-mono">${r.telefono}</td>
             <td class="py-2 px-3">${e.idReservaCanal ? lapiz : ''} ${r.idReservaCanal}</td>
             <td class="py-2 px-3">${e.alojamientoId ? lapiz : ''} ${r.alojamientoNombre}</td>
@@ -140,33 +147,40 @@ export async function render() {
         <div id="reserva-modal-edit" class="modal hidden"><div class="modal-content !max-w-4xl">
             <h3 id="modal-title" class="text-xl font-semibold mb-4">Editar Reserva</h3>
             <form id="reserva-form-edit" class="space-y-6 max-h-[75vh] overflow-y-auto pr-4">
+                
                 <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Datos de la Reserva</legend>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div><label for="idReservaCanal" class="label">ID Reserva Canal</label><input type="text" name="idReservaCanal" class="form-input"></div>
                         <div><label for="alojamiento-select" class="label">Alojamiento</label><select id="alojamiento-select" name="alojamientoId" class="form-select"></select></div>
                         <div><label for="estado" class="label">Estado</label><select name="estado" class="form-select"><option value="Confirmada">Confirmada</option><option value="Cancelada">Cancelada</option><option value="Pendiente">Pendiente</option></select></div>
                     </div>
                 </fieldset>
-                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Fechas</legend>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Fechas y Huéspedes</legend>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div><label for="fechaLlegada" class="label">Fecha Llegada</label><input type="date" name="fechaLlegada" class="form-input"></div>
                         <div><label for="fechaSalida" class="label">Fecha Salida</label><input type="date" name="fechaSalida" class="form-input"></div>
-                    </div>
-                </fieldset>
-                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Montos</legend>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div><label for="moneda" class="label">Moneda Original</label><select name="moneda" class="form-select"><option value="CLP">CLP</option><option value="USD">USD</option></select></div>
-                        <div><label for="valorOriginal" class="label">Valor Original</label><input type="number" step="0.01" name="valorOriginal" class="form-input"></div>
-                        <div id="dolar-container" class="hidden"><label for="valorDolarDia" class="label">Valor Dólar del Día</label><input type="number" step="0.01" name="valorDolarDia" class="form-input"></div>
-                    </div>
-                     <div class="mt-4"><label for="valorTotal" class="label">Valor Final (CLP)</label><input type="number" name="valorTotal" class="form-input"></div>
-                </fieldset>
-                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Cliente y Huéspedes</legend>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label for="cliente-select" class="label">Cliente</label><select id="cliente-select" name="clienteId" class="form-select"></select></div>
                         <div><label for="cantidadHuespedes" class="label">Nº Huéspedes</label><input type="number" name="cantidadHuespedes" class="form-input"></div>
                     </div>
                 </fieldset>
+
+                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Montos</legend>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div><label for="moneda" class="label">Moneda</label><select name="moneda" class="form-select"><option value="CLP">CLP</option><option value="USD">USD</option></select></div>
+                        <div><label for="valorOriginal" class="label">Valor Original</label><input type="number" name="valorOriginal" class="form-input"></div>
+                        <div><label for="valorTotal" class="label">Valor Final (CLP)</label><input type="number" name="valorTotal" step="1" class="form-input"></div>
+                    </div>
+                    <div id="dolar-container" class="hidden mt-4"><label for="valorDolarDia" class="label">Valor Dólar del Día</label><input type="number" step="0.01" name="valorDolarDia" class="form-input w-full md:w-1/3"></div>
+                </fieldset>
+
+                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Datos del Cliente</legend>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div><label for="nombreCliente" class="label">Nombre</label><input type="text" name="nombreCliente" class="form-input"></div>
+                        <div><label for="telefonoCliente" class="label">Teléfono</label><input type="tel" name="telefonoCliente" class="form-input"></div>
+                        <div><label for="emailCliente" class="label">Email</label><input type="email" name="emailCliente" class="form-input"></div>
+                    </div>
+                </fieldset>
+
                 <div class="flex justify-end pt-4 border-t">
                     <button type="button" id="cancel-edit-btn" class="btn-secondary">Cancelar</button>
                     <button type="submit" class="btn-primary ml-2">Guardar Cambios</button>
@@ -186,10 +200,7 @@ export function afterRender() {
     searchInput.addEventListener('input', (e) => renderTabla(e.target.value));
     document.getElementById('cancel-edit-btn').addEventListener('click', cerrarModalEditar);
 
-    formEdit.moneda.addEventListener('change', () => {
-        toggleDolarFields();
-        calcularValorFinal();
-    });
+    formEdit.moneda.addEventListener('change', toggleDolarFields);
     formEdit.valorOriginal.addEventListener('input', calcularValorFinal);
     formEdit.valorDolarDia.addEventListener('input', calcularValorFinal);
 
@@ -213,9 +224,26 @@ export function afterRender() {
     formEdit.addEventListener('submit', async(e) => {
         e.preventDefault();
         if (!editandoReserva) return;
-        const datos = {
+        
+        const clienteActualizado = {
+            nombre: formEdit.nombreCliente.value,
+            telefono: formEdit.telefonoCliente.value,
+            email: formEdit.emailCliente.value
+        };
+
+        const clienteHaCambiado = JSON.stringify(clienteActualizado) !== JSON.stringify(clienteOriginal);
+
+        if (clienteHaCambiado) {
+            try {
+                await fetchAPI(`/clientes/${editandoReserva.clienteId}`, { method: 'PUT', body: clienteActualizado });
+            } catch (error) {
+                alert(`Error al actualizar los datos del cliente: ${error.message}`);
+                return;
+            }
+        }
+
+        const datosReserva = {
             idReservaCanal: formEdit.idReservaCanal.value,
-            clienteId: formEdit.clienteId.value,
             alojamientoId: formEdit.alojamientoId.value,
             fechaLlegada: formEdit.fechaLlegada.value,
             fechaSalida: formEdit.fechaSalida.value,
@@ -226,15 +254,17 @@ export function afterRender() {
             valores: {
                 valorOriginal: parseFloat(formEdit.valorOriginal.value) || 0,
                 valorTotal: parseFloat(formEdit.valorTotal.value) || 0,
-            }
+            },
+            nombreCliente: formEdit.nombreCliente.value // Actualizar también en la reserva por consistencia
         };
         try {
-            await fetchAPI(`/reservas/${editandoReserva.id}`, { method: 'PUT', body: datos });
+            await fetchAPI(`/reservas/${editandoReserva.id}`, { method: 'PUT', body: datosReserva });
             todasLasReservas = await fetchAPI('/reservas');
+            if (clienteHaCambiado) clientes = await fetchAPI('/clientes');
             renderTabla(searchInput.value);
             cerrarModalEditar();
         } catch (error) {
-            alert(`Error al guardar los cambios: ${error.message}`);
+            alert(`Error al guardar los cambios de la reserva: ${error.message}`);
         }
     });
 }
