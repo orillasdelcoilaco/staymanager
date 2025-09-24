@@ -1,4 +1,5 @@
 const admin = require('firebase-admin');
+const { obtenerValorDolar } = require('./dolarService');
 
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
@@ -23,21 +24,30 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
         let hayCambios = false;
         const datosAActualizar = {};
 
-        // Lógica de actualización para el estado
+        // Lógica de "autosanación" para reservas en USD sin datos del dólar
+        if (reservaExistente.moneda === 'USD' && !reservaExistente.valorDolarDia) {
+            const valorDolar = await obtenerValorDolar(db, empresaId, reservaExistente.fechaLlegada.toDate());
+            if (valorDolar) {
+                datosAActualizar.valorDolarDia = valorDolar;
+                // Asumimos que el valor original está en `valores.valorOriginal`
+                if (reservaExistente.valores && reservaExistente.valores.valorOriginal) {
+                    datosAActualizar['valores.valorTotal'] = reservaExistente.valores.valorOriginal * valorDolar;
+                }
+                hayCambios = true;
+            }
+        }
+        
         if (!ediciones.estado && reservaExistente.estado !== datosReserva.estado && datosReserva.estado) {
             datosAActualizar.estado = datosReserva.estado;
             hayCambios = true;
         }
 
-        // Lógica de actualización para el alojamiento
         if (!ediciones.alojamientoId && (!reservaExistente.alojamientoId || reservaExistente.alojamientoNombre === 'Alojamiento no identificado') && datosReserva.alojamientoId) {
             datosAActualizar.alojamientoId = datosReserva.alojamientoId;
             datosAActualizar.alojamientoNombre = datosReserva.alojamientoNombre;
             hayCambios = true;
         }
 
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Lógica mejorada para actualizar fechas si son diferentes
         const fechaLlegadaExistente = reservaExistente.fechaLlegada?.toDate().getTime();
         const fechaLlegadaNueva = datosReserva.fechaLlegada?.getTime();
         if (!ediciones.fechaLlegada && fechaLlegadaExistente !== fechaLlegadaNueva && fechaLlegadaNueva) {
@@ -51,7 +61,6 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
             datosAActualizar.fechaSalida = datosReserva.fechaSalida;
             hayCambios = true;
         }
-        // --- FIN DE LA MODIFICACIÓN ---
         
         if (hayCambios) {
             datosAActualizar.fechaActualizacion = admin.firestore.FieldValue.serverTimestamp();

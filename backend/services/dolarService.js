@@ -42,7 +42,6 @@ const processDolarCsv = (db, empresaId, buffer, year) => {
                 if (recordsToSave.length === 0) {
                     return resolve({ processed: 0, errors: 0, message: "No se encontraron registros válidos." });
                 }
-                
                 const collectionRef = db.collection('empresas').doc(empresaId).collection('valoresDolar');
                 const batch = db.batch();
                 let processedCount = 0;
@@ -51,30 +50,60 @@ const processDolarCsv = (db, empresaId, buffer, year) => {
                     const dateId = record.fecha.toISOString().split('T')[0];
                     const docRef = collectionRef.doc(dateId);
                     const doc = await docRef.get();
-
-                    // --- LÓGICA DE PROTECCIÓN ---
-                    // Solo escribir si el documento no existe o no fue modificado manualmente.
                     if (!doc.exists || !doc.data().modificadoManualmente) {
                         batch.set(docRef, {
                             valor: record.valor,
                             fecha: admin.firestore.Timestamp.fromDate(record.fecha),
-                            modificadoManualmente: false // Marcar como automático
+                            modificadoManualmente: false
                         });
                         processedCount++;
                     }
                 }
-                
-                if (processedCount > 0) {
-                    await batch.commit();
-                }
+                if (processedCount > 0) await batch.commit();
                 resolve({ processed: processedCount, errors: 0 });
             })
             .on('error', (error) => reject(error));
     });
 };
 
+const actualizarValorDolarApi = async (db, empresaId) => {
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0];
+    const dolarRef = db.collection('empresas').doc(empresaId).collection('valoresDolar').doc(dateStr);
+    const doc = await dolarRef.get();
+    if (doc.exists) return doc.data().valor;
+
+    try {
+        const response = await fetch('https://mindicador.cl/api/dolar');
+        if (!response.ok) throw new Error('No se pudo conectar a la API de mindicador.cl');
+        const data = await response.json();
+        const valor = data.serie[0]?.valor;
+        if (valor) {
+            await dolarRef.set({
+                valor: valor,
+                fecha: admin.firestore.Timestamp.fromDate(new Date(dateStr + 'T00:00:00Z')),
+                modificadoManualmente: false
+            });
+            return valor;
+        }
+    } catch (error) {
+        console.error(`[DolarService] Error al actualizar desde API: ${error.message}`);
+        return null;
+    }
+};
+
 const obtenerValorDolar = async (db, empresaId, targetDate) => {
     if (!(targetDate instanceof Date) || isNaN(targetDate)) return 950;
+    
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    // Si la fecha es futura, usar el valor más reciente disponible (el de hoy)
+    if (targetDate > today) {
+        let valorHoy = await actualizarValorDolarApi(db, empresaId);
+        if (valorHoy) return valorHoy;
+    }
+
     const dateStr = targetDate.toISOString().split('T')[0];
     const dolarRef = db.collection('empresas').doc(empresaId).collection('valoresDolar').doc(dateStr);
     const doc = await dolarRef.get();
@@ -89,7 +118,8 @@ const obtenerValorDolar = async (db, empresaId, targetDate) => {
         await dolarRef.set({ valor: ultimoValor, fecha: admin.firestore.Timestamp.fromDate(targetDate), modificadoManualmente: false });
         return ultimoValor;
     }
-    console.warn(`[DolarService] No se encontró valor del dólar para la fecha ${dateStr} o anteriores. Usando valor por defecto.`);
+    
+    console.warn(`[DolarService] No se encontró valor para ${dateStr} o anteriores. Usando valor por defecto.`);
     return 950;
 };
 
@@ -98,37 +128,28 @@ const getValoresPorMes = async (db, empresaId, year, month) => {
     const endDate = new Date(Date.UTC(year, month, 0));
     const startTimestamp = admin.firestore.Timestamp.fromDate(startDate);
     const endTimestamp = admin.firestore.Timestamp.fromDate(endDate);
-
     const snapshot = await db.collection('empresas').doc(empresaId).collection('valoresDolar')
         .where('fecha', '>=', startTimestamp)
         .where('fecha', '<=', endTimestamp)
-        .orderBy('fecha', 'asc')
-        .get();
-
+        .orderBy('fecha', 'asc').get();
     if (snapshot.empty) return [];
-    return snapshot.docs.map(doc => ({
-        id: doc.id,
-        fecha: doc.id,
-        valor: doc.data().valor,
-        modificadoManualmente: doc.data().modificadoManualmente || false // Devolver la bandera
-    }));
+    return snapshot.docs.map(doc => ({ id: doc.id, fecha: doc.id, valor: doc.data().valor, modificadoManualmente: doc.data().modificadoManualmente || false }));
 };
 
 const guardarValorDolar = async (db, empresaId, data) => {
     const { fecha, valor } = data;
-    if (!fecha || valor === undefined) throw new Error("La fecha y el valor son requeridos.");
-    
+    if (!fecha || valor === undefined) throw new Error("Fecha y valor son requeridos.");
     const docRef = db.collection('empresas').doc(empresaId).collection('valoresDolar').doc(fecha);
     await docRef.set({
         valor: parseFloat(valor),
         fecha: admin.firestore.Timestamp.fromDate(new Date(fecha + 'T00:00:00Z')),
-        modificadoManualmente: true // Marcar como manual
+        modificadoManualmente: true
     });
     return { id: docRef.id, fecha, valor, modificadoManualmente: true };
 };
 
 const eliminarValorDolar = async (db, empresaId, fecha) => {
-    if (!fecha) throw new Error("La fecha es requerida.");
+    if (!fecha) throw new Error("Fecha es requerida.");
     const docRef = db.collection('empresas').doc(empresaId).collection('valoresDolar').doc(fecha);
     await docRef.delete();
 };
@@ -138,5 +159,6 @@ module.exports = {
     obtenerValorDolar,
     getValoresPorMes,
     guardarValorDolar,
-    eliminarValorDolar
+    eliminarValorDolar,
+    actualizarValorDolarApi
 };

@@ -4,7 +4,7 @@ const { crearOActualizarReserva } = require('./reservasService');
 const { obtenerConversionesPorEmpresa } = require('./conversionesService');
 const { obtenerCanalesPorEmpresa } = require('./canalesService');
 const { obtenerMapeosPorEmpresa } = require('./mapeosService');
-const { obtenerValorDolar } = require('./dolarService');
+const { obtenerValorDolar, actualizarValorDolarApi } = require('./dolarService');
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 
 const leerArchivo = (buffer, nombreArchivo) => {
@@ -83,6 +83,7 @@ const parsearFecha = (dateValue, formatoFecha = 'DD/MM/YYYY') => {
     return null;
 };
 
+
 const normalizarString = (texto) => {
     if (!texto) return '';
     return texto.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, ' ');
@@ -101,6 +102,8 @@ const normalizarEstado = (estado) => {
 };
 
 const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, nombreArchivoOriginal = '') => {
+    await actualizarValorDolarApi(db, empresaId);
+
     const rows = leerArchivo(bufferArchivo, nombreArchivoOriginal);
     if (rows.length < 2) {
         throw new Error("El archivo está vacío o no tiene filas de datos.");
@@ -120,20 +123,20 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
     const canal = canales.find(c => c.id === canalId);
     if (!canal) throw new Error(`El canal con ID ${canalId} no fue encontrado.`);
     
-    const formatoFecha = canal.formatoFecha || 'DD/MM/YYYY'; // Usar el formato guardado o un default
+    const formatoFecha = canal.formatoFecha || 'DD/MM/YYYY';
     const canalNombre = canal.nombre;
     const monedaCanal = canal.moneda || 'CLP';
     
     let resultados = { totalFilas: datosJson.length, reservasCreadas: 0, reservasActualizadas: 0, reservasSinCambios: 0, clientesCreados: 0, filasIgnoradas: 0, errores: [] };
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
 
     for (const [index, filaArray] of datosJson.entries()) {
         let idFilaParaError = `Fila ${index + 2}`;
         try {
             const get = (campo) => obtenerValorConMapeo(filaArray, campo, mapeosDelCanal);
-
             const idReservaCanal = get('idReservaCanal');
             if (idReservaCanal) idFilaParaError = idReservaCanal;
-
             const tipoFila = get('tipoFila');
             if ((tipoFila && tipoFila.toLowerCase().indexOf('reserv') === -1) || !idReservaCanal) {
                 resultados.filasIgnoradas++;
@@ -143,18 +146,12 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             let fechaLlegada = parsearFecha(get('fechaLlegada'), formatoFecha);
             let fechaSalida = parsearFecha(get('fechaSalida'), formatoFecha);
 
-            if (!fechaLlegada || !fechaSalida) {
-                throw new Error(`No se pudieron interpretar las fechas para la reserva.`);
-            }
-
-            if (fechaSalida <= fechaLlegada) {
-                throw new Error('La fecha de salida debe ser posterior a la de llegada.');
-            }
+            if (!fechaLlegada || !fechaSalida) throw new Error(`No se pudieron interpretar las fechas.`);
+            if (fechaSalida <= fechaLlegada) throw new Error('La fecha de salida debe ser posterior a la de llegada.');
             
             const nombre = get('nombreCliente') || '';
             const apellido = get('apellidoCliente') || '';
             const nombreClienteCompleto = `${nombre} ${apellido}`.trim();
-
             const telefonoCliente = get('telefonoCliente');
             const correoCliente = get('correoCliente');
             let pais = get('pais') || 'CL';
@@ -167,9 +164,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             if (resultadoCliente.status === 'creado') resultados.clientesCreados++;
             
             const nombreExternoAlojamiento = get('alojamientoNombre');
-            let alojamientoId = null;
-            let alojamientoNombre = 'Alojamiento no identificado';
-            let capacidadAlojamiento = 0;
+            let alojamientoId = null, alojamientoNombre = 'Alojamiento no identificado', capacidadAlojamiento = 0;
             const nombreExternoNormalizado = normalizarString(nombreExternoAlojamiento);
             if (nombreExternoNormalizado) {
                 const conversion = conversionesAlojamiento.find(c => c.canalId === canalId && c.nombreExterno.split(';').map(normalizarString).includes(nombreExternoNormalizado));
@@ -181,31 +176,38 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 }
             }
 
-            let valorTotal = parseFloat(get('valorTotal')?.toString().replace(/[^0-9.,$]+/g, "").replace(',', '.')) || 0;
-            if (monedaCanal === 'USD' && fechaLlegada) {
-                const valorDolarDia = await obtenerValorDolar(fechaLlegada);
-                valorTotal = valorTotal * valorDolarDia;
+            const valorOriginal = parseFloat(get('valorTotal')?.toString().replace(/[^0-9.,$]+/g, "").replace(',', '.')) || 0;
+            let valorTotalCLP = valorOriginal;
+            let valorDolarDia = null;
+            let requiereActualizacionDolar = false;
+
+            if (monedaCanal === 'USD') {
+                valorDolarDia = await obtenerValorDolar(db, empresaId, fechaLlegada);
+                valorTotalCLP = valorOriginal * valorDolarDia;
+                if (fechaLlegada > today) {
+                    requiereActualizacionDolar = true;
+                }
             }
 
-            const totalNoches = (fechaLlegada && fechaSalida) ? Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24)) : 0;
-
+            const totalNoches = Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24));
             const datosReserva = {
                 idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
                 estado: normalizarEstado(get('estado')),
                 fechaReserva: parsearFecha(get('fechaReserva'), formatoFecha),
-                fechaLlegada,
-                fechaSalida,
-                totalNoches: totalNoches > 0 ? totalNoches : 1,
+                fechaLlegada, fechaSalida, totalNoches: totalNoches > 0 ? totalNoches : 1,
                 cantidadHuespedes: parseInt(get('invitados')) || capacidadAlojamiento,
                 clienteId: resultadoCliente.cliente.id,
                 alojamientoId, alojamientoNombre,
-                moneda: 'CLP',
+                moneda: monedaCanal,
                 valores: {
-                    valorTotal,
+                    valorOriginal: valorOriginal,
+                    valorTotal: valorTotalCLP,
                     comision: parseFloat(get('comision')?.toString().replace(/[^0-9.,$]+/g, "").replace(',', '.')) || 0,
                     abono: parseFloat(get('abono')) || 0,
                     pendiente: parseFloat(get('pendiente')) || 0
                 },
+                valorDolarDia: valorDolarDia,
+                requiereActualizacionDolar: requiereActualizacionDolar
             };
             
             const res = await crearOActualizarReserva(db, empresaId, datosReserva);
