@@ -67,51 +67,52 @@ const repararFechasSODC = async (db, empresaId) => {
 const repararHistorialDolar = async (db, empresaId) => {
     const collectionRef = db.collection('empresas').doc(empresaId).collection('valoresDolar');
     
-    // 1. Encontrar la fecha mínima y máxima
-    const firstDoc = await collectionRef.orderBy('fecha', 'asc').limit(1).get();
-    const lastDoc = await collectionRef.orderBy('fecha', 'desc').limit(1).get();
-
-    if (firstDoc.empty || lastDoc.empty) {
-        throw new Error("No hay suficientes datos históricos para realizar la reparación.");
+    // 1. Obtener todos los documentos existentes UNA SOLA VEZ y ordenarlos
+    const allDocsSnapshot = await collectionRef.orderBy('fecha', 'asc').get();
+    if (allDocsSnapshot.empty) {
+        throw new Error("No hay datos históricos para realizar la reparación.");
     }
+    
+    const existingValues = allDocsSnapshot.docs.map(doc => ({
+        fecha: doc.data().fecha.toDate(),
+        valor: doc.data().valor
+    }));
 
-    const minDate = firstDoc.docs[0].data().fecha.toDate();
-    const maxDate = lastDoc.docs[0].data().fecha.toDate();
-
-    // 2. Obtener todos los documentos existentes para evitar múltiples lecturas
-    const allDocsSnapshot = await collectionRef.get();
-    const existingValues = new Map();
-    allDocsSnapshot.forEach(doc => {
-        existingValues.set(doc.id, doc.data().valor);
-    });
-
+    const minDate = existingValues[0].fecha;
+    const maxDate = existingValues[existingValues.length - 1].fecha;
+    
     const batch = db.batch();
     let gapsFilled = 0;
-    
-    // 3. Iterar día por día desde la fecha mínima hasta la máxima
+    let existingIndex = 0;
+
+    // 2. Iterar día por día desde la fecha mínima hasta la máxima
     for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
-        const currentDateStr = new Date(d).toISOString().split('T')[0];
+        const currentDate = new Date(d);
+        
+        // Avanzar el puntero si la fecha actual ya existe
+        if (existingIndex < existingValues.length && existingValues[existingIndex].fecha.getTime() === currentDate.getTime()) {
+            existingIndex++;
+            continue;
+        }
 
-        if (!existingValues.has(currentDateStr)) {
-            // 4. Si falta el día, buscar el valor anterior y siguiente
-            const prevQuery = await collectionRef.where('fecha', '<', admin.firestore.Timestamp.fromDate(d)).orderBy('fecha', 'desc').limit(1).get();
-            const nextQuery = await collectionRef.where('fecha', '>', admin.firestore.Timestamp.fromDate(d)).orderBy('fecha', 'asc').limit(1).get();
+        // 3. Si el día falta, encontrar el valor anterior y siguiente en memoria
+        const prevValueData = existingValues[existingIndex - 1];
+        const nextValueData = existingValues[existingIndex];
 
-            const prevValue = !prevQuery.empty ? prevQuery.docs[0].data().valor : null;
-            const nextValue = !nextQuery.empty ? nextQuery.docs[0].data().valor : null;
+        const prevValue = prevValueData ? prevValueData.valor : null;
+        const nextValue = nextValueData ? nextValueData.valor : null;
 
-            if (prevValue !== null || nextValue !== null) {
-                // 5. Usar el mayor valor, o el que exista si uno es nulo
-                const fillValue = Math.max(prevValue || -Infinity, nextValue || -Infinity);
-                
-                const newDocRef = collectionRef.doc(currentDateStr);
-                batch.set(newDocRef, {
-                    valor: fillValue,
-                    fecha: admin.firestore.Timestamp.fromDate(new Date(currentDateStr + 'T00:00:00Z')),
-                    modificadoManualmente: true
-                });
-                gapsFilled++;
-            }
+        if (prevValue !== null || nextValue !== null) {
+            const fillValue = Math.max(prevValue || -Infinity, nextValue || -Infinity);
+            
+            const currentDateStr = currentDate.toISOString().split('T')[0];
+            const newDocRef = collectionRef.doc(currentDateStr);
+            batch.set(newDocRef, {
+                valor: fillValue,
+                fecha: admin.firestore.Timestamp.fromDate(currentDate),
+                modificadoManualmente: true
+            });
+            gapsFilled++;
         }
     }
 
@@ -124,7 +125,6 @@ const repararHistorialDolar = async (db, empresaId) => {
         diasRellenados: gapsFilled
     };
 };
-
 
 module.exports = {
     repararFechasSODC,
