@@ -19,25 +19,44 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
         let hayCambios = false;
         const datosAActualizar = {};
 
-        if ((reservaExistente.moneda === 'USD' || datosReserva.moneda === 'USD') && !reservaExistente.valorDolarDia && !ediciones['valores.valorTotal']) {
+        // --- INICIO DE LA NUEVA LÓGICA DE AUTOSANACIÓN DE MONEDA ---
+        // Si la moneda del canal no coincide con la de la reserva, se corrige.
+        if (!ediciones.moneda && reservaExistente.moneda !== datosReserva.moneda) {
+            datosAActualizar.moneda = datosReserva.moneda;
+            hayCambios = true;
+        }
+
+        // Si la moneda ES o SERÁ USD y le faltan los datos del dólar, los calcula.
+        if ((datosAActualizar.moneda === 'USD' || reservaExistente.moneda === 'USD') && !reservaExistente.valorDolarDia && !ediciones['valores.valorTotal']) {
             const valorDolar = await obtenerValorDolar(db, empresaId, reservaExistente.fechaLlegada.toDate());
             if (valorDolar) {
                 datosAActualizar.valorDolarDia = valorDolar;
-                if (reservaExistente.valores && reservaExistente.valores.valorOriginal) {
-                    datosAActualizar['valores.valorTotal'] = reservaExistente.valores.valorOriginal * valorDolar;
+                // Usa el valor original del reporte para el cálculo.
+                if (datosReserva.valores && datosReserva.valores.valorOriginal) {
+                    datosAActualizar['valores.valorTotal'] = datosReserva.valores.valorOriginal * valorDolar;
                 }
                 hayCambios = true;
             }
         }
+        // --- FIN DE LA NUEVA LÓGICA ---
         
-        if (!ediciones.estado && reservaExistente.estado !== datosReserva.estado) datosAActualizar.estado = datosReserva.estado;
-        if (!ediciones.alojamientoId && !reservaExistente.alojamientoId) datosAActualizar.alojamientoId = datosReserva.alojamientoId;
-        if (!ediciones.fechaLlegada && reservaExistente.fechaLlegada.toDate().getTime() !== datosReserva.fechaLlegada.getTime()) datosAActualizar.fechaLlegada = datosReserva.fechaLlegada;
-        if (!ediciones.fechaSalida && reservaExistente.fechaSalida.toDate().getTime() !== datosReserva.fechaSalida.getTime()) datosAActualizar.fechaSalida = datosReserva.fechaSalida;
-        if (!ediciones.moneda && reservaExistente.moneda !== datosReserva.moneda) datosAActualizar.moneda = datosReserva.moneda;
+        if (!ediciones.estado && reservaExistente.estado !== datosReserva.estado) {
+            datosAActualizar.estado = datosReserva.estado;
+            hayCambios = true;
+        }
+        if (!ediciones.alojamientoId && !reservaExistente.alojamientoId) {
+            datosAActualizar.alojamientoId = datosReserva.alojamientoId;
+            hayCambios = true;
+        }
+        if (!ediciones.fechaLlegada && reservaExistente.fechaLlegada.toDate().getTime() !== datosReserva.fechaLlegada.getTime()) {
+            datosAActualizar.fechaLlegada = datosReserva.fechaLlegada;
+            hayCambios = true;
+        }
+        if (!ediciones.fechaSalida && reservaExistente.fechaSalida.toDate().getTime() !== datosReserva.fechaSalida.getTime()) {
+            datosAActualizar.fechaSalida = datosReserva.fechaSalida;
+            hayCambios = true;
+        }
         
-        if (Object.keys(datosAActualizar).length > 0) hayCambios = true;
-
         if (hayCambios) {
             datosAActualizar.fechaActualizacion = admin.firestore.FieldValue.serverTimestamp();
             await reservaDoc.ref.update(datosAActualizar);
@@ -63,7 +82,6 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
     Object.keys(datosNuevos).forEach(key => {
         const valorNuevo = datosNuevos[key];
         const valorExistente = reservaExistente[key];
-
         if (typeof valorNuevo === 'object' && valorNuevo !== null && !Array.isArray(valorNuevo)) {
             Object.keys(valorNuevo).forEach(subKey => {
                 if (JSON.stringify(valorExistente?.[subKey]) !== JSON.stringify(valorNuevo[subKey])) {
@@ -75,12 +93,7 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
         }
     });
 
-    const datosAActualizar = {
-        ...datosNuevos,
-        edicionesManuales,
-        fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
-    };
-    
+    const datosAActualizar = { ...datosNuevos, edicionesManuales, fechaActualizacion: admin.firestore.FieldValue.serverTimestamp() };
     await reservaRef.update(datosAActualizar);
     return { id: reservaId, ...datosAActualizar };
 };
@@ -99,7 +112,6 @@ const obtenerReservasPorEmpresa = async (db, empresaId) => {
     return reservasSnapshot.docs.map(doc => {
         const data = doc.data();
         const cliente = clientesMap.get(data.clienteId);
-        
         return {
             ...data,
             telefono: cliente ? cliente.telefono : 'N/A',
@@ -116,9 +128,7 @@ const obtenerReservasPorEmpresa = async (db, empresaId) => {
 const obtenerReservaPorId = async (db, empresaId, reservaId) => {
     const reservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(reservaId);
     const doc = await reservaRef.get();
-    if (!doc.exists) {
-        throw new Error('Reserva no encontrada');
-    }
+    if (!doc.exists) throw new Error('Reserva no encontrada');
     const data = doc.data();
     return {
         ...data,
