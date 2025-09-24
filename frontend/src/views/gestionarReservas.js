@@ -9,7 +9,17 @@ function toggleDolarFields() {
     const form = document.getElementById('reserva-form-edit');
     const moneda = form.moneda.value;
     const dolarContainer = document.getElementById('dolar-container');
-    dolarContainer.style.display = moneda === 'USD' ? 'block' : 'none';
+    const valorTotalInput = form.valorTotal;
+
+    if (moneda === 'USD') {
+        dolarContainer.style.display = 'grid';
+        valorTotalInput.readOnly = true;
+        valorTotalInput.classList.add('bg-gray-100');
+    } else {
+        dolarContainer.style.display = 'none';
+        valorTotalInput.readOnly = false;
+        valorTotalInput.classList.remove('bg-gray-100');
+    }
 }
 
 function calcularValorFinal() {
@@ -57,10 +67,8 @@ function cerrarModalEditar() {
 }
 
 function renderTabla(filtro = '') {
-    // ... (sin cambios en esta función)
     const tbody = document.getElementById('reservas-tbody');
     if (!tbody) return;
-
     const filtroLowerCase = filtro.toLowerCase();
     const reservasFiltradas = todasLasReservas.filter(r => 
         (r.nombreCliente?.toLowerCase().includes(filtroLowerCase)) ||
@@ -116,50 +124,49 @@ export async function render() {
         <div class="bg-white p-8 rounded-lg shadow">
             <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                 <h2 class="text-2xl font-semibold text-gray-900">Gestionar Reservas</h2>
-                <div class="w-full md:w-1/2">
-                    <input type="text" id="search-input" placeholder="Buscar por cliente, teléfono, ID de reserva..." class="form-input w-full">
-                </div>
+                <div class="w-full md:w-1/2"><input type="text" id="search-input" placeholder="Buscar por cliente, teléfono, ID de reserva..." class="form-input w-full"></div>
             </div>
             <div class="overflow-x-auto">
-                <table class="min-w-full bg-white">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="th text-xs py-2 px-3">Cliente</th><th class="th text-xs py-2 px-3">Teléfono</th>
-                            <th class="th text-xs py-2 px-3">ID Canal</th><th class="th text-xs py-2 px-3">Alojamiento</th>
-                            <th class="th text-xs py-2 px-3">Canal</th><th class="th text-xs py-2 px-3">Check-in</th>
-                            <th class="th text-xs py-2 px-3">Check-out</th><th class="th text-xs py-2 px-3">Estado</th>
-                            <th class="th text-xs py-2 px-3">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="reservas-tbody"></tbody>
-                </table>
+                <table class="min-w-full bg-white"><thead class="bg-gray-50"><tr>
+                    <th class="th text-xs py-2 px-3">Cliente</th><th class="th text-xs py-2 px-3">Teléfono</th>
+                    <th class="th text-xs py-2 px-3">ID Canal</th><th class="th text-xs py-2 px-3">Alojamiento</th>
+                    <th class="th text-xs py-2 px-3">Canal</th><th class="th text-xs py-2 px-3">Check-in</th>
+                    <th class="th text-xs py-2 px-3">Check-out</th><th class="th text-xs py-2 px-3">Estado</th>
+                    <th class="th text-xs py-2 px-3">Acciones</th>
+                </tr></thead><tbody id="reservas-tbody"></tbody></table>
             </div>
         </div>
 
-        <div id="reserva-modal-edit" class="modal hidden"><div class="modal-content !max-w-3xl">
+        <div id="reserva-modal-edit" class="modal hidden"><div class="modal-content !max-w-4xl">
             <h3 id="modal-title" class="text-xl font-semibold mb-4">Editar Reserva</h3>
-            <form id="reserva-form-edit" class="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label for="idReservaCanal" class="label">ID Reserva Canal</label><input type="text" name="idReservaCanal" class="form-input"></div>
-                    <div><label for="cliente-select" class="label">Cliente</label><select id="cliente-select" name="clienteId" class="form-select"></select></div>
-                </div>
-                <div><label for="alojamiento-select" class="label">Alojamiento</label><select id="alojamiento-select" name="alojamientoId" class="form-select"></select></div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label for="fechaLlegada" class="label">Fecha Llegada</label><input type="date" name="fechaLlegada" class="form-input"></div>
-                    <div><label for="fechaSalida" class="label">Fecha Salida</label><input type="date" name="fechaSalida" class="form-input"></div>
-                </div>
-                <div class="border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label for="moneda" class="label">Moneda Original</label><select name="moneda" class="form-select"><option value="CLP">CLP</option><option value="USD">USD</option></select></div>
-                    <div><label for="valorOriginal" class="label">Valor Original (en moneda seleccionada)</label><input type="number" name="valorOriginal" class="form-input"></div>
-                </div>
-                <div id="dolar-container" class="hidden border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div><label for="valorDolarDia" class="label">Valor Dólar del Día</label><input type="number" step="0.01" name="valorDolarDia" class="form-input"></div>
-                     <div><label for="valorTotal" class="label">Valor Final Calculado (CLP)</label><input type="number" name="valorTotal" class="form-input bg-gray-100" readonly></div>
-                </div>
-                 <div class="border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label for="cantidadHuespedes" class="label">Nº Huéspedes</label><input type="number" name="cantidadHuespedes" class="form-input"></div>
-                    <div><label for="estado" class="label">Estado</label><select name="estado" class="form-select"><option value="Confirmada">Confirmada</option><option value="Cancelada">Cancelada</option><option value="Pendiente">Pendiente</option></select></div>
-                </div>
+            <form id="reserva-form-edit" class="space-y-6 max-h-[75vh] overflow-y-auto pr-4">
+                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Datos de la Reserva</legend>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label for="idReservaCanal" class="label">ID Reserva Canal</label><input type="text" name="idReservaCanal" class="form-input"></div>
+                        <div><label for="alojamiento-select" class="label">Alojamiento</label><select id="alojamiento-select" name="alojamientoId" class="form-select"></select></div>
+                        <div><label for="estado" class="label">Estado</label><select name="estado" class="form-select"><option value="Confirmada">Confirmada</option><option value="Cancelada">Cancelada</option><option value="Pendiente">Pendiente</option></select></div>
+                    </div>
+                </fieldset>
+                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Fechas</legend>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label for="fechaLlegada" class="label">Fecha Llegada</label><input type="date" name="fechaLlegada" class="form-input"></div>
+                        <div><label for="fechaSalida" class="label">Fecha Salida</label><input type="date" name="fechaSalida" class="form-input"></div>
+                    </div>
+                </fieldset>
+                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Montos</legend>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div><label for="moneda" class="label">Moneda Original</label><select name="moneda" class="form-select"><option value="CLP">CLP</option><option value="USD">USD</option></select></div>
+                        <div><label for="valorOriginal" class="label">Valor Original</label><input type="number" step="0.01" name="valorOriginal" class="form-input"></div>
+                        <div id="dolar-container" class="hidden"><label for="valorDolarDia" class="label">Valor Dólar del Día</label><input type="number" step="0.01" name="valorDolarDia" class="form-input"></div>
+                    </div>
+                     <div class="mt-4"><label for="valorTotal" class="label">Valor Final (CLP)</label><input type="number" name="valorTotal" class="form-input"></div>
+                </fieldset>
+                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Cliente y Huéspedes</legend>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label for="cliente-select" class="label">Cliente</label><select id="cliente-select" name="clienteId" class="form-select"></select></div>
+                        <div><label for="cantidadHuespedes" class="label">Nº Huéspedes</label><input type="number" name="cantidadHuespedes" class="form-input"></div>
+                    </div>
+                </fieldset>
                 <div class="flex justify-end pt-4 border-t">
                     <button type="button" id="cancel-edit-btn" class="btn-secondary">Cancelar</button>
                     <button type="submit" class="btn-primary ml-2">Guardar Cambios</button>
@@ -179,8 +186,10 @@ export function afterRender() {
     searchInput.addEventListener('input', (e) => renderTabla(e.target.value));
     document.getElementById('cancel-edit-btn').addEventListener('click', cerrarModalEditar);
 
-    // Event listeners para el cálculo automático
-    formEdit.moneda.addEventListener('change', toggleDolarFields);
+    formEdit.moneda.addEventListener('change', () => {
+        toggleDolarFields();
+        calcularValorFinal();
+    });
     formEdit.valorOriginal.addEventListener('input', calcularValorFinal);
     formEdit.valorDolarDia.addEventListener('input', calcularValorFinal);
 
