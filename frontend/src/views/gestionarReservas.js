@@ -5,33 +5,50 @@ let clientes = [];
 let alojamientos = [];
 let editandoReserva = null;
 
-function formatTelefono(telefono) {
-    if (!telefono) return 'N/A';
-    const digitos = telefono.toString().replace(/\D/g, '');
-    if (digitos.startsWith('569') && digitos.length === 11) return digitos;
-    if (digitos.length === 9 && digitos.startsWith('9')) return `56${digitos}`;
-    if (digitos.length === 8) return `569${digitos}`;
-    return digitos || 'N/A';
+function toggleDolarFields() {
+    const form = document.getElementById('reserva-form-edit');
+    const moneda = form.moneda.value;
+    const dolarContainer = document.getElementById('dolar-container');
+    dolarContainer.style.display = moneda === 'USD' ? 'block' : 'none';
 }
 
-function abrirModalEditar(reserva) {
-    editandoReserva = reserva;
+function calcularValorFinal() {
+    const form = document.getElementById('reserva-form-edit');
+    if (form.moneda.value === 'USD') {
+        const valorOriginal = parseFloat(form.valorOriginal.value) || 0;
+        const valorDolar = parseFloat(form.valorDolarDia.value) || 0;
+        form.valorTotal.value = (valorOriginal * valorDolar).toFixed(0);
+    }
+}
+
+async function abrirModalEditar(reservaId) {
     const modal = document.getElementById('reserva-modal-edit');
     const form = document.getElementById('reserva-form-edit');
     if (!modal || !form) return;
 
-    document.getElementById('modal-title').textContent = `Editar Reserva: ${reserva.idReservaCanal}`;
+    try {
+        editandoReserva = await fetchAPI(`/reservas/${reservaId}`);
+        
+        document.getElementById('modal-title').textContent = `Editar Reserva: ${editandoReserva.idReservaCanal}`;
 
-    // Poblar selects
-    document.getElementById('cliente-select').innerHTML = clientes.map(c => `<option value="${c.id}" ${c.id === reserva.clienteId ? 'selected' : ''}>${c.nombre}</option>`).join('');
-    document.getElementById('alojamiento-select').innerHTML = alojamientos.map(a => `<option value="${a.id}" ${a.id === reserva.alojamientoId ? 'selected' : ''}>${a.nombre}</option>`).join('');
+        document.getElementById('cliente-select').innerHTML = clientes.map(c => `<option value="${c.id}" ${c.id === editandoReserva.clienteId ? 'selected' : ''}>${c.nombre}</option>`).join('');
+        document.getElementById('alojamiento-select').innerHTML = alojamientos.map(a => `<option value="${a.id}" ${a.id === editandoReserva.alojamientoId ? 'selected' : ''}>${a.nombre}</option>`).join('');
 
-    const toInputDate = (isoDate) => isoDate ? isoDate.split('T')[0] : '';
-    form.fechaLlegada.value = toInputDate(reserva.fechaLlegada);
-    form.fechaSalida.value = toInputDate(reserva.fechaSalida);
-    form.estado.value = reserva.estado;
-    
-    modal.classList.remove('hidden');
+        form.idReservaCanal.value = editandoReserva.idReservaCanal || '';
+        form.fechaLlegada.value = editandoReserva.fechaLlegada;
+        form.fechaSalida.value = editandoReserva.fechaSalida;
+        form.estado.value = editandoReserva.estado;
+        form.moneda.value = editandoReserva.moneda || 'CLP';
+        form.valorOriginal.value = editandoReserva.valores?.valorOriginal || 0;
+        form.valorTotal.value = editandoReserva.valores?.valorTotal || 0;
+        form.valorDolarDia.value = editandoReserva.valorDolarDia || '';
+        form.cantidadHuespedes.value = editandoReserva.cantidadHuespedes || 0;
+
+        toggleDolarFields();
+        modal.classList.remove('hidden');
+    } catch (error) {
+        alert(`Error al cargar los detalles de la reserva: ${error.message}`);
+    }
 }
 
 function cerrarModalEditar() {
@@ -40,15 +57,16 @@ function cerrarModalEditar() {
 }
 
 function renderTabla(filtro = '') {
+    // ... (sin cambios en esta función)
     const tbody = document.getElementById('reservas-tbody');
     if (!tbody) return;
 
     const filtroLowerCase = filtro.toLowerCase();
     const reservasFiltradas = todasLasReservas.filter(r => 
-        (r.nombreCliente && r.nombreCliente.toLowerCase().includes(filtroLowerCase)) ||
-        (r.alojamientoNombre && r.alojamientoNombre.toLowerCase().includes(filtroLowerCase)) ||
-        (r.idReservaCanal && r.idReservaCanal.toLowerCase().includes(filtroLowerCase)) ||
-        (r.telefono && r.telefono.includes(filtroLowerCase))
+        (r.nombreCliente?.toLowerCase().includes(filtroLowerCase)) ||
+        (r.alojamientoNombre?.toLowerCase().includes(filtroLowerCase)) ||
+        (r.idReservaCanal?.toLowerCase().includes(filtroLowerCase)) ||
+        (r.telefono?.includes(filtroLowerCase))
     );
 
     if (reservasFiltradas.length === 0) {
@@ -58,23 +76,22 @@ function renderTabla(filtro = '') {
 
     const formatDate = (dateString) => {
         if (!dateString) return 'No definida';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
+        return new Date(dateString).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
     };
 
     const lapiz = '✏️';
     tbody.innerHTML = reservasFiltradas.map(r => {
-        const ediciones = r.edicionesManuales || {};
+        const e = r.edicionesManuales || {};
         return `
         <tr class="border-b text-xs hover:bg-gray-50">
-            <td class="py-2 px-3">${ediciones.clienteId ? lapiz : ''} ${r.nombreCliente}</td>
+            <td class="py-2 px-3">${e.clienteId ? lapiz : ''} ${r.nombreCliente}</td>
             <td class="py-2 px-3 font-mono">${r.telefono}</td>
-            <td class="py-2 px-3">${r.idReservaCanal}</td>
-            <td class="py-2 px-3">${ediciones.alojamientoId ? lapiz : ''} ${r.alojamientoNombre}</td>
-            <td class="py-2 px-3">${r.canalNombre}</td>
-            <td class="py-2 px-3 whitespace-nowrap">${ediciones.fechaLlegada ? lapiz : ''} ${formatDate(r.fechaLlegada)}</td>
-            <td class="py-2 px-3 whitespace-nowrap">${ediciones.fechaSalida ? lapiz : ''} ${formatDate(r.fechaSalida)}</td>
-            <td class="py-2 px-3">${ediciones.estado ? lapiz : ''} ${r.estado}</td>
+            <td class="py-2 px-3">${e.idReservaCanal ? lapiz : ''} ${r.idReservaCanal}</td>
+            <td class="py-2 px-3">${e.alojamientoId ? lapiz : ''} ${r.alojamientoNombre}</td>
+            <td class="py-2 px-3">${e.canalNombre ? lapiz : ''} ${r.canalNombre}</td>
+            <td class="py-2 px-3 whitespace-nowrap">${e.fechaLlegada ? lapiz : ''} ${formatDate(r.fechaLlegada)}</td>
+            <td class="py-2 px-3 whitespace-nowrap">${e.fechaSalida ? lapiz : ''} ${formatDate(r.fechaSalida)}</td>
+            <td class="py-2 px-3">${e.estado ? lapiz : ''} ${r.estado}</td>
             <td class="py-2 px-3 whitespace-nowrap">
                 <button data-id="${r.id}" class="edit-btn text-indigo-600 hover:text-indigo-800 font-medium">Editar</button>
                 <button data-id="${r.id}" class="delete-btn text-red-600 hover:text-red-800 font-medium ml-2">Eliminar</button>
@@ -82,6 +99,7 @@ function renderTabla(filtro = '') {
         </tr>
     `}).join('');
 }
+
 
 export async function render() {
     try {
@@ -106,14 +124,10 @@ export async function render() {
                 <table class="min-w-full bg-white">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="th text-xs py-2 px-3">Cliente</th>
-                            <th class="th text-xs py-2 px-3">Teléfono</th>
-                            <th class="th text-xs py-2 px-3">ID Canal</th>
-                            <th class="th text-xs py-2 px-3">Alojamiento</th>
-                            <th class="th text-xs py-2 px-3">Canal</th>
-                            <th class="th text-xs py-2 px-3">Check-in</th>
-                            <th class="th text-xs py-2 px-3">Check-out</th>
-                            <th class="th text-xs py-2 px-3">Estado</th>
+                            <th class="th text-xs py-2 px-3">Cliente</th><th class="th text-xs py-2 px-3">Teléfono</th>
+                            <th class="th text-xs py-2 px-3">ID Canal</th><th class="th text-xs py-2 px-3">Alojamiento</th>
+                            <th class="th text-xs py-2 px-3">Canal</th><th class="th text-xs py-2 px-3">Check-in</th>
+                            <th class="th text-xs py-2 px-3">Check-out</th><th class="th text-xs py-2 px-3">Estado</th>
                             <th class="th text-xs py-2 px-3">Acciones</th>
                         </tr>
                     </thead>
@@ -122,41 +136,36 @@ export async function render() {
             </div>
         </div>
 
-        <div id="reserva-modal-edit" class="modal hidden">
-             <div class="modal-content">
-                <h3 id="modal-title" class="text-xl font-semibold mb-4">Editar Reserva</h3>
-                <form id="reserva-form-edit" class="space-y-4">
-                    <div>
-                        <label for="cliente-select" class="block text-sm font-medium text-gray-700">Cliente</label>
-                        <select id="cliente-select" name="clienteId" class="mt-1 form-select"></select>
-                    </div>
-                     <div>
-                        <label for="alojamiento-select" class="block text-sm font-medium text-gray-700">Alojamiento</label>
-                        <select id="alojamiento-select" name="alojamientoId" class="mt-1 form-select"></select>
-                    </div>
-                    <div>
-                        <label for="fechaLlegada" class="block text-sm font-medium text-gray-700">Fecha Llegada</label>
-                        <input type="date" name="fechaLlegada" class="mt-1 form-input">
-                    </div>
-                     <div>
-                        <label for="fechaSalida" class="block text-sm font-medium text-gray-700">Fecha Salida</label>
-                        <input type="date" name="fechaSalida" class="mt-1 form-input">
-                    </div>
-                     <div>
-                        <label for="estado" class="block text-sm font-medium text-gray-700">Estado</label>
-                        <select name="estado" class="mt-1 form-select">
-                            <option value="Confirmada">Confirmada</option>
-                            <option value="Cancelada">Cancelada</option>
-                            <option value="Pendiente">Pendiente</option>
-                        </select>
-                    </div>
-                    <div class="flex justify-end pt-4 border-t">
-                        <button type="button" id="cancel-edit-btn" class="btn-secondary">Cancelar</button>
-                        <button type="submit" class="btn-primary ml-2">Guardar Cambios</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+        <div id="reserva-modal-edit" class="modal hidden"><div class="modal-content !max-w-3xl">
+            <h3 id="modal-title" class="text-xl font-semibold mb-4">Editar Reserva</h3>
+            <form id="reserva-form-edit" class="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label for="idReservaCanal" class="label">ID Reserva Canal</label><input type="text" name="idReservaCanal" class="form-input"></div>
+                    <div><label for="cliente-select" class="label">Cliente</label><select id="cliente-select" name="clienteId" class="form-select"></select></div>
+                </div>
+                <div><label for="alojamiento-select" class="label">Alojamiento</label><select id="alojamiento-select" name="alojamientoId" class="form-select"></select></div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label for="fechaLlegada" class="label">Fecha Llegada</label><input type="date" name="fechaLlegada" class="form-input"></div>
+                    <div><label for="fechaSalida" class="label">Fecha Salida</label><input type="date" name="fechaSalida" class="form-input"></div>
+                </div>
+                <div class="border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label for="moneda" class="label">Moneda Original</label><select name="moneda" class="form-select"><option value="CLP">CLP</option><option value="USD">USD</option></select></div>
+                    <div><label for="valorOriginal" class="label">Valor Original (en moneda seleccionada)</label><input type="number" name="valorOriginal" class="form-input"></div>
+                </div>
+                <div id="dolar-container" class="hidden border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div><label for="valorDolarDia" class="label">Valor Dólar del Día</label><input type="number" step="0.01" name="valorDolarDia" class="form-input"></div>
+                     <div><label for="valorTotal" class="label">Valor Final Calculado (CLP)</label><input type="number" name="valorTotal" class="form-input bg-gray-100" readonly></div>
+                </div>
+                 <div class="border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label for="cantidadHuespedes" class="label">Nº Huéspedes</label><input type="number" name="cantidadHuespedes" class="form-input"></div>
+                    <div><label for="estado" class="label">Estado</label><select name="estado" class="form-select"><option value="Confirmada">Confirmada</option><option value="Cancelada">Cancelada</option><option value="Pendiente">Pendiente</option></select></div>
+                </div>
+                <div class="flex justify-end pt-4 border-t">
+                    <button type="button" id="cancel-edit-btn" class="btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn-primary ml-2">Guardar Cambios</button>
+                </div>
+            </form>
+        </div></div>
     `;
 }
 
@@ -170,20 +179,17 @@ export function afterRender() {
     searchInput.addEventListener('input', (e) => renderTabla(e.target.value));
     document.getElementById('cancel-edit-btn').addEventListener('click', cerrarModalEditar);
 
+    // Event listeners para el cálculo automático
+    formEdit.moneda.addEventListener('change', toggleDolarFields);
+    formEdit.valorOriginal.addEventListener('input', calcularValorFinal);
+    formEdit.valorDolarDia.addEventListener('input', calcularValorFinal);
+
     tbody.addEventListener('click', async (e) => {
-        const target = e.target;
-        const id = target.dataset.id;
+        const id = e.target.dataset.id;
         if (!id) return;
-        
-        const reserva = todasLasReservas.find(r => r.id === id);
-        if (!reserva) return;
-
-        if (target.classList.contains('edit-btn')) {
-            abrirModalEditar(reserva);
-        }
-
-        if (target.classList.contains('delete-btn')) {
-            if (confirm('¿Estás seguro de que quieres eliminar esta reserva?')) {
+        if (e.target.classList.contains('edit-btn')) abrirModalEditar(id);
+        if (e.target.classList.contains('delete-btn')) {
+            if (confirm('¿Estás seguro de que quieres eliminar esta reserva? Esta acción no se puede deshacer.')) {
                 try {
                     await fetchAPI(`/reservas/${id}`, { method: 'DELETE' });
                     todasLasReservas = todasLasReservas.filter(r => r.id !== id);
@@ -198,19 +204,21 @@ export function afterRender() {
     formEdit.addEventListener('submit', async(e) => {
         e.preventDefault();
         if (!editandoReserva) return;
-
-        const alojamientoSelect = formEdit.querySelector('#alojamiento-select');
-        const clienteSelect = formEdit.querySelector('#cliente-select');
-
         const datos = {
-            clienteId: clienteSelect.value,
-            alojamientoId: alojamientoSelect.value,
-            alojamientoNombre: alojamientoSelect.options[alojamientoSelect.selectedIndex].text,
-            fechaLlegada: formEdit.fechaLlegada.value ? new Date(formEdit.fechaLlegada.value) : null,
-            fechaSalida: formEdit.fechaSalida.value ? new Date(formEdit.fechaSalida.value) : null,
+            idReservaCanal: formEdit.idReservaCanal.value,
+            clienteId: formEdit.clienteId.value,
+            alojamientoId: formEdit.alojamientoId.value,
+            fechaLlegada: formEdit.fechaLlegada.value,
+            fechaSalida: formEdit.fechaSalida.value,
             estado: formEdit.estado.value,
+            moneda: formEdit.moneda.value,
+            cantidadHuespedes: parseInt(formEdit.cantidadHuespedes.value) || 0,
+            valorDolarDia: parseFloat(formEdit.valorDolarDia.value) || null,
+            valores: {
+                valorOriginal: parseFloat(formEdit.valorOriginal.value) || 0,
+                valorTotal: parseFloat(formEdit.valorTotal.value) || 0,
+            }
         };
-        
         try {
             await fetchAPI(`/reservas/${editandoReserva.id}`, { method: 'PUT', body: datos });
             todasLasReservas = await fetchAPI('/reservas');
