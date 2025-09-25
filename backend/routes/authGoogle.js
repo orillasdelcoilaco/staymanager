@@ -1,13 +1,13 @@
 const express = require('express');
 const { OAuth2Client } = require('google-auth-library');
+const admin = require('firebase-admin'); // Se importa admin para usar el timestamp
 
-// TODO: Asegúrate de que tu archivo de credenciales de Google esté disponible
-// y configurado en tu entorno de producción (ej. Render Secrets).
+// La lógica para cargar credenciales ahora es más robusta y similar a como se carga la serviceAccountKey
 let credentials;
 try {
     credentials = process.env.RENDER
-        ? JSON.parse(process.env.GOOGLE_CREDENTIALS)
-        : require('../google_credentials.json');
+        ? require('/etc/secrets/google_credentials.json') // Ruta para Secret Files en Render
+        : require('../google_credentials.json'); // Ruta para desarrollo local
 } catch (error) {
     console.error("CRITICAL: No se pudieron cargar las credenciales de Google. La autenticación de Google no funcionará.", error);
 }
