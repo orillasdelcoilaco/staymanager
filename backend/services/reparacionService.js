@@ -128,12 +128,18 @@ const verificarSincronizacionContactos = async (db, empresaId) => {
     const clientesRef = db.collection('empresas').doc(empresaId).collection('clientes');
     const clientesSnapshot = await clientesRef.get();
     if (clientesSnapshot.empty) {
-        return { clientesRevisados: 0, clientesActualizados: 0, telefonosCorregidos: 0 };
+        return { clientesRevisados: 0, contactosYaSincronizados: 0, contactosNuevosSincronizados: 0, telefonosCorregidos: 0, clientesNoSincronizables: 0 };
     }
 
     const batch = db.batch();
-    let clientesActualizados = 0;
-    let telefonosCorregidos = 0;
+    let summary = {
+        clientesRevisados: clientesSnapshot.size,
+        contactosYaSincronizados: 0,
+        contactosNuevosSincronizados: 0,
+        telefonosCorregidos: 0,
+        clientesNoSincronizables: 0
+    };
+    
     const authClient = await require('./googleContactsService').getAuthenticatedClient(db, empresaId);
 
     for (const doc of clientesSnapshot.docs) {
@@ -146,11 +152,13 @@ const verificarSincronizacionContactos = async (db, empresaId) => {
         if (telefonoNormal !== cliente.telefonoNormalizado) {
             updates.telefonoNormalizado = telefonoNormal;
             necesitaUpdate = true;
-            telefonosCorregidos++;
+            summary.telefonosCorregidos++;
         }
 
-        // 2. Verificar sincronización si no está ya marcada
-        if (!cliente.googleContactSynced) {
+        // 2. Verificar sincronización
+        if (cliente.googleContactSynced) {
+            summary.contactosYaSincronizados++;
+        } else {
             const reservaSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
                 .where('clienteId', '==', doc.id)
                 .orderBy('fechaReserva', 'desc')
@@ -164,8 +172,10 @@ const verificarSincronizacionContactos = async (db, empresaId) => {
                 if (existeEnGoogle) {
                     updates.googleContactSynced = true;
                     necesitaUpdate = true;
-                    clientesActualizados++;
+                    summary.contactosNuevosSincronizados++;
                 }
+            } else {
+                summary.clientesNoSincronizables++;
             }
         }
         
@@ -174,16 +184,13 @@ const verificarSincronizacionContactos = async (db, empresaId) => {
         }
     }
 
-    if (clientesActualizados > 0 || telefonosCorregidos > 0) {
+    if (summary.contactosNuevosSincronizados > 0 || summary.telefonosCorregidos > 0) {
         await batch.commit();
     }
     
-    return {
-        clientesRevisados: clientesSnapshot.size,
-        clientesActualizados,
-        telefonosCorregidos
-    };
+    return summary;
 };
+
 
 module.exports = {
     repararFechasSODC,

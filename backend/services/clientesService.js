@@ -68,7 +68,7 @@ const crearOActualizarCliente = async (db, empresaId, datosCliente) => {
         notas: datosCliente.notas || '',
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
         origen: 'Importado',
-        googleContactSynced: false // <-- AÑADIDO
+        googleContactSynced: false
     };
     await nuevoClienteRef.set(nuevoCliente);
 
@@ -186,5 +186,6 @@ module.exports = {
     obtenerClientePorId,
     actualizarCliente,
     eliminarCliente,
-    sincronizarClienteGoogle
+    sincronizarClienteGoogle,
+    normalizarTelefono
 };

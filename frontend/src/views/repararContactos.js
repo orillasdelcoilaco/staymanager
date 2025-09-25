@@ -58,13 +58,15 @@ export function afterRender() {
 
         try {
             const result = await fetchAPI('/reparar/sincronizacion-contactos', { method: 'POST' });
-            const { clientesRevisados, clientesActualizados, telefonosCorregidos } = result.summary;
+            const { clientesRevisados, contactosYaSincronizados, contactosNuevosSincronizados, telefonosCorregidos, clientesNoSincronizables } = result.summary;
             let summaryHtml = `
                 <strong>¡Proceso completado!</strong>
                 <ul class="list-disc list-inside mt-2">
                     <li>Clientes totales revisados: <strong>${clientesRevisados}</strong></li>
-                    <li>Clientes marcados como "Sincronizados": <strong>${clientesActualizados}</strong></li>
-                    <li>Números de teléfono corregidos: <strong>${telefonosCorregidos}</strong></li>
+                    <li>Teléfonos con formato corregido: <strong>${telefonosCorregidos}</strong></li>
+                    <li>Contactos nuevos encontrados en Google y actualizados: <strong>${contactosNuevosSincronizados}</strong></li>
+                    <li>Clientes que ya estaban marcados como sincronizados: <strong>${contactosYaSincronizados}</strong></li>
+                    <li>Clientes que no se pudieron verificar (sin reservas asociadas): <strong>${clientesNoSincronizables}</strong></li>
                 </ul>
             `;
             showStatus(summaryHtml, 'success');
