@@ -3,6 +3,7 @@ import { fetchAPI } from '../api.js';
 let todasLasReservas = [];
 let clientes = [];
 let alojamientos = [];
+let historialCargas = []; // <-- AÑADIDO
 let editandoReserva = null;
 let clienteOriginal = null;
 
@@ -73,19 +74,25 @@ function cerrarModalEditar() {
     clienteOriginal = null;
 }
 
-function renderTabla(filtro = '') {
+function renderTabla(filtros) {
     const tbody = document.getElementById('reservas-tbody');
     if (!tbody) return;
-    const filtroLowerCase = filtro.toLowerCase();
-    const reservasFiltradas = todasLasReservas.filter(r => 
-        (r.nombreCliente?.toLowerCase().includes(filtroLowerCase)) ||
-        (r.alojamientoNombre?.toLowerCase().includes(filtroLowerCase)) ||
-        (r.idReservaCanal?.toLowerCase().includes(filtroLowerCase)) ||
-        (r.telefono?.includes(filtroLowerCase))
-    );
+    
+    const filtroLowerCase = filtros.busqueda.toLowerCase();
+    
+    const reservasFiltradas = todasLasReservas.filter(r => {
+        const busquedaMatch = (r.nombreCliente?.toLowerCase().includes(filtroLowerCase)) ||
+                              (r.alojamientoNombre?.toLowerCase().includes(filtroLowerCase)) ||
+                              (r.idReservaCanal?.toLowerCase().includes(filtroLowerCase)) ||
+                              (r.telefono?.includes(filtroLowerCase));
+        
+        const cargaMatch = !filtros.carga || r.idCarga === filtros.carga;
+
+        return busquedaMatch && cargaMatch;
+    });
 
     if (reservasFiltradas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-gray-500 py-4">No se encontraron reservas.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-gray-500 py-4">No se encontraron reservas.</td></tr>';
         return;
     }
 
@@ -97,6 +104,7 @@ function renderTabla(filtro = '') {
     const lapiz = '✏️';
     tbody.innerHTML = reservasFiltradas.map(r => {
         const e = r.edicionesManuales || {};
+        const reporte = historialCargas.find(h => h.id === r.idCarga);
         return `
         <tr class="border-b text-xs hover:bg-gray-50">
             <td class="py-2 px-3">${e.clienteId || e.nombreCliente ? lapiz : ''} ${r.nombreCliente}</td>
@@ -107,6 +115,7 @@ function renderTabla(filtro = '') {
             <td class="py-2 px-3 whitespace-nowrap">${e.fechaLlegada ? lapiz : ''} ${formatDate(r.fechaLlegada)}</td>
             <td class="py-2 px-3 whitespace-nowrap">${e.fechaSalida ? lapiz : ''} ${formatDate(r.fechaSalida)}</td>
             <td class="py-2 px-3">${e.estado ? lapiz : ''} ${r.estado}</td>
+            <td class="py-2 px-3 font-mono text-gray-500" title="${reporte?.nombreArchivo || 'N/A'}">${reporte?.nombreArchivo?.substring(0, 15) || 'N/A'}...</td>
             <td class="py-2 px-3 whitespace-nowrap">
                 <button data-id="${r.id}" class="edit-btn text-indigo-600 hover:text-indigo-800 font-medium">Editar</button>
                 <button data-id="${r.id}" class="delete-btn text-red-600 hover:text-red-800 font-medium ml-2">Eliminar</button>
@@ -118,20 +127,29 @@ function renderTabla(filtro = '') {
 
 export async function render() {
     try {
-        [todasLasReservas, clientes, alojamientos] = await Promise.all([
+        [todasLasReservas, clientes, alojamientos, historialCargas] = await Promise.all([
             fetchAPI('/reservas'),
             fetchAPI('/clientes'),
-            fetchAPI('/propiedades')
+            fetchAPI('/propiedades'),
+            fetchAPI('/historial-cargas')
         ]);
     } catch (error) {
         return `<p class="text-red-500">Error al cargar las reservas. Por favor, intente de nuevo.</p>`;
     }
 
+    const opcionesCarga = historialCargas.map(h => `<option value="${h.id}">${h.nombreArchivo}</option>`).join('');
+
     return `
         <div class="bg-white p-8 rounded-lg shadow">
             <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                 <h2 class="text-2xl font-semibold text-gray-900">Gestionar Reservas</h2>
-                <div class="w-full md:w-1/2"><input type="text" id="search-input" placeholder="Buscar por cliente, teléfono, ID de reserva..." class="form-input w-full"></div>
+                <div class="w-full md:w-1/2 grid grid-cols-2 gap-4">
+                    <input type="text" id="search-input" placeholder="Buscar por cliente, teléfono, ID..." class="form-input w-full">
+                    <select id="carga-filter" class="form-select w-full">
+                        <option value="">-- Filtrar por reporte --</option>
+                        ${opcionesCarga}
+                    </select>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full bg-white"><thead class="bg-gray-50"><tr>
@@ -139,6 +157,7 @@ export async function render() {
                     <th class="th text-xs py-2 px-3">ID Canal</th><th class="th text-xs py-2 px-3">Alojamiento</th>
                     <th class="th text-xs py-2 px-3">Canal</th><th class="th text-xs py-2 px-3">Check-in</th>
                     <th class="th text-xs py-2 px-3">Check-out</th><th class="th text-xs py-2 px-3">Estado</th>
+                    <th class="th text-xs py-2 px-3">Reporte Origen</th>
                     <th class="th text-xs py-2 px-3">Acciones</th>
                 </tr></thead><tbody id="reservas-tbody"></tbody></table>
             </div>
@@ -192,12 +211,19 @@ export async function render() {
 
 export function afterRender() {
     const searchInput = document.getElementById('search-input');
+    const cargaFilter = document.getElementById('carga-filter');
     const tbody = document.getElementById('reservas-tbody');
     const formEdit = document.getElementById('reserva-form-edit');
+
+    const getFiltros = () => ({
+        busqueda: searchInput.value,
+        carga: cargaFilter.value
+    });
     
-    renderTabla();
+    renderTabla(getFiltros());
     
-    searchInput.addEventListener('input', (e) => renderTabla(e.target.value));
+    searchInput.addEventListener('input', () => renderTabla(getFiltros()));
+    cargaFilter.addEventListener('change', () => renderTabla(getFiltros()));
     document.getElementById('cancel-edit-btn').addEventListener('click', cerrarModalEditar);
 
     formEdit.moneda.addEventListener('change', toggleDolarFields);
@@ -213,7 +239,7 @@ export function afterRender() {
                 try {
                     await fetchAPI(`/reservas/${id}`, { method: 'DELETE' });
                     todasLasReservas = todasLasReservas.filter(r => r.id !== id);
-                    renderTabla(searchInput.value);
+                    renderTabla(getFiltros());
                 } catch (error) {
                     alert(`Error al eliminar: ${error.message}`);
                 }
@@ -255,13 +281,13 @@ export function afterRender() {
                 valorOriginal: parseFloat(formEdit.valorOriginal.value) || 0,
                 valorTotal: parseFloat(formEdit.valorTotal.value) || 0,
             },
-            nombreCliente: formEdit.nombreCliente.value // Actualizar también en la reserva por consistencia
+            nombreCliente: formEdit.nombreCliente.value
         };
         try {
             await fetchAPI(`/reservas/${editandoReserva.id}`, { method: 'PUT', body: datosReserva });
             todasLasReservas = await fetchAPI('/reservas');
             if (clienteHaCambiado) clientes = await fetchAPI('/clientes');
-            renderTabla(searchInput.value);
+            renderTabla(getFiltros());
             cerrarModalEditar();
         } catch (error) {
             alert(`Error al guardar los cambios de la reserva: ${error.message}`);

@@ -3,7 +3,7 @@ import { checkAuthAndRender, renderAppLayout } from './app.js';
 const views = {
     '/login': () => import('./views/login.js'),
     '/': () => import('./views/dashboard.js'),
-    '/gestion-diaria': () => import('./views/gestionDiaria.js'), // <-- Asegúrate que esta línea existe
+    '/gestion-diaria': () => import('./views/gestionDiaria.js'),
     '/calendario': () => import('./views/calendario.js'),
     '/clientes': () => import('./views/gestionarClientes.js'),
     '/cliente/:id': () => import('./views/perfilCliente.js'),
@@ -22,6 +22,7 @@ const views = {
     '/empresa': () => import('./views/empresa.js'),
     '/gestionar-usuarios': () => import('./views/gestionarUsuarios.js'),
     '/reparar-contactos': () => import('./views/repararContactos.js'),
+    '/historial-cargas': () => import('./views/historialCargas.js'), // <-- AÑADIDO
 };
 
 const menuConfig = [
@@ -30,7 +31,7 @@ const menuConfig = [
         name: '💼 Flujo de Trabajo',
         id: 'flujo-trabajo',
         children: [
-            { name: '☀️ Gestión Diaria', path: '/gestion-diaria', id: 'gestion-diaria' }, // <-- Asegúrate que esta línea existe y está correcta
+            { name: '☀️ Gestión Diaria', path: '/gestion-diaria', id: 'gestion-diaria' },
             { name: '📅 Calendario', path: '/calendario', id: 'calendario' },
             { name: '📄 Generar Reportes Rápidos', path: '#', id: 'reportes-rapidos' },
             { name: '➕ Agregar Propuesta', path: '#', id: 'agregar-propuesta' },
@@ -39,12 +40,12 @@ const menuConfig = [
             { name: '💲 Generar Presupuestos', path: '#', id: 'generar-presupuestos' },
         ]
     },
-    // ... el resto del menú no cambia
     {
         name: '🛠️ Herramientas',
         id: 'herramientas',
         children: [
             { name: '⚙️ Procesar y Consolidar', path: '/procesar-y-consolidar', id: 'procesar-consolidar' },
+            { name: '🗂️ Historial de Cargas', path: '/historial-cargas', id: 'historial-cargas' }, // <-- AÑADIDO
             { name: '👥 Gestionar Clientes', path: '/clientes', id: 'clientes' },
             { name: '🏨 Gestionar Reservas', path: '/gestionar-reservas', id: 'gestionar-reservas' }, 
             { name: '📈 Gestionar Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' },
@@ -70,7 +71,7 @@ const menuConfig = [
     }
 ];
 
-// ... el resto del archivo no cambia
+// ... (El resto del archivo router.js no necesita cambios)
 export async function handleNavigation(path) {
     if (path !== '/login') sessionStorage.setItem('lastPath', path);
     window.history.pushState({}, '', path);

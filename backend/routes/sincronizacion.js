@@ -8,7 +8,6 @@ const upload = multer({ storage: storage });
 module.exports = (db) => {
     const router = express.Router();
 
-    // --- NUEVA RUTA --- para analizar las cabeceras de un archivo
     router.post('/analizar-archivo', upload.single('archivoMuestra'), async (req, res) => {
         if (!req.file) {
             return res.status(400).json({ error: 'No se ha subido ningún archivo.' });
@@ -34,10 +33,10 @@ module.exports = (db) => {
         }
 
         try {
-            const { empresaId } = req.user;
+            const { empresaId, email } = req.user; // Obtenemos el email del usuario
             const buffer = req.file.buffer;
             
-            const resultados = await procesarArchivoReservas(db, empresaId, canalId, buffer, req.file.originalname);
+            const resultados = await procesarArchivoReservas(db, empresaId, canalId, buffer, req.file.originalname, email);
             
             res.status(200).json({
                 message: 'Archivo procesado con éxito.',

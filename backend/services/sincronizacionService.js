@@ -6,6 +6,7 @@ const { obtenerCanalesPorEmpresa } = require('./canalesService');
 const { obtenerMapeosPorEmpresa } = require('./mapeosService');
 const { obtenerValorDolar, actualizarValorDolarApi } = require('./dolarService');
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
+const { registrarCarga } = require('./historialCargasService'); // <-- AÑADIDO
 
 const leerArchivo = (buffer, nombreArchivo) => {
     const esCsv = nombreArchivo && nombreArchivo.toLowerCase().endsWith('.csv');
@@ -100,8 +101,10 @@ const normalizarEstado = (estado) => {
     return 'Confirmada'; 
 };
 
-const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, nombreArchivoOriginal = '') => {
+const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, nombreArchivoOriginal, usuarioEmail) => {
     await actualizarValorDolarApi(db, empresaId);
+
+    const idCarga = await registrarCarga(db, empresaId, canalId, nombreArchivoOriginal, usuarioEmail);
 
     const rows = leerArchivo(bufferArchivo, nombreArchivoOriginal);
     if (rows.length < 2) {
@@ -203,6 +206,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
 
             const totalNoches = Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24));
             const datosReserva = {
+                idCarga: idCarga, // <-- AÑADIDO
                 idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
                 estado: normalizarEstado(get('estado')),
                 fechaReserva: parsearFecha(get('fechaReserva'), formatoFecha),

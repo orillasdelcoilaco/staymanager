@@ -17,7 +17,9 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
         const ediciones = reservaExistente.edicionesManuales || {};
         
         let hayCambios = false;
-        const datosAActualizar = {};
+        const datosAActualizar = {
+            idCarga: datosReserva.idCarga // Siempre actualizamos el idCarga para auditoría
+        };
 
         if (!ediciones.moneda && reservaExistente.moneda !== datosReserva.moneda) {
             datosAActualizar.moneda = datosReserva.moneda;
@@ -61,7 +63,7 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
             hayCambios = true;
         }
         
-        if (hayCambios) {
+        if (hayCambios || reservaExistente.idCarga !== datosReserva.idCarga) {
             datosAActualizar.fechaActualizacion = admin.firestore.FieldValue.serverTimestamp();
             await reservaDoc.ref.update(datosAActualizar);
             const dataActualizada = { ...reservaExistente, ...datosAActualizar };
@@ -72,6 +74,7 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     }
 };
 
+// ... (El resto del archivo reservasService.js no necesita cambios)
 const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevos) => {
     const reservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(reservaId);
     const reservaDoc = await reservaRef.get();
