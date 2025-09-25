@@ -39,7 +39,7 @@ const getReservasPendientes = async (db, empresaId) => {
                 reservasAgrupadas.set(reservaId, {
                     reservaIdOriginal: reservaId,
                     clienteId: data.clienteId,
-                    clienteNombre: data.nombreCliente,
+                    clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido', // <-- CORRECCIÓN APLICADA AQUÍ
                     telefono: clienteActual?.telefono || data.telefono || 'N/A',
                     fechaLlegada: data.fechaLlegada ? data.fechaLlegada.toDate() : null,
                     fechaSalida: data.fechaSalida ? data.fechaSalida.toDate() : null,
