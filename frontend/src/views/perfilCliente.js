@@ -169,6 +169,11 @@ export function afterRender() {
     document.getElementById('cliente-form-perfil').addEventListener('submit', async (e) => {
         e.preventDefault();
         const form = e.target;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalBtnText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Guardando y Sincronizando...';
+
         const datos = {
             nombre: form.nombre.value,
             telefono: form.telefono.value,
@@ -181,16 +186,14 @@ export function afterRender() {
 
         try {
             await fetchAPI(`/clientes/${cliente.id}`, { method: 'PUT', body: datos });
-            cliente = { ...cliente, ...datos }; // Actualiza el estado local
+            cliente = { ...cliente, ...datos };
             cerrarModalEditar();
-            
-            // Re-renderiza las partes que cambiaron sin recargar toda la vista
-            document.querySelector('h2.font-bold').textContent = cliente.nombre;
-            document.querySelector('.text-yellow-500').innerHTML = renderStars(cliente.calificacion);
-            // ... (se pueden añadir más actualizaciones parciales si es necesario)
-            handleNavigation(window.location.pathname); // O simplemente recarga la vista
+            handleNavigation(window.location.pathname); 
         } catch (error) {
             alert(`Error al guardar: ${error.message}`);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalBtnText;
         }
     });
 }

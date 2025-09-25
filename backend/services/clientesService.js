@@ -1,5 +1,5 @@
 const admin = require('firebase-admin');
-const { createGoogleContact, findContactByName } = require('./googleContactsService');
+const { createGoogleContact, findContactByName, updateGoogleContact } = require('./googleContactsService');
 
 const normalizarTelefono = (telefono) => {
     if (!telefono) return null;
@@ -123,15 +123,47 @@ const obtenerClientePorId = async (db, empresaId, clienteId) => {
 
 const actualizarCliente = async (db, empresaId, clienteId, datosActualizados) => {
     const clienteRef = db.collection('empresas').doc(empresaId).collection('clientes').doc(clienteId);
+    const clienteDoc = await clienteRef.get();
+    if (!clienteDoc.exists) throw new Error("El cliente a actualizar no fue encontrado.");
+    const datosAntiguos = clienteDoc.data();
+    
     if (datosActualizados.telefono) {
         datosActualizados.telefonoNormalizado = normalizarTelefono(datosActualizados.telefono);
     }
     if (datosActualizados.nombre) {
         datosActualizados.nombre = normalizarNombre(datosActualizados.nombre);
     }
+    
     await clienteRef.update({ ...datosActualizados, fechaActualizacion: admin.firestore.FieldValue.serverTimestamp() });
+    
+    if (datosAntiguos.googleContactSynced) {
+        const reservaSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
+            .where('clienteId', '==', clienteId)
+            .orderBy('fechaReserva', 'desc')
+            .limit(1)
+            .get();
+
+        if (!reservaSnapshot.empty) {
+            const reservaData = reservaSnapshot.docs[0].data();
+            const oldContactName = `${datosAntiguos.nombre} ${reservaData.canalNombre} ${reservaData.idReservaCanal}`;
+            
+            const newContactData = {
+                nombre: datosActualizados.nombre || datosAntiguos.nombre,
+                telefono: datosActualizados.telefono || datosAntiguos.telefono,
+                email: datosActualizados.email || datosAntiguos.email,
+                canalNombre: reservaData.canalNombre,
+                idReservaCanal: reservaData.idReservaCanal,
+            };
+
+            updateGoogleContact(db, empresaId, oldContactName, newContactData).catch(err => {
+                console.error(`[Auto-Update] Falló la actualización del contacto en Google para ${clienteId}: ${err.message}`);
+            });
+        }
+    }
+    
     return { id: clienteId, ...datosActualizados };
 };
+
 
 const eliminarCliente = async (db, empresaId, clienteId) => {
     const clienteRef = db.collection('empresas').doc(empresaId).collection('clientes').doc(clienteId);

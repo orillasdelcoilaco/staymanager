@@ -3,15 +3,11 @@ const { OAuth2Client } = require('google-auth-library');
 
 let credentials;
 try {
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Se ajusta la lógica para que lea desde el archivo secreto en Render,
-    // igual que en el resto de la aplicación.
     credentials = process.env.RENDER
         ? require('/etc/secrets/google_credentials.json')
         : require('../google_credentials.json');
-    // --- FIN DE LA CORRECCIÓN ---
 } catch (error) {
-    // Este error se maneja en el router, aquí solo evitamos que crashee al iniciar
+    console.error("CRITICAL: No se pudieron cargar las credenciales de Google. La autenticación de Google no funcionará.", error);
 }
 
 async function getAuthenticatedClient(db, empresaId) {
@@ -38,19 +34,25 @@ async function findContactByName(authClient, nameQuery) {
     if (!nameQuery) return null;
     const people = google.people({ version: 'v1', auth: authClient });
 
-    const res = await people.people.searchContacts({
-        query: nameQuery,
-        readMask: 'names,phoneNumbers,emailAddresses,metadata',
-        pageSize: 5
-    });
+    try {
+        const res = await people.people.searchContacts({
+            query: nameQuery,
+            readMask: 'names,phoneNumbers,emailAddresses,metadata',
+            pageSize: 5
+        });
 
-    if (res.data.results && res.data.results.length > 0) {
-        return res.data.results.find(result =>
-            result.person.names && result.person.names.some(n => n.displayName.toLowerCase() === nameQuery.toLowerCase())
-        )?.person || null;
+        if (res.data.results && res.data.results.length > 0) {
+            return res.data.results.find(result =>
+                result.person.names && result.person.names.some(n => n.displayName.toLowerCase() === nameQuery.toLowerCase())
+            )?.person || null;
+        }
+        return null;
+    } catch (error) {
+        console.error(`Error buscando contacto en Google con la consulta "${nameQuery}":`, error.message);
+        return null;
     }
-    return null;
 }
+
 
 async function createGoogleContact(db, empresaId, contactData) {
     try {
@@ -66,11 +68,10 @@ async function createGoogleContact(db, empresaId, contactData) {
         const people = google.people({ version: 'v1', auth });
         const resource = {
             names: [{ givenName: contactName }],
-            phoneNumbers: [{ value: contactData.telefono }]
+            phoneNumbers: [{ value: contactData.telefono }],
+            emailAddresses: contactData.email ? [{ value: contactData.email }] : []
         };
-        if (contactData.email) {
-            resource.emailAddresses = [{ value: contactData.email }];
-        }
+        
         await people.people.createContact({ resource });
         console.log(`[Google Contacts] Contacto '${contactName}' creado exitosamente.`);
         return { status: 'created' };
@@ -80,8 +81,43 @@ async function createGoogleContact(db, empresaId, contactData) {
     }
 }
 
+async function updateGoogleContact(db, empresaId, oldContactName, newContactData) {
+    try {
+        const auth = await getAuthenticatedClient(db, empresaId);
+        const people = google.people({ version: 'v1', auth });
+        
+        const existingContact = await findContactByName(auth, oldContactName);
+        
+        const newContactName = `${newContactData.nombre} ${newContactData.canalNombre} ${newContactData.idReservaCanal}`;
+
+        if (existingContact) {
+            const updatePayload = {
+                etag: existingContact.etag,
+                names: [{ givenName: newContactName }],
+                phoneNumbers: [{ value: newContactData.telefono }],
+                emailAddresses: newContactData.email ? [{ value: newContactData.email }] : []
+            };
+            
+            await people.people.updateContact({
+                resourceName: existingContact.resourceName,
+                updatePersonFields: 'names,phoneNumbers,emailAddresses',
+                requestBody: updatePayload,
+            });
+            console.log(`[Google Contacts] Contacto '${oldContactName}' actualizado a '${newContactName}'.`);
+            return { status: 'updated' };
+        } else {
+             console.log(`[Google Contacts] No se encontró el contacto '${oldContactName}' para actualizar. Se creará uno nuevo.`);
+             return await createGoogleContact(db, empresaId, newContactData);
+        }
+    } catch (err) {
+        console.error(`[Google Contacts] Error al actualizar contacto para la empresa ${empresaId}:`, err.message);
+        return { status: 'error', message: err.message };
+    }
+}
+
 module.exports = {
     getAuthenticatedClient,
     findContactByName,
-    createGoogleContact
+    createGoogleContact,
+    updateGoogleContact
 };
