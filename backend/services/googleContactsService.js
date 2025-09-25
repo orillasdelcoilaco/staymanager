@@ -3,9 +3,13 @@ const { OAuth2Client } = require('google-auth-library');
 
 let credentials;
 try {
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Se ajusta la lógica para que lea desde el archivo secreto en Render,
+    // igual que en el resto de la aplicación.
     credentials = process.env.RENDER
-        ? JSON.parse(process.env.GOOGLE_CREDENTIALS)
+        ? require('/etc/secrets/google_credentials.json')
         : require('../google_credentials.json');
+    // --- FIN DE LA CORRECCIÓN ---
 } catch (error) {
     // Este error se maneja en el router, aquí solo evitamos que crashee al iniciar
 }
