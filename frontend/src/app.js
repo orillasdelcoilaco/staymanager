@@ -1,9 +1,9 @@
 import { renderMenu, handleNavigation } from './router.js';
-import { fetchAPI, logout } from './api.js';
+import { fetchAPI, logout, fetchDailyDollar } from './api.js';
 
 let currentUser = null;
 
-export function renderAppLayout() {
+export async function renderAppLayout(dollarInfo) {
     const appRoot = document.getElementById('app-root');
     appRoot.innerHTML = `
         <div id="app-container" class="relative min-h-screen md:flex">
@@ -32,8 +32,8 @@ export function renderAppLayout() {
                          <button id="sidebar-toggle-mobile" class="p-2 rounded-md text-gray-500 hover:bg-gray-100 md:hidden">
                             <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                         </button>
-                        <div class="flex-grow"></div>
-                        <div id="auth-info" class="flex items-center space-x-4"></div>
+                        <div id="auth-info" class="flex-grow flex items-center space-x-4 text-xs md:text-sm"></div>
+                        <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 flex-shrink-0">Cerrar Sesión</button>
                     </div>
                 </header>
                 <main id="view-content"></main>
@@ -42,10 +42,12 @@ export function renderAppLayout() {
     `;
     
     const authInfo = document.getElementById('auth-info');
+    const formattedDate = new Date(dollarInfo.fecha + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' });
+
     authInfo.innerHTML = `
-        <span class="text-sm font-semibold text-gray-700 truncate">${currentUser.nombreEmpresa}</span>
-        <span class="text-sm text-gray-600 hidden sm:block">${currentUser.email}</span>
-        <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 flex-shrink-0">Cerrar Sesión</button>
+        <span class="font-semibold text-gray-700 truncate">Empresa: ${currentUser.nombreEmpresa}</span>
+        <span class="text-gray-600 hidden sm:block">Usuario: ${currentUser.email}</span>
+        <span class="font-semibold text-blue-600 flex-shrink-0">Dólar ${formattedDate}: $${dollarInfo.valor.toLocaleString('es-CL')}</span>
     `;
     document.getElementById('logout-btn').addEventListener('click', () => {
         logout();
@@ -63,8 +65,26 @@ export async function checkAuthAndRender() {
         return false;
     }
     try {
-        const userData = await fetchAPI('/auth/me'); 
+        const [userData, dollarInfo] = await Promise.all([
+            fetchAPI('/auth/me'),
+            fetchDailyDollar()
+        ]);
         currentUser = userData;
+        
+        // Si el layout principal ya existe, solo actualizamos los datos.
+        // Si no, lo renderizamos por primera vez.
+        const authInfo = document.getElementById('auth-info');
+        if (authInfo) {
+            const formattedDate = new Date(dollarInfo.fecha + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' });
+            authInfo.innerHTML = `
+                <span class="font-semibold text-gray-700 truncate">Empresa: ${currentUser.nombreEmpresa}</span>
+                <span class="text-gray-600 hidden sm:block">Usuario: ${currentUser.email}</span>
+                <span class="font-semibold text-blue-600 flex-shrink-0">Dólar ${formattedDate}: $${dollarInfo.valor.toLocaleString('es-CL')}</span>
+            `;
+        } else {
+            renderAppLayout(dollarInfo);
+        }
+
         return true;
     } catch (error) {
         console.error("Token inválido o sesión expirada:", error);

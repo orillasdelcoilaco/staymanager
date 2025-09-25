@@ -28,8 +28,6 @@ export async function fetchAPI(endpoint, options = {}) {
         'Authorization': `Bearer ${token}`
     };
 
-    // Si el body es FormData, el navegador establece el Content-Type automáticamente.
-    // Si no lo es, lo convertimos a JSON.
     if (!(options.body instanceof FormData)) {
         headers['Content-Type'] = 'application/json';
         if (options.body) {
@@ -61,5 +59,15 @@ export async function fetchAPI(endpoint, options = {}) {
     } catch (error) {
         console.error(`Error en fetchAPI para el endpoint ${endpoint}:`, error);
         throw error;
+    }
+}
+
+export async function fetchDailyDollar() {
+    try {
+        const data = await fetchAPI('/dolar/hoy');
+        return data;
+    } catch (error) {
+        console.error("No se pudo obtener el valor del dólar:", error);
+        return { valor: 'N/A', fecha: new Date().toISOString().split('T')[0] };
     }
 }

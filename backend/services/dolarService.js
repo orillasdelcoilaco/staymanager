@@ -71,7 +71,7 @@ const actualizarValorDolarApi = async (db, empresaId) => {
     const dateStr = today.toISOString().split('T')[0];
     const dolarRef = db.collection('empresas').doc(empresaId).collection('valoresDolar').doc(dateStr);
     const doc = await dolarRef.get();
-    if (doc.exists) return doc.data().valor;
+    if (doc.exists) return { valor: doc.data().valor, fecha: dateStr };
 
     try {
         const response = await fetch('https://mindicador.cl/api/dolar');
@@ -84,12 +84,17 @@ const actualizarValorDolarApi = async (db, empresaId) => {
                 fecha: admin.firestore.Timestamp.fromDate(new Date(dateStr + 'T00:00:00Z')),
                 modificadoManualmente: false
             });
-            return valor;
+            return { valor: valor, fecha: dateStr };
         }
+        return null;
     } catch (error) {
         console.error(`[DolarService] Error al actualizar desde API: ${error.message}`);
         return null;
     }
+};
+
+const obtenerValorDolarHoy = async (db, empresaId) => {
+    return await actualizarValorDolarApi(db, empresaId);
 };
 
 const obtenerValorDolar = async (db, empresaId, targetDate) => {
@@ -98,10 +103,9 @@ const obtenerValorDolar = async (db, empresaId, targetDate) => {
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
-    // Si la fecha es futura, usar el valor más reciente disponible (el de hoy)
     if (targetDate > today) {
         let valorHoy = await actualizarValorDolarApi(db, empresaId);
-        if (valorHoy) return valorHoy;
+        if (valorHoy) return valorHoy.valor;
     }
 
     const dateStr = targetDate.toISOString().split('T')[0];
@@ -160,5 +164,6 @@ module.exports = {
     getValoresPorMes,
     guardarValorDolar,
     eliminarValorDolar,
-    actualizarValorDolarApi
+    actualizarValorDolarApi,
+    obtenerValorDolarHoy
 };

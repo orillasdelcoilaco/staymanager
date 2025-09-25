@@ -18,10 +18,11 @@ const views = {
     '/gestionar-dolar': () => import('./views/gestionarDolar.js'),
     '/reparar-dolar': () => import('./views/repararDolar.js'),
     '/reparar-fechas': () => import('./views/repararFechas.js'),
-    '/autorizar-google': () => import('./views/autorizarGoogle.js'), // <-- AÑADIDO
+    '/autorizar-google': () => import('./views/autorizarGoogle.js'),
+    '/empresa': () => import('./views/empresa.js'), // <-- AÑADIDO
+    '/gestionar-usuarios': () => import('./views/gestionarUsuarios.js'), // <-- AÑADIDO
 };
 
-// --- INICIO DE CAMBIOS: Nueva estructura jerárquica del menú ---
 const menuConfig = [
     { name: '📊 Dashboard', path: '/', id: 'dashboard' },
     { 
@@ -54,10 +55,11 @@ const menuConfig = [
         name: '⚙️ Configuración',
         id: 'configuracion',
         children: [
-            { name: '🏢 Empresa', path: '#', id: 'config-empresa' },
+            { name: '🏢 Empresa', path: '/empresa', id: 'config-empresa' },
+            { name: '👥 Gestionar Usuarios', path: '/gestionar-usuarios', id: 'config-usuarios' }, // <-- AÑADIDO
             { name: '🔄 Conversión Alojamientos', path: '/conversion-alojamientos', id: 'config-conversion' },
             { name: '🗺️ Mapeo de Reportes', path: '/mapeo-reportes', id: 'mapeo-reportes' },
-            { name: '👤 Autorizar Google Contacts', path: '/autorizar-google', id: 'config-google' }, // <-- MODIFICADO
+            { name: '👤 Autorizar Google Contacts', path: '/autorizar-google', id: 'config-google' },
             { name: '🔧 Reparar Fechas de Reservas', path: '/reparar-fechas', id: 'reparar-fechas' },
             { name: '📞 Reparar Teléfonos Faltantes', path: '#', id: 'reparar-telefonos' },
             { name: '🔧 Reparar Dólar Histórico', path: '/reparar-dolar', id: 'reparar-dolar' },
@@ -65,7 +67,6 @@ const menuConfig = [
         ]
     }
 ];
-// --- FIN DE CAMBIOS ---
 
 export async function handleNavigation(path) {
     if (path !== '/login') sessionStorage.setItem('lastPath', path);
@@ -87,7 +88,9 @@ async function loadView(path) {
         const { renderLogin } = await views['/login']();
         renderLogin(appRoot);
     } else {
-        if (!document.getElementById('view-content')) renderAppLayout();
+        if (!document.getElementById('view-content')) {
+            // Esta llamada ahora es manejada por checkAuthAndRender
+        }
         
         const dynamicRoute = Object.keys(views).find(route => {
             const regex = new RegExp(`^${route.replace(/:\w+/g, '([^/]+)')}$`);
@@ -107,7 +110,6 @@ async function loadView(path) {
     }
 }
 
-// --- INICIO DE CAMBIOS: Lógica de renderizado y eventos del menú actualizada ---
 export function renderMenu() {
     const nav = document.getElementById('main-nav');
     if (!nav) return;
@@ -144,7 +146,6 @@ export function renderMenu() {
     });
     nav.innerHTML = menuHtml;
 
-    // Event listener para los enlaces de navegación
     nav.querySelectorAll('.nav-link').forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
@@ -160,7 +161,6 @@ export function renderMenu() {
         });
     });
     
-    // Event listener para los acordeones
     nav.querySelectorAll('.category-title').forEach(button => {
         button.addEventListener('click', () => {
             const category = button.parentElement;
@@ -168,7 +168,6 @@ export function renderMenu() {
         });
     });
 }
-// --- FIN DE CAMBIOS ---
 
 function updateActiveLink(path) {
     document.querySelectorAll('.nav-link').forEach(link => {
