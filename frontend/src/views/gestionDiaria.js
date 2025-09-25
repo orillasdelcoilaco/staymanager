@@ -46,7 +46,8 @@ function createGrupoCard(grupo) {
     } else {
         statusHtml = `<span class="text-sm font-bold text-white px-2 py-1 rounded ${statusInfo.color}">${statusInfo.text}</span>`;
     }
-// --- INICIO DE LA CORRECCIÓN DE ESTILO ---
+
+    // --- INICIO DE LA CORRECCIÓN DE ESTILO ---
     const baseButtonClasses = "px-3 py-1 text-xs font-semibold rounded-md transition-colors";
     const activeButtonClasses = "bg-gray-100 text-gray-800 hover:bg-gray-200";
     const disabledButtonClasses = "bg-gray-100 text-gray-400 cursor-not-allowed";
@@ -71,12 +72,12 @@ function createGrupoCard(grupo) {
                 <div class="text-red-600"><span class="text-gray-500 font-medium">Saldo:</span> ${formatCurrency(saldo)}</div>
             </div>
             <div class="mt-3 md:mt-0 flex flex-wrap gap-2 justify-center">
-                <button data-id="${grupo.reservaIdOriginal}" data-gestion="gestionar_reserva" class="gestion-btn btn-secondary text-xs">Gestionar Reserva</button>
-                <button data-id="${grupo.reservaIdOriginal}" data-gestion="ajuste_tarifa" class="gestion-btn btn-secondary text-xs">Ajustar Tarifa</button>
-                <button data-id="${grupo.reservaIdOriginal}" data-gestion="pagos" class="gestion-btn btn-secondary text-xs" ${!isGestionPagosActive ? 'disabled' : ''}>Gestionar Pagos</button>
-                <button data-id="${grupo.reservaIdOriginal}" data-gestion="boleta" class="gestion-btn btn-secondary text-xs" ${!isGestionBoletaActive ? 'disabled' : ''}>Gestionar Boleta</button>
+                <button data-id="${grupo.reservaIdOriginal}" data-gestion="gestionar_reserva" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Gestionar Reserva</button>
+                <button data-id="${grupo.reservaIdOriginal}" data-gestion="ajuste_tarifa" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Ajustar Tarifa</button>
+                <button data-id="${grupo.reservaIdOriginal}" data-gestion="pagos" class="gestion-btn ${baseButtonClasses} ${isGestionPagosActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionPagosActive ? 'disabled' : ''}>Gestionar Pagos</button>
+                <button data-id="${grupo.reservaIdOriginal}" data-gestion="boleta" class="gestion-btn ${baseButtonClasses} ${isGestionBoletaActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionBoletaActive ? 'disabled' : ''}>Gestionar Boleta</button>
                 <div class="relative">
-                    <button data-id="${grupo.reservaIdOriginal}" data-gestion="bitacora" class="gestion-btn btn-secondary text-xs">Bitácora 🗂️</button>
+                    <button data-id="${grupo.reservaIdOriginal}" data-gestion="bitacora" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Bitácora 🗂️</button>
                     ${badgeHtml}
                 </div>
             </div>
@@ -227,6 +228,7 @@ function openManagementModal(type) {
     document.getElementById('modal-title').textContent = `${type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ')} (Reserva ${currentGrupo.reservaIdOriginal})`;
     
     const actionMap = {
+        'bitacora': openBitacoraModal,
         'ajuste_tarifa': renderAjusteTarifaModal,
         'pagos': renderPagosModal,
         'boleta': () => renderDocumentoModal('boleta'),
@@ -235,7 +237,7 @@ function openManagementModal(type) {
 
     if (actionMap[type]) {
         actionMap[type]();
-        modal.classList.remove('hidden');
+        if(type !== 'bitacora') modal.classList.remove('hidden');
     }
 }
 
