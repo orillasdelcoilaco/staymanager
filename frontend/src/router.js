@@ -15,9 +15,10 @@ const views = {
     '/mapeo-reportes': () => import('./views/mapeoReportes.js'),
     '/procesar-y-consolidar': () => import('./views/procesarYConsolidar.js'),
     '/gestionar-reservas': () => import('./views/gestionarReservas.js'),
-    '/gestionar-dolar': () => import('./views/gestionarDolar.js'), // <-- AÑADIDO
+    '/gestionar-dolar': () => import('./views/gestionarDolar.js'),
     '/reparar-dolar': () => import('./views/repararDolar.js'),
     '/reparar-fechas': () => import('./views/repararFechas.js'),
+    '/autorizar-google': () => import('./views/autorizarGoogle.js'), // <-- AÑADIDO
 };
 
 // --- INICIO DE CAMBIOS: Nueva estructura jerárquica del menú ---
@@ -44,7 +45,7 @@ const menuConfig = [
             { name: '👥 Gestionar Clientes', path: '/clientes', id: 'clientes' },
             { name: '🏨 Gestionar Reservas', path: '/gestionar-reservas', id: 'gestionar-reservas' }, 
             { name: '📈 Gestionar Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' },
-            { name: '📈 Gestionar Valor Dólar', path: '/gestionar-dolar', id: 'gestionar-dolar' }, // <-- AÑADIDO
+            { name: '📈 Gestionar Valor Dólar', path: '/gestionar-dolar', id: 'gestionar-dolar' },
             { name: '🏡 Gestionar Alojamientos', path: '/gestionar-alojamientos', id: 'gestionar-alojamientos' },
             { name: '📡 Gestionar Canales', path: '/gestionar-canales', id: 'gestionar-canales' },
         ]
@@ -56,7 +57,7 @@ const menuConfig = [
             { name: '🏢 Empresa', path: '#', id: 'config-empresa' },
             { name: '🔄 Conversión Alojamientos', path: '/conversion-alojamientos', id: 'config-conversion' },
             { name: '🗺️ Mapeo de Reportes', path: '/mapeo-reportes', id: 'mapeo-reportes' },
-            { name: '👤 Autorizar Google Contacts', path: '#', id: 'config-google' },
+            { name: '👤 Autorizar Google Contacts', path: '/autorizar-google', id: 'config-google' }, // <-- MODIFICADO
             { name: '🔧 Reparar Fechas de Reservas', path: '/reparar-fechas', id: 'reparar-fechas' },
             { name: '📞 Reparar Teléfonos Faltantes', path: '#', id: 'reparar-telefonos' },
             { name: '🔧 Reparar Dólar Histórico', path: '/reparar-dolar', id: 'reparar-dolar' },

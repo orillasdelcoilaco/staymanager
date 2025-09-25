@@ -14,8 +14,9 @@ const reservasRoutes = require('./routes/reservas.js');
 const sincronizacionRoutes = require('./routes/sincronizacion.js');
 const mapeosRoutes = require('./routes/mapeos.js');
 const calendarioRoutes = require('./routes/calendario.js');
-const reparacionRoutes = require('./routes/reparacion.js'); // <-- AÑADIDO
-const dolarRoutes = require('./routes/dolar.js'); // <-- AÑADIDO
+const reparacionRoutes = require('./routes/reparacion.js');
+const dolarRoutes = require('./routes/dolar.js');
+const authGoogleRoutes = require('./routes/authGoogle.js'); // <-- AÑADIDO
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 
 // --- Carga de Credenciales y Configuración de Firebase ---
@@ -77,8 +78,9 @@ apiRouter.use('/reservas', reservasRoutes(db));
 apiRouter.use('/sincronizar', sincronizacionRoutes(db));
 apiRouter.use('/mapeos', mapeosRoutes(db));
 apiRouter.use('/calendario', calendarioRoutes(db));
-apiRouter.use('/reparar', reparacionRoutes(db)); // <-- AÑADIDO
-apiRouter.use('/dolar', dolarRoutes(db)); // <-- AÑADIDO
+apiRouter.use('/reparar', reparacionRoutes(db));
+apiRouter.use('/dolar', dolarRoutes(db));
+apiRouter.use('/auth/google', authGoogleRoutes(db)); // <-- AÑADIDO
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 
 app.use('/api', apiRouter);
