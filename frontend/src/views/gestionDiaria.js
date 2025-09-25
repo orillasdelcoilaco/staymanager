@@ -46,6 +46,11 @@ function createGrupoCard(grupo) {
     } else {
         statusHtml = `<span class="text-sm font-bold text-white px-2 py-1 rounded ${statusInfo.color}">${statusInfo.text}</span>`;
     }
+// --- INICIO DE LA CORRECCIÓN DE ESTILO ---
+    const baseButtonClasses = "px-3 py-1 text-xs font-semibold rounded-md transition-colors";
+    const activeButtonClasses = "bg-gray-100 text-gray-800 hover:bg-gray-200";
+    const disabledButtonClasses = "bg-gray-100 text-gray-400 cursor-not-allowed";
+    // --- FIN DE LA CORRECCIÓN DE ESTILO ---
 
     card.innerHTML = `
         <div class="flex items-center mb-2">
