@@ -83,7 +83,6 @@ const parsearFecha = (dateValue, formatoFecha = 'DD/MM/YYYY') => {
     return null;
 };
 
-
 const normalizarString = (texto) => {
     if (!texto) return '';
     return texto.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, ' ');
@@ -155,7 +154,19 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             const telefonoCliente = get('telefonoCliente');
             const correoCliente = get('correoCliente');
             let pais = get('pais') || 'CL';
-            let datosParaCliente = { nombre: nombreClienteCompleto, telefono: telefonoCliente, email: correoCliente, pais };
+            
+            // --- INICIO DE MODIFICACIÓN ---
+            let datosParaCliente = { 
+                nombre: nombreClienteCompleto, 
+                telefono: telefonoCliente, 
+                email: correoCliente, 
+                pais,
+                // Pasamos los datos extra para Google Contacts
+                canalNombre: canalNombre,
+                idReservaCanal: idReservaCanal
+            };
+            // --- FIN DE MODIFICACIÓN ---
+
             if (!telefonoCliente) {
                 const idCompuesto = `${nombreClienteCompleto}-${idReservaCanal}-${canalNombre}`.replace(/\s+/g, '-').toLowerCase();
                 datosParaCliente.idCompuesto = idCompuesto;

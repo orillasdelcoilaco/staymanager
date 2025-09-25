@@ -1,4 +1,5 @@
 const admin = require('firebase-admin');
+const { createGoogleContact } = require('./googleContactsService');
 
 const normalizarTelefono = (telefono) => {
     if (!telefono) return null;
@@ -69,6 +70,24 @@ const crearOActualizarCliente = async (db, empresaId, datosCliente) => {
         origen: 'Importado'
     };
     await nuevoClienteRef.set(nuevoCliente);
+
+    // --- INICIO DE MODIFICACIÓN ---
+    // Intentar crear el contacto en Google después de crear el cliente localmente
+    if (datosCliente.canalNombre && datosCliente.idReservaCanal && telefonoNormalizado) {
+        const datosParaGoogle = {
+            nombre: nuevoCliente.nombre,
+            telefono: nuevoCliente.telefono,
+            email: nuevoCliente.email,
+            canalNombre: datosCliente.canalNombre,
+            idReservaCanal: datosCliente.idReservaCanal
+        };
+        createGoogleContact(db, empresaId, datosParaGoogle).catch(err => {
+            // Capturamos el error para que no detenga el flujo principal de la reserva
+            console.warn(`[Auto-Sync] No se pudo crear el contacto en Google para ${nuevoCliente.email}, pero el cliente fue creado localmente. Razón: ${err.message}`);
+        });
+    }
+    // --- FIN DE MODIFICACIÓN ---
+
     return { cliente: nuevoCliente, status: 'creado' };
 };
 

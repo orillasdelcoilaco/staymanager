@@ -58,6 +58,11 @@ function renderTabla(filtro = '') {
                 <button data-id="${c.id}" class="view-btn text-indigo-600 hover:text-indigo-800 font-medium mr-3">Ver Perfil</button>
                 <button data-id="${c.id}" class="delete-btn text-red-600 hover:text-red-800 font-medium">Eliminar</button>
             </td>
+            <td class="py-2 px-3 whitespace-nowrap">
+    <button data-id="${c.id}" class="view-btn text-indigo-600 hover:text-indigo-800 font-medium mr-3">Ver Perfil</button>
+    <button data-id="${c.id}" class="sync-btn text-blue-600 hover:text-blue-800 font-medium mr-3">Sincronizar</button>
+    <button data-id="${c.id}" class="delete-btn text-red-600 hover:text-red-800 font-medium">Eliminar</button>
+</td>
         </tr>
     `).join('');
 }
