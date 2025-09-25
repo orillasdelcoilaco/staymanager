@@ -1,33 +1,32 @@
 const express = require('express');
 const { OAuth2Client } = require('google-auth-library');
-const admin = require('firebase-admin'); // Se importa admin para usar el timestamp
+const admin = require('firebase-admin');
 
-// La lógica para cargar credenciales ahora es más robusta y similar a como se carga la serviceAccountKey
 let credentials;
 try {
     credentials = process.env.RENDER
-        ? require('/etc/secrets/google_credentials.json') // Ruta para Secret Files en Render
-        : require('../google_credentials.json'); // Ruta para desarrollo local
+        ? require('/etc/secrets/google_credentials.json')
+        : require('../google_credentials.json');
 } catch (error) {
     console.error("CRITICAL: No se pudieron cargar las credenciales de Google. La autenticación de Google no funcionará.", error);
 }
 
 module.exports = (db) => {
     const router = express.Router();
-    if (!credentials) return router; // No registrar rutas si las credenciales fallan
+    if (!credentials) return router;
 
     const { client_secret, client_id, redirect_uris } = credentials.web;
     const oauth2Client = new OAuth2Client(client_id, client_secret, redirect_uris[0]);
 
     router.get('/authorize', (req, res) => {
-        const { empresaId } = req.user; // Obtenido del authMiddleware
+        const { empresaId } = req.user;
         const authUrl = oauth2Client.generateAuthUrl({
             access_type: 'offline',
             scope: ['https://www.googleapis.com/auth/contacts'],
             prompt: 'consent',
-            state: empresaId // Pasamos el ID de la empresa para saber dónde guardar el token
+            state: empresaId
         });
-        res.redirect(authUrl);
+        res.status(200).json({ url: authUrl });
     });
 
     router.get('/callback', async (req, res) => {
