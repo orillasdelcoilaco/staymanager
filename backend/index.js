@@ -19,7 +19,7 @@ const dolarRoutes = require('./routes/dolar.js');
 const authGoogleRoutes = require('./routes/authGoogle.js');
 const empresaRoutes = require('./routes/empresa.js');
 const usuariosRoutes = require('./routes/usuarios.js');
-const debugRoutes = require('./routes/debug.js'); // <-- AÑADIDO
+const gestionRoutes = require('./routes/gestion.js'); // <-- AÑADIDO
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 
 // --- Carga de Credenciales y Configuración de Firebase ---
@@ -86,7 +86,7 @@ apiRouter.use('/dolar', dolarRoutes(db));
 apiRouter.use('/auth/google', authGoogleRoutes(db));
 apiRouter.use('/empresa', empresaRoutes(db));
 apiRouter.use('/usuarios', usuariosRoutes(db));
-apiRouter.use('/debug', debugRoutes(db)); // <-- AÑADIDO
+apiRouter.use('/gestion', gestionRoutes(db)); // <-- AÑADIDO
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 
 app.use('/api', apiRouter);

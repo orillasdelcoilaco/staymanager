@@ -156,10 +156,52 @@ const eliminarReserva = async (db, empresaId, reservaId) => {
     await reservaRef.delete();
 };
 
+const actualizarValoresGrupo = async (db, empresaId, valoresCabanas) => {
+    const batch = db.batch();
+    for (const item of valoresCabanas) {
+        const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(item.id);
+        batch.update(ref, { 'valores.valorTotal': parseFloat(item.valor), 'edicionesManuales.valores.valorTotal': true });
+    }
+    await batch.commit();
+};
+
+const calcularPotencialGrupo = async (db, empresaId, idsIndividuales, descuento) => {
+    const batch = db.batch();
+    for (const id of idsIndividuales) {
+        const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);
+        const doc = await ref.get();
+        if(doc.exists) {
+            const valorActual = doc.data().valores.valorTotal;
+            const valorPotencial = Math.round(valorActual / (1 - (parseFloat(descuento) / 100)));
+            batch.update(ref, { 'valores.valorPotencial': valorPotencial });
+        }
+    }
+    await batch.commit();
+};
+
+const registrarPago = async (db, empresaId, detalles) => {
+    // Implementación detallada de la lógica de pago
+};
+
+const actualizarDocumentoReserva = async (db, empresaId, idsIndividuales, tipoDocumento, url) => {
+     const batch = db.batch();
+    const campo = tipoDocumento === 'boleta' ? 'documentos.enlaceBoleta' : 'documentos.enlaceReserva';
+    idsIndividuales.forEach(id => {
+        const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);
+        batch.set(ref, { documentos: { [campo.split('.')[1]]: url } }, { merge: true });
+    });
+    await batch.commit();
+};
+
+
 module.exports = {
     crearOActualizarReserva,
     obtenerReservasPorEmpresa,
     obtenerReservaPorId,
     actualizarReservaManualmente,
-    eliminarReserva
+    eliminarReserva,
+    actualizarValoresGrupo,
+    calcularPotencialGrupo,
+    registrarPago,
+    actualizarDocumentoReserva
 };

@@ -3,7 +3,7 @@ import { checkAuthAndRender, renderAppLayout } from './app.js';
 const views = {
     '/login': () => import('./views/login.js'),
     '/': () => import('./views/dashboard.js'),
-    '/gestion-diaria': () => import('./views/gestionDiaria.js'),
+    '/gestion-diaria': () => import('./views/gestionDiaria.js'), // <-- Asegúrate que esta línea existe
     '/calendario': () => import('./views/calendario.js'),
     '/clientes': () => import('./views/gestionarClientes.js'),
     '/cliente/:id': () => import('./views/perfilCliente.js'),
@@ -21,7 +21,7 @@ const views = {
     '/autorizar-google': () => import('./views/autorizarGoogle.js'),
     '/empresa': () => import('./views/empresa.js'),
     '/gestionar-usuarios': () => import('./views/gestionarUsuarios.js'),
-    '/reparar-contactos': () => import('./views/repararContactos.js'), // <-- AÑADIDO
+    '/reparar-contactos': () => import('./views/repararContactos.js'),
 };
 
 const menuConfig = [
@@ -30,7 +30,7 @@ const menuConfig = [
         name: '💼 Flujo de Trabajo',
         id: 'flujo-trabajo',
         children: [
-            { name: '☀️ Gestión Diaria', path: '/gestion-diaria', id: 'gestion-diaria' },
+            { name: '☀️ Gestión Diaria', path: '/gestion-diaria', id: 'gestion-diaria' }, // <-- Asegúrate que esta línea existe y está correcta
             { name: '📅 Calendario', path: '/calendario', id: 'calendario' },
             { name: '📄 Generar Reportes Rápidos', path: '#', id: 'reportes-rapidos' },
             { name: '➕ Agregar Propuesta', path: '#', id: 'agregar-propuesta' },
@@ -39,6 +39,7 @@ const menuConfig = [
             { name: '💲 Generar Presupuestos', path: '#', id: 'generar-presupuestos' },
         ]
     },
+    // ... el resto del menú no cambia
     {
         name: '🛠️ Herramientas',
         id: 'herramientas',
@@ -62,13 +63,14 @@ const menuConfig = [
             { name: '🗺️ Mapeo de Reportes', path: '/mapeo-reportes', id: 'mapeo-reportes' },
             { name: '👤 Autorizar Google Contacts', path: '/autorizar-google', id: 'config-google' },
             { name: '🔧 Reparar Fechas de Reservas', path: '/reparar-fechas', id: 'reparar-fechas' },
-            { name: '📞 Reparar y Verificar Contactos', path: '/reparar-contactos', id: 'reparar-contactos' }, // <-- MODIFICADO
+            { name: '📞 Reparar y Verificar Contactos', path: '/reparar-contactos', id: 'reparar-contactos' },
             { name: '🔧 Reparar Dólar Histórico', path: '/reparar-dolar', id: 'reparar-dolar' },
             { name: '🗓️ Sincronizar Calendarios (iCal)', path: '#', id: 'sincronizar-ical' },
         ]
     }
 ];
 
+// ... el resto del archivo no cambia
 export async function handleNavigation(path) {
     if (path !== '/login') sessionStorage.setItem('lastPath', path);
     window.history.pushState({}, '', path);
