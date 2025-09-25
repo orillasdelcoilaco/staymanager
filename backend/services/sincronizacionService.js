@@ -155,17 +155,14 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             const correoCliente = get('correoCliente');
             let pais = get('pais') || 'CL';
             
-            // --- INICIO DE MODIFICACIÓN ---
             let datosParaCliente = { 
                 nombre: nombreClienteCompleto, 
                 telefono: telefonoCliente, 
                 email: correoCliente, 
                 pais,
-                // Pasamos los datos extra para Google Contacts
                 canalNombre: canalNombre,
                 idReservaCanal: idReservaCanal
             };
-            // --- FIN DE MODIFICACIÓN ---
 
             if (!telefonoCliente) {
                 const idCompuesto = `${nombreClienteCompleto}-${idReservaCanal}-${canalNombre}`.replace(/\s+/g, '-').toLowerCase();
@@ -187,7 +184,11 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 }
             }
 
-            const valorOriginal = parseFloat(get('valorTotal')?.toString().replace(/[^0-9.,$]+/g, "").replace(',', '.')) || 0;
+            const valorOriginalStr = get('valorTotal')?.toString() || '0';
+            const valorOriginal = monedaCanal === 'CLP'
+                ? parseFloat(valorOriginalStr.replace(/[^0-9]/g, '')) || 0
+                : parseFloat(valorOriginalStr.replace(/[^0-9,.]/g, '').replace(',', '.')) || 0;
+
             let valorTotalCLP = valorOriginal;
             let valorDolarDia = null;
             let requiereActualizacionDolar = false;

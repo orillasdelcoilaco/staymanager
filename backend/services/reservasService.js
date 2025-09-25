@@ -24,6 +24,12 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
             hayCambios = true;
         }
 
+        const valorTotalExistente = reservaExistente.valores?.valorTotal || 0;
+        if (!ediciones['valores.valorTotal'] && valorTotalExistente === 0 && datosReserva.valores.valorTotal > 0) {
+            datosAActualizar['valores.valorTotal'] = datosReserva.valores.valorTotal;
+            hayCambios = true;
+        }
+
         const monedaEfectiva = datosAActualizar.moneda || reservaExistente.moneda;
         if (monedaEfectiva === 'USD') {
             const necesitaReparacion = !reservaExistente.valorDolarDia || !reservaExistente.valores?.valorOriginal;
