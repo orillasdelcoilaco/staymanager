@@ -6,7 +6,7 @@ const { obtenerCanalesPorEmpresa } = require('./canalesService');
 const { obtenerMapeosPorEmpresa } = require('./mapeosService');
 const { obtenerValorDolar, actualizarValorDolarApi } = require('./dolarService');
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
-const { registrarCarga } = require('./historialCargasService'); // <-- AÑADIDO
+const { registrarCarga } = require('./historialCargasService');
 
 const leerArchivo = (buffer, nombreArchivo) => {
     const esCsv = nombreArchivo && nombreArchivo.toLowerCase().endsWith('.csv');
@@ -188,10 +188,16 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             }
 
             const valorOriginalStr = get('valorTotal')?.toString() || '0';
-            const valorOriginal = monedaCanal === 'CLP'
-                ? parseFloat(valorOriginalStr.replace(/[^0-9]/g, '')) || 0
-                : parseFloat(valorOriginalStr.replace(/[^0-9,.]/g, '').replace(',', '.')) || 0;
+            let valorOriginal = 0;
 
+            if (canalNombre.toLowerCase() === 'airbnb') {
+                valorOriginal = parseFloat(valorOriginalStr.replace(/[^0-9.]/g, '')) || 0;
+            } else if (monedaCanal === 'CLP') {
+                valorOriginal = parseFloat(valorOriginalStr.replace(/[^0-9]/g, '')) || 0;
+            } else {
+                valorOriginal = parseFloat(valorOriginalStr.replace(/[^0-9,.]/g, '').replace(',', '.')) || 0;
+            }
+            
             let valorTotalCLP = valorOriginal;
             let valorDolarDia = null;
             let requiereActualizacionDolar = false;
@@ -206,7 +212,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
 
             const totalNoches = Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24));
             const datosReserva = {
-                idCarga: idCarga, // <-- AÑADIDO
+                idCarga: idCarga,
                 idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
                 estado: normalizarEstado(get('estado')),
                 fechaReserva: parsearFecha(get('fechaReserva'), formatoFecha),
