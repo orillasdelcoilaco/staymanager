@@ -1,5 +1,5 @@
 const admin = require('firebase-admin');
-const { createGoogleContact } = require('./googleContactsService');
+const { createGoogleContact, findContactByName } = require('./googleContactsService');
 
 const normalizarTelefono = (telefono) => {
     if (!telefono) return null;
@@ -67,12 +67,11 @@ const crearOActualizarCliente = async (db, empresaId, datosCliente) => {
         ubicacion: datosCliente.ubicacion || '',
         notas: datosCliente.notas || '',
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
-        origen: 'Importado'
+        origen: 'Importado',
+        googleContactSynced: false // <-- AÑADIDO
     };
     await nuevoClienteRef.set(nuevoCliente);
 
-    // --- INICIO DE MODIFICACIÓN ---
-    // Intentar crear el contacto en Google después de crear el cliente localmente
     if (datosCliente.canalNombre && datosCliente.idReservaCanal && telefonoNormalizado) {
         const datosParaGoogle = {
             nombre: nuevoCliente.nombre,
@@ -81,12 +80,10 @@ const crearOActualizarCliente = async (db, empresaId, datosCliente) => {
             canalNombre: datosCliente.canalNombre,
             idReservaCanal: datosCliente.idReservaCanal
         };
-        createGoogleContact(db, empresaId, datosParaGoogle).catch(err => {
-            // Capturamos el error para que no detenga el flujo principal de la reserva
+        sincronizarClienteGoogle(db, empresaId, nuevoCliente.id, datosParaGoogle).catch(err => {
             console.warn(`[Auto-Sync] No se pudo crear el contacto en Google para ${nuevoCliente.email}, pero el cliente fue creado localmente. Razón: ${err.message}`);
         });
     }
-    // --- FIN DE MODIFICACIÓN ---
 
     return { cliente: nuevoCliente, status: 'creado' };
 };
@@ -141,10 +138,53 @@ const eliminarCliente = async (db, empresaId, clienteId) => {
     await clienteRef.delete();
 };
 
+const sincronizarClienteGoogle = async (db, empresaId, clienteId, overrideData = null) => {
+    const clienteRef = db.collection('empresas').doc(empresaId).collection('clientes').doc(clienteId);
+    
+    let contactPayload;
+
+    if (overrideData) {
+        contactPayload = overrideData;
+    } else {
+        const clienteDoc = await clienteRef.get();
+        if (!clienteDoc.exists) throw new Error('El cliente no existe.');
+        const clienteData = clienteDoc.data();
+
+        const reservaSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
+            .where('clienteId', '==', clienteId)
+            .orderBy('fechaReserva', 'desc')
+            .limit(1)
+            .get();
+
+        if (reservaSnapshot.empty) {
+            throw new Error('No se encontraron reservas para este cliente, no se puede generar el nombre del contacto.');
+        }
+        const reservaData = reservaSnapshot.docs[0].data();
+        
+        contactPayload = {
+            nombre: clienteData.nombre,
+            telefono: clienteData.telefono,
+            email: clienteData.email,
+            canalNombre: reservaData.canalNombre,
+            idReservaCanal: reservaData.idReservaCanal,
+        };
+    }
+
+    const result = await createGoogleContact(db, empresaId, contactPayload);
+
+    if (result.status === 'created' || result.status === 'exists') {
+        await clienteRef.update({ googleContactSynced: true });
+        return { success: true, message: `Contacto para "${contactPayload.nombre}" ${result.status === 'exists' ? 'ya existía' : 'fue creado'} en Google.` };
+    } else {
+        throw new Error(result.message);
+    }
+};
+
 module.exports = {
     crearOActualizarCliente,
     obtenerClientesPorEmpresa,
     obtenerClientePorId,
     actualizarCliente,
-    eliminarCliente
+    eliminarCliente,
+    sincronizarClienteGoogle
 };

@@ -4,7 +4,8 @@ const {
     obtenerClientePorId,
     actualizarCliente,
     crearOActualizarCliente,
-    eliminarCliente
+    eliminarCliente,
+    sincronizarClienteGoogle
 } = require('../services/clientesService');
 
 module.exports = (db) => {
@@ -51,6 +52,18 @@ module.exports = (db) => {
             await eliminarCliente(db, req.user.empresaId, req.params.id);
             res.status(204).send();
         } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+    
+    router.post('/:id/sincronizar-google', async (req, res) => {
+        try {
+            const { empresaId } = req.user;
+            const { id } = req.params;
+            const result = await sincronizarClienteGoogle(db, empresaId, id);
+            res.status(200).json(result);
+        } catch (error) {
+            console.error(`Error al sincronizar cliente ${req.params.id}:`, error);
             res.status(500).json({ error: error.message });
         }
     });

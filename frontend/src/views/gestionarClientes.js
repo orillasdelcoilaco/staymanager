@@ -48,23 +48,24 @@ function renderTabla(filtro = '') {
         return;
     }
 
-    tbody.innerHTML = clientesFiltrados.map(c => `
+    tbody.innerHTML = clientesFiltrados.map(c => {
+        const syncStatusHtml = c.googleContactSynced
+            ? '<span class="text-green-600 font-medium" title="Sincronizado con Google Contacts">✅ Sincronizado</span>'
+            : `<button data-id="${c.id}" class="sync-btn text-blue-600 hover:text-blue-800 font-medium">Sincronizar</button>`;
+
+        return `
         <tr class="border-b hover:bg-gray-50 text-sm">
             <td class="py-2 px-3 font-medium">${c.nombre}</td>
             <td class="py-2 px-3">${c.telefono}</td>
             <td class="py-2 px-3">${c.email || '-'}</td>
             <td class="py-2 px-3">${c.pais || '-'}</td>
-            <td class="py-2 px-3 whitespace-nowrap">
-                <button data-id="${c.id}" class="view-btn text-indigo-600 hover:text-indigo-800 font-medium mr-3">Ver Perfil</button>
+            <td class="py-2 px-3 whitespace-nowrap space-x-4">
+                <button data-id="${c.id}" class="view-btn text-indigo-600 hover:text-indigo-800 font-medium">Ver Perfil</button>
+                ${syncStatusHtml}
                 <button data-id="${c.id}" class="delete-btn text-red-600 hover:text-red-800 font-medium">Eliminar</button>
             </td>
-            <td class="py-2 px-3 whitespace-nowrap">
-    <button data-id="${c.id}" class="view-btn text-indigo-600 hover:text-indigo-800 font-medium mr-3">Ver Perfil</button>
-    <button data-id="${c.id}" class="sync-btn text-blue-600 hover:text-blue-800 font-medium mr-3">Sincronizar</button>
-    <button data-id="${c.id}" class="delete-btn text-red-600 hover:text-red-800 font-medium">Eliminar</button>
-</td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
 export async function render() {
@@ -195,6 +196,21 @@ export function afterRender() {
 
         if (target.classList.contains('view-btn')) {
             handleNavigation(`/cliente/${id}`);
+        }
+
+        if (target.classList.contains('sync-btn')) {
+            target.disabled = true;
+            target.textContent = 'Sincronizando...';
+            try {
+                const result = await fetchAPI(`/clientes/${id}/sincronizar-google`, { method: 'POST' });
+                alert(result.message);
+                clientes = await fetchAPI('/clientes');
+                renderTabla(document.getElementById('search-input').value);
+            } catch (error) {
+                alert(`Error al sincronizar: ${error.message}`);
+                target.disabled = false;
+                target.textContent = 'Sincronizar';
+            }
         }
 
         if (target.classList.contains('delete-btn')) {
