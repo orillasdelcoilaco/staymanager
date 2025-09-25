@@ -204,7 +204,11 @@ export function afterRender() {
             try {
                 const result = await fetchAPI(`/clientes/${id}/sincronizar-google`, { method: 'POST' });
                 alert(result.message);
-                clientes = await fetchAPI('/clientes');
+                // Actualizar solo el cliente modificado para una UI más rápida
+                const clienteIndex = clientes.findIndex(c => c.id === id);
+                if (clienteIndex > -1) {
+                    clientes[clienteIndex].googleContactSynced = true;
+                }
                 renderTabla(document.getElementById('search-input').value);
             } catch (error) {
                 alert(`Error al sincronizar: ${error.message}`);

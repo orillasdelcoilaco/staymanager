@@ -1,4 +1,6 @@
 const admin = require('firebase-admin');
+const { findContactByName } = require('./googleContactsService');
+const { normalizarTelefono } = require('./clientesService');
 
 const repararFechasSODC = async (db, empresaId) => {
     // ... (código existente sin cambios)
@@ -67,7 +69,6 @@ const repararFechasSODC = async (db, empresaId) => {
 const repararHistorialDolar = async (db, empresaId) => {
     const collectionRef = db.collection('empresas').doc(empresaId).collection('valoresDolar');
     
-    // 1. Obtener todos los documentos existentes UNA SOLA VEZ y ordenarlos
     const allDocsSnapshot = await collectionRef.orderBy('fecha', 'asc').get();
     if (allDocsSnapshot.empty) {
         throw new Error("No hay datos históricos para realizar la reparación.");
@@ -85,17 +86,14 @@ const repararHistorialDolar = async (db, empresaId) => {
     let gapsFilled = 0;
     let existingIndex = 0;
 
-    // 2. Iterar día por día desde la fecha mínima hasta la máxima
     for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
         const currentDate = new Date(d);
         
-        // Avanzar el puntero si la fecha actual ya existe
         if (existingIndex < existingValues.length && existingValues[existingIndex].fecha.getTime() === currentDate.getTime()) {
             existingIndex++;
             continue;
         }
 
-        // 3. Si el día falta, encontrar el valor anterior y siguiente en memoria
         const prevValueData = existingValues[existingIndex - 1];
         const nextValueData = existingValues[existingIndex];
 
@@ -126,7 +124,69 @@ const repararHistorialDolar = async (db, empresaId) => {
     };
 };
 
+const verificarSincronizacionContactos = async (db, empresaId) => {
+    const clientesRef = db.collection('empresas').doc(empresaId).collection('clientes');
+    const clientesSnapshot = await clientesRef.get();
+    if (clientesSnapshot.empty) {
+        return { clientesRevisados: 0, clientesActualizados: 0, telefonosCorregidos: 0 };
+    }
+
+    const batch = db.batch();
+    let clientesActualizados = 0;
+    let telefonosCorregidos = 0;
+    const authClient = await require('./googleContactsService').getAuthenticatedClient(db, empresaId);
+
+    for (const doc of clientesSnapshot.docs) {
+        const cliente = doc.data();
+        let necesitaUpdate = false;
+        const updates = {};
+
+        // 1. Normalizar teléfono
+        const telefonoNormal = normalizarTelefono(cliente.telefono);
+        if (telefonoNormal !== cliente.telefonoNormalizado) {
+            updates.telefonoNormalizado = telefonoNormal;
+            necesitaUpdate = true;
+            telefonosCorregidos++;
+        }
+
+        // 2. Verificar sincronización si no está ya marcada
+        if (!cliente.googleContactSynced) {
+            const reservaSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
+                .where('clienteId', '==', doc.id)
+                .orderBy('fechaReserva', 'desc')
+                .limit(1)
+                .get();
+            
+            if (!reservaSnapshot.empty) {
+                const reserva = reservaSnapshot.docs[0].data();
+                const contactName = `${cliente.nombre} ${reserva.canalNombre} ${reserva.idReservaCanal}`;
+                const existeEnGoogle = await findContactByName(authClient, contactName);
+                if (existeEnGoogle) {
+                    updates.googleContactSynced = true;
+                    necesitaUpdate = true;
+                    clientesActualizados++;
+                }
+            }
+        }
+        
+        if (necesitaUpdate) {
+            batch.update(doc.ref, updates);
+        }
+    }
+
+    if (clientesActualizados > 0 || telefonosCorregidos > 0) {
+        await batch.commit();
+    }
+    
+    return {
+        clientesRevisados: clientesSnapshot.size,
+        clientesActualizados,
+        telefonosCorregidos
+    };
+};
+
 module.exports = {
     repararFechasSODC,
-    repararHistorialDolar
+    repararHistorialDolar,
+    verificarSincronizacionContactos
 };

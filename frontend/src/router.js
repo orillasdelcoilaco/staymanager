@@ -19,8 +19,9 @@ const views = {
     '/reparar-dolar': () => import('./views/repararDolar.js'),
     '/reparar-fechas': () => import('./views/repararFechas.js'),
     '/autorizar-google': () => import('./views/autorizarGoogle.js'),
-    '/empresa': () => import('./views/empresa.js'), // <-- AÑADIDO
-    '/gestionar-usuarios': () => import('./views/gestionarUsuarios.js'), // <-- AÑADIDO
+    '/empresa': () => import('./views/empresa.js'),
+    '/gestionar-usuarios': () => import('./views/gestionarUsuarios.js'),
+    '/reparar-contactos': () => import('./views/repararContactos.js'), // <-- AÑADIDO
 };
 
 const menuConfig = [
@@ -56,12 +57,12 @@ const menuConfig = [
         id: 'configuracion',
         children: [
             { name: '🏢 Empresa', path: '/empresa', id: 'config-empresa' },
-            { name: '👥 Gestionar Usuarios', path: '/gestionar-usuarios', id: 'config-usuarios' }, // <-- AÑADIDO
+            { name: '👥 Gestionar Usuarios', path: '/gestionar-usuarios', id: 'config-usuarios' },
             { name: '🔄 Conversión Alojamientos', path: '/conversion-alojamientos', id: 'config-conversion' },
             { name: '🗺️ Mapeo de Reportes', path: '/mapeo-reportes', id: 'mapeo-reportes' },
             { name: '👤 Autorizar Google Contacts', path: '/autorizar-google', id: 'config-google' },
             { name: '🔧 Reparar Fechas de Reservas', path: '/reparar-fechas', id: 'reparar-fechas' },
-            { name: '📞 Reparar Teléfonos Faltantes', path: '#', id: 'reparar-telefonos' },
+            { name: '📞 Reparar y Verificar Contactos', path: '/reparar-contactos', id: 'reparar-contactos' }, // <-- MODIFICADO
             { name: '🔧 Reparar Dólar Histórico', path: '/reparar-dolar', id: 'reparar-dolar' },
             { name: '🗓️ Sincronizar Calendarios (iCal)', path: '#', id: 'sincronizar-ical' },
         ]
@@ -89,7 +90,7 @@ async function loadView(path) {
         renderLogin(appRoot);
     } else {
         if (!document.getElementById('view-content')) {
-            // Esta llamada ahora es manejada por checkAuthAndRender
+            // This is now handled by checkAuthAndRender
         }
         
         const dynamicRoute = Object.keys(views).find(route => {

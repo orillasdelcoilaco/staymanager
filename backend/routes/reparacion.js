@@ -1,5 +1,5 @@
 const express = require('express');
-const { repararFechasSODC, repararHistorialDolar } = require('../services/reparacionService');
+const { repararFechasSODC, repararHistorialDolar, verificarSincronizacionContactos } = require('../services/reparacionService');
 
 module.exports = (db) => {
     const router = express.Router();
@@ -28,6 +28,20 @@ module.exports = (db) => {
             });
         } catch (error) {
             console.error("Error en la ruta de reparación del dólar:", error);
+            res.status(500).json({ error: `Error interno del servidor: ${error.message}` });
+        }
+    });
+
+    router.post('/sincronizacion-contactos', async (req, res) => {
+        try {
+            const { empresaId } = req.user;
+            const resultado = await verificarSincronizacionContactos(db, empresaId);
+            res.status(200).json({
+                message: 'Proceso de verificación de contactos finalizado.',
+                summary: resultado
+            });
+        } catch (error) {
+            console.error("Error en la ruta de verificación de contactos:", error);
             res.status(500).json({ error: `Error interno del servidor: ${error.message}` });
         }
     });
