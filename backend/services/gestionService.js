@@ -54,7 +54,8 @@ const getReservasPendientes = async (db, empresaId) => {
                     estadoGestion: data.estadoGestion || 'Pendiente Bienvenida',
                     documentos: data.documentos || {},
                     reservasIndividuales: [],
-                    valorTotalCLP: 0,
+                    valorTotalCLP: 0, // Payout
+                    valorTotalHuesped: 0, // Total que paga el cliente
                     abonoTotal: 0,
                     potencialTotal: 0,
                     potencialCalculado: false,
@@ -73,13 +74,13 @@ const getReservasPendientes = async (db, empresaId) => {
             });
 
             grupo.valorTotalCLP += data.valores?.valorTotal || 0;
+            grupo.valorTotalHuesped += data.valores?.valorHuesped || data.valores?.valorTotal || 0;
             grupo.abonoTotal += data.valores?.abono || 0;
             
             if (data.valores?.valorPotencial && data.valores.valorPotencial > 0) {
                 grupo.potencialTotal += data.valores.valorPotencial;
                 grupo.potencialCalculado = true;
             }
-            // Consolidar documentos de todas las reservas individuales en el grupo
             if (data.documentos) {
                  grupo.documentos = {...grupo.documentos, ...data.documentos};
             }
@@ -137,22 +138,25 @@ const addNota = async (db, empresaId, notaData) => {
 };
 
 const getTransacciones = async (db, empresaId, idsIndividuales) => {
-    let todasLasTransacciones = [];
-    for (const id of idsIndividuales) {
-        const transaccionesRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(id).collection('transacciones');
-        const snapshot = await transaccionesRef.get();
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            todasLasTransacciones.push({
-                reservaIndividualId: id,
-                id: doc.id,
-                ...data,
-                fecha: data.fecha ? data.fecha.toDate() : new Date()
-            });
-        });
-    }
-    todasLasTransacciones.sort((a, b) => b.fecha - a.fecha);
-    return todasLasTransacciones;
+    // Esta función ahora debe buscar en la colección principal de transacciones
+    const transaccionesRef = db.collection('empresas').doc(empresaId).collection('transacciones');
+    const reservaIdOriginal = (await db.collection('empresas').doc(empresaId).collection('reservas').doc(idsIndividuales[0]).get()).data().idReservaCanal;
+    
+    const snapshot = await transaccionesRef
+        .where('reservaIdOriginal', '==', reservaIdOriginal)
+        .orderBy('fecha', 'desc')
+        .get();
+
+    if (snapshot.empty) return [];
+
+    return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            fecha: data.fecha ? data.fecha.toDate() : new Date()
+        };
+    });
 };
 
 module.exports = {

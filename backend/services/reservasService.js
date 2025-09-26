@@ -1,7 +1,6 @@
 const admin = require('firebase-admin');
 const { obtenerValorDolar } = require('./dolarService');
 
-// ... (las funciones crearOActualizarReserva, actualizarReservaManualmente, etc. no cambian)
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
     const q = reservasRef.where('idReservaCanal', '==', datosReserva.idReservaCanal);
@@ -21,30 +20,18 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
         const datosAActualizar = {
             idCarga: datosReserva.idCarga
         };
+        
+        // Actualizar el objeto de valores completo si no ha sido editado manualmente.
+        if (!ediciones['valores.valorTotal'] && !ediciones['valores.valorHuesped'] && !ediciones['valores.valorPotencial']) {
+             if (JSON.stringify(reservaExistente.valores) !== JSON.stringify(datosReserva.valores)) {
+                datosAActualizar.valores = datosReserva.valores;
+                hayCambios = true;
+            }
+        }
 
         if (!ediciones.moneda && reservaExistente.moneda !== datosReserva.moneda) {
             datosAActualizar.moneda = datosReserva.moneda;
             hayCambios = true;
-        }
-
-        const valorTotalExistente = reservaExistente.valores?.valorTotal || 0;
-        if (!ediciones['valores.valorTotal'] && valorTotalExistente === 0 && datosReserva.valores.valorTotal > 0) {
-            datosAActualizar['valores.valorTotal'] = datosReserva.valores.valorTotal;
-            hayCambios = true;
-        }
-
-        const monedaEfectiva = datosAActualizar.moneda || reservaExistente.moneda;
-        if (monedaEfectiva === 'USD') {
-            const necesitaReparacion = !reservaExistente.valorDolarDia || !reservaExistente.valores?.valorOriginal;
-            if (necesitaReparacion && !ediciones['valores.valorTotal']) {
-                const valorDolar = await obtenerValorDolar(db, empresaId, reservaExistente.fechaLlegada.toDate());
-                if (valorDolar && datosReserva.valores?.valorOriginal) {
-                    datosAActualizar.valorDolarDia = valorDolar;
-                    datosAActualizar['valores.valorOriginal'] = datosReserva.valores.valorOriginal;
-                    datosAActualizar['valores.valorTotal'] = datosReserva.valores.valorOriginal * valorDolar;
-                    hayCambios = true;
-                }
-            }
         }
         
         if (!ediciones.estado && reservaExistente.estado !== datosReserva.estado) {
@@ -182,7 +169,7 @@ const calcularPotencialGrupo = async (db, empresaId, idsIndividuales, descuento)
         if(doc.exists) {
             const valorActual = doc.data().valores.valorTotal;
             const valorPotencial = Math.round(valorActual / (1 - (parseFloat(descuento) / 100)));
-            batch.update(ref, { 'valores.valorPotencial': valorPotencial });
+            batch.update(ref, { 'valores.valorPotencial': valorPotencial, 'edicionesManuales.valores.valorPotencial': true });
         }
     }
     await batch.commit();
@@ -223,17 +210,13 @@ const actualizarDocumentoReserva = async (db, empresaId, idsIndividuales, tipoDo
     
     const updateData = {};
     if (url === null) {
-        // Si la URL es null, usamos FieldValue.delete() para eliminar el campo específico.
         updateData[campo] = admin.firestore.FieldValue.delete();
     } else {
-        // Si hay una URL (o 'SIN_DOCUMENTO'), actualizamos ese campo específico.
         updateData[campo] = url;
     }
 
     idsIndividuales.forEach(id => {
         const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);
-        // Usamos 'update' para modificar solo los campos especificados en updateData,
-        // sin sobreescribir todo el objeto 'documentos'.
         batch.update(ref, updateData);
     });
     await batch.commit();

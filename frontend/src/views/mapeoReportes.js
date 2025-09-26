@@ -6,6 +6,7 @@ let canalSiendoEditado = null;
 let cabecerasArchivo = [];
 
 const camposInternos = [
+    // --- CAMPOS DE IDENTIFICACIÓN ---
     { id: 'idReservaCanal', nombre: 'ID de Reserva del Canal', requerido: true },
     { id: 'alojamientoNombre', nombre: 'Nombre del Alojamiento (en reporte)', requerido: true },
     { id: 'fechaLlegada', nombre: 'Fecha de Llegada (Check-in)', requerido: true },
@@ -14,16 +15,20 @@ const camposInternos = [
     { id: 'apellidoCliente', nombre: 'Apellido del Cliente (Opcional)', requerido: false },
     { id: 'estado', nombre: 'Estado de la Reserva' },
     { id: 'fechaReserva', nombre: 'Fecha de Creación de la Reserva' },
-    { id: 'totalNoches', nombre: 'Total de Noches' },
     { id: 'invitados', nombre: 'Cantidad de Huéspedes' },
     { id: 'correoCliente', nombre: 'Email del Cliente' },
     { id: 'telefonoCliente', nombre: 'Teléfono del Cliente' },
-    { id: 'valorTotal', nombre: 'Valor Total de la Reserva' },
-    { id: 'comision', nombre: 'Comisión' },
-    { id: 'abono', nombre: 'Abono' },
-    { id: 'pendiente', nombre: 'Pendiente de Pago' },
     { id: 'pais', nombre: 'País del Cliente' },
     { id: 'tipoFila', nombre: 'Tipo de Fila (para ignorar filas)', descripcion: 'Selecciona la columna que identifica el tipo de fila. El sistema solo procesará las que contengan "Reservación". Ej: Columna "Tipo" en reportes de Airbnb.' },
+    
+    // --- NUEVOS CAMPOS FINANCIEROS ---
+    { id: 'valorHuesped', nombre: 'FINANZAS: Total Pagado por Huésped', descripcion: 'El monto final que el cliente pagó, incluyendo tarifas e impuestos. Ej: El "Precio total de la habitación" de Booking.' },
+    { id: 'valorAnfitrion', nombre: 'FINANZAS: Pago Recibido por Anfitrión (Payout)', descripcion: 'El monto neto que recibes después de comisiones/tarifas. Ej: "Total (CLP)" en Airbnb. Si no se especifica, se calculará.' },
+    { id: 'valorLista', nombre: 'FINANZAS: Valor de Lista / Subtotal', descripcion: 'El precio base antes de comisiones e impuestos, pero que puede incluir descuentos. Ej: "Importe sujeto a comisión" en Booking.' },
+    { id: 'comision', nombre: 'FINANZAS: Comisión del Canal', descripcion: 'La comisión que cobra el canal de venta.' },
+    { id: 'tarifaServicio', nombre: 'FINANZAS: Tarifa de Servicio (ej. Airbnb)', descripcion: 'Cargos adicionales del canal, como la "Tarifa por servicio" de Airbnb.' },
+    { id: 'impuestos', nombre: 'FINANZAS: Impuestos (ej. IVA)', descripcion: 'El monto de impuestos incluido en el total, si el reporte lo desglosa.' },
+    { id: 'abono', nombre: 'FINANZAS: Abono o Pago Parcial', descripcion: 'Si el reporte indica un pago parcial o abono realizado por el cliente.' },
 ];
 
 function renderizarCamposMapeo() {
@@ -100,7 +105,6 @@ function abrirModal(canal) {
     document.getElementById('mapeo-editor').classList.add('hidden');
     document.getElementById('archivo-muestra-input').value = '';
     
-    // Establecer el valor guardado del formato de fecha, o un valor por defecto
     document.getElementById('formato-fecha-select').value = canal.formatoFecha || 'DD/MM/YYYY';
 
     modal.classList.remove('hidden');
@@ -219,7 +223,7 @@ export function afterRender() {
             });
             alert(`Configuración para "${canalSiendoEditado.nombre}" guardada con éxito.`);
             mapeos = await fetchAPI('/mapeos');
-            canales = await fetchAPI('/canales'); // Volver a cargar canales para obtener el formato de fecha actualizado
+            canales = await fetchAPI('/canales'); 
             cerrarModal();
         } catch (error) {
             alert(`Error al guardar: ${error.message}`);

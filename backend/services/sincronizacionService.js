@@ -101,6 +101,13 @@ const normalizarEstado = (estado) => {
     return 'Confirmada'; 
 };
 
+const parsearMoneda = (valor) => {
+    if (valor === undefined || valor === null) return 0;
+    const valorStr = valor.toString();
+    const numeroLimpio = valorStr.replace(/[^\d,-]/g, '').replace(',', '.');
+    return parseFloat(numeroLimpio) || 0;
+};
+
 const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, nombreArchivoOriginal, usuarioEmail) => {
     await actualizarValorDolarApi(db, empresaId);
 
@@ -111,7 +118,6 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
         throw new Error("El archivo está vacío o no tiene filas de datos.");
     }
     
-    const cabeceras = rows[0];
     const datosJson = rows.slice(1);
 
     const [conversionesAlojamiento, todosLosMapeos, canales, propiedades] = await Promise.all([
@@ -186,25 +192,42 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                     if (propiedad) capacidadAlojamiento = propiedad.capacidad;
                 }
             }
-
-            const valorOriginalStr = get('valorTotal')?.toString() || '0';
-            let valorOriginal = 0;
-
-            if (canalNombre.toLowerCase() === 'airbnb') {
-                valorOriginal = parseFloat(valorOriginalStr.replace(/[^0-9.]/g, '')) || 0;
-            } else if (monedaCanal === 'CLP') {
-                valorOriginal = parseFloat(valorOriginalStr.replace(/[^0-9]/g, '')) || 0;
-            } else {
-                valorOriginal = parseFloat(valorOriginalStr.replace(/[^0-9,.]/g, '').replace(',', '.')) || 0;
-            }
             
-            let valorTotalCLP = valorOriginal;
+            const comision = parsearMoneda(get('comision'));
+            const tarifaServicio = parsearMoneda(get('tarifaServicio'));
+            const impuestos = parsearMoneda(get('impuestos'));
+            let valorHuesped = parsearMoneda(get('valorHuesped'));
+            let valorAnfitrion = parsearMoneda(get('valorAnfitrion'));
+            let valorLista = parsearMoneda(get('valorLista'));
+
+            // Lógica de cálculo jerárquico
+            if (canalNombre.toLowerCase().includes('airbnb')) {
+                // Caso especial Airbnb según lo aclarado
+                if (valorAnfitrion > 0 && tarifaServicio !== 0) {
+                     valorHuesped = valorAnfitrion + tarifaServicio;
+                }
+            } else {
+                if (valorHuesped === 0 && valorAnfitrion > 0) {
+                    valorHuesped = valorAnfitrion + comision + tarifaServicio;
+                }
+            }
+
+            if (valorAnfitrion === 0 && valorHuesped > 0) {
+                valorAnfitrion = valorHuesped - comision - tarifaServicio;
+            }
+            if (valorLista === 0) {
+                valorLista = valorHuesped - impuestos; 
+            }
+
+            let valorTotalCLP = valorAnfitrion; 
+            let valorOriginal = valorAnfitrion;
             let valorDolarDia = null;
             let requiereActualizacionDolar = false;
 
             if (monedaCanal === 'USD') {
+                valorOriginal = valorAnfitrion;
                 valorDolarDia = await obtenerValorDolar(db, empresaId, fechaLlegada);
-                valorTotalCLP = valorOriginal * valorDolarDia;
+                valorTotalCLP = valorAnfitrion * valorDolarDia;
                 if (fechaLlegada > today) {
                     requiereActualizacionDolar = true;
                 }
@@ -223,10 +246,11 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 moneda: monedaCanal,
                 valores: {
                     valorOriginal: valorOriginal,
-                    valorTotal: valorTotalCLP,
-                    comision: parseFloat(get('comision')?.toString().replace(/[^0-9.,$]+/g, "").replace(',', '.')) || 0,
-                    abono: parseFloat(get('abono')) || 0,
-                    pendiente: parseFloat(get('pendiente')) || 0
+                    valorTotal: Math.round(valorTotalCLP),
+                    valorHuesped: Math.round((monedaCanal === 'USD') ? valorHuesped * valorDolarDia : valorHuesped),
+                    valorPotencial: Math.round((monedaCanal === 'USD') ? valorLista * valorDolarDia : valorLista),
+                    comision: Math.round((monedaCanal === 'USD') ? comision * valorDolarDia : comision),
+                    abono: parsearMoneda(get('abono'))
                 },
                 valorDolarDia: valorDolarDia,
                 requiereActualizacionDolar: requiereActualizacionDolar
