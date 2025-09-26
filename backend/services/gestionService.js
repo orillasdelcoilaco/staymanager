@@ -165,7 +165,8 @@ const getTransacciones = async (db, empresaId, idsIndividuales) => {
 };
 
 const getAnalisisFinanciero = async (db, empresaId, grupoReserva) => {
-    const reservaPrincipalSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas').doc(grupoReserva.reservasIndividuales[0].id).get();
+    const idReservaPrincipal = grupoReserva.reservasIndividuales[0].id;
+    const reservaPrincipalSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas').doc(idReservaPrincipal).get();
     if (!reservaPrincipalSnapshot.exists) throw new Error("La reserva principal del grupo no fue encontrada.");
     
     const reservaPrincipal = reservaPrincipalSnapshot.data();
