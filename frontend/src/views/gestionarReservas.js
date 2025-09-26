@@ -1,11 +1,12 @@
 import { fetchAPI } from '../api.js';
+import { handleNavigation } from '../router.js';
 
 let todasLasReservas = [];
-let clientes = [];
-let alojamientos = [];
-let historialCargas = []; // <-- AÑADIDO
+let historialCargas = [];
 let editandoReserva = null;
 let clienteOriginal = null;
+
+// Funciones del modal (abrirModalEditar, cerrarModalEditar, etc.) permanecen sin cambios...
 
 function toggleDolarFields() {
     const form = document.getElementById('reserva-form-edit');
@@ -46,6 +47,9 @@ async function abrirModalEditar(reservaId) {
         clienteOriginal = { ...editandoReserva.cliente };
         
         document.getElementById('modal-title').textContent = `Editar Reserva: ${editandoReserva.idReservaCanal}`;
+        
+        // Asumiendo que `alojamientos` está disponible globalmente en esta vista
+        const alojamientos = await fetchAPI('/propiedades');
         document.getElementById('alojamiento-select').innerHTML = alojamientos.map(a => `<option value="${a.id}" ${a.id === editandoReserva.alojamientoId ? 'selected' : ''}>${a.nombre}</option>`).join('');
 
         form.idReservaCanal.value = editandoReserva.idReservaCanal || '';
@@ -74,6 +78,7 @@ function cerrarModalEditar() {
     clienteOriginal = null;
 }
 
+
 function renderTabla(filtros) {
     const tbody = document.getElementById('reservas-tbody');
     if (!tbody) return;
@@ -83,8 +88,7 @@ function renderTabla(filtros) {
     const reservasFiltradas = todasLasReservas.filter(r => {
         const busquedaMatch = (r.nombreCliente?.toLowerCase().includes(filtroLowerCase)) ||
                               (r.alojamientoNombre?.toLowerCase().includes(filtroLowerCase)) ||
-                              (r.idReservaCanal?.toLowerCase().includes(filtroLowerCase)) ||
-                              (r.telefono?.includes(filtroLowerCase));
+                              (r.idReservaCanal?.toLowerCase().includes(filtroLowerCase));
         
         const cargaMatch = !filtros.carga || r.idCarga === filtros.carga;
 
@@ -92,33 +96,41 @@ function renderTabla(filtros) {
     });
 
     if (reservasFiltradas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-gray-500 py-4">No se encontraron reservas.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center text-gray-500 py-4">No se encontraron reservas.</td></tr>';
         return;
     }
 
     const formatDate = (dateString) => {
-        if (!dateString) return 'No definida';
+        if (!dateString) return '-';
         return new Date(dateString).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
     };
+    
+    const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
 
-    const lapiz = '✏️';
     tbody.innerHTML = reservasFiltradas.map(r => {
-        const e = r.edicionesManuales || {};
         const reporte = historialCargas.find(h => h.id === r.idCarga);
+        const reporteNombre = reporte ? reporte.nombreArchivo : 'N/A';
+        const idReservaCorto = r.id.substring(0, 5);
+
         return `
         <tr class="border-b text-xs hover:bg-gray-50">
-            <td class="py-2 px-3">${e.clienteId || e.nombreCliente ? lapiz : ''} ${r.nombreCliente}</td>
-            <td class="py-2 px-3 font-mono">${r.telefono}</td>
-            <td class="py-2 px-3">${e.idReservaCanal ? lapiz : ''} ${r.idReservaCanal}</td>
-            <td class="py-2 px-3">${e.alojamientoId ? lapiz : ''} ${r.alojamientoNombre}</td>
-            <td class="py-2 px-3">${e.canalNombre ? lapiz : ''} ${r.canalNombre}</td>
-            <td class="py-2 px-3 whitespace-nowrap">${e.fechaLlegada ? lapiz : ''} ${formatDate(r.fechaLlegada)}</td>
-            <td class="py-2 px-3 whitespace-nowrap">${e.fechaSalida ? lapiz : ''} ${formatDate(r.fechaSalida)}</td>
-            <td class="py-2 px-3">${e.estado ? lapiz : ''} ${r.estado}</td>
-            <td class="py-2 px-3 font-mono text-gray-500" title="${reporte?.nombreArchivo || 'N/A'}">${reporte?.nombreArchivo?.substring(0, 15) || 'N/A'}...</td>
-            <td class="py-2 px-3 whitespace-nowrap">
-                <button data-id="${r.id}" class="edit-btn text-indigo-600 hover:text-indigo-800 font-medium">Editar</button>
-                <button data-id="${r.id}" class="delete-btn text-red-600 hover:text-red-800 font-medium ml-2">Eliminar</button>
+            <td class="py-2 px-3 font-mono">${r.idReservaCanal}</td>
+            <td class="py-2 px-3 font-mono text-gray-500" title="${reporteNombre}">${reporteNombre.substring(0, 15)}...</td>
+            <td class="py-2 px-3 font-mono text-gray-500" title="${r.id}">${idReservaCorto}...</td>
+            <td class="py-2 px-3 font-medium">${r.nombreCliente}</td>
+            <td class="py-2 px-3">${r.alojamientoNombre}</td>
+            <td class="py-2 px-3 whitespace-nowrap">${formatDate(r.fechaLlegada)}</td>
+            <td class="py-2 px-3 whitespace-nowrap">${formatDate(r.fechaSalida)}</td>
+            <td class="py-2 px-3">${r.estado}</td>
+            <td class="py-2 px-3">${r.estadoGestion || 'Pendiente'}</td>
+            <td class="py-2 px-3 text-right">
+                <div class="font-semibold" title="Total Pagado por el Huésped">${formatCurrency(r.valores.valorHuesped)}</div>
+                <div class="text-xs text-gray-600" title="Payout para el Anfitrión">${formatCurrency(r.valores.valorTotal)}</div>
+            </td>
+            <td class="py-2 px-3 whitespace-nowrap text-center">
+                <button data-id="${r.clienteId}" class="view-btn text-blue-600 hover:text-blue-800 font-medium" title="Ver Perfil del Cliente">Ver</button>
+                <button data-id="${r.id}" class="edit-btn text-indigo-600 hover:text-indigo-800 font-medium ml-2" title="Editar Reserva">Editar</button>
+                <button data-id="${r.id}" class="delete-btn text-red-600 hover:text-red-800 font-medium ml-2" title="Eliminar Reserva">Eliminar</button>
             </td>
         </tr>
     `}).join('');
@@ -127,10 +139,8 @@ function renderTabla(filtros) {
 
 export async function render() {
     try {
-        [todasLasReservas, clientes, alojamientos, historialCargas] = await Promise.all([
+        [todasLasReservas, historialCargas] = await Promise.all([
             fetchAPI('/reservas'),
-            fetchAPI('/clientes'),
-            fetchAPI('/propiedades'),
             fetchAPI('/historial-cargas')
         ]);
     } catch (error) {
@@ -144,21 +154,26 @@ export async function render() {
             <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                 <h2 class="text-2xl font-semibold text-gray-900">Gestionar Reservas</h2>
                 <div class="w-full md:w-1/2 grid grid-cols-2 gap-4">
-                    <input type="text" id="search-input" placeholder="Buscar por cliente, teléfono, ID..." class="form-input w-full">
+                    <input type="text" id="search-input" placeholder="Buscar por cliente, ID..." class="form-input w-full">
                     <select id="carga-filter" class="form-select w-full">
-                        <option value="">-- Filtrar por reporte --</option>
+                        <option value="">-- Filtrar por reporte de carga --</option>
                         ${opcionesCarga}
                     </select>
                 </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full bg-white"><thead class="bg-gray-50"><tr>
-                    <th class="th text-xs py-2 px-3">Cliente</th><th class="th text-xs py-2 px-3">Teléfono</th>
-                    <th class="th text-xs py-2 px-3">ID Canal</th><th class="th text-xs py-2 px-3">Alojamiento</th>
-                    <th class="th text-xs py-2 px-3">Canal</th><th class="th text-xs py-2 px-3">Check-in</th>
-                    <th class="th text-xs py-2 px-3">Check-out</th><th class="th text-xs py-2 px-3">Estado</th>
-                    <th class="th text-xs py-2 px-3">Reporte Origen</th>
-                    <th class="th text-xs py-2 px-3">Acciones</th>
+                    <th class="th text-xs">ID Canal</th>
+                    <th class="th text-xs">ID Archivo</th>
+                    <th class="th text-xs">ID Reserva</th>
+                    <th class="th text-xs">Nombre</th>
+                    <th class="th text-xs">Alojamiento</th>
+                    <th class="th text-xs">Check-in</th>
+                    <th class="th text-xs">Check-out</th>
+                    <th class="th text-xs">Estado</th>
+                    <th class="th text-xs">Estado Gestión</th>
+                    <th class="th text-xs text-right">Datos Financieros</th>
+                    <th class="th text-xs text-center">Acciones</th>
                 </tr></thead><tbody id="reservas-tbody"></tbody></table>
             </div>
         </div>
@@ -186,8 +201,8 @@ export async function render() {
                 <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Montos</legend>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div><label for="moneda" class="label">Moneda</label><select name="moneda" class="form-select"><option value="CLP">CLP</option><option value="USD">USD</option></select></div>
-                        <div><label for="valorOriginal" class="label">Valor Original</label><input type="number" name="valorOriginal" class="form-input"></div>
-                        <div><label for="valorTotal" class="label">Valor Final (CLP)</label><input type="number" name="valorTotal" step="1" class="form-input"></div>
+                        <div><label for="valorOriginal" class="label">Valor Original (Payout)</label><input type="number" name="valorOriginal" class="form-input"></div>
+                        <div><label for="valorTotal" class="label">Valor Final (Payout CLP)</label><input type="number" name="valorTotal" step="1" class="form-input"></div>
                     </div>
                     <div id="dolar-container" class="hidden mt-4"><label for="valorDolarDia" class="label">Valor Dólar del Día</label><input type="number" step="0.01" name="valorDolarDia" class="form-input w-full md:w-1/3"></div>
                 </fieldset>
@@ -233,6 +248,7 @@ export function afterRender() {
     tbody.addEventListener('click', async (e) => {
         const id = e.target.dataset.id;
         if (!id) return;
+        if (e.target.classList.contains('view-btn')) handleNavigation(`/cliente/${id}`);
         if (e.target.classList.contains('edit-btn')) abrirModalEditar(id);
         if (e.target.classList.contains('delete-btn')) {
             if (confirm('¿Estás seguro de que quieres eliminar esta reserva? Esta acción no se puede deshacer.')) {
@@ -278,6 +294,7 @@ export function afterRender() {
             cantidadHuespedes: parseInt(formEdit.cantidadHuespedes.value) || 0,
             valorDolarDia: parseFloat(formEdit.valorDolarDia.value) || null,
             valores: {
+                ...editandoReserva.valores, // Mantener valores existentes como valorHuesped, etc.
                 valorOriginal: parseFloat(formEdit.valorOriginal.value) || 0,
                 valorTotal: parseFloat(formEdit.valorTotal.value) || 0,
             },
@@ -286,7 +303,6 @@ export function afterRender() {
         try {
             await fetchAPI(`/reservas/${editandoReserva.id}`, { method: 'PUT', body: datosReserva });
             todasLasReservas = await fetchAPI('/reservas');
-            if (clienteHaCambiado) clientes = await fetchAPI('/clientes');
             renderTabla(getFiltros());
             cerrarModalEditar();
         } catch (error) {

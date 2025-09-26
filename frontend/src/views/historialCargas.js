@@ -16,6 +16,11 @@ function renderTabla() {
             <td class="py-3 px-4 font-mono text-sm">${item.nombreArchivo}</td>
             <td class="py-3 px-4">${item.fechaCarga}</td>
             <td class="py-3 px-4">${item.usuarioEmail}</td>
+            <td class="py-3 px-4 text-center">
+                <button data-id="${item.id}" data-nombre-archivo="${item.nombreArchivo}" class="delete-btn text-red-600 hover:text-red-800 text-sm font-medium">
+                    Eliminar Reservas
+                </button>
+            </td>
         </tr>
     `).join('');
 }
@@ -38,6 +43,7 @@ export async function render() {
                             <th class="th">Nombre del Archivo</th>
                             <th class="th">Fecha y Hora de Carga</th>
                             <th class="th">Usuario</th>
+                            <th class="th text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="historial-tbody"></tbody>
@@ -49,4 +55,23 @@ export async function render() {
 
 export function afterRender() {
     renderTabla();
+
+    const tbody = document.getElementById('historial-tbody');
+    tbody.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('delete-btn')) {
+            const idCarga = e.target.dataset.id;
+            const nombreArchivo = e.target.dataset.nombreArchivo;
+            
+            if (confirm(`¿Estás seguro de que quieres eliminar TODAS las reservas asociadas a este archivo (${nombreArchivo})? Esta acción no se puede deshacer.`)) {
+                try {
+                    const result = await fetchAPI(`/historial-cargas/${idCarga}`, { method: 'DELETE' });
+                    alert(result.message);
+                    // Opcional: podrías querer refrescar la vista, pero por ahora la alerta es suficiente.
+                    // El usuario puede recargar la página para ver la lista de reservas actualizada si lo desea.
+                } catch (error) {
+                    alert(`Error al eliminar las reservas: ${error.message}`);
+                }
+            }
+        }
+    });
 }

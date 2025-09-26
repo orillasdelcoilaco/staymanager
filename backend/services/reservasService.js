@@ -21,7 +21,6 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
             idCarga: datosReserva.idCarga
         };
         
-        // Actualizar el objeto de valores completo si no ha sido editado manualmente.
         if (!ediciones['valores.valorTotal'] && !ediciones['valores.valorHuesped'] && !ediciones['valores.valorPotencial']) {
              if (JSON.stringify(reservaExistente.valores) !== JSON.stringify(datosReserva.valores)) {
                 datosAActualizar.valores = datosReserva.valores;
@@ -222,6 +221,26 @@ const actualizarDocumentoReserva = async (db, empresaId, idsIndividuales, tipoDo
     await batch.commit();
 };
 
+// --- INICIO DE LA NUEVA FUNCIÓN ---
+const eliminarReservasPorIdCarga = async (db, empresaId, idCarga) => {
+    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
+    const snapshot = await reservasRef.where('idCarga', '==', idCarga).get();
+
+    if (snapshot.empty) {
+        return { eliminadas: 0, message: 'No se encontraron reservas para esta carga.' };
+    }
+
+    const batch = db.batch();
+    snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+
+    return { eliminadas: snapshot.size };
+};
+// --- FIN DE LA NUEVA FUNCIÓN ---
+
 module.exports = {
     crearOActualizarReserva,
     obtenerReservasPorEmpresa,
@@ -232,5 +251,6 @@ module.exports = {
     calcularPotencialGrupo,
     registrarPago,
     eliminarPago,
-    actualizarDocumentoReserva
+    actualizarDocumentoReserva,
+    eliminarReservasPorIdCarga // <-- Exportar la nueva función
 };
