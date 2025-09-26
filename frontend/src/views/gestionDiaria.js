@@ -236,7 +236,10 @@ function handleCardButtonClick(e) {
 function openManagementModal(type) {
     const modal = document.getElementById('gestion-modal');
     document.getElementById('modal-title').textContent = `${type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ')} (Reserva ${currentGrupo.reservaIdOriginal})`;
-    
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Se asigna la acción actual a una variable global para que esté disponible en el manejador del formulario.
+    currentAction = type;
+    // --- FIN DE LA CORRECCIÓN ---
     const actionMap = {
         'bitacora': openBitacoraModal,
         'ajuste_tarifa': renderAjusteTarifaModal,
