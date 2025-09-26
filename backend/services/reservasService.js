@@ -221,14 +221,20 @@ const actualizarDocumentoReserva = async (db, empresaId, idsIndividuales, tipoDo
     const batch = db.batch();
     const campo = tipoDocumento === 'boleta' ? 'documentos.enlaceBoleta' : 'documentos.enlaceReserva';
     
-    // Si la url es null, eliminamos el campo. Si no, lo creamos/actualizamos.
-    const updateData = url === null 
-        ? { [campo]: admin.firestore.FieldValue.delete() }
-        : { documentos: { [campo.split('.')[1]]: url } };
+    const updateData = {};
+    if (url === null) {
+        // Si la URL es null, usamos FieldValue.delete() para eliminar el campo específico.
+        updateData[campo] = admin.firestore.FieldValue.delete();
+    } else {
+        // Si hay una URL (o 'SIN_DOCUMENTO'), actualizamos ese campo específico.
+        updateData[campo] = url;
+    }
 
     idsIndividuales.forEach(id => {
         const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);
-        batch.set(ref, updateData, { merge: true });
+        // Usamos 'update' para modificar solo los campos especificados en updateData,
+        // sin sobreescribir todo el objeto 'documentos'.
+        batch.update(ref, updateData);
     });
     await batch.commit();
 };

@@ -48,6 +48,17 @@ async function handleGroupFormSubmit(event) {
 async function handleDocumentAction(action) {
     const modal = document.getElementById('gestion-modal');
     const statusEl = modal.querySelector('#modal-status');
+    const tipoDocStr = currentAction === 'boleta' ? 'la boleta' : 'el documento de reserva';
+    
+    let confirmationMessage = '';
+    if (action === 'sinDocumento') {
+        confirmationMessage = `¿Estás seguro de que quieres marcar esta gestión como "sin documento"? Si existe un archivo previo, será eliminado.`;
+    } else if (action === 'eliminarDocumento') {
+        confirmationMessage = `¿Estás seguro de que quieres eliminar ${tipoDocStr}? Esta acción no se puede deshacer.`;
+    }
+
+    if (!confirm(confirmationMessage)) return;
+
     statusEl.textContent = 'Procesando...';
 
     const formData = new FormData();
