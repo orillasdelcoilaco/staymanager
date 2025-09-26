@@ -1,14 +1,13 @@
 const admin = require('firebase-admin');
+const { obtenerProximoIdNumericoCarga } = require('./empresaService');
 
 const registrarCarga = async (db, empresaId, canalId, nombreArchivo, usuarioEmail) => {
     const historialRef = db.collection('empresas').doc(empresaId).collection('historialCargas');
     
-    // Buscar si ya existe un registro para este nombre de archivo
     const q = historialRef.where('nombreArchivo', '==', nombreArchivo).limit(1);
     const snapshot = await q.get();
 
     if (!snapshot.empty) {
-        // Si existe, actualizamos la fecha y el usuario y devolvemos el ID existente
         const docExistente = snapshot.docs[0];
         await docExistente.ref.update({
             fechaCarga: admin.firestore.FieldValue.serverTimestamp(),
@@ -17,17 +16,19 @@ const registrarCarga = async (db, empresaId, canalId, nombreArchivo, usuarioEmai
         console.log(`Registro de carga para el archivo "${nombreArchivo}" actualizado.`);
         return docExistente.id;
     } else {
-        // Si no existe, creamos un nuevo documento con un ID único
+        const proximoIdNumerico = await obtenerProximoIdNumericoCarga(db, empresaId);
+        
         const docRef = historialRef.doc();
         const datosCarga = {
             id: docRef.id,
+            idNumerico: proximoIdNumerico, // <-- Guardamos el nuevo ID numérico
             nombreArchivo,
             canalId,
             usuarioEmail,
             fechaCarga: admin.firestore.FieldValue.serverTimestamp()
         };
         await docRef.set(datosCarga);
-        console.log(`Nuevo registro de carga para el archivo "${nombreArchivo}" creado con ID único.`);
+        console.log(`Nuevo registro de carga para "${nombreArchivo}" creado con ID numérico ${proximoIdNumerico}.`);
         return docRef.id;
     }
 };

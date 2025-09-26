@@ -1,5 +1,6 @@
 const admin = require('firebase-admin');
 const { obtenerValorDolar } = require('./dolarService');
+const { deleteFileByUrl } = require('./storageService'); // <-- Importar la nueva función
 
 // ... (El resto de las funciones como crearOActualizarReserva, etc., no cambian)
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
@@ -231,22 +232,32 @@ const eliminarReservasPorIdCarga = async (db, empresaId, idCarga) => {
     }
 
     const batch = db.batch();
+    const deletePromises = [];
+
     snapshot.docs.forEach(doc => {
+        const reservaData = doc.data();
+        if (reservaData.documentos) {
+            if (reservaData.documentos.enlaceReserva) {
+                deletePromises.push(deleteFileByUrl(reservaData.documentos.enlaceReserva));
+            }
+            if (reservaData.documentos.enlaceBoleta) {
+                deletePromises.push(deleteFileByUrl(reservaData.documentos.enlaceBoleta));
+            }
+        }
         batch.delete(doc.ref);
     });
-
+    
+    await Promise.all(deletePromises);
     await batch.commit();
 
     return { eliminadas: snapshot.size };
 };
 
-// --- INICIO DE LA NUEVA FUNCIÓN ---
 const contarReservasPorIdCarga = async (db, empresaId, idCarga) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
     const snapshot = await reservasRef.where('idCarga', '==', idCarga).get();
     return { count: snapshot.size };
 };
-// --- FIN DE LA NUEVA FUNCIÓN ---
 
 module.exports = {
     crearOActualizarReserva,
@@ -260,5 +271,5 @@ module.exports = {
     eliminarPago,
     actualizarDocumentoReserva,
     eliminarReservasPorIdCarga,
-    contarReservasPorIdCarga // <-- Exportar la nueva función
+    contarReservasPorIdCarga
 };

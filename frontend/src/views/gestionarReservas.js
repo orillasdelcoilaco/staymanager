@@ -6,8 +6,7 @@ let historialCargas = [];
 let editandoReserva = null;
 let clienteOriginal = null;
 
-// Funciones del modal (abrirModalEditar, cerrarModalEditar, etc.) permanecen sin cambios...
-
+// ... (Las funciones del modal como toggleDolarFields, abrirModalEditar, etc. no cambian)
 function toggleDolarFields() {
     const form = document.getElementById('reserva-form-edit');
     const moneda = form.moneda.value;
@@ -48,7 +47,6 @@ async function abrirModalEditar(reservaId) {
         
         document.getElementById('modal-title').textContent = `Editar Reserva: ${editandoReserva.idReservaCanal}`;
         
-        // Asumiendo que `alojamientos` está disponible globalmente en esta vista
         const alojamientos = await fetchAPI('/propiedades');
         document.getElementById('alojamiento-select').innerHTML = alojamientos.map(a => `<option value="${a.id}" ${a.id === editandoReserva.alojamientoId ? 'selected' : ''}>${a.nombre}</option>`).join('');
 
@@ -109,14 +107,12 @@ function renderTabla(filtros) {
 
     tbody.innerHTML = reservasFiltradas.map(r => {
         const reporte = historialCargas.find(h => h.id === r.idCarga);
-        const reporteNombre = reporte ? reporte.nombreArchivo : 'N/A';
-        const idReservaCorto = r.id.substring(0, 5);
+        const idNumericoCarga = reporte ? reporte.idNumerico : 'N/A';
 
         return `
         <tr class="border-b text-xs hover:bg-gray-50">
             <td class="py-2 px-3 font-mono">${r.idReservaCanal}</td>
-            <td class="py-2 px-3 font-mono text-gray-500" title="${reporteNombre}">${reporteNombre.substring(0, 15)}...</td>
-            <td class="py-2 px-3 font-mono text-gray-500" title="${r.id}">${idReservaCorto}...</td>
+            <td class="py-2 px-3 font-mono text-center font-bold">${idNumericoCarga}</td>
             <td class="py-2 px-3 font-medium">${r.nombreCliente}</td>
             <td class="py-2 px-3">${r.alojamientoNombre}</td>
             <td class="py-2 px-3 whitespace-nowrap">${formatDate(r.fechaLlegada)}</td>
@@ -147,7 +143,7 @@ export async function render() {
         return `<p class="text-red-500">Error al cargar las reservas. Por favor, intente de nuevo.</p>`;
     }
 
-    const opcionesCarga = historialCargas.map(h => `<option value="${h.id}">${h.nombreArchivo}</option>`).join('');
+    const opcionesCarga = historialCargas.map(h => `<option value="${h.id}">#${h.idNumerico} - ${h.nombreArchivo}</option>`).join('');
 
     return `
         <div class="bg-white p-8 rounded-lg shadow">
@@ -164,8 +160,7 @@ export async function render() {
             <div class="overflow-x-auto">
                 <table class="min-w-full bg-white"><thead class="bg-gray-50"><tr>
                     <th class="th text-xs">ID Canal</th>
-                    <th class="th text-xs">ID Archivo</th>
-                    <th class="th text-xs">ID Reserva</th>
+                    <th class="th text-xs">ID Carga</th>
                     <th class="th text-xs">Nombre</th>
                     <th class="th text-xs">Alojamiento</th>
                     <th class="th text-xs">Check-in</th>
@@ -294,7 +289,7 @@ export function afterRender() {
             cantidadHuespedes: parseInt(formEdit.cantidadHuespedes.value) || 0,
             valorDolarDia: parseFloat(formEdit.valorDolarDia.value) || null,
             valores: {
-                ...editandoReserva.valores, // Mantener valores existentes como valorHuesped, etc.
+                ...editandoReserva.valores,
                 valorOriginal: parseFloat(formEdit.valorOriginal.value) || 0,
                 valorTotal: parseFloat(formEdit.valorTotal.value) || 0,
             },
