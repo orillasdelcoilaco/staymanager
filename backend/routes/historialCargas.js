@@ -1,6 +1,6 @@
 const express = require('express');
 const { obtenerHistorialPorEmpresa } = require('../services/historialCargasService');
-const { eliminarReservasPorIdCarga } = require('../services/reservasService'); 
+const { eliminarReservasPorIdCarga, contarReservasPorIdCarga } = require('../services/reservasService'); 
 
 module.exports = (db) => {
     const router = express.Router();
@@ -15,6 +15,20 @@ module.exports = (db) => {
             res.status(500).json({ error: error.message });
         }
     });
+
+    // --- INICIO DE LA NUEVA RUTA DE CONTEO ---
+    router.get('/:idCarga/count', async (req, res) => {
+        try {
+            const { empresaId } = req.user;
+            const { idCarga } = req.params;
+            const resultado = await contarReservasPorIdCarga(db, empresaId, idCarga);
+            res.status(200).json(resultado);
+        } catch (error) {
+            console.error(`Error al contar reservas para la carga ${req.params.idCarga}:`, error);
+            res.status(500).json({ error: `Error interno del servidor: ${error.message}` });
+        }
+    });
+    // --- FIN DE LA NUEVA RUTA DE CONTEO ---
 
     router.delete('/:idCarga', async (req, res) => {
         try {

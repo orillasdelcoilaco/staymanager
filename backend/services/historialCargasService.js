@@ -4,7 +4,7 @@ const registrarCarga = async (db, empresaId, canalId, nombreArchivo, usuarioEmai
     const historialRef = db.collection('empresas').doc(empresaId).collection('historialCargas');
     
     // Buscar si ya existe un registro para este nombre de archivo
-    const q = historialRef.where('nombreArchivo', '==', nombreArchivo);
+    const q = historialRef.where('nombreArchivo', '==', nombreArchivo).limit(1);
     const snapshot = await q.get();
 
     if (!snapshot.empty) {
@@ -44,7 +44,7 @@ const obtenerHistorialPorEmpresa = async (db, empresaId) => {
     return snapshot.docs.map(doc => {
         const data = doc.data();
         return {
-            id: doc.id, // El ID único del documento
+            id: doc.id,
             ...data,
             fechaCarga: data.fechaCarga.toDate().toLocaleString('es-CL')
         };

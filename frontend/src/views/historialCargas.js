@@ -7,12 +7,13 @@ function renderTabla() {
     if (!tbody) return;
 
     if (historial.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-gray-500 py-4">No se han cargado reportes todavía.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">No se han cargado reportes todavía.</td></tr>';
         return;
     }
 
     tbody.innerHTML = historial.map(item => `
         <tr class="border-b">
+            <td class="py-3 px-4 font-mono text-xs">${item.id}</td>
             <td class="py-3 px-4 font-mono text-sm">${item.nombreArchivo}</td>
             <td class="py-3 px-4">${item.fechaCarga}</td>
             <td class="py-3 px-4">${item.usuarioEmail}</td>
@@ -40,6 +41,7 @@ export async function render() {
                 <table class="min-w-full bg-white">
                     <thead class="bg-gray-50">
                         <tr>
+                            <th class="th">ID de Carga</th>
                             <th class="th">Nombre del Archivo</th>
                             <th class="th">Fecha y Hora de Carga</th>
                             <th class="th">Usuario</th>
@@ -62,15 +64,21 @@ export function afterRender() {
             const idCarga = e.target.dataset.id;
             const nombreArchivo = e.target.dataset.nombreArchivo;
             
-            if (confirm(`¿Estás seguro de que quieres eliminar TODAS las reservas asociadas a este archivo (${nombreArchivo})? Esta acción no se puede deshacer.`)) {
-                try {
+            try {
+                // Paso 1: Contar cuántas reservas serán eliminadas
+                const conteo = await fetchAPI(`/historial-cargas/${idCarga}/count`);
+                const numReservas = conteo.count;
+
+                // Paso 2: Mostrar mensaje de confirmación mejorado
+                const mensajeConfirmacion = `Atención: Se eliminarán ${numReservas} reserva(s) asociadas al archivo "${nombreArchivo}".\n\n¿Está seguro de proceder? Esta acción no se puede deshacer.`;
+
+                if (confirm(mensajeConfirmacion)) {
+                    // Paso 3: Si el usuario confirma, proceder con la eliminación
                     const result = await fetchAPI(`/historial-cargas/${idCarga}`, { method: 'DELETE' });
                     alert(result.message);
-                    // Opcional: podrías querer refrescar la vista, pero por ahora la alerta es suficiente.
-                    // El usuario puede recargar la página para ver la lista de reservas actualizada si lo desea.
-                } catch (error) {
-                    alert(`Error al eliminar las reservas: ${error.message}`);
                 }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
             }
         }
     });
