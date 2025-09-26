@@ -3,13 +3,14 @@ const multer = require('multer');
 const path = require('path');
 const { getReservasPendientes, actualizarEstadoGrupo, getNotas, addNota, getTransacciones } = require('../services/gestionService');
 const { uploadFile } = require('../services/storageService');
-const { actualizarValoresGrupo, calcularPotencialGrupo, registrarPago, actualizarDocumentoReserva } = require('../services/reservasService');
+const { actualizarValoresGrupo, calcularPotencialGrupo, registrarPago, eliminarPago, actualizarDocumentoReserva } = require('../services/reservasService');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 module.exports = (db) => {
     const router = express.Router();
 
+    // ... (rutas existentes no cambian)
     router.get('/pendientes', async (req, res) => {
         try {
             const { empresaId } = req.user;
@@ -46,8 +47,8 @@ module.exports = (db) => {
     router.post('/notas', async (req, res) => {
         try {
             const { empresaId } = req.user;
-            const nuevaNota = await addNota(db, empresaId, req.body);
-            res.status(201).json(nuevaNota);
+            await addNota(db, empresaId, req.body);
+            res.status(201).json({ message: 'Nota añadida.' });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -59,6 +60,17 @@ module.exports = (db) => {
             const { idsIndividuales } = req.body;
             const transacciones = await getTransacciones(db, empresaId, idsIndividuales);
             res.status(200).json(transacciones);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+    
+    router.delete('/transaccion/:id', async (req, res) => {
+        try {
+            const { empresaId } = req.user;
+            const { id } = req.params;
+            await eliminarPago(db, empresaId, id);
+            res.status(204).send();
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -115,7 +127,11 @@ module.exports = (db) => {
             const detalles = JSON.parse(req.body.detalles);
             let publicUrl = null;
 
-            if (req.file) {
+            if (detalles.eliminarDocumento) {
+                publicUrl = null;
+            } else if (detalles.sinDocumento) {
+                publicUrl = 'SIN_DOCUMENTO';
+            } else if (req.file) {
                 const year = new Date().getFullYear();
                 const fileName = `${detalles.reservaIdOriginal}_${detalles.tipoDocumento}_${Date.now()}${path.extname(req.file.originalname)}`;
                 const destination = `empresas/${empresaId}/reservas/${year}/${fileName}`;

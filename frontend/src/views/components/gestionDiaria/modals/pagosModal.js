@@ -19,15 +19,13 @@ async function handleGroupFormSubmit(event) {
     const formData = new FormData();
     const detalles = {
         reservaIdOriginal: currentGrupo.reservaIdOriginal,
-        idsIndividuales: currentGrupo.reservasIndividuales.map(r => r.id)
+        idsIndividuales: currentGrupo.reservasIndividuales.map(r => r.id),
+        monto: parseFloat(form.querySelector('#monto-input').value),
+        medioDePago: form.querySelector('#medio-pago-select').value,
+        esPagoFinal: form.querySelector('#pago-final-checkbox').checked,
+        sinDocumento: form.querySelector('#sin-documento-checkbox').checked
     };
     
-    let endpoint = '/gestion/registrar-pago';
-    detalles.monto = parseFloat(form.querySelector('#monto-input').value);
-    detalles.medioDePago = form.querySelector('#medio-pago-select').value;
-    detalles.esPagoFinal = form.querySelector('#pago-final-checkbox').checked;
-    
-    detalles.sinDocumento = form.querySelector('#sin-documento-checkbox').checked;
     const docInput = form.querySelector('#documento-input');
     if (docInput && docInput.files.length > 0) {
         formData.append('documento', docInput.files[0]);
@@ -36,15 +34,27 @@ async function handleGroupFormSubmit(event) {
     formData.append('detalles', JSON.stringify(detalles));
 
     try {
-        await fetchAPI(endpoint, { method: 'POST', body: formData });
+        await fetchAPI('/gestion/registrar-pago', { method: 'POST', body: formData });
         await onActionComplete();
-        renderPagosModal(currentGrupo, onActionComplete); // Re-renderizar el modal de pagos
+        renderPagosModal(currentGrupo, onActionComplete);
     } catch (error) {
         statusEl.textContent = `Error: ${error.message}`;
         saveBtn.disabled = false;
-        saveBtn.textContent = 'Guardar';
+        saveBtn.textContent = 'Guardar Pago';
     }
 }
+
+async function handleDeleteTransaction(transaccionId) {
+    if (!confirm('¿Estás seguro de que quieres eliminar este pago? Esta acción no se puede deshacer.')) return;
+    try {
+        await fetchAPI(`/gestion/transaccion/${transaccionId}`, { method: 'DELETE' });
+        await onActionComplete();
+        renderPagosModal(currentGrupo, onActionComplete);
+    } catch (error) {
+        alert(`Error al eliminar el pago: ${error.message}`);
+    }
+}
+
 
 function showActionForm() {
     currentAction = 'pagos';
@@ -106,6 +116,7 @@ async function renderPagosList() {
     allTransacciones = await fetchAPI('/gestion/transacciones', { method: 'POST', body: { idsIndividuales: ids } });
     
     const totalAbonado = allTransacciones.reduce((sum, t) => sum + t.monto, 0);
+    currentGrupo.abonoTotal = totalAbonado; // Actualizar el abono del grupo
     const saldo = currentGrupo.valorTotalCLP - totalAbonado;
 
     summaryEl.innerHTML = `
@@ -124,7 +135,14 @@ async function renderPagosList() {
                 <p class="font-semibold">${formatCurrency(p.monto)} - <span class="font-normal text-gray-600">${p.tipo} (${p.medioDePago})</span></p>
                 <p class="text-xs text-gray-500">Fecha: ${new Date(p.fecha).toLocaleString('es-CL')}</p>
             </div>
+            <div>
+                <button data-id="${p.id}" class="delete-pago-btn text-xs text-red-600 hover:text-red-900">Eliminar</button>
+            </div>
         </div>`).join('');
+
+    listaPagosEl.querySelectorAll('.delete-pago-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => handleDeleteTransaction(e.target.dataset.id));
+    });
 }
 
 export function renderPagosModal(grupo, callback) {

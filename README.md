@@ -164,3 +164,75 @@ Bloque 7: Dashboard y KPIs.
 Bloque 8: Sincronización de datos (iCal, reportes, etc.).
 
 Bloque 9: Generación de reportes y mensajes.
+
+# SuiteManager: Plan de Desarrollo y Arquitectura
+Última actualización: 26 de Septiembre de 2025
+
+## 1. Resumen Ejecutivo
+SuiteManager es una aplicación web de Software como Servicio (SaaS) diseñada para la gestión integral y multi-empresa de propiedades de arriendo a corto plazo. El sistema centraliza la operación, automatiza flujos de trabajo y proporciona herramientas de auditoría y gestión, permitiendo a cada empresa cliente administrar sus propiedades, clientes y reservas de forma aislada y segura.
+
+Construido sobre una arquitectura moderna que separa un backend robusto (Node.js/Express) de un frontend modular (JavaScript Vainilla - SPA), SuiteManager está diseñado para ser escalable, mantenible y ofrecer una experiencia de usuario fluida y eficiente.
+
+## 2. Estado Actual: Plataforma Operativa y Modular
+El proyecto ha superado la fase de desarrollo inicial y se encuentra en un estado funcionalmente completo y estable. Las principales funcionalidades operativas han sido implementadas y probadas, y la arquitectura del frontend ha sido refactorizada hacia un modelo de componentes modulares para garantizar la escalabilidad y facilidad de mantenimiento a largo plazo.
+
+### Funcionalidades Clave Implementadas:
+✅ **Arquitectura Multi-Empresa:** El sistema soporta múltiples empresas, aislando completamente los datos (reservas, clientes, propiedades) de cada una.
+✅ **Gestión de Usuarios:** Cada empresa puede gestionar sus propios usuarios administradores, incluyendo la creación y eliminación de cuentas.
+✅ **Panel de Gestión Diaria:** Un "To-Do List" inteligente que prioriza reservas según su urgencia y guía al usuario a través de un flujo de estados (Bienvenida, Cobro, Pago, Boleta).
+✅ **Sincronización de Reportes:** Módulo para procesar y consolidar reportes de reservas de diferentes canales (SODC, Booking, Airbnb, etc.).
+✅ **CRM y Gestión de Clientes:** Base de datos de clientes centralizada con perfiles detallados e historial de reservas.
+✅ **Integración con Google Contacts:** Sincronización automática de nuevos clientes con la cuenta de Google de la empresa, incluyendo herramientas de verificación y reparación masiva.
+✅ **Gestión de Propiedades, Canales y Tarifas:** Módulos completos para configurar los activos y la lógica de negocio de cada empresa.
+✅ **Auditoría de Cargas:** Cada reserva está vinculada al reporte de origen, permitiendo un seguimiento y auditoría precisos.
+
+## 3. Arquitectura Técnica
+
+### Backend (Node.js + Express)
+Actúa como el cerebro de la aplicación, gestionando la lógica de negocio, la seguridad (autenticación y autorización por empresa) y la comunicación con la base de datos. Su estructura es modular:
+- **`routes/`**: Define los endpoints de la API.
+- **`services/`**: Contiene la lógica de negocio pura, aislada de las rutas.
+- **`middleware/`**: Protege las rutas, asegurando que un usuario solo pueda acceder a los datos de su propia empresa.
+
+### Frontend (JavaScript Vainilla - SPA Modular)
+Es la interfaz con la que interactúa el usuario. Tras una importante refactorización, ahora sigue una arquitectura de componentes modulares para mejorar la manenibilidad.
+- **`router.js`**: El punto de entrada que gestiona las URLs y carga las vistas principales.
+- **`views/`**: Contiene los archivos principales de cada "página" o vista (ej. `gestionDiaria.js`, `gestionarClientes.js`). Estos archivos actúan como **orquestadores**.
+- **`views/components/`**: **(Nueva Arquitectura)** Esta carpeta contiene subcarpetas para componentes reutilizables específicos de una vista. Por ejemplo, `gestionDiaria/` contiene:
+    - **`gestionDiaria.cards.js`**: Módulo responsable únicamente de renderizar las "tarjetas" de reserva.
+    - **`gestionDiaria.modals.js`**: Módulo que actúa como "controlador" para todos los modales de esa vista.
+    - **`gestionDiaria.utils.js`**: Módulo con funciones de ayuda específicas para esa vista.
+
+Esta separación de responsabilidades nos permite modificar o añadir funcionalidades a una parte específica (ej. un modal) sin afectar el resto de la aplicación.
+
+### Base de Datos (Cloud Firestore)
+La arquitectura multi-empresa es el núcleo del diseño de la base de datos:
+empresas/ (colección)
+└── {empresaId}/ (documento)
+├── nombre: "Nombre de la Empresa"
+│
+├── users/ (sub-colección de usuarios)
+├── clientes/ (sub-colección de clientes)
+├── reservas/ (sub-colección de reservas)
+├── propiedades/ (sub-colección de propiedades)
+└── historialCargas/ (sub-colección para auditoría)
+
+## 4. Hoja de Ruta del Desarrollo
+
+El plan de desarrollo inicial se ha completado con éxito. Los próximos pasos se centrarán en enriquecer la plataforma con herramientas de análisis y mejorar la experiencia del usuario.
+
+### Bloques de Desarrollo
+- **Bloque 0: Reinicio y Base Sólida** - ✅ **Completado**
+- **Bloque 1: Autenticación y Arquitectura SPA** - ✅ **Completado**
+- **Bloque 2: Gestión de Propiedades** - ✅ **Completado**
+- **Bloque 3: Gestión de Clientes (CRM)** - ✅ **Completado**
+- **Bloque 4: Creación y Gestión de Reservas** - ✅ **Completado**
+- **Bloque 5: Gestión Operativa Diaria** - ✅ **Completado**
+- **Bloque 6: Calendario de Ocupación** - ✅ **Completado**
+- **Bloque 7: Sincronización y Auditoría de Datos** - ✅ **Completado**
+- **Bloque 8: Gestión de Usuarios y Empresa** - ✅ **Completado**
+
+### Próximos Pasos
+- **Dashboard y KPIs:** Implementar un panel de control con indicadores clave de rendimiento (KPIs) como tasa de ocupación, ADR (Average Daily Rate), RevPAR (Revenue Per Available Room), etc.
+- **Generador de Presupuestos:** Crear una herramienta para generar cotizaciones y propuestas de reserva de forma rápida.
+- **Sincronización iCal:** Implementar la exportación de calendarios en formato iCal para sincronizar la disponibilidad con plataformas externas.

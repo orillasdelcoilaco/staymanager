@@ -17,15 +17,11 @@ async function handleGroupFormSubmit(event) {
     const formData = new FormData();
     const detalles = {
         reservaIdOriginal: currentGrupo.reservaIdOriginal,
-        idsIndividuales: currentGrupo.reservasIndividuales.map(r => r.id)
+        idsIndividuales: currentGrupo.reservasIndividuales.map(r => r.id),
+        tipoDocumento: currentAction,
+        avanzarEstado: currentAction === 'boleta' ? 'Facturado' : null
     };
     
-    const endpoint = '/gestion/actualizar-documento';
-    detalles.tipoDocumento = currentAction === 'boleta' ? 'boleta' : 'reserva';
-    if (detalles.tipoDocumento === 'boleta') {
-        detalles.avanzarEstado = 'Facturado';
-    }
-
     const docInput = form.querySelector('#documento-input');
     if (docInput && docInput.files.length > 0) {
         formData.append('documento', docInput.files[0]);
@@ -39,7 +35,7 @@ async function handleGroupFormSubmit(event) {
     formData.append('detalles', JSON.stringify(detalles));
 
     try {
-        await fetchAPI(endpoint, { method: 'POST', body: formData });
+        await fetchAPI('/gestion/actualizar-documento', { method: 'POST', body: formData });
         document.getElementById('gestion-modal').classList.add('hidden');
         await onActionComplete();
     } catch (error) {
@@ -48,6 +44,34 @@ async function handleGroupFormSubmit(event) {
         saveBtn.textContent = 'Guardar';
     }
 }
+
+async function handleDocumentAction(action) {
+    const statusEl = document.getElementById('modal-status');
+    statusEl.textContent = 'Procesando...';
+
+    const detalles = {
+        reservaIdOriginal: currentGrupo.reservaIdOriginal,
+        idsIndividuales: currentGrupo.reservasIndividuales.map(r => r.id),
+        tipoDocumento: currentAction,
+        [action]: true // 'sinDocumento': true o 'eliminarDocumento': true
+    };
+
+    if (action === 'sinDocumento' && currentAction === 'boleta') {
+        detalles.avanzarEstado = 'Facturado';
+    }
+    
+    try {
+        await fetchAPI('/gestion/actualizar-documento', { 
+            method: 'POST',
+            body: { detalles: JSON.stringify(detalles) } // Enviado como JSON, no FormData
+        });
+        document.getElementById('gestion-modal').classList.add('hidden');
+        await onActionComplete();
+    } catch (error) {
+        statusEl.textContent = `Error: ${error.message}`;
+    }
+}
+
 
 export function renderDocumentoModal(tipo, grupo, callback) {
     currentGrupo = grupo;
@@ -58,17 +82,23 @@ export function renderDocumentoModal(tipo, grupo, callback) {
     const enlaceExistente = tipo === 'boleta' ? currentGrupo.documentos.enlaceBoleta : currentGrupo.documentos.enlaceReserva;
 
     let contentHtml = '';
-    if (enlaceExistente && enlaceExistente !== 'SIN_DOCUMENTO') {
+    
+    if (enlaceExistente === 'SIN_DOCUMENTO') {
+        contentHtml += `<div class="p-3 bg-gray-100 border rounded-md text-center"><p class="font-semibold text-gray-700">Se ha declarado que no hay documento para esta gestión.</p></div>`;
+    } else if (enlaceExistente) {
         contentHtml += `
             <div class="border rounded-md p-4">
                 <p class="font-semibold">Documento Actual:</p>
                 <img src="${enlaceExistente}" alt="Vista previa del documento" class="mt-2 max-w-full h-auto max-h-60 object-contain cursor-pointer view-image-btn">
                 <a href="${enlaceExistente}" target="_blank" class="text-blue-600 hover:underline text-sm">Abrir en nueva pestaña</a>
+                <div class="text-right mt-2">
+                    <button id="eliminar-doc-btn" class="btn-danger text-xs">Eliminar Documento</button>
+                </div>
             </div>`;
     }
 
     contentHtml += `
-        <form id="modal-form-accion" class="border p-4 rounded-md ${enlaceExistente ? 'mt-4' : ''}">
+        <form id="modal-form-accion" class="border p-4 rounded-md mt-4">
             <h4 class="font-semibold text-lg mb-4">${enlaceExistente ? 'Reemplazar Documento' : 'Subir Documento'}</h4>
             <div>
                 <label class="block text-sm">Documento</label>
@@ -77,7 +107,10 @@ export function renderDocumentoModal(tipo, grupo, callback) {
                 <div id="preview-container" class="mt-2 hidden"><p class="text-sm">Vista Previa:</p><img id="thumbnail" class="w-24 h-24 object-cover rounded-md"></div>
             </div>
             <div id="modal-status" class="mt-2 text-sm text-red-600"></div>
-            <div class="mt-5 flex justify-end space-x-2"><button type="submit" id="modal-save-btn" class="btn-primary">Guardar</button></div>
+            <div class="mt-5 flex justify-between items-center">
+                <button type="button" id="sin-documento-btn" class="btn-secondary">Declarar sin Documento</button>
+                <button type="submit" id="modal-save-btn" class="btn-primary">Guardar Archivo</button>
+            </div>
         </form>`;
     
     contentContainer.innerHTML = contentHtml;
@@ -97,4 +130,14 @@ export function renderDocumentoModal(tipo, grupo, callback) {
     contentContainer.querySelectorAll('.view-image-btn').forEach(img => {
         img.addEventListener('click', () => openImageViewer(img.src));
     });
+    
+    const sinDocumentoBtn = contentContainer.querySelector('#sin-documento-btn');
+    if (sinDocumentoBtn) {
+        sinDocumentoBtn.addEventListener('click', () => handleDocumentAction('sinDocumento'));
+    }
+
+    const eliminarDocBtn = contentContainer.querySelector('#eliminar-doc-btn');
+    if (eliminarDocBtn) {
+        eliminarDocBtn.addEventListener('click', () => handleDocumentAction('eliminarDocumento'));
+    }
 }

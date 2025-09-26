@@ -1,6 +1,7 @@
 const admin = require('firebase-admin');
 const { obtenerValorDolar } = require('./dolarService');
 
+// ... (las funciones crearOActualizarReserva, actualizarReservaManualmente, etc. no cambian)
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
     const q = reservasRef.where('idReservaCanal', '==', datosReserva.idReservaCanal);
@@ -18,7 +19,7 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
         
         let hayCambios = false;
         const datosAActualizar = {
-            idCarga: datosReserva.idCarga // Siempre actualizamos el idCarga para auditoría
+            idCarga: datosReserva.idCarga
         };
 
         if (!ediciones.moneda && reservaExistente.moneda !== datosReserva.moneda) {
@@ -74,7 +75,6 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     }
 };
 
-// ... (El resto del archivo reservasService.js no necesita cambios)
 const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevos) => {
     const reservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(reservaId);
     const reservaDoc = await reservaRef.get();
@@ -189,19 +189,49 @@ const calcularPotencialGrupo = async (db, empresaId, idsIndividuales, descuento)
 };
 
 const registrarPago = async (db, empresaId, detalles) => {
-    // Implementación detallada de la lógica de pago
+    const { idsIndividuales, monto, medioDePago, esPagoFinal, enlaceComprobante, reservaIdOriginal } = detalles;
+    
+    const transaccionesRef = db.collection('empresas').doc(empresaId).collection('transacciones');
+    const nuevaTransaccion = {
+        reservaIdOriginal,
+        monto: parseFloat(monto),
+        medioDePago,
+        tipo: esPagoFinal ? 'Pago Final' : 'Abono',
+        fecha: admin.firestore.FieldValue.serverTimestamp(),
+        enlaceComprobante: enlaceComprobante || null
+    };
+    await transaccionesRef.add(nuevaTransaccion);
+
+    const batch = db.batch();
+    if (esPagoFinal) {
+        idsIndividuales.forEach(id => {
+            const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);
+            batch.update(ref, { estadoGestion: 'Pendiente Boleta' });
+        });
+        await batch.commit();
+    }
+};
+
+const eliminarPago = async (db, empresaId, transaccionId) => {
+    const transaccionRef = db.collection('empresas').doc(empresaId).collection('transacciones').doc(transaccionId);
+    await transaccionRef.delete();
 };
 
 const actualizarDocumentoReserva = async (db, empresaId, idsIndividuales, tipoDocumento, url) => {
-     const batch = db.batch();
+    const batch = db.batch();
     const campo = tipoDocumento === 'boleta' ? 'documentos.enlaceBoleta' : 'documentos.enlaceReserva';
+    
+    // Si la url es null, eliminamos el campo. Si no, lo creamos/actualizamos.
+    const updateData = url === null 
+        ? { [campo]: admin.firestore.FieldValue.delete() }
+        : { documentos: { [campo.split('.')[1]]: url } };
+
     idsIndividuales.forEach(id => {
         const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);
-        batch.set(ref, { documentos: { [campo.split('.')[1]]: url } }, { merge: true });
+        batch.set(ref, updateData, { merge: true });
     });
     await batch.commit();
 };
-
 
 module.exports = {
     crearOActualizarReserva,
@@ -212,5 +242,6 @@ module.exports = {
     actualizarValoresGrupo,
     calcularPotencialGrupo,
     registrarPago,
+    eliminarPago,
     actualizarDocumentoReserva
 };
