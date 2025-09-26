@@ -169,13 +169,12 @@ const getAnalisisFinanciero = async (db, empresaId, grupoReserva) => {
     if (!reservaPrincipalSnapshot.exists) throw new Error("La reserva principal del grupo no fue encontrada.");
     
     const reservaPrincipal = reservaPrincipalSnapshot.data();
-    const { canalId, alojamientoId, fechaLlegada, valores } = reservaPrincipal;
+    const { canalId, alojamientoId, fechaLlegada } = reservaPrincipal;
 
     const tarifaBase = await obtenerTarifaParaFecha(db, empresaId, alojamientoId, canalId, fechaLlegada.toDate());
     const valorLista = tarifaBase ? tarifaBase.valor : 0;
     const moneda = tarifaBase ? tarifaBase.moneda : 'CLP';
 
-    // Usar los valores consolidados del grupo que ya vienen del frontend
     const valorHuespedTotal = grupoReserva.valorTotalHuesped;
     const valorPayoutTotal = grupoReserva.valorTotalPayout;
     
@@ -190,7 +189,7 @@ const getAnalisisFinanciero = async (db, empresaId, grupoReserva) => {
     return {
         valorLista: valorLista * grupoReserva.reservasIndividuales.length,
         descuentos: descuentos > 0 ? descuentos : 0,
-        costoCanal: costoCanal, // Este ya es el costo total del grupo
+        costoCanal: costoCanal,
         payout: valorPayoutTotal,
         moneda,
         valorDolarDia,
