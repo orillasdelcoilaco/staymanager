@@ -1,8 +1,7 @@
-import { fetchAPI } from '../../api.js';
-import { handleNavigation } from '../../router.js';
+import { fetchAPI } from '../api.js'; // <-- RUTA CORREGIDA
+import { handleNavigation } from '../router.js'; // <-- RUTA CORREGIDA
 import { renderGrupos } from './components/gestionDiaria/gestionDiaria.cards.js';
-// La siguiente línea importará las funciones de los modales que crearemos después
-// import { openManagementModal, initializeModals } from './components/gestionDiaria/gestionDiaria.modals.js';
+import { openManagementModal, initializeModals, openRevertModal, openBitacoraModal } from './components/gestionDiaria/gestionDiaria.modals.js';
 
 let allGrupos = [];
 let currentUserEmail = '';
@@ -73,13 +72,11 @@ function handleCardButtonClick(e) {
     if (!currentGrupo) return;
     
     if (target.classList.contains('gestion-btn')) {
-        // En el futuro, llamaremos a openManagementModal(target.dataset.gestion, currentGrupo, allGrupos);
-        alert(`Funcionalidad para "${target.dataset.gestion}" se implementará en el siguiente módulo.`);
+        openManagementModal(target.dataset.gestion, currentGrupo, loadAndRender, currentUserEmail);
     }
     
     if (target.classList.contains('revert-btn')) {
-        // En el futuro, llamaremos a openRevertModal(currentGrupo);
-        alert('Funcionalidad para revertir estado se implementará en el siguiente módulo.');
+        openRevertModal(currentGrupo, loadAndRender);
     }
 }
 
@@ -100,5 +97,5 @@ export async function afterRender() {
     document.getElementById('hoy-list').addEventListener('click', handleCardButtonClick);
     document.getElementById('proximas-list').addEventListener('click', handleCardButtonClick);
     
-    // En el futuro, llamaremos a initializeModals(allGrupos, currentUserEmail, loadAndRender);
+    initializeModals();
 }
