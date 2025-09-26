@@ -20,7 +20,7 @@ const authGoogleRoutes = require('./routes/authGoogle.js');
 const empresaRoutes = require('./routes/empresa.js');
 const usuariosRoutes = require('./routes/usuarios.js');
 const gestionRoutes = require('./routes/gestion.js');
-const historialCargasRoutes = require('./routes/historialCargas.js'); // <-- AÑADIDO
+const historialCargasRoutes = require('./routes/historialCargas.js');
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 
 // --- Carga de Credenciales y Configuración de Firebase ---
@@ -33,7 +33,8 @@ try {
     
     if (!admin.apps.length) {
         admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount)
+          credential: admin.credential.cert(serviceAccount),
+          storageBucket: 'suite-manager-app.appspot.com' // <-- CORRECCIÓN APLICADA AQUÍ
         });
         console.log('Firebase Admin SDK inicializado correctamente.');
     }
@@ -88,7 +89,7 @@ apiRouter.use('/auth/google', authGoogleRoutes(db));
 apiRouter.use('/empresa', empresaRoutes(db));
 apiRouter.use('/usuarios', usuariosRoutes(db));
 apiRouter.use('/gestion', gestionRoutes(db));
-apiRouter.use('/historial-cargas', historialCargasRoutes(db)); // <-- AÑADIDO
+apiRouter.use('/historial-cargas', historialCargasRoutes(db));
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 
 app.use('/api', apiRouter);
