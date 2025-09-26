@@ -6,12 +6,13 @@ function getTodayUTC() {
 }
 
 const getReservasPendientes = async (db, empresaId) => {
-    const [clientesSnapshot, reservasSnapshot, notasSnapshot] = await Promise.all([
+    const [clientesSnapshot, reservasSnapshot, notasSnapshot, transaccionesSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('clientes').get(),
         db.collection('empresas').doc(empresaId).collection('reservas')
             .where('estado', '==', 'Confirmada')
             .get(),
-        db.collection('empresas').doc(empresaId).collection('gestionNotas').get()
+        db.collection('empresas').doc(empresaId).collection('gestionNotas').get(),
+        db.collection('empresas').doc(empresaId).collection('transacciones').get()
     ]);
 
     const clientsMap = new Map();
@@ -24,6 +25,13 @@ const getReservasPendientes = async (db, empresaId) => {
         const nota = doc.data();
         const id = nota.reservaIdOriginal;
         notesCountMap.set(id, (notesCountMap.get(id) || 0) + 1);
+    });
+    
+    const transaccionesCountMap = new Map();
+    transaccionesSnapshot.forEach(doc => {
+        const transaccion = doc.data();
+        const id = transaccion.reservaIdOriginal;
+        transaccionesCountMap.set(id, (transaccionesCountMap.get(id) || 0) + 1);
     });
 
     const reservasAgrupadas = new Map();
@@ -39,7 +47,7 @@ const getReservasPendientes = async (db, empresaId) => {
                 reservasAgrupadas.set(reservaId, {
                     reservaIdOriginal: reservaId,
                     clienteId: data.clienteId,
-                    clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido', // <-- CORRECCIÓN APLICADA AQUÍ
+                    clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
                     telefono: clienteActual?.telefono || data.telefono || 'N/A',
                     fechaLlegada: data.fechaLlegada ? data.fechaLlegada.toDate() : null,
                     fechaSalida: data.fechaSalida ? data.fechaSalida.toDate() : null,
@@ -50,7 +58,8 @@ const getReservasPendientes = async (db, empresaId) => {
                     abonoTotal: 0,
                     potencialTotal: 0,
                     potencialCalculado: false,
-                    notasCount: notesCountMap.get(reservaId) || 0
+                    notasCount: notesCountMap.get(reservaId) || 0,
+                    transaccionesCount: transaccionesCountMap.get(reservaId) || 0
                 });
             }
 
@@ -69,6 +78,10 @@ const getReservasPendientes = async (db, empresaId) => {
             if (data.valores?.valorPotencial && data.valores.valorPotencial > 0) {
                 grupo.potencialTotal += data.valores.valorPotencial;
                 grupo.potencialCalculado = true;
+            }
+            // Consolidar documentos de todas las reservas individuales en el grupo
+            if (data.documentos) {
+                 grupo.documentos = {...grupo.documentos, ...data.documentos};
             }
         }
     });

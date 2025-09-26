@@ -20,6 +20,16 @@ function getStatusInfo(status) {
     }
 }
 
+function createNotificationBadge(isComplete = false, count = 0) {
+    if (isComplete) {
+        return `<span class="absolute -top-1 -right-1 flex h-4 w-4"><span class="relative inline-flex rounded-full h-4 w-4 bg-green-500 text-white items-center justify-center text-xs">✓</span></span>`;
+    }
+    if (count > 0) {
+        return `<span class="absolute -top-2 -right-2 bg-blue-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">${count}</span>`;
+    }
+    return '';
+}
+
 function createGrupoCard(grupo) {
     const card = document.createElement('div');
     card.id = `card-${grupo.reservaIdOriginal}`;
@@ -33,7 +43,6 @@ function createGrupoCard(grupo) {
 
     const clienteLink = `<a href="/cliente/${grupo.clienteId}" data-path="/cliente/${grupo.clienteId}" class="nav-link-style ml-4 text-lg font-bold text-gray-800 hover:text-indigo-600" title="Abrir ficha del cliente">${grupo.clienteNombre}</a>`;
     const revertButtonHtml = statusInfo.level > 1 ? `<button data-id="${grupo.reservaIdOriginal}" class="revert-btn ml-2 text-xl" title="Revertir estado">↩️</button>` : '';
-    const badgeHtml = grupo.notasCount > 0 ? `<span class="absolute -top-2 -right-2 bg-blue-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">${grupo.notasCount}</span>` : '';
 
     let accionParaMarcar = null;
     if (grupo.estadoGestion === 'Pendiente Bienvenida') accionParaMarcar = 'marcar_bienvenida_enviada';
@@ -41,17 +50,16 @@ function createGrupoCard(grupo) {
 
     let statusHtml;
     if (accionParaMarcar) {
-        const url = `/cliente/${grupo.clienteId}/mensaje/${grupo.reservasIndividuales[0].id}`;
+        const reservaIdParaLink = grupo.reservasIndividuales.length > 0 ? grupo.reservasIndividuales[0].id : 'no-id';
+        const url = `/cliente/${grupo.clienteId}/mensaje/${reservaIdParaLink}`;
         statusHtml = `<a href="${url}" data-path="${url}" class="nav-link-style text-sm font-bold text-white px-2 py-1 rounded ${statusInfo.color} hover:opacity-80">${statusInfo.text}</a>`;
     } else {
         statusHtml = `<span class="text-sm font-bold text-white px-2 py-1 rounded ${statusInfo.color}">${statusInfo.text}</span>`;
     }
 
-    // --- INICIO DE LA CORRECCIÓN DE ESTILO ---
-    const baseButtonClasses = "px-3 py-1 text-xs font-semibold rounded-md transition-colors";
+    const baseButtonClasses = "px-3 py-1 text-xs font-semibold rounded-md transition-colors relative";
     const activeButtonClasses = "bg-gray-100 text-gray-800 hover:bg-gray-200";
     const disabledButtonClasses = "bg-gray-100 text-gray-400 cursor-not-allowed";
-    // --- FIN DE LA CORRECCIÓN DE ESTILO ---
 
     card.innerHTML = `
         <div class="flex items-center mb-2">
@@ -72,14 +80,11 @@ function createGrupoCard(grupo) {
                 <div class="text-red-600"><span class="text-gray-500 font-medium">Saldo:</span> ${formatCurrency(saldo)}</div>
             </div>
             <div class="mt-3 md:mt-0 flex flex-wrap gap-2 justify-center">
-                <button data-id="${grupo.reservaIdOriginal}" data-gestion="gestionar_reserva" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Gestionar Reserva</button>
+                <button data-id="${grupo.reservaIdOriginal}" data-gestion="gestionar_reserva" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Gestionar Reserva ${createNotificationBadge(!!grupo.documentos.enlaceReserva)}</button>
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="ajuste_tarifa" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Ajustar Tarifa</button>
-                <button data-id="${grupo.reservaIdOriginal}" data-gestion="pagos" class="gestion-btn ${baseButtonClasses} ${isGestionPagosActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionPagosActive ? 'disabled' : ''}>Gestionar Pagos</button>
-                <button data-id="${grupo.reservaIdOriginal}" data-gestion="boleta" class="gestion-btn ${baseButtonClasses} ${isGestionBoletaActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionBoletaActive ? 'disabled' : ''}>Gestionar Boleta</button>
-                <div class="relative">
-                    <button data-id="${grupo.reservaIdOriginal}" data-gestion="bitacora" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Bitácora 🗂️</button>
-                    ${badgeHtml}
-                </div>
+                <button data-id="${grupo.reservaIdOriginal}" data-gestion="pagos" class="gestion-btn ${baseButtonClasses} ${isGestionPagosActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionPagosActive ? 'disabled' : ''}>Gestionar Pagos ${createNotificationBadge(grupo.transaccionesCount > 0)}</button>
+                <button data-id="${grupo.reservaIdOriginal}" data-gestion="boleta" class="gestion-btn ${baseButtonClasses} ${isGestionBoletaActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionBoletaActive ? 'disabled' : ''}>Gestionar Boleta ${createNotificationBadge(!!grupo.documentos.enlaceBoleta)}</button>
+                <button data-id="${grupo.reservaIdOriginal}" data-gestion="bitacora" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Bitácora 🗂️ ${createNotificationBadge(false, grupo.notasCount)}</button>
             </div>
         </div>`;
     
@@ -167,6 +172,11 @@ export async function render() {
                     </div>
                 </div>
             </div>
+        </div>
+
+        <div id="image-viewer-modal" class="modal hidden items-center justify-center">
+            <img id="image-viewer-src" src="" class="max-w-[90vw] max-h-[90vh] object-contain">
+            <button id="image-viewer-close" class="absolute top-4 right-4 text-white text-4xl font-bold">&times;</button>
         </div>
     `;
 }
@@ -507,7 +517,55 @@ async function renderPagosList() {
 }
 
 function renderDocumentoModal(tipo) {
-    showActionForm(tipo === 'boleta' ? 'marcar_boleta_enviada' : 'gestionar_reserva');
+    const contentContainer = document.getElementById('modal-content-container');
+    const enlaceExistente = tipo === 'boleta' ? currentGrupo.documentos.enlaceBoleta : currentGrupo.documentos.enlaceReserva;
+
+    if (enlaceExistente && enlaceExistente !== 'SIN_DOCUMENTO') {
+        contentContainer.innerHTML = `
+            <p class="text-sm text-gray-600 mb-2">Ya existe un documento para esta gestión. Puedes reemplazarlo subiendo uno nuevo.</p>
+            <div class="border rounded-md p-4">
+                <p class="font-semibold">Documento Actual:</p>
+                <img src="${enlaceExistente}" alt="Vista previa del documento" class="mt-2 max-w-full h-auto max-h-60 object-contain cursor-pointer view-image-btn">
+                <a href="${enlaceExistente}" target="_blank" class="text-blue-600 hover:underline text-sm">Abrir en nueva pestaña</a>
+            </div>`;
+    }
+
+    // Siempre mostrar el formulario de subida
+    const formHtml = `
+        <form id="modal-form-accion" class="border p-4 rounded-md ${enlaceExistente ? 'mt-4' : ''}">
+            <h4 class="font-semibold text-lg mb-4">${enlaceExistente ? 'Reemplazar Documento' : 'Subir Documento'}</h4>
+            <div>
+                <label class="block text-sm">Documento</label>
+                <input type="file" id="documento-input" class="hidden"/>
+                <div id="paste-zone" class="mt-1 p-4 border-2 border-dashed rounded-md text-center cursor-pointer text-gray-500 hover:border-indigo-500 hover:text-indigo-500"><p>Selecciona o pega una imagen</p></div>
+                <div id="preview-container" class="mt-2 hidden"><p class="text-sm">Vista Previa:</p><img id="thumbnail" class="w-24 h-24 object-cover rounded-md"></div>
+            </div>
+            <div id="modal-status" class="mt-2 text-sm text-red-600"></div>
+            <div class="mt-5 flex justify-end space-x-2">
+                <button type="submit" id="modal-save-btn" class="btn-primary">Guardar</button>
+            </div>
+        </form>`;
+    
+    if (enlaceExistente) {
+        contentContainer.innerHTML += formHtml;
+    } else {
+        contentContainer.innerHTML = formHtml;
+    }
+
+    const form = contentContainer.querySelector('#modal-form-accion');
+    form.addEventListener('submit', handleGroupFormSubmit);
+    // Lógica para el input de archivo y el pegado
+    const docInput = form.querySelector('#documento-input');
+    const pasteZone = form.querySelector('#paste-zone');
+    const previewContainer = form.querySelector('#preview-container');
+    const thumbnail = form.querySelector('#thumbnail');
+    pasteZone.addEventListener('click', () => docInput.click());
+    docInput.addEventListener('change', () => { if(docInput.files.length) showPreview(docInput.files[0], thumbnail, previewContainer); });
+    document.addEventListener('paste', e => handlePaste(e, docInput, thumbnail, previewContainer));
+    
+    contentContainer.querySelectorAll('.view-image-btn').forEach(img => {
+        img.addEventListener('click', () => openImageViewer(img.src));
+    });
 }
 
 function showActionForm(action, transaccion = null) {
