@@ -37,7 +37,7 @@ async function handleGroupFormSubmit(event) {
     try {
         await fetchAPI('/gestion/actualizar-documento', { method: 'POST', body: formData });
         document.getElementById('gestion-modal').classList.add('hidden');
-        await onActionComplete();
+        await onActionComplete(); // <-- Llama a refrescar la vista principal
     } catch (error) {
         statusEl.textContent = `Error: ${error.message}`;
         saveBtn.disabled = false;
@@ -46,32 +46,35 @@ async function handleGroupFormSubmit(event) {
 }
 
 async function handleDocumentAction(action) {
-    const statusEl = document.getElementById('modal-status');
+    const modal = document.getElementById('gestion-modal');
+    const statusEl = modal.querySelector('#modal-status');
     statusEl.textContent = 'Procesando...';
 
+    const formData = new FormData();
     const detalles = {
         reservaIdOriginal: currentGrupo.reservaIdOriginal,
         idsIndividuales: currentGrupo.reservasIndividuales.map(r => r.id),
         tipoDocumento: currentAction,
-        [action]: true // 'sinDocumento': true o 'eliminarDocumento': true
+        [action]: true
     };
 
     if (action === 'sinDocumento' && currentAction === 'boleta') {
         detalles.avanzarEstado = 'Facturado';
     }
     
+    formData.append('detalles', JSON.stringify(detalles));
+    
     try {
         await fetchAPI('/gestion/actualizar-documento', { 
             method: 'POST',
-            body: { detalles: JSON.stringify(detalles) } // Enviado como JSON, no FormData
+            body: formData
         });
-        document.getElementById('gestion-modal').classList.add('hidden');
-        await onActionComplete();
+        modal.classList.add('hidden');
+        await onActionComplete(); // <-- Llama a refrescar la vista principal
     } catch (error) {
-        statusEl.textContent = `Error: ${error.message}`;
+        if(statusEl) statusEl.textContent = `Error: ${error.message}`;
     }
 }
-
 
 export function renderDocumentoModal(tipo, grupo, callback) {
     currentGrupo = grupo;
