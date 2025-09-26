@@ -1,9 +1,5 @@
 const admin = require('firebase-admin');
 
-/**
- * Contiene la lógica de negocio para la gestión de canales de venta.
- */
-
 const crearCanal = async (db, empresaId, datosCanal) => {
     if (!empresaId || !datosCanal.nombre) {
         throw new Error('El ID de la empresa y el nombre del canal son requeridos.');
@@ -15,7 +11,8 @@ const crearCanal = async (db, empresaId, datosCanal) => {
         nombre: datosCanal.nombre,
         clienteIdCanal: datosCanal.clienteIdCanal || '',
         descripcion: datosCanal.descripcion || '',
-        moneda: datosCanal.moneda || 'CLP', // <-- AÑADIDO
+        moneda: datosCanal.moneda || 'CLP',
+        separadorDecimal: datosCanal.separadorDecimal || ',', // <-- VALOR POR DEFECTO
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
     };
     

@@ -3,7 +3,6 @@ import { fetchAPI } from '../api.js';
 let canales = [];
 let editandoCanal = null;
 
-// Lógica para manejar el modal
 function abrirModal(canal = null) {
     const modal = document.getElementById('canal-modal');
     const form = document.getElementById('canal-form');
@@ -15,12 +14,14 @@ function abrirModal(canal = null) {
         form.nombre.value = canal.nombre;
         form.clienteIdCanal.value = canal.clienteIdCanal || '';
         form.descripcion.value = canal.descripcion || '';
-        form.moneda.value = canal.moneda || 'CLP'; // <-- AÑADIDO
+        form.moneda.value = canal.moneda || 'CLP';
+        form.separadorDecimal.value = canal.separadorDecimal || ','; // <-- AÑADIDO
     } else {
         editandoCanal = null;
         modalTitle.textContent = 'Nuevo Canal';
         form.reset();
-        form.moneda.value = 'CLP'; // <-- AÑADIDO
+        form.moneda.value = 'CLP';
+        form.separadorDecimal.value = ','; // <-- AÑADIDO
     }
     
     modal.classList.remove('hidden');
@@ -32,7 +33,6 @@ function cerrarModal() {
     editandoCanal = null;
 }
 
-// Lógica para renderizar la tabla de canales
 function renderTabla() {
     const tbody = document.getElementById('canales-tbody');
     if (!tbody) return;
@@ -45,8 +45,8 @@ function renderTabla() {
     tbody.innerHTML = canales.map(c => `
         <tr class="border-b">
             <td class="py-3 px-4 font-medium">${c.nombre}</td>
-            <td class="py-3 px-4">${c.clienteIdCanal || '-'}</td>
             <td class="py-3 px-4">${c.moneda}</td>
+            <td class="py-3 px-4">${c.separadorDecimal === ',' ? 'Coma (,)' : 'Punto (.)'}</td>
             <td class="py-3 px-4 truncate max-w-sm">${c.descripcion || '-'}</td>
             <td class="py-3 px-4">
                 <button data-id="${c.id}" class="edit-btn text-indigo-600 hover:text-indigo-800 text-sm font-medium mr-3">Editar</button>
@@ -57,7 +57,6 @@ function renderTabla() {
 }
 
 
-// Lógica principal de la vista
 export async function render() {
     try {
         canales = await fetchAPI('/canales');
@@ -79,8 +78,8 @@ export async function render() {
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="th">Nombre</th>
-                            <th class="th">ID Cliente del Canal</th>
                             <th class="th">Moneda Reporte</th>
+                            <th class="th">Separador Decimal</th>
                             <th class="th">Descripción</th>
                             <th class="th">Acciones</th>
                         </tr>
@@ -102,6 +101,10 @@ export async function render() {
                             <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre del Canal</label>
                             <input type="text" id="nombre" name="nombre" required class="mt-1 form-input">
                         </div>
+                         <div class="mb-4">
+                            <label for="clienteIdCanal" class="block text-sm font-medium text-gray-700">ID de Cliente (Opcional)</label>
+                            <input type="text" id="clienteIdCanal" name="clienteIdCanal" class="mt-1 form-input">
+                        </div>
                         <div class="mb-4">
                             <label for="moneda" class="block text-sm font-medium text-gray-700">Moneda del Reporte</label>
                             <select id="moneda" name="moneda" class="mt-1 form-select">
@@ -109,10 +112,13 @@ export async function render() {
                                 <option value="USD">USD (Dólar Americano)</option>
                             </select>
                         </div>
-                    </div>
-                    <div class="mb-4">
-                        <label for="clienteIdCanal" class="block text-sm font-medium text-gray-700">ID de Cliente (Opcional)</label>
-                        <input type="text" id="clienteIdCanal" name="clienteIdCanal" class="mt-1 form-input">
+                        <div class="mb-4">
+                            <label for="separadorDecimal" class="block text-sm font-medium text-gray-700">Separador Decimal</label>
+                            <select id="separadorDecimal" name="separadorDecimal" class="mt-1 form-select">
+                                <option value=",">Coma (ej: 1.234,56)</option>
+                                <option value=".">Punto (ej: 1,234.56)</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="mb-4">
                         <label for="descripcion" class="block text-sm font-medium text-gray-700">Descripción (Opcional)</label>
@@ -128,11 +134,9 @@ export async function render() {
     `;
 }
 
-// Post-render, para añadir event listeners
 export function afterRender() {
     renderTabla();
 
-    // Event listeners para los botones y el formulario
     document.getElementById('add-canal-btn').addEventListener('click', () => abrirModal());
     document.getElementById('close-modal-btn').addEventListener('click', cerrarModal);
     document.getElementById('cancel-btn').addEventListener('click', cerrarModal);
@@ -144,7 +148,8 @@ export function afterRender() {
             nombre: form.nombre.value,
             clienteIdCanal: form.clienteIdCanal.value,
             descripcion: form.descripcion.value,
-            moneda: form.moneda.value // <-- AÑADIDO
+            moneda: form.moneda.value,
+            separadorDecimal: form.separadorDecimal.value // <-- AÑADIDO
         };
 
         try {
@@ -161,7 +166,6 @@ export function afterRender() {
         }
     });
 
-    // Delegación de eventos para los botones de la tabla
     document.getElementById('canales-tbody').addEventListener('click', async (e) => {
         const target = e.target;
         const id = target.dataset.id;

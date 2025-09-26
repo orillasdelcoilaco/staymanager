@@ -6,7 +6,6 @@ let canalSiendoEditado = null;
 let cabecerasArchivo = [];
 
 const camposInternos = [
-    // --- CAMPOS DE IDENTIFICACIÓN ---
     { id: 'idReservaCanal', nombre: 'ID de Reserva del Canal', requerido: true },
     { id: 'alojamientoNombre', nombre: 'Nombre del Alojamiento (en reporte)', requerido: true },
     { id: 'fechaLlegada', nombre: 'Fecha de Llegada (Check-in)', requerido: true },
@@ -21,7 +20,6 @@ const camposInternos = [
     { id: 'pais', nombre: 'País del Cliente' },
     { id: 'tipoFila', nombre: 'Tipo de Fila (para ignorar filas)', descripcion: 'Selecciona la columna que identifica el tipo de fila. El sistema solo procesará las que contengan "Reservación". Ej: Columna "Tipo" en reportes de Airbnb.' },
     
-    // --- NUEVOS CAMPOS FINANCIEROS ---
     { id: 'valorHuesped', nombre: 'FINANZAS: Total Pagado por Huésped', descripcion: 'El monto final que el cliente pagó, incluyendo tarifas e impuestos. Ej: El "Precio total de la habitación" de Booking.' },
     { id: 'valorAnfitrion', nombre: 'FINANZAS: Pago Recibido por Anfitrión (Payout)', descripcion: 'El monto neto que recibes después de comisiones/tarifas. Ej: "Total (CLP)" en Airbnb. Si no se especifica, se calculará.' },
     { id: 'valorLista', nombre: 'FINANZAS: Valor de Lista / Subtotal', descripcion: 'El precio base antes de comisiones e impuestos, pero que puede incluir descuentos. Ej: "Importe sujeto a comisión" en Booking.' },
@@ -106,6 +104,7 @@ function abrirModal(canal) {
     document.getElementById('archivo-muestra-input').value = '';
     
     document.getElementById('formato-fecha-select').value = canal.formatoFecha || 'DD/MM/YYYY';
+    document.getElementById('separador-decimal-select').value = canal.separadorDecimal || ','; // <-- AÑADIDO
 
     modal.classList.remove('hidden');
 }
@@ -158,17 +157,26 @@ export async function render() {
                         <div id="upload-status" class="mt-2 text-sm hidden"></div>
                     </div>
                     
-                    <div class="border-t pt-4">
-                        <label for="formato-fecha-select" class="block text-sm font-medium text-gray-700">2. Define el Formato de Fecha del Reporte</label>
-                        <select id="formato-fecha-select" class="mt-1 form-select w-full md:w-1/2">
-                            <option value="DD/MM/YYYY">Día/Mes/Año (ej: 25/12/2025)</option>
-                            <option value="MM/DD/YYYY">Mes/Día/Año (ej: 12/25/2025)</option>
-                            <option value="YYYY-MM-DD">Año-Mes-Día (ej: 2025-12-25)</option>
-                        </select>
+                    <div class="border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="formato-fecha-select" class="block text-sm font-medium text-gray-700">2. Define el Formato de Fecha</label>
+                            <select id="formato-fecha-select" class="mt-1 form-select w-full">
+                                <option value="DD/MM/YYYY">Día/Mes/Año (ej: 25/12/2025)</option>
+                                <option value="MM/DD/YYYY">Mes/Día/Año (ej: 12/25/2025)</option>
+                                <option value="YYYY-MM-DD">Año-Mes-Día (ej: 2025-12-25)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="separador-decimal-select" class="block text-sm font-medium text-gray-700">3. Define el Separador Decimal</label>
+                            <select id="separador-decimal-select" class="mt-1 form-select w-full">
+                                <option value=",">Coma (ej: 1.234,56)</option>
+                                <option value=".">Punto (ej: 1,234.56)</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div id="mapeo-editor" class="hidden border-t pt-4">
-                        <label class="block text-sm font-medium text-gray-700">3. Asigna las columnas del archivo</label>
+                        <label class="block text-sm font-medium text-gray-700">4. Asigna las columnas del archivo</label>
                         <p class="text-xs text-gray-500 mb-4">Selecciona qué columna de tu archivo corresponde a cada campo del sistema.</p>
                         <div id="mapeo-fields-container" class="space-y-3 max-h-[40vh] overflow-y-auto pr-4"></div>
                     </div>
@@ -212,13 +220,15 @@ export function afterRender() {
         });
         
         const formatoFecha = document.getElementById('formato-fecha-select').value;
+        const separadorDecimal = document.getElementById('separador-decimal-select').value; // <-- AÑADIDO
 
         try {
             await fetchAPI(`/mapeos/${canalSiendoEditado.id}`, {
                 method: 'POST',
                 body: { 
                     mapeos: mapeosParaGuardar,
-                    formatoFecha: formatoFecha 
+                    formatoFecha: formatoFecha,
+                    separadorDecimal: separadorDecimal // <-- AÑADIDO
                 }
             });
             alert(`Configuración para "${canalSiendoEditado.nombre}" guardada con éxito.`);

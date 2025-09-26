@@ -8,6 +8,8 @@ const { obtenerValorDolar, actualizarValorDolarApi } = require('./dolarService')
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 const { registrarCarga } = require('./historialCargasService');
 
+// ... (funciones leerArchivo, analizarCabeceras, obtenerValorConMapeo, parsearFecha, normalizarString y normalizarEstado no cambian)
+
 const leerArchivo = (buffer, nombreArchivo) => {
     const esCsv = nombreArchivo && nombreArchivo.toLowerCase().endsWith('.csv');
 
@@ -101,11 +103,22 @@ const normalizarEstado = (estado) => {
     return 'Confirmada'; 
 };
 
-const parsearMoneda = (valor) => {
+
+const parsearMoneda = (valor, separadorDecimal = ',') => {
     if (valor === undefined || valor === null) return 0;
-    const valorStr = valor.toString();
-    const numeroLimpio = valorStr.replace(/[^\d,-]/g, '').replace(',', '.');
-    return parseFloat(numeroLimpio) || 0;
+    
+    const valorStr = valor.toString().trim();
+    
+    let numeroFormateado;
+    if (separadorDecimal === ',') {
+        // Formato latino: 1.234,56 -> 1234.56
+        numeroFormateado = valorStr.replace(/[^\d,-]/g, "").replace(/\./g, '').replace(',', '.');
+    } else {
+        // Formato anglo: 1,234.56 -> 1234.56
+        numeroFormateado = valorStr.replace(/[^\d.-]/g, "").replace(/,/g, '');
+    }
+    
+    return parseFloat(numeroFormateado) || 0;
 };
 
 const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, nombreArchivoOriginal, usuarioEmail) => {
@@ -132,6 +145,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
     if (!canal) throw new Error(`El canal con ID ${canalId} no fue encontrado.`);
     
     const formatoFecha = canal.formatoFecha || 'DD/MM/YYYY';
+    const separadorDecimal = canal.separadorDecimal || ','; // <-- OBTENER SEPARADOR
     const canalNombre = canal.nombre;
     const monedaCanal = canal.moneda || 'CLP';
     
@@ -157,7 +171,8 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             if (!fechaLlegada || !fechaSalida) throw new Error(`No se pudieron interpretar las fechas.`);
             if (fechaSalida <= fechaLlegada) throw new Error('La fecha de salida debe ser posterior a la de llegada.');
             
-            const nombre = get('nombreCliente') || '';
+            // ... (Lógica de cliente y alojamiento no cambia)
+             const nombre = get('nombreCliente') || '';
             const apellido = get('apellidoCliente') || '';
             const nombreClienteCompleto = `${nombre} ${apellido}`.trim();
             const telefonoCliente = get('telefonoCliente');
@@ -192,18 +207,17 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                     if (propiedad) capacidadAlojamiento = propiedad.capacidad;
                 }
             }
-            
-            const comision = parsearMoneda(get('comision'));
-            const tarifaServicio = parsearMoneda(get('tarifaServicio'));
-            const impuestos = parsearMoneda(get('impuestos'));
-            let valorHuesped = parsearMoneda(get('valorHuesped'));
-            let valorAnfitrion = parsearMoneda(get('valorAnfitrion'));
-            let valorLista = parsearMoneda(get('valorLista'));
 
-            // Lógica de cálculo jerárquico
+            // --- LÓGICA FINANCIERA CON SEPARADOR DECIMAL ---
+            const comision = parsearMoneda(get('comision'), separadorDecimal);
+            const tarifaServicio = parsearMoneda(get('tarifaServicio'), separadorDecimal);
+            const impuestos = parsearMoneda(get('impuestos'), separadorDecimal);
+            let valorHuesped = parsearMoneda(get('valorHuesped'), separadorDecimal);
+            let valorAnfitrion = parsearMoneda(get('valorAnfitrion'), separadorDecimal);
+            let valorLista = parsearMoneda(get('valorLista'), separadorDecimal);
+
             if (canalNombre.toLowerCase().includes('airbnb')) {
-                // Caso especial Airbnb según lo aclarado
-                if (valorAnfitrion > 0 && tarifaServicio !== 0) {
+                if (valorAnfitrion > 0 && tarifaServicio !== 0 && valorHuesped === 0) {
                      valorHuesped = valorAnfitrion + tarifaServicio;
                 }
             } else {
@@ -250,7 +264,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                     valorHuesped: Math.round((monedaCanal === 'USD') ? valorHuesped * valorDolarDia : valorHuesped),
                     valorPotencial: Math.round((monedaCanal === 'USD') ? valorLista * valorDolarDia : valorLista),
                     comision: Math.round((monedaCanal === 'USD') ? comision * valorDolarDia : comision),
-                    abono: parsearMoneda(get('abono'))
+                    abono: parsearMoneda(get('abono'), separadorDecimal)
                 },
                 valorDolarDia: valorDolarDia,
                 requiereActualizacionDolar: requiereActualizacionDolar

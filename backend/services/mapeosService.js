@@ -1,19 +1,18 @@
 const admin = require('firebase-admin');
 
-const guardarMapeosPorCanal = async (db, empresaId, canalId, mapeos, formatoFecha) => {
+const guardarMapeosPorCanal = async (db, empresaId, canalId, mapeos, formatoFecha, separadorDecimal) => {
     if (!empresaId || !canalId || !mapeos) {
         throw new Error('Faltan datos requeridos para guardar los mapeos.');
     }
 
     const batch = db.batch();
     
-    // 1. Actualizar el documento del canal con el formato de fecha
-    if (formatoFecha) {
-        const canalRef = db.collection('empresas').doc(empresaId).collection('canales').doc(canalId);
-        batch.update(canalRef, { formatoFecha: formatoFecha });
-    }
+    const canalRef = db.collection('empresas').doc(empresaId).collection('canales').doc(canalId);
+    batch.update(canalRef, { 
+        formatoFecha: formatoFecha,
+        separadorDecimal: separadorDecimal // <-- GUARDAR SEPARADOR
+    });
 
-    // 2. Procesar los mapeos de columnas como antes
     const mapeosExistentesQuery = await db.collection('empresas').doc(empresaId).collection('mapeosCanal')
                                         .where('canalId', '==', canalId).get();
 
