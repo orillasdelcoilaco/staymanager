@@ -54,8 +54,9 @@ const getReservasPendientes = async (db, empresaId) => {
                     estadoGestion: data.estadoGestion || 'Pendiente Bienvenida',
                     documentos: data.documentos || {},
                     reservasIndividuales: [],
-                    valorTotalCLP: 0, // Payout
-                    valorTotalHuesped: 0, // Total que paga el cliente
+                    valorTotalHuesped: 0, // <-- El nuevo valor principal
+                    valorTotalPayout: 0,   // <-- Payout es ahora informativo
+                    costoCanal: 0,
                     abonoTotal: 0,
                     potencialTotal: 0,
                     potencialCalculado: false,
@@ -65,16 +66,20 @@ const getReservasPendientes = async (db, empresaId) => {
             }
 
             const grupo = reservasAgrupadas.get(reservaId);
+            const valorHuesped = data.valores?.valorHuesped || data.valores?.valorTotal || 0;
+            const valorPayout = data.valores?.valorTotal || 0;
             
             grupo.reservasIndividuales.push({
                 id: doc.id,
                 alojamientoNombre: data.alojamientoNombre,
-                valorCLP: data.valores?.valorTotal || 0,
-                abono: data.valores?.abono || 0,
+                // Guardamos ambos valores para el modal de ajuste
+                valorHuesped: valorHuesped,
+                valorPayout: valorPayout,
             });
 
-            grupo.valorTotalCLP += data.valores?.valorTotal || 0;
-            grupo.valorTotalHuesped += data.valores?.valorHuesped || data.valores?.valorTotal || 0;
+            grupo.valorTotalHuesped += valorHuesped;
+            grupo.valorTotalPayout += valorPayout;
+            grupo.costoCanal += (valorHuesped - valorPayout);
             grupo.abonoTotal += data.valores?.abono || 0;
             
             if (data.valores?.valorPotencial && data.valores.valorPotencial > 0) {
@@ -138,7 +143,6 @@ const addNota = async (db, empresaId, notaData) => {
 };
 
 const getTransacciones = async (db, empresaId, idsIndividuales) => {
-    // Esta función ahora debe buscar en la colección principal de transacciones
     const transaccionesRef = db.collection('empresas').doc(empresaId).collection('transacciones');
     const reservaIdOriginal = (await db.collection('empresas').doc(empresaId).collection('reservas').doc(idsIndividuales[0]).get()).data().idReservaCanal;
     

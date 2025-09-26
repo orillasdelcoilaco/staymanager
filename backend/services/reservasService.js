@@ -1,6 +1,6 @@
 const admin = require('firebase-admin');
 const { obtenerValorDolar } = require('./dolarService');
-const { deleteFileByUrl } = require('./storageService'); // <-- Importar la nueva función
+const { deleteFileByUrl } = require('./storageService'); 
 
 // ... (El resto de las funciones como crearOActualizarReserva, etc., no cambian)
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
@@ -153,12 +153,44 @@ const eliminarReserva = async (db, empresaId, reservaId) => {
     await reservaRef.delete();
 };
 
-const actualizarValoresGrupo = async (db, empresaId, valoresCabanas) => {
+const actualizarValoresGrupo = async (db, empresaId, valoresCabanas, nuevoTotalHuesped) => {
     const batch = db.batch();
-    for (const item of valoresCabanas) {
-        const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(item.id);
-        batch.update(ref, { 'valores.valorTotal': parseFloat(item.valor), 'edicionesManuales.valores.valorTotal': true });
-    }
+    
+    // Primero, obtenemos el total actual del grupo
+    let totalHuespedActual = 0;
+    const docs = await Promise.all(valoresCabanas.map(item => 
+        db.collection('empresas').doc(empresaId).collection('reservas').doc(item.id).get()
+    ));
+
+    docs.forEach(doc => {
+        if (doc.exists) {
+            totalHuespedActual += doc.data().valores.valorHuesped || doc.data().valores.valorTotal || 0;
+        }
+    });
+
+    if (totalHuespedActual === 0) throw new Error("El valor actual del grupo es cero, no se puede calcular la proporción.");
+
+    const proporcion = parseFloat(nuevoTotalHuesped) / totalHuespedActual;
+
+    docs.forEach(doc => {
+        if (doc.exists) {
+            const reserva = doc.data();
+            const nuevosValores = { ...reserva.valores };
+            
+            // Aplicar la proporción a todos los valores financieros
+            nuevosValores.valorHuesped = Math.round((reserva.valores.valorHuesped || reserva.valores.valorTotal || 0) * proporcion);
+            nuevosValores.valorTotal = Math.round(reserva.valores.valorTotal * proporcion);
+            nuevosValores.valorPotencial = Math.round(reserva.valores.valorPotencial * proporcion);
+            nuevosValores.comision = Math.round(reserva.valores.comision * proporcion);
+
+            batch.update(doc.ref, { 
+                'valores': nuevosValores,
+                'edicionesManuales.valores.valorHuesped': true,
+                'edicionesManuales.valores.valorTotal': true,
+            });
+        }
+    });
+
     await batch.commit();
 };
 
@@ -168,9 +200,12 @@ const calcularPotencialGrupo = async (db, empresaId, idsIndividuales, descuento)
         const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);
         const doc = await ref.get();
         if(doc.exists) {
-            const valorActual = doc.data().valores.valorTotal;
-            const valorPotencial = Math.round(valorActual / (1 - (parseFloat(descuento) / 100)));
-            batch.update(ref, { 'valores.valorPotencial': valorPotencial, 'edicionesManuales.valores.valorPotencial': true });
+            const valorHuesped = doc.data().valores.valorHuesped || doc.data().valores.valorTotal;
+            const valorPotencial = Math.round(valorHuesped / (1 - (parseFloat(descuento) / 100)));
+            batch.update(ref, { 
+                'valores.valorPotencial': valorPotencial,
+                'edicionesManuales.valores.valorPotencial': true 
+            });
         }
     }
     await batch.commit();

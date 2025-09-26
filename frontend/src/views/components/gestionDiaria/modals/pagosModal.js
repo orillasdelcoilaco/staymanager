@@ -59,7 +59,7 @@ async function handleDeleteTransaction(transaccionId) {
 function showActionForm() {
     currentAction = 'pagos';
     const container = document.getElementById('pagos-form-container');
-    const saldoPendiente = currentGrupo.valorTotalCLP - currentGrupo.abonoTotal;
+    const saldoPendiente = currentGrupo.valorTotalHuesped - currentGrupo.abonoTotal;
 
     container.innerHTML = `
         <form id="modal-form-accion" class="border p-4 rounded-md">
@@ -116,11 +116,11 @@ async function renderPagosList() {
     allTransacciones = await fetchAPI('/gestion/transacciones', { method: 'POST', body: { idsIndividuales: ids } });
     
     const totalAbonado = allTransacciones.reduce((sum, t) => sum + t.monto, 0);
-    currentGrupo.abonoTotal = totalAbonado; // Actualizar el abono del grupo
-    const saldo = currentGrupo.valorTotalCLP - totalAbonado;
+    currentGrupo.abonoTotal = totalAbonado;
+    const saldo = currentGrupo.valorTotalHuesped - totalAbonado;
 
     summaryEl.innerHTML = `
-        <div><span class="text-gray-500 font-medium">Total:</span> ${formatCurrency(currentGrupo.valorTotalCLP)}</div>
+        <div><span class="text-gray-500 font-medium">Total Cliente:</span> ${formatCurrency(currentGrupo.valorTotalHuesped)}</div>
         <div class="text-green-600"><span class="text-gray-500 font-medium">Abonado:</span> ${formatCurrency(totalAbonado)}</div>
         <div class="text-red-600"><span class="text-gray-500 font-medium">Saldo:</span> ${formatCurrency(saldo)}</div>`;
     

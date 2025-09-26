@@ -4,11 +4,11 @@ import { formatCurrency } from '../gestionDiaria.utils.js';
 let currentGrupo = null;
 let onActionComplete = () => {};
 
-// --- Lógica de Renderizado de Pestañas ---
+// ... (renderTabContent y otras funciones auxiliares no cambian)
 function renderTabContent(tabName) {
     const contentContainer = document.getElementById('modal-tab-content');
     if (!contentContainer) return;
-    const valorActualTotal = currentGrupo.valorTotalCLP;
+    const valorActualTotal = currentGrupo.valorTotalHuesped; // <-- Usar Total Cliente
 
     switch(tabName) {
         case 'kpi':
@@ -47,7 +47,7 @@ function renderTabContent(tabName) {
 
         case 'ajuste':
             contentContainer.innerHTML = `
-                <p class="text-sm text-gray-600 mb-3">Modifica el monto final que se cobrará al cliente. El nuevo valor se distribuirá proporcionalmente entre las cabañas. <strong>Esta acción es permanente.</strong></p>
+                <p class="text-sm text-gray-600 mb-3">Modifica el monto final que se cobrará al cliente. El nuevo valor se distribuirá proporcionalmente entre las cabañas y sus valores asociados (payout, etc). <strong>Esta acción es permanente.</strong></p>
                 <div class="space-y-4">
                      <div>
                         <label for="nuevo-valor-final" class="block text-sm font-medium text-gray-700">Nuevo Valor Final a Cobrar (CLP)</label>
@@ -71,11 +71,11 @@ function renderAjusteGrupo() {
     let cabanasHtml = currentGrupo.reservasIndividuales.map(res => `
         <div class="grid grid-cols-2 gap-4 items-center">
             <label for="valor-${res.id}" class="text-sm font-medium">${res.alojamientoNombre}</label>
-            <input type="number" id="valor-${res.id}" data-id="${res.id}" class="valor-input form-input" value="${Math.round(res.valorCLP)}">
+            <input type="number" id="valor-${res.id}" data-id="${res.id}" class="valor-input form-input" value="${Math.round(res.valorHuesped)}">
         </div>`).join('');
     contentContainer.innerHTML = `
         <div class="space-y-4">
-            <p class="text-sm text-gray-600">Corrige la distribución del valor total entre las cabañas del grupo.</p>
+            <p class="text-sm text-gray-600">Corrige la distribución del valor total (Total Cliente) entre las cabañas del grupo.</p>
             <div class="space-y-2">${cabanasHtml}</div>
             <div class="border-t pt-3 flex justify-between items-center font-bold"><span>TOTAL:</span><span id="ajuste-valores-total"></span></div>
             <div id="ajuste-valores-status" class="text-sm"></div>
@@ -92,7 +92,6 @@ function updateValoresTotal() {
     document.getElementById('ajuste-valores-total').textContent = formatCurrency(total);
 }
 
-// --- Lógica de Acciones ---
 async function handleSaveKpi() {
     const descuento = document.getElementById('descuento-pct').value;
     const statusEl = document.getElementById('kpi-status');
@@ -118,17 +117,14 @@ async function handleSaveKpi() {
 }
 
 async function handleSaveAjusteFinal() {
-    const nuevoTotalCLP = document.getElementById('nuevo-valor-final').value;
-    const totalActual = currentGrupo.valorTotalCLP;
-    const proporcion = totalActual > 0 ? parseFloat(nuevoTotalCLP) / totalActual : 0;
-    
-    const valoresCabanas = currentGrupo.reservasIndividuales.map(res => ({
-        id: res.id,
-        valor: Math.round(res.valorCLP * proporcion)
-    }));
+    const nuevoTotalHuesped = document.getElementById('nuevo-valor-final').value;
+    const valoresCabanas = currentGrupo.reservasIndividuales.map(res => ({ id: res.id }));
 
     try {
-        await fetchAPI('/gestion/ajustar-valores', { method: 'POST', body: { valoresCabanas }});
+        await fetchAPI('/gestion/ajustar-valores', { 
+            method: 'POST', 
+            body: { valoresCabanas, nuevoTotalHuesped }
+        });
         document.getElementById('gestion-modal').classList.add('hidden');
         await onActionComplete();
     } catch (error) {
@@ -137,9 +133,15 @@ async function handleSaveAjusteFinal() {
 }
 
 async function handleSaveAjusteGrupo() {
-    const valoresCabanas = Array.from(document.querySelectorAll('.valor-input')).map(input => ({ id: input.dataset.id, valor: input.value }));
+    const nuevoTotalHuesped = Array.from(document.querySelectorAll('.valor-input')).reduce((sum, input) => sum + (parseFloat(input.value) || 0), 0);
+    const valoresCabanas = currentGrupo.reservasIndividuales.map(res => ({ id: res.id }));
+    
+    // En este caso, el total es la suma de los inputs, y la lógica de proporción se aplica igual en el backend.
     try {
-        await fetchAPI('/gestion/ajustar-valores', { method: 'POST', body: { valoresCabanas }});
+        await fetchAPI('/gestion/ajustar-valores', { 
+            method: 'POST', 
+            body: { valoresCabanas, nuevoTotalHuesped }
+        });
         document.getElementById('gestion-modal').classList.add('hidden');
         await onActionComplete();
     } catch (error) {
@@ -148,7 +150,6 @@ async function handleSaveAjusteGrupo() {
 }
 
 
-// --- Función Principal Exportada ---
 export function renderAjusteTarifaModal(grupo, callback) {
     currentGrupo = grupo;
     onActionComplete = callback;
