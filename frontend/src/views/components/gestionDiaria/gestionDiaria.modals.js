@@ -1,16 +1,17 @@
 import { fetchAPI } from '../../../api.js';
-import { getStatusInfo, formatCurrency, showPreview, handlePaste, openImageViewer } from './gestionDiaria.utils.js';
+import { getStatusInfo } from './gestionDiaria.utils.js';
+import { renderAjusteTarifaModal } from './modals/ajusteTarifaModal.js';
+import { renderPagosModal } from './modals/pagosModal.js';
+import { renderDocumentoModal } from './modals/documentoModal.js';
 
 let currentGrupo = null;
 let currentUserEmail = '';
-let allTransacciones = [];
-let onActionComplete = () => {}; // Callback para refrescar la vista principal
+let onActionComplete = () => {};
 
 export function initializeModals(callback, userEmail) {
     onActionComplete = callback;
     currentUserEmail = userEmail;
 
-    // Listeners para cerrar modales
     document.getElementById('modal-cancel-btn')?.addEventListener('click', () => document.getElementById('gestion-modal').classList.add('hidden'));
     document.getElementById('bitacora-cancel-btn')?.addEventListener('click', () => document.getElementById('bitacora-modal').classList.add('hidden'));
     document.getElementById('bitacora-save-btn')?.addEventListener('click', saveNote);
@@ -20,14 +21,14 @@ export function initializeModals(callback, userEmail) {
 export function openManagementModal(type, grupo) {
     currentGrupo = grupo;
     const modal = document.getElementById('gestion-modal');
-    document.getElementById('modal-title').textContent = `${type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ')} (Reserva ${currentGrupo.reservaIdOriginal})`;
+    document.getElementById('modal-title').textContent = `${type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ')} (Reserva ${grupo.reservaIdOriginal})`;
 
     const actionMap = {
-        'bitacora': openBitacoraModal,
-        'ajuste_tarifa': renderAjusteTarifaModal,
-        'pagos': renderPagosModal,
-        'boleta': () => renderDocumentoModal('boleta'),
-        'gestionar_reserva': () => renderDocumentoModal('reserva'),
+        'bitacora': () => openBitacoraModal(grupo),
+        'ajuste_tarifa': () => renderAjusteTarifaModal(grupo, onActionComplete),
+        'pagos': () => renderPagosModal(grupo, onActionComplete),
+        'boleta': () => renderDocumentoModal('boleta', grupo, onActionComplete),
+        'gestionar_reserva': () => renderDocumentoModal('reserva', grupo, onActionComplete),
     };
 
     if (actionMap[type]) {
@@ -86,9 +87,10 @@ async function handleRevertState() {
     }
 }
 
-export function openBitacoraModal() {
+function openBitacoraModal(grupo) {
+    currentGrupo = grupo;
     const modal = document.getElementById('bitacora-modal');
-    document.getElementById('bitacora-modal-title').textContent = `Bitácora de Gestión (Reserva ${currentGrupo.reservaIdOriginal})`;
+    document.getElementById('bitacora-modal-title').textContent = `Bitácora de Gestión (Reserva ${grupo.reservaIdOriginal})`;
     document.getElementById('bitacora-new-note').value = '';
     document.getElementById('bitacora-status').textContent = '';
     modal.classList.remove('hidden');
@@ -143,95 +145,5 @@ async function saveNote() {
     } finally {
         saveBtn.disabled = false;
         saveBtn.textContent = 'Guardar Nota';
-    }
-}
-
-function renderDocumentoModal(tipo) {
-    const contentContainer = document.getElementById('modal-content-container');
-    const enlaceExistente = tipo === 'boleta' ? currentGrupo.documentos.enlaceBoleta : currentGrupo.documentos.enlaceReserva;
-
-    let contentHtml = '';
-    if (enlaceExistente && enlaceExistente !== 'SIN_DOCUMENTO') {
-        contentHtml += `
-            <div class="border rounded-md p-4">
-                <p class="font-semibold">Documento Actual:</p>
-                <img src="${enlaceExistente}" alt="Vista previa del documento" class="mt-2 max-w-full h-auto max-h-60 object-contain cursor-pointer view-image-btn">
-                <a href="${enlaceExistente}" target="_blank" class="text-blue-600 hover:underline text-sm">Abrir en nueva pestaña</a>
-            </div>`;
-    }
-
-    contentHtml += `
-        <form id="modal-form-accion" class="border p-4 rounded-md ${enlaceExistente ? 'mt-4' : ''}">
-            <h4 class="font-semibold text-lg mb-4">${enlaceExistente ? 'Reemplazar Documento' : 'Subir Documento'}</h4>
-            <div>
-                <label class="block text-sm">Documento</label>
-                <input type="file" id="documento-input" class="hidden"/>
-                <div id="paste-zone" class="mt-1 p-4 border-2 border-dashed rounded-md text-center cursor-pointer text-gray-500 hover:border-indigo-500 hover:text-indigo-500"><p>Selecciona o pega una imagen</p></div>
-                <div id="preview-container" class="mt-2 hidden"><p class="text-sm">Vista Previa:</p><img id="thumbnail" class="w-24 h-24 object-cover rounded-md"></div>
-            </div>
-            <div id="modal-status" class="mt-2 text-sm text-red-600"></div>
-            <div class="mt-5 flex justify-end space-x-2"><button type="submit" id="modal-save-btn" class="btn-primary">Guardar</button></div>
-        </form>`;
-    
-    contentContainer.innerHTML = contentHtml;
-
-    const form = contentContainer.querySelector('#modal-form-accion');
-    form.addEventListener('submit', handleGroupFormSubmit);
-    
-    const docInput = form.querySelector('#documento-input');
-    const pasteZone = form.querySelector('#paste-zone');
-    const previewContainer = form.querySelector('#preview-container');
-    const thumbnail = form.querySelector('#thumbnail');
-    
-    pasteZone.addEventListener('click', () => docInput.click());
-    docInput.addEventListener('change', () => { if(docInput.files.length) showPreview(docInput.files[0], thumbnail, previewContainer); });
-    document.addEventListener('paste', e => handlePaste(e, docInput, thumbnail, previewContainer));
-    
-    contentContainer.querySelectorAll('.view-image-btn').forEach(img => {
-        img.addEventListener('click', () => openImageViewer(img.src));
-    });
-}
-
-async function handleGroupFormSubmit(event) {
-    event.preventDefault();
-    const form = event.target;
-    const saveBtn = form.querySelector('#modal-save-btn');
-    const statusEl = form.querySelector('#modal-status');
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Guardando...';
-    statusEl.textContent = '';
-    
-    const formData = new FormData();
-    const detalles = {
-        reservaIdOriginal: currentGrupo.reservaIdOriginal,
-        idsIndividuales: currentGrupo.reservasIndividuales.map(r => r.id)
-    };
-    
-    let endpoint = '/gestion/actualizar-documento';
-    detalles.tipoDocumento = currentAction === 'boleta' ? 'boleta' : 'reserva';
-    if (detalles.tipoDocumento === 'boleta') {
-        detalles.avanzarEstado = 'Facturado';
-    }
-
-    const docInput = form.querySelector('#documento-input');
-    if (docInput && docInput.files.length > 0) {
-        formData.append('documento', docInput.files[0]);
-    } else {
-        statusEl.textContent = 'Debes seleccionar un archivo para subir.';
-        saveBtn.disabled = false;
-        saveBtn.textContent = 'Guardar';
-        return;
-    }
-    
-    formData.append('detalles', JSON.stringify(detalles));
-
-    try {
-        await fetchAPI(endpoint, { method: 'POST', body: formData });
-        document.getElementById('gestion-modal').classList.add('hidden');
-        await onActionComplete();
-    } catch (error) {
-        statusEl.textContent = `Error: ${error.message}`;
-        saveBtn.disabled = false;
-        saveBtn.textContent = 'Guardar';
     }
 }
