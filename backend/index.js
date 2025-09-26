@@ -34,7 +34,10 @@ try {
     if (!admin.apps.length) {
         admin.initializeApp({
           credential: admin.credential.cert(serviceAccount),
-          storageBucket: 'suite-manager-app.appspot.com' // <-- CORRECCIÓN APLICADA AQUÍ
+          // --- INICIO DE LA CORRECCIÓN ---
+          // Se actualiza al nombre de bucket correcto proporcionado por el usuario.
+          storageBucket: 'suite-manager-app.firebasestorage.app' 
+          // --- FIN DE LA CORRECCIÓN ---
         });
         console.log('Firebase Admin SDK inicializado correctamente.');
     }
