@@ -1,5 +1,5 @@
 import { fetchAPI } from '../../../api.js';
-import { getStatusInfo } from './gestionDiaria.utils.js';
+import { getStatusInfo, formatCurrency, showPreview, handlePaste, openImageViewer } from './gestionDiaria.utils.js';
 import { renderAjusteTarifaModal } from './modals/ajusteTarifaModal.js';
 import { renderPagosModal } from './modals/pagosModal.js';
 import { renderDocumentoModal } from './modals/documentoModal.js';
@@ -21,7 +21,7 @@ export function initializeModals(callback, userEmail) {
 export function openManagementModal(type, grupo) {
     currentGrupo = grupo;
     const modal = document.getElementById('gestion-modal');
-    document.getElementById('modal-title').textContent = `${type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ')} (Reserva ${grupo.reservaIdOriginal})`;
+    document.getElementById('modal-title').textContent = `${type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ')} (Reserva ${currentGrupo.reservaIdOriginal})`;
 
     const actionMap = {
         'bitacora': () => openBitacoraModal(grupo),
@@ -87,7 +87,9 @@ async function handleRevertState() {
     }
 }
 
-function openBitacoraModal(grupo) {
+// --- INICIO DE LA CORRECCIÓN ---
+export function openBitacoraModal(grupo) {
+// --- FIN DE LA CORRECCIÓN ---
     currentGrupo = grupo;
     const modal = document.getElementById('bitacora-modal');
     document.getElementById('bitacora-modal-title').textContent = `Bitácora de Gestión (Reserva ${grupo.reservaIdOriginal})`;
