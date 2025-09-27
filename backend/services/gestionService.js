@@ -29,60 +29,74 @@ const getReservasPendientes = async (db, empresaId) => {
     const idsDeReservasOriginales = new Set();
 
     reservasSnapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const reservaId = data.idReservaCanal;
-        idsDeReservasOriginales.add(reservaId);
+        // --- INICIO DE LA CORRECCIÓN ---
+        try {
+            const data = doc.data();
 
-        if (!reservasAgrupadas.has(reservaId)) {
-            const clienteActual = clientsMap.get(data.clienteId);
-            reservasAgrupadas.set(reservaId, {
-                reservaIdOriginal: reservaId,
-                clienteId: data.clienteId,
-                clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
-                telefono: clienteActual?.telefono || data.telefono || 'N/A',
-                fechaLlegada: (data.fechaLlegada && typeof data.fechaLlegada.toDate === 'function') ? data.fechaLlegada.toDate() : null,
-                fechaSalida: (data.fechaSalida && typeof data.fechaSalida.toDate === 'function') ? data.fechaSalida.toDate() : null,
-                estadoGestion: data.estadoGestion || 'Pendiente Bienvenida',
-                documentos: data.documentos || {},
-                reservasIndividuales: [],
-                valorTotalHuesped: 0,
-                valorTotalPayout: 0,
-                costoCanal: 0,
-                abonoTotal: 0,
-                potencialTotal: 0,
-                potencialCalculado: false,
-                notasCount: 0,
-                transaccionesCount: 0
+            // Validar que los datos esenciales existan y sean correctos
+            if (!data.idReservaCanal || !data.fechaLlegada || !data.fechaSalida || typeof data.fechaLlegada.toDate !== 'function' || typeof data.fechaSalida.toDate !== 'function') {
+                console.warn(`[Gestión Diaria] Omitiendo reserva ${doc.id} por datos incompletos o malformados.`);
+                return; // Ignora esta reserva y continúa con la siguiente
+            }
+
+            const reservaId = data.idReservaCanal;
+            idsDeReservasOriginales.add(reservaId);
+
+            if (!reservasAgrupadas.has(reservaId)) {
+                const clienteActual = clientsMap.get(data.clienteId);
+                reservasAgrupadas.set(reservaId, {
+                    reservaIdOriginal: reservaId,
+                    clienteId: data.clienteId,
+                    clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
+                    telefono: clienteActual?.telefono || data.telefono || 'N/A',
+                    fechaLlegada: data.fechaLlegada.toDate(),
+                    fechaSalida: data.fechaSalida.toDate(),
+                    estadoGestion: data.estadoGestion || 'Pendiente Bienvenida',
+                    documentos: data.documentos || {},
+                    reservasIndividuales: [],
+                    valorTotalHuesped: 0,
+                    valorTotalPayout: 0,
+                    costoCanal: 0,
+                    abonoTotal: 0,
+                    potencialTotal: 0,
+                    potencialCalculado: false,
+                    notasCount: 0,
+                    transaccionesCount: 0
+                });
+            }
+
+            const grupo = reservasAgrupadas.get(reservaId);
+            const valorHuesped = data.valores?.valorHuesped || data.valores?.valorTotal || 0;
+            const valorPayout = data.valores?.valorTotal || 0;
+            
+            grupo.reservasIndividuales.push({
+                id: doc.id,
+                alojamientoNombre: data.alojamientoNombre,
+                valorHuesped: valorHuesped,
+                valorPayout: valorPayout,
             });
+
+            grupo.valorTotalHuesped += valorHuesped;
+            grupo.valorTotalPayout += valorPayout;
+            grupo.costoCanal += (valorHuesped - valorPayout);
+            grupo.abonoTotal += data.valores?.abono || 0;
+            
+            if (data.valores?.valorPotencial && data.valores.valorPotencial > 0) {
+                grupo.potencialTotal += data.valores.valorPotencial;
+                grupo.potencialCalculado = true;
+            }
+            if (data.documentos) {
+                 grupo.documentos = {...grupo.documentos, ...data.documentos};
+            }
+        } catch (error) {
+            console.error(`[Gestión Diaria] Error procesando la reserva ${doc.id}. Será omitida. Error:`, error.message);
         }
-        const grupo = reservasAgrupadas.get(reservaId);
-        const valorHuesped = data.valores?.valorHuesped || data.valores?.valorTotal || 0;
-        const valorPayout = data.valores?.valorTotal || 0;
-        
-        grupo.reservasIndividuales.push({
-            id: doc.id,
-            alojamientoNombre: data.alojamientoNombre,
-            valorHuesped: valorHuesped,
-            valorPayout: valorPayout,
-        });
-        grupo.valorTotalHuesped += valorHuesped;
-        grupo.valorTotalPayout += valorPayout;
-        grupo.costoCanal += (valorHuesped - valorPayout);
-        grupo.abonoTotal += data.valores?.abono || 0;
-        
-        if (data.valores?.valorPotencial && data.valores.valorPotencial > 0) {
-            grupo.potencialTotal += data.valores.valorPotencial;
-            grupo.potencialCalculado = true;
-        }
-        if (data.documentos) {
-            grupo.documentos = {...grupo.documentos, ...data.documentos};
-        }
+        // --- FIN DE LA CORRECCIÓN ---
     });
 
-    // --- INICIO DE LA CORRECCIÓN ---
     const idsArray = Array.from(idsDeReservasOriginales);
     if (idsArray.length > 0) {
-        const chunkSize = 30; // Límite de Firestore para consultas 'in'
+        const chunkSize = 30;
         const chunks = [];
         for (let i = 0; i < idsArray.length; i += chunkSize) {
             chunks.push(idsArray.slice(i, i + chunkSize));
@@ -111,7 +125,6 @@ const getReservasPendientes = async (db, empresaId) => {
             });
         }
     }
-    // --- FIN DE LA CORRECCIÓN ---
 
     const reservas = Array.from(reservasAgrupadas.values());
     const today = getTodayUTC();
