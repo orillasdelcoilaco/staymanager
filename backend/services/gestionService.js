@@ -1,4 +1,6 @@
 const admin = require('firebase-admin');
+const { obtenerTarifaParaFecha } = require('./tarifasService');
+const { obtenerValorDolar } = require('./dolarService');
 
 function getTodayUTC() {
     const today = new Date();
@@ -49,13 +51,13 @@ const getReservasPendientes = async (db, empresaId) => {
                     clienteId: data.clienteId,
                     clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
                     telefono: clienteActual?.telefono || data.telefono || 'N/A',
-                    fechaLlegada: data.fechaLlegada ? data.fechaLlegada.toDate() : null,
-                    fechaSalida: data.fechaSalida ? data.fechaSalida.toDate() : null,
+                    fechaLlegada: (data.fechaLlegada && typeof data.fechaLlegada.toDate === 'function') ? data.fechaLlegada.toDate() : null,
+                    fechaSalida: (data.fechaSalida && typeof data.fechaSalida.toDate === 'function') ? data.fechaSalida.toDate() : null,
                     estadoGestion: data.estadoGestion || 'Pendiente Bienvenida',
                     documentos: data.documentos || {},
                     reservasIndividuales: [],
-                    valorTotalHuesped: 0, // <-- El nuevo valor principal
-                    valorTotalPayout: 0,   // <-- Payout es ahora informativo
+                    valorTotalHuesped: 0,
+                    valorTotalPayout: 0,
                     costoCanal: 0,
                     abonoTotal: 0,
                     potencialTotal: 0,
@@ -72,7 +74,6 @@ const getReservasPendientes = async (db, empresaId) => {
             grupo.reservasIndividuales.push({
                 id: doc.id,
                 alojamientoNombre: data.alojamientoNombre,
-                // Guardamos ambos valores para el modal de ajuste
                 valorHuesped: valorHuesped,
                 valorPayout: valorPayout,
             });
@@ -144,7 +145,10 @@ const addNota = async (db, empresaId, notaData) => {
 
 const getTransacciones = async (db, empresaId, idsIndividuales) => {
     const transaccionesRef = db.collection('empresas').doc(empresaId).collection('transacciones');
-    const reservaIdOriginal = (await db.collection('empresas').doc(empresaId).collection('reservas').doc(idsIndividuales[0]).get()).data().idReservaCanal;
+    const reservaDoc = await db.collection('empresas').doc(empresaId).collection('reservas').doc(idsIndividuales[0]).get();
+    if (!reservaDoc.exists) return [];
+    
+    const reservaIdOriginal = reservaDoc.data().idReservaCanal;
     
     const snapshot = await transaccionesRef
         .where('reservaIdOriginal', '==', reservaIdOriginal)
@@ -163,10 +167,47 @@ const getTransacciones = async (db, empresaId, idsIndividuales) => {
     });
 };
 
+const getAnalisisFinanciero = async (db, empresaId, grupoReserva) => {
+    const idReservaPrincipal = grupoReserva.reservasIndividuales[0].id;
+    const reservaPrincipalSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas').doc(idReservaPrincipal).get();
+    if (!reservaPrincipalSnapshot.exists) throw new Error("La reserva principal del grupo no fue encontrada.");
+    
+    const reservaPrincipal = reservaPrincipalSnapshot.data();
+    const { canalId, alojamientoId, fechaLlegada } = reservaPrincipal;
+
+    const fechaLlegadaDate = (fechaLlegada && typeof fechaLlegada.toDate === 'function') ? fechaLlegada.toDate() : null;
+    if (!fechaLlegadaDate) throw new Error("La fecha de llegada de la reserva principal es inválida.");
+
+    const tarifaBase = await obtenerTarifaParaFecha(db, empresaId, alojamientoId, canalId, fechaLlegadaDate);
+    const valorLista = tarifaBase ? tarifaBase.valor : 0;
+    const moneda = tarifaBase ? tarifaBase.moneda : 'CLP';
+
+    const valorHuespedTotal = grupoReserva.valorTotalHuesped;
+    const valorPayoutTotal = grupoReserva.valorTotalPayout;
+    
+    const descuentos = valorLista > 0 ? (valorLista * grupoReserva.reservasIndividuales.length) - valorHuespedTotal : 0;
+    const costoCanal = valorHuespedTotal - valorPayoutTotal;
+
+    let valorDolarDia = null;
+    if (moneda === 'USD') {
+        valorDolarDia = await obtenerValorDolar(db, empresaId, fechaLlegadaDate);
+    }
+
+    return {
+        valorLista: valorLista * grupoReserva.reservasIndividuales.length,
+        descuentos: descuentos > 0 ? descuentos : 0,
+        costoCanal: costoCanal,
+        payout: valorPayoutTotal,
+        moneda,
+        valorDolarDia,
+    };
+};
+
 module.exports = {
     getReservasPendientes,
     actualizarEstadoGrupo,
     getNotas,
     addNota,
-    getTransacciones
+    getTransacciones,
+    getAnalisisFinanciero
 };
