@@ -51,8 +51,11 @@ const getReservasPendientes = async (db, empresaId) => {
                     clienteId: data.clienteId,
                     clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
                     telefono: clienteActual?.telefono || data.telefono || 'N/A',
-                    fechaLlegada: data.fechaLlegada ? data.fechaLlegada.toDate() : null,
-                    fechaSalida: data.fechaSalida ? data.fechaSalida.toDate() : null,
+                    // --- INICIO DE LA CORRECCIÓN ---
+                    // Se verifica que el campo sea un Timestamp antes de llamar a .toDate()
+                    fechaLlegada: (data.fechaLlegada && typeof data.fechaLlegada.toDate === 'function') ? data.fechaLlegada.toDate() : null,
+                    fechaSalida: (data.fechaSalida && typeof data.fechaSalida.toDate === 'function') ? data.fechaSalida.toDate() : null,
+                    // --- FIN DE LA CORRECCIÓN ---
                     estadoGestion: data.estadoGestion || 'Pendiente Bienvenida',
                     documentos: data.documentos || {},
                     reservasIndividuales: [],
