@@ -8,13 +8,19 @@ function getTodayUTC() {
 }
 
 const getReservasPendientes = async (db, empresaId) => {
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Se reemplaza la consulta '!=' por 'in' para mayor eficiencia y estabilidad.
+    // Esto también maneja casos donde 'estadoGestion' no está definido (es null).
+    const estadosDeseados = ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', null];
+    
     const [clientesSnapshot, reservasSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('clientes').get(),
         db.collection('empresas').doc(empresaId).collection('reservas')
             .where('estado', '==', 'Confirmada')
-            .where('estadoGestion', '!=', 'Facturado')
+            .where('estadoGestion', 'in', estadosDeseados)
             .get()
     ]);
+    // --- FIN DE LA CORRECCIÓN ---
 
     const clientsMap = new Map();
     clientesSnapshot.forEach(doc => {
@@ -29,14 +35,12 @@ const getReservasPendientes = async (db, empresaId) => {
     const idsDeReservasOriginales = new Set();
 
     reservasSnapshot.docs.forEach(doc => {
-        // --- INICIO DE LA CORRECCIÓN ---
         try {
             const data = doc.data();
 
-            // Validar que los datos esenciales existan y sean correctos
-            if (!data.idReservaCanal || !data.fechaLlegada || !data.fechaSalida || typeof data.fechaLlegada.toDate !== 'function' || typeof data.fechaSalida.toDate !== 'function') {
-                console.warn(`[Gestión Diaria] Omitiendo reserva ${doc.id} por datos incompletos o malformados.`);
-                return; // Ignora esta reserva y continúa con la siguiente
+            if (!data.idReservaCanal || !data.fechaLlegada || typeof data.fechaLlegada.toDate !== 'function' || !data.fechaSalida || typeof data.fechaSalida.toDate !== 'function') {
+                console.warn(`[Gestión Diaria] Omitiendo reserva ${doc.id} por datos de fecha incompletos o malformados.`);
+                return;
             }
 
             const reservaId = data.idReservaCanal;
@@ -91,7 +95,6 @@ const getReservasPendientes = async (db, empresaId) => {
         } catch (error) {
             console.error(`[Gestión Diaria] Error procesando la reserva ${doc.id}. Será omitida. Error:`, error.message);
         }
-        // --- FIN DE LA CORRECCIÓN ---
     });
 
     const idsArray = Array.from(idsDeReservasOriginales);
@@ -146,7 +149,7 @@ const getReservasPendientes = async (db, empresaId) => {
             if (priorityA !== priorityB) return priorityA - priorityB;
         }
         
-        return (a.fechaLlegada || 0) - (b.fechaLlegada || 0);
+        return (a.fechaLlegada?.getTime() || 0) - (b.fechaLlegada?.getTime() || 0);
     });
 
     return reservas;
