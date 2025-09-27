@@ -9,15 +9,11 @@ function getTodayUTC() {
 
 const getReservasPendientes = async (db, empresaId) => {
     // --- INICIO DE LA CORRECCIÓN ---
-    // Se reemplaza la consulta '!=' por 'in' para mayor eficiencia y estabilidad.
-    // Esto también maneja casos donde 'estadoGestion' no está definido (es null).
-    const estadosDeseados = ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', null];
-    
+    // Se simplifica la consulta para máxima estabilidad, replicando la lógica del proyecto original.
     const [clientesSnapshot, reservasSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('clientes').get(),
         db.collection('empresas').doc(empresaId).collection('reservas')
             .where('estado', '==', 'Confirmada')
-            .where('estadoGestion', 'in', estadosDeseados)
             .get()
     ]);
     // --- FIN DE LA CORRECCIÓN ---
@@ -37,6 +33,11 @@ const getReservasPendientes = async (db, empresaId) => {
     reservasSnapshot.docs.forEach(doc => {
         try {
             const data = doc.data();
+
+            // Se filtra por estado de gestión en el código, igual que en el proyecto original.
+            if (data.estadoGestion === 'Facturado') {
+                return; // Ignorar esta reserva
+            }
 
             if (!data.idReservaCanal || !data.fechaLlegada || typeof data.fechaLlegada.toDate !== 'function' || !data.fechaSalida || typeof data.fechaSalida.toDate !== 'function') {
                 console.warn(`[Gestión Diaria] Omitiendo reserva ${doc.id} por datos de fecha incompletos o malformados.`);
