@@ -8,13 +8,11 @@ function getTodayUTC() {
 }
 
 const getReservasPendientes = async (db, empresaId) => {
-    // --- INICIO DE LA CORRECCIÓN ---
-    // 1. Obtener datos iniciales de clientes y reservas pendientes
     const [clientesSnapshot, reservasSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('clientes').get(),
         db.collection('empresas').doc(empresaId).collection('reservas')
             .where('estado', '==', 'Confirmada')
-            .where('estadoGestion', '!=', 'Facturado') // <-- Filtro más eficiente
+            .where('estadoGestion', '!=', 'Facturado')
             .get()
     ]);
 
@@ -23,7 +21,6 @@ const getReservasPendientes = async (db, empresaId) => {
         clientsMap.set(doc.id, doc.data());
     });
     
-    // Si no hay reservas pendientes, terminar rápido
     if (reservasSnapshot.empty) {
         return [];
     }
@@ -31,7 +28,6 @@ const getReservasPendientes = async (db, empresaId) => {
     const reservasAgrupadas = new Map();
     const idsDeReservasOriginales = new Set();
 
-    // 2. Agrupar las reservas y recolectar los IDs únicos
     reservasSnapshot.docs.forEach(doc => {
         const data = doc.data();
         const reservaId = data.idReservaCanal;
@@ -55,8 +51,8 @@ const getReservasPendientes = async (db, empresaId) => {
                 abonoTotal: 0,
                 potencialTotal: 0,
                 potencialCalculado: false,
-                notasCount: 0,       // Inicializar contadores
-                transaccionesCount: 0 // Inicializar contadores
+                notasCount: 0,
+                transaccionesCount: 0
             });
         }
         const grupo = reservasAgrupadas.get(reservaId);
@@ -83,29 +79,37 @@ const getReservasPendientes = async (db, empresaId) => {
         }
     });
 
-    // 3. Obtener contadores de notas y transacciones de forma eficiente
+    // --- INICIO DE LA CORRECCIÓN ---
     const idsArray = Array.from(idsDeReservasOriginales);
     if (idsArray.length > 0) {
-        const [notasSnapshot, transaccionesSnapshot] = await Promise.all([
-            db.collection('empresas').doc(empresaId).collection('gestionNotas')
-              .where('reservaIdOriginal', 'in', idsArray).get(),
-            db.collection('empresas').doc(empresaId).collection('transacciones')
-              .where('reservaIdOriginal', 'in', idsArray).get()
-        ]);
+        const chunkSize = 30; // Límite de Firestore para consultas 'in'
+        const chunks = [];
+        for (let i = 0; i < idsArray.length; i += chunkSize) {
+            chunks.push(idsArray.slice(i, i + chunkSize));
+        }
 
-        notasSnapshot.forEach(doc => {
-            const id = doc.data().reservaIdOriginal;
-            if (reservasAgrupadas.has(id)) {
-                reservasAgrupadas.get(id).notasCount++;
-            }
-        });
+        for (const chunk of chunks) {
+            const [notasSnapshot, transaccionesSnapshot] = await Promise.all([
+                db.collection('empresas').doc(empresaId).collection('gestionNotas')
+                  .where('reservaIdOriginal', 'in', chunk).get(),
+                db.collection('empresas').doc(empresaId).collection('transacciones')
+                  .where('reservaIdOriginal', 'in', chunk).get()
+            ]);
 
-        transaccionesSnapshot.forEach(doc => {
-            const id = doc.data().reservaIdOriginal;
-            if (reservasAgrupadas.has(id)) {
-                reservasAgrupadas.get(id).transaccionesCount++;
-            }
-        });
+            notasSnapshot.forEach(doc => {
+                const id = doc.data().reservaIdOriginal;
+                if (reservasAgrupadas.has(id)) {
+                    reservasAgrupadas.get(id).notasCount++;
+                }
+            });
+
+            transaccionesSnapshot.forEach(doc => {
+                const id = doc.data().reservaIdOriginal;
+                if (reservasAgrupadas.has(id)) {
+                    reservasAgrupadas.get(id).transaccionesCount++;
+                }
+            });
+        }
     }
     // --- FIN DE LA CORRECCIÓN ---
 
