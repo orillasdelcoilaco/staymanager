@@ -8,54 +8,51 @@ function getTodayUTC() {
 }
 
 const getReservasPendientes = async (db, empresaId) => {
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Se simplifica la consulta para máxima estabilidad, replicando la lógica del proyecto original.
-    const [clientesSnapshot, reservasSnapshot] = await Promise.all([
+    const [clientesSnapshot, reservasSnapshot, notasSnapshot, transaccionesSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('clientes').get(),
         db.collection('empresas').doc(empresaId).collection('reservas')
             .where('estado', '==', 'Confirmada')
-            .get()
+            .get(),
+        db.collection('empresas').doc(empresaId).collection('gestionNotas').get(),
+        db.collection('empresas').doc(empresaId).collection('transacciones').get()
     ]);
-    // --- FIN DE LA CORRECCIÓN ---
 
     const clientsMap = new Map();
     clientesSnapshot.forEach(doc => {
         clientsMap.set(doc.id, doc.data());
     });
     
-    if (reservasSnapshot.empty) {
-        return [];
-    }
+    const notesCountMap = new Map();
+    notasSnapshot.forEach(doc => {
+        const nota = doc.data();
+        const id = nota.reservaIdOriginal;
+        notesCountMap.set(id, (notesCountMap.get(id) || 0) + 1);
+    });
+    
+    const transaccionesCountMap = new Map();
+    transaccionesSnapshot.forEach(doc => {
+        const transaccion = doc.data();
+        const id = transaccion.reservaIdOriginal;
+        transaccionesCountMap.set(id, (transaccionesCountMap.get(id) || 0) + 1);
+    });
 
     const reservasAgrupadas = new Map();
-    const idsDeReservasOriginales = new Set();
 
     reservasSnapshot.docs.forEach(doc => {
-        try {
-            const data = doc.data();
-
-            // Se filtra por estado de gestión en el código, igual que en el proyecto original.
-            if (data.estadoGestion === 'Facturado') {
-                return; // Ignorar esta reserva
-            }
-
-            if (!data.idReservaCanal || !data.fechaLlegada || typeof data.fechaLlegada.toDate !== 'function' || !data.fechaSalida || typeof data.fechaSalida.toDate !== 'function') {
-                console.warn(`[Gestión Diaria] Omitiendo reserva ${doc.id} por datos de fecha incompletos o malformados.`);
-                return;
-            }
-
+        const data = doc.data();
+        if (data.estadoGestion !== 'Facturado') {
             const reservaId = data.idReservaCanal;
-            idsDeReservasOriginales.add(reservaId);
 
             if (!reservasAgrupadas.has(reservaId)) {
                 const clienteActual = clientsMap.get(data.clienteId);
+                
                 reservasAgrupadas.set(reservaId, {
                     reservaIdOriginal: reservaId,
                     clienteId: data.clienteId,
                     clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
                     telefono: clienteActual?.telefono || data.telefono || 'N/A',
-                    fechaLlegada: data.fechaLlegada.toDate(),
-                    fechaSalida: data.fechaSalida.toDate(),
+                    fechaLlegada: data.fechaLlegada ? data.fechaLlegada.toDate() : null,
+                    fechaSalida: data.fechaSalida ? data.fechaSalida.toDate() : null,
                     estadoGestion: data.estadoGestion || 'Pendiente Bienvenida',
                     documentos: data.documentos || {},
                     reservasIndividuales: [],
@@ -65,8 +62,8 @@ const getReservasPendientes = async (db, empresaId) => {
                     abonoTotal: 0,
                     potencialTotal: 0,
                     potencialCalculado: false,
-                    notasCount: 0,
-                    transaccionesCount: 0
+                    notasCount: notesCountMap.get(reservaId) || 0,
+                    transaccionesCount: transaccionesCountMap.get(reservaId) || 0
                 });
             }
 
@@ -93,42 +90,8 @@ const getReservasPendientes = async (db, empresaId) => {
             if (data.documentos) {
                  grupo.documentos = {...grupo.documentos, ...data.documentos};
             }
-        } catch (error) {
-            console.error(`[Gestión Diaria] Error procesando la reserva ${doc.id}. Será omitida. Error:`, error.message);
         }
     });
-
-    const idsArray = Array.from(idsDeReservasOriginales);
-    if (idsArray.length > 0) {
-        const chunkSize = 30;
-        const chunks = [];
-        for (let i = 0; i < idsArray.length; i += chunkSize) {
-            chunks.push(idsArray.slice(i, i + chunkSize));
-        }
-
-        for (const chunk of chunks) {
-            const [notasSnapshot, transaccionesSnapshot] = await Promise.all([
-                db.collection('empresas').doc(empresaId).collection('gestionNotas')
-                  .where('reservaIdOriginal', 'in', chunk).get(),
-                db.collection('empresas').doc(empresaId).collection('transacciones')
-                  .where('reservaIdOriginal', 'in', chunk).get()
-            ]);
-
-            notasSnapshot.forEach(doc => {
-                const id = doc.data().reservaIdOriginal;
-                if (reservasAgrupadas.has(id)) {
-                    reservasAgrupadas.get(id).notasCount++;
-                }
-            });
-
-            transaccionesSnapshot.forEach(doc => {
-                const id = doc.data().reservaIdOriginal;
-                if (reservasAgrupadas.has(id)) {
-                    reservasAgrupadas.get(id).transaccionesCount++;
-                }
-            });
-        }
-    }
 
     const reservas = Array.from(reservasAgrupadas.values());
     const today = getTodayUTC();
@@ -150,7 +113,7 @@ const getReservasPendientes = async (db, empresaId) => {
             if (priorityA !== priorityB) return priorityA - priorityB;
         }
         
-        return (a.fechaLlegada?.getTime() || 0) - (b.fechaLlegada?.getTime() || 0);
+        return (a.fechaLlegada || 0) - (b.fechaLlegada || 0);
     });
 
     return reservas;
@@ -202,17 +165,13 @@ const getTransacciones = async (db, empresaId, idsIndividuales) => {
 };
 
 const getAnalisisFinanciero = async (db, empresaId, grupoReserva) => {
-    const idReservaPrincipal = grupoReserva.reservasIndividuales[0].id;
-    const reservaPrincipalSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas').doc(idReservaPrincipal).get();
+    const reservaPrincipalSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas').doc(grupoReserva.reservasIndividuales[0].id).get();
     if (!reservaPrincipalSnapshot.exists) throw new Error("La reserva principal del grupo no fue encontrada.");
     
     const reservaPrincipal = reservaPrincipalSnapshot.data();
     const { canalId, alojamientoId, fechaLlegada } = reservaPrincipal;
 
-    const fechaLlegadaDate = (fechaLlegada && typeof fechaLlegada.toDate === 'function') ? fechaLlegada.toDate() : null;
-    if (!fechaLlegadaDate) throw new Error("La fecha de llegada de la reserva principal es inválida.");
-
-    const tarifaBase = await obtenerTarifaParaFecha(db, empresaId, alojamientoId, canalId, fechaLlegadaDate);
+    const tarifaBase = await obtenerTarifaParaFecha(db, empresaId, alojamientoId, canalId, fechaLlegada.toDate());
     const valorLista = tarifaBase ? tarifaBase.valor : 0;
     const moneda = tarifaBase ? tarifaBase.moneda : 'CLP';
 
@@ -224,7 +183,7 @@ const getAnalisisFinanciero = async (db, empresaId, grupoReserva) => {
 
     let valorDolarDia = null;
     if (moneda === 'USD') {
-        valorDolarDia = await obtenerValorDolar(db, empresaId, fechaLlegadaDate);
+        valorDolarDia = await obtenerValorDolar(db, empresaId, fechaLlegada.toDate());
     }
 
     return {
