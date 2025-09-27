@@ -51,11 +51,8 @@ const getReservasPendientes = async (db, empresaId) => {
                     clienteId: data.clienteId,
                     clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
                     telefono: clienteActual?.telefono || data.telefono || 'N/A',
-                    // --- INICIO DE LA CORRECCIÓN ---
-                    // Se verifica que el campo sea un Timestamp antes de llamar a .toDate()
                     fechaLlegada: (data.fechaLlegada && typeof data.fechaLlegada.toDate === 'function') ? data.fechaLlegada.toDate() : null,
                     fechaSalida: (data.fechaSalida && typeof data.fechaSalida.toDate === 'function') ? data.fechaSalida.toDate() : null,
-                    // --- FIN DE LA CORRECCIÓN ---
                     estadoGestion: data.estadoGestion || 'Pendiente Bienvenida',
                     documentos: data.documentos || {},
                     reservasIndividuales: [],
@@ -175,7 +172,10 @@ const getAnalisisFinanciero = async (db, empresaId, grupoReserva) => {
     const reservaPrincipal = reservaPrincipalSnapshot.data();
     const { canalId, alojamientoId, fechaLlegada } = reservaPrincipal;
 
-    const tarifaBase = await obtenerTarifaParaFecha(db, empresaId, alojamientoId, canalId, fechaLlegada.toDate());
+    const fechaLlegadaDate = (fechaLlegada && typeof fechaLlegada.toDate === 'function') ? fechaLlegada.toDate() : null;
+    if (!fechaLlegadaDate) throw new Error("La fecha de llegada de la reserva principal es inválida.");
+
+    const tarifaBase = await obtenerTarifaParaFecha(db, empresaId, alojamientoId, canalId, fechaLlegadaDate);
     const valorLista = tarifaBase ? tarifaBase.valor : 0;
     const moneda = tarifaBase ? tarifaBase.moneda : 'CLP';
 
@@ -187,7 +187,7 @@ const getAnalisisFinanciero = async (db, empresaId, grupoReserva) => {
 
     let valorDolarDia = null;
     if (moneda === 'USD') {
-        valorDolarDia = await obtenerValorDolar(db, empresaId, fechaLlegada.toDate());
+        valorDolarDia = await obtenerValorDolar(db, empresaId, fechaLlegadaDate);
     }
 
     return {
