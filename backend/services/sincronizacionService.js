@@ -8,19 +8,15 @@ const { obtenerValorDolar, actualizarValorDolarApi } = require('./dolarService')
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 const { registrarCarga } = require('./historialCargasService');
 
-// ... (funciones leerArchivo, analizarCabeceras, obtenerValorConMapeo, parsearFecha, normalizarString y normalizarEstado no cambian)
-
 const leerArchivo = (buffer, nombreArchivo) => {
     const esCsv = nombreArchivo && nombreArchivo.toLowerCase().endsWith('.csv');
-
     if (esCsv) {
         const data = buffer.toString('utf8');
-        const workbook = xlsx.read(data, { type: 'string', cellDates: true });
+        const workbook = xlsx.read(data, { type: 'string', cellDates: true, raw: true });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        return xlsx.utils.sheet_to_json(sheet, { header: 1, raw: false });
+        return xlsx.utils.sheet_to_json(sheet, { header: 1 });
     }
-
     const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
@@ -32,14 +28,16 @@ const analizarCabeceras = async (buffer, nombreArchivo) => {
     return rows.length > 0 ? rows[0].filter(Boolean) : [];
 };
 
-const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
+const obtenerValorConMapeo = (fila, cabeceras, campoInterno, mapeosDelCanal) => {
     const mapeo = mapeosDelCanal.find(m => m.campoInterno === campoInterno);
-    
-    if (!mapeo || typeof mapeo.columnaIndex !== 'number' || mapeo.columnaIndex < 0) {
+    if (!mapeo || typeof mapeo.columnaNombre !== 'string') {
         return undefined;
     }
-    
-    return fila[mapeo.columnaIndex];
+    const index = cabeceras.indexOf(mapeo.columnaNombre);
+    if (index === -1) {
+        return undefined;
+    }
+    return fila[index];
 };
 
 const parsearFecha = (dateValue, formatoFecha = 'DD/MM/YYYY') => {
@@ -103,7 +101,6 @@ const normalizarEstado = (estado) => {
     return 'Confirmada'; 
 };
 
-
 const parsearMoneda = (valor, separadorDecimal = ',') => {
     if (valor === undefined || valor === null) return 0;
     
@@ -111,10 +108,8 @@ const parsearMoneda = (valor, separadorDecimal = ',') => {
     
     let numeroFormateado;
     if (separadorDecimal === ',') {
-        // Formato latino: 1.234,56 -> 1234.56
         numeroFormateado = valorStr.replace(/[^\d,-]/g, "").replace(/\./g, '').replace(',', '.');
     } else {
-        // Formato anglo: 1,234.56 -> 1234.56
         numeroFormateado = valorStr.replace(/[^\d.-]/g, "").replace(/,/g, '');
     }
     
@@ -131,6 +126,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
         throw new Error("El archivo está vacío o no tiene filas de datos.");
     }
     
+    const cabeceras = rows[0];
     const datosJson = rows.slice(1);
 
     const [conversionesAlojamiento, todosLosMapeos, canales, propiedades] = await Promise.all([
@@ -141,11 +137,13 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
     ]);
 
     const mapeosDelCanal = todosLosMapeos.filter(m => m.canalId === canalId);
+    if (mapeosDelCanal.length === 0) throw new Error("No se ha configurado un mapeo para este canal.");
+
     const canal = canales.find(c => c.id === canalId);
     if (!canal) throw new Error(`El canal con ID ${canalId} no fue encontrado.`);
     
     const formatoFecha = canal.formatoFecha || 'DD/MM/YYYY';
-    const separadorDecimal = canal.separadorDecimal || ','; // <-- OBTENER SEPARADOR
+    const separadorDecimal = canal.separadorDecimal || ',';
     const canalNombre = canal.nombre;
     const monedaCanal = canal.moneda || 'CLP';
     
@@ -154,13 +152,15 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
     today.setUTCHours(0, 0, 0, 0);
 
     for (const [index, filaArray] of datosJson.entries()) {
+        const get = (campo) => obtenerValorConMapeo(filaArray, cabeceras, campo, mapeosDelCanal);
+        
         let idFilaParaError = `Fila ${index + 2}`;
         try {
-            const get = (campo) => obtenerValorConMapeo(filaArray, campo, mapeosDelCanal);
             const idReservaCanal = get('idReservaCanal');
             if (idReservaCanal) idFilaParaError = idReservaCanal;
+
             const tipoFila = get('tipoFila');
-            if ((tipoFila && tipoFila.toLowerCase().indexOf('reserv') === -1) || !idReservaCanal) {
+            if ((tipoFila && normalizarString(tipoFila).indexOf('reserv') === -1) || !idReservaCanal) {
                 resultados.filasIgnoradas++;
                 continue;
             }
@@ -171,8 +171,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             if (!fechaLlegada || !fechaSalida) throw new Error(`No se pudieron interpretar las fechas.`);
             if (fechaSalida <= fechaLlegada) throw new Error('La fecha de salida debe ser posterior a la de llegada.');
             
-            // ... (Lógica de cliente y alojamiento no cambia)
-             const nombre = get('nombreCliente') || '';
+            const nombre = get('nombreCliente') || '';
             const apellido = get('apellidoCliente') || '';
             const nombreClienteCompleto = `${nombre} ${apellido}`.trim();
             const telefonoCliente = get('telefonoCliente');
@@ -188,10 +187,6 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 idReservaCanal: idReservaCanal
             };
 
-            if (!telefonoCliente) {
-                const idCompuesto = `${nombreClienteCompleto}-${idReservaCanal}-${canalNombre}`.replace(/\s+/g, '-').toLowerCase();
-                datosParaCliente.idCompuesto = idCompuesto;
-            }
             const resultadoCliente = await crearOActualizarCliente(db, empresaId, datosParaCliente);
             if (resultadoCliente.status === 'creado') resultados.clientesCreados++;
             
@@ -208,7 +203,6 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 }
             }
 
-            // --- LÓGICA FINANCIERA CON SEPARADOR DECIMAL ---
             const comision = parsearMoneda(get('comision'), separadorDecimal);
             const tarifaServicio = parsearMoneda(get('tarifaServicio'), separadorDecimal);
             const impuestos = parsearMoneda(get('impuestos'), separadorDecimal);
@@ -229,22 +223,18 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             if (valorAnfitrion === 0 && valorHuesped > 0) {
                 valorAnfitrion = valorHuesped - comision - tarifaServicio;
             }
-            if (valorLista === 0) {
+            if (valorLista === 0 && valorHuesped > 0) {
                 valorLista = valorHuesped - impuestos; 
             }
 
             let valorTotalCLP = valorAnfitrion; 
             let valorOriginal = valorAnfitrion;
             let valorDolarDia = null;
-            let requiereActualizacionDolar = false;
 
             if (monedaCanal === 'USD') {
                 valorOriginal = valorAnfitrion;
                 valorDolarDia = await obtenerValorDolar(db, empresaId, fechaLlegada);
                 valorTotalCLP = valorAnfitrion * valorDolarDia;
-                if (fechaLlegada > today) {
-                    requiereActualizacionDolar = true;
-                }
             }
 
             const totalNoches = Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24));
@@ -252,9 +242,10 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 idCarga: idCarga,
                 idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
                 estado: normalizarEstado(get('estado')),
+                estadoGestion: 'Pendiente Bienvenida',
                 fechaReserva: parsearFecha(get('fechaReserva'), formatoFecha),
                 fechaLlegada, fechaSalida, totalNoches: totalNoches > 0 ? totalNoches : 1,
-                cantidadHuespedes: parseInt(get('invitados')) || capacidadAlojamiento,
+                cantidadHuespedes: parseInt(get('invitados')) || capacidadAlojamiento || 0,
                 clienteId: resultadoCliente.cliente.id,
                 alojamientoId, alojamientoNombre,
                 moneda: monedaCanal,
@@ -267,7 +258,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                     abono: parsearMoneda(get('abono'), separadorDecimal)
                 },
                 valorDolarDia: valorDolarDia,
-                requiereActualizacionDolar: requiereActualizacionDolar
+                requiereActualizacionDolar: monedaCanal === 'USD' && fechaLlegada > today
             };
             
             const res = await crearOActualizarReserva(db, empresaId, datosReserva);
@@ -276,7 +267,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             if(res.status === 'sin_cambios') resultados.reservasSinCambios++;
 
         } catch (error) {
-            console.error('Error procesando fila:', filaArray, error);
+            console.error(`Error procesando fila ${idFilaParaError}:`, error);
             resultados.errores.push({ fila: idFilaParaError, error: error.message });
         }
     }
