@@ -74,8 +74,10 @@ const getReservasPendientes = async (db, empresaId) => {
             grupo.reservasIndividuales.push({
                 id: doc.id,
                 alojamientoNombre: data.alojamientoNombre,
-                valorHuesped: valorHuesped,
-                valorPayout: valorPayout,
+                canalNombre: data.canalNombre,
+                moneda: data.moneda,
+                valorDolarDia: data.valorDolarDia,
+                valores: data.valores
             });
 
             grupo.valorTotalHuesped += valorHuesped;
@@ -83,10 +85,12 @@ const getReservasPendientes = async (db, empresaId) => {
             grupo.costoCanal += (valorHuesped - valorPayout);
             grupo.abonoTotal += data.valores?.abono || 0;
             
-            if (data.valores?.valorPotencial && data.valores.valorPotencial > 0) {
-                grupo.potencialTotal += data.valores.valorPotencial;
+            const valorDeLista = data.valores?.valorDeLista || data.valores?.valorPotencial || 0;
+            if (valorDeLista > 0) {
+                grupo.potencialTotal += valorDeLista;
                 grupo.potencialCalculado = true;
             }
+
             if (data.documentos) {
                  grupo.documentos = {...grupo.documentos, ...data.documentos};
             }
