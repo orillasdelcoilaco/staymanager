@@ -58,6 +58,7 @@ const getReservasPendientes = async (db, empresaId) => {
                     valorTotalPayout: 0,
                     payoutFinalReal: 0,
                     costoCanal: 0,
+                    ivaTotal: 0,
                     abonoTotal: 0,
                     potencialTotal: 0, 
                     valorListaBaseTotal: 0,
@@ -71,6 +72,7 @@ const getReservasPendientes = async (db, empresaId) => {
             const valorHuesped = data.valores?.valorHuesped || 0;
             const valorPayout = data.valores?.valorTotal || 0;
             const comisionReal = data.valores?.comision > 0 ? data.valores.comision : data.valores?.costoCanal || 0;
+            const ivaIndividual = valorHuesped - (valorPayout + comisionReal);
             
             const fechaLlegadaDate = (data.fechaLlegada && typeof data.fechaLlegada.toDate === 'function') ? data.fechaLlegada.toDate() : new Date();
             const tarifaAplicable = await obtenerTarifaParaFecha(db, empresaId, data.alojamientoId, data.canalId, fechaLlegadaDate);
@@ -97,6 +99,7 @@ const getReservasPendientes = async (db, empresaId) => {
             grupo.valorTotalPayout += valorPayout;
             grupo.payoutFinalReal += payoutFinalCalculado;
             grupo.costoCanal += comisionReal;
+            grupo.ivaTotal += ivaIndividual > 0 ? ivaIndividual : 0;
             grupo.abonoTotal += data.valores?.abono || 0;
             grupo.valorListaBaseTotal += valorListaBase;
             

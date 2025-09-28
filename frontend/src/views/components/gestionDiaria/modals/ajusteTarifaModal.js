@@ -73,6 +73,7 @@ function renderSimuladorVentaDirecta() {
     let costoCanalCLP = currentGrupo.costoCanal;
     let totalClienteCLP = currentGrupo.valorTotalHuesped;
     let payoutReporteCLP = currentGrupo.valorTotalPayout;
+    let ivaCLP = currentGrupo.ivaTotal;
 
     let tarifaBaseLabel = "Tarifa Base:";
     let totalClienteLabel = "Total Cliente:";
@@ -100,10 +101,9 @@ function renderSimuladorVentaDirecta() {
     }
 
     const sobreprecio = Math.max(0, totalClienteCLP - tarifaBaseCLP);
-    const ivaCalculado = totalClienteCLP - (payoutReporteCLP + costoCanalCLP);
     const payoutFinal = tarifaBaseCLP + (sobreprecio - costoCanalCLP);
     const payoutFinalUSD = moneda === 'USD' && valorDolarDia ? payoutFinal / valorDolarDia : 0;
-    const payoutFinalLabel = moneda === 'USD' ? `Payout Final Real (USD ${formatUSD(payoutFinalUSD, {includeSymbol: false})}):` : 'Payout Final Real:';
+    const payoutFinalLabel = moneda === 'USD' ? `Rentabilidad vs Tarifa Base (USD ${formatUSD(payoutFinalUSD, {includeSymbol: false})}):` : 'Rentabilidad vs Tarifa Base:';
 
     let recomendacionHtml = '';
     if (payoutFinal > tarifaBaseCLP) {
@@ -118,7 +118,7 @@ function renderSimuladorVentaDirecta() {
         recomendacionHtml = `
             <div class="p-3 bg-blue-50 border border-blue-200 rounded-md">
                 <h4 class="font-semibold text-blue-800">Potencial de Venta Directa</h4>
-                <p class="mt-2 text-sm text-blue-700">Para igualar el Payout del canal (${formatCurrency(payoutFinal)}), podrías ofrecer un descuento de hasta un <strong>${descuentoSugerido.toFixed(1)}%</strong> (equivalente a ${formatCurrency(montoAhorro)}) sobre tu Tarifa Base en una venta directa.</p>
+                <p class="mt-2 text-sm text-blue-700">Para igualar la rentabilidad del canal (${formatCurrency(payoutFinal)}), podrías ofrecer un descuento de hasta un <strong>${descuentoSugerido.toFixed(1)}%</strong> (equivalente a ${formatCurrency(montoAhorro)}) sobre tu Tarifa Base en una venta directa.</p>
             </div>`;
     }
 
@@ -134,7 +134,7 @@ function renderSimuladorVentaDirecta() {
                     <div class="flex justify-between"><dt>${payoutReporteLabel}</dt><dd class="font-medium">${formatCurrency(payoutReporteCLP)}</dd></div>
                     <div class="flex justify-between text-blue-600"><dt>(+) Ajuste por Sobreprecio:</dt><dd class="font-medium">${formatCurrency(sobreprecio)}</dd></div>
                     <div class="flex justify-between text-red-600"><dt>${costoCanalLabel}</dt><dd class="font-medium">${formatCurrency(costoCanalCLP)}</dd></div>
-                    <div class="flex justify-between text-orange-600"><dt>${ivaLabel}</dt><dd class="font-medium">${formatCurrency(ivaCalculado)}</dd></div>
+                    <div class="flex justify-between text-orange-600"><dt>${ivaLabel}</dt><dd class="font-medium">${formatCurrency(ivaCLP)}</dd></div>
                     <div class="flex justify-between border-t pt-1 mt-1"><dt class="font-semibold">${payoutFinalLabel}</dt><dd class="font-semibold text-green-700">${formatCurrency(payoutFinal)}</dd></div>
                 </dl>
             </div>
