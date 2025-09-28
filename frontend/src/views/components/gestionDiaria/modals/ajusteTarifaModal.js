@@ -60,7 +60,7 @@ function renderSimuladorVentaDirecta() {
     const payoutActual = currentGrupo.valorTotalPayout;
     const valorDeLista = currentGrupo.potencialTotal || currentGrupo.valorTotalHuesped;
 
-    const costoCanalDisplay = moneda === 'USD' 
+    const costoCanalDisplay = moneda === 'USD'
         ? `${formatCurrency(costoCanal)} (USD ${(costoCanal / (valorDolarDia || 1)).toFixed(2)} @ ${valorDolarDia})`
         : formatCurrency(costoCanal);
 
