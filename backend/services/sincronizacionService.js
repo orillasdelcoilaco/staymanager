@@ -28,16 +28,12 @@ const analizarCabeceras = async (buffer, nombreArchivo) => {
     return rows.length > 0 ? rows[0].filter(Boolean) : [];
 };
 
-const obtenerValorConMapeo = (fila, cabeceras, campoInterno, mapeosDelCanal) => {
+const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
     const mapeo = mapeosDelCanal.find(m => m.campoInterno === campoInterno);
-    if (!mapeo || typeof mapeo.columnaNombre !== 'string') {
+    if (!mapeo || typeof mapeo.columnaIndex !== 'number' || mapeo.columnaIndex < 0) {
         return undefined;
     }
-    const index = cabeceras.indexOf(mapeo.columnaNombre);
-    if (index === -1) {
-        return undefined;
-    }
-    return fila[index];
+    return fila[mapeo.columnaIndex];
 };
 
 const parsearFecha = (dateValue, formatoFecha = 'DD/MM/YYYY') => {
@@ -164,7 +160,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
     today.setUTCHours(0, 0, 0, 0);
 
     for (const [index, filaArray] of datosJson.entries()) {
-        const get = (campo) => obtenerValorConMapeo(filaArray, cabeceras, campo, mapeosDelCanal);
+        const get = (campo) => obtenerValorConMapeo(filaArray, campo, mapeosDelCanal);
         
         let idFilaParaError = `Fila ${index + 2}`;
         try {
