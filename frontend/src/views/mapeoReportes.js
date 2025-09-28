@@ -18,14 +18,11 @@ const camposInternos = [
     { id: 'correoCliente', nombre: 'Email del Cliente' },
     { id: 'telefonoCliente', nombre: 'Teléfono del Cliente' },
     { id: 'pais', nombre: 'País del Cliente' },
-    { id: 'tipoFila', nombre: 'Tipo de Fila (para ignorar filas)', descripcion: 'Selecciona la columna que identifica el tipo de fila. El sistema solo procesará las que contengan "Reservación". Ej: Columna "Tipo" en reportes de Airbnb.' },
+    { id: 'tipoFila', nombre: 'Tipo de Fila (para ignorar filas)', descripcion: 'Selecciona la columna que identifica el tipo de fila. El sistema solo procesará las que contengan "Reservación".' },
     
-    { id: 'valorHuesped', nombre: 'FINANZAS: Total Pagado por Huésped', descripcion: 'El monto final que el cliente pagó, incluyendo tarifas e impuestos. Ej: El "Precio total de la habitación" de Booking.' },
-    { id: 'valorAnfitrion', nombre: 'FINANZAS: Pago Recibido por Anfitrión (Payout)', descripcion: 'El monto neto que recibes después de comisiones/tarifas. Ej: "Total (CLP)" en Airbnb. Si no se especifica, se calculará.' },
-    { id: 'valorLista', nombre: 'FINANZAS: Valor de Lista / Subtotal', descripcion: 'El precio base antes de comisiones e impuestos, pero que puede incluir descuentos. Ej: "Importe sujeto a comisión" en Booking.' },
-    { id: 'comision', nombre: 'FINANZAS: Comisión del Canal', descripcion: 'La comisión que cobra el canal de venta.' },
-    { id: 'tarifaServicio', nombre: 'FINANZAS: Tarifa de Servicio (ej. Airbnb)', descripcion: 'Cargos adicionales del canal, como la "Tarifa por servicio" de Airbnb.' },
-    { id: 'abono', nombre: 'FINANZAS: Abono o Pago Parcial', descripcion: 'Si el reporte indica un pago parcial o abono realizado por el cliente.' },
+    { id: 'valorAnfitrion', nombre: 'FINANZAS: Pago Recibido por Anfitrión (Payout)', descripcion: 'El monto neto que recibes (ingreso bruto). Este campo es obligatorio para todos los cálculos.', requerido: true },
+    { id: 'comision', nombre: 'FINANZAS: Comisión (se suma al Payout)', descripcion: 'Usa este campo para canales (ej. Airbnb) donde el Total Cliente = Payout + Comisión. El valor de esta columna se sumará al Payout.', requerido: false },
+    { id: 'costoCanal', nombre: 'FINANZAS: Costo Canal (informativo)', descripcion: 'Usa este campo para canales (ej. Booking) donde el Payout ya es el precio de venta menos la comisión. Este valor se guarda como el costo, pero no se usa para calcular el Total Cliente.', requerido: false },
 ];
 
 function renderizarCamposMapeo() {

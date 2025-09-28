@@ -198,19 +198,24 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             }
             
             const valorAnfitrion = parsearMoneda(get('valorAnfitrion'), separadorDecimal);
-            const comision = parsearMoneda(get('comision'), separadorDecimal);
-            const tarifaServicio = parsearMoneda(get('tarifaServicio'), separadorDecimal);
-            const subtotalSinIva = valorAnfitrion + comision + tarifaServicio;
+            const comisionSumable = parsearMoneda(get('comision'), separadorDecimal);
+            const costoCanalInformativo = parsearMoneda(get('costoCanal'), separadorDecimal);
+
+            const subtotalSinIva = valorAnfitrion + comisionSumable;
             const ivaCalculado = configuracionIva === 'agregar' ? subtotalSinIva * 0.19 : 0;
             const valorHuesped = subtotalSinIva + ivaCalculado;
-
-            let valorTotalCLP = valorAnfitrion; 
+            
             let valorDolarDia = null;
-
             if (monedaCanal === 'USD') {
                 valorDolarDia = await obtenerValorDolar(db, empresaId, fechaLlegada);
-                valorTotalCLP = valorAnfitrion * valorDolarDia;
             }
+
+            const convertirACLPSIesNecesario = (monto) => {
+                if (monedaCanal === 'USD' && valorDolarDia) {
+                    return monto * valorDolarDia;
+                }
+                return monto;
+            };
 
             const totalNoches = Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24));
             const datosReserva = {
@@ -226,11 +231,10 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 moneda: monedaCanal,
                 valores: {
                     valorOriginal: valorAnfitrion,
-                    valorTotal: Math.round(valorTotalCLP),
-                    valorHuesped: Math.round((monedaCanal === 'USD') ? valorHuesped * valorDolarDia : valorHuesped),
-                    valorPotencial: 0,
-                    comision: Math.round((monedaCanal === 'USD') ? comision * valorDolarDia : comision),
-                    abono: parsearMoneda(get('abono'), separadorDecimal)
+                    valorTotal: Math.round(convertirACLPSIesNecesario(valorAnfitrion)),
+                    valorHuesped: Math.round(convertirACLPSIesNecesario(valorHuesped)),
+                    comision: Math.round(convertirACLPSIesNecesario(comisionSumable)),
+                    costoCanal: Math.round(convertirACLPSIesNecesario(costoCanalInformativo)),
                 },
                 valorDolarDia: valorDolarDia,
                 requiereActualizacionDolar: monedaCanal === 'USD' && fechaLlegada > today
