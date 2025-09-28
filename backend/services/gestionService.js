@@ -56,6 +56,7 @@ const getReservasPendientes = async (db, empresaId) => {
                     reservasIndividuales: [],
                     valorTotalHuesped: 0,
                     valorTotalPayout: 0,
+                    payoutFinalReal: 0,
                     costoCanal: 0,
                     abonoTotal: 0,
                     potencialTotal: 0, 
@@ -84,9 +85,17 @@ const getReservasPendientes = async (db, empresaId) => {
                 valores: data.valores,
                 valorListaBase: valorListaBase
             });
+            
+            let tarifaBaseCLP = valorListaBase;
+            if(data.moneda === 'USD' && data.valorDolarDia) {
+                tarifaBaseCLP = valorListaBase * data.valorDolarDia;
+            }
+            const sobreprecio = Math.max(0, valorHuesped - tarifaBaseCLP);
+            const payoutFinalCalculado = tarifaBaseCLP + (sobreprecio - comisionReal);
 
             grupo.valorTotalHuesped += valorHuesped;
             grupo.valorTotalPayout += valorPayout;
+            grupo.payoutFinalReal += payoutFinalCalculado;
             grupo.costoCanal += comisionReal;
             grupo.abonoTotal += data.valores?.abono || 0;
             grupo.valorListaBaseTotal += valorListaBase;

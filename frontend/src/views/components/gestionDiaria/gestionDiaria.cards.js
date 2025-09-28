@@ -57,7 +57,7 @@ function createGrupoCard(grupo) {
         <div class="border-t mt-4 pt-3 flex flex-col md:flex-row justify-between items-center text-sm">
              <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 font-semibold w-full md:w-2/3">
                 <div class="col-span-full text-base flex justify-between">
-                    <span><span class="text-gray-500 font-medium">Payout:</span> ${formatCurrency(grupo.valorTotalPayout)}</span>
+                    <span><span class="text-gray-500 font-medium">Payout Final:</span> ${formatCurrency(grupo.payoutFinalReal)}</span>
                     <span class="text-orange-600" title="Costo del Canal (Comisiones + Tarifas)"><span class="text-gray-500 font-medium">Costo Canal:</span> ${formatCurrency(grupo.costoCanal)}</span>
                 </div>
                 <div class="text-right border-t pt-2 font-bold text-lg"><span class="text-gray-500 font-medium">Total Cliente:</span> ${formatCurrency(grupo.valorTotalHuesped)}</div>

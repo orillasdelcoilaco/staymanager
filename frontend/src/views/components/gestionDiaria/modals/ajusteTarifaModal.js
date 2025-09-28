@@ -72,11 +72,13 @@ function renderSimuladorVentaDirecta() {
     let tarifaBaseCLP = currentGrupo.valorListaBaseTotal;
     let costoCanalCLP = currentGrupo.costoCanal;
     let totalClienteCLP = currentGrupo.valorTotalHuesped;
+    let payoutReporteCLP = currentGrupo.valorTotalPayout;
 
     let tarifaBaseLabel = "Tarifa Base:";
     let totalClienteLabel = "Total Cliente:";
     let costoCanalLabel = "(-) Costos Fijos del Canal:";
     let ivaLabel = "(+) IVA (19%):";
+    let payoutReporteLabel = "Payout (según reporte):";
     let dolarInfoHtml = '';
     
     if (moneda === 'USD' && valorDolarDia) {
@@ -92,14 +94,16 @@ function renderSimuladorVentaDirecta() {
 
         const costoCanalUSD = costoCanalCLP / valorDolarDia;
         costoCanalLabel = `(-) Costos Fijos del Canal (USD ${formatUSD(costoCanalUSD, { includeSymbol: false })}):`;
+        
+        const payoutReporteUSD = payoutReporteCLP / valorDolarDia;
+        payoutReporteLabel = `Payout (según reporte) (USD ${formatUSD(payoutReporteUSD, { includeSymbol: false })}):`;
     }
 
     const sobreprecio = Math.max(0, totalClienteCLP - tarifaBaseCLP);
-    const ivaCalculado = totalClienteCLP - (currentGrupo.valorTotalPayout + currentGrupo.costoCanal);
+    const ivaCalculado = totalClienteCLP - (payoutReporteCLP + costoCanalCLP);
     const payoutFinal = tarifaBaseCLP + (sobreprecio - costoCanalCLP);
     const payoutFinalUSD = moneda === 'USD' && valorDolarDia ? payoutFinal / valorDolarDia : 0;
-    const payoutFinalLabel = moneda === 'USD' ? `Payout Final (USD ${formatUSD(payoutFinalUSD, {includeSymbol: false})}):` : 'Payout Final Real:';
-
+    const payoutFinalLabel = moneda === 'USD' ? `Payout Final Real (USD ${formatUSD(payoutFinalUSD, {includeSymbol: false})}):` : 'Payout Final Real:';
 
     let recomendacionHtml = '';
     if (payoutFinal > tarifaBaseCLP) {
@@ -127,6 +131,7 @@ function renderSimuladorVentaDirecta() {
                 <dl class="mt-2 text-sm space-y-1">
                     <div class="flex justify-between text-gray-500"><dt>${totalClienteLabel}</dt><dd class="font-medium">${formatCurrency(totalClienteCLP)}</dd></div>
                     <div class="flex justify-between"><dt>${tarifaBaseLabel}</dt><dd class="font-medium">${formatCurrency(tarifaBaseCLP)}</dd></div>
+                    <div class="flex justify-between"><dt>${payoutReporteLabel}</dt><dd class="font-medium">${formatCurrency(payoutReporteCLP)}</dd></div>
                     <div class="flex justify-between text-blue-600"><dt>(+) Ajuste por Sobreprecio:</dt><dd class="font-medium">${formatCurrency(sobreprecio)}</dd></div>
                     <div class="flex justify-between text-red-600"><dt>${costoCanalLabel}</dt><dd class="font-medium">${formatCurrency(costoCanalCLP)}</dd></div>
                     <div class="flex justify-between text-orange-600"><dt>${ivaLabel}</dt><dd class="font-medium">${formatCurrency(ivaCalculado)}</dd></div>
