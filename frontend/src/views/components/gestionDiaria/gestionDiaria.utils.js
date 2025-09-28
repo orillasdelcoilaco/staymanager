@@ -1,6 +1,13 @@
 export function formatCurrency(value) { return `$${(Math.round(value) || 0).toLocaleString('es-CL')}`; }
 export function formatDate(dateString) { return dateString ? new Date(dateString).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : 'N/A'; }
 
+export function formatUSD(value) {
+    if (value === 0) {
+        return '$0';
+    }
+    return `$${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+}
+
 export function getStatusInfo(status) {
     switch (status) {
         case 'Pendiente Bienvenida': return { level: 1, text: 'PENDIENTE BIENVENIDA', color: 'bg-yellow-500' };

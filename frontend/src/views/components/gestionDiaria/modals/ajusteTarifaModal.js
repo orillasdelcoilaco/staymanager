@@ -1,5 +1,5 @@
 import { fetchAPI } from '../../../../api.js';
-import { formatCurrency } from '../gestionDiaria.utils.js';
+import { formatCurrency, formatUSD } from '../gestionDiaria.utils.js';
 
 let currentGrupo = null;
 let onActionComplete = () => {};
@@ -73,16 +73,27 @@ function renderSimuladorVentaDirecta() {
     let costoCanalCLP = currentGrupo.costoCanal;
     let totalClienteCLP = currentGrupo.valorTotalHuesped;
 
+    let tarifaBaseLabel = "Tarifa Base (de tus Tarifas):";
+    let totalClienteLabel = "Total Cliente (Reportado):";
+    let costoCanalLabel = "(-) Costos Fijos del Canal:";
+    
     let tarifaBaseDisplay = formatCurrency(tarifaBaseCLP);
+    let totalClienteDisplay = formatCurrency(totalClienteCLP);
     let costoCanalDisplay = formatCurrency(costoCanalCLP);
 
     if (moneda === 'USD' && valorDolarDia) {
+        tarifaBaseLabel = "Tarifa Base (USD):";
         const tarifaBaseUSD = currentGrupo.valorListaBaseTotal;
         tarifaBaseCLP = tarifaBaseUSD * valorDolarDia;
-        tarifaBaseDisplay = `${tarifaBaseUSD.toLocaleString('en-US', {style: 'currency', currency: 'USD'})} (${formatCurrency(tarifaBaseCLP)})`;
+        tarifaBaseDisplay = `${formatUSD(tarifaBaseUSD)} (${formatCurrency(tarifaBaseCLP)})`;
         
+        totalClienteLabel = "Total Cliente (USD):";
+        const totalClienteUSD = totalClienteCLP / valorDolarDia;
+        totalClienteDisplay = `${formatUSD(totalClienteUSD)} (${formatCurrency(totalClienteCLP)})`;
+
+        costoCanalLabel = "(-) Costos Fijos del Canal (USD):";
         const costoCanalUSD = costoCanalCLP / valorDolarDia;
-        costoCanalDisplay = `${costoCanalUSD.toLocaleString('en-US', {style: 'currency', currency: 'USD'})} (${formatCurrency(costoCanalCLP)})`;
+        costoCanalDisplay = `${formatUSD(costoCanalUSD)} (${formatCurrency(costoCanalCLP)})`;
     }
 
     const sobreprecio = Math.max(0, totalClienteCLP - tarifaBaseCLP);
@@ -111,9 +122,10 @@ function renderSimuladorVentaDirecta() {
             <div class="p-3 bg-gray-50 border rounded-md">
                 <h4 class="font-semibold text-gray-800">Rentabilidad de la Reserva Actual</h4>
                 <dl class="mt-2 text-sm space-y-1">
-                    <div class="flex justify-between"><dt class="text-gray-600">Tarifa Base (de tus Tarifas):</dt><dd class="font-medium">${tarifaBaseDisplay}</dd></div>
+                    <div class="flex justify-between"><dt class="text-gray-600">${tarifaBaseLabel}</dt><dd class="font-medium">${tarifaBaseDisplay}</dd></div>
+                    <div class="flex justify-between"><dt class="text-gray-600">${totalClienteLabel}</dt><dd class="font-medium">${totalClienteDisplay}</dd></div>
                     <div class="flex justify-between text-blue-600"><dt>(+) Ajuste por Sobreprecio:</dt><dd class="font-medium">${formatCurrency(sobreprecio)}</dd></div>
-                    <div class="flex justify-between text-red-600"><dt>(-) Costos Fijos del Canal:</dt><dd class="font-medium">${costoCanalDisplay}</dd></div>
+                    <div class="flex justify-between text-red-600"><dt>${costoCanalLabel}</dt><dd class="font-medium">${costoCanalDisplay}</dd></div>
                     <div class="flex justify-between border-t pt-1 mt-1"><dt class="font-semibold">Payout Final Real:</dt><dd class="font-semibold text-green-700">${formatCurrency(payoutFinal)}</dd></div>
                 </dl>
             </div>
