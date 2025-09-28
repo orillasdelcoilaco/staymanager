@@ -2,7 +2,6 @@ const admin = require('firebase-admin');
 const { obtenerValorDolar } = require('./dolarService');
 const { deleteFileByUrl } = require('./storageService'); 
 
-// ... (El resto de las funciones como crearOActualizarReserva, etc., no cambian)
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
     const q = reservasRef.where('idReservaCanal', '==', datosReserva.idReservaCanal);
@@ -156,14 +155,14 @@ const eliminarReserva = async (db, empresaId, reservaId) => {
 const actualizarValoresGrupo = async (db, empresaId, valoresCabanas, nuevoTotalHuesped) => {
     const batch = db.batch();
     
-    let totalHuespedActual = 0;
     const docs = await Promise.all(valoresCabanas.map(item => 
         db.collection('empresas').doc(empresaId).collection('reservas').doc(item.id).get()
     ));
 
+    let totalHuespedActual = 0;
     docs.forEach(doc => {
         if (doc.exists) {
-            totalHuespedActual += doc.data().valores.valorHuesped || doc.data().valores.valorTotal || 0;
+            totalHuespedActual += doc.data().valores.valorHuesped || 0;
         }
     });
 
@@ -175,16 +174,14 @@ const actualizarValoresGrupo = async (db, empresaId, valoresCabanas, nuevoTotalH
         if (doc.exists) {
             const reserva = doc.data();
             const nuevosValores = { ...reserva.valores };
-            
-            nuevosValores.valorHuesped = Math.round((reserva.valores.valorHuesped || reserva.valores.valorTotal || 0) * proporcion);
-            nuevosValores.valorTotal = Math.round(reserva.valores.valorTotal * proporcion);
-            nuevosValores.valorPotencial = Math.round(reserva.valores.valorPotencial * proporcion);
-            nuevosValores.comision = Math.round(reserva.valores.comision * proporcion);
+            const valorHuespedOriginal = nuevosValores.valorHuesped;
+
+            nuevosValores.valorHuesped = Math.round(valorHuespedOriginal * proporcion);
+            nuevosValores.valorHuespedOriginal = valorHuespedOriginal;
 
             batch.update(doc.ref, { 
                 'valores': nuevosValores,
                 'edicionesManuales.valores.valorHuesped': true,
-                'edicionesManuales.valores.valorTotal': true,
             });
         }
     });
@@ -192,45 +189,24 @@ const actualizarValoresGrupo = async (db, empresaId, valoresCabanas, nuevoTotalH
     await batch.commit();
 };
 
-const ajustarPayoutGrupo = async (db, empresaId, idsIndividuales, descuentoManualPct) => {
+const calcularPotencialGrupo = async (db, empresaId, idsIndividuales, descuento) => {
     const batch = db.batch();
-    const descuentoDecimal = parseFloat(descuentoManualPct) / 100;
-
     for (const id of idsIndividuales) {
         const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);
         const doc = await ref.get();
-        if (doc.exists) {
-            const reserva = doc.data();
-            const { valores, moneda, valorDolarDia } = reserva;
-            const valorDeLista = valores.valorDeLista || valores.valorPotencial || valores.valorHuesped || 0;
-
-            if (valorDeLista === 0) continue;
-
-            const descuentoManualMonto = Math.round(valorDeLista * descuentoDecimal);
-            
-            let costosCanalEnCLP = 0;
-            const comision = valores.comision || 0;
-            
-            if (moneda === 'USD') {
-                costosCanalEnCLP = Math.round(comision * (valorDolarDia || 1));
-            } else {
-                costosCanalEnCLP = comision;
+        if(doc.exists) {
+            const valorHuesped = doc.data().valores.valorHuesped || 0;
+            if (valorHuesped > 0 && descuento > 0 && descuento < 100) {
+                const valorPotencial = Math.round(valorHuesped / (1 - (parseFloat(descuento) / 100)));
+                batch.update(ref, { 
+                    'valores.valorPotencial': valorPotencial,
+                    'edicionesManuales.valores.valorPotencial': true 
+                });
             }
-
-            const nuevoPayout = valorDeLista - costosCanalEnCLP - descuentoManualMonto;
-
-            batch.update(ref, {
-                'valores.valorTotal': nuevoPayout,
-                'valores.descuentoManualPct': parseFloat(descuentoManualPct),
-                'valores.descuentoManualMonto': descuentoManualMonto,
-                'edicionesManuales.valores.valorTotal': true,
-                'edicionesManuales.valores.descuentoManualPct': true,
-            });
         }
     }
     await batch.commit();
 };
-
 
 const registrarPago = async (db, empresaId, detalles) => {
     const { idsIndividuales, monto, medioDePago, esPagoFinal, enlaceComprobante, reservaIdOriginal } = detalles;
@@ -322,7 +298,7 @@ module.exports = {
     actualizarReservaManualmente,
     eliminarReserva,
     actualizarValoresGrupo,
-    ajustarPayoutGrupo,
+    calcularPotencialGrupo,
     registrarPago,
     eliminarPago,
     actualizarDocumentoReserva,

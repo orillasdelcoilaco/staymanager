@@ -8,19 +8,16 @@ function getTodayUTC() {
 }
 
 const getReservasPendientes = async (db, empresaId) => {
-    const [clientesSnapshot, reservasSnapshot, notasSnapshot, transaccionesSnapshot] = await Promise.all([
+    const [clientesSnapshot, reservasSnapshot, notasSnapshot, transaccionesSnapshot, tarifasSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('clientes').get(),
-        db.collection('empresas').doc(empresaId).collection('reservas')
-            .where('estado', '==', 'Confirmada')
-            .get(),
+        db.collection('empresas').doc(empresaId).collection('reservas').where('estado', '==', 'Confirmada').get(),
         db.collection('empresas').doc(empresaId).collection('gestionNotas').get(),
-        db.collection('empresas').doc(empresaId).collection('transacciones').get()
+        db.collection('empresas').doc(empresaId).collection('transacciones').get(),
+        db.collection('empresas').doc(empresaId).collection('tarifas').get()
     ]);
 
     const clientsMap = new Map();
-    clientesSnapshot.forEach(doc => {
-        clientsMap.set(doc.id, doc.data());
-    });
+    clientesSnapshot.forEach(doc => clientsMap.set(doc.id, doc.data()));
     
     const notesCountMap = new Map();
     notasSnapshot.forEach(doc => {
@@ -36,9 +33,10 @@ const getReservasPendientes = async (db, empresaId) => {
         transaccionesCountMap.set(id, (transaccionesCountMap.get(id) || 0) + 1);
     });
 
+    const tarifas = tarifasSnapshot.docs.map(doc => doc.data());
     const reservasAgrupadas = new Map();
 
-    reservasSnapshot.docs.forEach(doc => {
+    for (const doc of reservasSnapshot.docs) {
         const data = doc.data();
         if (data.estadoGestion !== 'Facturado') {
             const reservaId = data.idReservaCanal;
@@ -60,7 +58,8 @@ const getReservasPendientes = async (db, empresaId) => {
                     valorTotalPayout: 0,
                     costoCanal: 0,
                     abonoTotal: 0,
-                    potencialTotal: 0,
+                    potencialTotal: 0, 
+                    valorListaBaseTotal: 0,
                     potencialCalculado: false,
                     notasCount: notesCountMap.get(reservaId) || 0,
                     transaccionesCount: transaccionesCountMap.get(reservaId) || 0
@@ -68,26 +67,31 @@ const getReservasPendientes = async (db, empresaId) => {
             }
 
             const grupo = reservasAgrupadas.get(reservaId);
-            const valorHuesped = data.valores?.valorHuesped || data.valores?.valorTotal || 0;
+            const valorHuesped = data.valores?.valorHuesped || 0;
             const valorPayout = data.valores?.valorTotal || 0;
             
+            const fechaLlegadaDate = (data.fechaLlegada && typeof data.fechaLlegada.toDate === 'function') ? data.fechaLlegada.toDate() : new Date();
+            const tarifaAplicable = await obtenerTarifaParaFecha(db, empresaId, data.alojamientoId, data.canalId, fechaLlegadaDate);
+            const valorListaBase = tarifaAplicable ? tarifaAplicable.valor : 0;
+
             grupo.reservasIndividuales.push({
                 id: doc.id,
                 alojamientoNombre: data.alojamientoNombre,
                 canalNombre: data.canalNombre,
                 moneda: data.moneda,
                 valorDolarDia: data.valorDolarDia,
-                valores: data.valores
+                valores: data.valores,
+                valorListaBase: valorListaBase
             });
 
             grupo.valorTotalHuesped += valorHuesped;
             grupo.valorTotalPayout += valorPayout;
             grupo.costoCanal += (valorHuesped - valorPayout);
             grupo.abonoTotal += data.valores?.abono || 0;
+            grupo.valorListaBaseTotal += valorListaBase;
             
-            const valorDeLista = data.valores?.valorDeLista || data.valores?.valorPotencial || 0;
-            if (valorDeLista > 0) {
-                grupo.potencialTotal += valorDeLista;
+            if (data.valores?.valorPotencial && data.valores.valorPotencial > 0) {
+                grupo.potencialTotal += data.valores.valorPotencial;
                 grupo.potencialCalculado = true;
             }
 
@@ -95,7 +99,7 @@ const getReservasPendientes = async (db, empresaId) => {
                  grupo.documentos = {...grupo.documentos, ...data.documentos};
             }
         }
-    });
+    }
 
     const reservas = Array.from(reservasAgrupadas.values());
     const today = getTodayUTC();
