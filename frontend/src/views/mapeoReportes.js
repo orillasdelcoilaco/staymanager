@@ -25,7 +25,6 @@ const camposInternos = [
     { id: 'valorLista', nombre: 'FINANZAS: Valor de Lista / Subtotal', descripcion: 'El precio base antes de comisiones e impuestos, pero que puede incluir descuentos. Ej: "Importe sujeto a comisión" en Booking.' },
     { id: 'comision', nombre: 'FINANZAS: Comisión del Canal', descripcion: 'La comisión que cobra el canal de venta.' },
     { id: 'tarifaServicio', nombre: 'FINANZAS: Tarifa de Servicio (ej. Airbnb)', descripcion: 'Cargos adicionales del canal, como la "Tarifa por servicio" de Airbnb.' },
-    { id: 'impuestos', nombre: 'FINANZAS: Impuestos (ej. IVA)', descripcion: 'El monto de impuestos incluido en el total, si el reporte lo desglosa.' },
     { id: 'abono', nombre: 'FINANZAS: Abono o Pago Parcial', descripcion: 'Si el reporte indica un pago parcial o abono realizado por el cliente.' },
 ];
 
@@ -104,7 +103,8 @@ function abrirModal(canal) {
     document.getElementById('archivo-muestra-input').value = '';
     
     document.getElementById('formato-fecha-select').value = canal.formatoFecha || 'DD/MM/YYYY';
-    document.getElementById('separador-decimal-select').value = canal.separadorDecimal || ','; // <-- AÑADIDO
+    document.getElementById('separador-decimal-select').value = canal.separadorDecimal || ',';
+    document.getElementById('configuracion-iva-select').value = canal.configuracionIva || 'incluido';
 
     modal.classList.remove('hidden');
 }
@@ -180,6 +180,13 @@ export async function render() {
                         <p class="text-xs text-gray-500 mb-4">Selecciona qué columna de tu archivo corresponde a cada campo del sistema.</p>
                         <div id="mapeo-fields-container" class="space-y-3 max-h-[40vh] overflow-y-auto pr-4"></div>
                     </div>
+                    <div class="border-t pt-4">
+                        <label for="configuracion-iva-select" class="block text-sm font-medium text-gray-700">5. Configuración de IVA</label>
+                        <select id="configuracion-iva-select" class="mt-1 form-select w-full">
+                            <option value="incluido">IVA ya está incluido en los montos</option>
+                            <option value="agregar">Agregar 19% de IVA al total</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="flex justify-end pt-6 mt-6 border-t">
                     <button type="button" id="cancel-btn" class="btn-secondary">Cancelar</button>
@@ -220,7 +227,8 @@ export function afterRender() {
         });
         
         const formatoFecha = document.getElementById('formato-fecha-select').value;
-        const separadorDecimal = document.getElementById('separador-decimal-select').value; // <-- AÑADIDO
+        const separadorDecimal = document.getElementById('separador-decimal-select').value;
+        const configuracionIva = document.getElementById('configuracion-iva-select').value;
 
         try {
             await fetchAPI(`/mapeos/${canalSiendoEditado.id}`, {
@@ -228,7 +236,8 @@ export function afterRender() {
                 body: { 
                     mapeos: mapeosParaGuardar,
                     formatoFecha: formatoFecha,
-                    separadorDecimal: separadorDecimal // <-- AÑADIDO
+                    separadorDecimal: separadorDecimal,
+                    configuracionIva: configuracionIva
                 }
             });
             alert(`Configuración para "${canalSiendoEditado.nombre}" guardada con éxito.`);
