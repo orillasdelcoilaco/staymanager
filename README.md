@@ -236,3 +236,208 @@ El plan de desarrollo inicial se ha completado con éxito. Los próximos pasos s
 - **Dashboard y KPIs:** Implementar un panel de control con indicadores clave de rendimiento (KPIs) como tasa de ocupación, ADR (Average Daily Rate), RevPAR (Revenue Per Available Room), etc.
 - **Generador de Presupuestos:** Crear una herramienta para generar cotizaciones y propuestas de reserva de forma rápida.
 - **Sincronización iCal:** Implementar la exportación de calendarios en formato iCal para sincronizar la disponibilidad con plataformas externas.
+
+# SuiteManager: Plan de Desarrollo y Arquitectura
+Última actualización: 27 de Septiembre de 2025
+
+## 1. Resumen Ejecutivo
+SuiteManager es una aplicación web de Software como Servicio (SaaS) diseñada para la gestión integral y multi-empresa de propiedades de arriendo a corto plazo. El sistema centraliza la operación, automatiza flujos de trabajo y proporciona herramientas de auditoría y gestión, permitiendo a cada empresa cliente administrar sus propiedades, clientes y reservas de forma aislada y segura.
+
+Construido sobre una arquitectura moderna que separa un backend robusto (Node.js/Express) de un frontend modular (JavaScript Vainilla - SPA), SuiteManager está diseñado para ser escalable, mantenible y ofrecer una experiencia de usuario fluida y eficiente.
+
+## 2. Estado Actual: Plataforma Operativa y Modular
+El proyecto ha superado la fase de desarrollo inicial y se encuentra en un estado funcionalmente completo y estable. Las principales funcionalidades operativas han sido implementadas y probadas, y la arquitectura del frontend ha sido refactorizada hacia un modelo de componentes modulares para garantizar la escalabilidad y facilidad de mantenimiento a largo plazo.
+
+### Funcionalidades Clave Implementadas:
+✅ **Arquitectura Multi-Empresa:** El sistema soporta múltiples empresas, aislando completamente los datos (reservas, clientes, propiedades) de cada una.
+✅ **Gestión de Usuarios:** Cada empresa puede gestionar sus propios usuarios administradores, incluyendo la creación y eliminación de cuentas.
+✅ **Panel de Gestión Diaria:** Un "To-Do List" inteligente que prioriza reservas según su urgencia y guía al usuario a través de un flujo de estados (Bienvenida, Cobro, Pago, Boleta).
+✅ **Sincronización de Reportes:** Módulo para procesar y consolidar reportes de reservas de diferentes canales (SODC, Booking, Airbnb, etc.), con un motor de cálculo financiero para estandarizar los ingresos.
+✅ **CRM y Gestión de Clientes:** Base de datos de clientes centralizada con perfiles detallados e historial de reservas.
+✅ **Integración con Google Contacts:** Sincronización automática de nuevos clientes con la cuenta de Google de la empresa.
+✅ **Gestión de Propiedades, Canales y Tarifas:** Módulos completos para configurar los activos y la lógica de negocio de cada empresa.
+✅ **Auditoría de Cargas:** Cada reserva está vinculada al reporte de origen, permitiendo un seguimiento y borrado masivo de cargas.
+
+## 3. Arquitectura Técnica
+
+### Backend (Node.js + Express)
+Actúa como el cerebro de la aplicación, gestionando la lógica de negocio, la seguridad (autenticación y autorización por empresa) y la comunicación con la base de datos. Su estructura es modular:
+- **`routes/`**: Define los endpoints de la API.
+- **`services/`**: Contiene la lógica de negocio pura, aislada de las rutas.
+- **`middleware/`**: Protege las rutas, asegurando que un usuario solo pueda acceder a los datos de su propia empresa.
+
+#### Modularización de Servicios
+Siguiendo la misma filosofía del frontend, los servicios del backend se están refactorizando en módulos con responsabilidades únicas. Por ejemplo, la lógica de negocio para la "Gestión Diaria" se divide en:
+- **`gestionDiariaService.js`**: Orquesta la obtención de datos para la vista principal.
+- **`bitacoraService.js`**: Maneja exclusivamente la lógica de la bitácora de notas.
+- **`analisisFinancieroService.js`**: Contiene la lógica para los cálculos de rentabilidad y costos de canal.
+- **`transaccionesService.js`**: Gestiona la obtención de transacciones y pagos.
+
+Esta separación mejora la mantenibilidad y reduce la complejidad de cada archivo individual.
+
+### Frontend (JavaScript Vainilla - SPA Modular)
+Es la interfaz con la que interactúa el usuario. Sigue una arquitectura de componentes modulares para mejorar la manenibilidad.
+- **`router.js`**: El punto de entrada que gestiona las URLs y carga las vistas principales.
+- **`views/`**: Contiene los archivos principales de cada "página" o vista (ej. `gestionDiaria.js`). Estos archivos actúan como **orquestadores**.
+- **`views/components/`**: Esta carpeta contiene subcarpetas para componentes reutilizables específicos de una vista. Por ejemplo, `gestionDiaria/` contiene:
+    - **`gestionDiaria.cards.js`**: Módulo responsable únicamente de renderizar las "tarjetas" de reserva.
+    - **`gestionDiaria.modals.js`**: Módulo que actúa como "controlador" para todos los modales de esa vista.
+    - **`gestionDiaria.utils.js`**: Módulo con funciones de ayuda específicas para esa vista.
+
+### Base de Datos (Cloud Firestore)
+La arquitectura multi-empresa es el núcleo del diseño de la base de datos:
+`empresas/{empresaId}`
+- `users/`
+
+SuiteManager: Plan de Desarrollo y Arquitectura
+Última actualización: 26 de Septiembre de 2025
+
+1. Resumen Ejecutivo
+SuiteManager es una aplicación web de Software como Servicio (SaaS) diseñada para la gestión integral y multi-empresa de propiedades de arriendo a corto plazo. El sistema centraliza la operación, automatiza flujos de trabajo y proporciona herramientas de auditoría y gestión, permitiendo a cada empresa cliente administrar sus propiedades, clientes y reservas de forma aislada y segura.
+
+Construido sobre una arquitectura moderna que separa un backend robusto (Node.js/Express) de un frontend modular (JavaScript Vainilla - SPA), SuiteManager está diseñado para ser escalable, mantenible y ofrecer una experiencia de usuario fluida y eficiente.
+
+2. Estado Actual: Plataforma Operativa y Modular
+El proyecto ha superado la fase de desarrollo inicial y se encuentra en un estado funcionalmente completo y estable. Las principales funcionalidades operativas han sido implementadas y probadas, y la arquitectura del frontend ha sido refactorizada hacia un modelo de componentes modulares para garantizar la escalabilidad y facilidad de mantenimiento a largo plazo.
+
+Funcionalidades Clave Implementadas:
+✅ Arquitectura Multi-Empresa: El sistema soporta múltiples empresas, aislando completamente los datos (reservas, clientes, propiedades) de cada una.
+✅ Gestión de Usuarios: Cada empresa puede gestionar sus propios usuarios administradores, incluyendo la creación y eliminación de cuentas.
+✅ Panel de Gestión Diaria: Un "To-Do List" inteligente que prioriza reservas según su urgencia y guía al usuario a través de un flujo de estados (Bienvenida, Cobro, Pago, Boleta).
+✅ Sincronización de Reportes: Módulo para procesar y consolidar reportes de reservas de diferentes canales (SODC, Booking, Airbnb, etc.).
+✅ CRM y Gestión de Clientes: Base de datos de clientes centralizada con perfiles detallados e historial de reservas.
+✅ Integración con Google Contacts: Sincronización automática de nuevos clientes con la cuenta de Google de la empresa, incluyendo herramientas de verificación y reparación masiva.
+✅ Gestión de Propiedades, Canales y Tarifas: Módulos completos para configurar los activos y la lógica de negocio de cada empresa.
+✅ Auditoría de Cargas: Cada reserva está vinculada al reporte de origen, permitiendo un seguimiento y auditoría precisos.
+
+3. Arquitectura Técnica
+Backend (Node.js + Express)
+Actúa como el cerebro de la aplicación, gestionando la lógica de negocio, la seguridad (autenticación y autorización por empresa) y la comunicación con la base de datos. Su estructura es modular:
+
+routes/: Define los endpoints de la API.
+
+services/: Contiene la lógica de negocio pura, aislada de las rutas.
+
+middleware/: Protege las rutas, asegurando que un usuario solo pueda acceder a los datos de su propia empresa.
+
+Frontend (JavaScript Vainilla - SPA Modular)
+Es la interfaz con la que interactúa el usuario. Tras una importante refactorización, ahora sigue una arquitectura de componentes modulares para mejorar la manenibilidad.
+
+router.js: El punto de entrada que gestiona las URLs y carga las vistas principales.
+
+views/: Contiene los archivos principales de cada "página" o vista (ej. gestionDiaria.js, gestionarClientes.js). Estos archivos actúan como orquestadores.
+
+views/components/: (Nueva Arquitectura) Esta carpeta contiene subcarpetas para componentes reutilizables específicos de una vista. Por ejemplo, gestionDiaria/ contiene:
+
+gestionDiaria.cards.js: Módulo responsable únicamente de renderizar las "tarjetas" de reserva.
+
+gestionDiaria.modals.js: Módulo que actúa como "controlador" para todos los modales de esa vista.
+
+gestionDiaria.utils.js: Módulo con funciones de ayuda específicas para esa vista.
+
+Esta separación de responsabilidades nos permite modificar o añadir funcionalidades a una parte específica (ej. un modal) sin afectar el resto de la aplicación.
+
+Base de Datos (Cloud Firestore)
+La arquitectura multi-empresa es el núcleo del diseño de la base de datos:
+empresas/ (colección)
+└── {empresaId}/ (documento)
+├── nombre: "Nombre de la Empresa"
+│
+├── users/ (sub-colección de usuarios)
+├── clientes/ (sub-colección de clientes)
+├── reservas/ (sub-colección de reservas)
+├── propiedades/ (sub-colección de propiedades)
+└── historialCargas/ (sub-colección para auditoría)
+
+Nota de Arquitectura - 28 de Septiembre de 2025
+Estado Actual del Código
+El sistema financiero actual opera con un conjunto de variables consolidadas en el panel de "Gestión Diaria". El valorTotalHuesped funciona como el monto principal de cara al cliente, y el valorTotalPayout como el ingreso neto para el anfitrión. La herramienta "Ajustar Tarifa" permite modificar estos valores, pero la lógica necesita ser refinada para separar claramente la gestión de cobros de los análisis de rentabilidad (KPIs).
+
+Definiciones Financieras Acordadas
+Para mejorar la claridad y la toma de decisiones, se establecen las siguientes definiciones para las variables financieras clave:
+
+FINANZAS: Total Pagado por Huésped:
+
+Definición: Es el monto principal y de cara al cliente. Sobre este valor se calculan los abonos, saldos y la facturación.
+
+Modificable: Sí, a través de la pestaña "Ajustar Cobro" en Gestión Diaria, lo que permite flexibilidad en la negociación.
+
+FINANZAS: Valor de Lista / Subtotal:
+
+Definición: Es el precio base de la reserva, extraído de la configuración de "Tarifas" para la fecha y propiedad correspondientes.
+
+Modificable: No. Se guarda como un antecedente inmutable en la reserva para garantizar la consistencia en los cálculos de KPIs.
+
+FINANZAS: Descuento Manual (%):
+
+Definición: Un porcentaje de descuento (ej. Genius, oferta de última hora) que se aplica manualmente en la pestaña "Ajustar Payout (KPI)" para justificar por qué el Payout final es menor que el Valor de Lista.
+
+Propósito: Auditoría y análisis de rentabilidad.
+
+FINANZAS: Pago Recibido por Anfitrión (Payout):
+
+Definición: El KPI de rentabilidad final.
+
+Fórmula de Cálculo: Payout = Valor de Lista - (Costos del Canal + Monto del Descuento Manual).
+
+Importante: Todos los cálculos deben ser conscientes de la moneda del canal y usar el valorDolarDia para convertir a CLP cuando sea necesario.
+
+FINANZAS: Comisión del Canal y FINANZAS: Tarifa de Servicio:
+
+Definición: Representan los costos directos de operar a través de un canal de venta.
+
+FINANZAS: Impuestos (ej. IVA):
+
+Definición: Un impuesto que se calcula a partir del Total Pagado por Huésped. El porcentaje será configurable a nivel de empresa.
+
+FINANZAS: Abono o Pago Parcial:
+
+Definición: Representa los pagos parciales registrados en "Gestionar Pagos". La suma de estos se resta del Total Pagado por Huésped para obtener el saldo.
+
+Modificaciones Acordadas en "Ajuste de Tarifa"
+El modal "Ajuste de Tarifa" en Gestión Diaria será reestructurado con tres pestañas:
+
+Ajustar Payout (KPI): (Anteriormente "Calcular Potencial")
+
+Permitirá al usuario ingresar un Descuento Manual (%) para registrar descuentos no reflejados en el reporte y recalcular el Payout real de la reserva. Esta acción afecta los KPIs internos, no el cobro al cliente.
+
+Ajustar Cobro:
+
+Mantiene su funcionalidad actual. Permite modificar el Total Pagado por Huésped, afectando directamente el monto a cobrar y facturar.
+
+Simulador Venta Directa (Nueva):
+
+Una herramienta de solo lectura para análisis estratégico.
+
+Mostrará un desglose claro de la rentabilidad de la reserva actual (considerando moneda y valorDolarDia).
+
+Sugerirá el descuento máximo que se podría ofrecer en una venta directa para seguir siendo más rentable que el canal original.
+
+4. Hoja de Ruta del Desarrollo
+El plan de desarrollo inicial se ha completado con éxito. Los próximos pasos se centrarán en enriquecer la plataforma con herramientas de análisis y mejorar la experiencia del usuario.
+
+Bloques de Desarrollo
+Bloque 0: Reinicio y Base Sólida - ✅ Completado
+
+Bloque 1: Autenticación y Arquitectura SPA - ✅ Completado
+
+Bloque 2: Gestión de Propiedades - ✅ Completado
+
+Bloque 3: Gestión de Clientes (CRM) - ✅ Completado
+
+Bloque 4: Creación y Gestión de Reservas - ✅ Completado
+
+Bloque 5: Gestión Operativa Diaria - ✅ Completado
+
+Bloque 6: Calendario de Ocupación - ✅ Completado
+
+Bloque 7: Sincronización y Auditoría de Datos - ✅ Completado
+
+Bloque 8: Gestión de Usuarios y Empresa - ✅ Completado
+
+Próximos Pasos
+Dashboard y KPIs: Implementar un panel de control con indicadores clave de rendimiento (KPIs) como tasa de ocupación, ADR (Average Daily Rate), RevPAR (Revenue Per Available Room), etc.
+
+Generador de Presupuestos: Crear una herramienta para generar cotizaciones y propuestas de reserva de forma rápida.
+
+Sincronización iCal: Implementar la exportación de calendarios en formato iCal para sincronizar la disponibilidad con plataformas externas.

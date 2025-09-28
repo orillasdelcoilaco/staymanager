@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const { getReservasPendientes, actualizarEstadoGrupo, getNotas, addNota, getTransacciones, getAnalisisFinanciero } = require('../services/gestionService');
 const { uploadFile } = require('../services/storageService');
-const { actualizarValoresGrupo, calcularPotencialGrupo, registrarPago, eliminarPago, actualizarDocumentoReserva } = require('../services/reservasService');
+const { actualizarValoresGrupo, ajustarPayoutGrupo, registrarPago, eliminarPago, actualizarDocumentoReserva } = require('../services/reservasService');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -86,12 +86,12 @@ module.exports = (db) => {
         }
     });
 
-    router.post('/calcular-potencial', async (req, res) => {
+    router.post('/ajustar-payout', async (req, res) => {
         try {
             const { empresaId } = req.user;
-            const { idsIndividuales, descuento } = req.body;
-            await calcularPotencialGrupo(db, empresaId, idsIndividuales, descuento);
-            res.status(200).json({ message: 'Valor potencial calculado.' });
+            const { idsIndividuales, descuentoManualPct } = req.body;
+            await ajustarPayoutGrupo(db, empresaId, idsIndividuales, descuentoManualPct);
+            res.status(200).json({ message: 'Payout ajustado y guardado correctamente.' });
         } catch(error) {
             res.status(500).json({ error: error.message });
         }
