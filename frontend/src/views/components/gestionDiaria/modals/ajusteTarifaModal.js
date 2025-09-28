@@ -76,6 +76,7 @@ function renderSimuladorVentaDirecta() {
     let tarifaBaseLabel = "Tarifa Base:";
     let totalClienteLabel = "Total Cliente:";
     let costoCanalLabel = "(-) Costos Fijos del Canal:";
+    let ivaLabel = "(+) IVA (19%):";
     let dolarInfoHtml = '';
     
     if (moneda === 'USD' && valorDolarDia) {
@@ -94,7 +95,11 @@ function renderSimuladorVentaDirecta() {
     }
 
     const sobreprecio = Math.max(0, totalClienteCLP - tarifaBaseCLP);
+    const ivaCalculado = totalClienteCLP - (currentGrupo.valorTotalPayout + currentGrupo.costoCanal);
     const payoutFinal = tarifaBaseCLP + (sobreprecio - costoCanalCLP);
+    const payoutFinalUSD = moneda === 'USD' && valorDolarDia ? payoutFinal / valorDolarDia : 0;
+    const payoutFinalLabel = moneda === 'USD' ? `Payout Final (USD ${formatUSD(payoutFinalUSD, {includeSymbol: false})}):` : 'Payout Final Real:';
+
 
     let recomendacionHtml = '';
     if (payoutFinal > tarifaBaseCLP) {
@@ -124,7 +129,8 @@ function renderSimuladorVentaDirecta() {
                     <div class="flex justify-between"><dt>${tarifaBaseLabel}</dt><dd class="font-medium">${formatCurrency(tarifaBaseCLP)}</dd></div>
                     <div class="flex justify-between text-blue-600"><dt>(+) Ajuste por Sobreprecio:</dt><dd class="font-medium">${formatCurrency(sobreprecio)}</dd></div>
                     <div class="flex justify-between text-red-600"><dt>${costoCanalLabel}</dt><dd class="font-medium">${formatCurrency(costoCanalCLP)}</dd></div>
-                    <div class="flex justify-between border-t pt-1 mt-1"><dt class="font-semibold">Payout Final Real:</dt><dd class="font-semibold text-green-700">${formatCurrency(payoutFinal)}</dd></div>
+                    <div class="flex justify-between text-orange-600"><dt>${ivaLabel}</dt><dd class="font-medium">${formatCurrency(ivaCalculado)}</dd></div>
+                    <div class="flex justify-between border-t pt-1 mt-1"><dt class="font-semibold">${payoutFinalLabel}</dt><dd class="font-semibold text-green-700">${formatCurrency(payoutFinal)}</dd></div>
                 </dl>
             </div>
             ${recomendacionHtml}

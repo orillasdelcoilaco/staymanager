@@ -69,6 +69,7 @@ const getReservasPendientes = async (db, empresaId) => {
             const grupo = reservasAgrupadas.get(reservaId);
             const valorHuesped = data.valores?.valorHuesped || 0;
             const valorPayout = data.valores?.valorTotal || 0;
+            const comisionReal = data.valores?.comision > 0 ? data.valores.comision : data.valores?.costoCanal || 0;
             
             const fechaLlegadaDate = (data.fechaLlegada && typeof data.fechaLlegada.toDate === 'function') ? data.fechaLlegada.toDate() : new Date();
             const tarifaAplicable = await obtenerTarifaParaFecha(db, empresaId, data.alojamientoId, data.canalId, fechaLlegadaDate);
@@ -86,7 +87,7 @@ const getReservasPendientes = async (db, empresaId) => {
 
             grupo.valorTotalHuesped += valorHuesped;
             grupo.valorTotalPayout += valorPayout;
-            grupo.costoCanal += (valorHuesped - valorPayout);
+            grupo.costoCanal += comisionReal;
             grupo.abonoTotal += data.valores?.abono || 0;
             grupo.valorListaBaseTotal += valorListaBase;
             
