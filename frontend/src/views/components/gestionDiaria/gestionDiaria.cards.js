@@ -1,4 +1,4 @@
-import { handleNavigation } from '../../router.js'; 
+import { handleNavigation } from '../../../router.js'; 
 import { getStatusInfo, formatCurrency, formatDate } from './gestionDiaria.utils.js';
 
 function createNotificationBadge(isComplete = false, count = 0) {
