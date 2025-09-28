@@ -1,5 +1,5 @@
-import { fetchAPI } from '../api.js'; // <-- RUTA CORREGIDA
-import { handleNavigation } from '../router.js'; // <-- RUTA CORREGIDA
+import { fetchAPI } from '../api.js';
+import { handleNavigation } from '../router.js';
 import { renderGrupos } from './components/gestionDiaria/gestionDiaria.cards.js';
 import { openManagementModal, initializeModals, openRevertModal, openBitacoraModal } from './components/gestionDiaria/gestionDiaria.modals.js';
 
@@ -64,10 +64,7 @@ async function loadAndRender() {
 
 function handleCardButtonClick(e) {
     const target = e.target;
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Se corrige el selector para que busque el elemento con el ID que empieza con 'card-'
     const card = target.closest('div[id^="card-"]');
-    // --- FIN DE LA CORRECCIÓN ---
     if (!card) return;
 
     const reservaIdOriginal = card.id.replace('card-', '');
@@ -75,10 +72,7 @@ function handleCardButtonClick(e) {
     if (!currentGrupo) return;
     
     if (target.classList.contains('gestion-btn')) {
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Se elimina el paso de 'loadAndRender' y 'currentUserEmail' de aquí, ya que se maneja en 'initializeModals'
         openManagementModal(target.dataset.gestion, currentGrupo);
-        // --- FIN DE LA CORRECCIÓN ---
     }
     
     if (target.classList.contains('revert-btn')) {
@@ -103,9 +97,5 @@ export async function afterRender() {
     document.getElementById('hoy-list').addEventListener('click', handleCardButtonClick);
     document.getElementById('proximas-list').addEventListener('click', handleCardButtonClick);
     
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Se pasa la función 'loadAndRender' y el 'currentUserEmail' a 'initializeModals'
-    // para que los módulos de los modales puedan invocar el refresco de la vista.
     initializeModals(loadAndRender, currentUserEmail);
-    // --- FIN DE LA CORRECCIÓN ---
 }
