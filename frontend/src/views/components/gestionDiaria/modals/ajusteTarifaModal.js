@@ -1,5 +1,5 @@
 import { fetchAPI } from '../../../../api.js';
-import { formatCurrency, formatUSD } from '../gestionDiaria.utils.js';
+import { formatCurrency, formatUSD, formatDate } from '../gestionDiaria.utils.js';
 
 let currentGrupo = null;
 let onActionComplete = () => {};
@@ -73,27 +73,24 @@ function renderSimuladorVentaDirecta() {
     let costoCanalCLP = currentGrupo.costoCanal;
     let totalClienteCLP = currentGrupo.valorTotalHuesped;
 
-    let tarifaBaseLabel = "Tarifa Base (de tus Tarifas):";
-    let totalClienteLabel = "Total Cliente (Reportado):";
+    let tarifaBaseLabel = "Tarifa Base:";
+    let totalClienteLabel = "Total Cliente:";
     let costoCanalLabel = "(-) Costos Fijos del Canal:";
+    let dolarInfoHtml = '';
     
-    let tarifaBaseDisplay = formatCurrency(tarifaBaseCLP);
-    let totalClienteDisplay = formatCurrency(totalClienteCLP);
-    let costoCanalDisplay = formatCurrency(costoCanalCLP);
-
     if (moneda === 'USD' && valorDolarDia) {
-        tarifaBaseLabel = "Tarifa Base (USD):";
+        const fechaCheckIn = formatDate(currentGrupo.fechaLlegada);
+        dolarInfoHtml = `<p class="text-xs text-center text-gray-500 mb-4">Valor dólar usado para el cálculo (${fechaCheckIn}): <strong>${formatCurrency(valorDolarDia)}</strong></p>`;
+
         const tarifaBaseUSD = currentGrupo.valorListaBaseTotal;
         tarifaBaseCLP = tarifaBaseUSD * valorDolarDia;
-        tarifaBaseDisplay = `${formatUSD(tarifaBaseUSD)} (${formatCurrency(tarifaBaseCLP)})`;
+        tarifaBaseLabel = `Tarifa Base (USD ${formatUSD(tarifaBaseUSD, { includeSymbol: false })}):`;
         
-        totalClienteLabel = "Total Cliente (USD):";
         const totalClienteUSD = totalClienteCLP / valorDolarDia;
-        totalClienteDisplay = `${formatUSD(totalClienteUSD)} (${formatCurrency(totalClienteCLP)})`;
+        totalClienteLabel = `Total Cliente (USD ${formatUSD(totalClienteUSD, { includeSymbol: false })}):`;
 
-        costoCanalLabel = "(-) Costos Fijos del Canal (USD):";
         const costoCanalUSD = costoCanalCLP / valorDolarDia;
-        costoCanalDisplay = `${formatUSD(costoCanalUSD)} (${formatCurrency(costoCanalCLP)})`;
+        costoCanalLabel = `(-) Costos Fijos del Canal (USD ${formatUSD(costoCanalUSD, { includeSymbol: false })}):`;
     }
 
     const sobreprecio = Math.max(0, totalClienteCLP - tarifaBaseCLP);
@@ -117,15 +114,16 @@ function renderSimuladorVentaDirecta() {
     }
 
     contentContainer.innerHTML = `
-        <p class="text-sm text-gray-600 mb-4">Analiza la rentabilidad real de esta reserva y compárala con una venta directa.</p>
+        <p class="text-sm text-gray-600 mb-2">Analiza la rentabilidad real de esta reserva y compárala con una venta directa.</p>
+        ${dolarInfoHtml}
         <div class="space-y-4">
             <div class="p-3 bg-gray-50 border rounded-md">
                 <h4 class="font-semibold text-gray-800">Rentabilidad de la Reserva Actual</h4>
                 <dl class="mt-2 text-sm space-y-1">
-                    <div class="flex justify-between"><dt class="text-gray-600">${tarifaBaseLabel}</dt><dd class="font-medium">${tarifaBaseDisplay}</dd></div>
-                    <div class="flex justify-between"><dt class="text-gray-600">${totalClienteLabel}</dt><dd class="font-medium">${totalClienteDisplay}</dd></div>
+                    <div class="flex justify-between text-gray-500"><dt>${totalClienteLabel}</dt><dd class="font-medium">${formatCurrency(totalClienteCLP)}</dd></div>
+                    <div class="flex justify-between"><dt>${tarifaBaseLabel}</dt><dd class="font-medium">${formatCurrency(tarifaBaseCLP)}</dd></div>
                     <div class="flex justify-between text-blue-600"><dt>(+) Ajuste por Sobreprecio:</dt><dd class="font-medium">${formatCurrency(sobreprecio)}</dd></div>
-                    <div class="flex justify-between text-red-600"><dt>${costoCanalLabel}</dt><dd class="font-medium">${costoCanalDisplay}</dd></div>
+                    <div class="flex justify-between text-red-600"><dt>${costoCanalLabel}</dt><dd class="font-medium">${formatCurrency(costoCanalCLP)}</dd></div>
                     <div class="flex justify-between border-t pt-1 mt-1"><dt class="font-semibold">Payout Final Real:</dt><dd class="font-semibold text-green-700">${formatCurrency(payoutFinal)}</dd></div>
                 </dl>
             </div>
