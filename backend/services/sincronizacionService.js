@@ -235,6 +235,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                     valorHuesped: Math.round(convertirACLPSIesNecesario(valorHuesped)),
                     comision: Math.round(convertirACLPSIesNecesario(comisionSumable)),
                     costoCanal: Math.round(convertirACLPSIesNecesario(costoCanalInformativo)),
+                    iva: Math.round(convertirACLPSIesNecesario(ivaCalculado))
                 },
                 valorDolarDia: valorDolarDia,
                 requiereActualizacionDolar: monedaCanal === 'USD' && fechaLlegada > today

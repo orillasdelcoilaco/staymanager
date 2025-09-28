@@ -98,6 +98,9 @@ function renderSimuladorVentaDirecta() {
         
         const payoutReporteUSD = payoutReporteCLP / valorDolarDia;
         payoutReporteLabel = `Payout (según reporte) (USD ${formatUSD(payoutReporteUSD, { includeSymbol: false })}):`;
+
+        const ivaUSD = ivaCLP / valorDolarDia;
+        ivaLabel = `(+) IVA (19%) (USD ${formatUSD(ivaUSD, { includeSymbol: false })}):`;
     }
 
     const sobreprecio = Math.max(0, totalClienteCLP - tarifaBaseCLP);
@@ -110,7 +113,7 @@ function renderSimuladorVentaDirecta() {
         recomendacionHtml = `
             <div class="p-3 bg-green-50 border border-green-200 rounded-md">
                 <h4 class="font-semibold text-green-800">Recomendación</h4>
-                <p class="mt-2 text-sm text-green-700">Esta reserva es <strong>muy rentable</strong>. El Payout Final es superior a tu Tarifa Base. No se recomienda ofrecer un descuento para una venta directa.</p>
+                <p class="mt-2 text-sm text-green-700">Esta reserva es <strong>muy rentable</strong>. La Rentabilidad vs Tarifa Base es positiva. No se recomienda ofrecer un descuento para una venta directa.</p>
             </div>`;
     } else {
         const descuentoSugerido = tarifaBaseCLP > 0 ? ((tarifaBaseCLP - payoutFinal) / tarifaBaseCLP) * 100 : 0;
