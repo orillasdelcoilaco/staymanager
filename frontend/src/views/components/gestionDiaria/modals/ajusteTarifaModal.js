@@ -69,8 +69,26 @@ function renderSimuladorVentaDirecta() {
     const valorListaBase = currentGrupo.valorListaBaseTotal;
     const totalCliente = currentGrupo.valorTotalHuesped;
     const costoCanalFijo = currentGrupo.costoCanal;
+    
     const sobreprecio = Math.max(0, totalCliente - valorListaBase);
-    const payoutFinal = valorListaBase - costoCanalFijo - sobreprecio;
+    const payoutFinal = valorListaBase + (sobreprecio - costoCanalFijo);
+
+    let recomendacionHtml = '';
+    if (payoutFinal > valorListaBase) {
+        recomendacionHtml = `
+            <div class="p-3 bg-green-50 border border-green-200 rounded-md">
+                <h4 class="font-semibold text-green-800">Recomendación</h4>
+                <p class="mt-2 text-sm text-green-700">Esta reserva es <strong>muy rentable</strong>. El Payout Final es superior a tu Tarifa Base. No se recomienda ofrecer un descuento para una venta directa.</p>
+            </div>`;
+    } else {
+        const descuentoSugerido = valorListaBase > 0 ? ((valorListaBase - payoutFinal) / valorListaBase) * 100 : 0;
+        const montoAhorro = valorListaBase - payoutFinal;
+        recomendacionHtml = `
+            <div class="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <h4 class="font-semibold text-blue-800">Potencial de Venta Directa</h4>
+                <p class="mt-2 text-sm text-blue-700">Para igualar el Payout del canal (${formatCurrency(payoutFinal)}), podrías ofrecer un descuento de hasta un <strong>${descuentoSugerido.toFixed(1)}%</strong> (equivalente a ${formatCurrency(montoAhorro)}) sobre tu Tarifa Base en una venta directa.</p>
+            </div>`;
+    }
 
     contentContainer.innerHTML = `
         <p class="text-sm text-gray-600 mb-4">Analiza la rentabilidad real de esta reserva y compárala con una venta directa.</p>
@@ -79,11 +97,12 @@ function renderSimuladorVentaDirecta() {
                 <h4 class="font-semibold text-gray-800">Rentabilidad de la Reserva Actual</h4>
                 <dl class="mt-2 text-sm space-y-1">
                     <div class="flex justify-between"><dt class="text-gray-600">Tarifa Base (de tus Tarifas):</dt><dd class="font-medium">${formatCurrency(valorListaBase)}</dd></div>
+                    <div class="flex justify-between text-blue-600"><dt>(+) Ajuste por Sobreprecio:</dt><dd class="font-medium">${formatCurrency(sobreprecio)}</dd></div>
                     <div class="flex justify-between text-red-600"><dt>(-) Costos Fijos del Canal:</dt><dd class="font-medium">${formatCurrency(costoCanalFijo)}</dd></div>
-                    <div class="flex justify-between text-red-600"><dt>(-) Ajuste por Sobreprecio:</dt><dd class="font-medium">${formatCurrency(sobreprecio)}</dd></div>
                     <div class="flex justify-between border-t pt-1 mt-1"><dt class="font-semibold">Payout Final Real:</dt><dd class="font-semibold text-green-700">${formatCurrency(payoutFinal)}</dd></div>
                 </dl>
             </div>
+            ${recomendacionHtml}
             ${currentGrupo.potencialCalculado ? `<p class="text-xs text-center text-gray-500">Dato KPI: El canal vendió esta reserva a un valor potencial de ${formatCurrency(currentGrupo.potencialTotal)}.</p>` : ''}
         </div>`;
 }
@@ -92,7 +111,7 @@ async function handleSavePotencial() {
     const descuento = document.getElementById('descuento-agregado-pct').value;
     const statusEl = document.getElementById('potencial-status');
     
-    if (!descuento || parseFloat(descuento) <= 0) {
+    if (!descuento || parseFloat(descuento) < 0) {
         statusEl.textContent = 'Por favor, ingresa un porcentaje de descuento válido.';
         return;
     }
