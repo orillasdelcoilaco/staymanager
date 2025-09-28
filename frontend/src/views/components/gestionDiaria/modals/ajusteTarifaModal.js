@@ -66,23 +66,38 @@ function renderTabContent(tabName) {
 
 function renderSimuladorVentaDirecta() {
     const contentContainer = document.getElementById('modal-tab-content');
-    const valorListaBase = currentGrupo.valorListaBaseTotal;
-    const totalCliente = currentGrupo.valorTotalHuesped;
-    const costoCanalFijo = currentGrupo.costoCanal;
+    const reservaPrincipal = currentGrupo.reservasIndividuales[0];
+    const { moneda, valorDolarDia } = reservaPrincipal;
     
-    const sobreprecio = Math.max(0, totalCliente - valorListaBase);
-    const payoutFinal = valorListaBase + (sobreprecio - costoCanalFijo);
+    let tarifaBaseCLP = currentGrupo.valorListaBaseTotal;
+    let costoCanalCLP = currentGrupo.costoCanal;
+    let totalClienteCLP = currentGrupo.valorTotalHuesped;
+
+    let tarifaBaseDisplay = formatCurrency(tarifaBaseCLP);
+    let costoCanalDisplay = formatCurrency(costoCanalCLP);
+
+    if (moneda === 'USD' && valorDolarDia) {
+        const tarifaBaseUSD = currentGrupo.valorListaBaseTotal;
+        tarifaBaseCLP = tarifaBaseUSD * valorDolarDia;
+        tarifaBaseDisplay = `${tarifaBaseUSD.toLocaleString('en-US', {style: 'currency', currency: 'USD'})} (${formatCurrency(tarifaBaseCLP)})`;
+        
+        const costoCanalUSD = costoCanalCLP / valorDolarDia;
+        costoCanalDisplay = `${costoCanalUSD.toLocaleString('en-US', {style: 'currency', currency: 'USD'})} (${formatCurrency(costoCanalCLP)})`;
+    }
+
+    const sobreprecio = Math.max(0, totalClienteCLP - tarifaBaseCLP);
+    const payoutFinal = tarifaBaseCLP + (sobreprecio - costoCanalCLP);
 
     let recomendacionHtml = '';
-    if (payoutFinal > valorListaBase) {
+    if (payoutFinal > tarifaBaseCLP) {
         recomendacionHtml = `
             <div class="p-3 bg-green-50 border border-green-200 rounded-md">
                 <h4 class="font-semibold text-green-800">Recomendación</h4>
                 <p class="mt-2 text-sm text-green-700">Esta reserva es <strong>muy rentable</strong>. El Payout Final es superior a tu Tarifa Base. No se recomienda ofrecer un descuento para una venta directa.</p>
             </div>`;
     } else {
-        const descuentoSugerido = valorListaBase > 0 ? ((valorListaBase - payoutFinal) / valorListaBase) * 100 : 0;
-        const montoAhorro = valorListaBase - payoutFinal;
+        const descuentoSugerido = tarifaBaseCLP > 0 ? ((tarifaBaseCLP - payoutFinal) / tarifaBaseCLP) * 100 : 0;
+        const montoAhorro = tarifaBaseCLP - payoutFinal;
         recomendacionHtml = `
             <div class="p-3 bg-blue-50 border border-blue-200 rounded-md">
                 <h4 class="font-semibold text-blue-800">Potencial de Venta Directa</h4>
@@ -96,9 +111,9 @@ function renderSimuladorVentaDirecta() {
             <div class="p-3 bg-gray-50 border rounded-md">
                 <h4 class="font-semibold text-gray-800">Rentabilidad de la Reserva Actual</h4>
                 <dl class="mt-2 text-sm space-y-1">
-                    <div class="flex justify-between"><dt class="text-gray-600">Tarifa Base (de tus Tarifas):</dt><dd class="font-medium">${formatCurrency(valorListaBase)}</dd></div>
+                    <div class="flex justify-between"><dt class="text-gray-600">Tarifa Base (de tus Tarifas):</dt><dd class="font-medium">${tarifaBaseDisplay}</dd></div>
                     <div class="flex justify-between text-blue-600"><dt>(+) Ajuste por Sobreprecio:</dt><dd class="font-medium">${formatCurrency(sobreprecio)}</dd></div>
-                    <div class="flex justify-between text-red-600"><dt>(-) Costos Fijos del Canal:</dt><dd class="font-medium">${formatCurrency(costoCanalFijo)}</dd></div>
+                    <div class="flex justify-between text-red-600"><dt>(-) Costos Fijos del Canal:</dt><dd class="font-medium">${costoCanalDisplay}</dd></div>
                     <div class="flex justify-between border-t pt-1 mt-1"><dt class="font-semibold">Payout Final Real:</dt><dd class="font-semibold text-green-700">${formatCurrency(payoutFinal)}</dd></div>
                 </dl>
             </div>
