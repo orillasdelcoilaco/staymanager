@@ -12,6 +12,7 @@ function renderTabContent(tabName) {
         case 'payout':
             const descuentoGuardado = currentGrupo.reservasIndividuales[0].valores.descuentoManualPct || '';
             const payoutGuardado = currentGrupo.valorTotalPayout;
+            const valorDeLista = currentGrupo.potencialTotal || currentGrupo.valorTotalHuesped;
             contentContainer.innerHTML = `
                 <p class="text-sm text-gray-600 mb-3">Registra un descuento manual (ej. Genius) que no aparece en el reporte. Esto recalculará el <strong>Payout final</strong> para reflejar la rentabilidad real de la reserva.</p>
                 <div class="space-y-4 mt-4">
@@ -20,7 +21,7 @@ function renderTabContent(tabName) {
                         <input type="number" id="descuento-manual-pct" placeholder="Ej: 15" class="form-input" value="${descuentoGuardado}">
                     </div>
                     <div>
-                        <p class="text-sm">Valor de Lista (Base): <span class="font-semibold">${formatCurrency(currentGrupo.potencialTotal)}</span></p>
+                        <p class="text-sm">Valor de Lista (Base): <span class="font-semibold">${formatCurrency(valorDeLista)}</span></p>
                         <p class="text-sm">Payout Actual: <span class="font-semibold text-green-600">${formatCurrency(payoutGuardado)}</span></p>
                     </div>
                     <div id="payout-status" class="text-sm"></div>
@@ -57,7 +58,7 @@ function renderSimuladorVentaDirecta() {
     const { moneda, valorDolarDia } = reservaPrincipal;
     const costoCanal = currentGrupo.costoCanal;
     const payoutActual = currentGrupo.valorTotalPayout;
-    const valorDeLista = currentGrupo.potencialTotal;
+    const valorDeLista = currentGrupo.potencialTotal || currentGrupo.valorTotalHuesped;
 
     const costoCanalDisplay = moneda === 'USD' 
         ? `${formatCurrency(costoCanal)} (USD ${(costoCanal / (valorDolarDia || 1)).toFixed(2)} @ ${valorDolarDia})`
