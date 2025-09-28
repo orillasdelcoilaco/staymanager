@@ -117,17 +117,21 @@ const parsearMoneda = (valor, separadorDecimal = ',') => {
 };
 
 const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, nombreArchivoOriginal, usuarioEmail) => {
+    console.log(`[SYNC_LOG] Iniciando proceso para archivo: ${nombreArchivoOriginal}, Empresa: ${empresaId}, Canal: ${canalId}`);
+    
     await actualizarValorDolarApi(db, empresaId);
-
     const idCarga = await registrarCarga(db, empresaId, canalId, nombreArchivoOriginal, usuarioEmail);
+    console.log(`[SYNC_LOG] Registro de carga creado/actualizado con ID: ${idCarga}`);
 
     const rows = leerArchivo(bufferArchivo, nombreArchivoOriginal);
     if (rows.length < 2) {
+        console.log("[SYNC_LOG] Archivo vacío o sin filas de datos. Terminando proceso.");
         throw new Error("El archivo está vacío o no tiene filas de datos.");
     }
     
     const cabeceras = rows[0];
     const datosJson = rows.slice(1);
+    console.log(`[SYNC_LOG] Archivo leído. Cabeceras: [${cabeceras.join(', ')}]. Total de filas de datos: ${datosJson.length}`);
 
     const [conversionesAlojamiento, todosLosMapeos, canales, propiedades] = await Promise.all([
         obtenerConversionesPorEmpresa(db, empresaId),
@@ -137,15 +141,23 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
     ]);
 
     const mapeosDelCanal = todosLosMapeos.filter(m => m.canalId === canalId);
-    if (mapeosDelCanal.length === 0) throw new Error("No se ha configurado un mapeo para este canal.");
+    if (mapeosDelCanal.length === 0) {
+        console.error("[SYNC_ERROR] No se ha configurado un mapeo para este canal.");
+        throw new Error("No se ha configurado un mapeo para este canal.");
+    }
+    console.log(`[SYNC_LOG] Mapeos encontrados para el canal: ${mapeosDelCanal.length}`);
 
     const canal = canales.find(c => c.id === canalId);
-    if (!canal) throw new Error(`El canal con ID ${canalId} no fue encontrado.`);
+    if (!canal) {
+        console.error(`[SYNC_ERROR] El canal con ID ${canalId} no fue encontrado.`);
+        throw new Error(`El canal con ID ${canalId} no fue encontrado.`);
+    }
     
     const formatoFecha = canal.formatoFecha || 'DD/MM/YYYY';
     const separadorDecimal = canal.separadorDecimal || ',';
     const canalNombre = canal.nombre;
     const monedaCanal = canal.moneda || 'CLP';
+    console.log(`[SYNC_LOG] Configuración del canal "${canalNombre}": Formato Fecha=${formatoFecha}, Separador=${separadorDecimal}, Moneda=${monedaCanal}`);
     
     let resultados = { totalFilas: datosJson.length, reservasCreadas: 0, reservasActualizadas: 0, reservasSinCambios: 0, clientesCreados: 0, filasIgnoradas: 0, errores: [] };
     const today = new Date();
@@ -158,9 +170,11 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
         try {
             const idReservaCanal = get('idReservaCanal');
             if (idReservaCanal) idFilaParaError = idReservaCanal;
+            console.log(`\n[SYNC_LOG] Procesando Fila ${index + 2} (ID Reserva: ${idReservaCanal || 'N/A'})...`);
 
             const tipoFila = get('tipoFila');
             if ((tipoFila && normalizarString(tipoFila).indexOf('reserv') === -1) || !idReservaCanal) {
+                console.log(`[SYNC_LOG] Fila ignorada. TipoFila: '${tipoFila}', IDReserva: '${idReservaCanal}'.`);
                 resultados.filasIgnoradas++;
                 continue;
             }
@@ -168,27 +182,28 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             let fechaLlegada = parsearFecha(get('fechaLlegada'), formatoFecha);
             let fechaSalida = parsearFecha(get('fechaSalida'), formatoFecha);
 
-            if (!fechaLlegada || !fechaSalida) throw new Error(`No se pudieron interpretar las fechas.`);
+            if (!fechaLlegada || !fechaSalida) {
+                console.warn(`[SYNC_WARN] Fechas inválidas para reserva ${idFilaParaError}. Fila ignorada.`);
+                throw new Error(`No se pudieron interpretar las fechas.`);
+            }
             if (fechaSalida <= fechaLlegada) throw new Error('La fecha de salida debe ser posterior a la de llegada.');
             
             const nombre = get('nombreCliente') || '';
             const apellido = get('apellidoCliente') || '';
             const nombreClienteCompleto = `${nombre} ${apellido}`.trim();
-            const telefonoCliente = get('telefonoCliente');
-            const correoCliente = get('correoCliente');
-            let pais = get('pais') || 'CL';
             
             let datosParaCliente = { 
                 nombre: nombreClienteCompleto, 
-                telefono: telefonoCliente, 
-                email: correoCliente, 
-                pais,
+                telefono: get('telefonoCliente'), 
+                email: get('correoCliente'), 
+                pais: get('pais') || 'CL',
                 canalNombre: canalNombre,
                 idReservaCanal: idReservaCanal
             };
 
             const resultadoCliente = await crearOActualizarCliente(db, empresaId, datosParaCliente);
             if (resultadoCliente.status === 'creado') resultados.clientesCreados++;
+            console.log(`[SYNC_LOG] Cliente "${nombreClienteCompleto}" procesado. Status: ${resultadoCliente.status}`);
             
             const nombreExternoAlojamiento = get('alojamientoNombre');
             let alojamientoId = null, alojamientoNombre = 'Alojamiento no identificado', capacidadAlojamiento = 0;
@@ -200,61 +215,48 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                     alojamientoNombre = conversion.alojamientoNombre;
                     const propiedad = propiedades.find(p => p.id === alojamientoId);
                     if (propiedad) capacidadAlojamiento = propiedad.capacidad;
+                    console.log(`[SYNC_LOG] Alojamiento convertido: "${nombreExternoAlojamiento}" -> "${alojamientoNombre}"`);
+                } else {
+                    console.warn(`[SYNC_WARN] No se encontró conversión para el alojamiento: "${nombreExternoAlojamiento}"`);
                 }
             }
 
-            const comision = parsearMoneda(get('comision'), separadorDecimal);
-            const tarifaServicio = parsearMoneda(get('tarifaServicio'), separadorDecimal);
-            const impuestos = parsearMoneda(get('impuestos'), separadorDecimal);
             let valorHuesped = parsearMoneda(get('valorHuesped'), separadorDecimal);
             let valorAnfitrion = parsearMoneda(get('valorAnfitrion'), separadorDecimal);
-            let valorLista = parsearMoneda(get('valorLista'), separadorDecimal);
-
-            if (canalNombre.toLowerCase().includes('airbnb')) {
-                if (valorAnfitrion > 0 && tarifaServicio !== 0 && valorHuesped === 0) {
-                     valorHuesped = valorAnfitrion + tarifaServicio;
-                }
-            } else {
-                if (valorHuesped === 0 && valorAnfitrion > 0) {
-                    valorHuesped = valorAnfitrion + comision + tarifaServicio;
-                }
+            let comision = parsearMoneda(get('comision'), separadorDecimal);
+            
+            if (valorAnfitrion === 0 && valorHuesped > 0 && comision > 0) {
+                valorAnfitrion = valorHuesped - comision;
             }
-
-            if (valorAnfitrion === 0 && valorHuesped > 0) {
-                valorAnfitrion = valorHuesped - comision - tarifaServicio;
+            if (valorHuesped === 0 && valorAnfitrion > 0 && comision > 0) {
+                valorHuesped = valorAnfitrion + comision;
             }
-            if (valorLista === 0 && valorHuesped > 0) {
-                valorLista = valorHuesped - impuestos; 
-            }
-
+            
             let valorTotalCLP = valorAnfitrion; 
-            let valorOriginal = valorAnfitrion;
             let valorDolarDia = null;
 
             if (monedaCanal === 'USD') {
-                valorOriginal = valorAnfitrion;
                 valorDolarDia = await obtenerValorDolar(db, empresaId, fechaLlegada);
                 valorTotalCLP = valorAnfitrion * valorDolarDia;
             }
 
-            const totalNoches = Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24));
             const datosReserva = {
                 idCarga: idCarga,
                 idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
                 estado: normalizarEstado(get('estado')),
                 estadoGestion: 'Pendiente Bienvenida',
-                fechaReserva: parsearFecha(get('fechaReserva'), formatoFecha),
-                fechaLlegada, fechaSalida, totalNoches: totalNoches > 0 ? totalNoches : 1,
+                fechaLlegada, fechaSalida, 
+                totalNoches: Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24)),
                 cantidadHuespedes: parseInt(get('invitados')) || capacidadAlojamiento || 0,
                 clienteId: resultadoCliente.cliente.id,
                 alojamientoId, alojamientoNombre,
                 moneda: monedaCanal,
                 valores: {
-                    valorOriginal: valorOriginal,
+                    valorOriginal: valorAnfitrion,
                     valorTotal: Math.round(valorTotalCLP),
                     valorHuesped: Math.round((monedaCanal === 'USD') ? valorHuesped * valorDolarDia : valorHuesped),
-                    valorPotencial: Math.round((monedaCanal === 'USD') ? valorLista * valorDolarDia : valorLista),
-                    comision: Math.round((monedaCanal === 'USD') ? comision * valorDolarDia : comision),
+                    valorDeLista: parsearMoneda(get('valorLista'), separadorDecimal),
+                    comision: comision,
                     abono: parsearMoneda(get('abono'), separadorDecimal)
                 },
                 valorDolarDia: valorDolarDia,
@@ -262,16 +264,18 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             };
             
             const res = await crearOActualizarReserva(db, empresaId, datosReserva);
+            console.log(`[SYNC_LOG] Reserva ${idReservaCanal} guardada. Status: ${res.status}`);
             if(res.status === 'creada') resultados.reservasCreadas++;
             if(res.status === 'actualizada') resultados.reservasActualizadas++;
             if(res.status === 'sin_cambios') resultados.reservasSinCambios++;
 
         } catch (error) {
-            console.error(`Error procesando fila ${idFilaParaError}:`, error);
+            console.error(`[SYNC_ERROR] Error procesando fila ${idFilaParaError}:`, error);
             resultados.errores.push({ fila: idFilaParaError, error: error.message });
         }
     }
-
+    
+    console.log(`[SYNC_LOG] Proceso finalizado. Resumen: ${JSON.stringify(resultados)}`);
     return resultados;
 };
 
