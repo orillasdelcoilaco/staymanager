@@ -27,9 +27,9 @@ function generarMensajePreview() {
         cobroTexto = `
 Resumen de tu Estadía (Valores en USD):
 ------------------------------------
+Tarifa Base: ${formatUSD(currentGrupo.valoresUSD.payout)}
+(+) IVA: ${formatUSD(currentGrupo.valoresUSD.iva)}
 Total Cliente: ${formatUSD(currentGrupo.valoresUSD.totalCliente)}
-IVA (incluido): ${formatUSD(currentGrupo.valoresUSD.iva)}
-Payout Anfitrión: ${formatUSD(currentGrupo.valoresUSD.payout)}
 ------------------------------------
 Valor Dólar del día: ${formatCurrency(valorDolar)}
 ------------------------------------

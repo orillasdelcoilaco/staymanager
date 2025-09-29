@@ -41,9 +41,9 @@ function createGrupoCard(grupo) {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 font-semibold w-full">
                 <div class="text-sm space-y-1 p-2 bg-blue-50 rounded-md border border-blue-200">
                     <h4 class="font-bold text-blue-800 text-center mb-1">Valores en USD</h4>
-                    <div class="flex justify-between font-bold"><span>Total Cliente:</span> <span>${formatUSD(grupo.valoresUSD.totalCliente)}</span></div>
+                    <div class="flex justify-between"><span>Tarifa Base:</span> <span>${formatUSD(grupo.valoresUSD.payout)}</span></div>
                     <div class="flex justify-between text-gray-600"><span>(+) IVA:</span> <span>${formatUSD(grupo.valoresUSD.iva)}</span></div>
-                    <div class="flex justify-between border-t border-blue-200 mt-1 pt-1"><span>Payout:</span> <span>${formatUSD(grupo.valoresUSD.payout)}</span></div>
+                    <div class="flex justify-between border-t border-blue-200 mt-1 pt-1 font-bold"><span>Total Cliente:</span> <span>${formatUSD(grupo.valoresUSD.totalCliente)}</span></div>
                 </div>
                 <div class="text-sm space-y-1 p-2 bg-gray-50 rounded-md">
                     <h4 class="font-bold text-gray-800 text-center mb-1">Equivalente en CLP (Dólar a ${formatCurrency(valorDolar)})</h4>
