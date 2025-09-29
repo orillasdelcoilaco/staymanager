@@ -1,17 +1,19 @@
 const admin = require('firebase-admin');
 
-function getTodayUTC() {
-    const today = new Date();
-    return new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+function findTarifaInMemory(tarifas, alojamientoId, canalId, fecha) {
+    const tarifa = tarifas.find(t => 
+        t.alojamientoId === alojamientoId &&
+        new Date(t.fechaInicio) <= fecha &&
+        new Date(t.fechaTermino) >= fecha
+    );
+    return tarifa ? (tarifa.precios[canalId] || null) : null;
 }
 
 const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
-    console.log('--- Nueva Petición a getReservasPendientes ---');
-    console.log('Recibiendo cursor:', lastVisibleData);
-
     const PAGE_SIZE = 20;
 
-    let query = db.collection('empresas').doc(empresaId).collection('reservas')
+    let query = db.collectionGroup('reservas')
+        .where('empresaId', '==', empresaId)
         .where('estado', '==', 'Confirmada')
         .where('estadoGestion', 'in', ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', 'Pendiente Cliente'])
         .orderBy('fechaLlegada', 'asc')
@@ -24,7 +26,6 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
     query = query.limit(PAGE_SIZE);
     
     const reservasSnapshot = await query.get();
-    console.log(`Documentos de reserva encontrados: ${reservasSnapshot.size}`);
 
     if (reservasSnapshot.empty) {
         return { grupos: [], hasMore: false, lastVisible: null };
@@ -88,14 +89,13 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
     });
 
     const gruposProcesados = Array.from(reservasAgrupadas.values()).map(grupo => {
-        // ... (código interno de procesamiento sin cambios)
         const primerReserva = grupo.reservasIndividuales[0];
         const esUSD = primerReserva.moneda === 'USD';
         
         const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
             const valorHuesped = r.valores?.valorHuesped || 0;
             const comisionReal = r.valores?.comision > 0 ? r.valores.comision : r.valores?.costoCanal || 0;
-
+            
             acc.valorTotalHuesped += valorHuesped;
             acc.costoCanal += comisionReal;
 
@@ -119,39 +119,88 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
         };
     });
     
-    const lastVisibleDoc = reservaDocs[reservaDocs.length - 1]?.data();
-    const nuevoCursor = lastVisibleDoc ? {
-        fechaLlegada: lastVisibleDoc.fechaLlegada.toDate().toISOString(),
-        estadoGestion: lastVisibleDoc.estadoGestion
-    } : null;
+    const lastVisibleDoc = reservaDocs[reservaDocs.length - 1];
     
-    console.log('Enviando nuevo cursor:', nuevoCursor);
-
     return {
         grupos: gruposProcesados,
         hasMore: reservaDocs.length === PAGE_SIZE,
-        lastVisible: nuevoCursor
+        lastVisible: lastVisibleDoc ? {
+            fechaLlegada: lastVisibleDoc.data().fechaLlegada.toDate().toISOString(),
+            estadoGestion: lastVisibleDoc.data().estadoGestion
+        } : null
     };
 };
 
 const actualizarEstadoGrupo = async (db, empresaId, idsIndividuales, nuevoEstado) => {
-    // ... (código sin cambios)
+    const batch = db.batch();
+    idsIndividuales.forEach(id => {
+        const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);
+        batch.update(ref, { estadoGestion: nuevoEstado });
+    });
+    await batch.commit();
 };
 
 const getNotas = async (db, empresaId, reservaIdOriginal) => {
-    // ... (código sin cambios)
+    const snapshot = await db.collection('empresas').doc(empresaId).collection('gestionNotas')
+        .where('reservaIdOriginal', '==', reservaIdOriginal)
+        .orderBy('fecha', 'desc')
+        .get();
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, fecha: doc.data().fecha.toDate().toLocaleString('es-CL') }));
 };
 
 const addNota = async (db, empresaId, notaData) => {
-    // ... (código sin cambios)
+    const nota = { ...notaData, fecha: admin.firestore.FieldValue.serverTimestamp() };
+    const docRef = await db.collection('empresas').doc(empresaId).collection('gestionNotas').add(nota);
+    return { id: docRef.id, ...nota };
 };
 
 const getTransacciones = async (db, empresaId, idsIndividuales) => {
-    // ... (código sin cambios)
+    const transaccionesRef = db.collection('empresas').doc(empresaId).collection('transacciones');
+    const reservaDoc = await db.collection('empresas').doc(empresaId).collection('reservas').doc(idsIndividuales[0]).get();
+    if (!reservaDoc.exists) return [];
+    
+    const reservaIdOriginal = reservaDoc.data().idReservaCanal;
+    
+    const snapshot = await transaccionesRef
+        .where('reservaIdOriginal', '==', reservaIdOriginal)
+        .get();
+
+    if (snapshot.empty) return [];
+
+    const transacciones = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            fecha: data.fecha ? data.fecha.toDate() : new Date()
+        };
+    });
+    transacciones.sort((a, b) => b.fecha - a.fecha);
+    return transacciones;
 };
 
 const marcarClienteComoGestionado = async (db, empresaId, reservaIdOriginal) => {
-    // ... (código sin cambios)
+    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
+    const q = reservasRef.where('idReservaCanal', '==', reservaIdOriginal);
+    const snapshot = await q.get();
+
+    if (snapshot.empty) {
+        throw new Error('No se encontraron reservas para marcar al cliente como gestionado.');
+    }
+
+    const batch = db.batch();
+    let estadoActual = '';
+    snapshot.forEach(doc => {
+        estadoActual = doc.data().estadoGestion;
+        const updateData = { clienteGestionado: true };
+        if (estadoActual === 'Pendiente Cliente') {
+            updateData.estadoGestion = 'Facturado';
+        }
+        batch.update(doc.ref, updateData);
+    });
+    
+    await batch.commit();
 };
 
 module.exports = {
