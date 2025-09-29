@@ -12,7 +12,8 @@ const ETIQUETAS_DISPONIBLES = [
     { etiqueta: '[ALOJAMIENTO_NOMBRE]', descripcion: 'Nombre del alojamiento reservado' },
     { etiqueta: '[TOTAL_NOCHES]', descripcion: 'Número total de noches de la estadía' },
     { etiqueta: '[CANTIDAD_HUESPEDES]', descripcion: 'Número de huéspedes en la reserva' },
-    { etiqueta: '[SALDO_PENDIENTE]', descripcion: 'Monto del saldo adeudado por el cliente' }
+    { etiqueta: '[SALDO_PENDIENTE]', descripcion: 'Monto del saldo adeudado por el cliente' },
+    { etiqueta: '[COBRO]', descripcion: 'Genera un resumen detallado del cobro (Total, abonos, saldo, etc.)' }
 ];
 
 function abrirModal(plantilla = null) {

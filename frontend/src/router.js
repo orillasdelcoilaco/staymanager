@@ -23,8 +23,8 @@ const views = {
     '/gestionar-usuarios': () => import('./views/gestionarUsuarios.js'),
     '/reparar-contactos': () => import('./views/repararContactos.js'),
     '/historial-cargas': () => import('./views/historialCargas.js'),
-    '/gestionar-tipos-plantilla': () => import('./views/gestionarTiposPlantilla.js'), // <-- AÑADIDO
-    '/gestionar-plantillas': () => import('./views/gestionarPlantillas.js'),       // <-- AÑADIDO
+    '/gestionar-tipos-plantilla': () => import('./views/gestionarTiposPlantilla.js'),
+    '/gestionar-plantillas': () => import('./views/gestionarPlantillas.js'),
 };
 
 const menuConfig = [
@@ -54,8 +54,8 @@ const menuConfig = [
             { name: '📈 Gestionar Valor Dólar', path: '/gestionar-dolar', id: 'gestionar-dolar' },
             { name: '🏡 Gestionar Alojamientos', path: '/gestionar-alojamientos', id: 'gestionar-alojamientos' },
             { name: '📡 Gestionar Canales', path: '/gestionar-canales', id: 'gestionar-canales' },
-            { name: '🏷️ Tipos de Plantilla', path: '/gestionar-tipos-plantilla', id: 'gestionar-tipos-plantilla' }, // <-- AÑADIDO
-            { name: '✉️ Gestionar Plantillas', path: '/gestionar-plantillas', id: 'gestionar-plantillas' },       // <-- AÑADIDO
+            { name: '🏷️ Tipos de Plantilla', path: '/gestionar-tipos-plantilla', id: 'gestionar-tipos-plantilla' },
+            { name: '✉️ Gestionar Plantillas', path: '/gestionar-plantillas', id: 'gestionar-plantillas' },
         ]
     },
     {
@@ -96,7 +96,6 @@ async function loadView(path) {
         renderLogin(appRoot);
     } else {
         if (!document.getElementById('view-content')) {
-            // This is now handled by checkAuthAndRender
         }
         
         const dynamicRoute = Object.keys(views).find(route => {
