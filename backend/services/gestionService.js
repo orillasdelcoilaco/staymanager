@@ -90,6 +90,13 @@ const getReservasPendientes = async (db, empresaId) => {
             if (data.ajusteManualRealizado) {
                 grupo.ajusteManualRealizado = true;
             }
+            
+            // --- INICIO DE CAMBIOS ---
+            if (data.potencialCalculado) {
+                grupo.potencialCalculado = true;
+            }
+            // --- FIN DE CAMBIOS ---
+
             if (data.valores?.valorHuespedOriginal) {
                 grupo.valorTotalHuespedOriginal += data.valores.valorHuespedOriginal;
             } else {
@@ -135,7 +142,6 @@ const getReservasPendientes = async (db, empresaId) => {
             
             if (data.valores?.valorPotencial && data.valores.valorPotencial > 0) {
                 grupo.potencialTotal += data.valores.valorPotencial;
-                grupo.potencialCalculado = true;
             }
 
             if (data.documentos) {

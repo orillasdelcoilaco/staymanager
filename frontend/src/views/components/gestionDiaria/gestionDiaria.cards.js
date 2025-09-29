@@ -89,7 +89,7 @@ function createGrupoCard(grupo) {
             ${financialDetailsHtml}
             <div class="mt-3 md:mt-0 flex flex-wrap gap-2 justify-center">
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="gestionar_reserva" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Gestionar Reserva ${createNotificationBadge(!!grupo.documentos.enlaceReserva)}</button>
-                <button data-id="${grupo.reservaIdOriginal}" data-gestion="ajuste_tarifa" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Ajustar Tarifa ${createNotificationBadge(grupo.ajusteManualRealizado)}</button>
+                <button data-id="${grupo.reservaIdOriginal}" data-gestion="ajuste_tarifa" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Ajustar Tarifa ${createNotificationBadge(grupo.ajusteManualRealizado || grupo.potencialCalculado)}</button>
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="pagos" class="gestion-btn ${baseButtonClasses} ${isGestionPagosActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionPagosActive ? 'disabled' : ''}>Gestionar Pagos ${createNotificationBadge(false, grupo.transaccionesCount)}</button>
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="boleta" class="gestion-btn ${baseButtonClasses} ${isGestionBoletaActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionBoletaActive ? 'disabled' : ''}>Gestionar Boleta ${createNotificationBadge(!!grupo.documentos.enlaceBoleta)}</button>
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="bitacora" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Bitácora 🗂️ ${createNotificationBadge(false, grupo.notasCount)}</button>

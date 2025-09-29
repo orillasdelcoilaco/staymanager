@@ -176,8 +176,6 @@ const actualizarValoresGrupo = async (db, empresaId, valoresCabanas, nuevoTotalH
             const nuevosValores = { ...reserva.valores };
             const valorHuespedActualIndividual = nuevosValores.valorHuesped;
 
-            // --- INICIO DE CAMBIOS ---
-            // Solo se guarda el valor original la primera vez que se modifica.
             if (!nuevosValores.valorHuespedOriginal || nuevosValores.valorHuespedOriginal === 0) {
                 nuevosValores.valorHuespedOriginal = valorHuespedActualIndividual;
             }
@@ -187,9 +185,8 @@ const actualizarValoresGrupo = async (db, empresaId, valoresCabanas, nuevoTotalH
             batch.update(doc.ref, { 
                 'valores': nuevosValores,
                 'edicionesManuales.valores.valorHuesped': true,
-                'ajusteManualRealizado': true // Añadimos una marca para identificar el ajuste
+                'ajusteManualRealizado': true
             });
-            // --- FIN DE CAMBIOS ---
         }
     });
 
@@ -207,7 +204,8 @@ const calcularPotencialGrupo = async (db, empresaId, idsIndividuales, descuento)
                 const valorPotencial = Math.round(valorHuesped / (1 - (parseFloat(descuento) / 100)));
                 batch.update(ref, { 
                     'valores.valorPotencial': valorPotencial,
-                    'edicionesManuales.valores.valorPotencial': true 
+                    'edicionesManuales.valores.valorPotencial': true,
+                    'potencialCalculado': true // <-- AÑADIDO
                 });
             }
         }
