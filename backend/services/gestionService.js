@@ -70,6 +70,8 @@ const getReservasPendientes = async (db, empresaId) => {
                     valorListaBaseTotal: 0,
                     potencialCalculado: false,
                     totalNoches: 0,
+                    valorTotalHuespedOriginal: 0, // <-- AÑADIDO
+                    ajusteManualRealizado: false, // <-- AÑADIDO
                     notasCount: notesCountMap.get(reservaId) || 0,
                     transaccionesCount: transaccionesCountMap.get(reservaId) || 0
                 });
@@ -80,6 +82,17 @@ const getReservasPendientes = async (db, empresaId) => {
             const valorPayout = data.valores?.valorTotal || 0;
             const comisionReal = data.valores?.comision > 0 ? data.valores.comision : data.valores?.costoCanal || 0;
             const ivaIndividual = data.valores?.iva || 0;
+            
+            // --- INICIO DE CAMBIOS ---
+            if (data.ajusteManualRealizado) {
+                grupo.ajusteManualRealizado = true;
+            }
+            if (data.valores?.valorHuespedOriginal) {
+                grupo.valorTotalHuespedOriginal += data.valores.valorHuespedOriginal;
+            } else {
+                grupo.valorTotalHuespedOriginal += valorHuesped;
+            }
+            // --- FIN DE CAMBIOS ---
             
             const fechaLlegadaDate = (data.fechaLlegada && typeof data.fechaLlegada.toDate === 'function') ? data.fechaLlegada.toDate() : new Date();
             const tarifaAplicable = await obtenerTarifaParaFecha(db, empresaId, data.alojamientoId, data.canalId, fechaLlegadaDate);
@@ -109,14 +122,11 @@ const getReservasPendientes = async (db, empresaId) => {
             grupo.payoutFinalReal += payoutFinalCalculado;
             grupo.costoCanal += comisionReal;
             grupo.ivaTotal += ivaIndividual;
-            
-            // --- INICIO DE CAMBIOS ---
             const noches = data.totalNoches || 1;
             grupo.valorListaBaseTotal += (valorListaBase * noches);
-            if (grupo.totalNoches === 0) { // Asignar el número de noches del primer registro al grupo
+            if (grupo.totalNoches === 0) {
                 grupo.totalNoches = noches;
             }
-            // --- FIN DE CAMBIOS ---
             
             if (data.valores?.valorPotencial && data.valores.valorPotencial > 0) {
                 grupo.potencialTotal += data.valores.valorPotencial;

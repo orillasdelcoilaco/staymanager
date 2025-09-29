@@ -174,15 +174,22 @@ const actualizarValoresGrupo = async (db, empresaId, valoresCabanas, nuevoTotalH
         if (doc.exists) {
             const reserva = doc.data();
             const nuevosValores = { ...reserva.valores };
-            const valorHuespedOriginal = nuevosValores.valorHuesped;
+            const valorHuespedActualIndividual = nuevosValores.valorHuesped;
 
-            nuevosValores.valorHuesped = Math.round(valorHuespedOriginal * proporcion);
-            nuevosValores.valorHuespedOriginal = valorHuespedOriginal;
+            // --- INICIO DE CAMBIOS ---
+            // Solo se guarda el valor original la primera vez que se modifica.
+            if (!nuevosValores.valorHuespedOriginal || nuevosValores.valorHuespedOriginal === 0) {
+                nuevosValores.valorHuespedOriginal = valorHuespedActualIndividual;
+            }
+
+            nuevosValores.valorHuesped = Math.round(valorHuespedActualIndividual * proporcion);
 
             batch.update(doc.ref, { 
                 'valores': nuevosValores,
                 'edicionesManuales.valores.valorHuesped': true,
+                'ajusteManualRealizado': true // Añadimos una marca para identificar el ajuste
             });
+            // --- FIN DE CAMBIOS ---
         }
     });
 
@@ -287,11 +294,9 @@ const eliminarReservasPorIdCarga = async (db, empresaId, idCarga) => {
     const batch = db.batch();
     const deletePromises = [];
     
-    // --- INICIO DE CAMBIOS ---
     const reservaIdsOriginales = snapshot.docs.map(doc => doc.data().idReservaCanal);
     const uniqueReservaIds = [...new Set(reservaIdsOriginales)];
 
-    // Dividir los IDs en chunks de 30 para evitar la limitación de la consulta 'in'
     const chunkSize = 30;
     for (let i = 0; i < uniqueReservaIds.length; i += chunkSize) {
         const chunk = uniqueReservaIds.slice(i, i + chunkSize);
@@ -308,7 +313,6 @@ const eliminarReservasPorIdCarga = async (db, empresaId, idCarga) => {
             });
         }
     }
-    // --- FIN DE CAMBIOS ---
 
     snapshot.docs.forEach(doc => {
         const reservaData = doc.data();

@@ -43,7 +43,12 @@ function renderTabContent(tabName) {
             break;
 
         case 'ajuste':
+            // --- INICIO DE CAMBIOS ---
             const valorActualTotal = currentGrupo.valorTotalHuesped;
+            const valorOriginal = currentGrupo.valorTotalHuespedOriginal > 0 && currentGrupo.valorTotalHuespedOriginal !== valorActualTotal
+                ? currentGrupo.valorTotalHuespedOriginal
+                : valorActualTotal;
+
             contentContainer.innerHTML = `
                 <p class="text-sm text-gray-600 mb-3">Modifica el monto final que se cobrará al cliente (Total Cliente). Esta acción es permanente y quedará registrada.</p>
                 <div class="space-y-4">
@@ -51,10 +56,11 @@ function renderTabContent(tabName) {
                         <label for="nuevo-valor-final" class="block text-sm font-medium text-gray-700">Nuevo Valor Final a Cobrar (CLP)</label>
                         <input type="number" id="nuevo-valor-final" class="form-input" value="${Math.round(valorActualTotal)}">
                     </div>
-                     <p class="text-sm">Valor Original: <span class="font-semibold">${formatCurrency(valorActualTotal)}</span></p>
+                     <p class="text-sm">Valor Original: <span class="font-semibold">${formatCurrency(valorOriginal)}</span></p>
                      <div id="ajuste-status" class="text-sm"></div>
                      <div class="text-right"><button id="ajuste-save-btn" class="btn-danger">Ajustar Monto Final</button></div>
                 </div>`;
+            // --- FIN DE CAMBIOS ---
             contentContainer.querySelector('#ajuste-save-btn').addEventListener('click', handleSaveAjusteFinal);
             break;
 
@@ -69,20 +75,16 @@ function renderSimuladorVentaDirecta() {
     const reservaPrincipal = currentGrupo.reservasIndividuales[0];
     const { moneda, valorDolarDia } = reservaPrincipal;
     
-    // --- INICIO DE CAMBIOS ---
     let tarifaBaseCLP = currentGrupo.valorListaBaseTotal;
-    // --- FIN DE CAMBIOS ---
     
     let costoCanalCLP = currentGrupo.costoCanal;
     let totalClienteCLP = currentGrupo.valorTotalHuesped;
     let payoutReporteCLP = currentGrupo.valorTotalPayout;
     let ivaCLP = currentGrupo.ivaTotal;
 
-    // --- INICIO DE CAMBIOS ---
     const totalNoches = currentGrupo.totalNoches;
     const numPropiedades = currentGrupo.reservasIndividuales.length;
     let tarifaBaseLabel = `Tarifa Base (${totalNoches} Noches x ${numPropiedades} Prop.):`;
-    // --- FIN DE CAMBIOS ---
     
     let totalClienteLabel = "Total Cliente:";
     let costoCanalLabel = "(-) Costos Fijos del Canal:";
@@ -94,11 +96,9 @@ function renderSimuladorVentaDirecta() {
         const fechaCheckIn = formatDate(currentGrupo.fechaLlegada);
         dolarInfoHtml = `<p class="text-xs text-center text-gray-500 mb-4">Valor dólar usado para el cálculo (${fechaCheckIn}): <strong>${formatCurrency(valorDolarDia)}</strong></p>`;
 
-        // --- INICIO DE CAMBIOS ---
-        const tarifaBaseUSD = currentGrupo.valorListaBaseTotal; // valorListaBaseTotal ya viene en USD si corresponde
+        const tarifaBaseUSD = currentGrupo.valorListaBaseTotal;
         tarifaBaseCLP = tarifaBaseUSD * valorDolarDia;
         tarifaBaseLabel = `Tarifa Base (${totalNoches} Noches x ${numPropiedades} Prop.) (USD ${formatUSD(tarifaBaseUSD, { includeSymbol: false })}):`;
-        // --- FIN DE CAMBIOS ---
         
         const totalClienteUSD = totalClienteCLP / valorDolarDia;
         totalClienteLabel = `Total Cliente (USD ${formatUSD(totalClienteUSD, { includeSymbol: false })}):`;
