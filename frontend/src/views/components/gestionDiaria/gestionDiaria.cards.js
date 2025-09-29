@@ -25,18 +25,15 @@ function createGrupoCard(grupo) {
     const clienteLink = `<a href="/cliente/${grupo.clienteId}" data-path="/cliente/${grupo.clienteId}" class="nav-link-style ml-4 text-lg font-bold text-gray-800 hover:text-indigo-600" title="Abrir ficha del cliente">${grupo.clienteNombre}</a>`;
     const revertButtonHtml = statusInfo.level > 1 ? `<button data-id="${grupo.reservaIdOriginal}" class="revert-btn ml-2 text-xl" title="Revertir estado">↩️</button>` : '';
 
-    let accionParaMarcar = null;
-    if (grupo.estadoGestion === 'Pendiente Bienvenida') accionParaMarcar = 'marcar_bienvenida_enviada';
-    else if (grupo.estadoGestion === 'Pendiente Cobro') accionParaMarcar = 'marcar_cobro_enviado';
-
+    // --- INICIO DE CAMBIOS ---
     let statusHtml;
-    if (accionParaMarcar) {
-        const reservaIdParaLink = grupo.reservasIndividuales.length > 0 ? grupo.reservasIndividuales[0].id : 'no-id';
-        const url = `/cliente/${grupo.clienteId}/mensaje/${reservaIdParaLink}`;
-        statusHtml = `<a href="${url}" data-path="${url}" class="nav-link-style text-sm font-bold text-white px-2 py-1 rounded ${statusInfo.color} hover:opacity-80">${statusInfo.text}</a>`;
+    const gestionType = getStatusInfo(grupo.estadoGestion).gestionType;
+    if (gestionType) {
+        statusHtml = `<button data-gestion="${gestionType}" class="gestion-btn text-sm font-bold text-white px-2 py-1 rounded ${statusInfo.color} hover:opacity-80">${statusInfo.text}</button>`;
     } else {
         statusHtml = `<span class="text-sm font-bold text-white px-2 py-1 rounded ${statusInfo.color}">${statusInfo.text}</span>`;
     }
+    // --- FIN DE CAMBIOS ---
 
     const baseButtonClasses = "px-3 py-1 text-xs font-semibold rounded-md transition-colors relative";
     const activeButtonClasses = "bg-gray-100 text-gray-800 hover:bg-gray-200";

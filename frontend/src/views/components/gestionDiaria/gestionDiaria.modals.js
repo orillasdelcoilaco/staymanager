@@ -3,6 +3,7 @@ import { getStatusInfo, formatCurrency, showPreview, handlePaste, openImageViewe
 import { renderAjusteTarifaModal } from './modals/ajusteTarifaModal.js';
 import { renderPagosModal } from './modals/pagosModal.js';
 import { renderDocumentoModal } from './modals/documentoModal.js';
+import { renderMensajeModal } from './modals/mensajeModal.js'; // <-- AÑADIDO
 
 let currentGrupo = null;
 let currentUserEmail = '';
@@ -23,13 +24,17 @@ export function openManagementModal(type, grupo) {
     const modal = document.getElementById('gestion-modal');
     document.getElementById('modal-title').textContent = `${type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ')} (Reserva ${currentGrupo.reservaIdOriginal})`;
 
+    // --- INICIO DE CAMBIOS ---
     const actionMap = {
+        'enviar_bienvenida': () => renderMensajeModal(grupo, 'bienvenida', onActionComplete),
+        'enviar_cobro': () => renderMensajeModal(grupo, 'cobro', onActionComplete),
         'bitacora': () => openBitacoraModal(grupo),
         'ajuste_tarifa': () => renderAjusteTarifaModal(grupo, onActionComplete),
         'pagos': () => renderPagosModal(grupo, onActionComplete),
         'boleta': () => renderDocumentoModal('boleta', grupo, onActionComplete),
         'gestionar_reserva': () => renderDocumentoModal('reserva', grupo, onActionComplete),
     };
+    // --- FIN DE CAMBIOS ---
 
     if (actionMap[type]) {
         actionMap[type]();
