@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const { getReservasPendientes, actualizarEstadoGrupo, getNotas, addNota, getTransacciones, getAnalisisFinanciero, marcarClienteComoGestionado } = require('../services/gestionService');
+const { getReservasPendientes, actualizarEstadoGrupo, getNotas, addNota, getTransacciones, marcarClienteComoGestionado } = require('../services/gestionService');
 const { uploadFile } = require('../services/storageService');
 const { actualizarValoresGrupo, calcularPotencialGrupo, registrarPago, eliminarPago, actualizarDocumentoReserva } = require('../services/reservasService');
 
@@ -10,10 +10,11 @@ const upload = multer({ storage: multer.memoryStorage() });
 module.exports = (db) => {
     const router = express.Router();
 
-    router.get('/pendientes', async (req, res) => {
+    router.post('/pendientes', async (req, res) => {
         try {
             const { empresaId } = req.user;
-            const reservasPendientes = await getReservasPendientes(db, empresaId);
+            const { lastVisible } = req.body;
+            const reservasPendientes = await getReservasPendientes(db, empresaId, lastVisible);
             res.status(200).json(reservasPendientes);
         } catch (error) {
             console.error("Error al obtener reservas pendientes:", error);
@@ -32,7 +33,6 @@ module.exports = (db) => {
         }
     });
     
-    // --- INICIO DE CAMBIOS ---
     router.post('/marcar-cliente-gestionado', async (req, res) => {
         try {
             const { empresaId } = req.user;
@@ -43,7 +43,6 @@ module.exports = (db) => {
             res.status(500).json({ error: error.message });
         }
     });
-    // --- FIN DE CAMBIOS ---
 
     router.get('/notas/:reservaIdOriginal', async (req, res) => {
         try {
@@ -157,18 +156,6 @@ module.exports = (db) => {
             res.status(200).json({ message: `Documento '${detalles.tipoDocumento}' actualizado.` });
         } catch (error) {
             res.status(500).json({ error: error.message });
-        }
-    });
-
-    router.post('/analisis', async (req, res) => {
-        try {
-            const { empresaId } = req.user;
-            const grupoReserva = req.body;
-            const analisis = await getAnalisisFinanciero(db, empresaId, grupoReserva);
-            res.status(200).json(analisis);
-        } catch (error) {
-            console.error("Error al generar análisis financiero:", error);
-            res.status(500).json({ error: 'Error interno del servidor.' });
         }
     });
 
