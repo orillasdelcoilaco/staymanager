@@ -69,7 +69,7 @@ function createGrupoCard(grupo) {
         `;
     }
 
-    const baseButtonClasses = "px-3 py-1 text-xs font-semibold rounded-md transition-colors relative";
+    const baseButtonClasses = "w-full px-3 py-1 text-xs font-semibold rounded-md transition-colors relative";
     const activeButtonClasses = "bg-gray-100 text-gray-800 hover:bg-gray-200";
     const disabledButtonClasses = "bg-gray-100 text-gray-400 cursor-not-allowed";
 
@@ -87,7 +87,7 @@ function createGrupoCard(grupo) {
         </div>
         <div class="border-t mt-4 pt-3 flex flex-col md:flex-row justify-between items-center text-sm">
             ${financialDetailsHtml}
-            <div class="mt-3 md:mt-0 flex flex-wrap gap-2 justify-center">
+            <div class="mt-3 md:mt-0 grid grid-cols-3 gap-2 w-full md:w-auto">
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="gestionar_reserva" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Gestionar Reserva ${createNotificationBadge(!!grupo.documentos.enlaceReserva)}</button>
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="ajuste_tarifa" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Ajustar Tarifa ${createNotificationBadge(grupo.ajusteManualRealizado || grupo.potencialCalculado)}</button>
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="pagos" class="gestion-btn ${baseButtonClasses} ${isGestionPagosActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionPagosActive ? 'disabled' : ''}>Gestionar Pagos ${createNotificationBadge(false, grupo.transaccionesCount)}</button>
