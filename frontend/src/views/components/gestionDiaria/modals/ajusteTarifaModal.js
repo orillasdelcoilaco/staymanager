@@ -69,13 +69,21 @@ function renderSimuladorVentaDirecta() {
     const reservaPrincipal = currentGrupo.reservasIndividuales[0];
     const { moneda, valorDolarDia } = reservaPrincipal;
     
+    // --- INICIO DE CAMBIOS ---
     let tarifaBaseCLP = currentGrupo.valorListaBaseTotal;
+    // --- FIN DE CAMBIOS ---
+    
     let costoCanalCLP = currentGrupo.costoCanal;
     let totalClienteCLP = currentGrupo.valorTotalHuesped;
     let payoutReporteCLP = currentGrupo.valorTotalPayout;
     let ivaCLP = currentGrupo.ivaTotal;
 
-    let tarifaBaseLabel = "Tarifa Base:";
+    // --- INICIO DE CAMBIOS ---
+    const totalNoches = currentGrupo.totalNoches;
+    const numPropiedades = currentGrupo.reservasIndividuales.length;
+    let tarifaBaseLabel = `Tarifa Base (${totalNoches} Noches x ${numPropiedades} Prop.):`;
+    // --- FIN DE CAMBIOS ---
+    
     let totalClienteLabel = "Total Cliente:";
     let costoCanalLabel = "(-) Costos Fijos del Canal:";
     let ivaLabel = "(+) IVA (19%):";
@@ -86,9 +94,11 @@ function renderSimuladorVentaDirecta() {
         const fechaCheckIn = formatDate(currentGrupo.fechaLlegada);
         dolarInfoHtml = `<p class="text-xs text-center text-gray-500 mb-4">Valor dólar usado para el cálculo (${fechaCheckIn}): <strong>${formatCurrency(valorDolarDia)}</strong></p>`;
 
-        const tarifaBaseUSD = currentGrupo.valorListaBaseTotal;
+        // --- INICIO DE CAMBIOS ---
+        const tarifaBaseUSD = currentGrupo.valorListaBaseTotal; // valorListaBaseTotal ya viene en USD si corresponde
         tarifaBaseCLP = tarifaBaseUSD * valorDolarDia;
-        tarifaBaseLabel = `Tarifa Base (USD ${formatUSD(tarifaBaseUSD, { includeSymbol: false })}):`;
+        tarifaBaseLabel = `Tarifa Base (${totalNoches} Noches x ${numPropiedades} Prop.) (USD ${formatUSD(tarifaBaseUSD, { includeSymbol: false })}):`;
+        // --- FIN DE CAMBIOS ---
         
         const totalClienteUSD = totalClienteCLP / valorDolarDia;
         totalClienteLabel = `Total Cliente (USD ${formatUSD(totalClienteUSD, { includeSymbol: false })}):`;

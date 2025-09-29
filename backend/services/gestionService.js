@@ -109,8 +109,14 @@ const getReservasPendientes = async (db, empresaId) => {
             grupo.payoutFinalReal += payoutFinalCalculado;
             grupo.costoCanal += comisionReal;
             grupo.ivaTotal += ivaIndividual;
-            grupo.valorListaBaseTotal += valorListaBase;
-            grupo.totalNoches += data.totalNoches || 0;
+            
+            // --- INICIO DE CAMBIOS ---
+            const noches = data.totalNoches || 1;
+            grupo.valorListaBaseTotal += (valorListaBase * noches);
+            if (grupo.totalNoches === 0) { // Asignar el número de noches del primer registro al grupo
+                grupo.totalNoches = noches;
+            }
+            // --- FIN DE CAMBIOS ---
             
             if (data.valores?.valorPotencial && data.valores.valorPotencial > 0) {
                 grupo.potencialTotal += data.valores.valorPotencial;
@@ -180,15 +186,12 @@ const getTransacciones = async (db, empresaId, idsIndividuales) => {
     
     const reservaIdOriginal = reservaDoc.data().idReservaCanal;
     
-    // --- INICIO DE CAMBIOS ---
     const snapshot = await transaccionesRef
         .where('reservaIdOriginal', '==', reservaIdOriginal)
         .get();
-    // --- FIN DE CAMBIOS ---
 
     if (snapshot.empty) return [];
 
-    // --- INICIO DE CAMBIOS ---
     const transacciones = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
@@ -197,10 +200,8 @@ const getTransacciones = async (db, empresaId, idsIndividuales) => {
             fecha: data.fecha ? data.fecha.toDate() : new Date()
         };
     });
-    // Ordenar en el servidor en lugar de la base de datos
     transacciones.sort((a, b) => b.fecha - a.fecha);
     return transacciones;
-    // --- FIN DE CAMBIOS ---
 };
 
 const getAnalisisFinanciero = async (db, empresaId, grupoReserva) => {
