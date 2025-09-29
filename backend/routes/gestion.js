@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const { getReservasPendientes, actualizarEstadoGrupo, getNotas, addNota, getTransacciones, getAnalisisFinanciero } = require('../services/gestionService');
+const { getReservasPendientes, actualizarEstadoGrupo, getNotas, addNota, getTransacciones, getAnalisisFinanciero, marcarClienteComoGestionado } = require('../services/gestionService');
 const { uploadFile } = require('../services/storageService');
 const { actualizarValoresGrupo, calcularPotencialGrupo, registrarPago, eliminarPago, actualizarDocumentoReserva } = require('../services/reservasService');
 
@@ -31,6 +31,19 @@ module.exports = (db) => {
             res.status(500).json({ error: error.message });
         }
     });
+    
+    // --- INICIO DE CAMBIOS ---
+    router.post('/marcar-cliente-gestionado', async (req, res) => {
+        try {
+            const { empresaId } = req.user;
+            const { reservaIdOriginal } = req.body;
+            await marcarClienteComoGestionado(db, empresaId, reservaIdOriginal);
+            res.status(200).json({ message: 'Cliente marcado como gestionado para esta reserva.' });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+    // --- FIN DE CAMBIOS ---
 
     router.get('/notas/:reservaIdOriginal', async (req, res) => {
         try {
@@ -86,7 +99,6 @@ module.exports = (db) => {
         }
     });
 
-    // --- INICIO DE CAMBIOS ---
     router.post('/calcular-potencial', async (req, res) => {
         try {
             const { empresaId } = req.user;
@@ -97,7 +109,6 @@ module.exports = (db) => {
             res.status(500).json({ error: error.message });
         }
     });
-    // --- FIN DE CAMBIOS ---
 
     router.post('/registrar-pago', upload.single('documento'), async (req, res) => {
         try {

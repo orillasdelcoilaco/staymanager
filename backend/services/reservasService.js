@@ -205,7 +205,7 @@ const calcularPotencialGrupo = async (db, empresaId, idsIndividuales, descuento)
                 batch.update(ref, { 
                     'valores.valorPotencial': valorPotencial,
                     'edicionesManuales.valores.valorPotencial': true,
-                    'potencialCalculado': true // <-- AÑADIDO
+                    'potencialCalculado': true
                 });
             }
         }
@@ -267,12 +267,26 @@ const actualizarDocumentoReserva = async (db, empresaId, idsIndividuales, tipoDo
     const batch = db.batch();
     const campo = tipoDocumento === 'boleta' ? 'documentos.enlaceBoleta' : 'documentos.enlaceReserva';
     
+    // --- INICIO DE CAMBIOS ---
     const updateData = {};
     if (url === null) {
         updateData[campo] = admin.firestore.FieldValue.delete();
     } else {
         updateData[campo] = url;
     }
+
+    // Lógica para decidir el próximo estado
+    if (tipoDocumento === 'boleta' && (url || url === 'SIN_DOCUMENTO')) {
+        const primeraReservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(idsIndividuales[0]);
+        const primeraReservaDoc = await primeraReservaRef.get();
+        
+        if (primeraReservaDoc.exists && primeraReservaDoc.data().clienteGestionado) {
+            updateData.estadoGestion = 'Facturado';
+        } else {
+            updateData.estadoGestion = 'Pendiente Cliente';
+        }
+    }
+    // --- FIN DE CAMBIOS ---
 
     idsIndividuales.forEach(id => {
         const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);

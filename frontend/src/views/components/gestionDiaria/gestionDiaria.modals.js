@@ -3,7 +3,8 @@ import { getStatusInfo, formatCurrency, showPreview, handlePaste, openImageViewe
 import { renderAjusteTarifaModal } from './modals/ajusteTarifaModal.js';
 import { renderPagosModal } from './modals/pagosModal.js';
 import { renderDocumentoModal } from './modals/documentoModal.js';
-import { renderMensajeModal } from './modals/mensajeModal.js'; // <-- AÑADIDO
+import { renderMensajeModal } from './modals/mensajeModal.js';
+import { handleNavigation } from '../../../router.js'; // <-- AÑADIDO
 
 let currentGrupo = null;
 let currentUserEmail = '';
@@ -24,7 +25,6 @@ export function openManagementModal(type, grupo) {
     const modal = document.getElementById('gestion-modal');
     document.getElementById('modal-title').textContent = `${type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ')} (Reserva ${currentGrupo.reservaIdOriginal})`;
 
-    // --- INICIO DE CAMBIOS ---
     const actionMap = {
         'enviar_bienvenida': () => renderMensajeModal(grupo, 'bienvenida', onActionComplete),
         'enviar_cobro': () => renderMensajeModal(grupo, 'cobro', onActionComplete),
@@ -33,12 +33,19 @@ export function openManagementModal(type, grupo) {
         'pagos': () => renderPagosModal(grupo, onActionComplete),
         'boleta': () => renderDocumentoModal('boleta', grupo, onActionComplete),
         'gestionar_reserva': () => renderDocumentoModal('reserva', grupo, onActionComplete),
+        // --- INICIO DE CAMBIOS ---
+        'gestionar_cliente': () => {
+             // Para gestionar cliente, no abrimos un modal, navegamos a su perfil.
+            handleNavigation(`/cliente/${grupo.clienteId}?from-reserva=${grupo.reservaIdOriginal}`);
+            return false; // Indicamos que no se debe abrir el modal genérico
+        },
+        // --- FIN DE CAMBIOS ---
     };
-    // --- FIN DE CAMBIOS ---
 
-    if (actionMap[type]) {
-        actionMap[type]();
-        if (type !== 'bitacora') modal.classList.remove('hidden');
+    const shouldOpenModal = actionMap[type] ? actionMap[type]() : true;
+    
+    if (type !== 'bitacora' && shouldOpenModal !== false) {
+        modal.classList.remove('hidden');
     }
 }
 
@@ -52,7 +59,8 @@ export function openRevertModal(grupo) {
         { value: 'Pendiente Bienvenida', text: 'Pendiente Bienvenida' },
         { value: 'Pendiente Cobro', text: 'Pendiente Cobro' },
         { value: 'Pendiente Pago', text: 'Pendiente Pago' },
-        { value: 'Pendiente Boleta', text: 'Pendiente Boleta' }
+        { value: 'Pendiente Boleta', text: 'Pendiente Boleta' },
+        { value: 'Pendiente Cliente', text: 'Pendiente Cliente' }
     ];
     const estadoActualInfo = getStatusInfo(grupo.estadoGestion);
     const opcionesHtml = estadosPosibles

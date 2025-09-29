@@ -71,6 +71,7 @@ const getReservasPendientes = async (db, empresaId) => {
                     totalNoches: 0,
                     valorTotalHuespedOriginal: 0,
                     ajusteManualRealizado: false,
+                    clienteGestionado: false, // <-- AÑADIDO
                     valoresUSD: {
                         payout: 0,
                         iva: 0,
@@ -90,12 +91,12 @@ const getReservasPendientes = async (db, empresaId) => {
             if (data.ajusteManualRealizado) {
                 grupo.ajusteManualRealizado = true;
             }
-            
-            // --- INICIO DE CAMBIOS ---
             if (data.potencialCalculado) {
                 grupo.potencialCalculado = true;
             }
-            // --- FIN DE CAMBIOS ---
+            if (data.clienteGestionado) { // <-- AÑADIDO
+                grupo.clienteGestionado = true;
+            }
 
             if (data.valores?.valorHuespedOriginal) {
                 grupo.valorTotalHuespedOriginal += data.valores.valorHuespedOriginal;
@@ -158,7 +159,7 @@ const getReservasPendientes = async (db, empresaId) => {
     const today = getTodayUTC();
 
     const priorityOrder = {
-        'Pendiente Pago': 1, 'Pendiente Boleta': 2, 'Pendiente Cobro': 3, 'Pendiente Bienvenida': 4
+        'Pendiente Pago': 1, 'Pendiente Boleta': 2, 'Pendiente Cliente': 3, 'Pendiente Cobro': 4, 'Pendiente Bienvenida': 5
     };
     
     reservas.sort((a, b) => {
@@ -265,11 +266,38 @@ const getAnalisisFinanciero = async (db, empresaId, grupoReserva) => {
     };
 };
 
+// --- INICIO DE CAMBIOS ---
+const marcarClienteComoGestionado = async (db, empresaId, reservaIdOriginal) => {
+    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
+    const q = reservasRef.where('idReservaCanal', '==', reservaIdOriginal);
+    const snapshot = await q.get();
+
+    if (snapshot.empty) {
+        throw new Error('No se encontraron reservas para marcar al cliente como gestionado.');
+    }
+
+    const batch = db.batch();
+    let estadoActual = '';
+    snapshot.forEach(doc => {
+        estadoActual = doc.data().estadoGestion;
+        const updateData = { clienteGestionado: true };
+        // Si el estado es 'Pendiente Cliente', lo avanzamos a 'Facturado'
+        if (estadoActual === 'Pendiente Cliente') {
+            updateData.estadoGestion = 'Facturado';
+        }
+        batch.update(doc.ref, updateData);
+    });
+    
+    await batch.commit();
+};
+// --- FIN DE CAMBIOS ---
+
 module.exports = {
     getReservasPendientes,
     actualizarEstadoGrupo,
     getNotas,
     addNota,
     getTransacciones,
-    getAnalisisFinanciero
+    getAnalisisFinanciero,
+    marcarClienteComoGestionado
 };

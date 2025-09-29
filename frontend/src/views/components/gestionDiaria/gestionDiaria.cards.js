@@ -20,6 +20,9 @@ function createGrupoCard(grupo) {
 
     const isGestionPagosActive = statusInfo.level >= 2;
     const isGestionBoletaActive = statusInfo.level >= 4;
+    // --- INICIO DE CAMBIOS ---
+    const isGestionClienteActive = statusInfo.level >= 5;
+    // --- FIN DE CAMBIOS ---
 
     const clienteLink = `<a href="/cliente/${grupo.clienteId}" data-path="/cliente/${grupo.clienteId}" class="nav-link-style ml-4 text-lg font-bold text-gray-800 hover:text-indigo-600" title="Abrir ficha del cliente">${grupo.clienteNombre}</a>`;
     const revertButtonHtml = statusInfo.level > 1 ? `<button data-id="${grupo.reservaIdOriginal}" class="revert-btn ml-2 text-xl" title="Revertir estado">↩️</button>` : '';
@@ -62,8 +65,8 @@ function createGrupoCard(grupo) {
                 </div>
                 <div class="text-right border-t pt-2 font-bold text-lg"><span class="text-gray-500 font-medium">Total Cliente:</span> ${formatCurrency(grupo.valorTotalHuesped)}</div>
                 <div class="text-right border-t pt-2 grid grid-cols-2 gap-2">
-                    <div class="text-green-600"><span class="text-gray-500 font-medium">Abonado:</span> ${formatCurrency(grupo.abonoTotal)}</div>
-                    <div class="text-red-600"><span class="text-gray-500 font-medium">Saldo:</span> ${formatCurrency(saldo)}</div>
+                    <div class="text-green-600"><span class="text-gray-500 font-medium">Abonado:</span> <span>${formatCurrency(grupo.abonoTotal)}</span></div>
+                    <div class="text-red-600"><span class="text-gray-500 font-medium">Saldo:</span> <span>${formatCurrency(saldo)}</span></div>
                 </div>
             </div>
         `;
@@ -92,6 +95,7 @@ function createGrupoCard(grupo) {
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="ajuste_tarifa" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Ajustar Tarifa ${createNotificationBadge(grupo.ajusteManualRealizado || grupo.potencialCalculado)}</button>
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="pagos" class="gestion-btn ${baseButtonClasses} ${isGestionPagosActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionPagosActive ? 'disabled' : ''}>Gestionar Pagos ${createNotificationBadge(false, grupo.transaccionesCount)}</button>
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="boleta" class="gestion-btn ${baseButtonClasses} ${isGestionBoletaActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionBoletaActive ? 'disabled' : ''}>Gestionar Boleta ${createNotificationBadge(!!grupo.documentos.enlaceBoleta)}</button>
+                <button data-id="${grupo.reservaIdOriginal}" data-gestion="gestionar_cliente" class="gestion-btn ${baseButtonClasses} ${isGestionClienteActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionClienteActive ? 'disabled' : ''}>Gestionar Cliente ${createNotificationBadge(grupo.clienteGestionado)}</button>
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="bitacora" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Bitácora 🗂️ ${createNotificationBadge(false, grupo.notasCount)}</button>
             </div>
         </div>`;

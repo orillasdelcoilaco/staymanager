@@ -2,6 +2,7 @@ import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
 
 let cliente = null;
+let reservaDeOrigenId = null; // <-- AÑADIDO
 
 function renderStars(rating) {
     const filledStar = '⭐';
@@ -64,6 +65,11 @@ function renderHistorialReservas() {
 export async function render() {
     const pathParts = window.location.pathname.split('/');
     const clienteId = pathParts[pathParts.length - 1];
+    
+    // --- INICIO DE CAMBIOS ---
+    const urlParams = new URLSearchParams(window.location.search);
+    reservaDeOrigenId = urlParams.get('from-reserva');
+    // --- FIN DE CAMBIOS ---
 
     try {
         cliente = await fetchAPI(`/clientes/${clienteId}`);
@@ -81,7 +87,7 @@ export async function render() {
                 </div>
                 <div>
                     <button id="edit-cliente-btn" class="btn-primary mr-2">Editar Cliente</button>
-                    <button id="back-btn" class="btn-secondary">Volver a Clientes</button>
+                    <button id="back-btn" class="btn-secondary">Volver</button>
                 </div>
             </div>
 
@@ -155,7 +161,15 @@ export async function render() {
 export function afterRender() {
     renderHistorialReservas();
 
-    document.getElementById('back-btn').addEventListener('click', () => handleNavigation('/clientes'));
+    // --- INICIO DE CAMBIOS ---
+    const backBtn = document.getElementById('back-btn');
+    backBtn.textContent = reservaDeOrigenId ? 'Volver a Gestión Diaria' : 'Volver a Clientes';
+    backBtn.addEventListener('click', () => {
+        const path = reservaDeOrigenId ? '/gestion-diaria' : '/clientes';
+        handleNavigation(path);
+    });
+    // --- FIN DE CAMBIOS ---
+
     document.getElementById('edit-cliente-btn').addEventListener('click', abrirModalEditar);
     document.getElementById('cancel-btn-perfil').addEventListener('click', cerrarModalEditar);
 
@@ -172,7 +186,7 @@ export function afterRender() {
         const submitBtn = form.querySelector('button[type="submit"]');
         const originalBtnText = submitBtn.textContent;
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Guardando y Sincronizando...';
+        submitBtn.textContent = 'Guardando...';
 
         const datos = {
             nombre: form.nombre.value,
@@ -186,9 +200,21 @@ export function afterRender() {
 
         try {
             await fetchAPI(`/clientes/${cliente.id}`, { method: 'PUT', body: datos });
-            cliente = { ...cliente, ...datos };
-            cerrarModalEditar();
-            handleNavigation(window.location.pathname); 
+            
+            // --- INICIO DE CAMBIOS ---
+            if (reservaDeOrigenId) {
+                await fetchAPI('/gestion/marcar-cliente-gestionado', {
+                    method: 'POST',
+                    body: { reservaIdOriginal: reservaDeOrigenId }
+                });
+                handleNavigation('/gestion-diaria');
+            } else {
+                cliente = { ...cliente, ...datos };
+                cerrarModalEditar();
+                handleNavigation(window.location.pathname);
+            }
+            // --- FIN DE CAMBIOS ---
+
         } catch (error) {
             alert(`Error al guardar: ${error.message}`);
         } finally {
