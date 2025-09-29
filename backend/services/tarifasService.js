@@ -48,39 +48,9 @@ const eliminarTarifa = async (db, empresaId, tarifaId) => {
     await tarifaRef.delete();
 };
 
-// --- INICIO DE LA NUEVA FUNCIÓN ---
-const obtenerTarifaParaFecha = async (db, empresaId, alojamientoId, canalId, fecha) => {
-    const tarifasRef = db.collection('empresas').doc(empresaId).collection('tarifas');
-    const fechaDate = new Date(fecha);
-    
-    const q = tarifasRef
-        .where('alojamientoId', '==', alojamientoId)
-        .where('fechaInicio', '<=', fechaDate.toISOString().split('T')[0])
-        .orderBy('fechaInicio', 'desc')
-        .limit(1);
-
-    const snapshot = await q.get();
-
-    if (snapshot.empty) {
-        return null; // No se encontró una tarifa que haya comenzado
-    }
-
-    const tarifa = snapshot.docs[0].data();
-
-    // Validar que la fecha de la reserva esté dentro del período de la tarifa
-    if (new Date(tarifa.fechaTermino) >= fechaDate) {
-        return tarifa.precios[canalId] || null;
-    }
-
-    return null; // La reserva está fuera del período de la tarifa más reciente
-};
-// --- FIN DE LA NUEVA FUNCIÓN ---
-
-
 module.exports = {
     crearTarifa,
     obtenerTarifasPorEmpresa,
     actualizarTarifa,
-    eliminarTarifa,
-    obtenerTarifaParaFecha
+    eliminarTarifa
 };

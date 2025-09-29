@@ -1,6 +1,14 @@
 const admin = require('firebase-admin');
-const { obtenerTarifaParaFecha } = require('./tarifasService');
 const { obtenerValorDolar } = require('./dolarService');
+
+function findTarifaInMemory(tarifas, alojamientoId, canalId, fecha) {
+    const tarifa = tarifas.find(t => 
+        t.alojamientoId === alojamientoId &&
+        new Date(t.fechaInicio) <= fecha &&
+        new Date(t.fechaTermino) >= fecha
+    );
+    return tarifa ? (tarifa.precios[canalId] || null) : null;
+}
 
 function getTodayUTC() {
     const today = new Date();
@@ -8,178 +16,138 @@ function getTodayUTC() {
 }
 
 const getReservasPendientes = async (db, empresaId) => {
+    console.time(`[PERF] getReservasPendientes total para ${empresaId}`);
+    
+    console.time(`[PERF] DB Query para ${empresaId}`);
     const [clientesSnapshot, reservasSnapshot, notasSnapshot, transaccionesSnapshot, tarifasSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('clientes').get(),
         db.collection('empresas').doc(empresaId).collection('reservas').where('estado', '==', 'Confirmada').get(),
         db.collection('empresas').doc(empresaId).collection('gestionNotas').get(),
         db.collection('empresas').doc(empresaId).collection('transacciones').get(),
-        db.collection('empresas').doc(empresaId).collection('tarifas').get()
+        db.collection('empresas').doc(empresaId).collection('tarifas').orderBy('fechaInicio', 'desc').get()
     ]);
+    console.timeEnd(`[PERF] DB Query para ${empresaId}`);
 
-    const clientsMap = new Map();
-    clientesSnapshot.forEach(doc => clientsMap.set(doc.id, doc.data()));
-    
+    console.time(`[PERF] Procesamiento para ${empresaId}`);
+    const clientsMap = new Map(clientesSnapshot.docs.map(doc => [doc.id, doc.data()]));
+    const todasLasTarifas = tarifasSnapshot.docs.map(doc => doc.data());
+
     const notesCountMap = new Map();
     notasSnapshot.forEach(doc => {
-        const nota = doc.data();
-        const id = nota.reservaIdOriginal;
+        const id = doc.data().reservaIdOriginal;
         notesCountMap.set(id, (notesCountMap.get(id) || 0) + 1);
     });
-    
+
     const transaccionesCountMap = new Map();
     const abonosMap = new Map();
     transaccionesSnapshot.forEach(doc => {
-        const transaccion = doc.data();
-        const id = transaccion.reservaIdOriginal;
+        const data = doc.data();
+        const id = data.reservaIdOriginal;
         transaccionesCountMap.set(id, (transaccionesCountMap.get(id) || 0) + 1);
-        
-        const monto = parseFloat(transaccion.monto);
+        const monto = parseFloat(data.monto);
         if (!isNaN(monto)) {
             abonosMap.set(id, (abonosMap.get(id) || 0) + monto);
         }
     });
 
-    const tarifas = tarifasSnapshot.docs.map(doc => doc.data());
     const reservasAgrupadas = new Map();
 
-    for (const doc of reservasSnapshot.docs) {
+    reservasSnapshot.docs.forEach(doc => {
         const data = doc.data();
-        if (data.estadoGestion !== 'Facturado') {
-            const reservaId = data.idReservaCanal;
+        if (data.estadoGestion === 'Facturado') return;
 
-            if (!reservasAgrupadas.has(reservaId)) {
-                const clienteActual = clientsMap.get(data.clienteId);
-                
-                reservasAgrupadas.set(reservaId, {
-                    reservaIdOriginal: reservaId,
-                    clienteId: data.clienteId,
-                    clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
-                    telefono: clienteActual?.telefono || data.telefono || 'N/A',
-                    fechaLlegada: (data.fechaLlegada && typeof data.fechaLlegada.toDate === 'function') ? data.fechaLlegada.toDate() : null,
-                    fechaSalida: (data.fechaSalida && typeof data.fechaSalida.toDate === 'function') ? data.fechaSalida.toDate() : null,
-                    estadoGestion: data.estadoGestion || 'Pendiente Bienvenida',
-                    documentos: data.documentos || {},
-                    reservasIndividuales: [],
-                    valorTotalHuesped: 0,
-                    costoCanal: 0,
-                    payoutFinalReal: 0,
-                    ivaTotal: 0,
-                    abonoTotal: abonosMap.get(reservaId) || 0,
-                    potencialTotal: 0, 
-                    valorListaBaseTotal: 0,
-                    potencialCalculado: false,
-                    totalNoches: 0,
-                    valorTotalHuespedOriginal: 0,
-                    ajusteManualRealizado: false,
-                    clienteGestionado: false, // <-- AÑADIDO
-                    valoresUSD: {
-                        payout: 0,
-                        iva: 0,
-                        totalCliente: 0
-                    },
-                    esUSD: false,
-                    notasCount: notesCountMap.get(reservaId) || 0,
-                    transaccionesCount: transaccionesCountMap.get(reservaId) || 0
-                });
-            }
-
-            const grupo = reservasAgrupadas.get(reservaId);
-            const valorHuesped = data.valores?.valorHuesped || 0;
-            const comisionReal = data.valores?.comision > 0 ? data.valores.comision : data.valores?.costoCanal || 0;
-            const ivaIndividual = data.valores?.iva || 0;
-            
-            if (data.ajusteManualRealizado) {
-                grupo.ajusteManualRealizado = true;
-            }
-            if (data.potencialCalculado) {
-                grupo.potencialCalculado = true;
-            }
-            if (data.clienteGestionado) { // <-- AÑADIDO
-                grupo.clienteGestionado = true;
-            }
-
-            if (data.valores?.valorHuespedOriginal) {
-                grupo.valorTotalHuespedOriginal += data.valores.valorHuespedOriginal;
-            } else {
-                grupo.valorTotalHuespedOriginal += valorHuesped;
-            }
-            
-            if (data.moneda === 'USD') {
-                grupo.esUSD = true;
-                const valorOriginalPayout = data.valores?.valorOriginal || 0;
-                const totalClienteCLP = data.valores?.valorHuesped || 0;
-                const totalClienteUSD = data.valorDolarDia ? totalClienteCLP / data.valorDolarDia : 0;
-                const ivaUSD = Math.max(0, totalClienteUSD - valorOriginalPayout);
-
-                grupo.valoresUSD.payout += valorOriginalPayout;
-                grupo.valoresUSD.iva += ivaUSD;
-                grupo.valoresUSD.totalCliente += totalClienteUSD;
-            }
-
-            const fechaLlegadaDate = (data.fechaLlegada && typeof data.fechaLlegada.toDate === 'function') ? data.fechaLlegada.toDate() : new Date();
-            const tarifaAplicable = await obtenerTarifaParaFecha(db, empresaId, data.alojamientoId, data.canalId, fechaLlegadaDate);
-            const valorListaBase = tarifaAplicable ? tarifaAplicable.valor : 0;
-
-            grupo.reservasIndividuales.push({
-                id: doc.id,
-                alojamientoNombre: data.alojamientoNombre,
-                canalNombre: data.canalNombre,
-                moneda: data.moneda,
-                valorDolarDia: data.valorDolarDia,
-                valores: data.valores,
-                valorListaBase: valorListaBase,
-                totalNoches: data.totalNoches,
-                cantidadHuespedes: data.cantidadHuespedes
+        const reservaId = data.idReservaCanal;
+        if (!reservasAgrupadas.has(reservaId)) {
+            const clienteActual = clientsMap.get(data.clienteId);
+            reservasAgrupadas.set(reservaId, {
+                reservaIdOriginal: reservaId,
+                clienteId: data.clienteId,
+                clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
+                telefono: clienteActual?.telefono || data.telefono || 'N/A',
+                fechaLlegada: (data.fechaLlegada?.toDate()),
+                fechaSalida: (data.fechaSalida?.toDate()),
+                estadoGestion: data.estadoGestion || 'Pendiente Bienvenida',
+                documentos: {},
+                reservasIndividuales: [],
+                abonoTotal: abonosMap.get(reservaId) || 0,
+                notasCount: notesCountMap.get(reservaId) || 0,
+                transaccionesCount: transaccionesCountMap.get(reservaId) || 0,
             });
-            
-            grupo.valorTotalHuesped += valorHuesped;
-            grupo.costoCanal += comisionReal;
-            grupo.ivaTotal += ivaIndividual;
-            const noches = data.totalNoches || 1;
-            grupo.valorListaBaseTotal += (valorListaBase * noches);
-            if (grupo.totalNoches === 0) {
-                grupo.totalNoches = noches;
-            }
-            
-            if (data.valores?.valorPotencial && data.valores.valorPotencial > 0) {
-                grupo.potencialTotal += data.valores.valorPotencial;
-            }
-
-            if (data.documentos) {
-                 grupo.documentos = {...grupo.documentos, ...data.documentos};
-            }
         }
-    }
-    
-    for (const grupo of reservasAgrupadas.values()) {
-        grupo.payoutFinalReal = grupo.valorTotalHuesped - grupo.costoCanal;
-    }
+        reservasAgrupadas.get(reservaId).reservasIndividuales.push(data);
+    });
 
-    const reservas = Array.from(reservasAgrupadas.values());
+    const gruposProcesados = Array.from(reservasAgrupadas.values()).map(grupo => {
+        const primerReserva = grupo.reservasIndividuales[0];
+        const esUSD = primerReserva.moneda === 'USD';
+        const valorDolarDia = primerReserva.valorDolarDia || 0;
+        
+        const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
+            const valorHuesped = r.valores?.valorHuesped || 0;
+            const comisionReal = r.valores?.comision > 0 ? r.valores.comision : r.valores?.costoCanal || 0;
+            const ivaIndividual = r.valores?.iva || 0;
+            
+            const fechaLlegadaDate = r.fechaLlegada?.toDate() || new Date();
+            const tarifaAplicable = findTarifaInMemory(todasLasTarifas, r.alojamientoId, r.canalId, fechaLlegadaDate);
+            const valorListaBase = tarifaAplicable ? tarifaAplicable.valor : 0;
+            const noches = r.totalNoches || 1;
+
+            acc.valorTotalHuesped += valorHuesped;
+            acc.costoCanal += comisionReal;
+            acc.ivaTotal += ivaIndividual;
+            acc.valorListaBaseTotal += (valorListaBase * noches);
+
+            if (esUSD) {
+                const valorOriginalPayout = r.valores?.valorOriginal || 0;
+                const totalClienteUSD = valorDolarDia ? valorHuesped / valorDolarDia : 0;
+                const ivaUSD = Math.max(0, totalClienteUSD - valorOriginalPayout);
+                acc.valoresUSD.payout += valorOriginalPayout;
+                acc.valoresUSD.iva += ivaUSD;
+                acc.valoresUSD.totalCliente += totalClienteUSD;
+            }
+
+            if (r.ajusteManualRealizado) acc.ajusteManualRealizado = true;
+            if (r.potencialCalculado) acc.potencialCalculado = true;
+            if (r.clienteGestionado) acc.clienteGestionado = true;
+            if (r.documentos) acc.documentos = { ...acc.documentos, ...r.documentos };
+
+            return acc;
+        }, {
+            valorTotalHuesped: 0, costoCanal: 0, ivaTotal: 0, valorListaBaseTotal: 0,
+            ajusteManualRealizado: false, potencialCalculado: false, clienteGestionado: false,
+            documentos: {}, valoresUSD: { payout: 0, iva: 0, totalCliente: 0 }
+        });
+
+        return {
+            ...grupo,
+            ...valoresAgregados,
+            esUSD,
+            totalNoches: primerReserva.totalNoches || 1,
+            payoutFinalReal: valoresAgregados.valorTotalHuesped - valoresAgregados.costoCanal
+        };
+    });
+
     const today = getTodayUTC();
-
     const priorityOrder = {
         'Pendiente Pago': 1, 'Pendiente Boleta': 2, 'Pendiente Cliente': 3, 'Pendiente Cobro': 4, 'Pendiente Bienvenida': 5
     };
-    
-    reservas.sort((a, b) => {
+
+    gruposProcesados.sort((a, b) => {
         const aLlegaHoy = a.fechaLlegada && a.fechaLlegada.getTime() <= today.getTime();
         const bLlegaHoy = b.fechaLlegada && b.fechaLlegada.getTime() <= today.getTime();
-
         if (aLlegaHoy && !bLlegaHoy) return -1;
         if (!aLlegaHoy && bLlegaHoy) return 1;
-
-        if (aLlegaHoy && bLlegaHoy) {
-            const priorityA = priorityOrder[a.estadoGestion] || 99;
-            const priorityB = priorityOrder[b.estadoGestion] || 99;
-            if (priorityA !== priorityB) return priorityA - priorityB;
-        }
-        
+        const priorityA = priorityOrder[a.estadoGestion] || 99;
+        const priorityB = priorityOrder[b.estadoGestion] || 99;
+        if (priorityA !== priorityB) return priorityA - priorityB;
         return (a.fechaLlegada || 0) - (b.fechaLlegada || 0);
     });
-
-    return reservas;
+    console.timeEnd(`[PERF] Procesamiento para ${empresaId}`);
+    
+    console.timeEnd(`[PERF] getReservasPendientes total para ${empresaId}`);
+    return gruposProcesados;
 };
+
 
 const actualizarEstadoGrupo = async (db, empresaId, idsIndividuales, nuevoEstado) => {
     const batch = db.batch();
@@ -230,43 +198,6 @@ const getTransacciones = async (db, empresaId, idsIndividuales) => {
     return transacciones;
 };
 
-const getAnalisisFinanciero = async (db, empresaId, grupoReserva) => {
-    const idReservaPrincipal = grupoReserva.reservasIndividuales[0].id;
-    const reservaPrincipalSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas').doc(idReservaPrincipal).get();
-    if (!reservaPrincipalSnapshot.exists) throw new Error("La reserva principal del grupo no fue encontrada.");
-    
-    const reservaPrincipal = reservaPrincipalSnapshot.data();
-    const { canalId, alojamientoId, fechaLlegada } = reservaPrincipal;
-
-    const fechaLlegadaDate = (fechaLlegada && typeof fechaLlegada.toDate === 'function') ? fechaLlegada.toDate() : null;
-    if (!fechaLlegadaDate) throw new Error("La fecha de llegada de la reserva principal es inválida.");
-
-    const tarifaBase = await obtenerTarifaParaFecha(db, empresaId, alojamientoId, canalId, fechaLlegadaDate);
-    const valorLista = tarifaBase ? tarifaBase.valor : 0;
-    const moneda = tarifaBase ? tarifaBase.moneda : 'CLP';
-
-    const valorHuespedTotal = grupoReserva.valorTotalHuesped;
-    const valorPayoutTotal = grupoReserva.valorTotalPayout;
-    
-    const descuentos = valorLista > 0 ? (valorLista * grupoReserva.reservasIndividuales.length) - valorHuespedTotal : 0;
-    const costoCanal = valorHuespedTotal - valorPayoutTotal;
-
-    let valorDolarDia = null;
-    if (moneda === 'USD') {
-        valorDolarDia = await obtenerValorDolar(db, empresaId, fechaLlegadaDate);
-    }
-
-    return {
-        valorLista: valorLista * grupoReserva.reservasIndividuales.length,
-        descuentos: descuentos > 0 ? descuentos : 0,
-        costoCanal: costoCanal,
-        payout: valorPayoutTotal,
-        moneda,
-        valorDolarDia,
-    };
-};
-
-// --- INICIO DE CAMBIOS ---
 const marcarClienteComoGestionado = async (db, empresaId, reservaIdOriginal) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
     const q = reservasRef.where('idReservaCanal', '==', reservaIdOriginal);
@@ -281,7 +212,6 @@ const marcarClienteComoGestionado = async (db, empresaId, reservaIdOriginal) => 
     snapshot.forEach(doc => {
         estadoActual = doc.data().estadoGestion;
         const updateData = { clienteGestionado: true };
-        // Si el estado es 'Pendiente Cliente', lo avanzamos a 'Facturado'
         if (estadoActual === 'Pendiente Cliente') {
             updateData.estadoGestion = 'Facturado';
         }
@@ -290,7 +220,6 @@ const marcarClienteComoGestionado = async (db, empresaId, reservaIdOriginal) => 
     
     await batch.commit();
 };
-// --- FIN DE CAMBIOS ---
 
 module.exports = {
     getReservasPendientes,
@@ -298,6 +227,5 @@ module.exports = {
     getNotas,
     addNota,
     getTransacciones,
-    getAnalisisFinanciero,
     marcarClienteComoGestionado
 };
