@@ -234,7 +234,30 @@ const registrarPago = async (db, empresaId, detalles) => {
 
 const eliminarPago = async (db, empresaId, transaccionId) => {
     const transaccionRef = db.collection('empresas').doc(empresaId).collection('transacciones').doc(transaccionId);
+    
+    // --- INICIO DE CAMBIOS ---
+    const transaccionDoc = await transaccionRef.get();
+    if (!transaccionDoc.exists) {
+        throw new Error('La transacción a eliminar no fue encontrada.');
+    }
+    const transaccionData = transaccionDoc.data();
+    
     await transaccionRef.delete();
+
+    if (transaccionData.tipo === 'Pago Final') {
+        const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
+        const q = reservasRef.where('idReservaCanal', '==', transaccionData.reservaIdOriginal);
+        const snapshot = await q.get();
+
+        if (!snapshot.empty) {
+            const batch = db.batch();
+            snapshot.docs.forEach(doc => {
+                batch.update(doc.ref, { estadoGestion: 'Pendiente Pago' });
+            });
+            await batch.commit();
+        }
+    }
+    // --- FIN DE CAMBIOS ---
 };
 
 const actualizarDocumentoReserva = async (db, empresaId, idsIndividuales, tipoDocumento, url) => {

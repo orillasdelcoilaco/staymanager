@@ -33,12 +33,10 @@ const getReservasPendientes = async (db, empresaId) => {
         const id = transaccion.reservaIdOriginal;
         transaccionesCountMap.set(id, (transaccionesCountMap.get(id) || 0) + 1);
         
-        // --- INICIO DE CAMBIOS ---
         const monto = parseFloat(transaccion.monto);
         if (!isNaN(monto)) {
             abonosMap.set(id, (abonosMap.get(id) || 0) + monto);
         }
-        // --- FIN DE CAMBIOS ---
     });
 
     const tarifas = tarifasSnapshot.docs.map(doc => doc.data());
@@ -182,14 +180,16 @@ const getTransacciones = async (db, empresaId, idsIndividuales) => {
     
     const reservaIdOriginal = reservaDoc.data().idReservaCanal;
     
+    // --- INICIO DE CAMBIOS ---
     const snapshot = await transaccionesRef
         .where('reservaIdOriginal', '==', reservaIdOriginal)
-        .orderBy('fecha', 'desc')
         .get();
+    // --- FIN DE CAMBIOS ---
 
     if (snapshot.empty) return [];
 
-    return snapshot.docs.map(doc => {
+    // --- INICIO DE CAMBIOS ---
+    const transacciones = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
             id: doc.id,
@@ -197,6 +197,10 @@ const getTransacciones = async (db, empresaId, idsIndividuales) => {
             fecha: data.fecha ? data.fecha.toDate() : new Date()
         };
     });
+    // Ordenar en el servidor en lugar de la base de datos
+    transacciones.sort((a, b) => b.fecha - a.fecha);
+    return transacciones;
+    // --- FIN DE CAMBIOS ---
 };
 
 const getAnalisisFinanciero = async (db, empresaId, grupoReserva) => {
