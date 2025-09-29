@@ -77,10 +77,12 @@ async function loadAndRender(isLoadMore = false) {
             currentUserEmail = user.email;
         }
 
+        console.log("Enviando petición para la página siguiente con el cursor:", lastVisible);
         const data = await fetchAPI('/gestion/pendientes', {
             method: 'POST',
             body: { lastVisible }
         });
+        console.log("Respuesta de la API recibida:", data);
 
         allGrupos.push(...data.grupos);
         hasMore = data.hasMore;
@@ -147,5 +149,5 @@ export async function afterRender() {
     document.getElementById('proximas-list').addEventListener('click', handleCardButtonClick);
     document.getElementById('load-more-btn').addEventListener('click', () => loadAndRender(true));
     
-    initializeModals(() => loadAndRender(false), currentUserEmail); // Refresco completo
+    initializeModals(() => loadAndRender(false), currentUserEmail);
 }
