@@ -22,7 +22,9 @@ const views = {
     '/empresa': () => import('./views/empresa.js'),
     '/gestionar-usuarios': () => import('./views/gestionarUsuarios.js'),
     '/reparar-contactos': () => import('./views/repararContactos.js'),
-    '/historial-cargas': () => import('./views/historialCargas.js'), // <-- AÑADIDO
+    '/historial-cargas': () => import('./views/historialCargas.js'),
+    '/gestionar-tipos-plantilla': () => import('./views/gestionarTiposPlantilla.js'), // <-- AÑADIDO
+    '/gestionar-plantillas': () => import('./views/gestionarPlantillas.js'),       // <-- AÑADIDO
 };
 
 const menuConfig = [
@@ -45,13 +47,15 @@ const menuConfig = [
         id: 'herramientas',
         children: [
             { name: '⚙️ Procesar y Consolidar', path: '/procesar-y-consolidar', id: 'procesar-consolidar' },
-            { name: '🗂️ Historial de Cargas', path: '/historial-cargas', id: 'historial-cargas' }, // <-- AÑADIDO
+            { name: '🗂️ Historial de Cargas', path: '/historial-cargas', id: 'historial-cargas' },
             { name: '👥 Gestionar Clientes', path: '/clientes', id: 'clientes' },
             { name: '🏨 Gestionar Reservas', path: '/gestionar-reservas', id: 'gestionar-reservas' }, 
             { name: '📈 Gestionar Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' },
             { name: '📈 Gestionar Valor Dólar', path: '/gestionar-dolar', id: 'gestionar-dolar' },
             { name: '🏡 Gestionar Alojamientos', path: '/gestionar-alojamientos', id: 'gestionar-alojamientos' },
             { name: '📡 Gestionar Canales', path: '/gestionar-canales', id: 'gestionar-canales' },
+            { name: '🏷️ Tipos de Plantilla', path: '/gestionar-tipos-plantilla', id: 'gestionar-tipos-plantilla' }, // <-- AÑADIDO
+            { name: '✉️ Gestionar Plantillas', path: '/gestionar-plantillas', id: 'gestionar-plantillas' },       // <-- AÑADIDO
         ]
     },
     {
@@ -71,7 +75,6 @@ const menuConfig = [
     }
 ];
 
-// ... (El resto del archivo router.js no necesita cambios)
 export async function handleNavigation(path) {
     if (path !== '/login') sessionStorage.setItem('lastPath', path);
     window.history.pushState({}, '', path);
