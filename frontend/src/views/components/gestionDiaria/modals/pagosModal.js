@@ -112,37 +112,41 @@ async function renderPagosList() {
     const listaPagosEl = document.getElementById('lista-pagos');
     const summaryEl = document.getElementById('pagos-summary');
 
-    const ids = currentGrupo.reservasIndividuales.map(r => r.id);
-    allTransacciones = await fetchAPI('/gestion/transacciones', { method: 'POST', body: { idsIndividuales: ids } });
-    
-    const totalAbonado = allTransacciones.reduce((sum, t) => sum + t.monto, 0);
-    currentGrupo.abonoTotal = totalAbonado;
-    const saldo = currentGrupo.valorTotalHuesped - totalAbonado;
+    try {
+        const ids = currentGrupo.reservasIndividuales.map(r => r.id);
+        allTransacciones = await fetchAPI('/gestion/transacciones', { method: 'POST', body: { idsIndividuales: ids } });
+        
+        const totalAbonado = allTransacciones.reduce((sum, t) => sum + t.monto, 0);
+        currentGrupo.abonoTotal = totalAbonado;
+        const saldo = currentGrupo.valorTotalHuesped - totalAbonado;
 
-    summaryEl.innerHTML = `
-        <div><span class="text-gray-500 font-medium">Total Cliente:</span> ${formatCurrency(currentGrupo.valorTotalHuesped)}</div>
-        <div class="text-green-600"><span class="text-gray-500 font-medium">Abonado:</span> ${formatCurrency(totalAbonado)}</div>
-        <div class="text-red-600"><span class="text-gray-500 font-medium">Saldo:</span> ${formatCurrency(saldo)}</div>`;
-    
-    if (allTransacciones.length === 0) {
-        listaPagosEl.innerHTML = '<p class="text-sm text-center text-gray-500 p-4">No hay pagos registrados.</p>';
-        return;
+        summaryEl.innerHTML = `
+            <div><span class="text-gray-500 font-medium">Total Cliente:</span> ${formatCurrency(currentGrupo.valorTotalHuesped)}</div>
+            <div class="text-green-600"><span class="text-gray-500 font-medium">Abonado:</span> ${formatCurrency(totalAbonado)}</div>
+            <div class="text-red-600"><span class="text-gray-500 font-medium">Saldo:</span> ${formatCurrency(saldo)}</div>`;
+        
+        if (allTransacciones.length === 0) {
+            listaPagosEl.innerHTML = '<p class="text-sm text-center text-gray-500 p-4">No hay pagos registrados.</p>';
+            return;
+        }
+        
+        listaPagosEl.innerHTML = allTransacciones.map(p => `
+            <div class="p-2 border rounded-md flex justify-between items-center">
+                <div>
+                    <p class="font-semibold">${formatCurrency(p.monto)} - <span class="font-normal text-gray-600">${p.tipo} (${p.medioDePago})</span></p>
+                    <p class="text-xs text-gray-500">Fecha: ${new Date(p.fecha).toLocaleString('es-CL')}</p>
+                </div>
+                <div>
+                    <button data-id="${p.id}" class="delete-pago-btn text-xs text-red-600 hover:text-red-900">Eliminar</button>
+                </div>
+            </div>`).join('');
+
+        listaPagosEl.querySelectorAll('.delete-pago-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => handleDeleteTransaction(e.target.dataset.id));
+        });
+    } catch (error) {
+        listaPagosEl.innerHTML = `<p class="text-red-500 text-center p-4">Error al cargar los pagos: ${error.message}</p>`;
     }
-    
-    listaPagosEl.innerHTML = allTransacciones.map(p => `
-        <div class="p-2 border rounded-md flex justify-between items-center">
-            <div>
-                <p class="font-semibold">${formatCurrency(p.monto)} - <span class="font-normal text-gray-600">${p.tipo} (${p.medioDePago})</span></p>
-                <p class="text-xs text-gray-500">Fecha: ${new Date(p.fecha).toLocaleString('es-CL')}</p>
-            </div>
-            <div>
-                <button data-id="${p.id}" class="delete-pago-btn text-xs text-red-600 hover:text-red-900">Eliminar</button>
-            </div>
-        </div>`).join('');
-
-    listaPagosEl.querySelectorAll('.delete-pago-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => handleDeleteTransaction(e.target.dataset.id));
-    });
 }
 
 export function renderPagosModal(grupo, callback) {

@@ -26,16 +26,20 @@ const getReservasPendientes = async (db, empresaId) => {
         notesCountMap.set(id, (notesCountMap.get(id) || 0) + 1);
     });
     
-    // --- INICIO DE CAMBIOS ---
     const transaccionesCountMap = new Map();
     const abonosMap = new Map();
     transaccionesSnapshot.forEach(doc => {
         const transaccion = doc.data();
         const id = transaccion.reservaIdOriginal;
         transaccionesCountMap.set(id, (transaccionesCountMap.get(id) || 0) + 1);
-        abonosMap.set(id, (abonosMap.get(id) || 0) + transaccion.monto);
+        
+        // --- INICIO DE CAMBIOS ---
+        const monto = parseFloat(transaccion.monto);
+        if (!isNaN(monto)) {
+            abonosMap.set(id, (abonosMap.get(id) || 0) + monto);
+        }
+        // --- FIN DE CAMBIOS ---
     });
-    // --- FIN DE CAMBIOS ---
 
     const tarifas = tarifasSnapshot.docs.map(doc => doc.data());
     const reservasAgrupadas = new Map();
@@ -63,7 +67,7 @@ const getReservasPendientes = async (db, empresaId) => {
                     payoutFinalReal: 0,
                     costoCanal: 0,
                     ivaTotal: 0,
-                    abonoTotal: abonosMap.get(reservaId) || 0, // <-- MODIFICADO
+                    abonoTotal: abonosMap.get(reservaId) || 0,
                     potencialTotal: 0, 
                     valorListaBaseTotal: 0,
                     potencialCalculado: false,
@@ -107,7 +111,6 @@ const getReservasPendientes = async (db, empresaId) => {
             grupo.payoutFinalReal += payoutFinalCalculado;
             grupo.costoCanal += comisionReal;
             grupo.ivaTotal += ivaIndividual;
-            // ELIMINADO: grupo.abonoTotal += data.valores?.abono || 0;
             grupo.valorListaBaseTotal += valorListaBase;
             grupo.totalNoches += data.totalNoches || 0;
             
