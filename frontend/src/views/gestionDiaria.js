@@ -53,24 +53,26 @@ export async function render() {
     `;
 }
 
-async function loadAndRender(loadMore = false) {
+async function loadAndRender(isLoadMore = false) {
     if (isLoading) return;
     isLoading = true;
 
     const loadingState = document.getElementById('loading-state');
     const loadMoreBtn = document.getElementById('load-more-btn');
-    if (loadMore) {
+    const noPendientesEl = document.getElementById('no-pendientes');
+
+    if (isLoadMore) {
         loadMoreBtn.disabled = true;
         loadMoreBtn.textContent = 'Cargando...';
     } else {
         loadingState.classList.remove('hidden');
+        allGrupos = []; 
+        lastVisible = null;
+        hasMore = true;
     }
 
     try {
-        if (!loadMore) {
-            allGrupos = [];
-            lastVisible = null;
-            hasMore = true;
+        if (!currentUserEmail) {
             const user = await fetchAPI('/auth/me');
             currentUserEmail = user.email;
         }
@@ -80,13 +82,14 @@ async function loadAndRender(loadMore = false) {
             body: { lastVisible }
         });
 
-        allGrupos = [...allGrupos, ...data.grupos];
+        allGrupos.push(...data.grupos);
         hasMore = data.hasMore;
         lastVisible = data.lastVisible;
         
         renderGrupos(allGrupos);
-
+        
         document.getElementById('load-more-container').classList.toggle('hidden', !hasMore);
+        noPendientesEl.classList.toggle('hidden', allGrupos.length > 0);
 
     } catch(error) {
         loadingState.innerHTML = `<p class="text-red-500">Error al cargar las gestiones: ${error.message}</p>`;
@@ -126,13 +129,18 @@ export async function afterRender() {
     const searchInput = document.getElementById('search-input');
     searchInput.addEventListener('input', () => {
         const filtro = searchInput.value.toLowerCase();
-        const gruposFiltrados = allGrupos.filter(g => 
-            g.clienteNombre.toLowerCase().includes(filtro) ||
-            g.reservaIdOriginal.toLowerCase().includes(filtro) ||
-            (g.telefono && g.telefono.includes(filtro))
-        );
-        renderGrupos(gruposFiltrados);
-        document.getElementById('load-more-container').classList.toggle('hidden', !!filtro || !hasMore);
+        if (filtro) {
+            const gruposFiltrados = allGrupos.filter(g => 
+                g.clienteNombre.toLowerCase().includes(filtro) ||
+                g.reservaIdOriginal.toLowerCase().includes(filtro) ||
+                (g.telefono && g.telefono.includes(filtro))
+            );
+            renderGrupos(gruposFiltrados);
+            document.getElementById('load-more-container').classList.add('hidden');
+        } else {
+            renderGrupos(allGrupos);
+            document.getElementById('load-more-container').classList.toggle('hidden', !hasMore);
+        }
     });
 
     document.getElementById('hoy-list').addEventListener('click', handleCardButtonClick);

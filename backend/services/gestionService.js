@@ -1,39 +1,39 @@
 const admin = require('firebase-admin');
 
+function findTarifaInMemory(tarifas, alojamientoId, canalId, fecha) {
+    const tarifa = tarifas.find(t => 
+        t.alojamientoId === alojamientoId &&
+        new Date(t.fechaInicio) <= fecha &&
+        new Date(t.fechaTermino) >= fecha
+    );
+    return tarifa ? (tarifa.precios[canalId] || null) : null;
+}
+
 function getTodayUTC() {
     const today = new Date();
     return new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
 }
 
-const getReservasPendientes = async (db, empresaId, lastReserva = null) => {
-    console.time(`[PERF] getReservasPendientes total para ${empresaId}`);
-    const PAGE_SIZE = 20; // Cargaremos de 20 en 20
+const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
+    const PAGE_SIZE = 20;
 
-    console.time(`[PERF] DB Query (Paginada) para ${empresaId}`);
-    
-    const today = getTodayUTC();
-    const priorityOrder = {
-        'Pendiente Pago': 1, 'Pendiente Boleta': 2, 'Pendiente Cliente': 3, 'Pendiente Cobro': 4, 'Pendiente Bienvenida': 5
-    };
-
-    let query = db.collection('empresas').doc(empresaId).collection('reservas')
+    let query = db.collectionGroup(db, 'reservas')
+        .where('empresaId', '==', empresaId)
         .where('estado', '==', 'Confirmada')
-        .where('estadoGestion', 'in', Object.keys(priorityOrder))
-        .orderBy('estadoGestion') // Ordenamos por prioridad de estado
-        .orderBy('fechaLlegada'); // Luego por fecha de llegada
+        .where('estadoGestion', 'in', ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', 'Pendiente Cliente'])
+        .orderBy('fechaLlegada', 'asc')
+        .orderBy('estadoGestion', 'asc');
 
-    if (lastReserva) {
-        const lastDoc = await db.collection('empresas').doc(empresaId).collection('reservas').doc(lastReserva.id).get();
-        query = query.startAfter(lastDoc);
+    if (lastVisibleData) {
+        query = query.startAfter(new Date(lastVisibleData.fechaLlegada), lastVisibleData.estadoGestion);
     }
     
     query = query.limit(PAGE_SIZE);
-
+    
     const reservasSnapshot = await query.get();
 
     if (reservasSnapshot.empty) {
-        console.timeEnd(`[PERF] getReservasPendientes total para ${empresaId}`);
-        return { grupos: [], hasMore: false };
+        return { grupos: [], hasMore: false, lastVisible: null };
     }
     
     const reservaDocs = reservasSnapshot.docs;
@@ -42,15 +42,15 @@ const getReservasPendientes = async (db, empresaId, lastReserva = null) => {
     const clienteIds = [...new Set(allReservasData.map(r => r.clienteId))];
     const reservaIdsOriginales = [...new Set(allReservasData.map(r => r.idReservaCanal))];
 
-    const [clientesSnapshot, notasSnapshot, transaccionesSnapshot] = await Promise.all([
+    const [clientesSnapshot, notasSnapshot, transaccionesSnapshot, tarifasSnapshot] = await Promise.all([
         clienteIds.length > 0 ? db.collection('empresas').doc(empresaId).collection('clientes').where(admin.firestore.FieldPath.documentId(), 'in', clienteIds).get() : Promise.resolve({ docs: [] }),
         reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('gestionNotas').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
-        reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('transacciones').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] })
+        reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('transacciones').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
+        db.collection('empresas').doc(empresaId).collection('tarifas').orderBy('fechaInicio', 'desc').get()
     ]);
-    console.timeEnd(`[PERF] DB Query (Paginada) para ${empresaId}`);
 
-    console.time(`[PERF] Procesamiento (Paginado) para ${empresaId}`);
     const clientsMap = new Map(clientesSnapshot.docs.map(doc => [doc.id, doc.data()]));
+    const todasLasTarifas = tarifasSnapshot.docs.map(doc => doc.data());
     
     const notesCountMap = new Map();
     notasSnapshot.forEach(doc => {
@@ -100,9 +100,23 @@ const getReservasPendientes = async (db, empresaId, lastReserva = null) => {
         const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
             const valorHuesped = r.valores?.valorHuesped || 0;
             const comisionReal = r.valores?.comision > 0 ? r.valores.comision : r.valores?.costoCanal || 0;
+            const fechaLlegadaDate = r.fechaLlegada?.toDate() || new Date();
+            const tarifaAplicable = findTarifaInMemory(todasLasTarifas, r.alojamientoId, r.canalId, fechaLlegadaDate);
+            const valorListaBase = tarifaAplicable ? tarifaAplicable.valor : 0;
+            const noches = r.totalNoches || 1;
 
             acc.valorTotalHuesped += valorHuesped;
             acc.costoCanal += comisionReal;
+            acc.valorListaBaseTotal += (valorListaBase * noches);
+
+            if (esUSD) {
+                const valorOriginalPayout = r.valores?.valorOriginal || 0;
+                const totalClienteUSD = r.valorDolarDia ? valorHuesped / r.valorDolarDia : 0;
+                const ivaUSD = Math.max(0, totalClienteUSD - valorOriginalPayout);
+                acc.valoresUSD.payout += valorOriginalPayout;
+                acc.valoresUSD.iva += ivaUSD;
+                acc.valoresUSD.totalCliente += totalClienteUSD;
+            }
 
             if (r.ajusteManualRealizado) acc.ajusteManualRealizado = true;
             if (r.potencialCalculado) acc.potencialCalculado = true;
@@ -111,26 +125,29 @@ const getReservasPendientes = async (db, empresaId, lastReserva = null) => {
 
             return acc;
         }, {
-            valorTotalHuesped: 0, costoCanal: 0,
+            valorTotalHuesped: 0, costoCanal: 0, valorListaBaseTotal: 0,
             ajusteManualRealizado: false, potencialCalculado: false, clienteGestionado: false,
-            documentos: {}
+            documentos: {}, valoresUSD: { payout: 0, iva: 0, totalCliente: 0 }
         });
 
         return {
             ...grupo,
             ...valoresAgregados,
             esUSD,
+            totalNoches: primerReserva.totalNoches || 1,
             payoutFinalReal: valoresAgregados.valorTotalHuesped - valoresAgregados.costoCanal
         };
     });
-
-    console.timeEnd(`[PERF] Procesamiento (Paginado) para ${empresaId}`);
     
-    console.timeEnd(`[PERF] getReservasPendientes total para ${empresaId}`);
+    const lastVisibleDoc = reservaDocs[reservaDocs.length - 1]?.data();
+    
     return {
         grupos: gruposProcesados,
         hasMore: reservaDocs.length === PAGE_SIZE,
-        lastVisible: reservaDocs.length > 0 ? allReservasData[allReservasData.length - 1] : null
+        lastVisible: lastVisibleDoc ? {
+            fechaLlegada: lastVisibleDoc.fechaLlegada.toDate().toISOString(),
+            estadoGestion: lastVisibleDoc.estadoGestion
+        } : null
     };
 };
 
