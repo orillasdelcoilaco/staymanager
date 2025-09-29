@@ -43,7 +43,6 @@ function renderTabContent(tabName) {
             break;
 
         case 'ajuste':
-            // --- INICIO DE CAMBIOS ---
             const valorActualTotal = currentGrupo.valorTotalHuesped;
             const valorOriginal = currentGrupo.valorTotalHuespedOriginal > 0 && currentGrupo.valorTotalHuespedOriginal !== valorActualTotal
                 ? currentGrupo.valorTotalHuespedOriginal
@@ -60,7 +59,6 @@ function renderTabContent(tabName) {
                      <div id="ajuste-status" class="text-sm"></div>
                      <div class="text-right"><button id="ajuste-save-btn" class="btn-danger">Ajustar Monto Final</button></div>
                 </div>`;
-            // --- FIN DE CAMBIOS ---
             contentContainer.querySelector('#ajuste-save-btn').addEventListener('click', handleSaveAjusteFinal);
             break;
 
@@ -75,21 +73,21 @@ function renderSimuladorVentaDirecta() {
     const reservaPrincipal = currentGrupo.reservasIndividuales[0];
     const { moneda, valorDolarDia } = reservaPrincipal;
     
-    let tarifaBaseCLP = currentGrupo.valorListaBaseTotal;
+    // --- INICIO DE CAMBIOS ---
+    const payoutFinalRealCLP = currentGrupo.payoutFinalReal;
+    const tarifaBaseTotalCLP = currentGrupo.valorListaBaseTotal;
+    // --- FIN DE CAMBIOS ---
     
     let costoCanalCLP = currentGrupo.costoCanal;
     let totalClienteCLP = currentGrupo.valorTotalHuesped;
-    let payoutReporteCLP = currentGrupo.valorTotalPayout;
-    let ivaCLP = currentGrupo.ivaTotal;
-
+    
     const totalNoches = currentGrupo.totalNoches;
     const numPropiedades = currentGrupo.reservasIndividuales.length;
     let tarifaBaseLabel = `Tarifa Base (${totalNoches} Noches x ${numPropiedades} Prop.):`;
     
     let totalClienteLabel = "Total Cliente:";
-    let costoCanalLabel = "(-) Costos Fijos del Canal:";
-    let ivaLabel = "(+) IVA (19%):";
-    let payoutReporteLabel = "Payout (según reporte):";
+    let costoCanalLabel = "(-) Costos del Canal:";
+    let payoutFinalLabel = "Payout Final (Ingreso Real):";
     let dolarInfoHtml = '';
     
     if (moneda === 'USD' && valorDolarDia) {
@@ -97,41 +95,34 @@ function renderSimuladorVentaDirecta() {
         dolarInfoHtml = `<p class="text-xs text-center text-gray-500 mb-4">Valor dólar usado para el cálculo (${fechaCheckIn}): <strong>${formatCurrency(valorDolarDia)}</strong></p>`;
 
         const tarifaBaseUSD = currentGrupo.valorListaBaseTotal;
-        tarifaBaseCLP = tarifaBaseUSD * valorDolarDia;
+        // tarifaBaseTotalCLP se recalcula si es USD
         tarifaBaseLabel = `Tarifa Base (${totalNoches} Noches x ${numPropiedades} Prop.) (USD ${formatUSD(tarifaBaseUSD, { includeSymbol: false })}):`;
         
         const totalClienteUSD = totalClienteCLP / valorDolarDia;
         totalClienteLabel = `Total Cliente (USD ${formatUSD(totalClienteUSD, { includeSymbol: false })}):`;
 
         const costoCanalUSD = costoCanalCLP / valorDolarDia;
-        costoCanalLabel = `(-) Costos Fijos del Canal (USD ${formatUSD(costoCanalUSD, { includeSymbol: false })}):`;
+        costoCanalLabel = `(-) Costos del Canal (USD ${formatUSD(costoCanalUSD, { includeSymbol: false })}):`;
         
-        const payoutReporteUSD = payoutReporteCLP / valorDolarDia;
-        payoutReporteLabel = `Payout (según reporte) (USD ${formatUSD(payoutReporteUSD, { includeSymbol: false })}):`;
-
-        const ivaUSD = ivaCLP / valorDolarDia;
-        ivaLabel = `(+) IVA (19%) (USD ${formatUSD(ivaUSD, { includeSymbol: false })}):`;
+        const payoutFinalUSD = payoutFinalRealCLP / valorDolarDia;
+        payoutFinalLabel = `Payout Final (Ingreso Real) (USD ${formatUSD(payoutFinalUSD, { includeSymbol: false })}):`;
     }
 
-    const sobreprecio = Math.max(0, totalClienteCLP - tarifaBaseCLP);
-    const payoutFinal = tarifaBaseCLP + (sobreprecio - costoCanalCLP);
-    const payoutFinalUSD = moneda === 'USD' && valorDolarDia ? payoutFinal / valorDolarDia : 0;
-    const payoutFinalLabel = moneda === 'USD' ? `Rentabilidad vs Tarifa Base (USD ${formatUSD(payoutFinalUSD, {includeSymbol: false})}):` : 'Rentabilidad vs Tarifa Base:';
+    const rentabilidadVsTarifa = payoutFinalRealCLP - tarifaBaseTotalCLP;
 
     let recomendacionHtml = '';
-    if (payoutFinal > tarifaBaseCLP) {
+    if (rentabilidadVsTarifa >= 0) {
         recomendacionHtml = `
             <div class="p-3 bg-green-50 border border-green-200 rounded-md">
                 <h4 class="font-semibold text-green-800">Recomendación</h4>
-                <p class="mt-2 text-sm text-green-700">Esta reserva es <strong>muy rentable</strong>. La Rentabilidad vs Tarifa Base es positiva. No se recomienda ofrecer un descuento para una venta directa.</p>
+                <p class="mt-2 text-sm text-green-700">Esta reserva es rentable. El Payout supera la Tarifa Base en <strong>${formatCurrency(rentabilidadVsTarifa)}</strong>.</p>
             </div>`;
     } else {
-        const descuentoSugerido = tarifaBaseCLP > 0 ? ((tarifaBaseCLP - payoutFinal) / tarifaBaseCLP) * 100 : 0;
-        const montoAhorro = tarifaBaseCLP - payoutFinal;
+        const descuentoSugerido = tarifaBaseTotalCLP > 0 ? (Math.abs(rentabilidadVsTarifa) / tarifaBaseTotalCLP) * 100 : 0;
         recomendacionHtml = `
             <div class="p-3 bg-blue-50 border border-blue-200 rounded-md">
                 <h4 class="font-semibold text-blue-800">Potencial de Venta Directa</h4>
-                <p class="mt-2 text-sm text-blue-700">Para igualar la rentabilidad del canal (${formatCurrency(payoutFinal)}), podrías ofrecer un descuento de hasta un <strong>${descuentoSugerido.toFixed(1)}%</strong> (equivalente a ${formatCurrency(montoAhorro)}) sobre tu Tarifa Base en una venta directa.</p>
+                <p class="mt-2 text-sm text-blue-700">Para igualar la rentabilidad del canal (${formatCurrency(payoutFinalRealCLP)}), podrías ofrecer un descuento de hasta un <strong>${descuentoSugerido.toFixed(1)}%</strong> (equivalente a ${formatCurrency(Math.abs(rentabilidadVsTarifa))}) sobre tu Tarifa Base en una venta directa.</p>
             </div>`;
     }
 
@@ -140,15 +131,13 @@ function renderSimuladorVentaDirecta() {
         ${dolarInfoHtml}
         <div class="space-y-4">
             <div class="p-3 bg-gray-50 border rounded-md">
-                <h4 class="font-semibold text-gray-800">Rentabilidad de la Reserva Actual</h4>
+                <h4 class="font-semibold text-gray-800">Análisis Financiero de la Reserva</h4>
                 <dl class="mt-2 text-sm space-y-1">
                     <div class="flex justify-between text-gray-500"><dt>${totalClienteLabel}</dt><dd class="font-medium">${formatCurrency(totalClienteCLP)}</dd></div>
-                    <div class="flex justify-between"><dt>${tarifaBaseLabel}</dt><dd class="font-medium">${formatCurrency(tarifaBaseCLP)}</dd></div>
-                    <div class="flex justify-between"><dt>${payoutReporteLabel}</dt><dd class="font-medium">${formatCurrency(payoutReporteCLP)}</dd></div>
-                    <div class="flex justify-between text-blue-600"><dt>(+) Ajuste por Sobreprecio:</dt><dd class="font-medium">${formatCurrency(sobreprecio)}</dd></div>
                     <div class="flex justify-between text-red-600"><dt>${costoCanalLabel}</dt><dd class="font-medium">${formatCurrency(costoCanalCLP)}</dd></div>
-                    <div class="flex justify-between text-orange-600"><dt>${ivaLabel}</dt><dd class="font-medium">${formatCurrency(ivaCLP)}</dd></div>
-                    <div class="flex justify-between border-t pt-1 mt-1"><dt class="font-semibold">${payoutFinalLabel}</dt><dd class="font-semibold text-green-700">${formatCurrency(payoutFinal)}</dd></div>
+                    <div class="flex justify-between border-t pt-1 mt-1 font-bold"><dt>${payoutFinalLabel}</dt><dd class="text-green-700">${formatCurrency(payoutFinalRealCLP)}</dd></div>
+                    <div class="flex justify-between"><dt>${tarifaBaseLabel}</dt><dd class="font-medium">${formatCurrency(tarifaBaseTotalCLP)}</dd></div>
+                    <div class="flex justify-between border-t pt-1 mt-1 font-semibold"><dt>Rentabilidad vs. Tarifa Base:</dt><dd class="${rentabilidadVsTarifa >= 0 ? 'text-green-700' : 'text-red-600'}">${formatCurrency(rentabilidadVsTarifa)}</dd></div>
                 </dl>
             </div>
             ${recomendacionHtml}

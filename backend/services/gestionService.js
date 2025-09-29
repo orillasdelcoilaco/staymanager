@@ -61,17 +61,16 @@ const getReservasPendientes = async (db, empresaId) => {
                     documentos: data.documentos || {},
                     reservasIndividuales: [],
                     valorTotalHuesped: 0,
-                    valorTotalPayout: 0,
-                    payoutFinalReal: 0,
                     costoCanal: 0,
+                    payoutFinalReal: 0, // <-- Se calculará al final
                     ivaTotal: 0,
                     abonoTotal: abonosMap.get(reservaId) || 0,
                     potencialTotal: 0, 
                     valorListaBaseTotal: 0,
                     potencialCalculado: false,
                     totalNoches: 0,
-                    valorTotalHuespedOriginal: 0, // <-- AÑADIDO
-                    ajusteManualRealizado: false, // <-- AÑADIDO
+                    valorTotalHuespedOriginal: 0,
+                    ajusteManualRealizado: false,
                     notasCount: notesCountMap.get(reservaId) || 0,
                     transaccionesCount: transaccionesCountMap.get(reservaId) || 0
                 });
@@ -79,11 +78,9 @@ const getReservasPendientes = async (db, empresaId) => {
 
             const grupo = reservasAgrupadas.get(reservaId);
             const valorHuesped = data.valores?.valorHuesped || 0;
-            const valorPayout = data.valores?.valorTotal || 0;
             const comisionReal = data.valores?.comision > 0 ? data.valores.comision : data.valores?.costoCanal || 0;
             const ivaIndividual = data.valores?.iva || 0;
             
-            // --- INICIO DE CAMBIOS ---
             if (data.ajusteManualRealizado) {
                 grupo.ajusteManualRealizado = true;
             }
@@ -92,7 +89,6 @@ const getReservasPendientes = async (db, empresaId) => {
             } else {
                 grupo.valorTotalHuespedOriginal += valorHuesped;
             }
-            // --- FIN DE CAMBIOS ---
             
             const fechaLlegadaDate = (data.fechaLlegada && typeof data.fechaLlegada.toDate === 'function') ? data.fechaLlegada.toDate() : new Date();
             const tarifaAplicable = await obtenerTarifaParaFecha(db, empresaId, data.alojamientoId, data.canalId, fechaLlegadaDate);
@@ -110,16 +106,7 @@ const getReservasPendientes = async (db, empresaId) => {
                 cantidadHuespedes: data.cantidadHuespedes
             });
             
-            let tarifaBaseCLP = valorListaBase;
-            if(data.moneda === 'USD' && data.valorDolarDia) {
-                tarifaBaseCLP = valorListaBase * data.valorDolarDia;
-            }
-            const sobreprecio = Math.max(0, valorHuesped - tarifaBaseCLP);
-            const payoutFinalCalculado = tarifaBaseCLP + (sobreprecio - comisionReal);
-
             grupo.valorTotalHuesped += valorHuesped;
-            grupo.valorTotalPayout += valorPayout;
-            grupo.payoutFinalReal += payoutFinalCalculado;
             grupo.costoCanal += comisionReal;
             grupo.ivaTotal += ivaIndividual;
             const noches = data.totalNoches || 1;
@@ -138,6 +125,13 @@ const getReservasPendientes = async (db, empresaId) => {
             }
         }
     }
+    
+    // --- INICIO DE CAMBIOS ---
+    // Calcular el Payout Final Real después de haber sumado todos los valores
+    for (const grupo of reservasAgrupadas.values()) {
+        grupo.payoutFinalReal = grupo.valorTotalHuesped - grupo.costoCanal;
+    }
+    // --- FIN DE CAMBIOS ---
 
     const reservas = Array.from(reservasAgrupadas.values());
     const today = getTodayUTC();
