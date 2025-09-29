@@ -9,18 +9,20 @@ function findTarifaInMemory(tarifas, alojamientoId, canalId, fecha) {
     return tarifa ? (tarifa.precios[canalId] || null) : null;
 }
 
-const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
+const getReservasPendientes = async (db, empresaId, lastVisibleId = null) => {
     const PAGE_SIZE = 20;
 
-    let query = db.collectionGroup('reservas')
-        .where('empresaId', '==', empresaId)
+    let query = db.collection('empresas').doc(empresaId).collection('reservas')
         .where('estado', '==', 'Confirmada')
         .where('estadoGestion', 'in', ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', 'Pendiente Cliente'])
         .orderBy('fechaLlegada', 'asc')
-        .orderBy('estadoGestion', 'asc');
+        .orderBy(admin.firestore.FieldPath.documentId(), 'asc');
 
-    if (lastVisibleData) {
-        query = query.startAfter(admin.firestore.Timestamp.fromDate(new Date(lastVisibleData.fechaLlegada)), lastVisibleData.estadoGestion);
+    if (lastVisibleId) {
+        const lastDoc = await db.collection('empresas').doc(empresaId).collection('reservas').doc(lastVisibleId).get();
+        if (lastDoc.exists) {
+            query = query.startAfter(lastDoc);
+        }
     }
     
     query = query.limit(PAGE_SIZE);
@@ -95,7 +97,7 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
         const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
             const valorHuesped = r.valores?.valorHuesped || 0;
             const comisionReal = r.valores?.comision > 0 ? r.valores.comision : r.valores?.costoCanal || 0;
-            
+
             acc.valorTotalHuesped += valorHuesped;
             acc.costoCanal += comisionReal;
 
@@ -119,15 +121,12 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
         };
     });
     
-    const lastVisibleDoc = reservaDocs[reservaDocs.length - 1];
+    const lastVisibleDocId = reservaDocs.length > 0 ? reservaDocs[reservaDocs.length - 1].id : null;
     
     return {
         grupos: gruposProcesados,
         hasMore: reservaDocs.length === PAGE_SIZE,
-        lastVisible: lastVisibleDoc ? {
-            fechaLlegada: lastVisibleDoc.data().fechaLlegada.toDate().toISOString(),
-            estadoGestion: lastVisibleDoc.data().estadoGestion
-        } : null
+        lastVisible: lastVisibleDocId
     };
 };
 
