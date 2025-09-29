@@ -74,7 +74,6 @@ const getReservasPendientes = async (db, empresaId) => {
                     valoresUSD: {
                         payout: 0,
                         iva: 0,
-                        costoCanal: 0,
                         totalCliente: 0
                     },
                     esUSD: false,
@@ -100,14 +99,13 @@ const getReservasPendientes = async (db, empresaId) => {
             if (data.moneda === 'USD') {
                 grupo.esUSD = true;
                 const valorOriginalPayout = data.valores?.valorOriginal || 0;
-                const valorOriginalComision = data.valores?.comision > 0 ? data.valores.comision : data.valores?.costoCanal || 0;
-                const subtotalUSD = valorOriginalPayout + valorOriginalComision;
-                const ivaUSD = data.configuracionIva === 'agregar' ? subtotalUSD * 0.19 : 0;
+                const totalClienteCLP = data.valores?.valorHuesped || 0;
+                const totalClienteUSD = data.valorDolarDia ? totalClienteCLP / data.valorDolarDia : 0;
+                const ivaUSD = Math.max(0, totalClienteUSD - valorOriginalPayout);
 
                 grupo.valoresUSD.payout += valorOriginalPayout;
-                grupo.valoresUSD.costoCanal += valorOriginalComision;
                 grupo.valoresUSD.iva += ivaUSD;
-                grupo.valoresUSD.totalCliente += subtotalUSD + ivaUSD;
+                grupo.valoresUSD.totalCliente += totalClienteUSD;
             }
 
             const fechaLlegadaDate = (data.fechaLlegada && typeof data.fechaLlegada.toDate === 'function') ? data.fechaLlegada.toDate() : new Date();

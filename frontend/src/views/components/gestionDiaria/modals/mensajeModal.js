@@ -21,16 +21,15 @@ function generarMensajePreview() {
     const totalNoches = currentGrupo.totalNoches || 'N/A';
     const totalHuespedes = currentGrupo.reservasIndividuales.reduce((sum, r) => sum + (r.cantidadHuespedes || 0), 0) || 'N/A';
 
-    // --- INICIO DE CAMBIOS ---
     let cobroTexto;
     if (currentGrupo.esUSD) {
         const valorDolar = currentGrupo.reservasIndividuales[0]?.valorDolarDia || 0;
         cobroTexto = `
 Resumen de tu Estadía (Valores en USD):
 ------------------------------------
-Total a Pagar: ${formatUSD(currentGrupo.valoresUSD.totalCliente)}
-Costo Servicio: ${formatUSD(currentGrupo.valoresUSD.costoCanal)}
-IVA (19%): ${formatUSD(currentGrupo.valoresUSD.iva)}
+Total Cliente: ${formatUSD(currentGrupo.valoresUSD.totalCliente)}
+IVA (incluido): ${formatUSD(currentGrupo.valoresUSD.iva)}
+Payout Anfitrión: ${formatUSD(currentGrupo.valoresUSD.payout)}
 ------------------------------------
 Valor Dólar del día: ${formatCurrency(valorDolar)}
 ------------------------------------
@@ -49,7 +48,6 @@ Saldo Pendiente: ${formatCurrency(saldoPendiente)}
 ------------------------------------
         `;
     }
-    // --- FIN DE CAMBIOS ---
 
     const reemplazos = {
         '[CLIENTE_NOMBRE]': currentGrupo.clienteNombre,
