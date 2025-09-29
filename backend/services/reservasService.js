@@ -291,27 +291,32 @@ const eliminarReservasPorIdCarga = async (db, empresaId, idCarga) => {
     const reservaIdsOriginales = snapshot.docs.map(doc => doc.data().idReservaCanal);
     const uniqueReservaIds = [...new Set(reservaIdsOriginales)];
 
-    if (uniqueReservaIds.length > 0) {
-        const transaccionesRef = db.collection('empresas').doc(empresaId).collection('transacciones');
-        const transaccionesSnapshot = await transaccionesRef.where('reservaIdOriginal', 'in', uniqueReservaIds).get();
+    // Dividir los IDs en chunks de 30 para evitar la limitación de la consulta 'in'
+    const chunkSize = 30;
+    for (let i = 0; i < uniqueReservaIds.length; i += chunkSize) {
+        const chunk = uniqueReservaIds.slice(i, i + chunkSize);
+        if (chunk.length > 0) {
+            const transaccionesRef = db.collection('empresas').doc(empresaId).collection('transacciones');
+            const transaccionesSnapshot = await transaccionesRef.where('reservaIdOriginal', 'in', chunk).get();
 
-        transaccionesSnapshot.forEach(doc => {
-            const transaccionData = doc.data();
-            if (transaccionData.enlaceComprobante) {
-                deletePromises.push(deleteFileByUrl(transaccionData.enlaceComprobante));
-            }
-            batch.delete(doc.ref);
-        });
+            transaccionesSnapshot.forEach(doc => {
+                const transaccionData = doc.data();
+                if (transaccionData.enlaceComprobante && transaccionData.enlaceComprobante !== 'SIN_DOCUMENTO') {
+                    deletePromises.push(deleteFileByUrl(transaccionData.enlaceComprobante));
+                }
+                batch.delete(doc.ref);
+            });
+        }
     }
     // --- FIN DE CAMBIOS ---
 
     snapshot.docs.forEach(doc => {
         const reservaData = doc.data();
         if (reservaData.documentos) {
-            if (reservaData.documentos.enlaceReserva) {
+            if (reservaData.documentos.enlaceReserva && reservaData.documentos.enlaceReserva !== 'SIN_DOCUMENTO') {
                 deletePromises.push(deleteFileByUrl(reservaData.documentos.enlaceReserva));
             }
-            if (reservaData.documentos.enlaceBoleta) {
+            if (reservaData.documentos.enlaceBoleta && reservaData.documentos.enlaceBoleta !== 'SIN_DOCUMENTO') {
                 deletePromises.push(deleteFileByUrl(reservaData.documentos.enlaceBoleta));
             }
         }
