@@ -147,5 +147,5 @@ export async function afterRender() {
     document.getElementById('proximas-list').addEventListener('click', handleCardButtonClick);
     document.getElementById('load-more-btn').addEventListener('click', () => loadAndRender(true));
     
-    initializeModals(loadAndRender, currentUserEmail);
+    initializeModals(() => loadAndRender(false), currentUserEmail); // Refresco completo
 }

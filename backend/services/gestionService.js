@@ -89,7 +89,7 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
         const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
             const valorHuesped = r.valores?.valorHuesped || 0;
             const comisionReal = r.valores?.comision > 0 ? r.valores.comision : r.valores?.costoCanal || 0;
-            
+
             acc.valorTotalHuesped += valorHuesped;
             acc.costoCanal += comisionReal;
 
