@@ -19,16 +19,31 @@ function generarMensajePreview() {
     let texto = plantilla.texto;
     const saldoPendiente = currentGrupo.valorTotalHuesped - currentGrupo.abonoTotal;
 
+    // --- INICIO DE CAMBIOS ---
+    const totalNoches = currentGrupo.totalNoches || 'N/A';
+    const totalHuespedes = currentGrupo.reservasIndividuales.reduce((sum, r) => sum + (r.cantidadHuespedes || 0), 0) || 'N/A';
+
+    const cobroTexto = `
+Resumen de tu Estadía:
+------------------------------------
+Total a Pagar: ${formatCurrency(currentGrupo.valorTotalHuesped)}
+Abonado: ${formatCurrency(currentGrupo.abonoTotal)}
+Saldo Pendiente: ${formatCurrency(saldoPendiente)}
+------------------------------------
+    `;
+
     const reemplazos = {
         '[CLIENTE_NOMBRE]': currentGrupo.clienteNombre,
         '[RESERVA_ID_CANAL]': currentGrupo.reservaIdOriginal,
         '[FECHA_LLEGADA]': formatDate(currentGrupo.fechaLlegada),
         '[FECHA_SALIDA]': formatDate(currentGrupo.fechaSalida),
         '[ALOJAMIENTO_NOMBRE]': currentGrupo.reservasIndividuales.map(r => r.alojamientoNombre).join(', '),
-        '[TOTAL_NOCHES]': currentGrupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores.totalNoches || 0), 0) || 'N/A',
-        '[CANTIDAD_HUESPEDES]': currentGrupo.reservasIndividuales.reduce((sum, r) => sum + (r.cantidadHuespedes || 0), 0) || 'N/A',
+        '[TOTAL_NOCHES]': totalNoches,
+        '[CANTIDAD_HUESPEDES]': totalHuespedes,
         '[SALDO_PENDIENTE]': formatCurrency(saldoPendiente),
+        '[COBRO]': cobroTexto,
     };
+    // --- FIN DE CAMBIOS ---
     
     for (const [etiqueta, valor] of Object.entries(reemplazos)) {
         texto = texto.replace(new RegExp(etiqueta.replace(/\[/g, '\\[').replace(/\]/g, '\\]'), 'g'), valor);

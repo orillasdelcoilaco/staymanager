@@ -35,8 +35,10 @@ async function handleGroupFormSubmit(event) {
 
     try {
         await fetchAPI('/gestion/registrar-pago', { method: 'POST', body: formData });
+        // --- INICIO DE CAMBIOS ---
+        document.getElementById('gestion-modal').classList.add('hidden');
         await onActionComplete();
-        renderPagosModal(currentGrupo, onActionComplete);
+        // --- FIN DE CAMBIOS ---
     } catch (error) {
         statusEl.textContent = `Error: ${error.message}`;
         saveBtn.disabled = false;
@@ -48,8 +50,17 @@ async function handleDeleteTransaction(transaccionId) {
     if (!confirm('¿Estás seguro de que quieres eliminar este pago? Esta acción no se puede deshacer.')) return;
     try {
         await fetchAPI(`/gestion/transaccion/${transaccionId}`, { method: 'DELETE' });
-        await onActionComplete();
-        renderPagosModal(currentGrupo, onActionComplete);
+        // --- INICIO DE CAMBIOS ---
+        // Recargar el modal en lugar de toda la página para una mejor UX
+        const updatedGrupos = await fetchAPI('/gestion/pendientes');
+        const updatedGrupo = updatedGrupos.find(g => g.reservaIdOriginal === currentGrupo.reservaIdOriginal);
+        if (updatedGrupo) {
+            renderPagosModal(updatedGrupo, onActionComplete);
+        } else {
+             document.getElementById('gestion-modal').classList.add('hidden');
+             await onActionComplete();
+        }
+        // --- FIN DE CAMBIOS ---
     } catch (error) {
         alert(`Error al eliminar el pago: ${error.message}`);
     }
