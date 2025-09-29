@@ -26,12 +26,16 @@ const getReservasPendientes = async (db, empresaId) => {
         notesCountMap.set(id, (notesCountMap.get(id) || 0) + 1);
     });
     
+    // --- INICIO DE CAMBIOS ---
     const transaccionesCountMap = new Map();
+    const abonosMap = new Map();
     transaccionesSnapshot.forEach(doc => {
         const transaccion = doc.data();
         const id = transaccion.reservaIdOriginal;
         transaccionesCountMap.set(id, (transaccionesCountMap.get(id) || 0) + 1);
+        abonosMap.set(id, (abonosMap.get(id) || 0) + transaccion.monto);
     });
+    // --- FIN DE CAMBIOS ---
 
     const tarifas = tarifasSnapshot.docs.map(doc => doc.data());
     const reservasAgrupadas = new Map();
@@ -59,11 +63,11 @@ const getReservasPendientes = async (db, empresaId) => {
                     payoutFinalReal: 0,
                     costoCanal: 0,
                     ivaTotal: 0,
-                    abonoTotal: 0,
+                    abonoTotal: abonosMap.get(reservaId) || 0, // <-- MODIFICADO
                     potencialTotal: 0, 
                     valorListaBaseTotal: 0,
                     potencialCalculado: false,
-                    totalNoches: 0, // <-- AÑADIDO
+                    totalNoches: 0,
                     notasCount: notesCountMap.get(reservaId) || 0,
                     transaccionesCount: transaccionesCountMap.get(reservaId) || 0
                 });
@@ -87,8 +91,8 @@ const getReservasPendientes = async (db, empresaId) => {
                 valorDolarDia: data.valorDolarDia,
                 valores: data.valores,
                 valorListaBase: valorListaBase,
-                totalNoches: data.totalNoches, // <-- AÑADIDO
-                cantidadHuespedes: data.cantidadHuespedes // <-- AÑADIDO
+                totalNoches: data.totalNoches,
+                cantidadHuespedes: data.cantidadHuespedes
             });
             
             let tarifaBaseCLP = valorListaBase;
@@ -103,9 +107,9 @@ const getReservasPendientes = async (db, empresaId) => {
             grupo.payoutFinalReal += payoutFinalCalculado;
             grupo.costoCanal += comisionReal;
             grupo.ivaTotal += ivaIndividual;
-            grupo.abonoTotal += data.valores?.abono || 0;
+            // ELIMINADO: grupo.abonoTotal += data.valores?.abono || 0;
             grupo.valorListaBaseTotal += valorListaBase;
-            grupo.totalNoches += data.totalNoches || 0; // <-- AÑADIDO
+            grupo.totalNoches += data.totalNoches || 0;
             
             if (data.valores?.valorPotencial && data.valores.valorPotencial > 0) {
                 grupo.potencialTotal += data.valores.valorPotencial;

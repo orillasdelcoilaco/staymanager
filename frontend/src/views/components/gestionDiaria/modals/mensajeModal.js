@@ -19,7 +19,6 @@ function generarMensajePreview() {
     let texto = plantilla.texto;
     const saldoPendiente = currentGrupo.valorTotalHuesped - currentGrupo.abonoTotal;
 
-    // --- INICIO DE CAMBIOS ---
     const totalNoches = currentGrupo.totalNoches || 'N/A';
     const totalHuespedes = currentGrupo.reservasIndividuales.reduce((sum, r) => sum + (r.cantidadHuespedes || 0), 0) || 'N/A';
 
@@ -43,7 +42,6 @@ Saldo Pendiente: ${formatCurrency(saldoPendiente)}
         '[SALDO_PENDIENTE]': formatCurrency(saldoPendiente),
         '[COBRO]': cobroTexto,
     };
-    // --- FIN DE CAMBIOS ---
     
     for (const [etiqueta, valor] of Object.entries(reemplazos)) {
         texto = texto.replace(new RegExp(etiqueta.replace(/\[/g, '\\[').replace(/\]/g, '\\]'), 'g'), valor);
@@ -122,7 +120,7 @@ export async function renderMensajeModal(grupo, tipoMensaje, callback) {
                 </div>
                 <div>
                     <label for="mensaje-textarea" class="block text-sm font-medium text-gray-700">Mensaje Generado</label>
-                    <textarea id="mensaje-textarea" rows="10" class="mt-1 form-input"></textarea>
+                    <textarea id="mensaje-textarea" rows="10" class="mt-1 form-input w-full"></textarea>
                 </div>
                 <div class="flex flex-col md:flex-row justify-between items-center gap-3 pt-4 border-t">
                     <div class="flex gap-2">
