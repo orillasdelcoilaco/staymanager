@@ -47,7 +47,7 @@ const obtenerHistorialPorEmpresa = async (db, empresaId) => {
         return {
             id: doc.id,
             ...data,
-            fechaCarga: data.fechaCarga.toDate().toLocaleString('es-CL')
+            fechaCarga: data.fechaCarga.toDate().toISOString()
         };
     });
 };

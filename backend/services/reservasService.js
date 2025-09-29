@@ -4,9 +4,7 @@ const { deleteFileByUrl } = require('./storageService');
 
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
-    // --- INICIO DE CAMBIOS ---
     const q = reservasRef.where('idUnicoReserva', '==', datosReserva.idUnicoReserva);
-    // --- FIN DE CAMBIOS ---
     const snapshot = await q.get();
 
     if (snapshot.empty) {
@@ -288,6 +286,24 @@ const eliminarReservasPorIdCarga = async (db, empresaId, idCarga) => {
 
     const batch = db.batch();
     const deletePromises = [];
+    
+    // --- INICIO DE CAMBIOS ---
+    const reservaIdsOriginales = snapshot.docs.map(doc => doc.data().idReservaCanal);
+    const uniqueReservaIds = [...new Set(reservaIdsOriginales)];
+
+    if (uniqueReservaIds.length > 0) {
+        const transaccionesRef = db.collection('empresas').doc(empresaId).collection('transacciones');
+        const transaccionesSnapshot = await transaccionesRef.where('reservaIdOriginal', 'in', uniqueReservaIds).get();
+
+        transaccionesSnapshot.forEach(doc => {
+            const transaccionData = doc.data();
+            if (transaccionData.enlaceComprobante) {
+                deletePromises.push(deleteFileByUrl(transaccionData.enlaceComprobante));
+            }
+            batch.delete(doc.ref);
+        });
+    }
+    // --- FIN DE CAMBIOS ---
 
     snapshot.docs.forEach(doc => {
         const reservaData = doc.data();

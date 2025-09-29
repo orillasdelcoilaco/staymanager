@@ -20,7 +20,7 @@ function renderTabla() {
         <tr class="border-b">
             <td class="py-3 px-4 font-bold text-center">${item.idNumerico || '-'}</td>
             <td class="py-3 px-4 font-mono text-sm">${item.nombreArchivo}</td>
-            <td class="py-3 px-4">${item.fechaCarga}</td>
+            <td class="py-3 px-4">${new Date(item.fechaCarga).toLocaleString('es-CL')}</td>
             <td class="py-3 px-4">${item.usuarioEmail}</td>
             <td class="py-3 px-4 text-center">
                 <button data-id="${item.id}" data-nombre-archivo="${item.nombreArchivo}" class="delete-btn text-red-600 hover:text-red-800 text-sm font-medium">

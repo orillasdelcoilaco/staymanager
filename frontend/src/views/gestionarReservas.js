@@ -225,20 +225,25 @@ export function afterRender() {
     const tbody = document.getElementById('reservas-tbody');
     const formEdit = document.getElementById('reserva-form-edit');
 
+    // --- INICIO DE CAMBIOS ---
     const getFiltros = () => ({
-        busqueda: searchInput.value,
-        carga: cargaFilter.value
+        busqueda: searchInput ? searchInput.value : '',
+        carga: cargaFilter ? cargaFilter.value : ''
     });
     
     renderTabla(getFiltros());
     
-    searchInput.addEventListener('input', () => renderTabla(getFiltros()));
-    cargaFilter.addEventListener('change', () => renderTabla(getFiltros()));
-    document.getElementById('cancel-edit-btn').addEventListener('click', cerrarModalEditar);
+    if (searchInput) searchInput.addEventListener('input', () => renderTabla(getFiltros()));
+    if (cargaFilter) cargaFilter.addEventListener('change', () => renderTabla(getFiltros()));
+    if (document.getElementById('cancel-edit-btn')) document.getElementById('cancel-edit-btn').addEventListener('click', cerrarModalEditar);
 
-    formEdit.moneda.addEventListener('change', toggleDolarFields);
-    formEdit.valorOriginal.addEventListener('input', calcularValorFinal);
-    formEdit.valorDolarDia.addEventListener('input', calcularValorFinal);
+    if (formEdit) {
+        formEdit.moneda.addEventListener('change', toggleDolarFields);
+        formEdit.valorOriginal.addEventListener('input', calcularValorFinal);
+        formEdit.valorDolarDia.addEventListener('input', calcularValorFinal);
+    }
+    // --- FIN DE CAMBIOS ---
+
 
     tbody.addEventListener('click', async (e) => {
         const id = e.target.dataset.id;
