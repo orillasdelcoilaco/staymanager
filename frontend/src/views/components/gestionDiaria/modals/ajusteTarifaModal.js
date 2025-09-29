@@ -73,29 +73,26 @@ function renderSimuladorVentaDirecta() {
     const reservaPrincipal = currentGrupo.reservasIndividuales[0];
     const { moneda, valorDolarDia } = reservaPrincipal;
     
-    // --- INICIO DE CAMBIOS ---
     const payoutFinalRealCLP = currentGrupo.payoutFinalReal;
-    const tarifaBaseTotalCLP = currentGrupo.valorListaBaseTotal;
-    // --- FIN DE CAMBIOS ---
-    
-    let costoCanalCLP = currentGrupo.costoCanal;
-    let totalClienteCLP = currentGrupo.valorTotalHuesped;
-    
+    const costoCanalCLP = currentGrupo.costoCanal;
+    const totalClienteCLP = currentGrupo.valorTotalHuesped;
     const totalNoches = currentGrupo.totalNoches;
     const numPropiedades = currentGrupo.reservasIndividuales.length;
+    let dolarInfoHtml = '';
+
+    // --- INICIO DE CAMBIOS ---
+    let tarifaBaseTotalCLP;
     let tarifaBaseLabel = `Tarifa Base (${totalNoches} Noches x ${numPropiedades} Prop.):`;
-    
     let totalClienteLabel = "Total Cliente:";
     let costoCanalLabel = "(-) Costos del Canal:";
     let payoutFinalLabel = "Payout Final (Ingreso Real):";
-    let dolarInfoHtml = '';
-    
+
     if (moneda === 'USD' && valorDolarDia) {
         const fechaCheckIn = formatDate(currentGrupo.fechaLlegada);
         dolarInfoHtml = `<p class="text-xs text-center text-gray-500 mb-4">Valor dólar usado para el cálculo (${fechaCheckIn}): <strong>${formatCurrency(valorDolarDia)}</strong></p>`;
 
         const tarifaBaseUSD = currentGrupo.valorListaBaseTotal;
-        // tarifaBaseTotalCLP se recalcula si es USD
+        tarifaBaseTotalCLP = tarifaBaseUSD * valorDolarDia;
         tarifaBaseLabel = `Tarifa Base (${totalNoches} Noches x ${numPropiedades} Prop.) (USD ${formatUSD(tarifaBaseUSD, { includeSymbol: false })}):`;
         
         const totalClienteUSD = totalClienteCLP / valorDolarDia;
@@ -106,9 +103,12 @@ function renderSimuladorVentaDirecta() {
         
         const payoutFinalUSD = payoutFinalRealCLP / valorDolarDia;
         payoutFinalLabel = `Payout Final (Ingreso Real) (USD ${formatUSD(payoutFinalUSD, { includeSymbol: false })}):`;
+    } else {
+        tarifaBaseTotalCLP = currentGrupo.valorListaBaseTotal;
     }
 
     const rentabilidadVsTarifa = payoutFinalRealCLP - tarifaBaseTotalCLP;
+    // --- FIN DE CAMBIOS ---
 
     let recomendacionHtml = '';
     if (rentabilidadVsTarifa >= 0) {
