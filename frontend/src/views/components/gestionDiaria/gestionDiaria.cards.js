@@ -1,5 +1,5 @@
 import { handleNavigation } from '../../../router.js'; 
-import { getStatusInfo, formatCurrency, formatDate } from './gestionDiaria.utils.js';
+import { getStatusInfo, formatCurrency, formatDate, formatUSD } from './gestionDiaria.utils.js';
 
 function createNotificationBadge(isComplete = false, count = 0) {
     if (isComplete) {
@@ -16,7 +16,6 @@ function createGrupoCard(grupo) {
     card.id = `card-${grupo.reservaIdOriginal}`;
     card.className = 'p-4 border rounded-lg shadow-sm flex flex-col';
     const statusInfo = getStatusInfo(grupo.estadoGestion);
-    const saldo = grupo.valorTotalHuesped - grupo.abonoTotal;
     const alojamientos = grupo.reservasIndividuales.map(r => r.alojamientoNombre).join(', ');
 
     const isGestionPagosActive = statusInfo.level >= 2;
@@ -31,6 +30,43 @@ function createGrupoCard(grupo) {
         statusHtml = `<button data-gestion="${gestionType}" class="gestion-btn text-sm font-bold text-white px-2 py-1 rounded ${statusInfo.color} hover:opacity-80">${statusInfo.text}</button>`;
     } else {
         statusHtml = `<span class="text-sm font-bold text-white px-2 py-1 rounded ${statusInfo.color}">${statusInfo.text}</span>`;
+    }
+
+    let financialDetailsHtml;
+    const saldo = grupo.valorTotalHuesped - grupo.abonoTotal;
+
+    if (grupo.esUSD) {
+        const valorDolar = grupo.reservasIndividuales[0]?.valorDolarDia || 0;
+        financialDetailsHtml = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 font-semibold w-full">
+                <div class="text-sm space-y-1 p-2 bg-blue-50 rounded-md border border-blue-200">
+                    <h4 class="font-bold text-blue-800 text-center mb-1">Valores en USD</h4>
+                    <div class="flex justify-between"><span>Total Cliente (con IVA):</span> <span>${formatUSD(grupo.valoresUSD.totalCliente)}</span></div>
+                    <div class="flex justify-between text-red-600"><span>(-) Costo Canal:</span> <span>${formatUSD(grupo.valoresUSD.costoCanal)}</span></div>
+                    <div class="flex justify-between border-t border-blue-200 mt-1 pt-1 font-bold"><span>Payout Final (USD):</span> <span>${formatUSD(grupo.valoresUSD.payout)}</span></div>
+                </div>
+                <div class="text-sm space-y-1 p-2 bg-gray-50 rounded-md">
+                    <h4 class="font-bold text-gray-800 text-center mb-1">Equivalente en CLP (Dólar a ${formatCurrency(valorDolar)})</h4>
+                    <div class="flex justify-between font-bold text-base"><span>Total a Pagar:</span> <span>${formatCurrency(grupo.valorTotalHuesped)}</span></div>
+                     <div class="flex justify-between text-green-600"><span>Abonado:</span> <span>${formatCurrency(grupo.abonoTotal)}</span></div>
+                    <div class="flex justify-between text-red-600"><span>Saldo Pendiente:</span> <span>${formatCurrency(saldo)}</span></div>
+                </div>
+            </div>
+        `;
+    } else {
+        financialDetailsHtml = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 font-semibold w-full md:w-2/3">
+                <div class="col-span-full text-base flex justify-between">
+                    <span><span class="text-gray-500 font-medium">Payout Final:</span> ${formatCurrency(grupo.payoutFinalReal)}</span>
+                    <span class="text-orange-600" title="Costo del Canal (Comisiones + Tarifas)"><span class="text-gray-500 font-medium">Costo Canal:</span> ${formatCurrency(grupo.costoCanal)}</span>
+                </div>
+                <div class="text-right border-t pt-2 font-bold text-lg"><span class="text-gray-500 font-medium">Total Cliente:</span> ${formatCurrency(grupo.valorTotalHuesped)}</div>
+                <div class="text-right border-t pt-2 grid grid-cols-2 gap-2">
+                    <div class="text-green-600"><span class="text-gray-500 font-medium">Abonado:</span> ${formatCurrency(grupo.abonoTotal)}</div>
+                    <div class="text-red-600"><span class="text-gray-500 font-medium">Saldo:</span> ${formatCurrency(saldo)}</div>
+                </div>
+            </div>
+        `;
     }
 
     const baseButtonClasses = "px-3 py-1 text-xs font-semibold rounded-md transition-colors relative";
@@ -50,17 +86,7 @@ function createGrupoCard(grupo) {
             <span><strong>Alojamientos (${grupo.reservasIndividuales.length}):</strong> ${alojamientos}</span>
         </div>
         <div class="border-t mt-4 pt-3 flex flex-col md:flex-row justify-between items-center text-sm">
-             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 font-semibold w-full md:w-2/3">
-                <div class="col-span-full text-base flex justify-between">
-                    <span><span class="text-gray-500 font-medium">Payout Final:</span> ${formatCurrency(grupo.payoutFinalReal)}</span>
-                    <span class="text-orange-600" title="Costo del Canal (Comisiones + Tarifas)"><span class="text-gray-500 font-medium">Costo Canal:</span> ${formatCurrency(grupo.costoCanal)}</span>
-                </div>
-                <div class="text-right border-t pt-2 font-bold text-lg"><span class="text-gray-500 font-medium">Total Cliente:</span> ${formatCurrency(grupo.valorTotalHuesped)}</div>
-                <div class="text-right border-t pt-2 grid grid-cols-2 gap-2">
-                    <div class="text-green-600"><span class="text-gray-500 font-medium">Abonado:</span> ${formatCurrency(grupo.abonoTotal)}</div>
-                    <div class="text-red-600"><span class="text-gray-500 font-medium">Saldo:</span> ${formatCurrency(saldo)}</div>
-                </div>
-            </div>
+            ${financialDetailsHtml}
             <div class="mt-3 md:mt-0 flex flex-wrap gap-2 justify-center">
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="gestionar_reserva" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Gestionar Reserva ${createNotificationBadge(!!grupo.documentos.enlaceReserva)}</button>
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="ajuste_tarifa" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Ajustar Tarifa ${createNotificationBadge(grupo.ajusteManualRealizado)}</button>

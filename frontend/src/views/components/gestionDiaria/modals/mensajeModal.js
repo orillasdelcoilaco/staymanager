@@ -1,5 +1,5 @@
 import { fetchAPI } from '../../../../api.js';
-import { formatCurrency, formatDate } from '../gestionDiaria.utils.js';
+import { formatCurrency, formatDate, formatUSD } from '../gestionDiaria.utils.js';
 
 let currentGrupo = null;
 let onActionComplete = () => {};
@@ -18,18 +18,38 @@ function generarMensajePreview() {
 
     let texto = plantilla.texto;
     const saldoPendiente = currentGrupo.valorTotalHuesped - currentGrupo.abonoTotal;
-
     const totalNoches = currentGrupo.totalNoches || 'N/A';
     const totalHuespedes = currentGrupo.reservasIndividuales.reduce((sum, r) => sum + (r.cantidadHuespedes || 0), 0) || 'N/A';
 
-    const cobroTexto = `
+    // --- INICIO DE CAMBIOS ---
+    let cobroTexto;
+    if (currentGrupo.esUSD) {
+        const valorDolar = currentGrupo.reservasIndividuales[0]?.valorDolarDia || 0;
+        cobroTexto = `
+Resumen de tu Estadía (Valores en USD):
+------------------------------------
+Total a Pagar: ${formatUSD(currentGrupo.valoresUSD.totalCliente)}
+Costo Servicio: ${formatUSD(currentGrupo.valoresUSD.costoCanal)}
+IVA (19%): ${formatUSD(currentGrupo.valoresUSD.iva)}
+------------------------------------
+Valor Dólar del día: ${formatCurrency(valorDolar)}
+------------------------------------
+Total en Pesos Chilenos: ${formatCurrency(currentGrupo.valorTotalHuesped)}
+Abonado: ${formatCurrency(currentGrupo.abonoTotal)}
+Saldo Pendiente: ${formatCurrency(saldoPendiente)}
+------------------------------------
+        `;
+    } else {
+        cobroTexto = `
 Resumen de tu Estadía:
 ------------------------------------
 Total a Pagar: ${formatCurrency(currentGrupo.valorTotalHuesped)}
 Abonado: ${formatCurrency(currentGrupo.abonoTotal)}
 Saldo Pendiente: ${formatCurrency(saldoPendiente)}
 ------------------------------------
-    `;
+        `;
+    }
+    // --- FIN DE CAMBIOS ---
 
     const reemplazos = {
         '[CLIENTE_NOMBRE]': currentGrupo.clienteNombre,
