@@ -4,7 +4,9 @@ const { deleteFileByUrl } = require('./storageService');
 
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
-    const q = reservasRef.where('idReservaCanal', '==', datosReserva.idReservaCanal);
+    // --- INICIO DE CAMBIOS ---
+    const q = reservasRef.where('idUnicoReserva', '==', datosReserva.idUnicoReserva);
+    // --- FIN DE CAMBIOS ---
     const snapshot = await q.get();
 
     if (snapshot.empty) {
@@ -235,7 +237,6 @@ const registrarPago = async (db, empresaId, detalles) => {
 const eliminarPago = async (db, empresaId, transaccionId) => {
     const transaccionRef = db.collection('empresas').doc(empresaId).collection('transacciones').doc(transaccionId);
     
-    // --- INICIO DE CAMBIOS ---
     const transaccionDoc = await transaccionRef.get();
     if (!transaccionDoc.exists) {
         throw new Error('La transacción a eliminar no fue encontrada.');
@@ -257,7 +258,6 @@ const eliminarPago = async (db, empresaId, transaccionId) => {
             await batch.commit();
         }
     }
-    // --- FIN DE CAMBIOS ---
 };
 
 const actualizarDocumentoReserva = async (db, empresaId, idsIndividuales, tipoDocumento, url) => {

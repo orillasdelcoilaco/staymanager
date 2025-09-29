@@ -218,7 +218,13 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             };
 
             const totalNoches = Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24));
+            
+            // --- INICIO DE CAMBIOS ---
+            const idUnicoReserva = `${idReservaCanal}-${normalizarString(nombreExternoAlojamiento).replace(/\s/g, '')}`;
+
             const datosReserva = {
+                idUnicoReserva: idUnicoReserva,
+            // --- FIN DE CAMBIOS ---
                 idCarga: idCarga,
                 idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
                 estado: normalizarEstado(get('estado')),
