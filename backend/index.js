@@ -21,6 +21,7 @@ const empresaRoutes = require('./routes/empresa.js');
 const usuariosRoutes = require('./routes/usuarios.js');
 const gestionRoutes = require('./routes/gestion.js');
 const historialCargasRoutes = require('./routes/historialCargas.js');
+const plantillasRoutes = require('./routes/plantillas.js'); // <-- AÑADIDO
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 
 // --- Carga de Credenciales y Configuración de Firebase ---
@@ -34,10 +35,7 @@ try {
     if (!admin.apps.length) {
         admin.initializeApp({
           credential: admin.credential.cert(serviceAccount),
-          // --- INICIO DE LA CORRECCIÓN ---
-          // Se actualiza al nombre de bucket correcto proporcionado por el usuario.
           storageBucket: 'suite-manager-app.firebasestorage.app' 
-          // --- FIN DE LA CORRECCIÓN ---
         });
         console.log('Firebase Admin SDK inicializado correctamente.');
     }
@@ -93,6 +91,7 @@ apiRouter.use('/empresa', empresaRoutes(db));
 apiRouter.use('/usuarios', usuariosRoutes(db));
 apiRouter.use('/gestion', gestionRoutes(db));
 apiRouter.use('/historial-cargas', historialCargasRoutes(db));
+apiRouter.use('/plantillas', plantillasRoutes(db)); // <-- AÑADIDO
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 
 app.use('/api', apiRouter);
