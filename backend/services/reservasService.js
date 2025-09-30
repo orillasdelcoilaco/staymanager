@@ -143,7 +143,7 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
 
     const cliente = clienteDoc.exists ? clienteDoc.data() : {};
     const notas = notasSnapshot.docs.map(d => ({...d.data(), fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
-    const transacciones = transaccionesSnapshot.docs.map(d => ({...d.data(), fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
+    const transacciones = transaccionesSnapshot.docs.map(d => ({...d.data(), id: d.id, fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
 
     const valorTotalHuesped = reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0);
     const costoCanal = reservasIndividuales.reduce((sum, r) => sum + (r.valores?.comision || r.valores?.costoCanal || 0), 0);
@@ -340,8 +340,8 @@ const gestionarDocumentoReserva = async (db, empresaId, reservaId, tipoDocumento
     }
 
     const reservaData = reservaDoc.data();
-    const campo = tipoDocumento === 'boleta' ? 'documentos.enlaceBoleta' : 'documentos.enlaceReserva';
-    const oldUrl = reservaData.documentos?.[campo.split('.')[1]];
+    const campo = tipoDocumento === 'boleta' ? `documentos.enlaceBoleta` : `documentos.enlaceReserva`;
+    const oldUrl = reservaData.documentos?.[tipoDocumento === 'boleta' ? 'enlaceBoleta' : 'enlaceReserva'];
 
     if (accion === 'delete') {
         if (oldUrl && oldUrl !== 'SIN_DOCUMENTO') {

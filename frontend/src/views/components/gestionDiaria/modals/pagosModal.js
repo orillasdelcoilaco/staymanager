@@ -131,12 +131,13 @@ async function renderPagosList() {
         }
         
         listaPagosEl.innerHTML = allTransacciones.map(p => `
-            <div class="p-2 border rounded-md flex justify-between items-center">
+            <div class="p-2 border rounded-md flex justify-between items-center text-sm">
                 <div>
                     <p class="font-semibold">${formatCurrency(p.monto)} - <span class="font-normal text-gray-600">${p.tipo} (${p.medioDePago})</span></p>
                     <p class="text-xs text-gray-500">Fecha: ${new Date(p.fecha).toLocaleString('es-CL')}</p>
                 </div>
-                <div>
+                <div class="flex items-center space-x-4">
+                    ${p.enlaceComprobante && p.enlaceComprobante !== 'SIN_DOCUMENTO' ? `<a href="${p.enlaceComprobante}" target="_blank" class="text-xs text-blue-600 hover:underline">Ver Comp.</a>` : '<span class="text-xs text-gray-400">Sin Comp.</span>'}
                     <button data-id="${p.id}" class="delete-pago-btn text-xs text-red-600 hover:text-red-900">Eliminar</button>
                 </div>
             </div>`).join('');

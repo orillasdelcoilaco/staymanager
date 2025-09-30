@@ -6,11 +6,11 @@ let historialCargas = [];
 let alojamientos = [];
 let clientes = [];
 let editandoReserva = null;
+let transaccionesActuales = [];
 
 // --- UTILS ---
 const formatDate = (dateString) => {
     if (!dateString) return '-';
-    // Asumimos que la fecha viene en formato 'YYYY-MM-DD' o es un objeto Date
     return new Date(dateString + 'T00:00:00Z').toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
 };
 const formatDateTime = (dateString) => {
