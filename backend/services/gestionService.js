@@ -9,7 +9,10 @@ function findTarifaInMemory(tarifas, alojamientoId, canalId, fecha) {
     return tarifa ? (tarifa.precios[canalId] || null) : null;
 }
 
-const getReservasPendientes = async (db, empresaId, lastVisibleId = null) => {
+const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
+    console.log('--- Nueva Petición a getReservasPendientes ---');
+    console.log('Recibiendo cursor:', lastVisibleData);
+
     const PAGE_SIZE = 20;
 
     let query = db.collection('empresas').doc(empresaId).collection('reservas')
@@ -18,8 +21,8 @@ const getReservasPendientes = async (db, empresaId, lastVisibleId = null) => {
         .orderBy('fechaLlegada', 'asc')
         .orderBy(admin.firestore.FieldPath.documentId(), 'asc');
 
-    if (lastVisibleId) {
-        const lastDoc = await db.collection('empresas').doc(empresaId).collection('reservas').doc(lastVisibleId).get();
+    if (lastVisibleData) {
+        const lastDoc = await db.collection('empresas').doc(empresaId).collection('reservas').doc(lastVisibleData.id).get();
         if (lastDoc.exists) {
             query = query.startAfter(lastDoc);
         }
@@ -28,6 +31,7 @@ const getReservasPendientes = async (db, empresaId, lastVisibleId = null) => {
     query = query.limit(PAGE_SIZE);
     
     const reservasSnapshot = await query.get();
+    console.log(`Documentos de reserva encontrados: ${reservasSnapshot.size}`);
 
     if (reservasSnapshot.empty) {
         return { grupos: [], hasMore: false, lastVisible: null };
@@ -97,15 +101,12 @@ const getReservasPendientes = async (db, empresaId, lastVisibleId = null) => {
         const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
             const valorHuesped = r.valores?.valorHuesped || 0;
             const comisionReal = r.valores?.comision > 0 ? r.valores.comision : r.valores?.costoCanal || 0;
-
             acc.valorTotalHuesped += valorHuesped;
             acc.costoCanal += comisionReal;
-
             if (r.ajusteManualRealizado) acc.ajusteManualRealizado = true;
             if (r.potencialCalculado) acc.potencialCalculado = true;
             if (r.clienteGestionado) acc.clienteGestionado = true;
             if (r.documentos) acc.documentos = { ...acc.documentos, ...r.documentos };
-
             return acc;
         }, {
             valorTotalHuesped: 0, costoCanal: 0,
@@ -123,6 +124,8 @@ const getReservasPendientes = async (db, empresaId, lastVisibleId = null) => {
     
     const lastVisibleDocId = reservaDocs.length > 0 ? reservaDocs[reservaDocs.length - 1].id : null;
     
+    console.log('Enviando nuevo cursor:', lastVisibleDocId);
+
     return {
         grupos: gruposProcesados,
         hasMore: reservaDocs.length === PAGE_SIZE,
