@@ -2,7 +2,6 @@ const admin = require('firebase-admin');
 const { obtenerValorDolar } = require('./dolarService');
 const { deleteFileByUrl } = require('./storageService'); 
 
-// ... (Las funciones crearOActualizarReserva, actualizarReservaManualmente, obtenerReservasPorEmpresa, eliminarReserva, etc. no han cambiado y se mantienen igual)
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
     const q = reservasRef.where('idUnicoReserva', '==', datosReserva.idUnicoReserva);
@@ -91,6 +90,33 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
     const datosAActualizar = { ...datosNuevos, edicionesManuales, fechaActualizacion: admin.firestore.FieldValue.serverTimestamp() };
     await reservaRef.update(datosAActualizar);
     return { id: reservaId, ...datosAActualizar };
+};
+
+const obtenerReservasPorEmpresa = async (db, empresaId) => {
+    const [reservasSnapshot, clientesSnapshot] = await Promise.all([
+        db.collection('empresas').doc(empresaId).collection('reservas').orderBy('fechaLlegada', 'desc').get(),
+        db.collection('empresas').doc(empresaId).collection('clientes').get()
+    ]);
+
+    if (reservasSnapshot.empty) return [];
+
+    const clientesMap = new Map();
+    clientesSnapshot.forEach(doc => clientesMap.set(doc.id, doc.data()));
+
+    return reservasSnapshot.docs.map(doc => {
+        const data = doc.data();
+        const cliente = clientesMap.get(data.clienteId);
+        return {
+            ...data,
+            telefono: cliente ? cliente.telefono : 'N/A',
+            nombreCliente: cliente ? cliente.nombre : 'Cliente no encontrado',
+            fechaLlegada: data.fechaLlegada?.toDate().toISOString() || null,
+            fechaSalida: data.fechaSalida?.toDate().toISOString() || null,
+            fechaCreacion: data.fechaCreacion?.toDate().toISOString() || null,
+            fechaActualizacion: data.fechaActualizacion?.toDate().toISOString() || null,
+            fechaReserva: data.fechaReserva?.toDate().toISOString() || null
+        };
+    });
 };
 
 const obtenerReservaPorId = async (db, empresaId, reservaId) => {

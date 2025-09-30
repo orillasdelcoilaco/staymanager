@@ -1,7 +1,7 @@
 const express = require('express');
 const {
     obtenerReservasPorEmpresa,
-    obtenerReservaPorId, // <-- AÑADIDO
+    obtenerReservaPorId,
     actualizarReservaManualmente,
     eliminarReserva
 } = require('../services/reservasService');
@@ -18,7 +18,6 @@ module.exports = (db) => {
         }
     });
 
-    // --- NUEVO ENDPOINT ---
     router.get('/:id', async (req, res) => {
         try {
             const reserva = await obtenerReservaPorId(db, req.user.empresaId, req.params.id);
@@ -27,7 +26,6 @@ module.exports = (db) => {
             res.status(404).json({ error: error.message });
         }
     });
-    // --- FIN ---
 
     router.put('/:id', async (req, res) => {
         try {
