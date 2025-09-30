@@ -2,6 +2,7 @@ const admin = require('firebase-admin');
 const { obtenerValorDolar } = require('./dolarService');
 const { deleteFileByUrl } = require('./storageService'); 
 
+// ... (Las funciones crearOActualizarReserva, actualizarReservaManualmente, obtenerReservasPorEmpresa, eliminarReserva, etc. no han cambiado y se mantienen igual)
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
     const q = reservasRef.where('idUnicoReserva', '==', datosReserva.idUnicoReserva);
@@ -92,54 +93,51 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
     return { id: reservaId, ...datosAActualizar };
 };
 
-const obtenerReservasPorEmpresa = async (db, empresaId) => {
-    const [reservasSnapshot, clientesSnapshot] = await Promise.all([
-        db.collection('empresas').doc(empresaId).collection('reservas').orderBy('fechaLlegada', 'desc').get(),
-        db.collection('empresas').doc(empresaId).collection('clientes').get()
-    ]);
-
-    if (reservasSnapshot.empty) return [];
-
-    const clientesMap = new Map();
-    clientesSnapshot.forEach(doc => clientesMap.set(doc.id, doc.data()));
-
-    return reservasSnapshot.docs.map(doc => {
-        const data = doc.data();
-        const cliente = clientesMap.get(data.clienteId);
-        return {
-            ...data,
-            telefono: cliente ? cliente.telefono : 'N/A',
-            nombreCliente: cliente ? cliente.nombre : 'Cliente no encontrado',
-            fechaLlegada: data.fechaLlegada?.toDate().toISOString() || null,
-            fechaSalida: data.fechaSalida?.toDate().toISOString() || null,
-            fechaCreacion: data.fechaCreacion?.toDate().toISOString() || null,
-            fechaActualizacion: data.fechaActualizacion?.toDate().toISOString() || null,
-            fechaReserva: data.fechaReserva?.toDate().toISOString() || null
-        };
-    });
-};
-
 const obtenerReservaPorId = async (db, empresaId, reservaId) => {
     const reservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(reservaId);
     const doc = await reservaRef.get();
     if (!doc.exists) {
         throw new Error('Reserva no encontrada');
     }
-    const data = doc.data();
-    let clienteData = {};
-    if (data.clienteId) {
-        const clienteRef = db.collection('empresas').doc(empresaId).collection('clientes').doc(data.clienteId);
-        const clienteDoc = await clienteRef.get();
-        if (clienteDoc.exists) {
-            clienteData = clienteDoc.data();
-        }
-    }
+    const reservaData = doc.data();
+    const idReservaCanal = reservaData.idReservaCanal;
+
+    const grupoSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
+        .where('idReservaCanal', '==', idReservaCanal)
+        .get();
+    
+    const reservasIndividuales = grupoSnapshot.docs.map(d => d.data());
+
+    const [clienteDoc, notasSnapshot, transaccionesSnapshot] = await Promise.all([
+        db.collection('empresas').doc(empresaId).collection('clientes').doc(reservaData.clienteId).get(),
+        db.collection('empresas').doc(empresaId).collection('gestionNotas').where('reservaIdOriginal', '==', idReservaCanal).orderBy('fecha', 'desc').get(),
+        db.collection('empresas').doc(empresaId).collection('transacciones').where('reservaIdOriginal', '==', idReservaCanal).orderBy('fecha', 'desc').get()
+    ]);
+
+    const cliente = clienteDoc.exists ? clienteDoc.data() : {};
+    const notas = notasSnapshot.docs.map(d => ({...d.data(), fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
+    const transacciones = transaccionesSnapshot.docs.map(d => ({...d.data(), fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
+
+    const valorTotalHuesped = reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0);
+    const costoCanal = reservasIndividuales.reduce((sum, r) => sum + (r.valores?.comision || r.valores?.costoCanal || 0), 0);
+    const valorPotencial = reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorPotencial || 0), 0);
+    const abonoTotal = transacciones.reduce((sum, t) => sum + (t.monto || 0), 0);
+
     return {
-        ...data,
-        fechaLlegada: data.fechaLlegada?.toDate().toISOString().split('T')[0] || null,
-        fechaSalida: data.fechaSalida?.toDate().toISOString().split('T')[0] || null,
-        fechaReserva: data.fechaReserva?.toDate().toISOString().split('T')[0] || null,
-        cliente: clienteData
+        ...reservaData,
+        fechaLlegada: reservaData.fechaLlegada?.toDate().toISOString().split('T')[0] || null,
+        fechaSalida: reservaData.fechaSalida?.toDate().toISOString().split('T')[0] || null,
+        fechaReserva: reservaData.fechaReserva?.toDate().toISOString().split('T')[0] || null,
+        cliente,
+        notas,
+        transacciones,
+        datosAgregados: {
+            valorTotalHuesped,
+            costoCanal,
+            valorPotencial,
+            abonoTotal,
+            payoutFinalReal: valorTotalHuesped - costoCanal,
+        }
     };
 };
 

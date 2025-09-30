@@ -8,6 +8,112 @@ let clientes = [];
 let editandoReserva = null;
 let clienteOriginal = null;
 
+// --- UTILS ---
+const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
+};
+const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
+const formatStars = (rating) => '⭐'.repeat(rating || 0) + '☆'.repeat(5 - (rating || 0));
+
+
+// --- VIEW MODAL LOGIC ---
+function renderDocumentoLink(doc, tipo) {
+    if (!doc || !doc[tipo]) return '<span class="text-gray-500">No adjunto</span>';
+    if (doc[tipo] === 'SIN_DOCUMENTO') return '<span class="font-semibold">Declarado sin documento</span>';
+    return `<a href="${doc[tipo]}" target="_blank" class="text-blue-600 hover:underline">Ver Documento</a>`;
+}
+
+async function abrirModalVer(reservaId) {
+    const modal = document.getElementById('reserva-modal-view');
+    const contentEl = document.getElementById('reserva-view-content');
+    
+    modal.classList.remove('hidden');
+    contentEl.innerHTML = '<p class="text-center">Cargando detalles...</p>';
+    
+    try {
+        const data = await fetchAPI(`/reservas/${reservaId}`);
+        document.getElementById('modal-title-view').textContent = `Detalle Reserva: ${data.idReservaCanal}`;
+
+        const { cliente, notas, datosAgregados } = data;
+
+        contentEl.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <section>
+                        <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Información de la Reserva</h4>
+                        <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                            <dt class="text-gray-500">Alojamiento:</dt><dd>${data.alojamientoNombre}</dd>
+                            <dt class="text-gray-500">Canal:</dt><dd>${data.canalNombre}</dd>
+                            <dt class="text-gray-500">Check-in:</dt><dd>${formatDate(data.fechaLlegada)}</dd>
+                            <dt class="text-gray-500">Check-out:</dt><dd>${formatDate(data.fechaSalida)}</dd>
+                            <dt class="text-gray-500">Noches:</dt><dd>${data.totalNoches}</dd>
+                            <dt class="text-gray-500">Huéspedes:</dt><dd>${data.cantidadHuespedes}</dd>
+                            <dt class="text-gray-500">Estado Reserva:</dt><dd class="font-semibold">${data.estado}</dd>
+                            <dt class="text-gray-500">Estado Gestión:</dt><dd class="font-semibold">${data.estadoGestion || 'N/A'}</dd>
+                        </dl>
+                    </section>
+                     <section>
+                        <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Documentos</h4>
+                        <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                           <dt class="text-gray-500">Doc. Reserva:</dt><dd>${renderDocumentoLink(data.documentos, 'enlaceReserva')}</dd>
+                           <dt class="text-gray-500">Boleta/Factura:</dt><dd>${renderDocumentoLink(data.documentos, 'enlaceBoleta')}</dd>
+                        </dl>
+                    </section>
+                </div>
+                <div class="space-y-4">
+                     <section>
+                        <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Información del Cliente</h4>
+                        <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                            <dt class="text-gray-500">Nombre:</dt><dd>${cliente.nombre || '-'}</dd>
+                            <dt class="text-gray-500">Teléfono:</dt><dd>${cliente.telefono || '-'}</dd>
+                            <dt class="text-gray-500">Email:</dt><dd>${cliente.email || '-'}</dd>
+                            <dt class="text-gray-500">País:</dt><dd>${cliente.pais || '-'}</dd>
+                            <dt class="text-gray-500">Calificación:</dt><dd>${formatStars(cliente.calificacion)}</dd>
+                            <dt class="text-gray-500">Ubicación:</dt><dd>${cliente.ubicacion || '-'}</dd>
+                            <dt class="text-gray-500 col-span-2">Notas Cliente:</dt>
+                            <dd class="col-span-2 text-xs bg-gray-50 p-2 rounded whitespace-pre-wrap">${cliente.notas || 'Sin notas.'}</dd>
+                        </dl>
+                    </section>
+                </div>
+            </div>
+            <div class="space-y-4 border-t pt-4 mt-4">
+                <section>
+                    <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Análisis Financiero</h4>
+                    <dl class="grid grid-cols-3 gap-x-4 gap-y-1 text-sm">
+                        <dt class="text-gray-500">Total Cliente:</dt><dd class="font-semibold">${formatCurrency(datosAgregados.valorTotalHuesped)}</dd>
+                        <dd></dd>
+                        <dt class="text-gray-500">Abonado:</dt><dd class="text-green-600">${formatCurrency(datosAgregados.abonoTotal)}</dd>
+                        <dd></dd>
+                        <dt class="text-gray-500">Saldo:</dt><dd class="text-red-600 font-bold">${formatCurrency(datosAgregados.valorTotalHuesped - datosAgregados.abonoTotal)}</dd>
+                        <dd></dd>
+                        <dt class="text-gray-500">Payout (Ingreso Real):</dt><dd>${formatCurrency(datosAgregados.payoutFinalReal)}</dd>
+                        <dd></dd>
+                        <dt class="text-gray-500">Costo del Canal:</dt><dd>${formatCurrency(datosAgregados.costoCanal)}</dd>
+                        <dd></dd>
+                        <dt class="text-gray-500">Valor Potencial (KPI):</dt><dd>${datosAgregados.valorPotencial > 0 ? formatCurrency(datosAgregados.valorPotencial) : 'No calculado'}</dd>
+                    </dl>
+                </section>
+                <section>
+                    <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Bitácora de Gestión</h4>
+                    <div class="space-y-2 text-xs max-h-40 overflow-y-auto">
+                        ${notas.length > 0 ? notas.map(n => `
+                            <div class="bg-gray-50 p-2 rounded">
+                                <p class="whitespace-pre-wrap">${n.texto}</p>
+                                <p class="text-gray-500 text-right">-- ${n.autor} el ${n.fecha}</p>
+                            </div>
+                        `).join('') : '<p class="text-gray-500">Sin notas en la bitácora.</p>'}
+                    </div>
+                </section>
+            </div>
+        `;
+    } catch (error) {
+        contentEl.innerHTML = `<p class="text-red-500 text-center">Error al cargar los detalles: ${error.message}</p>`;
+    }
+}
+
+
+// --- EDIT MODAL LOGIC ---
 function toggleDolarFields(form) {
     const moneda = form.moneda.value;
     const dolarContainer = form.querySelector('#dolar-container');
@@ -42,7 +148,6 @@ async function abrirModalEditar(reservaId) {
 
     try {
         editandoReserva = await fetchAPI(`/reservas/${reservaId}`);
-        clienteOriginal = { ...editandoReserva.cliente };
         
         document.getElementById('modal-title-edit').textContent = `Editar Reserva: ${editandoReserva.idReservaCanal}`;
         
@@ -72,10 +177,9 @@ async function abrirModalEditar(reservaId) {
 function cerrarModalEditar() {
     document.getElementById('reserva-modal-edit').classList.add('hidden');
     editandoReserva = null;
-    clienteOriginal = null;
 }
 
-
+// --- MAIN TABLE RENDER ---
 function renderTabla(filtros) {
     const tbody = document.getElementById('reservas-tbody');
     if (!tbody) return;
@@ -96,13 +200,6 @@ function renderTabla(filtros) {
         tbody.innerHTML = '<tr><td colspan="11" class="text-center text-gray-500 py-4">No se encontraron reservas.</td></tr>';
         return;
     }
-
-    const formatDate = (dateString) => {
-        if (!dateString) return '-';
-        return new Date(dateString).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
-    };
-    
-    const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
 
     tbody.innerHTML = reservasFiltradas.map(r => {
         const reporte = historialCargas.find(h => h.id === r.idCarga);
@@ -146,6 +243,7 @@ export async function render() {
     }
 
     const opcionesCarga = historialCargas.map(h => `<option value="${h.id}">#${h.idNumerico} - ${h.nombreArchivo}</option>`).join('');
+    const estadosGestionOptions = ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', 'Pendiente Cliente', 'Facturado'].map(e => `<option value="${e}">${e}</option>`).join('');
 
     return `
         <div class="bg-white p-8 rounded-lg shadow">
@@ -190,7 +288,7 @@ export async function render() {
                 <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Estados</legend>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div><label for="estado" class="label">Estado Reserva</label><select name="estado" class="form-select"><option value="Confirmada">Confirmada</option><option value="Cancelada">Cancelada</option><option value="Desconocido">Desconocido</option></select></div>
-                        <div><label for="estadoGestion" class="label">Estado Gestión</label><select name="estadoGestion" class="form-select"><option value="">N/A</option><option value="Pendiente Bienvenida">Pendiente Bienvenida</option><option value="Pendiente Cobro">Pendiente Cobro</option><option value="Pendiente Pago">Pendiente Pago</option><option value="Pendiente Boleta">Pendiente Boleta</option><option value="Pendiente Cliente">Pendiente Cliente</option><option value="Facturado">Facturado</option></select></div>
+                        <div><label for="estadoGestion" class="label">Estado Gestión</label><select name="estadoGestion" class="form-select"><option value="">N/A</option>${estadosGestionOptions}</select></div>
                     </div>
                 </fieldset>
 
@@ -227,8 +325,7 @@ export async function render() {
                 <h3 id="modal-title-view" class="text-xl font-semibold"></h3>
                 <button id="close-view-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
             </div>
-            <div id="reserva-view-content" class="space-y-6 max-h-[75vh] overflow-y-auto pr-4">
-                </div>
+            <div id="reserva-view-content" class="space-y-6 max-h-[75vh] overflow-y-auto pr-4"></div>
         </div></div>
     `;
 }
@@ -273,13 +370,13 @@ export function afterRender() {
         if (!id) return;
 
         if (e.target.classList.contains('view-btn')) {
-            // Lógica para abrir modal de vista
+            abrirModalVer(id);
         }
         if (e.target.classList.contains('edit-btn')) {
             abrirModalEditar(id);
         }
         if (e.target.classList.contains('delete-btn')) {
-            if (confirm('¿Estás seguro de que quieres eliminar esta reserva? Esta acción no se puede deshacer.')) {
+            if (confirm('¿Estás seguro de que quieres eliminar esta reserva?')) {
                 try {
                     await fetchAPI(`/reservas/${id}`, { method: 'DELETE' });
                     todasLasReservas = todasLasReservas.filter(r => r.id !== id);
@@ -316,8 +413,7 @@ export function afterRender() {
         try {
             await fetchAPI(`/reservas/${editandoReserva.id}`, { method: 'PUT', body: datosReserva });
             
-            // Refrescar datos y UI
-            todasLasReservas = await fetchAPI('/reservas');
+            [todasLasReservas, clientes] = await Promise.all([fetchAPI('/reservas'), fetchAPI('/clientes')]);
             renderTabla(getFiltros());
             cerrarModalEditar();
 
