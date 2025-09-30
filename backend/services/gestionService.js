@@ -1,15 +1,23 @@
 const admin = require('firebase-admin');
 
+// Esta función auxiliar no cambia
+function findTarifaInMemory(tarifas, alojamientoId, canalId, fecha) {
+    const tarifa = tarifas.find(t =>
+        t.alojamientoId === alojamientoId &&
+        new Date(t.fechaInicio) <= fecha &&
+        new Date(t.fechaTermino) >= fecha
+    );
+    return tarifa ? (tarifa.precios[canalId] || null) : null;
+}
+
 const getReservasPendientes = async (db, empresaId) => {
-    console.log('--- [VERSIÓN FINAL] Petición a getReservasPendientes ---');
+    console.log('--- [MODO DIAGNÓSTICO FINAL] Petición a getReservasPendientes ---');
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
 
-    // Consulta 1: Flujo de gestión normal para reservas confirmadas.
     const queryGestion = reservasRef
         .where('estado', '==', 'Confirmada')
         .where('estadoGestion', 'in', ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', 'Pendiente Cliente']);
 
-    // Consulta 2: Reservas que necesitan revisión manual.
     const queryDesconocido = reservasRef.where('estado', '==', 'Desconocido');
 
     const [gestionSnapshot, desconocidoSnapshot] = await Promise.all([
@@ -105,10 +113,7 @@ const getReservasPendientes = async (db, empresaId) => {
     const gruposProcesados = Array.from(reservasAgrupadas.values());
     
     console.log(`[LOG 2] Grupos procesados y listos para enviar: ${gruposProcesados.length}`);
-    if (gruposProcesados.length > 0) {
-        console.log('[LOG 3] Muestra del primer grupo a enviar:', JSON.stringify(gruposProcesados[0], null, 2));
-    }
-
+    
     return {
         grupos: gruposProcesados,
         hasMore: false,
