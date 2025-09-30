@@ -221,13 +221,19 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             
             const idUnicoReserva = `${idReservaCanal}-${normalizarString(nombreExternoAlojamiento).replace(/\s/g, '')}`;
 
+            const estadoCrudo = get('estado');
+            const estadoNormalizado = normalizarEstado(estadoCrudo);
+            const estadoGestion = 'Pendiente Bienvenida';
+
+            console.log(`[DEBUG-ESTADO] Canal: ${canalNombre} | ID: ${idReservaCanal} | Estado Crudo: "${estadoCrudo}" | Estado Normalizado: "${estadoNormalizado}" | Estado Gestión: "${estadoGestion}"`);
+
             const datosReserva = {
                 empresaId: empresaId,
                 idUnicoReserva: idUnicoReserva,
                 idCarga: idCarga,
                 idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
-                estado: normalizarEstado(get('estado')),
-                estadoGestion: 'Pendiente Bienvenida',
+                estado: estadoNormalizado,
+                estadoGestion: estadoGestion,
                 fechaReserva: parsearFecha(get('fechaReserva'), formatoFecha),
                 fechaLlegada, fechaSalida, totalNoches: totalNoches > 0 ? totalNoches : 1,
                 cantidadHuespedes: parseInt(get('invitados')) || capacidadAlojamiento || 0,
