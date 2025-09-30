@@ -14,11 +14,11 @@ export async function render() {
                 <h2 class="text-2xl font-semibold text-gray-900">Panel de Gestión Diaria</h2>
                 <input type="text" id="search-input" placeholder="Buscar por nombre, reserva, teléfono..." class="mt-4 md:mt-0 form-input md:w-1/3">
             </div>
-            
-            <div id="diagnostico-container"><h3 class="text-xl font-bold text-purple-600 mb-4 border-b pb-2">Panel de Gestión Diaria (Renderizado Completo)</h3><div id="diagnostico-list" class="space-y-4"></div></div>
-
+            <div id="revision-container" class="hidden"><h3 class="text-xl font-bold text-amber-600 mb-4 border-b pb-2">⚠️ Requiere Revisión Manual</h3><div id="revision-list" class="space-y-4"></div></div>
+            <div id="hoy-container" class="mt-8 hidden"><h3 class="text-xl font-bold text-red-600 mb-4 border-b pb-2">Requiere Acción Inmediata (Llegadas de hoy o pasadas)</h3><div id="hoy-list" class="space-y-4"></div></div>
+            <div id="proximas-container" class="mt-8 hidden"><h3 class="text-xl font-semibold text-blue-600 mb-4 border-b pb-2">Próximas Llegadas</h3><div id="proximas-list" class="space-y-4"></div></div>
             <div id="loading-state" class="text-center py-8"><p class="text-gray-500">Cargando tareas pendientes...</p></div>
-            <div id="no-pendientes" class="text-center py-12 hidden"><p class="text-2xl font-semibold text-green-600">No se encontraron reservas.</p></div>
+            <div id="no-pendientes" class="text-center py-12 hidden"><p class="text-2xl font-semibold text-green-600">¡Todo al día!</p><p class="text-gray-500 mt-2">No hay reservas con gestiones pendientes.</p></div>
         </div>
         
         <div id="gestion-modal" class="modal hidden">
@@ -59,7 +59,8 @@ async function loadAndRender() {
     const noPendientesEl = document.getElementById('no-pendientes');
     
     loadingState.classList.remove('hidden');
-    allGrupos = []; 
+    document.querySelectorAll('#revision-container, #hoy-container, #proximas-container').forEach(c => c.classList.add('hidden'));
+    noPendientesEl.classList.add('hidden');
 
     try {
         if (!currentUserEmail) {
@@ -75,6 +76,7 @@ async function loadAndRender() {
         noPendientesEl.classList.toggle('hidden', allGrupos.length > 0);
 
     } catch(error) {
+        document.getElementById('diagnostico-container').innerHTML = ''; // Limpiar en caso de error
         loadingState.innerHTML = `<p class="text-red-500">Error al cargar las gestiones: ${error.message}</p>`;
     } finally {
         isLoading = false;
@@ -120,7 +122,9 @@ export async function afterRender() {
         }
     });
 
-    document.getElementById('diagnostico-list').addEventListener('click', handleCardButtonClick);
+    document.getElementById('revision-list').addEventListener('click', handleCardButtonClick);
+    document.getElementById('hoy-list').addEventListener('click', handleCardButtonClick);
+    document.getElementById('proximas-list').addEventListener('click', handleCardButtonClick);
     
     initializeModals(() => loadAndRender(), currentUserEmail);
 }

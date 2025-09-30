@@ -10,8 +10,7 @@ module.exports = (db) => {
             const { empresaId } = req.user;
             const { reservaIdOriginal, tipoMensaje } = req.body;
 
-            // Re-utilizamos la lógica de getReservasPendientes para obtener el grupo completo
-            const todosLosGrupos = await getReservasPendientes(db, empresaId);
+            const { grupos: todosLosGrupos } = await getReservasPendientes(db, empresaId);
             const grupoReserva = todosLosGrupos.find(g => g.reservaIdOriginal === reservaIdOriginal);
             
             if (!grupoReserva) {
