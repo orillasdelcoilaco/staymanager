@@ -9,32 +9,53 @@ function findTarifaInMemory(tarifas, alojamientoId, canalId, fecha) {
     return tarifa ? (tarifa.precios[canalId] || null) : null;
 }
 
-const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
-    const PAGE_SIZE = 20;
+const getReservasPendientes = async (db, empresaId) => {
+    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
 
-    let query = db.collection('empresas').doc(empresaId).collection('reservas')
-        .where('estado', 'in', ['Confirmada', 'Desconocido'])
-        .where('estadoGestion', 'in', ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', 'Pendiente Cliente'])
-        .orderBy('fechaLlegada', 'asc')
-        .orderBy(admin.firestore.FieldPath.documentId(), 'asc');
+    // Consulta 1: Reservas que requieren acción en el flujo de gestión
+    const queryGestion = reservasRef
+        .where('estado', '==', 'Confirmada')
+        .where('estadoGestion', 'in', ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', 'Pendiente Cliente']);
 
-    if (lastVisibleData) {
-        const lastDoc = await db.collection('empresas').doc(empresaId).collection('reservas').doc(lastVisibleData.id).get();
-        if (lastDoc.exists) {
-            query = query.startAfter(lastDoc);
+    // Consulta 2: Reservas que requieren revisión manual del estado
+    const queryDesconocido = reservasRef.where('estado', '==', 'Desconocido');
+
+    const [gestionSnapshot, desconocidoSnapshot] = await Promise.all([
+        queryGestion.get(),
+        queryDesconocido.get()
+    ]);
+
+    const allDocs = [];
+    const docIds = new Set();
+
+    gestionSnapshot.forEach(doc => {
+        if (!docIds.has(doc.id)) {
+            allDocs.push(doc);
+            docIds.add(doc.id);
         }
-    }
-    
-    query = query.limit(PAGE_SIZE);
-    
-    const reservasSnapshot = await query.get();
+    });
 
-    if (reservasSnapshot.empty) {
+    desconocidoSnapshot.forEach(doc => {
+        if (!docIds.has(doc.id)) {
+            allDocs.push(doc);
+            docIds.add(doc.id);
+        }
+    });
+
+    if (allDocs.length === 0) {
         return { grupos: [], hasMore: false, lastVisible: null };
     }
     
-    const reservaDocs = reservasSnapshot.docs;
-    const allReservasData = reservaDocs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // Ordenar en memoria ya que vienen de dos consultas distintas
+    allDocs.sort((a, b) => {
+        const dateA = a.data().fechaLlegada.toDate();
+        const dateB = b.data().fechaLlegada.toDate();
+        if (dateA < dateB) return -1;
+        if (dateA > dateB) return 1;
+        return 0;
+    });
+
+    const allReservasData = allDocs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     const clienteIds = [...new Set(allReservasData.map(r => r.clienteId))];
     const reservaIdsOriginales = [...new Set(allReservasData.map(r => r.idReservaCanal))];
@@ -48,7 +69,7 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
 
     const clientsMap = new Map(clientesSnapshot.docs.map(doc => [doc.id, doc.data()]));
     const todasLasTarifas = tarifasSnapshot.docs.map(doc => doc.data());
-    
+
     const notesCountMap = new Map();
     notasSnapshot.forEach(doc => {
         const id = doc.data().reservaIdOriginal;
@@ -81,7 +102,7 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
                 fechaLlegada: data.fechaLlegada?.toDate(),
                 fechaSalida: data.fechaSalida?.toDate(),
                 estado: data.estado,
-                estadoGestion: data.estadoGestion || 'Pendiente Bienvenida',
+                estadoGestion: data.estadoGestion,
                 abonoTotal: abonosMap.get(reservaId) || 0,
                 notasCount: notesCountMap.get(reservaId) || 0,
                 transaccionesCount: transaccionesCountMap.get(reservaId) || 0,
@@ -94,7 +115,7 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
     const gruposProcesados = Array.from(reservasAgrupadas.values()).map(grupo => {
         const primerReserva = grupo.reservasIndividuales[0];
         const esUSD = primerReserva.moneda === 'USD';
-        
+
         const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
             const valorHuesped = r.valores?.valorHuesped || 0;
             const comisionReal = r.valores?.comision > 0 ? r.valores.comision : r.valores?.costoCanal || 0;
@@ -119,14 +140,13 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
         };
     });
     
-    const lastVisibleDocId = reservaDocs.length > 0 ? reservaDocs[reservaDocs.length - 1].id : null;
-
     return {
         grupos: gruposProcesados,
-        hasMore: reservaDocs.length === PAGE_SIZE,
-        lastVisible: lastVisibleDocId
+        hasMore: false, // La paginación se deshabilita temporalmente
+        lastVisible: null
     };
 };
+
 
 const actualizarEstadoGrupo = async (db, empresaId, idsIndividuales, nuevoEstado) => {
     const batch = db.batch();
