@@ -1,7 +1,7 @@
 import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
 import { renderGrupos } from './components/gestionDiaria/gestionDiaria.cards.js';
-import { openManagementModal, initializeModals } from './components/gestionDiaria/gestionDiaria.modals.js';
+import { openManagementModal, initializeModals, openRevertModal } from './components/gestionDiaria/gestionDiaria.modals.js';
 
 let allGrupos = [];
 let currentUserEmail = '';
@@ -100,7 +100,7 @@ function handleCardButtonClick(e) {
     }
     
     if (target.classList.contains('revert-btn')) {
-        openManagementModal('revertir_estado', currentGrupo);
+        openRevertModal(currentGrupo);
     }
 }
 
