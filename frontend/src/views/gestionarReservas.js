@@ -194,6 +194,25 @@ async function handleGestionarDocumento(reservaId, tipo, archivo, accion) {
     }
 }
 
+function renderizarListaTransacciones(form, transacciones) {
+    const container = form.querySelector('#lista-transacciones-edit');
+    transaccionesActuales = transacciones;
+
+    if (transacciones.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-center">No hay pagos registrados.</p>';
+        return;
+    }
+
+    container.innerHTML = transacciones.map(t => `
+        <div class="bg-gray-50 p-2 rounded grid grid-cols-4 gap-2 items-center">
+            <span>${t.tipo}</span>
+            <span class="font-semibold">${formatCurrency(t.monto)}</span>
+            <span>${renderDocumentoLink(t.enlaceComprobante, 'Sin Comp.')}</span>
+            <button type="button" data-id="${t.id}" class="delete-pago-btn text-red-600 text-xs justify-self-end">Eliminar</button>
+        </div>
+    `).join('');
+}
+
 
 async function abrirModalEditar(reservaId) {
     const modal = document.getElementById('reserva-modal-edit');
@@ -202,7 +221,6 @@ async function abrirModalEditar(reservaId) {
 
     try {
         editandoReserva = await fetchAPI(`/reservas/${reservaId}`);
-        transaccionesActuales = editandoReserva.transacciones || [];
         
         document.getElementById('modal-title-edit').textContent = `Editar Reserva: ${editandoReserva.idReservaCanal}`;
         
@@ -224,7 +242,7 @@ async function abrirModalEditar(reservaId) {
 
         renderizarGestorDocumento(form, 'reserva', editandoReserva.documentos?.enlaceReserva);
         renderizarGestorDocumento(form, 'boleta', editandoReserva.documentos?.enlaceBoleta);
-        renderizarListaTransacciones(form, transaccionesActuales);
+        renderizarListaTransacciones(form, editandoReserva.transacciones);
 
         toggleDolarFields(form);
         modal.classList.remove('hidden');
@@ -378,7 +396,7 @@ export async function render() {
                         <div><label class="label">Boleta/Factura</label><div id="documento-boleta-container"></div></div>
                     </div>
                 </fieldset>
-
+                
                 <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Transacciones y Pagos</legend>
                     <div id="lista-transacciones-edit" class="space-y-2 text-sm max-h-40 overflow-y-auto"></div>
                     <button type="button" id="add-pago-btn-edit" class="btn-secondary text-xs mt-2">+ Registrar Nuevo Pago</button>
@@ -444,7 +462,7 @@ export function afterRender() {
                 }
             }
             if (e.target.id === 'add-pago-btn-edit') {
-                // Lógica para mostrar el formulario de pago
+                document.getElementById('form-pago-container-edit').classList.toggle('hidden');
             }
         });
     }
