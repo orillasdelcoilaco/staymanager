@@ -1,5 +1,14 @@
 const admin = require('firebase-admin');
 
+function findTarifaInMemory(tarifas, alojamientoId, canalId, fecha) {
+    const tarifa = tarifas.find(t =>
+        t.alojamientoId === alojamientoId &&
+        new Date(t.fechaInicio) <= fecha &&
+        new Date(t.fechaTermino) >= fecha
+    );
+    return tarifa ? (tarifa.precios[canalId] || null) : null;
+}
+
 const getReservasPendientes = async (db, empresaId) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
 
@@ -31,13 +40,15 @@ const getReservasPendientes = async (db, empresaId) => {
     const clienteIds = [...new Set(allReservasData.map(r => r.clienteId))];
     const reservaIdsOriginales = [...new Set(allReservasData.map(r => r.idReservaCanal))];
 
-    const [clientesSnapshot, notasSnapshot, transaccionesSnapshot] = await Promise.all([
+    const [clientesSnapshot, notasSnapshot, transaccionesSnapshot, tarifasSnapshot] = await Promise.all([
         clienteIds.length > 0 ? db.collection('empresas').doc(empresaId).collection('clientes').where(admin.firestore.FieldPath.documentId(), 'in', clienteIds).get() : Promise.resolve({ docs: [] }),
         reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('gestionNotas').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
         reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('transacciones').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
+        db.collection('empresas').doc(empresaId).collection('tarifas').orderBy('fechaInicio', 'desc').get()
     ]);
 
     const clientsMap = new Map(clientesSnapshot.docs.map(doc => [doc.id, doc.data()]));
+    const todasLasTarifas = tarifasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
     const notesCountMap = new Map();
     notasSnapshot.forEach(doc => {
@@ -64,6 +75,7 @@ const getReservasPendientes = async (db, empresaId) => {
                 fechaSalida: data.fechaSalida?.toDate(),
                 estado: data.estado,
                 estadoGestion: data.estadoGestion,
+                totalNoches: data.totalNoches,
                 abonoTotal: abonosMap.get(reservaId) || 0,
                 notasCount: notesCountMap.get(reservaId) || 0,
                 transaccionesCount: transaccionesSnapshot.docs.filter(d => d.data().reservaIdOriginal === reservaId).length,
@@ -76,6 +88,15 @@ const getReservasPendientes = async (db, empresaId) => {
     const gruposProcesados = Array.from(reservasAgrupadas.values()).map(grupo => {
         const primerReserva = grupo.reservasIndividuales[0];
         const esUSD = primerReserva.moneda === 'USD';
+
+        let valorListaBaseTotal = 0;
+        grupo.reservasIndividuales.forEach(r => {
+            const tarifa = findTarifaInMemory(todasLasTarifas, r.alojamientoId, r.canalId, r.fechaLlegada.toDate());
+            if (tarifa && tarifa.precios[r.canalId]) {
+                const valorNoche = tarifa.precios[r.canalId].valor;
+                valorListaBaseTotal += valorNoche * r.totalNoches;
+            }
+        });
 
         const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
             acc.valorTotalHuesped += r.valores?.valorHuesped || 0;
@@ -91,12 +112,16 @@ const getReservasPendientes = async (db, empresaId) => {
             ...grupo,
             ...valoresAgregados,
             esUSD,
+            valorListaBaseTotal,
             payoutFinalReal: valoresAgregados.valorTotalHuesped - valoresAgregados.costoCanal
         };
 
         if (esUSD) {
+            const valorDolarDia = primerReserva.valorDolarDia || 1;
             const totalPayoutUSD = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorOriginal || 0), 0);
-            const totalIvaUSD = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.iva || 0), 0);
+            const totalIvaCLP = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.iva || 0), 0);
+            const totalIvaUSD = totalIvaCLP / valorDolarDia;
+            
             resultado.valoresUSD = {
                 payout: totalPayoutUSD,
                 iva: totalIvaUSD,
@@ -109,7 +134,6 @@ const getReservasPendientes = async (db, empresaId) => {
     
     return { grupos: gruposProcesados, hasMore: false, lastVisible: null };
 };
-
 
 const actualizarEstadoGrupo = async (db, empresaId, idsIndividuales, nuevoEstado) => {
     const batch = db.batch();
