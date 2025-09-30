@@ -113,6 +113,33 @@ async function abrirModalVer(reservaId) {
 
 
 // --- EDIT MODAL LOGIC ---
+function toggleDolarFields(form) {
+    const moneda = form.moneda.value;
+    const dolarContainer = form.querySelector('#dolar-container');
+    const valorTotalInput = form.valorTotal;
+    const valorOriginalInput = form.valorOriginal;
+
+    valorOriginalInput.step = moneda === 'USD' ? '0.01' : '1';
+
+    if (moneda === 'USD') {
+        dolarContainer.style.display = 'grid';
+        valorTotalInput.readOnly = true;
+        valorTotalInput.classList.add('bg-gray-100');
+    } else {
+        dolarContainer.style.display = 'none';
+        valorTotalInput.readOnly = false;
+        valorTotalInput.classList.remove('bg-gray-100');
+    }
+}
+
+function calcularValorFinal(form) {
+    if (form.moneda.value === 'USD') {
+        const valorOriginal = parseFloat(form.valorOriginal.value) || 0;
+        const valorDolar = parseFloat(form.valorDolarDia.value) || 0;
+        form.valorTotal.value = Math.round(valorOriginal * valorDolar);
+    }
+}
+
 function renderizarGestorDocumento(form, tipo, docUrl) {
     const container = form.querySelector(`#documento-${tipo}-container`);
     let html = '';
