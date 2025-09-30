@@ -202,6 +202,7 @@ async function abrirModalEditar(reservaId) {
 
     try {
         editandoReserva = await fetchAPI(`/reservas/${reservaId}`);
+        transaccionesActuales = editandoReserva.transacciones || [];
         
         document.getElementById('modal-title-edit').textContent = `Editar Reserva: ${editandoReserva.idReservaCanal}`;
         
@@ -223,6 +224,7 @@ async function abrirModalEditar(reservaId) {
 
         renderizarGestorDocumento(form, 'reserva', editandoReserva.documentos?.enlaceReserva);
         renderizarGestorDocumento(form, 'boleta', editandoReserva.documentos?.enlaceBoleta);
+        renderizarListaTransacciones(form, transaccionesActuales);
 
         toggleDolarFields(form);
         modal.classList.remove('hidden');
@@ -377,6 +379,12 @@ export async function render() {
                     </div>
                 </fieldset>
 
+                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Transacciones y Pagos</legend>
+                    <div id="lista-transacciones-edit" class="space-y-2 text-sm max-h-40 overflow-y-auto"></div>
+                    <button type="button" id="add-pago-btn-edit" class="btn-secondary text-xs mt-2">+ Registrar Nuevo Pago</button>
+                    <div id="form-pago-container-edit" class="hidden mt-2"></div>
+                </fieldset>
+
                 <div class="flex justify-end pt-4 border-t">
                     <button type="button" id="cancel-edit-btn" class="btn-secondary">Cancelar</button>
                     <button type="submit" class="btn-primary ml-2">Guardar Cambios</button>
@@ -434,6 +442,9 @@ export function afterRender() {
                 if (confirm('¿Seguro que quieres eliminar este documento?')) {
                     handleGestionarDocumento(editandoReserva.id, e.target.dataset.tipo, null, 'delete');
                 }
+            }
+            if (e.target.id === 'add-pago-btn-edit') {
+                // Lógica para mostrar el formulario de pago
             }
         });
     }
