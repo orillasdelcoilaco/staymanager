@@ -181,7 +181,7 @@ export async function render() {
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div><label for="idReservaCanal" class="label">ID Reserva Canal</label><input type="text" name="idReservaCanal" class="form-input"></div>
                         <div><label for="alojamiento-select" class="label">Alojamiento</label><select id="alojamiento-select" name="alojamientoId" class="form-select"></select></div>
-                        <div><label for="estado" class="label">Estado</label><select name="estado" class="form-select"><option value="Confirmada">Confirmada</option><option value="Cancelada">Cancelada</option><option value="Pendiente">Pendiente</option></select></div>
+                        <div><label for="estado" class="label">Estado</label><select name="estado" class="form-select"><option value="Confirmada">Confirmada</option><option value="Cancelada">Cancelada</option><option value="Desconocido">Desconocido</option></select></div>
                     </div>
                 </fieldset>
 
@@ -224,8 +224,9 @@ export function afterRender() {
     const cargaFilter = document.getElementById('carga-filter');
     const tbody = document.getElementById('reservas-tbody');
     const formEdit = document.getElementById('reserva-form-edit');
+    const urlParams = new URLSearchParams(window.location.search);
+    const reservaIdParaEditar = urlParams.get('reservaId');
 
-    // --- INICIO DE CAMBIOS ---
     const getFiltros = () => ({
         busqueda: searchInput ? searchInput.value : '',
         carga: cargaFilter ? cargaFilter.value : ''
@@ -242,8 +243,10 @@ export function afterRender() {
         formEdit.valorOriginal.addEventListener('input', calcularValorFinal);
         formEdit.valorDolarDia.addEventListener('input', calcularValorFinal);
     }
-    // --- FIN DE CAMBIOS ---
-
+    
+    if (reservaIdParaEditar) {
+        abrirModalEditar(reservaIdParaEditar);
+    }
 
     tbody.addEventListener('click', async (e) => {
         const id = e.target.dataset.id;
@@ -300,11 +303,20 @@ export function afterRender() {
             },
             nombreCliente: formEdit.nombreCliente.value
         };
+
+        if (datosReserva.estado === 'Confirmada' && editandoReserva.estado === 'Desconocido') {
+            datosReserva.estadoGestion = 'Pendiente Bienvenida';
+        }
+
         try {
             await fetchAPI(`/reservas/${editandoReserva.id}`, { method: 'PUT', body: datosReserva });
-            todasLasReservas = await fetchAPI('/reservas');
-            renderTabla(getFiltros());
-            cerrarModalEditar();
+            if (window.location.search.includes('reservaId')) {
+                handleNavigation('/gestion-diaria');
+            } else {
+                todasLasReservas = await fetchAPI('/reservas');
+                renderTabla(getFiltros());
+                cerrarModalEditar();
+            }
         } catch (error) {
             alert(`Error al guardar los cambios de la reserva: ${error.message}`);
         }

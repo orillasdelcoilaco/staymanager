@@ -28,6 +28,20 @@ const analizarCabeceras = async (buffer, nombreArchivo) => {
     return rows.length > 0 ? rows[0].filter(Boolean) : [];
 };
 
+const analizarValoresUnicosColumna = async (buffer, nombreArchivo, indiceColumna) => {
+    const rows = leerArchivo(buffer, nombreArchivo);
+    if (rows.length < 2) return [];
+    
+    const valores = new Set();
+    for (let i = 1; i < rows.length; i++) {
+        const valor = rows[i][indiceColumna];
+        if (valor !== undefined && valor !== null && valor.toString().trim() !== '') {
+            valores.add(valor.toString().trim());
+        }
+    }
+    return Array.from(valores);
+};
+
 const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
     const mapeo = mapeosDelCanal.find(m => m.campoInterno === campoInterno);
     if (!mapeo || typeof mapeo.columnaIndex !== 'number' || mapeo.columnaIndex < 0) {
@@ -85,16 +99,15 @@ const normalizarString = (texto) => {
     return texto.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, ' ');
 };
 
-const normalizarEstado = (estado) => {
-    if (!estado) return 'Confirmada';
-    const estadoLower = estado.toString().toLowerCase();
-    if (estadoLower.includes('cancel') || estadoLower.includes('cancellation')) {
-        return 'Cancelada';
+const determinarEstado = (estadoCrudo, mapeosDeEstado) => {
+    if (!estadoCrudo) return 'Desconocido';
+    const estadoNormalizado = normalizarString(estadoCrudo);
+    for (const [key, value] of Object.entries(mapeosDeEstado)) {
+        if (normalizarString(key) === estadoNormalizado) {
+            return value;
+        }
     }
-    if (estadoLower.includes('ok') || estadoLower.includes('confirm')) {
-        return 'Confirmada';
-    }
-    return 'Confirmada'; 
+    return 'Desconocido';
 };
 
 const parsearMoneda = (valor, separadorDecimal = ',') => {
@@ -144,6 +157,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
     const canalNombre = canal.nombre;
     const monedaCanal = canal.moneda || 'CLP';
     const configuracionIva = canal.configuracionIva || 'incluido';
+    const mapeosDeEstado = canal.mapeosDeEstado || {};
     
     let resultados = { totalFilas: datosJson.length, reservasCreadas: 0, reservasActualizadas: 0, reservasSinCambios: 0, clientesCreados: 0, filasIgnoradas: 0, errores: [] };
     const today = new Date();
@@ -157,8 +171,9 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             const idReservaCanal = get('idReservaCanal');
             if (idReservaCanal) idFilaParaError = idReservaCanal;
 
-            const tipoFila = get('tipoFila');
-            if ((tipoFila && normalizarString(tipoFila).indexOf('reserv') === -1) || !idReservaCanal) {
+            const estadoCrudo = get('estado');
+            const estadoFinal = determinarEstado(estadoCrudo, mapeosDeEstado);
+            if (estadoFinal === 'Ignorar' || !idReservaCanal) {
                 resultados.filasIgnoradas++;
                 continue;
             }
@@ -230,8 +245,8 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 idUnicoReserva: idUnicoReserva,
                 idCarga: idCarga,
                 idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
-                estado: normalizarEstado(get('estado')),
-                estadoGestion: 'Pendiente Bienvenida',
+                estado: estadoFinal,
+                estadoGestion: estadoFinal === 'Confirmada' ? 'Pendiente Bienvenida' : null,
                 fechaReserva: parsearFecha(get('fechaReserva'), formatoFecha),
                 fechaLlegada, fechaSalida, totalNoches: totalNoches > 0 ? totalNoches : 1,
                 cantidadHuespedes: parseInt(get('invitados')) || capacidadAlojamiento || 0,
@@ -266,5 +281,6 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
 
 module.exports = {
     procesarArchivoReservas,
-    analizarCabeceras
+    analizarCabeceras,
+    analizarValoresUnicosColumna
 };

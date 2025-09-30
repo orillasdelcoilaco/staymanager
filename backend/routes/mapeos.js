@@ -19,8 +19,8 @@ module.exports = (db) => {
     router.post('/:canalId', async (req, res) => {
         try {
             const { canalId } = req.params;
-            const { mapeos, formatoFecha, separadorDecimal, configuracionIva } = req.body; 
-            await guardarMapeosPorCanal(db, req.user.empresaId, canalId, mapeos, formatoFecha, separadorDecimal, configuracionIva);
+            const { mapeos, formatoFecha, separadorDecimal, configuracionIva, mapeosDeEstado } = req.body; 
+            await guardarMapeosPorCanal(db, req.user.empresaId, canalId, mapeos, formatoFecha, separadorDecimal, configuracionIva, mapeosDeEstado);
             res.status(200).json({ message: 'Mapeos guardados con éxito.' });
         } catch (error) {
             res.status(500).json({ error: error.message });

@@ -4,7 +4,7 @@ import { renderAjusteTarifaModal } from './modals/ajusteTarifaModal.js';
 import { renderPagosModal } from './modals/pagosModal.js';
 import { renderDocumentoModal } from './modals/documentoModal.js';
 import { renderMensajeModal } from './modals/mensajeModal.js';
-import { handleNavigation } from '../../../router.js'; // <-- AÑADIDO
+import { handleNavigation } from '../../../router.js'; 
 
 let currentGrupo = null;
 let currentUserEmail = '';
@@ -33,13 +33,14 @@ export function openManagementModal(type, grupo) {
         'pagos': () => renderPagosModal(grupo, onActionComplete),
         'boleta': () => renderDocumentoModal('boleta', grupo, onActionComplete),
         'gestionar_reserva': () => renderDocumentoModal('reserva', grupo, onActionComplete),
-        // --- INICIO DE CAMBIOS ---
         'gestionar_cliente': () => {
-             // Para gestionar cliente, no abrimos un modal, navegamos a su perfil.
             handleNavigation(`/cliente/${grupo.clienteId}?from-reserva=${grupo.reservaIdOriginal}`);
-            return false; // Indicamos que no se debe abrir el modal genérico
+            return false;
         },
-        // --- FIN DE CAMBIOS ---
+        'corregir_estado': () => {
+            handleNavigation(`/gestionar-reservas?reservaId=${grupo.reservasIndividuales[0].id}`);
+            return false;
+        },
     };
 
     const shouldOpenModal = actionMap[type] ? actionMap[type]() : true;

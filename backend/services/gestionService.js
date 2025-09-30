@@ -16,8 +16,7 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
     const PAGE_SIZE = 20;
 
     let query = db.collection('empresas').doc(empresaId).collection('reservas')
-        .where('estado', '==', 'Confirmada')
-        .where('estadoGestion', 'in', ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', 'Pendiente Cliente'])
+        .where('estado', 'in', ['Confirmada', 'Desconocido'])
         .orderBy('fechaLlegada', 'asc')
         .orderBy(admin.firestore.FieldPath.documentId(), 'asc');
 
@@ -84,6 +83,7 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
                 telefono: clienteActual?.telefono || 'N/A',
                 fechaLlegada: data.fechaLlegada?.toDate(),
                 fechaSalida: data.fechaSalida?.toDate(),
+                estado: data.estado,
                 estadoGestion: data.estadoGestion || 'Pendiente Bienvenida',
                 abonoTotal: abonosMap.get(reservaId) || 0,
                 notasCount: notesCountMap.get(reservaId) || 0,
@@ -129,7 +129,7 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
     return {
         grupos: gruposProcesados,
         hasMore: reservaDocs.length === PAGE_SIZE,
-        lastVisible: lastVisibleDocId
+        lastVisible: lastVisibleDocId ? { id: lastVisibleDocId } : null
     };
 };
 

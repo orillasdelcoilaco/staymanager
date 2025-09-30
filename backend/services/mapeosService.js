@@ -1,6 +1,6 @@
 const admin = require('firebase-admin');
 
-const guardarMapeosPorCanal = async (db, empresaId, canalId, mapeos, formatoFecha, separadorDecimal, configuracionIva) => {
+const guardarMapeosPorCanal = async (db, empresaId, canalId, mapeos, formatoFecha, separadorDecimal, configuracionIva, mapeosDeEstado) => {
     if (!empresaId || !canalId || !mapeos) {
         throw new Error('Faltan datos requeridos para guardar los mapeos.');
     }
@@ -11,7 +11,8 @@ const guardarMapeosPorCanal = async (db, empresaId, canalId, mapeos, formatoFech
     batch.update(canalRef, { 
         formatoFecha: formatoFecha,
         separadorDecimal: separadorDecimal,
-        configuracionIva: configuracionIva
+        configuracionIva: configuracionIva,
+        mapeosDeEstado: mapeosDeEstado || {}
     });
 
     const mapeosExistentesQuery = await db.collection('empresas').doc(empresaId).collection('mapeosCanal')

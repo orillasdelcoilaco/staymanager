@@ -12,6 +12,10 @@ function createNotificationBadge(isComplete = false, count = 0) {
 }
 
 function createGrupoCard(grupo) {
+    if (grupo.estado === 'Desconocido') {
+        return createUnknownStateCard(grupo);
+    }
+
     const card = document.createElement('div');
     card.id = `card-${grupo.reservaIdOriginal}`;
     card.className = 'p-4 border rounded-lg shadow-sm flex flex-col';
@@ -107,18 +111,47 @@ function createGrupoCard(grupo) {
     return card;
 }
 
+function createUnknownStateCard(grupo) {
+    const card = document.createElement('div');
+    card.id = `card-${grupo.reservaIdOriginal}`;
+    card.className = 'p-4 border border-amber-300 bg-amber-50 rounded-lg shadow-sm flex flex-col';
+    const alojamientos = grupo.reservasIndividuales.map(r => r.alojamientoNombre).join(', ');
+
+    card.innerHTML = `
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-bold text-white px-2 py-1 rounded bg-amber-500">ESTADO DESCONOCIDO</span>
+            <span class="text-lg font-bold text-gray-800">${grupo.clienteNombre}</span>
+        </div>
+        <div class="text-sm text-gray-600 mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            <span><strong>ID Reserva:</strong> ${grupo.reservaIdOriginal}</span>
+            <span><strong>Estancia:</strong> ${formatDate(grupo.fechaLlegada)} al ${formatDate(grupo.fechaSalida)}</span>
+            <span><strong>Alojamientos:</strong> ${alojamientos}</span>
+        </div>
+        <div class="border-t mt-4 pt-3 flex justify-end items-center">
+            <button data-id="${grupo.reservasIndividuales[0].id}" data-gestion="corregir_estado" class="gestion-btn btn-primary">
+                Revisar y Corregir Estado
+            </button>
+        </div>`;
+    return card;
+}
+
+
 export function renderGrupos(grupos) {
+    const revisionList = document.getElementById('revision-list');
     const hoyList = document.getElementById('hoy-list');
     const proximasList = document.getElementById('proximas-list');
     const noPendientes = document.getElementById('no-pendientes');
+    const revisionContainer = document.getElementById('revision-container');
     const hoyContainer = document.getElementById('hoy-container');
     const proximasContainer = document.getElementById('proximas-container');
     
+    revisionList.innerHTML = '';
     hoyList.innerHTML = '';
     proximasList.innerHTML = '';
 
     if (grupos.length === 0) {
         noPendientes.classList.remove('hidden');
+        revisionContainer.classList.add('hidden');
         hoyContainer.classList.add('hidden');
         proximasContainer.classList.add('hidden');
         return;
@@ -129,8 +162,18 @@ export function renderGrupos(grupos) {
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
-    const llegadasHoy = grupos.filter(g => new Date(g.fechaLlegada).getTime() <= today.getTime());
-    const proximasLlegadas = grupos.filter(g => new Date(g.fechaLlegada).getTime() > today.getTime());
+    const paraRevision = grupos.filter(g => g.estado === 'Desconocido');
+    const confirmados = grupos.filter(g => g.estado === 'Confirmada');
+
+    const llegadasHoy = confirmados.filter(g => new Date(g.fechaLlegada).getTime() <= today.getTime());
+    const proximasLlegadas = confirmados.filter(g => new Date(g.fechaLlegada).getTime() > today.getTime());
+
+    if (paraRevision.length > 0) {
+        paraRevision.forEach(g => revisionList.appendChild(createGrupoCard(g)));
+        revisionContainer.classList.remove('hidden');
+    } else {
+        revisionContainer.classList.add('hidden');
+    }
 
     if (llegadasHoy.length > 0) {
         llegadasHoy.forEach(g => hoyList.appendChild(createGrupoCard(g)));

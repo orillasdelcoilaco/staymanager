@@ -4,6 +4,7 @@ let mapeos = [];
 let canales = [];
 let canalSiendoEditado = null;
 let cabecerasArchivo = [];
+let archivoDeMuestra = null;
 
 const camposInternos = [
     { id: 'idReservaCanal', nombre: 'ID de Reserva del Canal', requerido: true },
@@ -12,7 +13,7 @@ const camposInternos = [
     { id: 'fechaSalida', nombre: 'Fecha de Salida (Check-out)', requerido: true },
     { id: 'nombreCliente', nombre: 'Nombre del Cliente', requerido: true },
     { id: 'apellidoCliente', nombre: 'Apellido del Cliente (Opcional)', requerido: false },
-    { id: 'estado', nombre: 'Estado de la Reserva' },
+    { id: 'estado', nombre: 'Estado de la Reserva', esCampoDeEstado: true },
     { id: 'fechaReserva', nombre: 'Fecha de Creación de la Reserva' },
     { id: 'invitados', nombre: 'Cantidad de Huéspedes' },
     { id: 'correoCliente', nombre: 'Email del Cliente' },
@@ -24,6 +25,55 @@ const camposInternos = [
     { id: 'comision', nombre: 'FINANZAS: Comisión (se suma al Payout)', descripcion: 'Usa este campo para canales (ej. Airbnb) donde el Total Cliente = Payout + Comisión. El valor de esta columna se sumará al Payout.', requerido: false },
     { id: 'costoCanal', nombre: 'FINANZAS: Costo Canal (informativo)', descripcion: 'Usa este campo para canales (ej. Booking) donde el Payout ya es el precio de venta menos la comisión. Este valor se guarda como el costo, pero no se usa para calcular el Total Cliente.', requerido: false },
 ];
+
+async function renderizarMapeoDeEstados(selectEstado) {
+    const container = document.getElementById('mapeo-estados-container');
+    const indiceColumna = cabecerasArchivo.indexOf(selectEstado.value);
+
+    if (indiceColumna === -1 || !archivoDeMuestra) {
+        container.innerHTML = '';
+        container.classList.add('hidden');
+        return;
+    }
+
+    container.innerHTML = '<p class="text-sm text-gray-500">Analizando valores de estado...</p>';
+    container.classList.remove('hidden');
+
+    try {
+        const formData = new FormData();
+        formData.append('archivoMuestra', archivoDeMuestra);
+        formData.append('indiceColumna', indiceColumna);
+
+        const valoresUnicos = await fetchAPI('/sincronizar/analizar-columna', {
+            method: 'POST',
+            body: formData
+        });
+
+        const mapeosGuardados = canalSiendoEditado.mapeosDeEstado || {};
+
+        container.innerHTML = `
+            <label class="block text-sm font-medium text-gray-700 mt-4">4. Interpretar los Estados</label>
+            <p class="text-xs text-gray-500 mb-2">Define qué significa cada valor encontrado en la columna de estado.</p>
+            <div class="space-y-2">
+                ${valoresUnicos.map(valor => `
+                    <div class="grid grid-cols-2 gap-4 items-center">
+                        <span class="font-mono text-sm bg-gray-100 p-2 rounded-md justify-self-end">${valor}</span>
+                        <select data-valor-original="${valor}" class="form-select estado-mapeo-select">
+                            <option value="Desconocido" ${mapeosGuardados[valor] === 'Desconocido' ? 'selected' : ''}>Revisión Manual (Desconocido)</option>
+                            <option value="Confirmada" ${mapeosGuardados[valor] === 'Confirmada' ? 'selected' : ''}>Confirmada</option>
+                            <option value="Cancelada" ${mapeosGuardados[valor] === 'Cancelada' ? 'selected' : ''}>Cancelada</option>
+                            <option value="Ignorar" ${mapeosGuardados[valor] === 'Ignorar' ? 'selected' : ''}>Ignorar Fila</option>
+                        </select>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+    } catch (error) {
+        container.innerHTML = `<p class="text-sm text-red-500">Error al analizar los valores: ${error.message}</p>`;
+    }
+}
+
 
 function renderizarCamposMapeo() {
     const fieldsContainer = document.getElementById('mapeo-fields-container');
@@ -43,7 +93,7 @@ function renderizarCamposMapeo() {
                     ${campo.nombre} ${campo.requerido ? '<span class="text-red-500">*</span>' : ''}
                 </label>
                 <div>
-                    <select id="campo-${campo.id}" data-campo-interno="${campo.id}" class="form-select mapeo-select">
+                    <select id="campo-${campo.id}" data-campo-interno="${campo.id}" class="form-select mapeo-select" ${campo.esCampoDeEstado ? 'data-es-estado="true"' : ''}>
                         <option value="">-- No aplicar / No existe --</option>
                         ${opcionesHtml}
                     </select>
@@ -58,8 +108,13 @@ function renderizarCamposMapeo() {
         const mapeo = mapeosDelCanal.find(m => m.campoInterno === campoId);
         if (mapeo && typeof mapeo.columnaIndex === 'number' && cabecerasArchivo[mapeo.columnaIndex]) {
             select.value = cabecerasArchivo[mapeo.columnaIndex];
+            if (select.dataset.esEstado) {
+                renderizarMapeoDeEstados(select);
+            }
         }
     });
+
+    fieldsContainer.querySelector('select[data-es-estado="true"]').addEventListener('change', (e) => renderizarMapeoDeEstados(e.target));
 
     document.getElementById('mapeo-editor').classList.remove('hidden');
 }
@@ -67,6 +122,7 @@ function renderizarCamposMapeo() {
 
 async function handleFileUpload(e) {
     const file = e.target.files[0];
+    archivoDeMuestra = file; 
     if (!file || !canalSiendoEditado) return;
 
     const statusDiv = document.getElementById('upload-status');
@@ -92,11 +148,13 @@ async function handleFileUpload(e) {
 function abrirModal(canal) {
     canalSiendoEditado = canal;
     cabecerasArchivo = [];
+    archivoDeMuestra = null;
     
     const modal = document.getElementById('mapeo-modal');
     document.getElementById('modal-title').textContent = `Configurar Mapeo para: ${canal.nombre}`;
     document.getElementById('upload-status').classList.add('hidden');
     document.getElementById('mapeo-editor').classList.add('hidden');
+    document.getElementById('mapeo-estados-container').classList.add('hidden');
     document.getElementById('archivo-muestra-input').value = '';
     
     document.getElementById('formato-fecha-select').value = canal.formatoFecha || 'DD/MM/YYYY';
@@ -176,6 +234,7 @@ export async function render() {
                         <label class="block text-sm font-medium text-gray-700">4. Asigna las columnas del archivo</label>
                         <p class="text-xs text-gray-500 mb-4">Selecciona qué columna de tu archivo corresponde a cada campo del sistema.</p>
                         <div id="mapeo-fields-container" class="space-y-3 max-h-[40vh] overflow-y-auto pr-4"></div>
+                        <div id="mapeo-estados-container" class="mt-4 pt-4 border-t hidden"></div>
                     </div>
                     <div class="border-t pt-4">
                         <label for="configuracion-iva-select" class="block text-sm font-medium text-gray-700">5. Configuración de IVA</label>
@@ -223,6 +282,11 @@ export function afterRender() {
             }
         });
         
+        const mapeosDeEstado = {};
+        document.querySelectorAll('.estado-mapeo-select').forEach(select => {
+            mapeosDeEstado[select.dataset.valorOriginal] = select.value;
+        });
+
         const formatoFecha = document.getElementById('formato-fecha-select').value;
         const separadorDecimal = document.getElementById('separador-decimal-select').value;
         const configuracionIva = document.getElementById('configuracion-iva-select').value;
@@ -234,7 +298,8 @@ export function afterRender() {
                     mapeos: mapeosParaGuardar,
                     formatoFecha: formatoFecha,
                     separadorDecimal: separadorDecimal,
-                    configuracionIva: configuracionIva
+                    configuracionIva: configuracionIva,
+                    mapeosDeEstado: mapeosDeEstado
                 }
             });
             alert(`Configuración para "${canalSiendoEditado.nombre}" guardada con éxito.`);

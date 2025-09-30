@@ -1,6 +1,6 @@
 const express = require('express');
 const multer = require('multer');
-const { procesarArchivoReservas, analizarCabeceras } = require('../services/sincronizacionService');
+const { procesarArchivoReservas, analizarCabeceras, analizarValoresUnicosColumna } = require('../services/sincronizacionService');
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -18,6 +18,24 @@ module.exports = (db) => {
             res.status(200).json(cabeceras);
         } catch (error) {
             console.error("Error analizando cabeceras:", error);
+            res.status(500).json({ error: `Error interno del servidor: ${error.message}` });
+        }
+    });
+
+    router.post('/analizar-columna', upload.single('archivoMuestra'), async (req, res) => {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No se ha subido ningún archivo.' });
+        }
+        const { indiceColumna } = req.body;
+        if (indiceColumna === undefined) {
+            return res.status(400).json({ error: 'Se requiere el índice de la columna.' });
+        }
+
+        try {
+            const valoresUnicos = await analizarValoresUnicosColumna(req.file.buffer, req.file.originalname, parseInt(indiceColumna));
+            res.status(200).json(valoresUnicos);
+        } catch (error) {
+            console.error("Error analizando columna:", error);
             res.status(500).json({ error: `Error interno del servidor: ${error.message}` });
         }
     });
