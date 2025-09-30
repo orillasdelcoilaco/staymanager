@@ -6,7 +6,6 @@ let historialCargas = [];
 let alojamientos = [];
 let clientes = [];
 let editandoReserva = null;
-let clienteOriginal = null;
 
 // --- UTILS ---
 const formatDate = (dateString) => {
@@ -114,32 +113,42 @@ async function abrirModalVer(reservaId) {
 
 
 // --- EDIT MODAL LOGIC ---
-function toggleDolarFields(form) {
-    const moneda = form.moneda.value;
-    const dolarContainer = form.querySelector('#dolar-container');
-    const valorTotalInput = form.valorTotal;
-    const valorOriginalInput = form.valorOriginal;
+function renderizarGestorDocumento(form, tipo, docUrl) {
+    const container = form.querySelector(`#documento-${tipo}-container`);
+    let html = '';
 
-    valorOriginalInput.step = moneda === 'USD' ? '0.01' : '1';
+    if (docUrl) {
+        if (docUrl === 'SIN_DOCUMENTO') {
+            html = '<p class="text-sm font-semibold">Declarado sin documento.</p>';
+        } else {
+            html = `<a href="${docUrl}" target="_blank" class="text-blue-600 hover:underline text-sm">Ver Documento Actual</a>`;
+        }
+        html += `<button type="button" data-tipo="${tipo}" class="delete-doc-btn text-red-600 text-xs ml-4">Eliminar</button>`;
+    }
 
-    if (moneda === 'USD') {
-        dolarContainer.style.display = 'grid';
-        valorTotalInput.readOnly = true;
-        valorTotalInput.classList.add('bg-gray-100');
-    } else {
-        dolarContainer.style.display = 'none';
-        valorTotalInput.readOnly = false;
-        valorTotalInput.classList.remove('bg-gray-100');
+    html += `<input type="file" data-tipo="${tipo}" class="doc-input mt-2 text-sm">`;
+    container.innerHTML = html;
+}
+
+async function handleGestionarDocumento(reservaId, tipo, archivo, accion) {
+    const formData = new FormData();
+    formData.append('tipoDocumento', tipo);
+    formData.append('accion', accion);
+    if (archivo) {
+        formData.append('documento', archivo);
+    }
+    
+    try {
+        editandoReserva = await fetchAPI(`/reservas/${reservaId}/documento`, { method: 'POST', body: formData });
+        
+        const form = document.getElementById('reserva-form-edit');
+        renderizarGestorDocumento(form, 'reserva', editandoReserva.documentos?.enlaceReserva);
+        renderizarGestorDocumento(form, 'boleta', editandoReserva.documentos?.enlaceBoleta);
+    } catch (error) {
+        alert(`Error al gestionar el documento: ${error.message}`);
     }
 }
 
-function calcularValorFinal(form) {
-    if (form.moneda.value === 'USD') {
-        const valorOriginal = parseFloat(form.valorOriginal.value) || 0;
-        const valorDolar = parseFloat(form.valorDolarDia.value) || 0;
-        form.valorTotal.value = Math.round(valorOriginal * valorDolar);
-    }
-}
 
 async function abrirModalEditar(reservaId) {
     const modal = document.getElementById('reserva-modal-edit');
@@ -166,6 +175,9 @@ async function abrirModalEditar(reservaId) {
         form.valorTotal.value = editandoReserva.valores?.valorTotal || 0;
         form.valorDolarDia.value = editandoReserva.valorDolarDia || '';
         form.cantidadHuespedes.value = editandoReserva.cantidadHuespedes || 0;
+
+        renderizarGestorDocumento(form, 'reserva', editandoReserva.documentos?.enlaceReserva);
+        renderizarGestorDocumento(form, 'boleta', editandoReserva.documentos?.enlaceBoleta);
 
         toggleDolarFields(form);
         modal.classList.remove('hidden');
@@ -313,6 +325,13 @@ export async function render() {
                     <div><label for="cliente-select" class="label">Cliente</label><select id="cliente-select" name="clienteId" class="form-select"></select></div>
                 </fieldset>
 
+                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Documentos</legend>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label class="label">Documento Reserva</label><div id="documento-reserva-container"></div></div>
+                        <div><label class="label">Boleta/Factura</label><div id="documento-boleta-container"></div></div>
+                    </div>
+                </fieldset>
+
                 <div class="flex justify-end pt-4 border-t">
                     <button type="button" id="cancel-edit-btn" class="btn-secondary">Cancelar</button>
                     <button type="submit" class="btn-primary ml-2">Guardar Cambios</button>
@@ -359,6 +378,19 @@ export function afterRender() {
         monedaSelect.addEventListener('change', () => toggleDolarFields(formEdit));
         valorOriginalInput.addEventListener('input', () => calcularValorFinal(formEdit));
         valorDolarInput.addEventListener('input', () => calcularValorFinal(formEdit));
+
+        formEdit.addEventListener('change', e => {
+            if (e.target.classList.contains('doc-input')) {
+                handleGestionarDocumento(editandoReserva.id, e.target.dataset.tipo, e.target.files[0], 'upload');
+            }
+        });
+        formEdit.addEventListener('click', e => {
+            if (e.target.classList.contains('delete-doc-btn')) {
+                if (confirm('¿Seguro que quieres eliminar este documento?')) {
+                    handleGestionarDocumento(editandoReserva.id, e.target.dataset.tipo, null, 'delete');
+                }
+            }
+        });
     }
     
     if (reservaIdParaEditar) {

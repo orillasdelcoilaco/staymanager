@@ -1,6 +1,7 @@
 const admin = require('firebase-admin');
 const { obtenerValorDolar } = require('./dolarService');
-const { deleteFileByUrl } = require('./storageService'); 
+const { deleteFileByUrl, uploadFile } = require('./storageService'); 
+const path = require('path');
 
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
@@ -331,6 +332,39 @@ const actualizarDocumentoReserva = async (db, empresaId, idsIndividuales, tipoDo
     await batch.commit();
 };
 
+const gestionarDocumentoReserva = async (db, empresaId, reservaId, tipoDocumento, archivo, accion) => {
+    const reservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(reservaId);
+    const reservaDoc = await reservaRef.get();
+    if (!reservaDoc.exists) {
+        throw new Error("Reserva no encontrada");
+    }
+
+    const reservaData = reservaDoc.data();
+    const campo = tipoDocumento === 'boleta' ? 'documentos.enlaceBoleta' : 'documentos.enlaceReserva';
+    const oldUrl = reservaData.documentos?.[campo.split('.')[1]];
+
+    if (accion === 'delete') {
+        if (oldUrl && oldUrl !== 'SIN_DOCUMENTO') {
+            await deleteFileByUrl(oldUrl);
+        }
+        await reservaRef.update({ [campo]: admin.firestore.FieldValue.delete() });
+    } else if (archivo) {
+        if (oldUrl && oldUrl !== 'SIN_DOCUMENTO') {
+            await deleteFileByUrl(oldUrl);
+        }
+        const year = new Date().getFullYear();
+        const fileName = `${reservaData.idReservaCanal}_${tipoDocumento}_${Date.now()}${path.extname(archivo.originalname)}`;
+        const destination = `empresas/${empresaId}/reservas/${year}/${fileName}`;
+        const publicUrl = await uploadFile(archivo.buffer, destination, archivo.mimetype);
+        await reservaRef.update({ [campo]: publicUrl });
+    } else {
+        throw new Error("Acción no válida o archivo no proporcionado.");
+    }
+
+    const docActualizado = await reservaRef.get();
+    return docActualizado.data();
+};
+
 const eliminarReservasPorIdCarga = async (db, empresaId, idCarga) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
     const snapshot = await reservasRef.where('idCarga', '==', idCarga).get();
@@ -398,6 +432,7 @@ module.exports = {
     registrarPago,
     eliminarPago,
     actualizarDocumentoReserva,
+    gestionarDocumentoReserva,
     eliminarReservasPorIdCarga,
     contarReservasPorIdCarga
 };

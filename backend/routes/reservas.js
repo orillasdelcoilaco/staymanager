@@ -1,10 +1,14 @@
 const express = require('express');
+const multer = require('multer');
 const {
     obtenerReservasPorEmpresa,
     obtenerReservaPorId,
     actualizarReservaManualmente,
-    eliminarReserva
+    eliminarReserva,
+    gestionarDocumentoReserva 
 } = require('../services/reservasService');
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 module.exports = (db) => {
     const router = express.Router();
@@ -30,6 +34,20 @@ module.exports = (db) => {
     router.put('/:id', async (req, res) => {
         try {
             const reservaActualizada = await actualizarReservaManualmente(db, req.user.empresaId, req.params.id, req.body);
+            res.status(200).json(reservaActualizada);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    router.post('/:id/documento', upload.single('documento'), async (req, res) => {
+        try {
+            const { empresaId } = req.user;
+            const { id } = req.params;
+            const { tipoDocumento, accion } = req.body;
+            const archivo = req.file;
+
+            const reservaActualizada = await gestionarDocumentoReserva(db, empresaId, id, tipoDocumento, archivo, accion);
             res.status(200).json(reservaActualizada);
         } catch (error) {
             res.status(500).json({ error: error.message });
