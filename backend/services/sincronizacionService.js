@@ -113,6 +113,7 @@ const parsearMoneda = (valor, separadorDecimal = ',') => {
 };
 
 const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, nombreArchivoOriginal, usuarioEmail) => {
+    console.log(`[DEBUG] Iniciando procesamiento de archivo para la empresa ${empresaId}`);
     await actualizarValorDolarApi(db, empresaId);
 
     const idCarga = await registrarCarga(db, empresaId, canalId, nombreArchivoOriginal, usuarioEmail);
@@ -162,7 +163,10 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 continue;
             }
 
-            let fechaLlegada = parsearFecha(get('fechaLlegada'), formatoFecha);
+            const fechaLlegadaCruda = get('fechaLlegada');
+            let fechaLlegada = parsearFecha(fechaLlegadaCruda, formatoFecha);
+            console.log(`[DEBUG-FECHA] ID: ${idReservaCanal}, Fecha Cruda: "${fechaLlegadaCruda}", Fecha Parseada: ${fechaLlegada}`);
+
             let fechaSalida = parsearFecha(get('fechaSalida'), formatoFecha);
 
             if (!fechaLlegada || !fechaSalida) throw new Error(`No se pudieron interpretar las fechas.`);
@@ -221,19 +225,13 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             
             const idUnicoReserva = `${idReservaCanal}-${normalizarString(nombreExternoAlojamiento).replace(/\s/g, '')}`;
 
-            const estadoCrudo = get('estado');
-            const estadoNormalizado = normalizarEstado(estadoCrudo);
-            const estadoGestion = 'Pendiente Bienvenida';
-
-            console.log(`[DEBUG-ESTADO] Canal: ${canalNombre} | ID: ${idReservaCanal} | Estado Crudo: "${estadoCrudo}" | Estado Normalizado: "${estadoNormalizado}" | Estado Gestión: "${estadoGestion}"`);
-
             const datosReserva = {
                 empresaId: empresaId,
                 idUnicoReserva: idUnicoReserva,
                 idCarga: idCarga,
                 idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
-                estado: estadoNormalizado,
-                estadoGestion: estadoGestion,
+                estado: normalizarEstado(get('estado')),
+                estadoGestion: 'Pendiente Bienvenida',
                 fechaReserva: parsearFecha(get('fechaReserva'), formatoFecha),
                 fechaLlegada, fechaSalida, totalNoches: totalNoches > 0 ? totalNoches : 1,
                 cantidadHuespedes: parseInt(get('invitados')) || capacidadAlojamiento || 0,
