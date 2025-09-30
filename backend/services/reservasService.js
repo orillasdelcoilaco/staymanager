@@ -245,6 +245,10 @@ const eliminarPago = async (db, empresaId, transaccionId) => {
         throw new Error('La transacción a eliminar no fue encontrada.');
     }
     const transaccionData = transaccionDoc.data();
+
+    if (transaccionData.enlaceComprobante && transaccionData.enlaceComprobante !== 'SIN_DOCUMENTO') {
+        await deleteFileByUrl(transaccionData.enlaceComprobante).catch(err => console.error(`Fallo al eliminar archivo de storage: ${err.message}`));
+    }
     
     await transaccionRef.delete();
 
