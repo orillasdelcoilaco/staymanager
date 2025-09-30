@@ -139,11 +139,7 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
         fechaLlegada: data.fechaLlegada?.toDate().toISOString().split('T')[0] || null,
         fechaSalida: data.fechaSalida?.toDate().toISOString().split('T')[0] || null,
         fechaReserva: data.fechaReserva?.toDate().toISOString().split('T')[0] || null,
-        cliente: {
-            nombre: clienteData.nombre || data.nombreCliente,
-            telefono: clienteData.telefono || '',
-            email: clienteData.email || ''
-        }
+        cliente: clienteData
     };
 };
 
