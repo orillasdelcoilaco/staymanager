@@ -10,17 +10,22 @@ let editandoReserva = null;
 // --- UTILS ---
 const formatDate = (dateString) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
+    // Asumimos que la fecha viene en formato 'YYYY-MM-DD' o es un objeto Date
+    return new Date(dateString + 'T00:00:00Z').toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
+};
+const formatDateTime = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleString('es-CL');
 };
 const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
 const formatStars = (rating) => '⭐'.repeat(rating || 0) + '☆'.repeat(5 - (rating || 0));
 
 
 // --- VIEW MODAL LOGIC ---
-function renderDocumentoLink(doc, tipo) {
-    if (!doc || !doc[tipo]) return '<span class="text-gray-500">No adjunto</span>';
-    if (doc[tipo] === 'SIN_DOCUMENTO') return '<span class="font-semibold">Declarado sin documento</span>';
-    return `<a href="${doc[tipo]}" target="_blank" class="text-blue-600 hover:underline">Ver Documento</a>`;
+function renderDocumentoLink(docUrl, defaultText = 'No adjunto') {
+    if (!docUrl) return `<span class="text-gray-500">${defaultText}</span>`;
+    if (docUrl === 'SIN_DOCUMENTO') return '<span class="font-semibold">Declarado sin documento</span>';
+    return `<a href="${docUrl}" target="_blank" class="text-blue-600 hover:underline">Ver Documento</a>`;
 }
 
 async function abrirModalVer(reservaId) {
@@ -34,7 +39,7 @@ async function abrirModalVer(reservaId) {
         const data = await fetchAPI(`/reservas/${reservaId}`);
         document.getElementById('modal-title-view').textContent = `Detalle Reserva: ${data.idReservaCanal}`;
 
-        const { cliente, notas, datosAgregados } = data;
+        const { cliente, notas, transacciones, datosAgregados } = data;
 
         contentEl.innerHTML = `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -53,10 +58,10 @@ async function abrirModalVer(reservaId) {
                         </dl>
                     </section>
                      <section>
-                        <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Documentos</h4>
+                        <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Documentos de la Reserva</h4>
                         <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                           <dt class="text-gray-500">Doc. Reserva:</dt><dd>${renderDocumentoLink(data.documentos, 'enlaceReserva')}</dd>
-                           <dt class="text-gray-500">Boleta/Factura:</dt><dd>${renderDocumentoLink(data.documentos, 'enlaceBoleta')}</dd>
+                           <dt class="text-gray-500">Doc. Reserva:</dt><dd>${renderDocumentoLink(data.documentos?.enlaceReserva)}</dd>
+                           <dt class="text-gray-500">Boleta/Factura:</dt><dd>${renderDocumentoLink(data.documentos?.enlaceBoleta)}</dd>
                         </dl>
                     </section>
                 </div>
@@ -92,6 +97,19 @@ async function abrirModalVer(reservaId) {
                         <dd></dd>
                         <dt class="text-gray-500">Valor Potencial (KPI):</dt><dd>${datosAgregados.valorPotencial > 0 ? formatCurrency(datosAgregados.valorPotencial) : 'No calculado'}</dd>
                     </dl>
+                </section>
+                <section>
+                    <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Transacciones y Pagos</h4>
+                    <div class="space-y-2 text-sm max-h-40 overflow-y-auto">
+                         ${transacciones.length > 0 ? transacciones.map(t => `
+                            <div class="bg-gray-50 p-2 rounded grid grid-cols-4 gap-2 items-center">
+                                <span>${t.tipo}</span>
+                                <span class="font-semibold">${formatCurrency(t.monto)}</span>
+                                <span>${t.medioDePago}</span>
+                                <div>${renderDocumentoLink(t.enlaceComprobante, 'Sin comprobante')}</div>
+                            </div>
+                        `).join('') : '<p class="text-gray-500">No hay transacciones registradas.</p>'}
+                    </div>
                 </section>
                 <section>
                     <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Bitácora de Gestión</h4>
