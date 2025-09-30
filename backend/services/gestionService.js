@@ -1,52 +1,54 @@
 const admin = require('firebase-admin');
 
-const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
-    const PAGE_SIZE = 20;
+const getReservasPendientes = async (db, empresaId) => {
+    console.log('--- [VERSIÓN FINAL] Petición a getReservasPendientes ---');
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
 
-    // Estrategia final: Consulta amplia y filtrado en servidor para evitar errores de índice.
-    let query = reservasRef
-        .where('estado', 'in', ['Confirmada', 'Desconocido'])
-        .orderBy('fechaLlegada', 'asc')
-        .orderBy(admin.firestore.FieldPath.documentId(), 'asc');
+    // Consulta 1: Flujo de gestión normal para reservas confirmadas.
+    const queryGestion = reservasRef
+        .where('estado', '==', 'Confirmada')
+        .where('estadoGestion', 'in', ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', 'Pendiente Cliente']);
 
-    if (lastVisibleData) {
-        const lastDoc = await reservasRef.doc(lastVisibleData).get();
-        if (lastDoc.exists) {
-            query = query.startAfter(lastDoc);
+    // Consulta 2: Reservas que necesitan revisión manual.
+    const queryDesconocido = reservasRef.where('estado', '==', 'Desconocido');
+
+    const [gestionSnapshot, desconocidoSnapshot] = await Promise.all([
+        queryGestion.get(),
+        queryDesconocido.get()
+    ]);
+
+    const allDocs = [];
+    const docIds = new Set();
+
+    gestionSnapshot.forEach(doc => {
+        if (!docIds.has(doc.id)) {
+            allDocs.push(doc);
+            docIds.add(doc.id);
         }
-    }
-    
-    // Traemos un poco más de documentos para asegurar que llenamos la página después de filtrar.
-    query = query.limit(PAGE_SIZE * 2); 
-    
-    const snapshot = await query.get();
+    });
 
-    if (snapshot.empty) {
+    desconocidoSnapshot.forEach(doc => {
+        if (!docIds.has(doc.id)) {
+            allDocs.push(doc);
+            docIds.add(doc.id);
+        }
+    });
+    
+    console.log(`[LOG 1] Documentos encontrados: ${allDocs.length} (Gestión: ${gestionSnapshot.size}, Desconocido: ${desconocidoSnapshot.size})`);
+
+    if (allDocs.length === 0) {
         return { grupos: [], hasMore: false, lastVisible: null };
     }
     
-    // Filtrado en el servidor:
-    const estadosDeGestionPendientes = ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', 'Pendiente Cliente'];
-    const docsFiltrados = snapshot.docs.filter(doc => {
-        const data = doc.data();
-        if (data.estado === 'Desconocido') {
-            return true; // Siempre incluir las que necesitan revisión.
-        }
-        if (data.estado === 'Confirmada') {
-            return estadosDeGestionPendientes.includes(data.estadoGestion); // Solo incluir confirmadas si están en el flujo.
-        }
-        return false;
+    allDocs.sort((a, b) => {
+        const dateA = a.data().fechaLlegada.toDate();
+        const dateB = b.data().fechaLlegada.toDate();
+        if (dateA < dateB) return -1;
+        if (dateA > dateB) return 1;
+        return 0;
     });
 
-    const reservaDocs = docsFiltrados.slice(0, PAGE_SIZE);
-    const hasMore = docsFiltrados.length > PAGE_SIZE;
-
-    if (reservaDocs.length === 0) {
-         return { grupos: [], hasMore: false, lastVisible: null };
-    }
-
-    const allReservasData = reservaDocs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const allReservasData = allDocs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     const clienteIds = [...new Set(allReservasData.map(r => r.clienteId))];
     const reservaIdsOriginales = [...new Set(allReservasData.map(r => r.idReservaCanal))];
@@ -102,15 +104,17 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
 
     const gruposProcesados = Array.from(reservasAgrupadas.values());
     
-    const lastVisibleDocId = reservaDocs.length > 0 ? reservaDocs[reservaDocs.length - 1].id : null;
+    console.log(`[LOG 2] Grupos procesados y listos para enviar: ${gruposProcesados.length}`);
+    if (gruposProcesados.length > 0) {
+        console.log('[LOG 3] Muestra del primer grupo a enviar:', JSON.stringify(gruposProcesados[0], null, 2));
+    }
 
     return {
         grupos: gruposProcesados,
-        hasMore: hasMore,
-        lastVisible: lastVisibleDocId
+        hasMore: false,
+        lastVisible: null
     };
 };
-
 
 const actualizarEstadoGrupo = async (db, empresaId, idsIndividuales, nuevoEstado) => {
     const batch = db.batch();
