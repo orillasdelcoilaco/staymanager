@@ -1,75 +1,37 @@
 const admin = require('firebase-admin');
 
-function findTarifaInMemory(tarifas, alojamientoId, canalId, fecha) {
-    const tarifa = tarifas.find(t =>
-        t.alojamientoId === alojamientoId &&
-        new Date(t.fechaInicio) <= fecha &&
-        new Date(t.fechaTermino) >= fecha
-    );
-    return tarifa ? (tarifa.precios[canalId] || null) : null;
-}
-
 const getReservasPendientes = async (db, empresaId) => {
-    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
+    console.log('--- [MODO DIAGNÓSTICO] Petición a getReservasPendientes ---');
 
-    // Consulta 1: Reservas que requieren acción en el flujo de gestión
-    const queryGestion = reservasRef
-        .where('estado', '==', 'Confirmada')
-        .where('estadoGestion', 'in', ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', 'Pendiente Cliente']);
+    // PASO 1: Consulta simplificada. Traer TODAS las reservas sin filtros de estado.
+    const query = db.collection('empresas').doc(empresaId).collection('reservas')
+        .orderBy('fechaLlegada', 'asc');
 
-    // Consulta 2: Reservas que requieren revisión manual del estado
-    const queryDesconocido = reservasRef.where('estado', '==', 'Desconocido');
+    const snapshot = await query.get();
+    console.log(`[LOG 1] Documentos de reserva encontrados (sin filtros): ${snapshot.size}`);
 
-    const [gestionSnapshot, desconocidoSnapshot] = await Promise.all([
-        queryGestion.get(),
-        queryDesconocido.get()
-    ]);
-
-    const allDocs = [];
-    const docIds = new Set();
-
-    gestionSnapshot.forEach(doc => {
-        if (!docIds.has(doc.id)) {
-            allDocs.push(doc);
-            docIds.add(doc.id);
-        }
-    });
-
-    desconocidoSnapshot.forEach(doc => {
-        if (!docIds.has(doc.id)) {
-            allDocs.push(doc);
-            docIds.add(doc.id);
-        }
-    });
-
-    if (allDocs.length === 0) {
+    if (snapshot.empty) {
         return { grupos: [], hasMore: false, lastVisible: null };
     }
     
-    // Ordenar en memoria ya que vienen de dos consultas distintas
-    allDocs.sort((a, b) => {
-        const dateA = a.data().fechaLlegada.toDate();
-        const dateB = b.data().fechaLlegada.toDate();
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return 0;
-    });
+    const allReservasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    const allReservasData = allDocs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (allReservasData.length > 0) {
+        console.log('[LOG 2] Muestra de un documento crudo (sin filtros):', JSON.stringify(allReservasData[0], null, 2));
+    }
 
     const clienteIds = [...new Set(allReservasData.map(r => r.clienteId))];
     const reservaIdsOriginales = [...new Set(allReservasData.map(r => r.idReservaCanal))];
 
-    const [clientesSnapshot, notasSnapshot, transaccionesSnapshot, tarifasSnapshot] = await Promise.all([
+    // El resto de la lógica para enriquecer los datos sigue siendo necesaria
+    const [clientesSnapshot, notasSnapshot, transaccionesSnapshot] = await Promise.all([
         clienteIds.length > 0 ? db.collection('empresas').doc(empresaId).collection('clientes').where(admin.firestore.FieldPath.documentId(), 'in', clienteIds).get() : Promise.resolve({ docs: [] }),
         reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('gestionNotas').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
         reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('transacciones').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
-        db.collection('empresas').doc(empresaId).collection('tarifas').orderBy('fechaInicio', 'desc').get()
     ]);
 
     const clientsMap = new Map(clientesSnapshot.docs.map(doc => [doc.id, doc.data()]));
-    const todasLasTarifas = tarifasSnapshot.docs.map(doc => doc.data());
-
+    
     const notesCountMap = new Map();
     notasSnapshot.forEach(doc => {
         const id = doc.data().reservaIdOriginal;
@@ -140,14 +102,19 @@ const getReservasPendientes = async (db, empresaId) => {
         };
     });
     
+    if (gruposProcesados.length > 0) {
+        console.log('[LOG 3] Muestra del primer objeto PROCESADO FINAL que se enviará al frontend:', JSON.stringify(gruposProcesados[0], null, 2));
+    }
+    
     return {
         grupos: gruposProcesados,
-        hasMore: false, // La paginación se deshabilita temporalmente
+        hasMore: false,
         lastVisible: null
     };
 };
 
 
+// El resto de las funciones no necesitan cambios para este diagnóstico
 const actualizarEstadoGrupo = async (db, empresaId, idsIndividuales, nuevoEstado) => {
     const batch = db.batch();
     idsIndividuales.forEach(id => {
