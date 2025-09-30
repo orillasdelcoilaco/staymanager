@@ -2,7 +2,7 @@ import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
 
 let cliente = null;
-let reservaDeOrigenId = null; // <-- AÑADIDO
+let reservaDeOrigenId = null; 
 
 function renderStars(rating) {
     const filledStar = '⭐';
@@ -66,10 +66,8 @@ export async function render() {
     const pathParts = window.location.pathname.split('/');
     const clienteId = pathParts[pathParts.length - 1];
     
-    // --- INICIO DE CAMBIOS ---
     const urlParams = new URLSearchParams(window.location.search);
     reservaDeOrigenId = urlParams.get('from-reserva');
-    // --- FIN DE CAMBIOS ---
 
     try {
         cliente = await fetchAPI(`/clientes/${clienteId}`);
@@ -161,14 +159,12 @@ export async function render() {
 export function afterRender() {
     renderHistorialReservas();
 
-    // --- INICIO DE CAMBIOS ---
     const backBtn = document.getElementById('back-btn');
     backBtn.textContent = reservaDeOrigenId ? 'Volver a Gestión Diaria' : 'Volver a Clientes';
     backBtn.addEventListener('click', () => {
         const path = reservaDeOrigenId ? '/gestion-diaria' : '/clientes';
         handleNavigation(path);
     });
-    // --- FIN DE CAMBIOS ---
 
     document.getElementById('edit-cliente-btn').addEventListener('click', abrirModalEditar);
     document.getElementById('cancel-btn-perfil').addEventListener('click', cerrarModalEditar);
@@ -201,7 +197,6 @@ export function afterRender() {
         try {
             await fetchAPI(`/clientes/${cliente.id}`, { method: 'PUT', body: datos });
             
-            // --- INICIO DE CAMBIOS ---
             if (reservaDeOrigenId) {
                 await fetchAPI('/gestion/marcar-cliente-gestionado', {
                     method: 'POST',
@@ -213,7 +208,6 @@ export function afterRender() {
                 cerrarModalEditar();
                 handleNavigation(window.location.pathname);
             }
-            // --- FIN DE CAMBIOS ---
 
         } catch (error) {
             alert(`Error al guardar: ${error.message}`);

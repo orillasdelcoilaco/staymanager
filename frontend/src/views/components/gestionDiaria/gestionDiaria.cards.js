@@ -12,6 +12,10 @@ function createNotificationBadge(isComplete = false, count = 0) {
 }
 
 function createGrupoCard(grupo) {
+    if (grupo.estado === 'Desconocido') {
+        return createUnknownStateCard(grupo);
+    }
+
     const card = document.createElement('div');
     card.id = `card-${grupo.reservaIdOriginal}`;
     card.className = 'p-4 border rounded-lg shadow-sm flex flex-col';
