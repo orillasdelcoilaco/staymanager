@@ -10,7 +10,7 @@ function findTarifaInMemory(tarifas, alojamientoId, canalId, fecha) {
 }
 
 const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
-    console.log('--- Nueva Petición a getReservasPendientes ---');
+    console.log('--- Nueva Petición a getReservasPendientes (con logging detallado) ---');
     console.log('Recibiendo cursor:', lastVisibleData);
 
     const PAGE_SIZE = 20;
@@ -30,7 +30,7 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
     query = query.limit(PAGE_SIZE);
     
     const reservasSnapshot = await query.get();
-    console.log(`Documentos de reserva encontrados: ${reservasSnapshot.size}`);
+    console.log(`[LOG 1] Documentos de reserva encontrados: ${reservasSnapshot.size}`);
 
     if (reservasSnapshot.empty) {
         return { grupos: [], hasMore: false, lastVisible: null };
@@ -38,6 +38,11 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
     
     const reservaDocs = reservasSnapshot.docs;
     const allReservasData = reservaDocs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // --- LOG DETALLADO 1: Inspeccionar un dato crudo ---
+    if (allReservasData.length > 0) {
+        console.log('[LOG 2] Muestra de un documento crudo desde Firestore:', JSON.stringify(allReservasData[0], null, 2));
+    }
 
     const clienteIds = [...new Set(allReservasData.map(r => r.clienteId))];
     const reservaIdsOriginales = [...new Set(allReservasData.map(r => r.idReservaCanal))];
@@ -94,6 +99,13 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
         reservasAgrupadas.get(reservaId).reservasIndividuales.push(data);
     });
 
+    // --- LOG DETALLADO 2: Inspeccionar el primer grupo creado ---
+    if (reservasAgrupadas.size > 0) {
+        const primerGrupo = reservasAgrupadas.values().next().value;
+        console.log('[LOG 3] Muestra del primer grupo creado (antes del procesamiento final):', JSON.stringify(primerGrupo, null, 2));
+    }
+
+
     const gruposProcesados = Array.from(reservasAgrupadas.values()).map(grupo => {
         const primerReserva = grupo.reservasIndividuales[0];
         const esUSD = primerReserva.moneda === 'USD';
@@ -122,9 +134,14 @@ const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
         };
     });
     
+    // --- LOG DETALLADO 3: Inspeccionar el primer objeto final que se enviará ---
+    if (gruposProcesados.length > 0) {
+        console.log('[LOG 4] Muestra del primer objeto de grupo PROCESADO FINAL que se enviará al frontend:', JSON.stringify(gruposProcesados[0], null, 2));
+    }
+
     const lastVisibleDocId = reservaDocs.length > 0 ? reservaDocs[reservaDocs.length - 1].id : null;
     
-    console.log('Enviando nuevo cursor:', lastVisibleDocId);
+    console.log('[LOG 5] Enviando nuevo cursor:', lastVisibleDocId);
 
     return {
         grupos: gruposProcesados,
