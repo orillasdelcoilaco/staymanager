@@ -264,10 +264,24 @@ const eliminarPago = async (db, empresaId, transaccionId) => {
 };
 
 const actualizarDocumentoReserva = async (db, empresaId, idsIndividuales, tipoDocumento, url) => {
-    const batch = db.batch();
     const campo = tipoDocumento === 'boleta' ? 'documentos.enlaceBoleta' : 'documentos.enlaceReserva';
-    
-    // --- INICIO DE CAMBIOS ---
+
+    if (url === null && idsIndividuales.length > 0) {
+        const primeraReservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(idsIndividuales[0]);
+        const primeraReservaDoc = await primeraReservaRef.get();
+        if (primeraReservaDoc.exists) {
+            const reservaData = primeraReservaDoc.data();
+            const oldUrl = (tipoDocumento === 'boleta')
+                ? reservaData.documentos?.enlaceBoleta
+                : reservaData.documentos?.enlaceReserva;
+
+            if (oldUrl && oldUrl !== 'SIN_DOCUMENTO') {
+                deleteFileByUrl(oldUrl).catch(err => console.error(`Fallo al eliminar archivo de storage: ${err.message}`));
+            }
+        }
+    }
+
+    const batch = db.batch();
     const updateData = {};
     if (url === null) {
         updateData[campo] = admin.firestore.FieldValue.delete();
@@ -275,7 +289,6 @@ const actualizarDocumentoReserva = async (db, empresaId, idsIndividuales, tipoDo
         updateData[campo] = url;
     }
 
-    // Lógica para decidir el próximo estado
     if (tipoDocumento === 'boleta' && (url || url === 'SIN_DOCUMENTO')) {
         const primeraReservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(idsIndividuales[0]);
         const primeraReservaDoc = await primeraReservaRef.get();
@@ -286,7 +299,6 @@ const actualizarDocumentoReserva = async (db, empresaId, idsIndividuales, tipoDo
             updateData.estadoGestion = 'Pendiente Cliente';
         }
     }
-    // --- FIN DE CAMBIOS ---
 
     idsIndividuales.forEach(id => {
         const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);
