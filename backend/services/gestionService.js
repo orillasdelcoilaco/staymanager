@@ -6,7 +6,11 @@ function findTarifaInMemory(tarifas, alojamientoId, canalId, fecha) {
         new Date(t.fechaInicio) <= fecha &&
         new Date(t.fechaTermino) >= fecha
     );
-    return tarifa ? (tarifa.precios[canalId] || null) : null;
+    // Aseguramos que si encontramos una tarifa, tenga precios definidos.
+    if (tarifa && tarifa.precios && tarifa.precios[canalId]) {
+        return tarifa.precios[canalId];
+    }
+    return null;
 }
 
 const getReservasPendientes = async (db, empresaId) => {
@@ -91,10 +95,9 @@ const getReservasPendientes = async (db, empresaId) => {
 
         let valorListaBaseTotal = 0;
         grupo.reservasIndividuales.forEach(r => {
-            const tarifa = findTarifaInMemory(todasLasTarifas, r.alojamientoId, r.canalId, r.fechaLlegada.toDate());
-            if (tarifa && tarifa.precios[r.canalId]) {
-                const valorNoche = tarifa.precios[r.canalId].valor;
-                valorListaBaseTotal += valorNoche * r.totalNoches;
+            const tarifaPrecio = findTarifaInMemory(todasLasTarifas, r.alojamientoId, r.canalId, r.fechaLlegada.toDate());
+            if (tarifaPrecio) {
+                valorListaBaseTotal += tarifaPrecio.valor * r.totalNoches;
             }
         });
 
@@ -120,7 +123,7 @@ const getReservasPendientes = async (db, empresaId) => {
             const valorDolarDia = primerReserva.valorDolarDia || 1;
             const totalPayoutUSD = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorOriginal || 0), 0);
             const totalIvaCLP = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.iva || 0), 0);
-            const totalIvaUSD = totalIvaCLP / valorDolarDia;
+            const totalIvaUSD = valorDolarDia > 0 ? totalIvaCLP / valorDolarDia : 0;
             
             resultado.valoresUSD = {
                 payout: totalPayoutUSD,
@@ -134,6 +137,7 @@ const getReservasPendientes = async (db, empresaId) => {
     
     return { grupos: gruposProcesados, hasMore: false, lastVisible: null };
 };
+
 
 const actualizarEstadoGrupo = async (db, empresaId, idsIndividuales, nuevoEstado) => {
     const batch = db.batch();
