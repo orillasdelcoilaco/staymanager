@@ -1,65 +1,53 @@
 const admin = require('firebase-admin');
 
-// Esta función auxiliar no cambia
-function findTarifaInMemory(tarifas, alojamientoId, canalId, fecha) {
-    const tarifa = tarifas.find(t =>
-        t.alojamientoId === alojamientoId &&
-        new Date(t.fechaInicio) <= fecha &&
-        new Date(t.fechaTermino) >= fecha
-    );
-    return tarifa ? (tarifa.precios[canalId] || null) : null;
-}
-
-const getReservasPendientes = async (db, empresaId) => {
+const getReservasPendientes = async (db, empresaId, lastVisibleData = null) => {
+    const PAGE_SIZE = 20;
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
 
-    // Consulta 1: Flujo de gestión normal para reservas confirmadas.
-    const queryGestion = reservasRef
-        .where('estado', '==', 'Confirmada')
-        .where('estadoGestion', 'in', ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', 'Pendiente Cliente']);
+    // Estrategia final: Consulta amplia y filtrado en servidor para evitar errores de índice.
+    let query = reservasRef
+        .where('estado', 'in', ['Confirmada', 'Desconocido'])
+        .orderBy('fechaLlegada', 'asc')
+        .orderBy(admin.firestore.FieldPath.documentId(), 'asc');
 
-    // Consulta 2: Reservas que necesitan revisión manual.
-    const queryDesconocido = reservasRef.where('estado', '==', 'Desconocido');
-
-    // Ejecutamos ambas consultas en paralelo para mayor eficiencia.
-    const [gestionSnapshot, desconocidoSnapshot] = await Promise.all([
-        queryGestion.get(),
-        queryDesconocido.get()
-    ]);
-
-    const allDocs = [];
-    const docIds = new Set(); // Usamos un Set para evitar duplicados si una reserva apareciera en ambas consultas (improbable pero seguro).
-
-    gestionSnapshot.forEach(doc => {
-        if (!docIds.has(doc.id)) {
-            allDocs.push(doc);
-            docIds.add(doc.id);
+    if (lastVisibleData) {
+        const lastDoc = await reservasRef.doc(lastVisibleData).get();
+        if (lastDoc.exists) {
+            query = query.startAfter(lastDoc);
         }
-    });
+    }
+    
+    // Traemos un poco más de documentos para asegurar que llenamos la página después de filtrar.
+    query = query.limit(PAGE_SIZE * 2); 
+    
+    const snapshot = await query.get();
 
-    desconocidoSnapshot.forEach(doc => {
-        if (!docIds.has(doc.id)) {
-            allDocs.push(doc);
-            docIds.add(doc.id);
-        }
-    });
-
-    if (allDocs.length === 0) {
+    if (snapshot.empty) {
         return { grupos: [], hasMore: false, lastVisible: null };
     }
     
-    // Ordenamos los resultados combinados en memoria por fecha de llegada.
-    allDocs.sort((a, b) => {
-        const dateA = a.data().fechaLlegada.toDate();
-        const dateB = b.data().fechaLlegada.toDate();
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return 0;
+    // Filtrado en el servidor:
+    const estadosDeGestionPendientes = ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', 'Pendiente Cliente'];
+    const docsFiltrados = snapshot.docs.filter(doc => {
+        const data = doc.data();
+        if (data.estado === 'Desconocido') {
+            return true; // Siempre incluir las que necesitan revisión.
+        }
+        if (data.estado === 'Confirmada') {
+            return estadosDeGestionPendientes.includes(data.estadoGestion); // Solo incluir confirmadas si están en el flujo.
+        }
+        return false;
     });
 
-    const allReservasData = allDocs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const reservaDocs = docsFiltrados.slice(0, PAGE_SIZE);
+    const hasMore = docsFiltrados.length > PAGE_SIZE;
 
-    // El resto de la lógica para enriquecer y agrupar los datos no cambia.
+    if (reservaDocs.length === 0) {
+         return { grupos: [], hasMore: false, lastVisible: null };
+    }
+
+    const allReservasData = reservaDocs.map(doc => ({ id: doc.id, ...doc.data() }));
+
     const clienteIds = [...new Set(allReservasData.map(r => r.clienteId))];
     const reservaIdsOriginales = [...new Set(allReservasData.map(r => r.idReservaCanal))];
 
@@ -90,7 +78,6 @@ const getReservasPendientes = async (db, empresaId) => {
     });
 
     const reservasAgrupadas = new Map();
-
     allReservasData.forEach(data => {
         const reservaId = data.idReservaCanal;
         if (!reservasAgrupadas.has(reservaId)) {
@@ -113,38 +100,14 @@ const getReservasPendientes = async (db, empresaId) => {
         reservasAgrupadas.get(reservaId).reservasIndividuales.push(data);
     });
 
-    const gruposProcesados = Array.from(reservasAgrupadas.values()).map(grupo => {
-        const primerReserva = grupo.reservasIndividuales[0];
-        const esUSD = primerReserva.moneda === 'USD';
-
-        const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
-            const valorHuesped = r.valores?.valorHuesped || 0;
-            const comisionReal = r.valores?.comision > 0 ? r.valores.comision : r.valores?.costoCanal || 0;
-            acc.valorTotalHuesped += valorHuesped;
-            acc.costoCanal += comisionReal;
-            if (r.ajusteManualRealizado) acc.ajusteManualRealizado = true;
-            if (r.potencialCalculado) acc.potencialCalculado = true;
-            if (r.clienteGestionado) acc.clienteGestionado = true;
-            if (r.documentos) acc.documentos = { ...acc.documentos, ...r.documentos };
-            return acc;
-        }, {
-            valorTotalHuesped: 0, costoCanal: 0,
-            ajusteManualRealizado: false, potencialCalculado: false, clienteGestionado: false,
-            documentos: {}
-        });
-
-        return {
-            ...grupo,
-            ...valoresAgregados,
-            esUSD,
-            payoutFinalReal: valoresAgregados.valorTotalHuesped - valoresAgregados.costoCanal
-        };
-    });
+    const gruposProcesados = Array.from(reservasAgrupadas.values());
     
+    const lastVisibleDocId = reservaDocs.length > 0 ? reservaDocs[reservaDocs.length - 1].id : null;
+
     return {
         grupos: gruposProcesados,
-        hasMore: false,
-        lastVisible: null
+        hasMore: hasMore,
+        lastVisible: lastVisibleDocId
     };
 };
 
