@@ -315,14 +315,7 @@ const actualizarDocumentoReserva = async (db, empresaId, idsIndividuales, tipoDo
     }
 
     if (tipoDocumento === 'boleta' && (url || url === 'SIN_DOCUMENTO')) {
-        const primeraReservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(idsIndividuales[0]);
-        const primeraReservaDoc = await primeraReservaRef.get();
-        
-        if (primeraReservaDoc.exists && primeraReservaDoc.data().clienteGestionado) {
-            updateData.estadoGestion = 'Facturado';
-        } else {
-            updateData.estadoGestion = 'Pendiente Cliente';
-        }
+        updateData.estadoGestion = 'Pendiente Cliente';
     }
 
     idsIndividuales.forEach(id => {
