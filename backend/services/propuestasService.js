@@ -163,7 +163,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, isSegmen
             const currentDate = new Date(d);
             const q = db.collection('empresas').doc(empresaId).collection('tarifas')
                 .where('alojamientoId', '==', prop.id)
-                .where('fechaInicio', '<=', admin.firestore.Timestamp.fromDate(currentDate))
+                .where('fechaInicio', '<=', currentDate)
                 .orderBy('fechaInicio', 'desc')
                 .limit(1);
             
