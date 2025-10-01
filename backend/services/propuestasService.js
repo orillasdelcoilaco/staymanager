@@ -1,16 +1,18 @@
 const admin = require('firebase-admin');
 
 async function getAvailabilityData(db, empresaId, startDate, endDate) {
-    const [propiedadesSnapshot, tarifasSnapshot, reservasSnapshot] = await Promise.all([
+    const [propiedadesSnapshot, tarifasSnapshot, reservasSnapshot, canalesSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('propiedades').get(),
         db.collection('empresas').doc(empresaId).collection('tarifas').get(),
         db.collection('empresas').doc(empresaId).collection('reservas')
             .where('fechaLlegada', '<', admin.firestore.Timestamp.fromDate(endDate))
             .where('estado', '==', 'Confirmada')
-            .get()
+            .get(),
+        db.collection('empresas').doc(empresaId).collection('canales').get()
     ]);
 
     const allProperties = propiedadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const allCanales = canalesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const allTarifas = tarifasSnapshot.docs.map(doc => {
         const data = doc.data();
         let fechaInicio, fechaTermino;
@@ -68,7 +70,7 @@ async function getAvailabilityData(db, empresaId, startDate, endDate) {
         return !reservations.some(res => startDate < res.end && endDate > res.start);
     });
 
-    return { availableProperties, allProperties, allTarifas, availabilityMap };
+    return { availableProperties, allProperties, allTarifas, availabilityMap, allCanales };
 }
 
 function findNormalCombination(availableProperties, requiredCapacity) {
@@ -147,7 +149,7 @@ function findSegmentedCombination(allProperties, allTarifas, availabilityMap, re
     return { combination: itinerary, capacity: requiredCapacity, dailyOptions: allDailyOptions };
 }
 
-async function calculatePrice(db, empresaId, items, startDate, endDate, allTarifas, isSegmented = false) {
+async function calculatePrice(db, empresaId, items, startDate, endDate, allTarifas, allCanales, isSegmented = false) {
     let totalPrice = 0;
     const priceDetails = [];
     
@@ -156,7 +158,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
             const segmentStartDate = new Date(segment.startDate);
             const segmentEndDate = new Date(segment.endDate);
             const segmentNights = Math.max(1, Math.round((segmentEndDate - segmentStartDate) / (1000 * 60 * 60 * 24)));
-            const pricing = await calculatePrice(db, empresaId, [segment.propiedad], segmentStartDate, segmentEndDate, allTarifas);
+            const pricing = await calculatePrice(db, empresaId, [segment.propiedad], segmentStartDate, segmentEndDate, allTarifas, allCanales);
             totalPrice += pricing.totalPrice;
             priceDetails.push({
                 nombre: segment.propiedad.nombre,
@@ -176,6 +178,10 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
         return { totalPrice: 0, nights: 0, details: [] };
     }
 
+    const canalDirecto = allCanales.find(c => c.nombre.toLowerCase().includes('directo')) || 
+                         allCanales.find(c => c.nombre.toLowerCase().includes('sodc'));
+    const canalDirectoId = canalDirecto ? canalDirecto.id : null;
+
     for (const prop of items) {
         let propTotalPrice = 0;
         for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
@@ -189,7 +195,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
 
             if (tarifasDelDia.length > 0) {
                 const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
-                const precioNoche = tarifa.precios?.Directo?.valor || tarifa.precios?.SODC?.valor || 0;
+                const precioNoche = (canalDirectoId && tarifa.precios[canalDirectoId]) ? tarifa.precios[canalDirectoId].valor : 0;
                 propTotalPrice += precioNoche;
             }
         }
