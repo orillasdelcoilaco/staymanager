@@ -1,7 +1,6 @@
 const admin = require('firebase-admin');
 
 async function getAvailabilityData(db, empresaId, startDate, endDate) {
-    console.log('[Propuestas Service] getAvailabilityData: Iniciando...');
     const [propiedadesSnapshot, tarifasSnapshot, reservasSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('propiedades').get(),
         db.collection('empresas').doc(empresaId).collection('tarifas').get(),
@@ -10,15 +9,11 @@ async function getAvailabilityData(db, empresaId, startDate, endDate) {
             .where('estado', '==', 'Confirmada')
             .get()
     ]);
-    console.log(`[Propuestas Service] getAvailabilityData: Se obtuvieron ${propiedadesSnapshot.size} propiedades, ${tarifasSnapshot.size} tarifas, ${reservasSnapshot.size} reservas.`);
 
     const allProperties = propiedadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const allTarifas = tarifasSnapshot.docs.map(doc => {
         const data = doc.data();
-        if (!data.fechaInicio || !data.fechaTermino) {
-            console.warn(`[Propuestas Service] getAvailabilityData: Tarifa con ID ${doc.id} omitida por no tener fechas.`);
-            return null;
-        }
+        if (!data.fechaInicio || !data.fechaTermino) return null;
         return {
             ...data,
             fechaInicio: data.fechaInicio.toDate(),
@@ -26,7 +21,6 @@ async function getAvailabilityData(db, empresaId, startDate, endDate) {
         };
     }).filter(Boolean);
 
-    // ... (El resto de la lógica de la función se mantiene igual) ...
     const propiedadesConTarifa = allProperties.filter(prop => {
         return allTarifas.some(tarifa => {
             return tarifa.alojamientoId === prop.id && tarifa.fechaInicio <= endDate && tarifa.fechaTermino >= startDate;
@@ -54,12 +48,11 @@ async function getAvailabilityData(db, empresaId, startDate, endDate) {
 
     const occupiedPropertyIds = new Set(overlappingReservations.map(reserva => reserva.alojamientoId));
     const availableProperties = propiedadesConTarifa.filter(prop => !occupiedPropertyIds.has(prop.id));
-    console.log('[Propuestas Service] getAvailabilityData: Finalizado.');
+
     return { availableProperties, allProperties, allTarifas, availabilityMap };
 }
 
 function findNormalCombination(availableProperties, requiredCapacity) {
-    console.log(`[Propuestas Service] findNormalCombination: Buscando combinación para ${requiredCapacity} personas.`);
     const sortedCabanas = availableProperties.sort((a, b) => b.capacidad - a.capacidad);
     
     let combination = [];
@@ -75,15 +68,13 @@ function findNormalCombination(availableProperties, requiredCapacity) {
     }
 
     if (currentCapacity < requiredCapacity) {
-        console.log('[Propuestas Service] findNormalCombination: No se encontró combinación suficiente.');
         return { combination: [], capacity: 0 };
     }
-    console.log(`[Propuestas Service] findNormalCombination: Combinación encontrada con capacidad ${currentCapacity}.`);
+
     return { combination, capacity: currentCapacity };
 }
 
 function findSegmentedCombination(allProperties, allTarifas, availabilityMap, requiredCapacity, startDate, endDate) {
-    console.log(`[Propuestas Service] findSegmentedCombination: Buscando itinerario para ${requiredCapacity} personas.`);
     const allDailyOptions = [];
     let isPossible = true;
 
@@ -102,7 +93,6 @@ function findSegmentedCombination(allProperties, allTarifas, availabilityMap, re
         });
 
         if (dailyAvailable.length === 0) {
-            console.error(`[Propuestas Service] findSegmentedCombination: No hay disponibilidad para el día ${currentDate.toISOString().split('T')[0]}`);
             isPossible = false;
             break;
         }
@@ -110,7 +100,6 @@ function findSegmentedCombination(allProperties, allTarifas, availabilityMap, re
     }
 
     if (!isPossible || allDailyOptions.length === 0) {
-        console.log('[Propuestas Service] findSegmentedCombination: No es posible generar un itinerario.');
         return { combination: [], capacity: 0, dailyOptions: [] };
     }
 
@@ -135,17 +124,15 @@ function findSegmentedCombination(allProperties, allTarifas, availabilityMap, re
         }
     }
     itinerary.push(currentSegment);
-    console.log(`[Propuestas Service] findSegmentedCombination: Itinerario generado con ${itinerary.length} segmento(s).`);
+    
     return { combination: itinerary, capacity: requiredCapacity, dailyOptions: allDailyOptions };
 }
 
 async function calculatePrice(db, empresaId, items, startDate, endDate, isSegmented = false) {
-    console.log('[Propuestas Service] calculatePrice: Iniciando cálculo de precios...');
     let totalPrice = 0;
     const priceDetails = [];
     
     if (isSegmented) {
-        console.log('[Propuestas Service] calculatePrice: Calculando para itinerario segmentado.');
         for (const segment of items) {
             const segmentStartDate = new Date(segment.startDate);
             const segmentEndDate = new Date(segment.endDate);
@@ -162,7 +149,6 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, isSegmen
             });
         }
         const totalNightsOverall = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
-        console.log(`[Propuestas Service] calculatePrice: Finalizado (segmentado). Total: ${totalPrice}`);
         return { totalPrice, nights: totalNightsOverall, details: priceDetails };
     }
 
@@ -185,8 +171,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, isSegmen
 
             if (!snapshot.empty) {
                 const tarifa = snapshot.docs[0].data();
-                // AHORA USAMOS EL OBJETO DATE DIRECTAMENTE
-                if (tarifa.fechaTermino && tarifa.fechaTermino >= currentDate) {
+                if (tarifa.fechaTermino && tarifa.fechaTermino.toDate() >= currentDate) {
                     const precioNoche = tarifa.precios?.Directo?.valor || tarifa.precios?.SODC?.valor || 0;
                     propTotalPrice += precioNoche;
                 }
@@ -199,7 +184,6 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, isSegmen
             precioPorNoche: propTotalPrice > 0 ? propTotalPrice / nights : 0,
         });
     }
-    console.log(`[Propuestas Service] calculatePrice: Finalizado (normal). Total: ${totalPrice}`);
     return { totalPrice, nights, details: priceDetails };
 }
 
