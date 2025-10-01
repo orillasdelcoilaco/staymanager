@@ -13,13 +13,13 @@ async function getAvailabilityData(db, empresaId, startDate, endDate) {
     const allProperties = propiedadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const allTarifas = tarifasSnapshot.docs.map(doc => {
         const data = doc.data();
-        if (!data.fechaInicio || !data.fechaTermino) return null; // Filtro de seguridad
+        if (!data.fechaInicio || !data.fechaTermino) return null;
         return {
             ...data,
             fechaInicio: data.fechaInicio.toDate(),
             fechaTermino: data.fechaTermino.toDate()
         };
-    }).filter(Boolean); // Elimina cualquier tarifa nula
+    }).filter(Boolean);
 
     const propiedadesConTarifa = allProperties.filter(prop => {
         return allTarifas.some(tarifa => {
