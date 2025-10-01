@@ -13,12 +13,13 @@ async function getAvailabilityData(db, empresaId, startDate, endDate) {
     const allProperties = propiedadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const allTarifas = tarifasSnapshot.docs.map(doc => {
         const data = doc.data();
+        if (!data.fechaInicio || !data.fechaTermino) return null; // Filtro de seguridad
         return {
             ...data,
             fechaInicio: data.fechaInicio.toDate(),
             fechaTermino: data.fechaTermino.toDate()
         };
-    });
+    }).filter(Boolean); // Elimina cualquier tarifa nula
 
     const propiedadesConTarifa = allProperties.filter(prop => {
         return allTarifas.some(tarifa => {
@@ -170,7 +171,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, isSegmen
 
             if (!snapshot.empty) {
                 const tarifa = snapshot.docs[0].data();
-                if (tarifa.fechaTermino.toDate() >= currentDate) {
+                if (tarifa.fechaTermino && tarifa.fechaTermino.toDate() >= currentDate) {
                     const precioNoche = tarifa.precios?.Directo?.valor || tarifa.precios?.SODC?.valor || 0;
                     propTotalPrice += precioNoche;
                 }
