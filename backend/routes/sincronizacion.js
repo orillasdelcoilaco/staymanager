@@ -51,7 +51,7 @@ module.exports = (db) => {
         }
 
         try {
-            const { empresaId, email } = req.user; // Obtenemos el email del usuario
+            const { empresaId, email } = req.user;
             const buffer = req.file.buffer;
             
             const resultados = await procesarArchivoReservas(db, empresaId, canalId, buffer, req.file.originalname, email);
