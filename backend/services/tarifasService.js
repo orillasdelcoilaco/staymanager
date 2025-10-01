@@ -30,11 +30,19 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
 
     return tarifasSnapshot.docs.map(doc => {
         const data = doc.data();
+        // --- LÓGICA DE RESILIENCIA ---
+        const fechaInicio = data.fechaInicio && typeof data.fechaInicio.toDate === 'function' 
+            ? data.fechaInicio.toDate().toISOString().split('T')[0] 
+            : data.fechaInicio;
+        const fechaTermino = data.fechaTermino && typeof data.fechaTermino.toDate === 'function' 
+            ? data.fechaTermino.toDate().toISOString().split('T')[0] 
+            : data.fechaTermino;
+        
         return {
             id: doc.id,
             ...data,
-            fechaInicio: data.fechaInicio.toDate().toISOString().split('T')[0],
-            fechaTermino: data.fechaTermino.toDate().toISOString().split('T')[0]
+            fechaInicio,
+            fechaTermino
         };
     });
 };

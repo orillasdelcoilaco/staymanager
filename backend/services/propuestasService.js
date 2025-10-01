@@ -13,12 +13,14 @@ async function getAvailabilityData(db, empresaId, startDate, endDate) {
     const allProperties = propiedadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const allTarifas = tarifasSnapshot.docs.map(doc => {
         const data = doc.data();
-        if (!data.fechaInicio || !data.fechaTermino) return null;
-        return {
-            ...data,
-            fechaInicio: data.fechaInicio.toDate(),
-            fechaTermino: data.fechaTermino.toDate()
-        };
+        if (data.fechaInicio && typeof data.fechaInicio.toDate === 'function' && data.fechaTermino && typeof data.fechaTermino.toDate === 'function') {
+            return {
+                ...data,
+                fechaInicio: data.fechaInicio.toDate(),
+                fechaTermino: data.fechaTermino.toDate()
+            };
+        }
+        return null;
     }).filter(Boolean);
 
     const propiedadesConTarifa = allProperties.filter(prop => {
@@ -163,15 +165,20 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, isSegmen
             const currentDate = new Date(d);
             const q = db.collection('empresas').doc(empresaId).collection('tarifas')
                 .where('alojamientoId', '==', prop.id)
-                .where('fechaInicio', '<=', currentDate)
+                .where('fechaInicio', '<=', admin.firestore.Timestamp.fromDate(currentDate))
                 .orderBy('fechaInicio', 'desc')
                 .limit(1);
             
             const snapshot = await q.get();
 
             if (!snapshot.empty) {
-                const tarifa = snapshot.docs[0].data();
-                if (tarifa.fechaTermino && tarifa.fechaTermino.toDate() >= currentDate) {
+                const tarifaDoc = snapshot.docs[0];
+                const tarifa = {
+                    ...tarifaDoc.data(),
+                    fechaTermino: tarifaDoc.data().fechaTermino.toDate()
+                };
+
+                if (tarifa.fechaTermino && tarifa.fechaTermino >= currentDate) {
                     const precioNoche = tarifa.precios?.Directo?.valor || tarifa.precios?.SODC?.valor || 0;
                     propTotalPrice += precioNoche;
                 }
