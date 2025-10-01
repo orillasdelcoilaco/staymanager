@@ -48,8 +48,10 @@ async function getAvailabilityData(db, empresaId, startDate, endDate) {
         }
     });
 
-    const occupiedPropertyIds = new Set(overlappingReservations.map(reserva => reserva.alojamientoId));
-    const availableProperties = propiedadesConTarifa.filter(prop => !occupiedPropertyIds.has(prop.id));
+    const availableProperties = propiedadesConTarifa.filter(prop => {
+        const reservations = availabilityMap.get(prop.id) || [];
+        return !reservations.some(res => startDate < res.end && endDate > res.start);
+    });
 
     return { availableProperties, allProperties, allTarifas, availabilityMap };
 }
@@ -130,7 +132,7 @@ function findSegmentedCombination(allProperties, allTarifas, availabilityMap, re
     return { combination: itinerary, capacity: requiredCapacity, dailyOptions: allDailyOptions };
 }
 
-async function calculatePrice(db, empresaId, items, startDate, endDate, isSegmented = false) {
+async function calculatePrice(db, empresaId, items, startDate, endDate, allTarifas, isSegmented = false) {
     let totalPrice = 0;
     const priceDetails = [];
     
@@ -139,7 +141,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, isSegmen
             const segmentStartDate = new Date(segment.startDate);
             const segmentEndDate = new Date(segment.endDate);
             const segmentNights = Math.max(1, Math.round((segmentEndDate - segmentStartDate) / (1000 * 60 * 60 * 24)));
-            const pricing = await calculatePrice(db, empresaId, [segment.propiedad], segmentStartDate, segmentEndDate);
+            const pricing = await calculatePrice(db, empresaId, [segment.propiedad], segmentStartDate, segmentEndDate, allTarifas);
             totalPrice += pricing.totalPrice;
             priceDetails.push({
                 nombre: segment.propiedad.nombre,
@@ -163,25 +165,17 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, isSegmen
         let propTotalPrice = 0;
         for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
             const currentDate = new Date(d);
-            const q = db.collection('empresas').doc(empresaId).collection('tarifas')
-                .where('alojamientoId', '==', prop.id)
-                .where('fechaInicio', '<=', admin.firestore.Timestamp.fromDate(currentDate))
-                .orderBy('fechaInicio', 'desc')
-                .limit(1);
             
-            const snapshot = await q.get();
+            const tarifasDelDia = allTarifas.filter(t => 
+                t.alojamientoId === prop.id &&
+                t.fechaInicio <= currentDate &&
+                t.fechaTermino >= currentDate
+            );
 
-            if (!snapshot.empty) {
-                const tarifaDoc = snapshot.docs[0];
-                const tarifa = {
-                    ...tarifaDoc.data(),
-                    fechaTermino: tarifaDoc.data().fechaTermino.toDate()
-                };
-
-                if (tarifa.fechaTermino && tarifa.fechaTermino >= currentDate) {
-                    const precioNoche = tarifa.precios?.Directo?.valor || tarifa.precios?.SODC?.valor || 0;
-                    propTotalPrice += precioNoche;
-                }
+            if (tarifasDelDia.length > 0) {
+                const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
+                const precioNoche = tarifa.precios?.Directo?.valor || tarifa.precios?.SODC?.valor || 0;
+                propTotalPrice += precioNoche;
             }
         }
         totalPrice += propTotalPrice;

@@ -19,11 +19,11 @@ function renderizarCamposDePrecio(precios = {}) {
     if (!container) return;
     container.innerHTML = canales.map(c => `
         <div>
-            <label for="precio-${c.id}" class="block text-sm font-medium text-gray-700">${c.nombre} (${precios[c.id]?.moneda || 'CLP'})</label>
+            <label for="precio-${c.id}" class="block text-sm font-medium text-gray-700">${c.nombre} (${c.moneda})</label>
             <input type="number" id="precio-${c.id}" name="precio-${c.id}" data-canal-id="${c.id}" 
                    value="${precios[c.id]?.valor || ''}"
                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-            <input type="hidden" name="moneda-${c.id}" value="${precios[c.id]?.moneda || 'CLP'}">
+            <input type="hidden" name="moneda-${c.id}" value="${c.moneda}">
         </div>
     `).join('');
 }
@@ -50,11 +50,11 @@ function abrirModalEditar(tarifa) {
     const preciosContainer = document.getElementById('precios-dinamicos-container-edit');
     preciosContainer.innerHTML = canales.map(c => `
         <div>
-            <label for="edit-precio-${c.id}" class="block text-sm font-medium text-gray-700">${c.nombre} (${tarifa.precios[c.id]?.moneda || 'CLP'})</label>
+            <label for="edit-precio-${c.id}" class="block text-sm font-medium text-gray-700">${c.nombre} (${c.moneda})</label>
             <input type="number" id="edit-precio-${c.id}" name="precio-${c.id}" data-canal-id="${c.id}" 
                    value="${tarifa.precios[c.id]?.valor || ''}"
                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-             <input type="hidden" name="moneda-${c.id}" value="${tarifa.precios[c.id]?.moneda || 'CLP'}">
+             <input type="hidden" name="moneda-${c.id}" value="${c.moneda}">
         </div>
     `).join('');
     
@@ -72,30 +72,25 @@ function renderTabla() {
     const tbody = document.getElementById('tarifas-tbody');
     if (!tbody) return;
 
-    // Función para extraer el número de un string (ej: "Cabaña 10" -> 10)
     const extraerNumero = (texto) => {
         const match = texto.match(/\d+/);
         return match ? parseInt(match[0], 10) : 0;
     };
 
-    // Ordenamiento inteligente
     const tarifasOrdenadas = [...tarifas].sort((a, b) => {
         const numA = extraerNumero(a.alojamientoNombre);
         const numB = extraerNumero(b.alojamientoNombre);
 
-        // Primero, comparar por el número extraído del nombre del alojamiento
         if (numA !== numB) {
             return numA - numB;
         }
         
-        // Si los números son iguales (o no hay), comparar por el nombre completo
         const nombreA = a.alojamientoNombre.toLowerCase();
         const nombreB = b.alojamientoNombre.toLowerCase();
         if (nombreA !== nombreB) {
             return nombreA.localeCompare(nombreB);
         }
 
-        // Si los alojamientos son idénticos, ordenar por fecha de inicio descendente
         return new Date(b.fechaInicio) - new Date(a.fechaInicio);
     });
 
@@ -212,15 +207,16 @@ export function afterRender() {
     const formEdit = document.getElementById('tarifa-form-edit');
     const tbody = document.getElementById('tarifas-tbody');
 
-    // --- Event Listeners Formulario Principal ---
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const alojamientoSelect = document.getElementById('alojamiento-select');
         const precios = {};
-        document.querySelectorAll('#precios-dinamicos-container input[data-canal-id]').forEach(input => {
-            const canalId = input.dataset.canalId;
-            const moneda = form[`moneda-${canalId}`].value;
-            precios[canalId] = { valor: parseFloat(input.value) || 0, moneda: moneda };
+        canales.forEach(canal => {
+            const input = form[`precio-${canal.id}`];
+            const moneda = form[`moneda-${canal.id}`].value;
+            if (input && input.value) {
+                precios[canal.id] = { valor: parseFloat(input.value), moneda: moneda };
+            }
         });
 
         const datos = {
@@ -242,15 +238,16 @@ export function afterRender() {
         }
     });
 
-    // --- Event Listeners Modal de Edición ---
     document.getElementById('cancel-edit-btn').addEventListener('click', cerrarModalEditar);
     formEdit.addEventListener('submit', async(e) => {
         e.preventDefault();
         const precios = {};
-        document.querySelectorAll('#precios-dinamicos-container-edit input[data-canal-id]').forEach(input => {
-            const canalId = input.dataset.canalId;
-            const moneda = formEdit[`moneda-${canalId}`].value;
-            precios[canalId] = { valor: parseFloat(input.value) || 0, moneda: moneda };
+        canales.forEach(canal => {
+            const input = formEdit[`precio-${canal.id}`];
+            const moneda = formEdit[`moneda-${canal.id}`].value;
+            if (input && input.value) {
+                precios[canal.id] = { valor: parseFloat(input.value), moneda: moneda };
+            }
         });
 
         const datos = {
@@ -270,8 +267,6 @@ export function afterRender() {
         }
     });
 
-
-    // --- Event Listeners Tabla ---
     tbody.addEventListener('click', (e) => {
         const target = e.target;
         const id = target.dataset.id;
@@ -290,7 +285,7 @@ export function afterRender() {
             document.getElementById('fecha-inicio-input').value = tarifa.fechaInicio;
             document.getElementById('fecha-termino-input').value = tarifa.fechaTermino;
             renderizarCamposDePrecio(tarifa.precios);
-            window.scrollTo(0, 0); // Scroll al principio para ver el formulario
+            window.scrollTo(0, 0);
         }
         
         if (target.classList.contains('delete-btn')) {
