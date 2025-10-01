@@ -97,7 +97,7 @@ function renderTabla() {
     tbody.innerHTML = tarifasOrdenadas.map(t => {
         const preciosHtml = canales.map(c => {
             const precio = t.precios[c.id];
-            return `<li><strong>${c.nombre}:</strong> ${precio ? `${new Intl.NumberFormat().format(precio.valor)} ${precio.moneda}` : 'No definido'}</li>`;
+            return `<li><strong>${c.nombre}:</strong> ${precio ? `${new Intl.NumberFormat().format(precio.valor)} ${c.moneda}` : 'No definido'}</li>`;
         }).join('');
 
         return `

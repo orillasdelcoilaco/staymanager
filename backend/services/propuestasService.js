@@ -13,14 +13,29 @@ async function getAvailabilityData(db, empresaId, startDate, endDate) {
     const allProperties = propiedadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const allTarifas = tarifasSnapshot.docs.map(doc => {
         const data = doc.data();
-        if (data.fechaInicio && typeof data.fechaInicio.toDate === 'function' && data.fechaTermino && typeof data.fechaTermino.toDate === 'function') {
-            return {
-                ...data,
-                fechaInicio: data.fechaInicio.toDate(),
-                fechaTermino: data.fechaTermino.toDate()
-            };
+        let fechaInicio, fechaTermino;
+
+        if (data.fechaInicio && typeof data.fechaInicio.toDate === 'function') {
+            fechaInicio = data.fechaInicio.toDate();
+        } else if (typeof data.fechaInicio === 'string') {
+            fechaInicio = new Date(data.fechaInicio + 'T00:00:00Z');
+        } else {
+            return null;
         }
-        return null;
+
+        if (data.fechaTermino && typeof data.fechaTermino.toDate === 'function') {
+            fechaTermino = data.fechaTermino.toDate();
+        } else if (typeof data.fechaTermino === 'string') {
+            fechaTermino = new Date(data.fechaTermino + 'T00:00:00Z');
+        } else {
+            return null;
+        }
+        
+        if (isNaN(fechaInicio.getTime()) || isNaN(fechaTermino.getTime())) {
+            return null;
+        }
+
+        return { ...data, fechaInicio, fechaTermino };
     }).filter(Boolean);
 
     const propiedadesConTarifa = allProperties.filter(prop => {
