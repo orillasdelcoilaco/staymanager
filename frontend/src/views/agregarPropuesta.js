@@ -71,19 +71,29 @@ function renderSelectionUI() {
     availableList.innerHTML = '';
 
     if (!availabilityData.suggestion) return;
-
-    const suggestedIds = new Set(availabilityData.suggestion.propiedades.map(p => p.id));
+    
     selectedProperties = [...availabilityData.suggestion.propiedades];
 
-    availabilityData.suggestion.propiedades.forEach(p => {
-        suggestionList.innerHTML += createPropertyCheckbox(p, true);
-    });
-    availabilityData.availableProperties.forEach(p => {
-        if (!suggestedIds.has(p.id)) {
-            availableList.innerHTML += createPropertyCheckbox(p, false);
-        }
-    });
-
+    if (availabilityData.suggestion.isSegmented) {
+         suggestionList.innerHTML = `
+            <h4 class="font-medium text-gray-700">Propuesta de Itinerario</h4>
+            <div class="space-y-2 p-3 bg-white rounded-md border">${
+                availabilityData.suggestion.itinerary.map((segment, index) => {
+                    return `
+                        <div class="grid grid-cols-5 gap-4 items-center text-sm">
+                            <span class="font-semibold">${segment.propiedad.nombre}</span>
+                            <span>${new Date(segment.startDate).toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
+                            <span>al</span>
+                            <span>${new Date(segment.endDate).toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
+                        </div>`;
+                }).join('')
+            }</div>`;
+    } else {
+        const suggestedIds = new Set(availabilityData.suggestion.propiedades.map(p => p.id));
+        suggestionList.innerHTML = `<h4 class="font-medium text-gray-700">Propiedades Sugeridas</h4>` + availabilityData.suggestion.propiedades.map(p => createPropertyCheckbox(p, true)).join('');
+        availableList.innerHTML = availabilityData.availableProperties.filter(p => !suggestedIds.has(p.id)).map(p => createPropertyCheckbox(p, false)).join('');
+    }
+    
     document.querySelectorAll('.propiedad-checkbox').forEach(cb => cb.addEventListener('change', handleSelectionChange));
     updateSummary(availabilityData.suggestion.pricing);
 }
@@ -160,6 +170,10 @@ export function render() {
                             <label for="personas" class="block text-sm font-medium text-gray-700">N° Personas</label>
                             <input type="number" id="personas" min="1" class="form-input mt-1">
                         </div>
+                        <div class="flex items-center pt-6">
+                            <input id="permitir-cambios" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                            <label for="permitir-cambios" class="ml-2 block text-sm font-medium text-gray-700">Permitir cambios de cabaña</label>
+                        </div>
                         <button id="buscar-btn" class="btn-primary w-full md:w-auto">Buscar Disponibilidad</button>
                     </div>
                 </div>
@@ -222,6 +236,7 @@ export function afterRender() {
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
             personas: document.getElementById('personas').value,
+            permitirCambios: document.getElementById('permitir-cambios').checked
         };
         if (!payload.fechaLlegada || !payload.fechaSalida || !payload.personas) {
             alert('Por favor, completa las fechas y la cantidad de personas.'); return;

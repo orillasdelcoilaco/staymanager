@@ -1,12 +1,12 @@
 const express = require('express');
-const { getAvailabilityData, findNormalCombination, calculatePrice } = require('../services/propuestasService');
+const { getAvailabilityData, findNormalCombination, findSegmentedCombination, calculatePrice } = require('../services/propuestasService');
 
 module.exports = (db) => {
     const router = express.Router();
 
     router.post('/generar', async (req, res) => {
         const { empresaId } = req.user;
-        const { fechaLlegada, fechaSalida, personas } = req.body;
+        const { fechaLlegada, fechaSalida, personas, permitirCambios } = req.body;
 
         if (!fechaLlegada || !fechaSalida || !personas) {
             return res.status(400).json({ error: 'Se requieren fechas y cantidad de personas.' });
@@ -16,9 +16,19 @@ module.exports = (db) => {
         const endDate = new Date(fechaSalida + 'T00:00:00Z');
 
         try {
-            const { availableProperties, allProperties } = await getAvailabilityData(db, empresaId, startDate, endDate);
+            const { availableProperties, allProperties, allTarifas, availabilityMap } = await getAvailabilityData(db, empresaId, startDate, endDate);
             
-            const { combination, capacity } = findNormalCombination(availableProperties, parseInt(personas));
+            let result;
+            let isSegmented = false;
+
+            if (permitirCambios) {
+                result = findSegmentedCombination(allProperties, allTarifas, availabilityMap, parseInt(personas), startDate, endDate);
+                isSegmented = true;
+            } else {
+                result = findNormalCombination(availableProperties, parseInt(personas));
+            }
+            
+            const { combination, capacity, dailyOptions } = result;
 
             if (combination.length === 0) {
                 return res.status(200).json({
@@ -29,10 +39,19 @@ module.exports = (db) => {
                 });
             }
 
-            const pricing = await calculatePrice(db, empresaId, combination, startDate, endDate);
+            const pricing = await calculatePrice(db, empresaId, combination, startDate, endDate, isSegmented);
             
+            const propertiesInSuggestion = isSegmented ? combination.map(seg => seg.propiedad) : combination;
+
             res.status(200).json({
-                suggestion: { propiedades: combination, totalCapacity: capacity, pricing },
+                suggestion: { 
+                    propiedades: propertiesInSuggestion, 
+                    totalCapacity: capacity, 
+                    pricing,
+                    isSegmented,
+                    itinerary: isSegmented ? combination : null,
+                    dailyOptions: dailyOptions || null
+                },
                 availableProperties,
                 allProperties
             });
