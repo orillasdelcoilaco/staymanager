@@ -31,13 +31,36 @@ const getReservasPendientes = async (db, empresaId) => {
     const clienteIds = [...new Set(allReservasData.map(r => r.clienteId))];
     const reservaIdsOriginales = [...new Set(allReservasData.map(r => r.idReservaCanal))];
 
-    const [clientesSnapshot, notasSnapshot, transaccionesSnapshot] = await Promise.all([
+    const [clientesSnapshot, notasSnapshot, transaccionesSnapshot, historialReservasSnapshot] = await Promise.all([
         clienteIds.length > 0 ? db.collection('empresas').doc(empresaId).collection('clientes').where(admin.firestore.FieldPath.documentId(), 'in', clienteIds).get() : Promise.resolve({ docs: [] }),
         reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('gestionNotas').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
         reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('transacciones').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
+        clienteIds.length > 0 ? db.collection('empresas').doc(empresaId).collection('reservas').where('clienteId', 'in', clienteIds).where('estado', '==', 'Confirmada').get() : Promise.resolve({ docs: [] })
     ]);
 
-    const clientsMap = new Map(clientesSnapshot.docs.map(doc => [doc.id, doc.data()]));
+    const clientsMap = new Map();
+    clientesSnapshot.docs.forEach(doc => {
+        const clienteData = doc.data();
+        const historialCliente = historialReservasSnapshot.docs
+            .filter(reservaDoc => reservaDoc.data().clienteId === doc.id)
+            .map(reservaDoc => reservaDoc.data());
+
+        const totalGastado = historialCliente.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0);
+        const numeroDeReservas = historialCliente.length;
+        
+        let tipoCliente = 'Cliente Nuevo';
+        if (totalGastado > 1000000) {
+            tipoCliente = 'Cliente Premium';
+        } else if (numeroDeReservas > 1) {
+            tipoCliente = 'Cliente Frecuente';
+        }
+
+        clientsMap.set(doc.id, {
+            ...clienteData,
+            numeroDeReservas,
+            tipoCliente
+        });
+    });
     
     const notesCountMap = new Map();
     notasSnapshot.forEach(doc => {
@@ -60,6 +83,8 @@ const getReservasPendientes = async (db, empresaId) => {
                 clienteId: data.clienteId,
                 clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
                 telefono: clienteActual?.telefono || 'N/A',
+                tipoCliente: clienteActual?.tipoCliente || 'Nuevo',
+                numeroDeReservas: clienteActual?.numeroDeReservas || 1,
                 fechaLlegada: data.fechaLlegada?.toDate(),
                 fechaSalida: data.fechaSalida?.toDate(),
                 estado: data.estado,

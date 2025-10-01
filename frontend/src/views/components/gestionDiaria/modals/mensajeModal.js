@@ -1,9 +1,11 @@
 import { fetchAPI } from '../../../../api.js';
 import { formatCurrency, formatDate, formatUSD } from '../gestionDiaria.utils.js';
+import { handleNavigation } from '../../../../router.js';
 
 let currentGrupo = null;
 let onActionComplete = () => {};
 let plantillasDisponibles = [];
+let currentTipoMensaje = '';
 
 function generarMensajePreview() {
     const plantillaSelect = document.getElementById('plantilla-select');
@@ -81,6 +83,9 @@ async function handleAvanzarEstado() {
         case 'Pendiente Cobro':
             nuevoEstado = 'Pendiente Pago';
             break;
+        case 'Pendiente Cliente': // El flujo de salida también avanza.
+            nuevoEstado = 'Facturado';
+            break;
     }
 
     if (!nuevoEstado) {
@@ -98,8 +103,19 @@ async function handleAvanzarEstado() {
                 nuevoEstado
             }
         });
+        
         document.getElementById('gestion-modal').classList.add('hidden');
-        await onActionComplete();
+
+        if (currentTipoMensaje === 'salida') {
+            await fetchAPI('/gestion/marcar-cliente-gestionado', {
+                method: 'POST',
+                body: { reservaIdOriginal: currentGrupo.reservaIdOriginal }
+            });
+            handleNavigation(`/cliente/${currentGrupo.clienteId}?from-reserva=${currentGrupo.reservaIdOriginal}`);
+        } else {
+            await onActionComplete();
+        }
+
     } catch (error) {
         alert(`Error al avanzar estado: ${error.message}`);
         btn.disabled = false;
@@ -111,6 +127,7 @@ async function handleAvanzarEstado() {
 export async function renderMensajeModal(grupo, tipoMensaje, callback) {
     currentGrupo = grupo;
     onActionComplete = callback;
+    currentTipoMensaje = tipoMensaje;
     const contentContainer = document.getElementById('modal-content-container');
     contentContainer.innerHTML = `<p class="text-center text-gray-500">Cargando plantillas...</p>`;
 

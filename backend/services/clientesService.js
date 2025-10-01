@@ -118,7 +118,24 @@ const obtenerClientePorId = async (db, empresaId, clienteId) => {
         };
     });
 
-    return { ...cliente, reservas };
+    const reservasConfirmadas = reservas.filter(r => r.estado === 'Confirmada');
+    const totalGastado = reservasConfirmadas.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0);
+    const numeroDeReservas = reservasConfirmadas.length;
+
+    let tipoCliente = 'Cliente Nuevo';
+    if (totalGastado > 1000000) {
+        tipoCliente = 'Cliente Premium';
+    } else if (numeroDeReservas > 1) {
+        tipoCliente = 'Cliente Frecuente';
+    }
+
+    return { 
+        ...cliente, 
+        reservas,
+        totalGastado,
+        numeroDeReservas,
+        tipoCliente
+    };
 };
 
 const actualizarCliente = async (db, empresaId, clienteId, datosActualizados) => {

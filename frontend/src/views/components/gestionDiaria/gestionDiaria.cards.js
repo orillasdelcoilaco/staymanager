@@ -25,7 +25,11 @@ function createGrupoCard(grupo) {
     const isGestionPagosActive = statusInfo.level >= 2;
     const isGestionBoletaActive = statusInfo.level >= 4;
 
-    const clienteLink = `<a href="/cliente/${grupo.clienteId}" data-path="/cliente/${grupo.clienteId}" class="nav-link-style ml-4 text-lg font-bold text-gray-800 hover:text-indigo-600" title="Abrir ficha del cliente">${grupo.clienteNombre}</a>`;
+    const clienteLink = `
+        <div class="flex items-center gap-3">
+            <a href="/cliente/${grupo.clienteId}" data-path="/cliente/${grupo.clienteId}" class="nav-link-style text-lg font-bold text-gray-800 hover:text-indigo-600" title="Abrir ficha del cliente">${grupo.clienteNombre}</a>
+            <span class="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">${grupo.tipoCliente} (${grupo.numeroDeReservas})</span>
+        </div>`;
     const revertButtonHtml = statusInfo.level > 1 ? `<button data-id="${grupo.reservaIdOriginal}" class="revert-btn ml-2 text-xl" title="Revertir estado">↩️</button>` : '';
 
     let statusHtml;
@@ -81,7 +85,7 @@ function createGrupoCard(grupo) {
         <div class="flex items-center mb-2">
             ${statusHtml}
             ${revertButtonHtml}
-            ${clienteLink}
+            <div class="ml-4 flex-grow">${clienteLink}</div>
         </div>
         <div class="text-sm text-gray-600 mt-2 flex flex-wrap gap-x-4 gap-y-1">
             <span><strong>Teléfono:</strong> ${grupo.telefono || 'N/A'}</span>

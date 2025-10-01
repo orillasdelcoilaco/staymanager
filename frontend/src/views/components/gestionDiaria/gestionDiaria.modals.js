@@ -33,10 +33,7 @@ export function openManagementModal(type, grupo) {
         'pagos': () => renderPagosModal(grupo, onActionComplete),
         'boleta': () => renderDocumentoModal('boleta', grupo, onActionComplete),
         'gestionar_reserva': () => renderDocumentoModal('reserva', grupo, onActionComplete),
-        'gestionar_cliente': () => {
-            handleNavigation(`/cliente/${grupo.clienteId}?from-reserva=${grupo.reservaIdOriginal}`);
-            return false;
-        },
+        'gestionar_cliente': () => renderMensajeModal(grupo, 'salida', onActionComplete),
         'corregir_estado': () => {
             handleNavigation(`/gestionar-reservas?reservaId=${grupo.reservasIndividuales[0].id}`);
             return false;

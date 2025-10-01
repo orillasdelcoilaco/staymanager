@@ -46,18 +46,17 @@ function renderHistorialReservas() {
         return new Date(dateString).toLocaleDateString('es-CL', { timeZone: 'UTC' });
     };
 
+    const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
+
     tbody.innerHTML = cliente.reservas.map(r => `
         <tr class="border-b text-xs hover:bg-gray-50">
             <td class="py-2 px-3">${r.idReservaCanal}</td>
             <td class="py-2 px-3">${r.alojamientoNombre}</td>
             <td class="py-2 px-3">${r.canalNombre}</td>
             <td class="py-2 px-3">${formatDate(r.fechaLlegada)}</td>
-            <td class="py-2 px-3">${formatDate(r.fechaSalida)}</td>
             <td class="py-2 px-3">${r.totalNoches}</td>
-            <td class="py-2 px-3">${r.cantidadHuespedes}</td>
-            <td class="py-2 px-3">
-                 <button data-reserva-id="${r.id}" class="send-msg-btn text-blue-600 hover:text-blue-800 font-medium">Enviar Mensaje</button>
-            </td>
+            <td class="py-2 px-3">${r.estado}</td>
+            <td class="py-2 px-3 font-semibold">${formatCurrency(r.valores.valorHuesped)}</td>
         </tr>
     `).join('');
 }
@@ -75,13 +74,18 @@ export async function render() {
         return `<p class="text-red-500">Error al cargar el perfil del cliente: ${error.message}</p>`;
     }
 
+    const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
+
     return `
         <div class="bg-white p-8 rounded-lg shadow mb-8">
             <div class="flex justify-between items-start mb-6">
                 <div>
                     <h2 class="text-2xl font-bold text-gray-900">${cliente.nombre}</h2>
-                    <p class="text-sm text-gray-600">${cliente.email || ''}</p>
-                    <p class="text-sm text-gray-600">${cliente.telefono || ''} - ${cliente.pais || 'País no especificado'}</p>
+                    <div class="flex items-center gap-4 mt-1">
+                        <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">${cliente.tipoCliente} (${cliente.numeroDeReservas})</span>
+                        <span class="text-sm text-gray-600">${cliente.email || ''}</span>
+                        <span class="text-sm text-gray-600">${cliente.telefono || ''} - ${cliente.pais || 'País no especificado'}</span>
+                    </div>
                 </div>
                 <div>
                     <button id="edit-cliente-btn" class="btn-primary mr-2">Editar Cliente</button>
@@ -93,6 +97,9 @@ export async function render() {
                 <div class="md:col-span-1">
                     <h3 class="text-lg font-semibold text-gray-800 mb-2">Datos Adicionales</h3>
                     <dl>
+                        <dt class="font-medium text-gray-600 text-sm">Valor Histórico Total</dt>
+                        <dd class="text-green-600 text-xl font-bold mb-3">${formatCurrency(cliente.totalGastado)}</dd>
+
                         <dt class="font-medium text-gray-600 text-sm">Calificación</dt>
                         <dd class="text-yellow-500 text-xl mb-3">${renderStars(cliente.calificacion)}</dd>
                         
@@ -102,7 +109,7 @@ export async function render() {
                 </div>
                 <div class="md:col-span-2">
                     <h3 class="text-lg font-semibold text-gray-800 mb-2">Notas</h3>
-                    <div class="bg-gray-50 p-3 rounded-md text-sm text-gray-700 whitespace-pre-wrap h-24 overflow-y-auto">
+                    <div class="bg-gray-50 p-3 rounded-md text-sm text-gray-700 whitespace-pre-wrap h-40 overflow-y-auto">
                         ${cliente.notas || 'Sin notas.'}
                     </div>
                 </div>
@@ -119,10 +126,9 @@ export async function render() {
                             <th class="th text-xs py-2 px-3">Alojamiento</th>
                             <th class="th text-xs py-2 px-3">Canal</th>
                             <th class="th text-xs py-2 px-3">Check-in</th>
-                            <th class="th text-xs py-2 px-3">Check-out</th>
                             <th class="th text-xs py-2 px-3">Noches</th>
-                            <th class="th text-xs py-2 px-3">Huéspedes</th>
-                            <th class="th text-xs py-2 px-3">Acciones</th>
+                            <th class="th text-xs py-2 px-3">Estado</th>
+                            <th class="th text-xs py-2 px-3">Total Cliente</th>
                         </tr>
                     </thead>
                     <tbody id="historial-tbody"></tbody>
@@ -168,13 +174,6 @@ export function afterRender() {
 
     document.getElementById('edit-cliente-btn').addEventListener('click', abrirModalEditar);
     document.getElementById('cancel-btn-perfil').addEventListener('click', cerrarModalEditar);
-
-    document.getElementById('historial-tbody').addEventListener('click', e => {
-        if (e.target.classList.contains('send-msg-btn')) {
-            const reservaId = e.target.dataset.reservaId;
-            handleNavigation(`/cliente/${cliente.id}/mensaje/${reservaId}`);
-        }
-    });
 
     document.getElementById('cliente-form-perfil').addEventListener('submit', async (e) => {
         e.preventDefault();

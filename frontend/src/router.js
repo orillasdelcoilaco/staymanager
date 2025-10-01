@@ -7,7 +7,6 @@ const views = {
     '/calendario': () => import('./views/calendario.js'),
     '/clientes': () => import('./views/gestionarClientes.js'),
     '/cliente/:id': () => import('./views/perfilCliente.js'),
-    '/cliente/:id/mensaje/:reservaId': () => import('./views/enviarMensajeCliente.js'),
     '/gestionar-alojamientos': () => import('./views/gestionarAlojamientos.js'),
     '/gestionar-canales': () => import('./views/gestionarCanales.js'),
     '/gestionar-tarifas': () => import('./views/gestionarTarifas.js'),
