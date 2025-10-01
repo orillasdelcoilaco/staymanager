@@ -150,9 +150,7 @@ module.exports = (db) => {
             }
             
             await actualizarDocumentoReserva(db, empresaId, detalles.idsIndividuales, detalles.tipoDocumento, publicUrl);
-             if (detalles.avanzarEstado) {
-                await actualizarEstadoGrupo(db, empresaId, detalles.idsIndividuales, detalles.avanzarEstado);
-            }
+            
             res.status(200).json({ message: `Documento '${detalles.tipoDocumento}' actualizado.` });
         } catch (error) {
             res.status(500).json({ error: error.message });

@@ -18,8 +18,7 @@ async function handleGroupFormSubmit(event) {
     const detalles = {
         reservaIdOriginal: currentGrupo.reservaIdOriginal,
         idsIndividuales: currentGrupo.reservasIndividuales.map(r => r.id),
-        tipoDocumento: currentAction,
-        avanzarEstado: currentAction === 'boleta' ? 'Facturado' : null
+        tipoDocumento: currentAction
     };
     
     const docInput = form.querySelector('#documento-input');
@@ -68,10 +67,6 @@ async function handleDocumentAction(action) {
         tipoDocumento: currentAction,
         [action]: true
     };
-
-    if (action === 'sinDocumento' && currentAction === 'boleta') {
-        detalles.avanzarEstado = 'Facturado';
-    }
     
     formData.append('detalles', JSON.stringify(detalles));
     
