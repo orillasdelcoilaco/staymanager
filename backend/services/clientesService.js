@@ -68,7 +68,10 @@ const crearOActualizarCliente = async (db, empresaId, datosCliente) => {
         notas: datosCliente.notas || '',
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
         origen: 'Importado',
-        googleContactSynced: false
+        googleContactSynced: false,
+        tipoCliente: 'Cliente Nuevo',
+        numeroDeReservas: 0,
+        totalGastado: 0
     };
     await nuevoClienteRef.set(nuevoCliente);
 
@@ -118,24 +121,7 @@ const obtenerClientePorId = async (db, empresaId, clienteId) => {
         };
     });
 
-    const reservasConfirmadas = reservas.filter(r => r.estado === 'Confirmada');
-    const totalGastado = reservasConfirmadas.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0);
-    const numeroDeReservas = reservasConfirmadas.length;
-
-    let tipoCliente = 'Cliente Nuevo';
-    if (totalGastado > 1000000) {
-        tipoCliente = 'Cliente Premium';
-    } else if (numeroDeReservas > 1) {
-        tipoCliente = 'Cliente Frecuente';
-    }
-
-    return { 
-        ...cliente, 
-        reservas,
-        totalGastado,
-        numeroDeReservas,
-        tipoCliente
-    };
+    return { ...cliente, reservas };
 };
 
 const actualizarCliente = async (db, empresaId, clienteId, datosActualizados) => {
@@ -229,6 +215,61 @@ const sincronizarClienteGoogle = async (db, empresaId, clienteId, overrideData =
     }
 };
 
+const recalcularEstadisticasClientes = async (db, empresaId) => {
+    const clientesRef = db.collection('empresas').doc(empresaId).collection('clientes');
+    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
+
+    const [clientesSnapshot, reservasSnapshot] = await Promise.all([
+        clientesRef.get(),
+        reservasRef.where('estado', '==', 'Confirmada').get()
+    ]);
+
+    if (clientesSnapshot.empty) {
+        return { actualizados: 0, total: 0 };
+    }
+
+    const reservasPorCliente = new Map();
+    reservasSnapshot.forEach(doc => {
+        const reserva = doc.data();
+        if (!reservasPorCliente.has(reserva.clienteId)) {
+            reservasPorCliente.set(reserva.clienteId, []);
+        }
+        reservasPorCliente.get(reserva.clienteId).push(reserva);
+    });
+
+    const batch = db.batch();
+    let clientesActualizados = 0;
+
+    clientesSnapshot.forEach(doc => {
+        const clienteId = doc.id;
+        const historialReservas = reservasPorCliente.get(clienteId) || [];
+        
+        const totalGastado = historialReservas.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0);
+        const numeroDeReservas = historialReservas.length;
+
+        let tipoCliente = 'Cliente Nuevo';
+        if (numeroDeReservas === 0) {
+            tipoCliente = 'Sin Reservas';
+        } else if (totalGastado > 1000000) {
+            tipoCliente = 'Cliente Premium';
+        } else if (numeroDeReservas > 1) {
+            tipoCliente = 'Cliente Frecuente';
+        }
+
+        const updates = {
+            totalGastado,
+            numeroDeReservas,
+            tipoCliente
+        };
+
+        batch.update(doc.ref, updates);
+        clientesActualizados++;
+    });
+
+    await batch.commit();
+    return { actualizados: clientesActualizados, total: clientesSnapshot.size };
+};
+
 module.exports = {
     crearOActualizarCliente,
     obtenerClientesPorEmpresa,
@@ -236,5 +277,6 @@ module.exports = {
     actualizarCliente,
     eliminarCliente,
     sincronizarClienteGoogle,
-    normalizarTelefono
+    normalizarTelefono,
+    recalcularEstadisticasClientes
 };

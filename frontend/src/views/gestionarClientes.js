@@ -33,18 +33,27 @@ function cerrarModal() {
     editandoCliente = null;
 }
 
-function renderTabla(filtro = '') {
+function renderTabla() {
     const tbody = document.getElementById('clientes-tbody');
-    if (!tbody) return;
+    const searchInput = document.getElementById('search-input');
+    const tipoFilter = document.getElementById('tipo-cliente-filter');
+    if (!tbody || !searchInput || !tipoFilter) return;
 
-    const clientesFiltrados = clientes.filter(c => 
-        (c.nombre && c.nombre.toLowerCase().includes(filtro.toLowerCase())) ||
-        (c.telefono && c.telefono.includes(filtro)) ||
-        (c.email && c.email.toLowerCase().includes(filtro.toLowerCase()))
-    );
+    const filtroTexto = searchInput.value.toLowerCase();
+    const filtroTipo = tipoFilter.value;
+
+    const clientesFiltrados = clientes.filter(c => {
+        const textoMatch = (c.nombre && c.nombre.toLowerCase().includes(filtroTexto)) ||
+                           (c.telefono && c.telefono.includes(filtroTexto)) ||
+                           (c.email && c.email.toLowerCase().includes(filtroTexto));
+        
+        const tipoMatch = !filtroTipo || c.tipoCliente === filtroTipo;
+
+        return textoMatch && tipoMatch;
+    });
 
     if (clientesFiltrados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">No se encontraron clientes.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-4">No se encontraron clientes.</td></tr>';
         return;
     }
 
@@ -58,6 +67,7 @@ function renderTabla(filtro = '') {
             <td class="py-2 px-3 font-medium">${c.nombre}</td>
             <td class="py-2 px-3">${c.telefono}</td>
             <td class="py-2 px-3">${c.email || '-'}</td>
+            <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-100 text-gray-800 text-xs font-semibold rounded-full">${c.tipoCliente || 'N/A'} (${c.numeroDeReservas || 0})</span></td>
             <td class="py-2 px-3">${c.pais || '-'}</td>
             <td class="py-2 px-3 whitespace-nowrap space-x-4">
                 <button data-id="${c.id}" class="view-btn text-indigo-600 hover:text-indigo-800 font-medium">Ver Perfil</button>
@@ -79,12 +89,17 @@ export async function render() {
         <div class="bg-white p-8 rounded-lg shadow">
             <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                 <h2 class="text-2xl font-semibold text-gray-900">Gestionar Clientes</h2>
-                <div class="w-full md:w-1/3">
-                    <input type="text" id="search-input" placeholder="Buscar por nombre, teléfono o email..." class="form-input w-full">
+                <div class="w-full md:w-auto flex-grow flex items-center gap-4">
+                    <input type="text" id="search-input" placeholder="Buscar por nombre, teléfono o email..." class="form-input w-full md:w-1/3">
+                    <select id="tipo-cliente-filter" class="form-select w-full md:w-auto">
+                        <option value="">-- Filtrar por Tipo --</option>
+                        <option value="Cliente Nuevo">Cliente Nuevo</option>
+                        <option value="Cliente Frecuente">Cliente Frecuente</option>
+                        <option value="Cliente Premium">Cliente Premium</option>
+                        <option value="Sin Reservas">Sin Reservas</option>
+                    </select>
                 </div>
-                <button id="add-cliente-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 w-full md:w-auto">
-                    + Nuevo Cliente
-                </button>
+                <button id="add-cliente-btn" class="btn-primary">+ Nuevo Cliente</button>
             </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full bg-white">
@@ -93,6 +108,7 @@ export async function render() {
                             <th class="th text-sm">Nombre</th>
                             <th class="th text-sm">Teléfono</th>
                             <th class="th text-sm">Email</th>
+                            <th class="th text-sm">Tipo Cliente</th>
                             <th class="th text-sm">País</th>
                             <th class="th text-sm">Acciones</th>
                         </tr>
@@ -158,7 +174,8 @@ export function afterRender() {
 
     document.getElementById('add-cliente-btn').addEventListener('click', () => abrirModal());
     document.getElementById('cancel-btn').addEventListener('click', cerrarModal);
-    document.getElementById('search-input').addEventListener('input', (e) => renderTabla(e.target.value));
+    document.getElementById('search-input').addEventListener('input', renderTabla);
+    document.getElementById('tipo-cliente-filter').addEventListener('change', renderTabla);
 
     document.getElementById('cliente-form').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -179,7 +196,7 @@ export function afterRender() {
             await fetchAPI(endpoint, { method, body: datos });
             
             clientes = await fetchAPI('/clientes');
-            renderTabla(document.getElementById('search-input').value);
+            renderTabla();
             cerrarModal();
         } catch (error) {
             alert(`Error al guardar: ${error.message}`);
@@ -204,12 +221,11 @@ export function afterRender() {
             try {
                 const result = await fetchAPI(`/clientes/${id}/sincronizar-google`, { method: 'POST' });
                 alert(result.message);
-                // Actualizar solo el cliente modificado para una UI más rápida
                 const clienteIndex = clientes.findIndex(c => c.id === id);
                 if (clienteIndex > -1) {
                     clientes[clienteIndex].googleContactSynced = true;
                 }
-                renderTabla(document.getElementById('search-input').value);
+                renderTabla();
             } catch (error) {
                 alert(`Error al sincronizar: ${error.message}`);
                 target.disabled = false;
@@ -222,7 +238,7 @@ export function afterRender() {
                 try {
                     await fetchAPI(`/clientes/${id}`, { method: 'DELETE' });
                     clientes = await fetchAPI('/clientes');
-                    renderTabla(document.getElementById('search-input').value);
+                    renderTabla();
                 } catch (error) {
                     alert(`Error al eliminar: ${error.message}`);
                 }
