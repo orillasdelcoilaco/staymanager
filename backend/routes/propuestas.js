@@ -19,11 +19,10 @@ module.exports = (db) => {
             const { availableProperties, allProperties, allTarifas, availabilityMap } = await getAvailabilityData(db, empresaId, startDate, endDate);
             
             let result;
-            let isSegmented = false;
+            let isSegmented = !!permitirCambios;
 
-            if (permitirCambios) {
+            if (isSegmented) {
                 result = findSegmentedCombination(allProperties, allTarifas, availabilityMap, parseInt(personas), startDate, endDate);
-                isSegmented = true;
             } else {
                 result = findNormalCombination(availableProperties, parseInt(personas));
             }

@@ -9,6 +9,8 @@ const crearTarifa = async (db, empresaId, datosTarifa) => {
     
     const nuevaTarifa = {
         ...datosTarifa,
+        fechaInicio: admin.firestore.Timestamp.fromDate(new Date(datosTarifa.fechaInicio + 'T00:00:00Z')),
+        fechaTermino: admin.firestore.Timestamp.fromDate(new Date(datosTarifa.fechaTermino + 'T00:00:00Z')),
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
     };
     
@@ -26,15 +28,27 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
         return [];
     }
 
-    return tarifasSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-    }));
+    return tarifasSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            fechaInicio: data.fechaInicio.toDate().toISOString().split('T')[0],
+            fechaTermino: data.fechaTermino.toDate().toISOString().split('T')[0]
+        };
+    });
 };
 
 const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
     const tarifaRef = db.collection('empresas').doc(empresaId).collection('tarifas').doc(tarifaId);
     
+    if (datosActualizados.fechaInicio) {
+        datosActualizados.fechaInicio = admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaInicio + 'T00:00:00Z'));
+    }
+    if (datosActualizados.fechaTermino) {
+        datosActualizados.fechaTermino = admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaTermino + 'T00:00:00Z'));
+    }
+
     await tarifaRef.update({
         ...datosActualizados,
         fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()

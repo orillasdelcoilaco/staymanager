@@ -11,20 +11,25 @@ async function getAvailabilityData(db, empresaId, startDate, endDate) {
     ]);
 
     const allProperties = propiedadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    const allTarifas = tarifasSnapshot.docs.map(doc => doc.data());
+    const allTarifas = tarifasSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            ...data,
+            fechaInicio: data.fechaInicio.toDate(),
+            fechaTermino: data.fechaTermino.toDate()
+        };
+    });
 
     const propiedadesConTarifa = allProperties.filter(prop => {
         return allTarifas.some(tarifa => {
-            const inicioTarifa = new Date(tarifa.fechaInicio);
-            const finTarifa = new Date(tarifa.fechaTermino);
-            return tarifa.alojamientoId === prop.id && inicioTarifa <= endDate && finTarifa >= startDate;
+            return tarifa.alojamientoId === prop.id && tarifa.fechaInicio <= endDate && tarifa.fechaTermino >= startDate;
         });
     });
 
     const overlappingReservations = [];
     reservasSnapshot.forEach(doc => {
         const reserva = doc.data();
-        if (new Date(reserva.fechaSalida.toDate()) > startDate) {
+        if (reserva.fechaSalida.toDate() > startDate) {
             overlappingReservations.push(reserva);
         }
     });
@@ -76,9 +81,7 @@ function findSegmentedCombination(allProperties, allTarifas, availabilityMap, re
         const currentDate = new Date(d);
         const dailyAvailable = allProperties.filter(prop => {
             const hasTarifa = allTarifas.some(t => 
-                t.alojamientoId === prop.id &&
-                new Date(t.fechaInicio) <= currentDate &&
-                new Date(t.fechaTermino) >= currentDate
+                t.alojamientoId === prop.id && t.fechaInicio <= currentDate && t.fechaTermino >= currentDate
             );
             if (!hasTarifa) return false;
 
@@ -167,7 +170,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, isSegmen
 
             if (!snapshot.empty) {
                 const tarifa = snapshot.docs[0].data();
-                if (new Date(tarifa.fechaTermino) >= currentDate) {
+                if (tarifa.fechaTermino.toDate() >= currentDate) {
                     const precioNoche = tarifa.precios?.Directo?.valor || tarifa.precios?.SODC?.valor || 0;
                     propTotalPrice += precioNoche;
                 }
