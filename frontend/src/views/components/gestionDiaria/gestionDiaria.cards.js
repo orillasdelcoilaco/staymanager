@@ -24,6 +24,7 @@ function createGrupoCard(grupo) {
 
     const isGestionPagosActive = statusInfo.level >= 2;
     const isGestionBoletaActive = statusInfo.level >= 4;
+    const isGestionClienteActive = statusInfo.level >= 5;
 
     const clienteLink = `
         <div class="flex items-center gap-3">
@@ -100,7 +101,7 @@ function createGrupoCard(grupo) {
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="ajuste_tarifa" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Ajustar Tarifa ${createNotificationBadge(grupo.ajusteManualRealizado || grupo.potencialCalculado)}</button>
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="pagos" class="gestion-btn ${baseButtonClasses} ${isGestionPagosActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionPagosActive ? 'disabled' : ''}>Gestionar Pagos ${createNotificationBadge(false, grupo.transaccionesCount)}</button>
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="boleta" class="gestion-btn ${baseButtonClasses} ${isGestionBoletaActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionBoletaActive ? 'disabled' : ''}>Gestionar Boleta ${createNotificationBadge(!!grupo.documentos?.enlaceBoleta)}</button>
-                <button data-id="${grupo.reservaIdOriginal}" data-gestion="gestionar_cliente" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Gestionar Cliente ${createNotificationBadge(grupo.clienteGestionado)}</button>
+                <button data-id="${grupo.reservaIdOriginal}" data-gestion="gestionar_cliente" class="gestion-btn ${baseButtonClasses} ${isGestionClienteActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionClienteActive ? 'disabled' : ''}>Gestionar Cliente ${createNotificationBadge(grupo.clienteGestionado)}</button>
                 <button data-id="${grupo.reservaIdOriginal}" data-gestion="bitacora" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Bitácora 🗂️ ${createNotificationBadge(false, grupo.notasCount)}</button>
             </div>
         </div>`;
