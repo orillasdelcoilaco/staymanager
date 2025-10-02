@@ -8,7 +8,7 @@ const views = {
     '/clientes': () => import('./views/gestionarClientes.js'),
     '/cliente/:id': () => import('./views/perfilCliente.js'),
     '/agregar-propuesta': () => import('./views/agregarPropuesta.js'),
-    '/generar-presupuesto': () => import('./views/generadorPresupuestos.js'), // <-- AÑADIDO
+    '/generar-presupuesto': () => import('./views/generadorPresupuestos.js'),
     '/gestionar-alojamientos': () => import('./views/gestionarAlojamientos.js'),
     '/gestionar-canales': () => import('./views/gestionarCanales.js'),
     '/gestionar-tarifas': () => import('./views/gestionarTarifas.js'),
@@ -26,7 +26,7 @@ const views = {
     '/historial-cargas': () => import('./views/historialCargas.js'),
     '/gestionar-tipos-plantilla': () => import('./views/gestionarTiposPlantilla.js'),
     '/gestionar-plantillas': () => import('./views/gestionarPlantillas.js'),
-    '/gestionar-propuestas': () => import('./views/gestionarPropuestas.js'), // <-- AÑADIDO
+    '/gestionar-propuestas': () => import('./views/gestionarPropuestas.js'),
 };
 
 const menuConfig = [
@@ -39,8 +39,8 @@ const menuConfig = [
             { name: '📅 Calendario', path: '/calendario', id: 'calendario' },
             { name: '📄 Generar Reportes Rápidos', path: '#', id: 'reportes-rapidos' },
             { name: '➕ Agregar Propuesta', path: '/agregar-propuesta', id: 'agregar-propuesta' },
-            { name: '💲 Generar Presupuestos', path: '/generar-presupuesto', id: 'generar-presupuestos' }, // <-- AÑADIDO
-            { name: '🗂️ Gestionar Propuestas', path: '/gestionar-propuestas', id: 'gestionar-propuestas' }, // <-- AÑADIDO
+            { name: '💲 Generar Presupuestos', path: '/generar-presupuesto', id: 'generar-presupuestos' },
+            { name: '🗂️ Gestionar Propuestas', path: '/gestionar-propuestas', id: 'gestionar-propuestas' },
             { name: '💬 Generar mensajes', path: '#', id: 'generar-mensajes' },
         ]
     },
@@ -100,7 +100,14 @@ async function loadView(path) {
         if (!document.getElementById('view-content')) {
         }
         
-        const cleanPath = path.split('?')[0];
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Se limpia la URL, eliminando los parámetros de consulta (ej. ?edit=...)
+        // y cualquier barra inclinada al final para asegurar una coincidencia de ruta correcta.
+        let cleanPath = path.split('?')[0];
+        if (cleanPath.length > 1 && cleanPath.endsWith('/')) {
+            cleanPath = cleanPath.slice(0, -1);
+        }
+        // --- FIN DE LA CORRECCIÓN ---
 
         const dynamicRoute = Object.keys(views).find(route => {
             const regex = new RegExp(`^${route.replace(/:\w+/g, '([^/]+)')}$`);
@@ -116,7 +123,7 @@ async function loadView(path) {
             viewModule.afterRender();
         }
 
-        updateActiveLink(path);
+        updateActiveLink(cleanPath); // Se usa la ruta limpia para marcar el menú activo
     }
 }
 
