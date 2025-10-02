@@ -2,7 +2,7 @@ const admin = require('firebase-admin');
 const { getAvailabilityData } = require('./propuestasService');
 const { crearOActualizarCliente } = require('./clientesService');
 
-const guardarPropuestaComoReservaTentativa = async (db, empresaId, datos) => {
+const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExistente = null) => {
     const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches } = datos;
 
     let clienteId = cliente.id;
@@ -14,40 +14,47 @@ const guardarPropuestaComoReservaTentativa = async (db, empresaId, datos) => {
         });
         clienteId = resultadoCliente.cliente.id;
     }
+    
+    const idPropuesta = idPropuestaExistente || db.collection('empresas').doc().id;
+    
+    await db.runTransaction(async (transaction) => {
+        const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
+        
+        if (idPropuestaExistente) {
+            const queryExistentes = reservasRef.where('idPropuesta', '==', idPropuestaExistente);
+            const snapshotExistentes = await transaction.get(queryExistentes);
+            snapshotExistentes.forEach(doc => transaction.delete(doc.ref));
+        }
 
-    const batch = db.batch();
-    const canal = { id: 'APP_INTERNA', nombre: 'App Interna' };
+        for (const prop of propiedades) {
+            const nuevaReservaRef = reservasRef.doc();
+            const idUnicoReserva = `${idPropuesta}-${prop.id}`;
 
-    const idUnicoPropuesta = db.collection('empresas').doc().id; // ID único para agrupar las reservas
+            const datosReserva = {
+                id: nuevaReservaRef.id,
+                idUnicoReserva,
+                idPropuesta: idPropuesta,
+                clienteId,
+                alojamientoId: prop.id,
+                alojamientoNombre: prop.nombre,
+                canalId: 'APP_INTERNA',
+                canalNombre: 'App Interna',
+                fechaLlegada: admin.firestore.Timestamp.fromDate(new Date(fechaLlegada + 'T00:00:00Z')),
+                fechaSalida: admin.firestore.Timestamp.fromDate(new Date(fechaSalida + 'T00:00:00Z')),
+                totalNoches: noches,
+                cantidadHuespedes: prop.capacidad,
+                estado: 'Propuesta',
+                valores: {
+                    valorHuesped: Math.round(precioFinal / propiedades.length),
+                },
+                fechaCreacion: idPropuestaExistente ? admin.firestore.FieldValue.serverTimestamp() : undefined, // Mantener fecha original si es posible
+                fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
+            };
+            transaction.set(nuevaReservaRef, datosReserva);
+        }
+    });
 
-    for (const prop of propiedades) {
-        const reservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc();
-        const idUnicoReserva = `${idUnicoPropuesta}-${prop.id}`;
-
-        const datosReserva = {
-            id: reservaRef.id,
-            idUnicoReserva,
-            idPropuesta: idUnicoPropuesta,
-            clienteId,
-            alojamientoId: prop.id,
-            alojamientoNombre: prop.nombre,
-            canalId: canal.id,
-            canalNombre: canal.nombre,
-            fechaLlegada: admin.firestore.Timestamp.fromDate(new Date(fechaLlegada + 'T00:00:00Z')),
-            fechaSalida: admin.firestore.Timestamp.fromDate(new Date(fechaSalida + 'T00:00:00Z')),
-            totalNoches: noches,
-            cantidadHuespedes: prop.capacidad,
-            estado: 'Propuesta', // Estado clave
-            valores: {
-                valorHuesped: Math.round(precioFinal / propiedades.length), // Distribuir el precio
-            },
-            fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
-        };
-        batch.set(reservaRef, datosReserva);
-    }
-
-    await batch.commit();
-    return { id: idUnicoPropuesta };
+    return { id: idPropuesta };
 };
 
 const guardarPresupuesto = async (db, empresaId, datos) => {
@@ -74,13 +81,14 @@ const guardarPresupuesto = async (db, empresaId, datos) => {
         noches,
         texto,
         estado: 'Borrador',
-        fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
+        fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
     };
 
     if (id) {
         await presupuestosRef.doc(id).update(datosPresupuesto);
         return { id };
     } else {
+        datosPresupuesto.fechaCreacion = admin.firestore.FieldValue.serverTimestamp();
         const docRef = await presupuestosRef.add(datosPresupuesto);
         return { id: docRef.id };
     }
@@ -247,7 +255,7 @@ const rechazarPresupuesto = async (db, empresaId, presupuestoId) => {
 };
 
 module.exports = {
-    guardarPropuestaComoReservaTentativa,
+    guardarOActualizarPropuesta,
     guardarPresupuesto,
     obtenerPropuestasYPresupuestos,
     aprobarPropuesta,

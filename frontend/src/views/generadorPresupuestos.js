@@ -6,10 +6,10 @@ let allProperties = [];
 let availabilityData = {};
 let selectedProperties = [];
 let currentPricing = {};
+let editId = null;
 
 function formatCurrency(value) { return `$${(Math.round(value) || 0).toLocaleString('es-CL')}`; }
 
-// --- Lógica del Cliente ---
 async function loadClients() {
     try {
         allClients = await fetchAPI('/clientes');
@@ -46,7 +46,7 @@ function selectClient(client) {
     document.getElementById('new-client-name').value = client.nombre || '';
     document.getElementById('new-client-phone').value = client.telefono || '';
     document.getElementById('new-client-email').value = client.email || '';
-    document.getElementById('new-client-company').value = ''; // Campo opcional
+    document.getElementById('new-client-company').value = '';
 }
 
 function clearClientSelection() {
@@ -54,8 +54,6 @@ function clearClientSelection() {
         if(document.getElementById(id)) document.getElementById(id).value = '';
     });
 }
-
-// --- Lógica de UI y Presupuesto ---
 
 function createPropertyCheckbox(prop, isSuggested) {
     return `
@@ -156,9 +154,7 @@ async function generateBudgetText() {
     }
 }
 
-// --- Lógica Principal y Eventos ---
-
-export async function render() {
+export function render() {
     return `
         <div class="bg-white p-8 rounded-lg shadow space-y-6">
             <h2 class="text-2xl font-semibold text-gray-900">Generador de Presupuestos</h2>
@@ -236,8 +232,6 @@ export async function render() {
 }
 
 export async function afterRender() {
-    const params = new URLSearchParams(window.location.search);
-    const editId = params.get('edit');
     const generarBtn = document.getElementById('generar-propuesta-btn');
     
     const runSearch = async () => {
@@ -248,8 +242,7 @@ export async function afterRender() {
             sinCamarotes: document.getElementById('sin-camarotes').checked
         };
         if (!payload.fechaLlegada || !payload.fechaSalida || !payload.personas) {
-            alert('Por favor, completa las fechas y la cantidad de personas.');
-            return false;
+            alert('Por favor, completa las fechas y la cantidad de personas.'); return null;
         }
 
         const statusContainer = document.getElementById('status-container');
@@ -279,41 +272,6 @@ export async function afterRender() {
             generarBtn.textContent = 'Generar Propuesta';
         }
     };
-    
-    if (editId) {
-        console.log('[Debug] 1. Modo edición detectado. ID:', editId);
-        await loadClients();
-        
-        document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
-        document.getElementById('fecha-salida').value = params.get('fechaSalida');
-        document.getElementById('personas').value = params.get('personas');
-        
-        const clienteId = params.get('clienteId');
-        const client = allClients.find(c => c.id === clienteId);
-        if (client) {
-            console.log('[Debug] 2. Cliente encontrado y seleccionado:', client);
-            selectClient(client);
-        } else {
-            console.warn('[Debug] 2. No se encontró el cliente con ID:', clienteId);
-        }
-
-        const searchSuccess = await runSearch();
-        
-        if (searchSuccess) {
-            console.log('[Debug] 3. Disponibilidad cargada, seleccionando propiedades.');
-            const propIds = params.get('propiedades').split(',');
-            document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
-                cb.checked = propIds.includes(cb.dataset.id);
-            });
-            await handleSelectionChange();
-            console.log('[Debug] 4. Proceso de carga de edición completado.');
-        } else {
-            console.error('[Debug] 3. ERROR: No se pudieron cargar los datos de disponibilidad en modo edición.');
-        }
-
-    } else {
-        await loadClients();
-    }
     
     document.getElementById('client-search').addEventListener('input', filterClients);
     generarBtn.addEventListener('click', runSearch);
@@ -351,17 +309,47 @@ export async function afterRender() {
         };
 
         btn.disabled = true;
-        btn.textContent = 'Guardando...';
+        btn.textContent = editId ? 'Actualizando...' : 'Guardando...';
 
         try {
-            await fetchAPI('/gestion-propuestas/presupuesto', { method: 'POST', body: payload });
+            const endpoint = editId ? `/gestion-propuestas/presupuesto/${editId}` : '/gestion-propuestas/presupuesto';
+            const method = editId ? 'PUT' : 'POST'; // Este es el cambio clave
+            
+            await fetchAPI(endpoint, { method, body: payload });
             alert(`Presupuesto ${editId ? 'actualizado' : 'guardado'} con éxito. Puedes gestionarlo en "Gestionar Propuestas".`);
             handleNavigation('/gestionar-propuestas');
         } catch (error) {
             alert(`Error al guardar el presupuesto: ${error.message}`);
         } finally {
             btn.disabled = false;
-            btn.textContent = 'Guardar Borrador';
+            btn.textContent = editId ? 'Actualizar Borrador' : 'Guardar Borrador';
         }
     });
+
+    await loadClients();
+    const params = new URLSearchParams(window.location.search);
+    editId = params.get('edit');
+
+    if (editId) {
+        document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
+        document.getElementById('fecha-salida').value = params.get('fechaSalida');
+        document.getElementById('personas').value = params.get('personas');
+        
+        const clienteId = params.get('clienteId');
+        const client = allClients.find(c => c.id === clienteId);
+        if (client) {
+            selectClient(client);
+        }
+
+        const searchSuccess = await runSearch();
+        
+        if (searchSuccess) {
+            const propIds = params.get('propiedades').split(',');
+            document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
+                cb.checked = propIds.includes(cb.dataset.id);
+            });
+            await handleSelectionChange();
+        }
+        document.getElementById('guardar-presupuesto-btn').textContent = 'Actualizar Borrador';
+    }
 }

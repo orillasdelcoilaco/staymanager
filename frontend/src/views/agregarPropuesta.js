@@ -7,10 +7,10 @@ let selectedClient = null;
 let availabilityData = {};
 let selectedProperties = [];
 let currentPricing = {};
+let editId = null;
 
 function formatCurrency(value) { return `$${(Math.round(value) || 0).toLocaleString('es-CL')}`; }
 
-// --- Lógica del Cliente ---
 async function loadClients() {
     try {
         allClients = await fetchAPI('/clientes');
@@ -23,11 +23,15 @@ function filterClients(e) {
     const searchTerm = e.target.value.toLowerCase();
     const resultsList = document.getElementById('client-results-list');
     resultsList.innerHTML = '';
+    resultsList.classList.add('hidden');
     if (!searchTerm) {
         clearClientSelection();
         return;
     }
     const filtered = allClients.filter(c => c.nombre.toLowerCase().includes(searchTerm) || (c.telefono && c.telefono.includes(searchTerm)));
+    if (filtered.length > 0) {
+        resultsList.classList.remove('hidden');
+    }
     filtered.slice(0, 5).forEach(client => {
         const div = document.createElement('div');
         div.className = 'p-2 cursor-pointer hover:bg-gray-100';
@@ -41,7 +45,7 @@ function selectClient(client) {
     selectedClient = client;
     document.getElementById('client-form-title').textContent = '... o actualiza los datos del cliente seleccionado';
     document.getElementById('client-search').value = client.nombre;
-    document.getElementById('client-results-list').innerHTML = '';
+    document.getElementById('client-results-list').classList.add('hidden');
     document.getElementById('new-client-name').value = client.nombre || '';
     document.getElementById('new-client-phone').value = client.telefono || '';
     document.getElementById('new-client-email').value = client.email || '';
@@ -52,8 +56,6 @@ function clearClientSelection() {
     document.getElementById('client-form-title').textContent = '... o añade un cliente nuevo';
     ['new-client-name', 'new-client-phone', 'new-client-email'].forEach(id => document.getElementById(id).value = '');
 }
-
-// --- Lógica de UI y Cálculos ---
 
 function createPropertyCheckbox(prop, isSuggested) {
     return `
@@ -149,8 +151,6 @@ function updateSummary(pricing) {
     document.getElementById('summary-precio-final').textContent = formatCurrency(precioFinal);
 }
 
-// --- Lógica Principal y Eventos ---
-
 export function render() {
     return `
         <div class="bg-white p-8 rounded-lg shadow space-y-8">
@@ -196,7 +196,7 @@ export function render() {
                             <div>
                                 <label id="client-form-title" class="block text-sm font-medium text-gray-700">Buscar o Crear Cliente</label>
                                 <input type="text" id="client-search" placeholder="Buscar por nombre o teléfono..." class="form-input mt-1">
-                                <div id="client-results-list" class="mt-1 border rounded-md max-h-32 overflow-y-auto bg-white"></div>
+                                <div id="client-results-list" class="hidden mt-1 border rounded-md max-h-32 overflow-y-auto bg-white z-10 absolute w-full max-w-sm"></div>
                                 <input type="text" id="new-client-name" placeholder="Nombre completo" class="form-input mt-2">
                                 <input type="tel" id="new-client-phone" placeholder="Teléfono" class="form-input mt-2">
                                 <input type="email" id="new-client-email" placeholder="Email (opcional)" class="form-input mt-2">
@@ -310,24 +310,26 @@ export async function afterRender() {
         };
         
         btn.disabled = true;
-        btn.textContent = 'Guardando...';
+        btn.textContent = editId ? 'Actualizando...' : 'Guardando...';
 
         try {
-            await fetchAPI('/gestion-propuestas/propuesta-tentativa', { method: 'POST', body: payload });
-            alert('Reserva tentativa creada con éxito. Puedes gestionarla en "Gestionar Propuestas".');
+            const endpoint = editId ? `/gestion-propuestas/propuesta-tentativa/${editId}` : '/gestion-propuestas/propuesta-tentativa';
+            const method = editId ? 'PUT' : 'POST';
+            
+            await fetchAPI(endpoint, { method, body: payload });
+            alert(`Propuesta ${editId ? 'actualizada' : 'creada'} con éxito. Puedes gestionarla en "Gestionar Propuestas".`);
             handleNavigation('/gestionar-propuestas');
         } catch (error) {
             alert(`Error al guardar la propuesta: ${error.message}`);
         } finally {
             btn.disabled = false;
-            btn.textContent = 'Crear Reserva Tentativa';
+            btn.textContent = editId ? 'Actualizar Propuesta' : 'Crear Reserva Tentativa';
         }
     });
 
-    // --- LÓGICA DE EDICIÓN ---
     await loadClients();
     const params = new URLSearchParams(window.location.search);
-    const editId = params.get('edit');
+    editId = params.get('edit');
 
     if (editId) {
         document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
@@ -348,5 +350,6 @@ export async function afterRender() {
             });
             await handleSelectionChange();
         }
+        document.getElementById('guardar-propuesta-btn').textContent = 'Actualizar Propuesta';
     }
 }

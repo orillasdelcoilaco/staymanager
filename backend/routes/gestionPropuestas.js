@@ -1,6 +1,6 @@
 const express = require('express');
 const {
-    guardarPropuestaComoReservaTentativa,
+    guardarOActualizarPropuesta,
     guardarPresupuesto,
     obtenerPropuestasYPresupuestos,
     aprobarPropuesta,
@@ -14,8 +14,18 @@ module.exports = (db) => {
 
     router.post('/propuesta-tentativa', async (req, res) => {
         try {
-            const resultado = await guardarPropuestaComoReservaTentativa(db, req.user.empresaId, req.body);
+            const resultado = await guardarOActualizarPropuesta(db, req.user.empresaId, req.body);
             res.status(201).json(resultado);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    router.put('/propuesta-tentativa/:id', async (req, res) => {
+        try {
+            const { id } = req.params;
+            const resultado = await guardarOActualizarPropuesta(db, req.user.empresaId, req.body, id);
+            res.status(200).json(resultado);
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -45,7 +55,7 @@ module.exports = (db) => {
             await aprobarPropuesta(db, req.user.empresaId, idsReservas);
             res.status(200).json({ message: 'Propuesta aprobada y convertida en reserva confirmada.' });
         } catch (error) {
-            res.status(409).json({ error: error.message }); // 409 Conflict
+            res.status(409).json({ error: error.message });
         }
     });
 
