@@ -78,12 +78,13 @@ function renderSelectionUI() {
          suggestionList.innerHTML = `
             <h4 class="font-medium text-gray-700">Propuesta de Itinerario</h4>
             <div class="space-y-2 p-3 bg-white rounded-md border">${
-                availabilityData.suggestion.itinerary.map((segment, index) => {
+                availabilityData.suggestion.itinerary.map(segment => {
+                    const nombresPropiedades = segment.propiedades.map(p => p.nombre).join(' + ');
                     return `
-                        <div class="grid grid-cols-5 gap-4 items-center text-sm">
-                            <span class="font-semibold">${segment.propiedad.nombre}</span>
+                        <div class="grid grid-cols-5 gap-4 items-center text-sm p-2 border-b last:border-b-0">
+                            <span class="font-semibold col-span-2">${nombresPropiedades}</span>
                             <span>${new Date(segment.startDate).toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
-                            <span>al</span>
+                            <span class="text-center">al</span>
                             <span>${new Date(segment.endDate).toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
                         </div>`;
                 }).join('')

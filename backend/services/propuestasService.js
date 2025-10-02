@@ -1,18 +1,16 @@
 const admin = require('firebase-admin');
 
 async function getAvailabilityData(db, empresaId, startDate, endDate) {
-    const [propiedadesSnapshot, tarifasSnapshot, reservasSnapshot, canalesSnapshot] = await Promise.all([
+    const [propiedadesSnapshot, tarifasSnapshot, reservasSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('propiedades').get(),
         db.collection('empresas').doc(empresaId).collection('tarifas').get(),
         db.collection('empresas').doc(empresaId).collection('reservas')
             .where('fechaLlegada', '<', admin.firestore.Timestamp.fromDate(endDate))
             .where('estado', '==', 'Confirmada')
-            .get(),
-        db.collection('empresas').doc(empresaId).collection('canales').get()
+            .get()
     ]);
 
     const allProperties = propiedadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    const allCanales = canalesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const allTarifas = tarifasSnapshot.docs.map(doc => {
         const data = doc.data();
         let fechaInicio, fechaTermino;
@@ -70,7 +68,7 @@ async function getAvailabilityData(db, empresaId, startDate, endDate) {
         return !reservations.some(res => startDate < res.end && endDate > res.start);
     });
 
-    return { availableProperties, allProperties, allTarifas, availabilityMap, allCanales };
+    return { availableProperties, allProperties, allTarifas, availabilityMap };
 }
 
 function findNormalCombination(availableProperties, requiredCapacity) {
@@ -96,6 +94,13 @@ function findNormalCombination(availableProperties, requiredCapacity) {
 }
 
 function findSegmentedCombination(allProperties, allTarifas, availabilityMap, requiredCapacity, startDate, endDate) {
+    const areCombinationsEqual = (comboA, comboB) => {
+        if (comboA.length !== comboB.length) return false;
+        const idsA = comboA.map(p => p.id).sort();
+        const idsB = comboB.map(p => p.id).sort();
+        return idsA.every((id, index) => id === idsB[index]);
+    };
+
     const allDailyOptions = [];
     let isPossible = true;
 
@@ -127,43 +132,48 @@ function findSegmentedCombination(allProperties, allTarifas, availabilityMap, re
     }
 
     let itinerary = [];
-    let currentSegment = {
-        propiedad: allDailyOptions[0].options[0],
-        startDate: allDailyOptions[0].date,
-        endDate: new Date(new Date(allDailyOptions[0].date).setDate(allDailyOptions[0].date.getDate() + 1))
-    };
+    if (allDailyOptions.length > 0) {
+        let currentSegment = {
+            propiedades: allDailyOptions[0].options,
+            startDate: allDailyOptions[0].date,
+            endDate: new Date(new Date(allDailyOptions[0].date).setDate(allDailyOptions[0].date.getDate() + 1))
+        };
 
-    for (let i = 1; i < allDailyOptions.length; i++) {
-        const day = allDailyOptions[i];
-        if (day.options.some(opt => opt.id === currentSegment.propiedad.id)) {
-            currentSegment.endDate = new Date(new Date(day.date).setDate(day.date.getDate() + 1));
-        } else {
-            itinerary.push(currentSegment);
-            currentSegment = {
-                propiedad: day.options[0],
-                startDate: day.date,
-                endDate: new Date(new Date(day.date).setDate(day.date.getDate() + 1))
-            };
+        for (let i = 1; i < allDailyOptions.length; i++) {
+            const day = allDailyOptions[i];
+            if (areCombinationsEqual(day.options, currentSegment.propiedades)) {
+                currentSegment.endDate = new Date(new Date(day.date).setDate(day.date.getDate() + 1));
+            } else {
+                itinerary.push(currentSegment);
+                currentSegment = {
+                    propiedades: day.options,
+                    startDate: day.date,
+                    endDate: new Date(new Date(day.date).setDate(day.date.getDate() + 1))
+                };
+            }
         }
+        itinerary.push(currentSegment);
     }
-    itinerary.push(currentSegment);
     
     return { combination: itinerary, capacity: requiredCapacity, dailyOptions: allDailyOptions };
 }
 
-async function calculatePrice(db, empresaId, items, startDate, endDate, allTarifas, allCanales, isSegmented = false) {
+async function calculatePrice(db, empresaId, items, startDate, endDate, allTarifas, isSegmented = false) {
     let totalPrice = 0;
     const priceDetails = [];
     
+    const canalesSnapshot = await db.collection('empresas').doc(empresaId).collection('canales').get();
+    const allCanales = canalesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
     if (isSegmented) {
         for (const segment of items) {
             const segmentStartDate = new Date(segment.startDate);
             const segmentEndDate = new Date(segment.endDate);
             const segmentNights = Math.max(1, Math.round((segmentEndDate - segmentStartDate) / (1000 * 60 * 60 * 24)));
-            const pricing = await calculatePrice(db, empresaId, [segment.propiedad], segmentStartDate, segmentEndDate, allTarifas, allCanales);
+            const pricing = await calculatePrice(db, empresaId, segment.propiedades, segmentStartDate, segmentEndDate, allTarifas);
             totalPrice += pricing.totalPrice;
             priceDetails.push({
-                nombre: segment.propiedad.nombre,
+                nombre: segment.propiedades.map(p => p.nombre).join(' + '),
                 precioTotal: pricing.totalPrice,
                 precioPorNoche: pricing.totalPrice > 0 ? pricing.totalPrice / segmentNights : 0,
                 noches: segmentNights,
