@@ -1,25 +1,131 @@
 const express = require('express');
-const { generarTextoPresupuesto } = require('../services/presupuestosService');
+const router = express.Router();
+const { getAvailabilityData, findNormalCombination, findSegmentedCombination, calculatePrice } = require('../services/presupuestoService');
+const { findOrCreateClient } = require('../services/clienteService');
+const admin = require('firebase-admin');
+const jsonParser = express.json();
 
 module.exports = (db) => {
-    const router = express.Router();
+    
+    const handleGenerarPresupuesto = async (req, res) => {
+        const { fechaLlegada, fechaSalida, personas, sinCamarotes, permitirCambios } = req.body;
 
-    router.post('/generar-texto', async (req, res) => {
+        if (!fechaLlegada || !fechaSalida || !personas) {
+            return res.status(400).json({ error: 'Se requieren fechas y cantidad de personas.' });
+        }
+        const startDate = new Date(fechaLlegada + 'T00:00:00Z');
+        const endDate = new Date(fechaSalida + 'T00:00:00Z');
+        if (startDate >= endDate) {
+            return res.status(400).json({ error: 'La fecha de salida debe ser posterior a la fecha de llegada.' });
+        }
+
         try {
-            const { empresaId } = req.user;
-            const { cliente, fechaLlegada, fechaSalida, propiedades, personas } = req.body;
+            const { availableCabanas, allCabanas, allTarifas, complexDetails, overlappingReservations } = await getAvailabilityData(db, startDate, endDate);
             
-            console.log('[Debug Backend] Recibido en /generar-texto:', { cliente, fechaLlegada, fechaSalida, propiedades, personas });
+            let result;
+            let isSegmented = false;
 
-            if (!cliente || !fechaLlegada || !fechaSalida || !propiedades) {
-                return res.status(400).json({ error: 'Faltan datos para generar el presupuesto.' });
+            if (permitirCambios) {
+                result = findSegmentedCombination(allCabanas, allTarifas, overlappingReservations, parseInt(personas), startDate, endDate);
+                isSegmented = true;
+            } else {
+                result = findNormalCombination(availableCabanas, parseInt(personas), sinCamarotes);
+            }
+            
+            const { combination, capacity, dailyOptions } = result;
+
+            if (combination.length === 0) {
+                return res.status(200).json({
+                    message: 'No hay suficientes cabañas disponibles para la cantidad de personas solicitada.',
+                    suggestion: null,
+                    availableCabanas,
+                    allCabanas,
+                    complexDetails
+                });
             }
 
-            const texto = await generarTextoPresupuesto(db, empresaId, cliente, fechaLlegada, fechaSalida, propiedades, personas);
-            res.status(200).json({ texto });
+            const pricing = await calculatePrice(db, combination, startDate, endDate, isSegmented);
+            res.status(200).json({
+                suggestion: { cabanas: combination, totalCapacity: capacity, pricing: pricing, isSegmented: isSegmented, dailyOptions: dailyOptions || null },
+                availableCabanas,
+                allCabanas,
+                complexDetails
+            });
         } catch (error) {
-            console.error("Error al generar texto de presupuesto:", error);
-            res.status(500).json({ error: error.message });
+            console.error("Error al generar el presupuesto:", error);
+            res.status(500).json({ error: 'Error interno del servidor al generar el presupuesto.' });
+        }
+    };
+
+    router.post('/presupuestos/generar', jsonParser, handleGenerarPresupuesto);
+    router.post('/presupuestos/generar-texto', jsonParser, handleGenerarPresupuesto);
+
+    router.post('/presupuestos/recalcular', jsonParser, async (req, res) => {
+        const { fechaLlegada, fechaSalida, cabanas } = req.body;
+        if (!fechaLlegada || !fechaSalida || !cabanas) {
+            return res.status(400).json({ error: 'Faltan datos para recalcular el precio.' });
+        }
+        try {
+            const startDate = new Date(fechaLlegada + 'T00:00:00Z');
+            const endDate = new Date(fechaSalida + 'T00:00:00Z');
+            const pricing = await calculatePrice(db, cabanas, startDate, endDate);
+            res.status(200).json(pricing);
+        } catch (error) {
+            console.error("Error al recalcular el precio:", error);
+            res.status(500).json({ error: 'Error interno del servidor al recalcular.' });
+        }
+    });
+    
+    router.post('/presupuestos/recalcular-segmentado', jsonParser, async (req, res) => {
+        const { itinerary } = req.body;
+        if (!itinerary || !Array.isArray(itinerary) || itinerary.length === 0) {
+            return res.status(400).json({ error: 'Se requiere un itinerario válido.' });
+        }
+        try {
+            const allCabanasSnapshot = await db.collection('cabanas').get();
+            const allCabanas = allCabanasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            const firstDay = new Date(itinerary[0].fechaInicio + 'T00:00:00Z');
+            const lastDay = new Date(itinerary[itinerary.length - 1].fechaTermino + 'T00:00:00Z');
+
+            const items = itinerary.map(seg => ({
+                cabana: allCabanas.find(c => c.id === seg.cabanaId),
+                startDate: new Date(seg.fechaInicio + 'T00:00:00Z'),
+                endDate: new Date(seg.fechaTermino + 'T00:00:00Z')
+            }));
+
+            const pricing = await calculatePrice(db, items, firstDay, lastDay, true);
+            res.status(200).json(pricing);
+        } catch(error) {
+            console.error("Error al recalcular el itinerario segmentado:", error);
+            res.status(500).json({ error: 'Error interno del servidor.' });
+        }
+    });
+
+
+    router.post('/presupuestos/guardar', jsonParser, async (req, res) => {
+        const { cliente, presupuesto } = req.body;
+        if (!cliente || !presupuesto) {
+            return res.status(400).json({ error: 'Faltan datos del cliente o del presupuesto.' });
+        }
+        try {
+            const clienteId = await findOrCreateClient(db, cliente);
+            const presupuestoData = {
+                clienteId: clienteId,
+                clienteNombre: cliente.nombre,
+                fechaEnvio: admin.firestore.FieldValue.serverTimestamp(),
+                fechaLlegada: admin.firestore.Timestamp.fromDate(new Date(presupuesto.fechaLlegada)),
+                fechaSalida: admin.firestore.Timestamp.fromDate(new Date(presupuesto.fechaSalida)),
+                personas: presupuesto.personas,
+                cabanas: presupuesto.cabanasSeleccionadas.map(c => c.nombre),
+                valorTotal: presupuesto.valorTotal,
+                estado: 'Enviado'
+            };
+            const docRef = await db.collection('presupuestos').add(presupuestoData);
+            res.status(201).json({ message: 'Presupuesto guardado exitosamente', id: docRef.id });
+        } catch (error) {
+            console.error("Error al guardar el presupuesto:", error);
+            res.status(500).json({ error: 'Error interno del servidor al guardar el presupuesto.' });
         }
     });
 
