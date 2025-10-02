@@ -1,46 +1,118 @@
 import { fetchAPI } from '../api.js';
 
-export async function render() {
-    let empresaInfo = {};
-    try {
-        empresaInfo = await fetchAPI('/empresa');
-    } catch (error) {
-        return `<p class="text-red-500">Error al cargar la información de la empresa: ${error.message}</p>`;
-    }
+let empresaInfo = {};
 
-    const authStatusHtml = empresaInfo.googleAuthStatus
-        ? `<div class="p-4 bg-green-100 border border-green-300 rounded-md">
-               <p class="font-semibold text-green-800">Estado: Activa</p>
-               <p class="text-sm text-green-700 mt-1">La sincronización con Google Contacts está configurada y funcionando.</p>
-           </div>`
-        : `<div class="p-4 bg-yellow-100 border border-yellow-300 rounded-md">
-               <p class="font-semibold text-yellow-800">Estado: Inactiva</p>
-               <p class="text-sm text-yellow-700 mt-1">Para activar la creación automática de contactos, el administrador de StayManager debe realizar la configuración inicial. Por favor, contacta a soporte.</p>
-           </div>`;
+function renderFormulario() {
+    const formContainer = document.getElementById('form-container');
+    if (!formContainer) return;
 
-    return `
-        <div class="bg-white p-8 rounded-lg shadow max-w-4xl mx-auto">
-            <h2 class="text-2xl font-semibold text-gray-900 mb-2">Información de la Empresa</h2>
-            <p class="text-gray-600 mb-6">Aquí se muestra el estado general y las configuraciones de tu empresa en StayManager.</p>
-            
-            <div class="border-t pt-6 space-y-4">
+    formContainer.innerHTML = `
+        <form id="empresa-form" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <p class="text-sm font-medium text-gray-500">Nombre de la Empresa</p>
-                    <p class="text-lg font-semibold text-gray-900">${empresaInfo.nombre}</p>
+                    <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre de la Empresa</label>
+                    <input type="text" id="nombre" name="nombre" value="${empresaInfo.nombre || ''}" class="mt-1 form-input">
+                </div>
+                <div>
+                    <label for="slogan" class="block text-sm font-medium text-gray-700">Slogan o Bajada de Título</label>
+                    <input type="text" id="slogan" name="slogan" value="${empresaInfo.slogan || ''}" class="mt-1 form-input">
                 </div>
                  <div>
-                    <p class="text-sm font-medium text-gray-500">Fecha de Registro</p>
-                    <p class="text-lg font-semibold text-gray-900">${empresaInfo.fechaCreacion}</p>
+                    <label for="contactoNombre" class="block text-sm font-medium text-gray-700">Nombre de Contacto (para presupuestos)</label>
+                    <input type="text" id="contactoNombre" name="contactoNombre" value="${empresaInfo.contactoNombre || ''}" class="mt-1 form-input">
                 </div>
-                 <div class="border-t pt-4 mt-4">
-                    <p class="text-base font-semibold text-gray-800 mb-2">Sincronización con Google Contacts</p>
-                    ${authStatusHtml}
+                <div>
+                    <label for="contactoEmail" class="block text-sm font-medium text-gray-700">Email de Contacto</label>
+                    <input type="email" id="contactoEmail" name="contactoEmail" value="${empresaInfo.contactoEmail || ''}" class="mt-1 form-input">
                 </div>
+                <div>
+                    <label for="contactoTelefono" class="block text-sm font-medium text-gray-700">Teléfono de Contacto</label>
+                    <input type="tel" id="contactoTelefono" name="contactoTelefono" value="${empresaInfo.contactoTelefono || ''}" class="mt-1 form-input">
+                </div>
+                 <div>
+                    <label for="website" class="block text-sm font-medium text-gray-700">Sitio Web</label>
+                    <input type="url" id="website" name="website" value="${empresaInfo.website || ''}" class="mt-1 form-input">
+                </div>
+            </div>
+            
+            <div class="border-t pt-6">
+                <label for="serviciosGenerales" class="block text-sm font-medium text-gray-700">Servicios Generales Incluidos (para presupuestos)</label>
+                <textarea id="serviciosGenerales" name="serviciosGenerales" rows="4" class="mt-1 form-input">${empresaInfo.serviciosGenerales || ''}</textarea>
+            </div>
+            <div>
+                <label for="condicionesReserva" class="block text-sm font-medium text-gray-700">Condiciones de Reserva (para presupuestos)</label>
+                <textarea id="condicionesReserva" name="condicionesReserva" rows="4" class="mt-1 form-input">${empresaInfo.condicionesReserva || ''}</textarea>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div>
+                    <label for="ubicacionTexto" class="block text-sm font-medium text-gray-700">Texto de Ubicación</label>
+                    <input type="text" id="ubicacionTexto" name="ubicacionTexto" value="${empresaInfo.ubicacionTexto || ''}" class="mt-1 form-input">
+                </div>
+                <div>
+                    <label for="googleMapsLink" class="block text-sm font-medium text-gray-700">Link a Google Maps</label>
+                    <input type="url" id="googleMapsLink" name="googleMapsLink" value="${empresaInfo.googleMapsLink || ''}" class="mt-1 form-input">
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-6 border-t">
+                <button type="submit" class="btn-primary">Guardar Cambios</button>
+            </div>
+        </form>
+    `;
+}
+
+export async function render() {
+    return `
+        <div class="bg-white p-8 rounded-lg shadow max-w-4xl mx-auto">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-2">Configuración de la Empresa</h2>
+            <p class="text-gray-600 mb-6">Esta información se usará para personalizar los presupuestos y otros documentos.</p>
+            
+            <div id="form-container" class="border-t pt-6">
+                <p class="text-center text-gray-500">Cargando datos de la empresa...</p>
             </div>
         </div>
     `;
 }
 
-export function afterRender() {
-    // No se necesita JS adicional para esta vista
+export async function afterRender() {
+    try {
+        empresaInfo = await fetchAPI('/empresa');
+        renderFormulario();
+
+        const form = document.getElementById('empresa-form');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = form.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Guardando...';
+
+            const datos = {
+                nombre: form.nombre.value,
+                slogan: form.slogan.value,
+                contactoNombre: form.contactoNombre.value,
+                contactoEmail: form.contactoEmail.value,
+                contactoTelefono: form.contactoTelefono.value,
+                website: form.website.value,
+                serviciosGenerales: form.serviciosGenerales.value,
+                condicionesReserva: form.condicionesReserva.value,
+                ubicacionTexto: form.ubicacionTexto.value,
+                googleMapsLink: form.googleMapsLink.value
+            };
+
+            try {
+                await fetchAPI('/empresa', { method: 'PUT', body: datos });
+                alert('¡Datos de la empresa actualizados con éxito!');
+                empresaInfo = datos; // Actualizamos la data local
+            } catch (error) {
+                alert(`Error al guardar: ${error.message}`);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Guardar Cambios';
+            }
+        });
+
+    } catch (error) {
+        document.getElementById('form-container').innerHTML = `<p class="text-red-500">Error al cargar la información: ${error.message}</p>`;
+    }
 }

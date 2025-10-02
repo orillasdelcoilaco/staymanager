@@ -109,7 +109,8 @@ async function generateBudgetText() {
             },
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
-            propiedades: selectedProperties
+            propiedades: selectedProperties,
+            personas: document.getElementById('personas').value
         };
         const result = await fetchAPI('/presupuestos/generar-texto', { method: 'POST', body: payload });
         previewTextarea.value = result.texto;

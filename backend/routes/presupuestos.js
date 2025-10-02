@@ -7,13 +7,13 @@ module.exports = (db) => {
     router.post('/generar-texto', async (req, res) => {
         try {
             const { empresaId } = req.user;
-            const { cliente, fechaLlegada, fechaSalida, propiedades } = req.body;
+            const { cliente, fechaLlegada, fechaSalida, propiedades, personas } = req.body;
             
             if (!cliente || !fechaLlegada || !fechaSalida || !propiedades) {
                 return res.status(400).json({ error: 'Faltan datos para generar el presupuesto.' });
             }
 
-            const texto = await generarTextoPresupuesto(db, empresaId, cliente, fechaLlegada, fechaSalida, propiedades);
+            const texto = await generarTextoPresupuesto(db, empresaId, cliente, fechaLlegada, fechaSalida, propiedades, personas);
             res.status(200).json({ texto });
         } catch (error) {
             console.error("Error al generar texto de presupuesto:", error);
