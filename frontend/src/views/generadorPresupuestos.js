@@ -126,19 +126,15 @@ function updateSummary(pricing) {
 }
 
 async function generateBudgetText() {
-    console.log('[Debug] Intentando generar texto de presupuesto...');
     const previewTextarea = document.getElementById('presupuesto-preview');
     const fechaLlegada = document.getElementById('fecha-llegada').value;
     const fechaSalida = document.getElementById('fecha-salida').value;
     const personas = document.getElementById('personas').value;
 
-    // --- INICIO DE LA CORRECCIÓN CLAVE ---
     if (!fechaLlegada || !fechaSalida || !personas || selectedProperties.length === 0) {
-        console.warn('[Debug] Faltan datos para generar el presupuesto. Abortando llamada a la API.');
         previewTextarea.value = 'Por favor, completa las fechas, personas y selecciona al menos una cabaña para generar el presupuesto.';
         return;
     }
-    // --- FIN DE LA CORRECCIÓN CLAVE ---
     
     previewTextarea.value = 'Generando presupuesto...';
 
@@ -153,11 +149,9 @@ async function generateBudgetText() {
             propiedades: selectedProperties,
             personas
         };
-        console.log('[Debug] Payload para /presupuestos/generar-texto:', payload);
         const result = await fetchAPI('/presupuestos/generar-texto', { method: 'POST', body: payload });
         previewTextarea.value = result.texto;
     } catch (error) {
-        console.error('[Debug] Error en generateBudgetText:', error);
         previewTextarea.value = `Error al generar el presupuesto: ${error.message}`;
     }
 }
@@ -286,7 +280,41 @@ export async function afterRender() {
         }
     };
     
-    // SETUP EVENT LISTENERS
+    if (editId) {
+        console.log('[Debug] 1. Modo edición detectado. ID:', editId);
+        await loadClients();
+        
+        document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
+        document.getElementById('fecha-salida').value = params.get('fechaSalida');
+        document.getElementById('personas').value = params.get('personas');
+        
+        const clienteId = params.get('clienteId');
+        const client = allClients.find(c => c.id === clienteId);
+        if (client) {
+            console.log('[Debug] 2. Cliente encontrado y seleccionado:', client);
+            selectClient(client);
+        } else {
+            console.warn('[Debug] 2. No se encontró el cliente con ID:', clienteId);
+        }
+
+        const searchSuccess = await runSearch();
+        
+        if (searchSuccess) {
+            console.log('[Debug] 3. Disponibilidad cargada, seleccionando propiedades.');
+            const propIds = params.get('propiedades').split(',');
+            document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
+                cb.checked = propIds.includes(cb.dataset.id);
+            });
+            await handleSelectionChange();
+            console.log('[Debug] 4. Proceso de carga de edición completado.');
+        } else {
+            console.error('[Debug] 3. ERROR: No se pudieron cargar los datos de disponibilidad en modo edición.');
+        }
+
+    } else {
+        await loadClients();
+    }
+    
     document.getElementById('client-search').addEventListener('input', filterClients);
     generarBtn.addEventListener('click', runSearch);
     
@@ -297,14 +325,9 @@ export async function afterRender() {
         alert('Presupuesto copiado al portapapeles.');
     });
 
-    ['new-client-name', 'new-client-company', 'fecha-llegada', 'fecha-salida', 'personas'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('change', async () => {
-                await generateBudgetText();
-            });
-        }
-    });
+    document.getElementById('new-client-name').addEventListener('change', generateBudgetText);
+    document.getElementById('new-client-company').addEventListener('change', generateBudgetText);
+
 
     document.getElementById('guardar-presupuesto-btn').addEventListener('click', async () => {
         const btn = document.getElementById('guardar-presupuesto-btn');
@@ -345,40 +368,4 @@ export async function afterRender() {
             btn.textContent = 'Guardar Borrador';
         }
     });
-
-    // --- LÓGICA DE INICIALIZACIÓN ---
-    if (editId) {
-        console.log('[Debug] 1. Modo edición detectado. ID:', editId);
-        await loadClients();
-        
-        document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
-        document.getElementById('fecha-salida').value = params.get('fechaSalida');
-        document.getElementById('personas').value = params.get('personas');
-        
-        const clienteId = params.get('clienteId');
-        const client = allClients.find(c => c.id === clienteId);
-        if (client) {
-            console.log('[Debug] 2. Cliente encontrado y seleccionado:', client);
-            selectClient(client);
-        } else {
-            console.warn('[Debug] 2. No se encontró el cliente con ID:', clienteId);
-        }
-
-        const searchSuccess = await runSearch();
-        
-        if (searchSuccess) {
-            console.log('[Debug] 3. Disponibilidad cargada, seleccionando propiedades.');
-            const propIds = params.get('propiedades').split(',');
-            document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
-                cb.checked = propIds.includes(cb.dataset.id);
-            });
-            await handleSelectionChange();
-            console.log('[Debug] 4. Proceso de carga de edición completado.');
-        } else {
-            console.error('[Debug] 3. ERROR: No se pudieron cargar los datos de disponibilidad en modo edición.');
-        }
-
-    } else {
-        await loadClients();
-    }
 }
