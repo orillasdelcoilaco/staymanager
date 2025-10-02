@@ -73,29 +73,29 @@ export async function afterRender() {
         if (!id || !tipo) return;
 
         if (target.classList.contains('edit-btn')) {
-            console.log(`[Debug] Botón Editar presionado para ${tipo} con ID: ${id}`);
+            console.log(`[Debug] 1. Botón Editar presionado para ${tipo} con ID: ${id}`);
             try {
                 const item = todasLasPropuestas.find(p => p.id === id);
 
                 if (!item) {
-                    console.error('[Debug] No se encontró el item correspondiente en todasLasPropuestas.');
+                    console.error('[Debug] 2. ERROR: No se encontró el item correspondiente en los datos cargados.');
                     alert('Error crítico: No se pudo encontrar la propuesta para editar.');
                     return;
                 }
 
-                console.log('[Debug] Item encontrado para editar:', JSON.parse(JSON.stringify(item)));
+                console.log('[Debug] 2. Item encontrado para editar:', JSON.parse(JSON.stringify(item)));
 
                 if (!item.propiedades || !Array.isArray(item.propiedades)) {
-                    console.error('[Debug] item.propiedades no es un array válido:', item.propiedades);
+                    console.error('[Debug] 3. ERROR: item.propiedades no es un array válido:', item.propiedades);
                     alert('Error: Los datos de las propiedades para esta propuesta están corruptos.');
                     return;
                 }
 
                 const personas = item.propiedades.reduce((sum, p) => sum + (p.capacidad || 0), 0);
-                console.log(`[Debug] Capacidad total calculada: ${personas}`);
-
+                console.log(`[Debug] 3. Capacidad total calculada para 'personas': ${personas}`);
+                
                 if (personas === 0) {
-                    console.warn('[Debug] Advertencia: La capacidad calculada es 0. Esto puede indicar datos faltantes pero se continuará.');
+                     alert('Advertencia: La capacidad total de las propiedades es 0. La edición podría no funcionar correctamente.');
                 }
 
                 const params = new URLSearchParams({
@@ -110,11 +110,11 @@ export async function afterRender() {
                 const route = tipo === 'propuesta' ? '/agregar-propuesta' : '/generar-presupuesto';
                 const url = `${route}?${params.toString()}`;
 
-                console.log(`[Debug] Navegando a: ${url}`);
+                console.log(`[Debug] 4. Navegando a: ${url}`);
                 handleNavigation(url);
 
             } catch (error) {
-                console.error('[Debug] Ocurrió un error en el proceso de edición:', error);
+                console.error('[Debug] 5. ERROR: Ocurrió un error inesperado en el proceso de edición:', error);
                 alert('Ocurrió un error inesperado al intentar editar. Revisa la consola para más detalles.');
             }
         }

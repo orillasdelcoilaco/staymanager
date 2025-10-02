@@ -84,7 +84,6 @@ async function renderSelectionUI() {
     
     document.querySelectorAll('.propiedad-checkbox').forEach(cb => cb.addEventListener('change', handleSelectionChange));
     
-    // Asignar el precio inicial y generar el texto
     updateSummary(availabilityData.suggestion.pricing);
     await generateBudgetText();
 }
@@ -127,7 +126,15 @@ function updateSummary(pricing) {
 }
 
 async function generateBudgetText() {
+    console.log('[Debug] Iniciando generateBudgetText. Propiedades seleccionadas:', selectedProperties);
     const previewTextarea = document.getElementById('presupuesto-preview');
+    
+    if (selectedProperties.length === 0) {
+        console.log('[Debug] No hay propiedades seleccionadas, saltando generación de texto.');
+        previewTextarea.value = 'Selecciona al menos una cabaña para generar el presupuesto.';
+        return;
+    }
+    
     previewTextarea.value = 'Generando presupuesto...';
 
     try {
@@ -141,9 +148,11 @@ async function generateBudgetText() {
             propiedades: selectedProperties,
             personas: document.getElementById('personas').value
         };
+        console.log('[Debug] Payload para /presupuestos/generar-texto:', payload);
         const result = await fetchAPI('/presupuestos/generar-texto', { method: 'POST', body: payload });
         previewTextarea.value = result.texto;
     } catch (error) {
+        console.error('[Debug] Error en generateBudgetText:', error);
         previewTextarea.value = `Error al generar el presupuesto: ${error.message}`;
     }
 }
@@ -228,12 +237,11 @@ export async function render() {
 }
 
 export async function afterRender() {
-    loadClients();
-    document.getElementById('client-search').addEventListener('input', filterClients);
+    const params = new URLSearchParams(window.location.search);
+    const editId = params.get('edit');
 
-    const generarBtn = document.getElementById('generar-propuesta-btn');
-    
     const runSearch = async () => {
+        const btn = document.getElementById('generar-propuesta-btn');
         const payload = {
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
@@ -241,13 +249,12 @@ export async function afterRender() {
             sinCamarotes: document.getElementById('sin-camarotes').checked
         };
         if (!payload.fechaLlegada || !payload.fechaSalida || !payload.personas) {
-            alert('Por favor, completa las fechas y la cantidad de personas.');
-            return;
+            alert('Por favor, completa las fechas y la cantidad de personas.'); return;
         }
 
         const statusContainer = document.getElementById('status-container');
-        generarBtn.disabled = true;
-        generarBtn.textContent = 'Generando...';
+        btn.disabled = true;
+        btn.textContent = 'Generando...';
         statusContainer.textContent = 'Buscando disponibilidad y sugerencias...';
         statusContainer.classList.remove('hidden');
         document.getElementById('results-container').classList.add('hidden');
@@ -265,13 +272,49 @@ export async function afterRender() {
         } catch (error) {
             statusContainer.textContent = `Error: ${error.message}`;
         } finally {
-            generarBtn.disabled = false;
-            generarBtn.textContent = 'Generar Propuesta';
+            btn.disabled = false;
+            btn.textContent = 'Generar Propuesta';
         }
     };
 
-    generarBtn.addEventListener('click', runSearch);
+    if (editId) {
+        console.log('[Debug Presupuesto] 1. Modo edición detectado. ID:', editId);
+        await loadClients();
+        
+        document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
+        document.getElementById('fecha-salida').value = params.get('fechaSalida');
+        document.getElementById('personas').value = params.get('personas');
+        
+        const clienteId = params.get('clienteId');
+        const client = allClients.find(c => c.id === clienteId);
+        if (client) {
+            console.log('[Debug Presupuesto] 2. Cliente encontrado y seleccionado:', client);
+            selectClient(client);
+        } else {
+            console.warn('[Debug Presupuesto] 2. No se encontró el cliente con ID:', clienteId);
+        }
 
+        await runSearch();
+        
+        if (availabilityData && availabilityData.suggestion) {
+            console.log('[Debug Presupuesto] 3. Disponibilidad cargada, seleccionando propiedades.');
+            const propIds = params.get('propiedades').split(',');
+            document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
+                cb.checked = propIds.includes(cb.dataset.id);
+            });
+            await handleSelectionChange();
+            console.log('[Debug Presupuesto] 4. Proceso de carga de edición completado.');
+        } else {
+            console.error('[Debug Presupuesto] 3. ERROR: No se pudieron cargar los datos de disponibilidad en modo edición.');
+        }
+    } else {
+        await loadClients();
+    }
+    
+    // SETUP EVENT LISTENERS
+    document.getElementById('client-search').addEventListener('input', filterClients);
+    document.getElementById('generar-propuesta-btn').addEventListener('click', runSearch);
+    
     document.getElementById('copy-btn').addEventListener('click', () => {
         const textarea = document.getElementById('presupuesto-preview');
         textarea.select();
@@ -303,9 +346,6 @@ export async function afterRender() {
             alert('Debes ingresar al menos el nombre del cliente para guardar un presupuesto.');
             return;
         }
-        
-        const params = new URLSearchParams(window.location.search);
-        const editId = params.get('edit');
 
         const payload = {
             id: editId,
@@ -323,10 +363,8 @@ export async function afterRender() {
 
         try {
             await fetchAPI('/gestion-propuestas/presupuesto', { method: 'POST', body: payload });
-            alert('Presupuesto guardado como borrador. Puedes gestionarlo en "Gestionar Propuestas".');
-            if (editId) {
-                handleNavigation('/gestionar-propuestas');
-            }
+            alert(`Presupuesto ${editId ? 'actualizado' : 'guardado'} con éxito. Puedes gestionarlo en "Gestionar Propuestas".`);
+            handleNavigation('/gestionar-propuestas');
         } catch (error) {
             alert(`Error al guardar el presupuesto: ${error.message}`);
         } finally {
@@ -334,40 +372,4 @@ export async function afterRender() {
             btn.textContent = 'Guardar Borrador';
         }
     });
-    
-    // --- LÓGICA DE EDICIÓN ---
-    const params = new URLSearchParams(window.location.search);
-    const editId = params.get('edit');
-
-    if (editId) {
-        await loadClients();
-        console.log('[Debug Presupuesto] Modo edición detectado. ID:', editId);
-        
-        document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
-        document.getElementById('fecha-salida').value = params.get('fechaSalida');
-        document.getElementById('personas').value = params.get('personas');
-        
-        const clienteId = params.get('clienteId');
-        const client = allClients.find(c => c.id === clienteId);
-        if (client) {
-            console.log('[Debug Presupuesto] Cliente encontrado para edición:', client);
-            selectClient(client);
-        } else {
-            console.warn('[Debug Presupuesto] No se encontró el cliente con ID:', clienteId);
-        }
-
-        await runSearch();
-        
-        if (availabilityData && availabilityData.suggestion) {
-            console.log('[Debug Presupuesto] Datos de disponibilidad cargados, seleccionando propiedades.');
-            const propIds = params.get('propiedades').split(',');
-            document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
-                cb.checked = propIds.includes(cb.dataset.id);
-            });
-            await handleSelectionChange();
-            console.log('[Debug Presupuesto] Proceso de edición completado.');
-        } else {
-            console.error('[Debug Presupuesto] No se pudieron cargar los datos de disponibilidad en modo edición.');
-        }
-    }
 }

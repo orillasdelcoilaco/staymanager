@@ -9,6 +9,8 @@ module.exports = (db) => {
             const { empresaId } = req.user;
             const { cliente, fechaLlegada, fechaSalida, propiedades, personas } = req.body;
             
+            console.log('[Debug Backend] Recibido en /generar-texto:', { cliente, fechaLlegada, fechaSalida, propiedades, personas });
+
             if (!cliente || !fechaLlegada || !fechaSalida || !propiedades) {
                 return res.status(400).json({ error: 'Faltan datos para generar el presupuesto.' });
             }
