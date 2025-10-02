@@ -164,18 +164,38 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
     
     const canalesSnapshot = await db.collection('empresas').doc(empresaId).collection('canales').get();
     const allCanales = canalesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const canalDirecto = allCanales.find(c => c.nombre.toLowerCase().includes('directo')) || 
+                         allCanales.find(c => c.nombre.toLowerCase().includes('sodc'));
+    const canalDirectoId = canalDirecto ? canalDirecto.id : null;
 
     if (isSegmented) {
         for (const segment of items) {
             const segmentStartDate = new Date(segment.startDate);
             const segmentEndDate = new Date(segment.endDate);
             const segmentNights = Math.max(1, Math.round((segmentEndDate - segmentStartDate) / (1000 * 60 * 60 * 24)));
-            const pricing = await calculatePrice(db, empresaId, segment.propiedades, segmentStartDate, segmentEndDate, allTarifas);
-            totalPrice += pricing.totalPrice;
+            
+            let segmentTotalPrice = 0;
+            for (const prop of segment.propiedades) {
+                for (let d = new Date(segmentStartDate); d < segmentEndDate; d.setDate(d.getDate() + 1)) {
+                    const currentDate = new Date(d);
+                    const tarifasDelDia = allTarifas.filter(t => 
+                        t.alojamientoId === prop.id &&
+                        t.fechaInicio <= currentDate &&
+                        t.fechaTermino >= currentDate
+                    );
+                    if (tarifasDelDia.length > 0) {
+                        const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
+                        const precioNoche = (canalDirectoId && tarifa.precios[canalDirectoId]) ? tarifa.precios[canalDirectoId].valor : 0;
+                        segmentTotalPrice += precioNoche;
+                    }
+                }
+            }
+            
+            totalPrice += segmentTotalPrice;
             priceDetails.push({
                 nombre: segment.propiedades.map(p => p.nombre).join(' + '),
-                precioTotal: pricing.totalPrice,
-                precioPorNoche: pricing.totalPrice > 0 ? pricing.totalPrice / segmentNights : 0,
+                precioTotal: segmentTotalPrice,
+                precioPorNoche: segmentTotalPrice > 0 ? segmentTotalPrice / segmentNights : 0,
                 noches: segmentNights,
                 fechaInicio: segmentStartDate.toISOString().split('T')[0],
                 fechaTermino: segmentEndDate.toISOString().split('T')[0]
@@ -189,10 +209,6 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
     if (nights <= 0) {
         return { totalPrice: 0, nights: 0, details: [] };
     }
-
-    const canalDirecto = allCanales.find(c => c.nombre.toLowerCase().includes('directo')) || 
-                         allCanales.find(c => c.nombre.toLowerCase().includes('sodc'));
-    const canalDirectoId = canalDirecto ? canalDirecto.id : null;
 
     for (const prop of items) {
         let propTotalPrice = 0;
