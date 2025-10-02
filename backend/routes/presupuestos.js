@@ -65,16 +65,16 @@ module.exports = (db) => {
     };
 
     // Ruta moderna que debería usarse
-    router.post('/presupuestos/generar', jsonParser, handleGenerarPresupuesto);
+    router.post('/generar', jsonParser, handleGenerarPresupuesto);
 
     // --- INICIO DE LA CORRECCIÓN (ERROR 404) ---
     // Se añade esta ruta como un ALIAS. Tu frontend (generadorPresupuestos.js) llama a '/generar-texto'.
     // Al hacer que esta ruta ejecute la misma función que '/generar', restauramos la funcionalidad
     // y eliminamos el error 404 Not Found.
-    router.post('/presupuestos/generar-texto', jsonParser, handleGenerarPresupuesto);
+    router.post('/generar-texto', jsonParser, handleGenerarPresupuesto);
     // --- FIN DE LA CORRECCIÓN (ERROR 404) ---
 
-    router.post('/presupuestos/recalcular', jsonParser, async (req, res) => {
+    router.post('/recalcular', jsonParser, async (req, res) => {
         const { fechaLlegada, fechaSalida, cabanas } = req.body;
         if (!fechaLlegada || !fechaSalida || !cabanas) {
             return res.status(400).json({ error: 'Faltan datos para recalcular el precio.' });
@@ -90,7 +90,7 @@ module.exports = (db) => {
         }
     });
     
-    router.post('/presupuestos/recalcular-segmentado', jsonParser, async (req, res) => {
+    router.post('/recalcular-segmentado', jsonParser, async (req, res) => {
         const { itinerary } = req.body;
         if (!itinerary || !Array.isArray(itinerary) || itinerary.length === 0) {
             return res.status(400).json({ error: 'Se requiere un itinerario válido.' });
@@ -116,7 +116,7 @@ module.exports = (db) => {
         }
     });
 
-    router.post('/presupuestos/guardar', jsonParser, async (req, res) => {
+    router.post('/guardar', jsonParser, async (req, res) => {
         const { cliente, presupuesto } = req.body;
         if (!cliente || !presupuesto) {
             return res.status(400).json({ error: 'Faltan datos del cliente o del presupuesto.' });
