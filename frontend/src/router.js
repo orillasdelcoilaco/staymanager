@@ -100,9 +100,11 @@ async function loadView(path) {
         if (!document.getElementById('view-content')) {
         }
         
+        const cleanPath = path.split('?')[0];
+
         const dynamicRoute = Object.keys(views).find(route => {
             const regex = new RegExp(`^${route.replace(/:\w+/g, '([^/]+)')}$`);
-            return regex.test(path);
+            return regex.test(cleanPath);
         });
 
         const viewLoader = views[dynamicRoute] || views['/'];
