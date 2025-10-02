@@ -1,4 +1,5 @@
 import { fetchAPI } from '../api.js';
+import { handleNavigation } from '../router.js';
 
 let allClients = [];
 let allProperties = [];
@@ -82,7 +83,7 @@ async function renderSelectionUI() {
     availableList.innerHTML = availabilityData.availableProperties.filter(p => !suggestedIds.has(p.id)).map(p => createPropertyCheckbox(p, false)).join('');
     
     document.querySelectorAll('.propiedad-checkbox').forEach(cb => cb.addEventListener('change', handleSelectionChange));
-    await generateBudgetText();
+    await updatePricingAndBudgetText();
 }
 
 async function handleSelectionChange() {
@@ -91,10 +92,36 @@ async function handleSelectionChange() {
 
     if (selectedProperties.length === 0) {
         document.getElementById('presupuesto-preview').value = 'Selecciona al menos una cabaña para generar el presupuesto.';
+        updateSummary({ totalPrice: 0, nights: currentPricing.nights, details: [] });
         return;
     }
     
-    await generateBudgetText();
+    await updatePricingAndBudgetText();
+}
+
+async function updatePricingAndBudgetText() {
+    const previewTextarea = document.getElementById('presupuesto-preview');
+    previewTextarea.value = 'Calculando precios y generando presupuesto...';
+
+    try {
+        const payload = {
+            fechaLlegada: document.getElementById('fecha-llegada').value,
+            fechaSalida: document.getElementById('fecha-salida').value,
+            propiedades: selectedProperties
+        };
+        const newPricing = await fetchAPI('/propuestas/recalcular', { method: 'POST', body: payload });
+        updateSummary(newPricing);
+        await generateBudgetText();
+    } catch (error) {
+        previewTextarea.value = `Error al recalcular: ${error.message}`;
+        updateSummary({ totalPrice: 0, nights: currentPricing.nights, details: [] });
+    }
+}
+
+function updateSummary(pricing) {
+    currentPricing = pricing;
+    document.getElementById('summary-precio-lista').textContent = formatCurrency(pricing.totalPrice);
+    document.getElementById('summary-precio-final').textContent = formatCurrency(pricing.totalPrice);
 }
 
 async function generateBudgetText() {
@@ -178,9 +205,15 @@ export async function render() {
                     <h4 class="font-medium text-gray-700 mt-4 border-t pt-4">Otras Cabañas Disponibles</h4>
                     <div id="available-list" class="mt-2 space-y-2 max-h-60 overflow-y-auto"></div>
                 </fieldset>
-                <fieldset class="p-4 border rounded-md">
+                <fieldset class="p-4 border rounded-md flex flex-col">
                     <legend class="px-2 font-semibold">4. Presupuesto Final</legend>
-                    <textarea id="presupuesto-preview" rows="15" class="form-input w-full h-full"></textarea>
+                    <div class="flex-grow flex flex-col">
+                        <div class="p-2 bg-gray-800 text-white rounded-t-md flex justify-between items-center">
+                            <span class="font-semibold">Resumen de Precios</span>
+                            <span id="summary-precio-final" class="text-lg font-bold">$0</span>
+                        </div>
+                        <textarea id="presupuesto-preview" class="form-input w-full flex-grow rounded-b-md rounded-t-none"></textarea>
+                    </div>
                     <div class="flex justify-end gap-2 mt-2">
                         <button id="guardar-presupuesto-btn" class="btn-secondary">Guardar Borrador</button>
                         <button id="copy-btn" class="btn-secondary">Copiar</button>
@@ -250,9 +283,11 @@ export function afterRender() {
             });
         }
     });
+
     document.getElementById('guardar-presupuesto-btn').addEventListener('click', async () => {
         const btn = document.getElementById('guardar-presupuesto-btn');
-        let clienteParaGuardar = {
+        const clienteParaGuardar = {
+            id: allClients.find(c => c.nombre === document.getElementById('new-client-name').value)?.id,
             nombre: document.getElementById('new-client-name').value,
             telefono: document.getElementById('new-client-phone').value,
             email: document.getElementById('new-client-email').value,
@@ -268,8 +303,8 @@ export function afterRender() {
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
             propiedades: selectedProperties,
-            precioFinal: 0, // El precio se calcula en el texto
-            noches: 0, // Se calcula en el texto
+            precioFinal: currentPricing.totalPrice || 0,
+            noches: currentPricing.nights || 0,
             texto: document.getElementById('presupuesto-preview').value
         };
 

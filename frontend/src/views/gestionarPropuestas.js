@@ -1,4 +1,5 @@
 import { fetchAPI } from '../api.js';
+import { handleNavigation } from '../router.js';
 
 let todasLasPropuestas = [];
 
@@ -22,7 +23,7 @@ function renderTabla() {
             <td class="p-2">${item.propiedadesNombres}</td>
             <td class="p-2 font-semibold text-right">${formatCurrency(item.monto)}</td>
             <td class="p-2 text-center space-x-2 whitespace-nowrap">
-                <button data-id="${item.id}" class="edit-btn btn-secondary text-xs">Editar</button>
+                <button data-id="${item.id}" data-tipo="${item.tipo}" class="edit-btn btn-secondary text-xs">Editar</button>
                 <button data-id="${item.id}" data-tipo="${item.tipo}" data-ids-reservas="${item.idsReservas?.join(',')}" class="approve-btn btn-primary text-xs bg-green-600 hover:bg-green-700">Aprobar</button>
                 <button data-id="${item.id}" data-tipo="${item.tipo}" data-ids-reservas="${item.idsReservas?.join(',')}" class="reject-btn btn-danger text-xs">Rechazar</button>
             </td>
@@ -70,6 +71,16 @@ export async function afterRender() {
         const id = target.dataset.id;
         const tipo = target.dataset.tipo;
         if (!id || !tipo) return;
+
+        if (target.classList.contains('edit-btn')) {
+            alert('Funcionalidad de edición pendiente de desarrollo.');
+            // Futuro: Redirigir a la vista de edición correspondiente
+            // if (tipo === 'propuesta') {
+            //     handleNavigation(`/agregar-propuesta?edit=${id}`);
+            // } else {
+            //     handleNavigation(`/generar-presupuesto?edit=${id}`);
+            // }
+        }
         
         if (target.classList.contains('approve-btn')) {
             if (!confirm(`¿Estás seguro de que quieres aprobar est${tipo === 'propuesta' ? 'a propuesta' : 'e presupuesto'}? Se verificará la disponibilidad antes de confirmar.`)) return;
