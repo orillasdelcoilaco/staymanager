@@ -285,42 +285,8 @@ export async function afterRender() {
             generarBtn.textContent = 'Generar Propuesta';
         }
     };
-
-    if (editId) {
-        console.log('[Debug] 1. Modo edición detectado. ID:', editId);
-        await loadClients();
-        
-        document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
-        document.getElementById('fecha-salida').value = params.get('fechaSalida');
-        document.getElementById('personas').value = params.get('personas');
-        
-        const clienteId = params.get('clienteId');
-        const client = allClients.find(c => c.id === clienteId);
-        if (client) {
-            console.log('[Debug] 2. Cliente encontrado y seleccionado:', client);
-            selectClient(client);
-        } else {
-            console.warn('[Debug] 2. No se encontró el cliente con ID:', clienteId);
-        }
-
-        const searchSuccess = await runSearch();
-        
-        if (searchSuccess) {
-            console.log('[Debug] 3. Disponibilidad cargada, seleccionando propiedades.');
-            const propIds = params.get('propiedades').split(',');
-            document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
-                cb.checked = propIds.includes(cb.dataset.id);
-            });
-            await handleSelectionChange();
-            console.log('[Debug] 4. Proceso de carga de edición completado.');
-        } else {
-            console.error('[Debug] 3. ERROR: No se pudieron cargar los datos de disponibilidad en modo edición.');
-        }
-
-    } else {
-        await loadClients();
-    }
     
+    // SETUP EVENT LISTENERS
     document.getElementById('client-search').addEventListener('input', filterClients);
     generarBtn.addEventListener('click', runSearch);
     
@@ -379,4 +345,40 @@ export async function afterRender() {
             btn.textContent = 'Guardar Borrador';
         }
     });
+
+    // --- LÓGICA DE INICIALIZACIÓN ---
+    if (editId) {
+        console.log('[Debug] 1. Modo edición detectado. ID:', editId);
+        await loadClients();
+        
+        document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
+        document.getElementById('fecha-salida').value = params.get('fechaSalida');
+        document.getElementById('personas').value = params.get('personas');
+        
+        const clienteId = params.get('clienteId');
+        const client = allClients.find(c => c.id === clienteId);
+        if (client) {
+            console.log('[Debug] 2. Cliente encontrado y seleccionado:', client);
+            selectClient(client);
+        } else {
+            console.warn('[Debug] 2. No se encontró el cliente con ID:', clienteId);
+        }
+
+        const searchSuccess = await runSearch();
+        
+        if (searchSuccess) {
+            console.log('[Debug] 3. Disponibilidad cargada, seleccionando propiedades.');
+            const propIds = params.get('propiedades').split(',');
+            document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
+                cb.checked = propIds.includes(cb.dataset.id);
+            });
+            await handleSelectionChange();
+            console.log('[Debug] 4. Proceso de carga de edición completado.');
+        } else {
+            console.error('[Debug] 3. ERROR: No se pudieron cargar los datos de disponibilidad en modo edición.');
+        }
+
+    } else {
+        await loadClients();
+    }
 }
