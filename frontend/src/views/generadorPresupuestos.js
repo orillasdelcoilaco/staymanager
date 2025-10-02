@@ -228,7 +228,9 @@ export async function render() {
 }
 
 export async function afterRender() {
+    loadClients();
     document.getElementById('client-search').addEventListener('input', filterClients);
+
     const generarBtn = document.getElementById('generar-propuesta-btn');
     
     const runSearch = async () => {
@@ -301,8 +303,12 @@ export async function afterRender() {
             alert('Debes ingresar al menos el nombre del cliente para guardar un presupuesto.');
             return;
         }
+        
+        const params = new URLSearchParams(window.location.search);
+        const editId = params.get('edit');
 
         const payload = {
+            id: editId,
             cliente: clienteParaGuardar,
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
@@ -318,6 +324,9 @@ export async function afterRender() {
         try {
             await fetchAPI('/gestion-propuestas/presupuesto', { method: 'POST', body: payload });
             alert('Presupuesto guardado como borrador. Puedes gestionarlo en "Gestionar Propuestas".');
+            if (editId) {
+                handleNavigation('/gestionar-propuestas');
+            }
         } catch (error) {
             alert(`Error al guardar el presupuesto: ${error.message}`);
         } finally {
@@ -327,11 +336,11 @@ export async function afterRender() {
     });
     
     // --- LÓGICA DE EDICIÓN ---
-    await loadClients();
     const params = new URLSearchParams(window.location.search);
     const editId = params.get('edit');
 
     if (editId) {
+        await loadClients();
         console.log('[Debug Presupuesto] Modo edición detectado. ID:', editId);
         
         document.getElementById('fecha-llegada').value = params.get('fechaLlegada');

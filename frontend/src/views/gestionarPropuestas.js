@@ -74,40 +74,48 @@ export async function afterRender() {
 
         if (target.classList.contains('edit-btn')) {
             console.log(`[Debug] Botón Editar presionado para ${tipo} con ID: ${id}`);
-            const item = todasLasPropuestas.find(p => p.id === id);
+            try {
+                const item = todasLasPropuestas.find(p => p.id === id);
 
-            if (!item) {
-                console.error('[Debug] No se encontró el item correspondiente en todasLasPropuestas.');
-                alert('Error: No se encontró la propuesta para editar.');
-                return;
-            }
+                if (!item) {
+                    console.error('[Debug] No se encontró el item correspondiente en todasLasPropuestas.');
+                    alert('Error crítico: No se pudo encontrar la propuesta para editar.');
+                    return;
+                }
 
-            console.log('[Debug] Item encontrado:', item);
+                console.log('[Debug] Item encontrado para editar:', JSON.parse(JSON.stringify(item)));
 
-            const personas = item.propiedades.reduce((sum, p) => sum + (p.capacidad || 0), 0);
-            console.log(`[Debug] Capacidad total calculada: ${personas}`);
+                if (!item.propiedades || !Array.isArray(item.propiedades)) {
+                    console.error('[Debug] item.propiedades no es un array válido:', item.propiedades);
+                    alert('Error: Los datos de las propiedades para esta propuesta están corruptos.');
+                    return;
+                }
 
-            if (personas === 0) {
-                 console.warn('[Debug] La capacidad calculada es 0. Esto puede ser un error en los datos.');
-            }
+                const personas = item.propiedades.reduce((sum, p) => sum + (p.capacidad || 0), 0);
+                console.log(`[Debug] Capacidad total calculada: ${personas}`);
 
-            const params = new URLSearchParams({
-                edit: id,
-                clienteId: item.clienteId,
-                fechaLlegada: item.fechaLlegada,
-                fechaSalida: item.fechaSalida,
-                propiedades: item.propiedades.map(p => p.id).join(','),
-                personas: personas
-            });
+                if (personas === 0) {
+                    console.warn('[Debug] Advertencia: La capacidad calculada es 0. Esto puede indicar datos faltantes pero se continuará.');
+                }
 
-            if (tipo === 'propuesta') {
-                const url = `/agregar-propuesta?${params.toString()}`;
-                console.log(`[Debug] Navegando a (Propuesta): ${url}`);
+                const params = new URLSearchParams({
+                    edit: id,
+                    clienteId: item.clienteId,
+                    fechaLlegada: item.fechaLlegada,
+                    fechaSalida: item.fechaSalida,
+                    propiedades: item.propiedades.map(p => p.id).join(','),
+                    personas: personas
+                });
+
+                const route = tipo === 'propuesta' ? '/agregar-propuesta' : '/generar-presupuesto';
+                const url = `${route}?${params.toString()}`;
+
+                console.log(`[Debug] Navegando a: ${url}`);
                 handleNavigation(url);
-            } else if (tipo === 'presupuesto') {
-                const url = `/generar-presupuesto?${params.toString()}`;
-                console.log(`[Debug] Navegando a (Presupuesto): ${url}`);
-                handleNavigation(url);
+
+            } catch (error) {
+                console.error('[Debug] Ocurrió un error en el proceso de edición:', error);
+                alert('Ocurrió un error inesperado al intentar editar. Revisa la consola para más detalles.');
             }
         }
         
