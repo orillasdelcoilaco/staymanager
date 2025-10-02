@@ -26,6 +26,7 @@ const views = {
     '/historial-cargas': () => import('./views/historialCargas.js'),
     '/gestionar-tipos-plantilla': () => import('./views/gestionarTiposPlantilla.js'),
     '/gestionar-plantillas': () => import('./views/gestionarPlantillas.js'),
+    '/gestionar-propuestas': () => import('./views/gestionarPropuestas.js'), // <-- AÑADIDO
 };
 
 const menuConfig = [
@@ -39,7 +40,7 @@ const menuConfig = [
             { name: '📄 Generar Reportes Rápidos', path: '#', id: 'reportes-rapidos' },
             { name: '➕ Agregar Propuesta', path: '/agregar-propuesta', id: 'agregar-propuesta' },
             { name: '💲 Generar Presupuestos', path: '/generar-presupuesto', id: 'generar-presupuestos' }, // <-- AÑADIDO
-            { name: '🗂️ Gestionar Propuestas', path: '#', id: 'gestionar-propuestas' },
+            { name: '🗂️ Gestionar Propuestas', path: '/gestionar-propuestas', id: 'gestionar-propuestas' }, // <-- AÑADIDO
             { name: '💬 Generar mensajes', path: '#', id: 'generar-mensajes' },
         ]
     },

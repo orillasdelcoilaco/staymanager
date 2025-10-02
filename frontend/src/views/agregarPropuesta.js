@@ -221,7 +221,7 @@ export function render() {
                     </div>
 
                     <div class="text-right pt-6 border-t mt-8">
-                        <button id="guardar-propuesta-btn" class="btn-primary btn-lg">Guardar Propuesta</button>
+                        <button id="guardar-propuesta-btn" class="btn-primary btn-lg">Crear Reserva Tentativa</button>
                     </div>
                 </div>
             </div>
@@ -270,4 +270,51 @@ export function afterRender() {
     
     document.getElementById('client-search').addEventListener('input', filterClients);
     document.querySelectorAll('.discount-input').forEach(input => input.addEventListener('input', () => updateSummary(currentPricing)));
+
+document.getElementById('guardar-propuesta-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('guardar-propuesta-btn');
+        let clienteParaGuardar = selectedClient;
+        
+        if (!clienteParaGuardar) {
+            const nombre = document.getElementById('new-client-name').value;
+            if (nombre) {
+                clienteParaGuardar = {
+                    nombre: nombre,
+                    telefono: document.getElementById('new-client-phone').value,
+                    email: document.getElementById('new-client-email').value,
+                };
+            } else {
+                alert('Debes seleccionar o crear un cliente.');
+                return;
+            }
+        }
+        
+        if (selectedProperties.length === 0) {
+            alert('Debes seleccionar al menos una propiedad.');
+            return;
+        }
+
+        const payload = {
+            cliente: clienteParaGuardar,
+            fechaLlegada: document.getElementById('fecha-llegada').value,
+            fechaSalida: document.getElementById('fecha-salida').value,
+            propiedades: selectedProperties,
+            precioFinal: parseFloat(document.getElementById('summary-precio-final').textContent.replace(/\$|\./g, '')) || 0,
+            noches: currentPricing.nights
+        };
+        
+        btn.disabled = true;
+        btn.textContent = 'Guardando...';
+
+        try {
+            await fetchAPI('/gestion-propuestas/propuesta-tentativa', { method: 'POST', body: payload });
+            alert('Reserva tentativa creada con éxito. Puedes gestionarla en "Gestionar Propuestas".');
+            // Opcional: limpiar el formulario o redirigir
+        } catch (error) {
+            alert(`Error al guardar la propuesta: ${error.message}`);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Crear Reserva Tentativa';
+        }
+    });    
 }

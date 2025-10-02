@@ -13,7 +13,13 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
     let allProperties = propiedadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     if (sinCamarotes) {
-        allProperties = allProperties.filter(prop => !prop.camas || !prop.camas.camarotes || prop.camas.camarotes === 0);
+        allProperties = allProperties.map(prop => {
+            if (prop.camas && prop.camas.camarotes > 0) {
+                const capacidadReducida = prop.capacidad - prop.camas.camarotes;
+                return { ...prop, capacidad: capacidadReducida };
+            }
+            return prop;
+        });
     }
 
     const allTarifas = tarifasSnapshot.docs.map(doc => {

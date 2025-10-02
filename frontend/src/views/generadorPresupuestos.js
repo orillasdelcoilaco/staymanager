@@ -182,6 +182,7 @@ export async function render() {
                     <legend class="px-2 font-semibold">4. Presupuesto Final</legend>
                     <textarea id="presupuesto-preview" rows="15" class="form-input w-full h-full"></textarea>
                     <div class="flex justify-end gap-2 mt-2">
+                        <button id="guardar-presupuesto-btn" class="btn-secondary">Guardar Borrador</button>
                         <button id="copy-btn" class="btn-secondary">Copiar</button>
                         <button id="email-btn" class="btn-primary" disabled>Enviar por Email</button>
                     </div>
@@ -247,6 +248,42 @@ export function afterRender() {
                     await generateBudgetText();
                 }
             });
+        }
+    });
+    document.getElementById('guardar-presupuesto-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('guardar-presupuesto-btn');
+        let clienteParaGuardar = {
+            nombre: document.getElementById('new-client-name').value,
+            telefono: document.getElementById('new-client-phone').value,
+            email: document.getElementById('new-client-email').value,
+        };
+        
+        if (!clienteParaGuardar.nombre) {
+            alert('Debes ingresar al menos el nombre del cliente para guardar un presupuesto.');
+            return;
+        }
+
+        const payload = {
+            cliente: clienteParaGuardar,
+            fechaLlegada: document.getElementById('fecha-llegada').value,
+            fechaSalida: document.getElementById('fecha-salida').value,
+            propiedades: selectedProperties,
+            precioFinal: 0, // El precio se calcula en el texto
+            noches: 0, // Se calcula en el texto
+            texto: document.getElementById('presupuesto-preview').value
+        };
+
+        btn.disabled = true;
+        btn.textContent = 'Guardando...';
+
+        try {
+            await fetchAPI('/gestion-propuestas/presupuesto', { method: 'POST', body: payload });
+            alert('Presupuesto guardado como borrador. Puedes gestionarlo en "Gestionar Propuestas".');
+        } catch (error) {
+            alert(`Error al guardar el presupuesto: ${error.message}`);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Guardar Borrador';
         }
     });
 }
