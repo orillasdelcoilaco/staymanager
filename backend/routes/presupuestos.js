@@ -1,23 +1,24 @@
 const express = require('express');
 const router = express.Router();
-// --- INICIO DE LA CORRECCIÓN ---
-// Se ha eliminado un espacio en la ruta del 'require'.
-// Antes decía: require('.. /services/presupuestoService')
-// Ahora dice: require('../services/presupuestoService')
-// Este cambio corrige el error "Cannot find module" que detiene el servidor.
+
+// --- INICIO DE LA CORRECCIÓN DEFINITIVA ---
+// 1. Se usan los nombres de archivo en PLURAL ('presupuestosService', 'clientesService'),
+//    confirmados con la nueva lista de archivos que proporcionaste.
 const { getAvailabilityData, findNormalCombination, findSegmentedCombination, calculatePrice } = require('../services/presupuestosService');
-// --- FIN DE LA CORRECCIÓN ---
 const { findOrCreateClient } = require('../services/clientesService');
+// --- FIN DE LA CORRECCIÓN DEFINITIVA ---
+
 const admin = require('firebase-admin');
 const jsonParser = express.json();
 
 module.exports = (db) => {
     
+    // Se extrae la lógica principal a una función manejadora para poder reutilizarla.
     const handleGenerarPresupuesto = async (req, res) => {
         const { fechaLlegada, fechaSalida, personas, sinCamarotes, permitirCambios } = req.body;
 
         if (!fechaLlegada || !fechaSalida || !personas) {
-            return res.status(400).json({ error: 'Se requieren fechas y cantidad de personas.' });
+            return res.status(400).json({ error: 'Faltan datos para generar el presupuesto.' });
         }
         const startDate = new Date(fechaLlegada + 'T00:00:00Z');
         const endDate = new Date(fechaSalida + 'T00:00:00Z');
@@ -63,8 +64,15 @@ module.exports = (db) => {
         }
     };
 
+    // Ruta moderna que debería usarse
     router.post('/presupuestos/generar', jsonParser, handleGenerarPresupuesto);
+
+    // --- INICIO DE LA CORRECCIÓN (ERROR 404) ---
+    // Se añade esta ruta como un ALIAS. Tu frontend (generadorPresupuestos.js) llama a '/generar-texto'.
+    // Al hacer que esta ruta ejecute la misma función que '/generar', restauramos la funcionalidad
+    // y eliminamos el error 404 Not Found.
     router.post('/presupuestos/generar-texto', jsonParser, handleGenerarPresupuesto);
+    // --- FIN DE LA CORRECCIÓN (ERROR 404) ---
 
     router.post('/presupuestos/recalcular', jsonParser, async (req, res) => {
         const { fechaLlegada, fechaSalida, cabanas } = req.body;
@@ -107,7 +115,6 @@ module.exports = (db) => {
             res.status(500).json({ error: 'Error interno del servidor.' });
         }
     });
-
 
     router.post('/presupuestos/guardar', jsonParser, async (req, res) => {
         const { cliente, presupuesto } = req.body;
