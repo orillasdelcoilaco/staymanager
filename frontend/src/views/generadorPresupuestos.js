@@ -126,14 +126,19 @@ function updateSummary(pricing) {
 }
 
 async function generateBudgetText() {
-    console.log('[Debug] Iniciando generateBudgetText. Propiedades seleccionadas:', selectedProperties);
+    console.log('[Debug] Intentando generar texto de presupuesto...');
     const previewTextarea = document.getElementById('presupuesto-preview');
-    
-    if (selectedProperties.length === 0) {
-        console.log('[Debug] No hay propiedades seleccionadas, saltando generación de texto.');
-        previewTextarea.value = 'Selecciona al menos una cabaña para generar el presupuesto.';
+    const fechaLlegada = document.getElementById('fecha-llegada').value;
+    const fechaSalida = document.getElementById('fecha-salida').value;
+    const personas = document.getElementById('personas').value;
+
+    // --- INICIO DE LA CORRECCIÓN CLAVE ---
+    if (!fechaLlegada || !fechaSalida || !personas || selectedProperties.length === 0) {
+        console.warn('[Debug] Faltan datos para generar el presupuesto. Abortando llamada a la API.');
+        previewTextarea.value = 'Por favor, completa las fechas, personas y selecciona al menos una cabaña para generar el presupuesto.';
         return;
     }
+    // --- FIN DE LA CORRECCIÓN CLAVE ---
     
     previewTextarea.value = 'Generando presupuesto...';
 
@@ -143,10 +148,10 @@ async function generateBudgetText() {
                 nombre: document.getElementById('new-client-name').value || 'Cliente',
                 empresa: document.getElementById('new-client-company').value,
             },
-            fechaLlegada: document.getElementById('fecha-llegada').value,
-            fechaSalida: document.getElementById('fecha-salida').value,
+            fechaLlegada,
+            fechaSalida,
             propiedades: selectedProperties,
-            personas: document.getElementById('personas').value
+            personas
         };
         console.log('[Debug] Payload para /presupuestos/generar-texto:', payload);
         const result = await fetchAPI('/presupuestos/generar-texto', { method: 'POST', body: payload });
@@ -285,7 +290,6 @@ export async function afterRender() {
         console.log('[Debug] 1. Modo edición detectado. ID:', editId);
         await loadClients();
         
-        // --- PASO 1: Llenar todos los campos sin activar eventos ---
         document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
         document.getElementById('fecha-salida').value = params.get('fechaSalida');
         document.getElementById('personas').value = params.get('personas');
@@ -299,7 +303,6 @@ export async function afterRender() {
             console.warn('[Debug] 2. No se encontró el cliente con ID:', clienteId);
         }
 
-        // --- PASO 2: Ejecutar la búsqueda y renderizar la selección ---
         const searchSuccess = await runSearch();
         
         if (searchSuccess) {
@@ -318,7 +321,6 @@ export async function afterRender() {
         await loadClients();
     }
     
-    // --- PASO 3: Ahora que todo está cargado, añadir los event listeners ---
     document.getElementById('client-search').addEventListener('input', filterClients);
     generarBtn.addEventListener('click', runSearch);
     
@@ -329,13 +331,11 @@ export async function afterRender() {
         alert('Presupuesto copiado al portapapeles.');
     });
 
-    ['new-client-name', 'new-client-company', 'fecha-llegada', 'fecha-salida'].forEach(id => {
+    ['new-client-name', 'new-client-company', 'fecha-llegada', 'fecha-salida', 'personas'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.addEventListener('change', async () => {
-                if (selectedProperties.length > 0) {
-                    await generateBudgetText();
-                }
+                await generateBudgetText();
             });
         }
     });
