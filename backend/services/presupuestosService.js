@@ -34,10 +34,12 @@ const generarTextoPresupuesto = async (db, empresaId, cliente, fechaLlegada, fec
     const tarifasSnapshot = await db.collection('empresas').doc(empresaId).collection('tarifas').get();
     const allTarifas = tarifasSnapshot.docs.map(doc => {
         const data = doc.data();
+        const fechaInicio = data.fechaInicio && typeof data.fechaInicio.toDate === 'function' ? data.fechaInicio.toDate() : new Date(data.fechaInicio + 'T00:00:00Z');
+        const fechaTermino = data.fechaTermino && typeof data.fechaTermino.toDate === 'function' ? data.fechaTermino.toDate() : new Date(data.fechaTermino + 'T00:00:00Z');
         return {
             ...data,
-            fechaInicio: data.fechaInicio.toDate(),
-            fechaTermino: data.fechaTermino.toDate()
+            fechaInicio,
+            fechaTermino
         };
     });
 
