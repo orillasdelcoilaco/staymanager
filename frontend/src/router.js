@@ -7,7 +7,8 @@ const views = {
     '/calendario': () => import('./views/calendario.js'),
     '/clientes': () => import('./views/gestionarClientes.js'),
     '/cliente/:id': () => import('./views/perfilCliente.js'),
-    '/agregar-propuesta': () => import('./views/agregarPropuesta.js'), // <-- AÑADIDO
+    '/agregar-propuesta': () => import('./views/agregarPropuesta.js'),
+    '/generar-presupuesto': () => import('./views/generadorPresupuestos.js'), // <-- AÑADIDO
     '/gestionar-alojamientos': () => import('./views/gestionarAlojamientos.js'),
     '/gestionar-canales': () => import('./views/gestionarCanales.js'),
     '/gestionar-tarifas': () => import('./views/gestionarTarifas.js'),
@@ -36,10 +37,10 @@ const menuConfig = [
             { name: '☀️ Gestión Diaria', path: '/gestion-diaria', id: 'gestion-diaria' },
             { name: '📅 Calendario', path: '/calendario', id: 'calendario' },
             { name: '📄 Generar Reportes Rápidos', path: '#', id: 'reportes-rapidos' },
-            { name: '➕ Agregar Propuesta', path: '/agregar-propuesta', id: 'agregar-propuesta' }, // <-- MODIFICADO
+            { name: '➕ Agregar Propuesta', path: '/agregar-propuesta', id: 'agregar-propuesta' },
+            { name: '💲 Generar Presupuestos', path: '/generar-presupuesto', id: 'generar-presupuestos' }, // <-- AÑADIDO
             { name: '🗂️ Gestionar Propuestas', path: '#', id: 'gestionar-propuestas' },
             { name: '💬 Generar mensajes', path: '#', id: 'generar-mensajes' },
-            { name: '💲 Generar Presupuestos', path: '#', id: 'generar-presupuestos' },
         ]
     },
     {

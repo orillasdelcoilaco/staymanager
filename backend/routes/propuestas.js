@@ -6,7 +6,7 @@ module.exports = (db) => {
 
     router.post('/generar', async (req, res) => {
         const { empresaId } = req.user;
-        const { fechaLlegada, fechaSalida, personas, permitirCambios } = req.body;
+        const { fechaLlegada, fechaSalida, personas, permitirCambios, sinCamarotes } = req.body;
 
         if (!fechaLlegada || !fechaSalida || !personas) {
             return res.status(400).json({ error: 'Se requieren fechas y cantidad de personas.' });
@@ -16,7 +16,7 @@ module.exports = (db) => {
         const endDate = new Date(fechaSalida + 'T00:00:00Z');
 
         try {
-            const { availableProperties, allProperties, allTarifas, availabilityMap } = await getAvailabilityData(db, empresaId, startDate, endDate);
+            const { availableProperties, allProperties, allTarifas, availabilityMap } = await getAvailabilityData(db, empresaId, startDate, endDate, sinCamarotes);
             
             let result;
             let isSegmented = !!permitirCambios;

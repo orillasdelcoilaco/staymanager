@@ -1,6 +1,6 @@
 const admin = require('firebase-admin');
 
-async function getAvailabilityData(db, empresaId, startDate, endDate) {
+async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarotes = false) {
     const [propiedadesSnapshot, tarifasSnapshot, reservasSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('propiedades').get(),
         db.collection('empresas').doc(empresaId).collection('tarifas').get(),
@@ -10,7 +10,12 @@ async function getAvailabilityData(db, empresaId, startDate, endDate) {
             .get()
     ]);
 
-    const allProperties = propiedadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let allProperties = propiedadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    if (sinCamarotes) {
+        allProperties = allProperties.filter(prop => !prop.camas || !prop.camas.camarotes || prop.camas.camarotes === 0);
+    }
+
     const allTarifas = tarifasSnapshot.docs.map(doc => {
         const data = doc.data();
         let fechaInicio, fechaTermino;
