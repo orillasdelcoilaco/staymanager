@@ -40,6 +40,19 @@ module.exports = (db) => {
         }
     });
 
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Se añade la ruta PUT que faltaba para actualizar un presupuesto existente.
+    // Esto resuelve el error 404 Not Found que ocurría al guardar en modo edición.
+    router.put('/presupuesto/:id', async (req, res) => {
+        try {
+            const resultado = await guardarPresupuesto(db, req.user.empresaId, { id: req.params.id, ...req.body });
+            res.status(200).json(resultado);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+    // --- FIN DE LA CORRECCIÓN ---
+
     router.get('/', async (req, res) => {
         try {
             const listado = await obtenerPropuestasYPresupuestos(db, req.user.empresaId);
@@ -55,7 +68,7 @@ module.exports = (db) => {
             await aprobarPropuesta(db, req.user.empresaId, idsReservas);
             res.status(200).json({ message: 'Propuesta aprobada y convertida en reserva confirmada.' });
         } catch (error) {
-            res.status(409).json({ error: error.message });
+            res.status(409).json({ error: error.message }); // 409 Conflict
         }
     });
 
