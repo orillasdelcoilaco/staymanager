@@ -125,7 +125,7 @@ export async function render() {
         </div>
 
         <div id="plantilla-modal" class="modal hidden">
-            <div class="modal-content !max-w-4xl">
+            <div class="modal-content !max-w-6xl">
                 <h3 id="modal-title" class="text-xl font-semibold mb-4"></h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <form id="plantilla-form" class="space-y-4 md:col-span-2">
@@ -139,7 +139,7 @@ export async function render() {
                         </div>
                         <div>
                             <label for="texto" class="block text-sm font-medium text-gray-700">Cuerpo del Mensaje</label>
-                            <textarea name="texto" rows="10" required class="form-input"></textarea>
+                            <textarea name="texto" rows="20" required class="form-input"></textarea>
                         </div>
                         <div class="flex justify-end pt-4 border-t">
                             <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
@@ -148,7 +148,7 @@ export async function render() {
                     </form>
                     <div class="md:col-span-1 border-l pl-4">
                         <h4 class="font-semibold text-gray-800 mb-2">Etiquetas Disponibles</h4>
-                        <div id="etiquetas-container" class="space-y-2 max-h-96 overflow-y-auto"></div>
+                        <div id="etiquetas-container" class="space-y-2 max-h-[60vh] overflow-y-auto"></div>
                     </div>
                 </div>
             </div>
