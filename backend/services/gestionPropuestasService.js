@@ -47,7 +47,7 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
                 valores: {
                     valorHuesped: Math.round(precioFinal / propiedades.length),
                 },
-                fechaCreacion: idPropuestaExistente ? admin.firestore.FieldValue.serverTimestamp() : undefined,
+                fechaCreacion: idPropuestaExistente ? admin.firestore.FieldValue.serverTimestamp() : undefined, // Mantener fecha original si es posible
                 fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
             };
             transaction.set(nuevaReservaRef, datosReserva);
@@ -177,8 +177,10 @@ const aprobarPropuesta = async (db, empresaId, idsReservas) => {
             const conflicto = reservasConflictivas.docs.find(doc => doc.data().fechaSalida.toDate() > startDate);
             if (conflicto) {
                 const dataConflicto = conflicto.data();
-                const fechaReserva = dataConflicto.fechaReserva ? dataConflicto.fechaReserva.toDate().toLocaleDateString('es-CL') : 'una fecha no registrada';
-                throw new Error(`La cabaña ${reserva.alojamientoNombre} ya no está disponible. Fue reservada por la reserva ${dataConflicto.idReservaCanal} del canal ${dataConflicto.canalNombre}, creada el ${fechaReserva}.`);
+                const idReserva = dataConflicto.idReservaCanal || dataConflicto.idPropuesta || 'Desconocido';
+                const fechaReservaTimestamp = dataConflicto.fechaCreacion || dataConflicto.fechaReserva;
+                const fechaReserva = fechaReservaTimestamp ? fechaReservaTimestamp.toDate().toLocaleDateString('es-CL') : 'una fecha no registrada';
+                throw new Error(`La cabaña ${reserva.alojamientoNombre} ya no está disponible. Fue reservada por la reserva ${idReserva} del canal ${dataConflicto.canalNombre}, creada el ${fechaReserva}.`);
             }
         }
     }
@@ -222,8 +224,10 @@ const aprobarPresupuesto = async (db, empresaId, presupuestoId) => {
             const conflicto = reservasConflictivas.docs.find(doc => doc.data().fechaSalida.toDate() > startDate);
             if (conflicto) {
                 const dataConflicto = conflicto.data();
-                const fechaReserva = dataConflicto.fechaReserva ? dataConflicto.fechaReserva.toDate().toLocaleDateString('es-CL') : 'una fecha no registrada';
-                throw new Error(`La cabaña ${prop.nombre} ya no está disponible. Fue reservada por la reserva ${dataConflicto.idReservaCanal} del canal ${dataConflicto.canalNombre}, creada el ${fechaReserva}.`);
+                const idReserva = dataConflicto.idReservaCanal || dataConflicto.idPropuesta || 'Desconocido';
+                const fechaReservaTimestamp = dataConflicto.fechaCreacion || dataConflicto.fechaReserva;
+                const fechaReserva = fechaReservaTimestamp ? fechaReservaTimestamp.toDate().toLocaleDateString('es-CL') : 'una fecha no registrada';
+                throw new Error(`La cabaña ${prop.nombre} ya no está disponible. Fue reservada por la reserva ${idReserva} del canal ${dataConflicto.canalNombre}, creada el ${fechaReserva}.`);
             }
         }
     }
