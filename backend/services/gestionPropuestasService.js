@@ -37,8 +37,8 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
                 clienteId,
                 alojamientoId: prop.id,
                 alojamientoNombre: prop.nombre,
-                canalId: 'APP_INTERNA',
-                canalNombre: 'App Interna',
+                canalId: 'APP',
+                canalNombre: 'App',
                 fechaLlegada: admin.firestore.Timestamp.fromDate(new Date(fechaLlegada + 'T00:00:00Z')),
                 fechaSalida: admin.firestore.Timestamp.fromDate(new Date(fechaSalida + 'T00:00:00Z')),
                 totalNoches: noches,
@@ -177,7 +177,7 @@ const aprobarPropuesta = async (db, empresaId, idsReservas) => {
             const conflicto = reservasConflictivas.docs.find(doc => doc.data().fechaSalida.toDate() > startDate);
             if (conflicto) {
                 const dataConflicto = conflicto.data();
-                const idReserva = dataConflicto.idReservaCanal || dataConflicto.idPropuesta || 'Desconocido';
+                const idReserva = dataConflicto.idReservaCanal || dataConflicto.idPropuesta || dataConflicto.idPresupuesto || 'Desconocido';
                 const fechaReservaTimestamp = dataConflicto.fechaCreacion || dataConflicto.fechaReserva;
                 const fechaReserva = fechaReservaTimestamp ? fechaReservaTimestamp.toDate().toLocaleDateString('es-CL') : 'una fecha no registrada';
                 throw new Error(`La cabaña ${reserva.alojamientoNombre} ya no está disponible. Fue reservada por la reserva ${idReserva} del canal ${dataConflicto.canalNombre}, creada el ${fechaReserva}.`);
@@ -224,7 +224,7 @@ const aprobarPresupuesto = async (db, empresaId, presupuestoId) => {
             const conflicto = reservasConflictivas.docs.find(doc => doc.data().fechaSalida.toDate() > startDate);
             if (conflicto) {
                 const dataConflicto = conflicto.data();
-                const idReserva = dataConflicto.idReservaCanal || dataConflicto.idPropuesta || 'Desconocido';
+                const idReserva = dataConflicto.idReservaCanal || dataConflicto.idPropuesta || dataConflicto.idPresupuesto || 'Desconocido';
                 const fechaReservaTimestamp = dataConflicto.fechaCreacion || dataConflicto.fechaReserva;
                 const fechaReserva = fechaReservaTimestamp ? fechaReservaTimestamp.toDate().toLocaleDateString('es-CL') : 'una fecha no registrada';
                 throw new Error(`La cabaña ${prop.nombre} ya no está disponible. Fue reservada por la reserva ${idReserva} del canal ${dataConflicto.canalNombre}, creada el ${fechaReserva}.`);
@@ -240,12 +240,12 @@ const aprobarPresupuesto = async (db, empresaId, presupuestoId) => {
         const datosReserva = {
             id: reservaRef.id,
             idUnicoReserva: `${idUnicoPresupuesto}-${prop.id}`,
-            idPresupuesto: idUnicoPresupuesto,
+            idReservaCanal: idUnicoPresupuesto,
             clienteId: presupuesto.clienteId,
             alojamientoId: prop.id,
             alojamientoNombre: prop.nombre,
-            canalId: 'PRESUPUESTO',
-            canalNombre: 'Presupuesto Aprobado',
+            canalId: 'APP',
+            canalNombre: 'App',
             fechaLlegada: admin.firestore.Timestamp.fromDate(startDate),
             fechaSalida: admin.firestore.Timestamp.fromDate(endDate),
             totalNoches: presupuesto.noches,
