@@ -227,11 +227,11 @@ export async function render() {
     `;
 }
 
-export function afterRender() {
-    loadClients();
+export async function afterRender() {
     document.getElementById('client-search').addEventListener('input', filterClients);
-
-    document.getElementById('generar-propuesta-btn').addEventListener('click', async () => {
+    const generarBtn = document.getElementById('generar-propuesta-btn');
+    
+    const runSearch = async () => {
         const payload = {
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
@@ -239,13 +239,13 @@ export function afterRender() {
             sinCamarotes: document.getElementById('sin-camarotes').checked
         };
         if (!payload.fechaLlegada || !payload.fechaSalida || !payload.personas) {
-            alert('Por favor, completa las fechas y la cantidad de personas.'); return;
+            alert('Por favor, completa las fechas y la cantidad de personas.');
+            return;
         }
 
-        const btn = document.getElementById('generar-propuesta-btn');
         const statusContainer = document.getElementById('status-container');
-        btn.disabled = true;
-        btn.textContent = 'Generando...';
+        generarBtn.disabled = true;
+        generarBtn.textContent = 'Generando...';
         statusContainer.textContent = 'Buscando disponibilidad y sugerencias...';
         statusContainer.classList.remove('hidden');
         document.getElementById('results-container').classList.add('hidden');
@@ -263,11 +263,13 @@ export function afterRender() {
         } catch (error) {
             statusContainer.textContent = `Error: ${error.message}`;
         } finally {
-            btn.disabled = false;
-            btn.textContent = 'Generar Propuesta';
+            generarBtn.disabled = false;
+            generarBtn.textContent = 'Generar Propuesta';
         }
-    });
-    
+    };
+
+    generarBtn.addEventListener('click', runSearch);
+
     document.getElementById('copy-btn').addEventListener('click', () => {
         const textarea = document.getElementById('presupuesto-preview');
         textarea.select();
@@ -323,4 +325,40 @@ export function afterRender() {
             btn.textContent = 'Guardar Borrador';
         }
     });
+    
+    // --- LÓGICA DE EDICIÓN ---
+    await loadClients();
+    const params = new URLSearchParams(window.location.search);
+    const editId = params.get('edit');
+
+    if (editId) {
+        console.log('[Debug Presupuesto] Modo edición detectado. ID:', editId);
+        
+        document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
+        document.getElementById('fecha-salida').value = params.get('fechaSalida');
+        document.getElementById('personas').value = params.get('personas');
+        
+        const clienteId = params.get('clienteId');
+        const client = allClients.find(c => c.id === clienteId);
+        if (client) {
+            console.log('[Debug Presupuesto] Cliente encontrado para edición:', client);
+            selectClient(client);
+        } else {
+            console.warn('[Debug Presupuesto] No se encontró el cliente con ID:', clienteId);
+        }
+
+        await runSearch();
+        
+        if (availabilityData && availabilityData.suggestion) {
+            console.log('[Debug Presupuesto] Datos de disponibilidad cargados, seleccionando propiedades.');
+            const propIds = params.get('propiedades').split(',');
+            document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
+                cb.checked = propIds.includes(cb.dataset.id);
+            });
+            await handleSelectionChange();
+            console.log('[Debug Presupuesto] Proceso de edición completado.');
+        } else {
+            console.error('[Debug Presupuesto] No se pudieron cargar los datos de disponibilidad en modo edición.');
+        }
+    }
 }

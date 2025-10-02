@@ -89,11 +89,17 @@ const guardarPresupuesto = async (db, empresaId, datos) => {
 const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
     const presupuestosRef = db.collection('empresas').doc(empresaId).collection('presupuestos');
+    const propiedadesRef = db.collection('empresas').doc(empresaId).collection('propiedades');
 
-    const [propuestasSnapshot, presupuestosSnapshot] = await Promise.all([
+    const [propuestasSnapshot, presupuestosSnapshot, propiedadesSnapshot, clientesSnapshot] = await Promise.all([
         reservasRef.where('estado', '==', 'Propuesta').orderBy('fechaCreacion', 'desc').get(),
-        presupuestosRef.where('estado', 'in', ['Borrador', 'Enviado']).orderBy('fechaCreacion', 'desc').get()
+        presupuestosRef.where('estado', 'in', ['Borrador', 'Enviado']).orderBy('fechaCreacion', 'desc').get(),
+        propiedadesRef.get(),
+        db.collection('empresas').doc(empresaId).collection('clientes').get()
     ]);
+
+    const propiedadesMap = new Map(propiedadesSnapshot.docs.map(doc => [doc.id, doc.data()]));
+    const clientesMap = new Map(clientesSnapshot.docs.map(doc => [doc.id, doc.data().nombre]));
 
     const propuestasAgrupadas = new Map();
     propuestasSnapshot.forEach(doc => {
@@ -113,20 +119,30 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
         }
         const grupo = propuestasAgrupadas.get(id);
         grupo.monto += data.valores.valorHuesped || 0;
-        grupo.propiedades.push({ id: data.alojamientoId, nombre: data.alojamientoNombre });
+        const propiedad = propiedadesMap.get(data.alojamientoId);
+        grupo.propiedades.push({
+            id: data.alojamientoId,
+            nombre: data.alojamientoNombre,
+            capacidad: propiedad ? propiedad.capacidad : 0
+        });
         grupo.idsReservas.push(data.id);
     });
 
-    const presupuestos = presupuestosSnapshot.docs.map(doc => ({
-        id: doc.id,
-        tipo: 'presupuesto',
-        ...doc.data()
-    }));
+    const presupuestos = presupuestosSnapshot.docs.map(doc => {
+        const data = doc.data();
+        const propiedadesConCapacidad = data.propiedades.map(p => {
+            const propiedad = propiedadesMap.get(p.id);
+            return { ...p, capacidad: propiedad ? propiedad.capacidad : 0 };
+        });
+        return {
+            id: doc.id,
+            tipo: 'presupuesto',
+            ...data,
+            propiedades: propiedadesConCapacidad
+        };
+    });
 
     const resultado = [...propuestasAgrupadas.values(), ...presupuestos];
-    
-    const clientesSnapshot = await db.collection('empresas').doc(empresaId).collection('clientes').get();
-    const clientesMap = new Map(clientesSnapshot.docs.map(doc => [doc.id, doc.data().nombre]));
 
     return resultado.map(item => ({...item, clienteNombre: clientesMap.get(item.clienteId) || item.clienteNombre || 'N/A', propiedadesNombres: item.propiedades.map(p => p.nombre).join(', ')}));
 };

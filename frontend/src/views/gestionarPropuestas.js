@@ -73,21 +73,41 @@ export async function afterRender() {
         if (!id || !tipo) return;
 
         if (target.classList.contains('edit-btn')) {
+            console.log(`[Debug] Botón Editar presionado para ${tipo} con ID: ${id}`);
             const item = todasLasPropuestas.find(p => p.id === id);
-            if (!item) return;
+
+            if (!item) {
+                console.error('[Debug] No se encontró el item correspondiente en todasLasPropuestas.');
+                alert('Error: No se encontró la propuesta para editar.');
+                return;
+            }
+
+            console.log('[Debug] Item encontrado:', item);
+
+            const personas = item.propiedades.reduce((sum, p) => sum + (p.capacidad || 0), 0);
+            console.log(`[Debug] Capacidad total calculada: ${personas}`);
+
+            if (personas === 0) {
+                 console.warn('[Debug] La capacidad calculada es 0. Esto puede ser un error en los datos.');
+            }
+
+            const params = new URLSearchParams({
+                edit: id,
+                clienteId: item.clienteId,
+                fechaLlegada: item.fechaLlegada,
+                fechaSalida: item.fechaSalida,
+                propiedades: item.propiedades.map(p => p.id).join(','),
+                personas: personas
+            });
 
             if (tipo === 'propuesta') {
-                const params = new URLSearchParams({
-                    edit: id,
-                    clienteId: item.clienteId,
-                    fechaLlegada: item.fechaLlegada,
-                    fechaSalida: item.fechaSalida,
-                    propiedades: item.propiedades.map(p => p.id).join(','),
-                    personas: item.propiedades.reduce((sum, p) => sum + (p.capacidad || 0), 0)
-                });
-                handleNavigation(`/agregar-propuesta?${params.toString()}`);
-            } else {
-                alert('La edición de presupuestos formales se implementará en una próxima versión.');
+                const url = `/agregar-propuesta?${params.toString()}`;
+                console.log(`[Debug] Navegando a (Propuesta): ${url}`);
+                handleNavigation(url);
+            } else if (tipo === 'presupuesto') {
+                const url = `/generar-presupuesto?${params.toString()}`;
+                console.log(`[Debug] Navegando a (Presupuesto): ${url}`);
+                handleNavigation(url);
             }
         }
         
