@@ -47,7 +47,7 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
                 valores: {
                     valorHuesped: Math.round(precioFinal / propiedades.length),
                 },
-                fechaCreacion: idPropuestaExistente ? admin.firestore.FieldValue.serverTimestamp() : undefined, // Mantener fecha original si es posible
+                fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
                 fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
             };
             transaction.set(nuevaReservaRef, datosReserva);
