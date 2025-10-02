@@ -5,15 +5,38 @@ let tipos = [];
 let editandoPlantilla = null;
 
 const ETIQUETAS_DISPONIBLES = [
+    // Etiquetas de Mensajes Generales
     { etiqueta: '[CLIENTE_NOMBRE]', descripcion: 'Nombre completo del cliente' },
     { etiqueta: '[RESERVA_ID_CANAL]', descripcion: 'ID de la reserva en el canal de origen' },
     { etiqueta: '[FECHA_LLEGADA]', descripcion: 'Fecha de check-in' },
     { etiqueta: '[FECHA_SALIDA]', descripcion: 'Fecha de check-out' },
-    { etiqueta: '[ALOJAMIENTO_NOMBRE]', descripcion: 'Nombre del alojamiento reservado' },
+    { etiqueta: '[ALOJAMIENTO_NOMBRE]', descripcion: 'Nombre(s) de el/los alojamiento(s) reservado(s)' },
     { etiqueta: '[TOTAL_NOCHES]', descripcion: 'Número total de noches de la estadía' },
     { etiqueta: '[CANTIDAD_HUESPEDES]', descripcion: 'Número de huéspedes en la reserva' },
     { etiqueta: '[SALDO_PENDIENTE]', descripcion: 'Monto del saldo adeudado por el cliente' },
-    { etiqueta: '[COBRO]', descripcion: 'Genera un resumen detallado del cobro (Total, abonos, saldo, etc.)' }
+    { etiqueta: '[COBRO]', descripcion: 'Genera un resumen detallado del cobro (Total, abonos, saldo, etc.)' },
+    
+    // Etiquetas Específicas para Presupuestos
+    { etiqueta: '[CLIENTE_EMPRESA]', descripcion: 'Nombre de la empresa del cliente' },
+    { etiqueta: '[FECHA_EMISION]', descripcion: 'Fecha en que se genera el presupuesto' },
+    { etiqueta: '[GRUPO_SOLICITADO]', descripcion: 'N° de personas solicitadas en el presupuesto' },
+    { etiqueta: '[TOTAL_DIAS]', descripcion: 'Cantidad de días de la estadía (noches + 1)' },
+    { etiqueta: '[LISTA_DE_CABANAS]', descripcion: 'Bloque dinámico con el detalle de cada cabaña' },
+    { etiqueta: '[TOTAL_GENERAL]', descripcion: 'Monto total del presupuesto' },
+    { etiqueta: '[RESUMEN_CANTIDAD_CABANAS]', descripcion: 'N° total de cabañas en el presupuesto' },
+    { etiqueta: '[RESUMEN_CAPACIDAD_TOTAL]', descripcion: 'Suma de la capacidad de las cabañas' },
+
+    // Etiquetas de Configuración de la Empresa
+    { etiqueta: '[EMPRESA_NOMBRE]', descripcion: 'Nombre de tu empresa' },
+    { etiqueta: '[EMPRESA_SLOGAN]', descripcion: 'Slogan o bajada de título de tu empresa' },
+    { etiqueta: '[SERVICIOS_GENERALES]', descripcion: 'Bloque de texto con servicios generales' },
+    { etiqueta: '[CONDICIONES_RESERVA]', descripcion: 'Párrafo con tus condiciones de reserva' },
+    { etiqueta: '[EMPRESA_UBICACION_TEXTO]', descripcion: 'Dirección o texto de ubicación' },
+    { etiqueta: '[EMPRESA_GOOGLE_MAPS_LINK]', descripcion: 'Link a tu ubicación en Google Maps' },
+    { etiqueta: '[USUARIO_NOMBRE]', descripcion: 'Nombre del contacto de tu empresa' },
+    { etiqueta: '[USUARIO_EMAIL]', descripcion: 'Email de contacto de tu empresa' },
+    { etiqueta: '[USUARIO_TELEFONO]', descripcion: 'Teléfono de contacto de tu empresa' },
+    { etiqueta: '[EMPRESA_WEBSITE]', descripcion: 'Sitio web de tu empresa' },
 ];
 
 function abrirModal(plantilla = null) {

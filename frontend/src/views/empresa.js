@@ -6,6 +6,17 @@ function renderFormulario() {
     const formContainer = document.getElementById('form-container');
     if (!formContainer) return;
 
+    // --- Lógica para el estado de Google Auth ---
+    const authStatusHtml = empresaInfo.googleRefreshToken
+        ? `<div class="p-4 bg-green-100 border border-green-300 rounded-md">
+               <p class="font-semibold text-green-800">Estado: Activa</p>
+               <p class="text-sm text-green-700 mt-1">La sincronización con Google Contacts está configurada y funcionando.</p>
+           </div>`
+        : `<div class="p-4 bg-yellow-100 border border-yellow-300 rounded-md">
+               <p class="font-semibold text-yellow-800">Estado: Inactiva</p>
+               <p class="text-sm text-yellow-700 mt-1">Para activar la creación automática de contactos, autoriza la conexión en la sección de Configuración.</p>
+           </div>`;
+
     formContainer.innerHTML = `
         <form id="empresa-form" class="space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -53,6 +64,11 @@ function renderFormulario() {
                     <label for="googleMapsLink" class="block text-sm font-medium text-gray-700">Link a Google Maps</label>
                     <input type="url" id="googleMapsLink" name="googleMapsLink" value="${empresaInfo.googleMapsLink || ''}" class="mt-1 form-input">
                 </div>
+            </div>
+
+            <div class="border-t pt-6">
+                <h3 class="text-base font-semibold text-gray-800 mb-2">Sincronización con Google Contacts</h3>
+                ${authStatusHtml}
             </div>
 
             <div class="flex justify-end pt-6 border-t">
@@ -103,7 +119,7 @@ export async function afterRender() {
             try {
                 await fetchAPI('/empresa', { method: 'PUT', body: datos });
                 alert('¡Datos de la empresa actualizados con éxito!');
-                empresaInfo = datos; // Actualizamos la data local
+                empresaInfo = { ...empresaInfo, ...datos }; // Actualizamos la data local
             } catch (error) {
                 alert(`Error al guardar: ${error.message}`);
             } finally {
