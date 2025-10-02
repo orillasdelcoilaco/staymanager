@@ -110,14 +110,16 @@ function findSegmentedCombination(allProperties, allTarifas, availabilityMap, re
             const isOccupied = (availabilityMap.get(prop.id) || []).some(res =>
                 currentDate >= res.start && currentDate < res.end
             );
-            return !isOccupied && prop.capacidad >= requiredCapacity;
+            return !isOccupied;
         });
 
-        if (dailyAvailable.length === 0) {
+        const dailyCombination = findNormalCombination(dailyAvailable, requiredCapacity);
+
+        if (dailyCombination.combination.length === 0) {
             isPossible = false;
             break;
         }
-        allDailyOptions.push({ date: new Date(currentDate), options: dailyAvailable });
+        allDailyOptions.push({ date: new Date(currentDate), options: dailyCombination.combination });
     }
 
     if (!isPossible || allDailyOptions.length === 0) {
