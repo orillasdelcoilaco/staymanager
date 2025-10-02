@@ -73,13 +73,22 @@ export async function afterRender() {
         if (!id || !tipo) return;
 
         if (target.classList.contains('edit-btn')) {
-            alert('Funcionalidad de edición pendiente de desarrollo.');
-            // Futuro: Redirigir a la vista de edición correspondiente
-            // if (tipo === 'propuesta') {
-            //     handleNavigation(`/agregar-propuesta?edit=${id}`);
-            // } else {
-            //     handleNavigation(`/generar-presupuesto?edit=${id}`);
-            // }
+            const item = todasLasPropuestas.find(p => p.id === id);
+            if (!item) return;
+
+            if (tipo === 'propuesta') {
+                const params = new URLSearchParams({
+                    edit: id,
+                    clienteId: item.clienteId,
+                    fechaLlegada: item.fechaLlegada,
+                    fechaSalida: item.fechaSalida,
+                    propiedades: item.propiedades.map(p => p.id).join(','),
+                    personas: item.propiedades.reduce((sum, p) => sum + p.capacidad, 0)
+                });
+                handleNavigation(`/agregar-propuesta?${params.toString()}`);
+            } else {
+                alert('La edición de presupuestos formales se implementará en una próxima versión.');
+            }
         }
         
         if (target.classList.contains('approve-btn')) {

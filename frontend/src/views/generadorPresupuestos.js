@@ -83,7 +83,10 @@ async function renderSelectionUI() {
     availableList.innerHTML = availabilityData.availableProperties.filter(p => !suggestedIds.has(p.id)).map(p => createPropertyCheckbox(p, false)).join('');
     
     document.querySelectorAll('.propiedad-checkbox').forEach(cb => cb.addEventListener('change', handleSelectionChange));
-    await updatePricingAndBudgetText();
+    
+    // Asignar el precio inicial y generar el texto
+    updateSummary(availabilityData.suggestion.pricing);
+    await generateBudgetText();
 }
 
 async function handleSelectionChange() {
@@ -114,13 +117,12 @@ async function updatePricingAndBudgetText() {
         await generateBudgetText();
     } catch (error) {
         previewTextarea.value = `Error al recalcular: ${error.message}`;
-        updateSummary({ totalPrice: 0, nights: currentPricing.nights, details: [] });
+        updateSummary({ totalPrice: 0, nights: currentPricing.nights || 0, details: [] });
     }
 }
 
 function updateSummary(pricing) {
     currentPricing = pricing;
-    document.getElementById('summary-precio-lista').textContent = formatCurrency(pricing.totalPrice);
     document.getElementById('summary-precio-final').textContent = formatCurrency(pricing.totalPrice);
 }
 
