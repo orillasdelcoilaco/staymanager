@@ -176,6 +176,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
             
             let segmentTotalPrice = 0;
             for (const prop of segment.propiedades) {
+                let propTotalPrice = 0;
                 for (let d = new Date(segmentStartDate); d < segmentEndDate; d.setDate(d.getDate() + 1)) {
                     const currentDate = new Date(d);
                     const tarifasDelDia = allTarifas.filter(t => 
@@ -186,9 +187,10 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
                     if (tarifasDelDia.length > 0) {
                         const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
                         const precioNoche = (canalDirectoId && tarifa.precios[canalDirectoId]) ? tarifa.precios[canalDirectoId].valor : 0;
-                        segmentTotalPrice += precioNoche;
+                        propTotalPrice += precioNoche;
                     }
                 }
+                segmentTotalPrice += propTotalPrice;
             }
             
             totalPrice += segmentTotalPrice;

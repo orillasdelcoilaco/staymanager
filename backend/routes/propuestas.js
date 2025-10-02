@@ -16,7 +16,7 @@ module.exports = (db) => {
         const endDate = new Date(fechaSalida + 'T00:00:00Z');
 
         try {
-            const { availableProperties, allProperties, allTarifas, availabilityMap, allCanales } = await getAvailabilityData(db, empresaId, startDate, endDate);
+            const { availableProperties, allProperties, allTarifas, availabilityMap } = await getAvailabilityData(db, empresaId, startDate, endDate);
             
             let result;
             let isSegmented = !!permitirCambios;
@@ -38,9 +38,11 @@ module.exports = (db) => {
                 });
             }
 
-            const pricing = await calculatePrice(db, empresaId, combination, startDate, endDate, allTarifas, allCanales, isSegmented);
+            const pricing = await calculatePrice(db, empresaId, combination, startDate, endDate, allTarifas, isSegmented);
             
-            const propertiesInSuggestion = isSegmented ? combination.map(seg => seg.propiedad) : combination;
+            const propertiesInSuggestion = isSegmented 
+                ? combination.flatMap(seg => seg.propiedades) 
+                : combination;
 
             res.status(200).json({
                 suggestion: { 
@@ -71,8 +73,8 @@ module.exports = (db) => {
             const startDate = new Date(fechaLlegada + 'T00:00:00Z');
             const endDate = new Date(fechaSalida + 'T00:00:00Z');
             
-            const { allTarifas, allCanales } = await getAvailabilityData(db, empresaId, startDate, endDate);
-            const pricing = await calculatePrice(db, empresaId, propiedades, startDate, endDate, allTarifas, allCanales);
+            const { allTarifas } = await getAvailabilityData(db, empresaId, startDate, endDate);
+            const pricing = await calculatePrice(db, empresaId, propiedades, startDate, endDate, allTarifas);
             res.status(200).json(pricing);
         } catch (error) {
             console.error("Error al recalcular precio:", error);
