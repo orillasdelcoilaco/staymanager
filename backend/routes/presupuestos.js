@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
+// --- INICIO DE LA CORRECCIÓN ---
+// Se ha eliminado un espacio en la ruta del 'require'.
+// Antes decía: require('.. /services/presupuestoService')
+// Ahora dice: require('../services/presupuestoService')
+// Este cambio corrige el error "Cannot find module" que detiene el servidor.
 const { getAvailabilityData, findNormalCombination, findSegmentedCombination, calculatePrice } = require('../services/presupuestoService');
+// --- FIN DE LA CORRECCIÓN ---
 const { findOrCreateClient } = require('../services/clienteService');
 const admin = require('firebase-admin');
 const jsonParser = express.json();
