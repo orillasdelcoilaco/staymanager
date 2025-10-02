@@ -1,10 +1,11 @@
 const admin = require('firebase-admin');
-const { findOrCreateClient } = require('./clientesService');
+const { crearOActualizarCliente } = require('./clientesService');
 
 /**
  * Crea una o más reservas en Firestore a partir de una solicitud manual (propuesta).
  * La estructura de datos creada es idéntica a la de una reserva importada.
  * @param {admin.firestore.Firestore} db - Instancia de Firestore.
+ * @param {string} empresaId - El ID de la empresa a la que pertenece la reserva.
  * @param {object} data - Los datos de la reserva del frontend.
  * @returns {Promise<string>} El ID de la propuesta creada.
  */
