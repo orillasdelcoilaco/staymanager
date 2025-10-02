@@ -1,6 +1,8 @@
 import { fetchAPI } from '../api.js';
+import { handleNavigation } from '../router.js';
 
 let allClients = [];
+let allProperties = [];
 let selectedClient = null;
 let availabilityData = {};
 let selectedProperties = [];
@@ -78,13 +80,12 @@ function renderSelectionUI() {
          suggestionList.innerHTML = `
             <h4 class="font-medium text-gray-700">Propuesta de Itinerario</h4>
             <div class="space-y-2 p-3 bg-white rounded-md border">${
-                availabilityData.suggestion.itinerary.map(segment => {
-                    const nombresPropiedades = segment.propiedades.map(p => p.nombre).join(' + ');
+                availabilityData.suggestion.itinerary.map((segment, index) => {
                     return `
-                        <div class="grid grid-cols-5 gap-4 items-center text-sm p-2 border-b last:border-b-0">
-                            <span class="font-semibold col-span-2">${nombresPropiedades}</span>
+                        <div class="grid grid-cols-5 gap-4 items-center text-sm">
+                            <span class="font-semibold">${segment.propiedad.nombre}</span>
                             <span>${new Date(segment.startDate).toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
-                            <span class="text-center">al</span>
+                            <span>al</span>
                             <span>${new Date(segment.endDate).toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
                         </div>`;
                 }).join('')
@@ -229,10 +230,10 @@ export function render() {
     `;
 }
 
-export function afterRender() {
-    loadClients();
-
-    document.getElementById('buscar-btn').addEventListener('click', async () => {
+export async function afterRender() {
+    const buscarBtn = document.getElementById('buscar-btn');
+    
+    const runSearch = async () => {
         const payload = {
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
@@ -240,38 +241,43 @@ export function afterRender() {
             permitirCambios: document.getElementById('permitir-cambios').checked
         };
         if (!payload.fechaLlegada || !payload.fechaSalida || !payload.personas) {
-            alert('Por favor, completa las fechas y la cantidad de personas.'); return;
+            alert('Por favor, completa las fechas y la cantidad de personas.'); return null;
         }
 
-        const btn = document.getElementById('buscar-btn');
         const statusContainer = document.getElementById('status-container');
-        btn.disabled = true;
-        btn.textContent = 'Buscando...';
+        buscarBtn.disabled = true;
+        buscarBtn.textContent = 'Buscando...';
         statusContainer.textContent = 'Buscando disponibilidad y sugerencias...';
         statusContainer.classList.remove('hidden');
         document.getElementById('results-container').classList.add('hidden');
 
         try {
             availabilityData = await fetchAPI('/propuestas/generar', { method: 'POST', body: payload });
+            allProperties = availabilityData.allProperties;
             if (availabilityData.suggestion) {
                 statusContainer.classList.add('hidden');
                 document.getElementById('results-container').classList.remove('hidden');
                 renderSelectionUI();
+                return availabilityData;
             } else {
                 statusContainer.textContent = availabilityData.message || 'No se encontró disponibilidad.';
+                return null;
             }
         } catch (error) {
             statusContainer.textContent = `Error: ${error.message}`;
+            return null;
         } finally {
-            btn.disabled = false;
-            btn.textContent = 'Buscar Disponibilidad';
+            buscarBtn.disabled = false;
+            buscarBtn.textContent = 'Buscar Disponibilidad';
         }
-    });
+    };
+
+    buscarBtn.addEventListener('click', runSearch);
     
     document.getElementById('client-search').addEventListener('input', filterClients);
     document.querySelectorAll('.discount-input').forEach(input => input.addEventListener('input', () => updateSummary(currentPricing)));
 
-document.getElementById('guardar-propuesta-btn').addEventListener('click', async () => {
+    document.getElementById('guardar-propuesta-btn').addEventListener('click', async () => {
         const btn = document.getElementById('guardar-propuesta-btn');
         let clienteParaGuardar = selectedClient;
         
@@ -299,7 +305,7 @@ document.getElementById('guardar-propuesta-btn').addEventListener('click', async
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
             propiedades: selectedProperties,
-            precioFinal: parseFloat(document.getElementById('summary-precio-final').textContent.replace(/\$|\./g, '')) || 0,
+            precioFinal: parseFloat(document.getElementById('summary-precio-final').textContent.replace(/\$|\./g, '').replace(',','.')) || 0,
             noches: currentPricing.nights
         };
         
@@ -309,12 +315,38 @@ document.getElementById('guardar-propuesta-btn').addEventListener('click', async
         try {
             await fetchAPI('/gestion-propuestas/propuesta-tentativa', { method: 'POST', body: payload });
             alert('Reserva tentativa creada con éxito. Puedes gestionarla en "Gestionar Propuestas".');
-            // Opcional: limpiar el formulario o redirigir
+            handleNavigation('/gestionar-propuestas');
         } catch (error) {
             alert(`Error al guardar la propuesta: ${error.message}`);
         } finally {
             btn.disabled = false;
             btn.textContent = 'Crear Reserva Tentativa';
         }
-    });    
+    });
+
+    // --- LÓGICA DE EDICIÓN ---
+    await loadClients();
+    const params = new URLSearchParams(window.location.search);
+    const editId = params.get('edit');
+
+    if (editId) {
+        document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
+        document.getElementById('fecha-salida').value = params.get('fechaSalida');
+        document.getElementById('personas').value = params.get('personas');
+        
+        const clienteId = params.get('clienteId');
+        const client = allClients.find(c => c.id === clienteId);
+        if (client) {
+            selectClient(client);
+        }
+
+        const data = await runSearch();
+        if (data) {
+            const propIds = params.get('propiedades').split(',');
+            document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
+                cb.checked = propIds.includes(cb.dataset.id);
+            });
+            await handleSelectionChange();
+        }
+    }
 }
