@@ -47,7 +47,7 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
                 valores: {
                     valorHuesped: Math.round(precioFinal / propiedades.length),
                 },
-                fechaCreacion: idPropuestaExistente ? admin.firestore.FieldValue.serverTimestamp() : undefined, // Mantener fecha original si es posible
+                fechaCreacion: idPropuestaExistente ? admin.firestore.FieldValue.serverTimestamp() : undefined,
                 fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
             };
             transaction.set(nuevaReservaRef, datosReserva);
@@ -177,7 +177,8 @@ const aprobarPropuesta = async (db, empresaId, idsReservas) => {
             const conflicto = reservasConflictivas.docs.find(doc => doc.data().fechaSalida.toDate() > startDate);
             if (conflicto) {
                 const dataConflicto = conflicto.data();
-                throw new Error(`La disponibilidad ha cambiado. La cabaña ${reserva.alojamientoNombre} ya no está disponible. Conflicto con reserva ${dataConflicto.idReservaCanal} del canal ${dataConflicto.canalNombre}.`);
+                const fechaReserva = dataConflicto.fechaReserva ? dataConflicto.fechaReserva.toDate().toLocaleDateString('es-CL') : 'una fecha no registrada';
+                throw new Error(`La cabaña ${reserva.alojamientoNombre} ya no está disponible. Fue reservada por la reserva ${dataConflicto.idReservaCanal} del canal ${dataConflicto.canalNombre}, creada el ${fechaReserva}.`);
             }
         }
     }
@@ -213,7 +214,17 @@ const aprobarPresupuesto = async (db, empresaId, presupuestoId) => {
 
     for (const prop of presupuesto.propiedades) {
         if (!availableIds.has(prop.id)) {
-            throw new Error(`La disponibilidad ha cambiado. La cabaña ${prop.nombre} ya no está disponible para las fechas solicitadas.`);
+            const reservasConflictivas = await db.collection('empresas').doc(empresaId).collection('reservas')
+                .where('alojamientoId', '==', prop.id)
+                .where('estado', '==', 'Confirmada')
+                .where('fechaLlegada', '<', admin.firestore.Timestamp.fromDate(endDate))
+                .get();
+            const conflicto = reservasConflictivas.docs.find(doc => doc.data().fechaSalida.toDate() > startDate);
+            if (conflicto) {
+                const dataConflicto = conflicto.data();
+                const fechaReserva = dataConflicto.fechaReserva ? dataConflicto.fechaReserva.toDate().toLocaleDateString('es-CL') : 'una fecha no registrada';
+                throw new Error(`La cabaña ${prop.nombre} ya no está disponible. Fue reservada por la reserva ${dataConflicto.idReservaCanal} del canal ${dataConflicto.canalNombre}, creada el ${fechaReserva}.`);
+            }
         }
     }
 
