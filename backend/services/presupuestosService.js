@@ -1,111 +1,258 @@
-const { calculatePrice } = require('./propuestasService');
-const { obtenerTiposPlantilla, obtenerPlantillasPorEmpresa } = require('./plantillasService');
-const { obtenerDetallesEmpresa } = require('./empresaService');
+const admin = require('firebase-admin');
 
-const formatDate = (dateString) => {
-    return new Date(dateString + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' });
-};
-
-const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
-
-const generarTextoPresupuesto = async (db, empresaId, cliente, fechaLlegada, fechaSalida, propiedades, personas) => {
-    const [tipos, plantillas, empresaData] = await Promise.all([
-        obtenerTiposPlantilla(db, empresaId),
-        obtenerPlantillasPorEmpresa(db, empresaId),
-        obtenerDetallesEmpresa(db, empresaId)
+async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarotes = false) {
+    const [propiedadesSnapshot, tarifasSnapshot, reservasSnapshot] = await Promise.all([
+        db.collection('empresas').doc(empresaId).collection('propiedades').get(),
+        db.collection('empresas').doc(empresaId).collection('tarifas').get(),
+        db.collection('empresas').doc(empresaId).collection('reservas')
+            .where('fechaLlegada', '<', admin.firestore.Timestamp.fromDate(endDate))
+            .where('estado', '==', 'Confirmada')
+            .get()
     ]);
 
-    const tipoPresupuesto = tipos.find(t => t.nombre.toLowerCase().includes('presupuesto'));
-    if (!tipoPresupuesto) {
-        throw new Error('No se encontró un "Tipo de Plantilla" llamado "Presupuesto". Por favor, créalo en la sección de gestión de plantillas.');
+    let allProperties = propiedadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    if (sinCamarotes) {
+        allProperties = allProperties.map(prop => {
+            if (prop.camas && prop.camas.camarotes > 0) {
+                const capacidadReducida = prop.capacidad - prop.camas.camarotes;
+                return { ...prop, capacidad: capacidadReducida };
+            }
+            return prop;
+        });
     }
 
-    const plantilla = plantillas.find(p => p.tipoId === tipoPresupuesto.id);
-    if (!plantilla) {
-        throw new Error('No se encontró ninguna plantilla de tipo "Presupuesto". Por favor, crea una.');
-    }
-
-    let texto = plantilla.texto;
-
-    const startDate = new Date(fechaLlegada + 'T00:00:00Z');
-    const endDate = new Date(fechaSalida + 'T00:00:00Z');
-    const noches = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
-
-    const tarifasSnapshot = await db.collection('empresas').doc(empresaId).collection('tarifas').get();
     const allTarifas = tarifasSnapshot.docs.map(doc => {
         const data = doc.data();
-        const fechaInicio = data.fechaInicio && typeof data.fechaInicio.toDate === 'function' ? data.fechaInicio.toDate() : new Date(data.fechaInicio + 'T00:00:00Z');
-        const fechaTermino = data.fechaTermino && typeof data.fechaTermino.toDate === 'function' ? data.fechaTermino.toDate() : new Date(data.fechaTermino + 'T00:00:00Z');
-        return {
-            ...data,
-            fechaInicio,
-            fechaTermino
-        };
+        let fechaInicio, fechaTermino;
+
+        if (data.fechaInicio && typeof data.fechaInicio.toDate === 'function') {
+            fechaInicio = data.fechaInicio.toDate();
+        } else if (typeof data.fechaInicio === 'string') {
+            fechaInicio = new Date(data.fechaInicio + 'T00:00:00Z');
+        } else {
+            return null;
+        }
+
+        if (data.fechaTermino && typeof data.fechaTermino.toDate === 'function') {
+            fechaTermino = data.fechaTermino.toDate();
+        } else if (typeof data.fechaTermino === 'string') {
+            fechaTermino = new Date(data.fechaTermino + 'T00:00:00Z');
+        } else {
+            return null;
+        }
+        
+        if (isNaN(fechaInicio.getTime()) || isNaN(fechaTermino.getTime())) {
+            return null;
+        }
+
+        return { ...data, fechaInicio, fechaTermino };
+    }).filter(Boolean);
+
+    const propiedadesConTarifa = allProperties.filter(prop => {
+        return allTarifas.some(tarifa => {
+            return tarifa.alojamientoId === prop.id && tarifa.fechaInicio <= endDate && tarifa.fechaTermino >= startDate;
+        });
     });
 
-    const pricing = await calculatePrice(db, empresaId, propiedades, startDate, endDate, allTarifas);
+    const overlappingReservations = [];
+    reservasSnapshot.forEach(doc => {
+        const reserva = doc.data();
+        if (reserva.fechaSalida.toDate() > startDate) {
+            overlappingReservations.push(reserva);
+        }
+    });
     
-    let detalleCabañas = '';
-    for (const prop of propiedades) {
-        const precioDetalle = pricing.details.find(d => d.nombre === prop.nombre);
-        detalleCabañas += `🔹 Cabaña ${prop.nombre} (Capacidad: ${prop.capacidad} personas)\n`;
-        if (prop.camas) {
-            if (prop.camas.matrimoniales) detalleCabañas += `* ${prop.camas.matrimoniales} dormitorio(s) matrimoniales${prop.equipamiento?.piezaEnSuite ? ' (uno en suite)' : ''}.\n`;
-            if (prop.camas.plazaYMedia) detalleCabañas += `* ${prop.camas.plazaYMedia} cama(s) de 1.5 plazas.\n`;
-            if (prop.camas.camarotes) detalleCabañas += `* ${prop.camas.camarotes} camarote(s).\n`;
+    const availabilityMap = new Map();
+    allProperties.forEach(prop => availabilityMap.set(prop.id, []));
+    overlappingReservations.forEach(reserva => {
+        if (availabilityMap.has(reserva.alojamientoId)) {
+            availabilityMap.get(reserva.alojamientoId).push({
+                start: reserva.fechaLlegada.toDate(),
+                end: reserva.fechaSalida.toDate()
+            });
         }
-        if (prop.numBanos) detalleCabañas += `* ${prop.numBanos} baño(s) completo(s).\n`;
-        
-        if (prop.descripcion) {
-            detalleCabañas += `* ${prop.descripcion}\n`;
-        }
+    });
 
-        if (prop.equipamiento) {
-            if (prop.equipamiento.terrazaTechada) detalleCabañas += `* Terraza techada.\n`;
-            if (prop.equipamiento.tinaja) detalleCabañas += `* Tinaja privada.\n`;
-            if (prop.equipamiento.parrilla) detalleCabañas += `* Parrilla.\n`;
-        }
+    const availableProperties = propiedadesConTarifa.filter(prop => {
+        const reservations = availabilityMap.get(prop.id) || [];
+        return !reservations.some(res => startDate < res.end && endDate > res.start);
+    });
 
-        if (prop.linkFotos) detalleCabañas += `📷 Ver fotos: ${prop.linkFotos}\n`;
-        if (precioDetalle) {
-            detalleCabañas += `💵 Valor por noche: ${formatCurrency(precioDetalle.precioPorNoche)}\n`;
-            detalleCabañas += `💵 Total por ${noches} noches: ${formatCurrency(precioDetalle.precioTotal)}\n`;
+    return { availableProperties, allProperties, allTarifas, availabilityMap };
+}
+
+function findNormalCombination(availableProperties, requiredCapacity) {
+    const sortedCabanas = availableProperties.sort((a, b) => b.capacidad - a.capacidad);
+    
+    let combination = [];
+    let currentCapacity = 0;
+    
+    for (const prop of sortedCabanas) {
+        if (currentCapacity < requiredCapacity) {
+            combination.push(prop);
+            currentCapacity += prop.capacidad;
+        } else {
+            break;
         }
-        detalleCabañas += '\n';
     }
 
-    const reemplazos = {
-        '[CLIENTE_NOMBRE]': cliente.nombre,
-        '[CLIENTE_EMPRESA]': cliente.empresa || '',
-        '[FECHA_EMISION]': new Date().toLocaleDateString('es-CL'),
-        '[FECHA_LLEGADA]': formatDate(fechaLlegada),
-        '[FECHA_SALIDA]': formatDate(fechaSalida),
-        '[TOTAL_DIAS]': noches + 1,
-        '[TOTAL_NOCHES]': noches,
-        '[GRUPO_SOLICITADO]': personas,
-        '[LISTA_DE_CABANAS]': detalleCabañas.trim(),
-        '[TOTAL_GENERAL]': formatCurrency(pricing.totalPrice),
-        '[RESUMEN_CANTIDAD_CABANAS]': propiedades.length,
-        '[RESUMEN_CAPACIDAD_TOTAL]': propiedades.reduce((sum, p) => sum + p.capacidad, 0),
-        '[EMPRESA_NOMBRE]': empresaData.nombre || '',
-        '[EMPRESA_SLOGAN]': empresaData.slogan || '',
-        '[SERVICIOS_GENERALES]': empresaData.serviciosGenerales || '',
-        '[CONDICIONES_RESERVA]': empresaData.condicionesReserva || '',
-        '[EMPRESA_UBICACION_TEXTO]': empresaData.ubicacionTexto || '',
-        '[EMPRESA_GOOGLE_MAPS_LINK]': empresaData.googleMapsLink || '',
-        '[USUARIO_NOMBRE]': empresaData.contactoNombre || '',
-        '[USUARIO_EMAIL]': empresaData.contactoEmail || '',
-        '[USUARIO_TELEFONO]': empresaData.contactoTelefono || '',
-        '[EMPRESA_WEBSITE]': empresaData.website || '',
+    if (currentCapacity < requiredCapacity) {
+        return { combination: [], capacity: 0 };
+    }
+
+    return { combination, capacity: currentCapacity };
+}
+
+function findSegmentedCombination(allProperties, allTarifas, availabilityMap, requiredCapacity, startDate, endDate) {
+    const areCombinationsEqual = (comboA, comboB) => {
+        if (comboA.length !== comboB.length) return false;
+        const idsA = comboA.map(p => p.id).sort();
+        const idsB = comboB.map(p => p.id).sort();
+        return idsA.every((id, index) => id === idsB[index]);
     };
-    
-    for (const [etiqueta, valor] of Object.entries(reemplazos)) {
-        texto = texto.replace(new RegExp(etiqueta.replace(/\[/g, '\\[').replace(/\]/g, '\\]'), 'g'), valor);
+
+    const allDailyOptions = [];
+    let isPossible = true;
+
+    for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+        const currentDate = new Date(d);
+        const dailyAvailable = allProperties.filter(prop => {
+            const hasTarifa = allTarifas.some(t => 
+                t.alojamientoId === prop.id && t.fechaInicio <= currentDate && t.fechaTermino >= currentDate
+            );
+            if (!hasTarifa) return false;
+
+            const isOccupied = (availabilityMap.get(prop.id) || []).some(res =>
+                currentDate >= res.start && currentDate < res.end
+            );
+            return !isOccupied;
+        });
+
+        const dailyCombination = findNormalCombination(dailyAvailable, requiredCapacity);
+
+        if (dailyCombination.combination.length === 0) {
+            isPossible = false;
+            break;
+        }
+        allDailyOptions.push({ date: new Date(currentDate), options: dailyCombination.combination });
     }
 
-    return texto;
-};
+    if (!isPossible || allDailyOptions.length === 0) {
+        return { combination: [], capacity: 0, dailyOptions: [] };
+    }
+
+    let itinerary = [];
+    if (allDailyOptions.length > 0) {
+        let currentSegment = {
+            propiedades: allDailyOptions[0].options,
+            startDate: allDailyOptions[0].date,
+            endDate: new Date(new Date(allDailyOptions[0].date).setDate(allDailyOptions[0].date.getDate() + 1))
+        };
+
+        for (let i = 1; i < allDailyOptions.length; i++) {
+            const day = allDailyOptions[i];
+            if (areCombinationsEqual(day.options, currentSegment.propiedades)) {
+                currentSegment.endDate = new Date(new Date(day.date).setDate(day.date.getDate() + 1));
+            } else {
+                itinerary.push(currentSegment);
+                currentSegment = {
+                    propiedades: day.options,
+                    startDate: day.date,
+                    endDate: new Date(new Date(day.date).setDate(day.date.getDate() + 1))
+                };
+            }
+        }
+        itinerary.push(currentSegment);
+    }
+    
+    return { combination: itinerary, capacity: requiredCapacity, dailyOptions: allDailyOptions };
+}
+
+async function calculatePrice(db, empresaId, items, startDate, endDate, allTarifas, isSegmented = false) {
+    let totalPrice = 0;
+    const priceDetails = [];
+    
+    const canalesSnapshot = await db.collection('empresas').doc(empresaId).collection('canales').get();
+    const allCanales = canalesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const canalDirecto = allCanales.find(c => c.nombre.toLowerCase().includes('directo')) || 
+                         allCanales.find(c => c.nombre.toLowerCase().includes('sodc'));
+    const canalDirectoId = canalDirecto ? canalDirecto.id : null;
+
+    if (isSegmented) {
+        for (const segment of items) {
+            const segmentStartDate = new Date(segment.startDate);
+            const segmentEndDate = new Date(segment.endDate);
+            const segmentNights = Math.max(1, Math.round((segmentEndDate - segmentStartDate) / (1000 * 60 * 60 * 24)));
+            
+            let segmentTotalPrice = 0;
+            for (const prop of segment.propiedades) {
+                let propTotalPrice = 0;
+                for (let d = new Date(segmentStartDate); d < segmentEndDate; d.setDate(d.getDate() + 1)) {
+                    const currentDate = new Date(d);
+                    const tarifasDelDia = allTarifas.filter(t => 
+                        t.alojamientoId === prop.id &&
+                        t.fechaInicio <= currentDate &&
+                        t.fechaTermino >= currentDate
+                    );
+                    if (tarifasDelDia.length > 0) {
+                        const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
+                        const precioNoche = (canalDirectoId && tarifa.precios && tarifa.precios[canalDirectoId]) ? tarifa.precios[canalDirectoId].valor : 0;
+                        propTotalPrice += precioNoche;
+                    }
+                }
+                segmentTotalPrice += propTotalPrice;
+            }
+            
+            totalPrice += segmentTotalPrice;
+            priceDetails.push({
+                nombre: segment.propiedades.map(p => p.nombre).join(' + '),
+                precioTotal: segmentTotalPrice,
+                precioPorNoche: segmentTotalPrice > 0 ? segmentTotalPrice / segmentNights : 0,
+                noches: segmentNights,
+                fechaInicio: segmentStartDate.toISOString().split('T')[0],
+                fechaTermino: segmentEndDate.toISOString().split('T')[0]
+            });
+        }
+        const totalNightsOverall = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
+        return { totalPrice, nights: totalNightsOverall, details: priceDetails };
+    }
+
+    const nights = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
+    if (nights <= 0) {
+        return { totalPrice: 0, nights: 0, details: [] };
+    }
+
+    for (const prop of items) {
+        let propTotalPrice = 0;
+        for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+            const currentDate = new Date(d);
+            
+            const tarifasDelDia = allTarifas.filter(t => 
+                t.alojamientoId === prop.id &&
+                t.fechaInicio <= currentDate &&
+                t.fechaTermino >= currentDate
+            );
+
+            if (tarifasDelDia.length > 0) {
+                const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
+                const precioNoche = (canalDirectoId && tarifa.precios && tarifa.precios[canalDirectoId]) ? tarifa.precios[canalDirectoId].valor : 0;
+                propTotalPrice += precioNoche;
+            }
+        }
+        totalPrice += propTotalPrice;
+        priceDetails.push({
+            nombre: prop.nombre,
+            precioTotal: propTotalPrice,
+            precioPorNoche: propTotalPrice > 0 ? propTotalPrice / nights : 0,
+        });
+    }
+    return { totalPrice, nights, details: priceDetails };
+}
 
 module.exports = {
-    generarTextoPresupuesto
+    getAvailabilityData,
+    findNormalCombination,
+    findSegmentedCombination,
+    calculatePrice
 };
