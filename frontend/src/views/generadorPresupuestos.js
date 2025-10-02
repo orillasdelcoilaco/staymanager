@@ -325,10 +325,6 @@ export async function afterRender() {
         alert('Presupuesto copiado al portapapeles.');
     });
 
-    document.getElementById('new-client-name').addEventListener('change', generateBudgetText);
-    document.getElementById('new-client-company').addEventListener('change', generateBudgetText);
-
-
     document.getElementById('guardar-presupuesto-btn').addEventListener('click', async () => {
         const btn = document.getElementById('guardar-presupuesto-btn');
         const clienteParaGuardar = {
