@@ -83,7 +83,7 @@ export async function afterRender() {
                     fechaLlegada: item.fechaLlegada,
                     fechaSalida: item.fechaSalida,
                     propiedades: item.propiedades.map(p => p.id).join(','),
-                    personas: item.propiedades.reduce((sum, p) => sum + p.capacidad, 0)
+                    personas: item.propiedades.reduce((sum, p) => sum + (p.capacidad || 0), 0)
                 });
                 handleNavigation(`/agregar-propuesta?${params.toString()}`);
             } else {
