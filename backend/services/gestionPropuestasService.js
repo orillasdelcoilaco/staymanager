@@ -120,7 +120,9 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
     const propuestasAgrupadas = new Map();
     propuestasSnapshot.forEach(doc => {
         const data = doc.data();
-        const id = data.idReservaCanal;
+        const id = data.idReservaCanal; // <-- INICIO DE LA CORRECCIÓN
+        if (!id) return; // Ignorar reservas de propuesta malformadas sin ID de grupo
+
         if (!propuestasAgrupadas.has(id)) {
             propuestasAgrupadas.set(id, {
                 id,
@@ -142,7 +144,7 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
             capacidad: propiedad ? propiedad.capacidad : 0
         });
         grupo.idsReservas.push(data.id);
-    });
+    }); // <-- FIN DE LA CORRECCIÓN
 
     const presupuestos = presupuestosSnapshot.docs.map(doc => {
         const data = doc.data();
