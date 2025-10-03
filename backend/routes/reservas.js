@@ -27,7 +27,10 @@ module.exports = (db) => {
 
     router.get('/:id', async (req, res) => {
         try {
-            const reserva = await obtenerClientePorId(db, req.user.empresaId, req.params.id);
+            // --- INICIO DE LA CORRECCIÓN ---
+            // Se corrige la llamada a la función incorrecta.
+            const reserva = await obtenerReservaPorId(db, req.user.empresaId, req.params.id);
+            // --- FIN DE LA CORRECCIÓN ---
             res.status(200).json(reserva);
         } catch (error) {
             res.status(404).json({ error: error.message });
