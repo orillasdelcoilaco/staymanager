@@ -502,30 +502,43 @@ export function afterRender() {
     formEdit.addEventListener('submit', async(e) => {
         e.preventDefault();
         if (!editandoReserva) return;
-
+        
         const idAntiguo = editandoReserva.idReservaCanal;
         const idNuevo = formEdit.idReservaCanal.value;
 
         if (idAntiguo !== idNuevo) {
             if (confirm(`Estás a punto de cambiar el ID de la reserva de "${idAntiguo}" a "${idNuevo}". Esto actualizará todas las referencias en cascada (pagos, notas, archivos). ¿Estás seguro?`)) {
                 try {
-                    await fetchAPI(`/reservas/actualizar-id-canal/${editandoReserva.id}`, {
+                    const resultadoCascada = await fetchAPI(`/reservas/actualizar-id-canal/${editandoReserva.id}`, {
                         method: 'PUT',
                         body: { idAntiguo, idNuevo }
                     });
-                    // La actualización en cascada ya se hizo. Ahora guardamos el resto de los datos.
+                    
+                    const { firestore, storage } = resultadoCascada.summary;
+                    let summaryText = '¡Actualización de ID en cascada completada!\n\n';
+                    summaryText += 'Documentos actualizados en la base de datos:\n';
+                    for (const [key, value] of Object.entries(firestore)) {
+                        summaryText += `- ${key}: ${value} documento(s)\n`;
+                    }
+                    summaryText += `\nArchivos renombrados en Storage: ${storage.renombrados}\n`;
+                    if (storage.errores > 0) {
+                        summaryText += `Archivos con error al renombrar: ${storage.errores}\n`;
+                    }
+                    
+                    alert(summaryText);
+
                 } catch (error) {
                     alert(`Error crítico al actualizar el ID en cascada: ${error.message}`);
-                    return; // Detenemos el proceso si la actualización del ID falla.
+                    return;
                 }
             } else {
-                formEdit.idReservaCanal.value = idAntiguo; // Revertimos el cambio si el usuario cancela.
+                formEdit.idReservaCanal.value = idAntiguo;
                 return;
             }
         }
         
         const datosReserva = {
-            idReservaCanal: idNuevo, // Usamos el ID nuevo (o el antiguo si no cambió)
+            idReservaCanal: idNuevo,
             alojamientoId: formEdit.alojamientoId.value,
             clienteId: formEdit.clienteId.value,
             fechaLlegada: formEdit.fechaLlegada.value,

@@ -27,7 +27,7 @@ module.exports = (db) => {
 
     router.get('/:id', async (req, res) => {
         try {
-            const reserva = await obtenerReservaPorId(db, req.user.empresaId, req.params.id);
+            const reserva = await obtenerClientePorId(db, req.user.empresaId, req.params.id);
             res.status(200).json(reserva);
         } catch (error) {
             res.status(404).json({ error: error.message });
@@ -48,8 +48,11 @@ module.exports = (db) => {
             const { empresaId } = req.user;
             const { id } = req.params;
             const { idAntiguo, idNuevo } = req.body;
-            await actualizarIdReservaCanalEnCascada(db, empresaId, id, idAntiguo, idNuevo);
-            res.status(200).json({ message: 'El ID de la reserva se ha actualizado en cascada correctamente.' });
+            const summary = await actualizarIdReservaCanalEnCascada(db, empresaId, id, idAntiguo, idNuevo);
+            res.status(200).json({ 
+                message: 'El ID de la reserva se ha actualizado en cascada correctamente.',
+                summary: summary
+            });
         } catch (error) {
             console.error("Error en la ruta de actualización de ID en cascada:", error);
             res.status(500).json({ error: error.message });

@@ -430,16 +430,23 @@ const actualizarIdReservaCanalEnCascada = async (db, empresaId, idReserva, idAnt
     if (!idAntiguo || !idNuevo || idAntiguo === idNuevo) {
         throw new Error("Se requieren un ID antiguo y uno nuevo, y deben ser diferentes.");
     }
-    
-    return db.runTransaction(async (transaction) => {
-        // --- INICIO DE LA CORRECCIÓN ---
-        // FASE 1: Lectura
+
+    const summary = {
+        firestore: {},
+        storage: { renombrados: 0, errores: 0 },
+        googleContacts: { actualizado: false, mensaje: 'No fue necesario actualizar.' }
+    };
+
+    // 1. Actualización en Firestore
+    await db.runTransaction(async (transaction) => {
         const updatesToPerform = [];
         
         for (const item of idUpdateManifest) {
             const collectionRef = db.collection('empresas').doc(empresaId).collection(item.collection);
             const snapshot = await transaction.get(collectionRef.where(item.field, '==', idAntiguo));
             
+            summary.firestore[item.collection] = snapshot.size;
+
             snapshot.forEach(doc => {
                 const updateData = { [item.field]: idNuevo };
                 if (item.isGroupIdentifier) {
@@ -449,12 +456,33 @@ const actualizarIdReservaCanalEnCascada = async (db, empresaId, idReserva, idAnt
             });
         }
 
-        // FASE 2: Escritura
         updatesToPerform.forEach(update => {
             transaction.update(update.ref, update.data);
         });
-        // --- FIN DE LA CORRECCIÓN ---
     });
+
+    // 2. Operaciones fuera de la transacción (Storage, Google Contacts, etc.)
+    const transaccionesRef = db.collection('empresas').doc(empresaId).collection('transacciones');
+    const transaccionesSnapshot = await transaccionesRef.where('reservaIdOriginal', '==', idNuevo).get();
+
+    const batch = db.batch();
+    for(const doc of transaccionesSnapshot.docs) {
+        const transaccion = doc.data();
+        if (transaccion.enlaceComprobante && transaccion.enlaceComprobante.includes(idAntiguo)) {
+            try {
+                const nuevaUrl = await renameFileByUrl(transaccion.enlaceComprobante, idNuevo);
+                if (nuevaUrl !== transaccion.enlaceComprobante) {
+                    batch.update(doc.ref, { enlaceComprobante: nuevaUrl });
+                    summary.storage.renombrados++;
+                }
+            } catch (error) {
+                summary.storage.errores++;
+            }
+        }
+    }
+    await batch.commit();
+
+    return summary;
 };
 
 
