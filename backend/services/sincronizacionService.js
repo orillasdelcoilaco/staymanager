@@ -128,7 +128,6 @@ const parsearMoneda = (valor, separadorDecimal = ',') => {
 };
 
 const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, nombreArchivoOriginal, usuarioEmail) => {
-    console.log(`[DEBUG] Iniciando procesamiento de archivo para la empresa ${empresaId}`);
     await actualizarValorDolarApi(db, empresaId);
 
     const idCarga = await registrarCarga(db, empresaId, canalId, nombreArchivoOriginal, usuarioEmail);
@@ -182,7 +181,6 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
 
             const fechaLlegadaCruda = get('fechaLlegada');
             let fechaLlegada = parsearFecha(fechaLlegadaCruda, formatoFecha);
-            console.log(`[DEBUG-FECHA] ID: ${idReservaCanal}, Fecha Cruda: "${fechaLlegadaCruda}", Fecha Parseada: ${fechaLlegada}`);
 
             let fechaSalida = parsearFecha(get('fechaSalida'), formatoFecha);
 
@@ -245,6 +243,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             const totalNoches = Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24));
             
             const idUnicoReserva = `${idReservaCanal}-${alojamientoId}`;
+            console.log(`[DEBUG-ID-UNICO] Generado para importación: ${idUnicoReserva}`);
 
             const datosReserva = {
                 empresaId: empresaId,

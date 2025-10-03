@@ -441,7 +441,6 @@ const actualizarIdReservaCanalEnCascada = async (db, empresaId, idReserva, idAnt
     if (!reservaDoc.exists) throw new Error("La reserva principal no fue encontrada.");
     const reservaData = reservaDoc.data();
 
-    // --- INICIO DE LA CORRECCIÓN ---
     // 1. Actualización en Google Contacts (fuera de la transacción)
     const clienteDoc = await db.collection('empresas').doc(empresaId).collection('clientes').doc(reservaData.clienteId).get();
     if (clienteDoc.exists && clienteDoc.data().googleContactSynced) {
@@ -459,7 +458,6 @@ const actualizarIdReservaCanalEnCascada = async (db, empresaId, idReserva, idAnt
             summary.googleContacts.mensaje = `Error al actualizar en Google: ${error.message}`;
         }
     }
-    // --- FIN DE LA CORRECCIÓN ---
 
     // 2. Actualización en Firestore (dentro de la transacción)
     await db.runTransaction(async (transaction) => {
@@ -474,6 +472,8 @@ const actualizarIdReservaCanalEnCascada = async (db, empresaId, idReserva, idAnt
             snapshot.forEach(doc => {
                 const updateData = { [item.field]: idNuevo };
                 if (item.isGroupIdentifier) {
+                    const docData = doc.data();
+                    updateData['idUnicoReserva'] = `${idNuevo}-${docData.alojamientoId}`;
                     updateData['edicionesManuales.idReservaCanal'] = true;
                 }
                 updatesToPerform.push({ ref: doc.ref, data: updateData });
