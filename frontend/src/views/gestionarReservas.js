@@ -11,7 +11,12 @@ let transaccionesActuales = [];
 // --- UTILS ---
 const formatDate = (dateString) => {
     if (!dateString) return '-';
-    return new Date(dateString + 'T00:00:00Z').toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Nos aseguramos de tomar solo la parte de la fecha del string, antes de la 'T'.
+    // Esto hace que la función sea compatible tanto con '2026-02-14' como con '2026-02-14T00:00:00.000Z'.
+    const datePart = dateString.split('T')[0];
+    return new Date(datePart + 'T00:00:00Z').toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
+    // --- FIN DE LA CORRECCIÓN ---
 };
 const formatDateTime = (dateString) => {
     if (!dateString) return '-';
