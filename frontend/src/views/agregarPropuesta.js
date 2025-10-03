@@ -1,3 +1,5 @@
+// frontend/src/views/agregarPropuesta.js
+
 import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
 
@@ -227,6 +229,18 @@ export function render() {
                 </div>
             </div>
         </div>
+
+        <div id="propuesta-guardada-modal" class="modal hidden">
+            <div class="modal-content !max-w-2xl">
+                <h3 class="text-xl font-semibold mb-4">Propuesta Guardada con Éxito</h3>
+                <p class="text-sm text-gray-600 mb-4">Copia el siguiente resumen y envíalo al cliente. Puedes gestionar esta y otras propuestas en la nueva sección "Gestionar Propuestas".</p>
+                <textarea id="propuesta-texto" rows="15" class="form-input w-full bg-gray-50 font-mono text-xs"></textarea>
+                <div class="flex justify-end space-x-2 mt-4">
+                    <button id="copiar-propuesta-btn" class="btn-secondary">Copiar</button>
+                    <button id="cerrar-propuesta-modal-btn" class="btn-primary">Cerrar</button>
+                </div>
+            </div>
+        </div>
     `;
 }
 
@@ -300,7 +314,7 @@ export async function afterRender() {
             return;
         }
 
-        const payload = {
+        const payloadGuardar = {
             cliente: clienteParaGuardar,
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
@@ -316,15 +330,39 @@ export async function afterRender() {
             const endpoint = editId ? `/gestion-propuestas/propuesta-tentativa/${editId}` : '/gestion-propuestas/propuesta-tentativa';
             const method = editId ? 'PUT' : 'POST';
             
-            await fetchAPI(endpoint, { method, body: payload });
-            alert(`Propuesta ${editId ? 'actualizada' : 'creada'} con éxito. Puedes gestionarla en "Gestionar Propuestas".`);
-            handleNavigation('/gestionar-propuestas');
+            const resultadoGuardado = await fetchAPI(endpoint, { method, body: payloadGuardar });
+            
+            const payloadTexto = {
+                ...payloadGuardar,
+                personas: document.getElementById('personas').value,
+                idPropuesta: resultadoGuardado.id
+            };
+
+            const resultadoTexto = await fetchAPI('/propuestas/generar-texto', { method: 'POST', body: payloadTexto });
+
+            document.getElementById('propuesta-texto').value = resultadoTexto.texto;
+            document.getElementById('propuesta-guardada-modal').classList.remove('hidden');
+
         } catch (error) {
             alert(`Error al guardar la propuesta: ${error.message}`);
         } finally {
             btn.disabled = false;
             btn.textContent = editId ? 'Actualizar Propuesta' : 'Crear Reserva Tentativa';
         }
+    });
+
+    document.getElementById('cerrar-propuesta-modal-btn').addEventListener('click', () => {
+        document.getElementById('propuesta-guardada-modal').classList.add('hidden');
+        handleNavigation('/gestionar-propuestas');
+    });
+
+    document.getElementById('copiar-propuesta-btn').addEventListener('click', () => {
+        const textarea = document.getElementById('propuesta-texto');
+        textarea.select();
+        navigator.clipboard.writeText(textarea.value);
+        const btn = document.getElementById('copiar-propuesta-btn');
+        btn.textContent = '¡Copiado!';
+        setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
     });
 
     await loadClients();

@@ -1,3 +1,5 @@
+// frontend/src/views/gestionarPlantillas.js
+
 import { fetchAPI } from '../api.js';
 
 let plantillas = [];
@@ -16,14 +18,22 @@ const ETIQUETAS_DISPONIBLES = [
     { etiqueta: '[SALDO_PENDIENTE]', descripcion: 'Monto del saldo adeudado por el cliente' },
     { etiqueta: '[COBRO]', descripcion: 'Genera un resumen detallado del cobro (Total, abonos, saldo, etc.)' },
     
-    // Etiquetas Específicas para Presupuestos
+    // Etiquetas Específicas para Propuestas y Presupuestos
+    { etiqueta: '[PROPUESTA_ID]', descripcion: 'ID único generado para la propuesta de reserva' },
+    { etiqueta: '[FECHAS_ESTADIA_TEXTO]', descripcion: 'Texto formateado de las fechas (ej: 7 al 17 de octubre)' },
+    { etiqueta: '[DETALLE_PROPIEDADES_PROPUESTA]', descripcion: 'Bloque con el detalle de las cabañas seleccionadas' },
+    { etiqueta: '[RESUMEN_VALORES_PROPUESTA]', descripcion: 'Bloque con el desglose de precios por noche y totales' },
+    { etiqueta: '[SUBTOTAL_PROPUESTA]', descripcion: 'Monto subtotal de la propuesta' },
+    { etiqueta: '[FECHA_VENCIMIENTO_PROPUESTA]', descripcion: 'Fecha y hora de expiración de la propuesta' },
+    { etiqueta: '[PORCENTAJE_ABONO]', descripcion: 'Porcentaje de abono requerido (ej: 10%)' },
+    { etiqueta: '[MONTO_ABONO]', descripcion: 'Monto del abono requerido' },
     { etiqueta: '[CLIENTE_EMPRESA]', descripcion: 'Nombre de la empresa del cliente' },
-    { etiqueta: '[FECHA_EMISION]', descripcion: 'Fecha en que se genera el presupuesto' },
-    { etiqueta: '[GRUPO_SOLICITADO]', descripcion: 'N° de personas solicitadas en el presupuesto' },
+    { etiqueta: '[FECHA_EMISION]', descripcion: 'Fecha en que se genera el documento' },
+    { etiqueta: '[GRUPO_SOLICITADO]', descripcion: 'N° de personas solicitadas' },
     { etiqueta: '[TOTAL_DIAS]', descripcion: 'Cantidad de días de la estadía (noches + 1)' },
-    { etiqueta: '[LISTA_DE_CABANAS]', descripcion: 'Bloque dinámico con el detalle de cada cabaña' },
-    { etiqueta: '[TOTAL_GENERAL]', descripcion: 'Monto total del presupuesto' },
-    { etiqueta: '[RESUMEN_CANTIDAD_CABANAS]', descripcion: 'N° total de cabañas en el presupuesto' },
+    { etiqueta: '[LISTA_DE_CABANAS]', descripcion: 'Bloque dinámico con detalle para presupuestos' },
+    { etiqueta: '[TOTAL_GENERAL]', descripcion: 'Monto total del documento' },
+    { etiqueta: '[RESUMEN_CANTIDAD_CABANAS]', descripcion: 'N° total de cabañas' },
     { etiqueta: '[RESUMEN_CAPACIDAD_TOTAL]', descripcion: 'Suma de la capacidad de las cabañas' },
 
     // Etiquetas de Configuración de la Empresa
@@ -92,7 +102,7 @@ function renderTabla() {
 function renderEtiquetas() {
     const container = document.getElementById('etiquetas-container');
     if (!container) return;
-    container.innerHTML = ETIQUETAS_DISPONIBLES.map(e => `
+    container.innerHTML = ETIQUETAS_DISPONIBLES.sort((a, b) => a.etiqueta.localeCompare(b.etiqueta)).map(e => `
         <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
             <div class="text-sm">
                 <code class="font-bold text-indigo-600">${e.etiqueta}</code>
