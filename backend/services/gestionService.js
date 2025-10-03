@@ -1,3 +1,5 @@
+// backend/services/gestionService.js
+
 const admin = require('firebase-admin');
 
 const getReservasPendientes = async (db, empresaId) => {
@@ -87,6 +89,7 @@ const getReservasPendientes = async (db, empresaId) => {
                 numeroDeReservas: clienteActual?.numeroDeReservas || 1,
                 fechaLlegada: data.fechaLlegada?.toDate(),
                 fechaSalida: data.fechaSalida?.toDate(),
+                totalNoches: data.totalNoches, // <-- CORRECCIÓN AQUÍ
                 estado: data.estado,
                 estadoGestion: data.estadoGestion,
                 abonoTotal: abonosMap.get(reservaId) || 0,
@@ -105,12 +108,13 @@ const getReservasPendientes = async (db, empresaId) => {
         const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
             acc.valorTotalHuesped += r.valores?.valorHuesped || 0;
             acc.costoCanal += (r.valores?.comision > 0 ? r.valores.comision : r.valores?.costoCanal || 0);
+            acc.valorListaBaseTotal += r.valores?.valorOriginal || 0;
             if (r.ajusteManualRealizado) acc.ajusteManualRealizado = true;
             if (r.potencialCalculado) acc.potencialCalculado = true;
             if (r.clienteGestionado) acc.clienteGestionado = true;
             if (r.documentos) acc.documentos = { ...acc.documentos, ...r.documentos };
             return acc;
-        }, { valorTotalHuesped: 0, costoCanal: 0, ajusteManualRealizado: false, potencialCalculado: false, clienteGestionado: false, documentos: {} });
+        }, { valorTotalHuesped: 0, costoCanal: 0, valorListaBaseTotal: 0, ajusteManualRealizado: false, potencialCalculado: false, clienteGestionado: false, documentos: {} });
         
         const resultado = {
             ...grupo,

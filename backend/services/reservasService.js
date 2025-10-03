@@ -25,10 +25,8 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
         let hayCambios = false;
         const datosAActualizar = {};
 
-        // --- INICIO DE LA FUSIÓN INTELIGENTE ---
         const nuevosValores = { ...reservaExistente.valores };
         for (const key in datosReserva.valores) {
-            // Solo actualiza el campo si NO ha sido editado manualmente
             if (!ediciones[`valores.${key}`]) {
                 if (nuevosValores[key] !== datosReserva.valores[key]) {
                     nuevosValores[key] = datosReserva.valores[key];
@@ -38,7 +36,6 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
         }
         datosAActualizar.valores = nuevosValores;
 
-        // Actualiza otros campos de la reserva si no han sido editados manualmente
         const camposSimples = ['moneda', 'estado', 'alojamientoId', 'fechaLlegada', 'fechaSalida'];
         camposSimples.forEach(campo => {
             if (!ediciones[campo] && datosReserva[campo] && JSON.stringify(reservaExistente[campo]) !== JSON.stringify(datosReserva[campo])) {
@@ -46,9 +43,7 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
                 hayCambios = true;
             }
         });
-        // --- FIN DE LA FUSIÓN INTELIGENTE ---
         
-        // El idCarga siempre se debe actualizar para reflejar la última importación
         if (datosReserva.idCarga && reservaExistente.idCarga !== datosReserva.idCarga) {
             datosAActualizar.idCarga = datosReserva.idCarga;
             hayCambios = true;
@@ -464,7 +459,7 @@ const actualizarIdReservaCanalEnCascada = async (db, empresaId, idReserva, idAnt
 
             snapshot.forEach(doc => {
                 const updateData = { [item.field]: idNuevo };
-                if (item.isGroupIdentifier) {
+                if (item.collection === 'reservas') { // <-- CORRECCIÓN AQUÍ
                     const docData = doc.data();
                     updateData['idUnicoReserva'] = `${idNuevo}-${docData.alojamientoId}`;
                     updateData['edicionesManuales.idReservaCanal'] = true;
