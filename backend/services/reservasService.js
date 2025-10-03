@@ -24,41 +24,36 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
         
         let hayCambios = false;
         const datosAActualizar = {};
+
+        // --- INICIO DE LA FUSIÓN INTELIGENTE ---
+        const nuevosValores = { ...reservaExistente.valores };
+        for (const key in datosReserva.valores) {
+            // Solo actualiza el campo si NO ha sido editado manualmente
+            if (!ediciones[`valores.${key}`]) {
+                if (nuevosValores[key] !== datosReserva.valores[key]) {
+                    nuevosValores[key] = datosReserva.valores[key];
+                    hayCambios = true;
+                }
+            }
+        }
+        datosAActualizar.valores = nuevosValores;
+
+        // Actualiza otros campos de la reserva si no han sido editados manualmente
+        const camposSimples = ['moneda', 'estado', 'alojamientoId', 'fechaLlegada', 'fechaSalida'];
+        camposSimples.forEach(campo => {
+            if (!ediciones[campo] && datosReserva[campo] && JSON.stringify(reservaExistente[campo]) !== JSON.stringify(datosReserva[campo])) {
+                datosAActualizar[campo] = datosReserva[campo];
+                hayCambios = true;
+            }
+        });
+        // --- FIN DE LA FUSIÓN INTELIGENTE ---
         
+        // El idCarga siempre se debe actualizar para reflejar la última importación
         if (datosReserva.idCarga && reservaExistente.idCarga !== datosReserva.idCarga) {
             datosAActualizar.idCarga = datosReserva.idCarga;
             hayCambios = true;
         }
 
-        if (!ediciones['valores.valorTotal'] && !ediciones['valores.valorHuesped'] && !ediciones['valores.valorPotencial']) {
-             if (JSON.stringify(reservaExistente.valores) !== JSON.stringify(datosReserva.valores)) {
-                datosAActualizar.valores = datosReserva.valores;
-                hayCambios = true;
-            }
-        }
-
-        if (!ediciones.moneda && reservaExistente.moneda !== datosReserva.moneda) {
-            datosAActualizar.moneda = datosReserva.moneda;
-            hayCambios = true;
-        }
-        
-        if (!ediciones.estado && reservaExistente.estado !== datosReserva.estado) {
-            datosAActualizar.estado = datosReserva.estado;
-            hayCambios = true;
-        }
-        if (!ediciones.alojamientoId && !reservaExistente.alojamientoId) {
-            datosAActualizar.alojamientoId = datosReserva.alojamientoId;
-            hayCambios = true;
-        }
-        if (!ediciones.fechaLlegada && reservaExistente.fechaLlegada.toDate().getTime() !== datosReserva.fechaLlegada.getTime()) {
-            datosAActualizar.fechaLlegada = datosReserva.fechaLlegada;
-            hayCambios = true;
-        }
-        if (!ediciones.fechaSalida && reservaExistente.fechaSalida.toDate().getTime() !== datosReserva.fechaSalida.getTime()) {
-            datosAActualizar.fechaSalida = datosReserva.fechaSalida;
-            hayCambios = true;
-        }
-        
         if (hayCambios) {
             datosAActualizar.fechaActualizacion = admin.firestore.FieldValue.serverTimestamp();
             await reservaDoc.ref.update(datosAActualizar);
@@ -78,8 +73,8 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
     const reservaExistente = reservaDoc.data();
     const edicionesManuales = reservaExistente.edicionesManuales || {};
 
-    if (datosNuevos.fechaLlegada) datosNuevos.fechaLlegada = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaLlegada));
-    if (datosNuevos.fechaSalida) datosNuevos.fechaSalida = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaSalida));
+    if (datosNuevos.fechaLlegada) datosNuevos.fechaLlegada = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaLlegada + 'T00:00:00Z'));
+    if (datosNuevos.fechaSalida) datosNuevos.fechaSalida = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaSalida + 'T00:00:00Z'));
 
     Object.keys(datosNuevos).forEach(key => {
         const valorNuevo = datosNuevos[key];
@@ -441,7 +436,6 @@ const actualizarIdReservaCanalEnCascada = async (db, empresaId, idReserva, idAnt
     if (!reservaDoc.exists) throw new Error("La reserva principal no fue encontrada.");
     const reservaData = reservaDoc.data();
 
-    // 1. Actualización en Google Contacts (fuera de la transacción)
     const clienteDoc = await db.collection('empresas').doc(empresaId).collection('clientes').doc(reservaData.clienteId).get();
     if (clienteDoc.exists && clienteDoc.data().googleContactSynced) {
         const clienteData = clienteDoc.data();
@@ -459,7 +453,6 @@ const actualizarIdReservaCanalEnCascada = async (db, empresaId, idReserva, idAnt
         }
     }
 
-    // 2. Actualización en Firestore (dentro de la transacción)
     await db.runTransaction(async (transaction) => {
         const updatesToPerform = [];
         
@@ -485,7 +478,6 @@ const actualizarIdReservaCanalEnCascada = async (db, empresaId, idReserva, idAnt
         });
     });
 
-    // 3. Operaciones de Storage (fuera de la transacción)
     const transaccionesRef = db.collection('empresas').doc(empresaId).collection('transacciones');
     const transaccionesSnapshot = await transaccionesRef.where('reservaIdOriginal', '==', idNuevo).get();
 
