@@ -158,7 +158,12 @@ function updateSummary(pricing) {
     const canal = allCanales.find(c => c.id === canalId);
     const moneda = canal ? canal.moneda : 'CLP';
 
-    const precioListaOriginal = pricing.totalPrice;
+    const precioListaCLP = pricing.totalPrice;
+    let precioListaOriginal = precioListaCLP;
+    if (moneda === 'USD' && valorDolarDia > 0) {
+        precioListaOriginal = precioListaCLP / valorDolarDia;
+    }
+    
     document.getElementById('summary-noches').textContent = pricing.nights || 0;
     document.getElementById('summary-precio-lista').textContent = `${formatCurrency(precioListaOriginal, moneda)} (${moneda})`;
 
@@ -202,7 +207,11 @@ function handleCanalChange() {
     document.getElementById('valor-dolar-container').classList.toggle('hidden', moneda !== 'USD');
     
     if (availabilityData.suggestion) {
-        updateSummary(currentPricing);
+        // Al cambiar de canal, es necesario volver a buscar para obtener las tarifas correctas
+        const buscarBtn = document.getElementById('buscar-btn');
+        if (buscarBtn) {
+            buscarBtn.click();
+        }
     }
 }
 
