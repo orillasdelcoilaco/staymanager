@@ -11,7 +11,6 @@ const prepararMensaje = async (db, empresaId, grupoReserva, tipoMensaje) => {
 
     const tipo = todosLosTipos.find(t => t.nombre.toLowerCase().includes(tipoMensaje.toLowerCase()));
     if (!tipo) {
-        // Fallback para buscar "despedida" si "salida" no existe
         if (tipoMensaje.toLowerCase() === 'salida') {
             const tipoDespedida = todosLosTipos.find(t => t.nombre.toLowerCase().includes('despedida'));
             if (tipoDespedida) {
@@ -31,7 +30,7 @@ const prepararMensaje = async (db, empresaId, grupoReserva, tipoMensaje) => {
 };
 
 const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
-    const { cliente, propiedades, fechaLlegada, fechaSalida, personas, noches, precioFinal, idPropuesta } = datosPropuesta;
+    const { cliente, propiedades, fechaLlegada, fechaSalida, personas, noches, precioFinal, idPropuesta, precioLista, descuento } = datosPropuesta;
 
     const [plantillas, tipos, empresaData] = await Promise.all([
         obtenerPlantillasPorEmpresa(db, empresaId),
@@ -64,11 +63,24 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
         return detalle + '\n' + detalles.join('\n');
     }).join('\n\n');
 
-    let resumenValores = propiedades.map(prop => {
-        const precioNoche = noches > 0 ? (precioFinal / noches / propiedades.length) : 0;
-        return `(1) Cabaña ${prop.nombre} - ${formatCurrency(precioNoche)}`;
+    const precioListaTotal = propiedades.reduce((sum, prop) => {
+        const precioDetalle = precioLista.details.find(d => d.nombre === prop.nombre);
+        return sum + (precioDetalle ? precioDetalle.precioTotal : 0);
+    }, 0);
+
+    let resumenValores = `📊 Detalle por Alojamiento (${noches} Noches)\n----------------------------------\n`;
+    resumenValores += propiedades.map(prop => {
+        const precioDetalle = precioLista.details.find(d => d.nombre === prop.nombre);
+        return `${prop.nombre}: ${formatCurrency(precioDetalle ? precioDetalle.precioTotal : 0)}`;
     }).join('\n');
-    resumenValores += `\n\n📈 *Total Noches / Valor*\n----------------------------------\n(1) ${noches} Noches = ${formatCurrency(precioFinal)}`;
+    
+    resumenValores += `\n\n📈 Totales Generales\n----------------------------------\n`;
+    resumenValores += `Subtotal: ${formatCurrency(precioListaTotal)}\n`;
+    if (descuento > 0) {
+        resumenValores += `Descuento Aplicado: -${formatCurrency(descuento)}\n`;
+    }
+    resumenValores += `----------------------------------\n`;
+    resumenValores += `*TOTAL A PAGAR: ${formatCurrency(precioFinal)}* (IVA incluido)`;
 
     const fechaVencimiento = new Date();
     fechaVencimiento.setDate(fechaVencimiento.getDate() + 1);
@@ -86,7 +98,7 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
         '[GRUPO_SOLICITADO]': personas,
         '[DETALLE_PROPIEDADES_PROPUESTA]': detallePropiedades,
         '[RESUMEN_VALORES_PROPUESTA]': resumenValores,
-        '[SUBTOTAL_PROPUESTA]': formatCurrency(precioFinal),
+        '[SUBTOTAL_PROPUESTA]': formatCurrency(precioListaTotal),
         '[TOTAL_GENERAL]': formatCurrency(precioFinal),
         '[FECHA_VENCIMIENTO_PROPUESTA]': fechaVencimientoStr,
         '[PORCENTAJE_ABONO]': `${porcentajeAbono}%`,

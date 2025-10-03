@@ -401,6 +401,8 @@ export async function afterRender() {
         const canal = allCanales.find(c => c.id === canalSelect.value);
 
         const precioFinalCLP = parseFloat(document.getElementById('summary-precio-final').textContent.replace(/\$|\./g, '').replace(',','.')) || 0;
+        const precioListaCLP = currentPricing.totalPriceCLP;
+        const descuentoCLP = precioListaCLP - precioFinalCLP;
         const valorOriginal = canal.moneda === 'USD' ? (precioFinalCLP / valorDolarDia) : precioFinalCLP;
 
         const payloadGuardar = {
@@ -429,7 +431,9 @@ export async function afterRender() {
             const payloadTexto = {
                 ...payloadGuardar,
                 personas: document.getElementById('personas').value,
-                idPropuesta: resultadoGuardado.id
+                idPropuesta: resultadoGuardado.id,
+                precioLista: currentPricing,
+                descuento: descuentoCLP
             };
 
             const resultadoTexto = await fetchAPI('/propuestas/generar-texto', { method: 'POST', body: payloadTexto });
