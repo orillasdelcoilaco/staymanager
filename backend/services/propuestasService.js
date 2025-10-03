@@ -171,59 +171,22 @@ function findSegmentedCombination(allProperties, allTarifas, availabilityMap, re
     return { combination: itinerary, capacity: requiredCapacity, dailyOptions: allDailyOptions };
 }
 
-async function calculatePrice(db, empresaId, items, startDate, endDate, allTarifas, canalId, isSegmented = false) {
-    let totalPrice = 0;
+async function calculatePrice(db, empresaId, items, startDate, endDate, allTarifas, canalId, valorDolarDia, isSegmented = false) {
+    const canalDoc = await db.collection('empresas').doc(empresaId).collection('canales').doc(canalId).get();
+    if (!canalDoc.exists) throw new Error("El canal seleccionado no es válido.");
+    const monedaOriginal = canalDoc.data().moneda;
+
+    let totalEnMonedaOriginal = 0;
     const priceDetails = [];
-
-    if (isSegmented) {
-        for (const segment of items) {
-            const segmentStartDate = new Date(segment.startDate);
-            const segmentEndDate = new Date(segment.endDate);
-            const segmentNights = Math.max(1, Math.round((segmentEndDate - segmentStartDate) / (1000 * 60 * 60 * 24)));
-            
-            let segmentTotalPrice = 0;
-            for (const prop of segment.propiedades) {
-                let propTotalPrice = 0;
-                for (let d = new Date(segmentStartDate); d < segmentEndDate; d.setDate(d.getDate() + 1)) {
-                    const currentDate = new Date(d);
-                    const tarifasDelDia = allTarifas.filter(t => 
-                        t.alojamientoId === prop.id &&
-                        t.fechaInicio <= currentDate &&
-                        t.fechaTermino >= currentDate
-                    );
-                    if (tarifasDelDia.length > 0) {
-                        const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
-                        const precioNoche = (canalId && tarifa.precios && tarifa.precios[canalId]) ? tarifa.precios[canalId].valor : 0;
-                        propTotalPrice += precioNoche;
-                    }
-                }
-                segmentTotalPrice += propTotalPrice;
-            }
-            
-            totalPrice += segmentTotalPrice;
-            priceDetails.push({
-                nombre: segment.propiedades.map(p => p.nombre).join(' + '),
-                precioTotal: segmentTotalPrice,
-                precioPorNoche: segmentTotalPrice > 0 ? segmentTotalPrice / segmentNights : 0,
-                noches: segmentNights,
-                fechaInicio: segmentStartDate.toISOString().split('T')[0],
-                fechaTermino: segmentEndDate.toISOString().split('T')[0]
-            });
-        }
-        const totalNightsOverall = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
-        return { totalPrice, nights: totalNightsOverall, details: priceDetails };
-    }
-
     const nights = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
     if (nights <= 0) {
-        return { totalPrice: 0, nights: 0, details: [] };
+        return { totalPriceCLP: 0, totalPriceOriginal: 0, currencyOriginal: monedaOriginal, nights: 0, details: [] };
     }
 
     for (const prop of items) {
-        let propTotalPrice = 0;
+        let propTotalPriceOriginal = 0;
         for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
             const currentDate = new Date(d);
-            
             const tarifasDelDia = allTarifas.filter(t => 
                 t.alojamientoId === prop.id &&
                 t.fechaInicio <= currentDate &&
@@ -232,18 +195,27 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
 
             if (tarifasDelDia.length > 0) {
                 const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
-                const precioNoche = (canalId && tarifa.precios && tarifa.precios[canalId]) ? tarifa.precios[canalId].valor : 0;
-                propTotalPrice += precioNoche;
+                const precioNoche = (tarifa.precios && tarifa.precios[canalId]) ? tarifa.precios[canalId].valor : 0;
+                propTotalPriceOriginal += precioNoche;
             }
         }
-        totalPrice += propTotalPrice;
+        totalEnMonedaOriginal += propTotalPriceOriginal;
         priceDetails.push({
             nombre: prop.nombre,
-            precioTotal: propTotalPrice,
-            precioPorNoche: propTotalPrice > 0 ? propTotalPrice / nights : 0,
+            precioTotal: propTotalPriceOriginal,
+            precioPorNoche: propTotalPriceOriginal > 0 ? propTotalPriceOriginal / nights : 0,
         });
     }
-    return { totalPrice, nights, details: priceDetails };
+
+    const totalEnCLP = monedaOriginal === 'USD' ? Math.round(totalEnMonedaOriginal * valorDolarDia) : totalEnMonedaOriginal;
+
+    return { 
+        totalPriceCLP: totalEnCLP, 
+        totalPriceOriginal: totalEnMonedaOriginal,
+        currencyOriginal: monedaOriginal,
+        nights, 
+        details: priceDetails 
+    };
 }
 
 module.exports = {

@@ -135,7 +135,7 @@ async function handleSelectionChange() {
     selectedProperties = availabilityData.allProperties.filter(p => selectedIds.has(p.id));
 
     if (selectedProperties.length === 0) {
-        updateSummary({ totalPrice: 0, nights: currentPricing.nights, details: [] });
+        updateSummary({ totalPriceOriginal: 0, nights: currentPricing.nights, details: [] });
         return;
     }
     try {
@@ -154,45 +154,37 @@ async function handleSelectionChange() {
 
 function updateSummary(pricing) {
     currentPricing = pricing;
-    const canalId = document.getElementById('canal-select').value;
-    const canal = allCanales.find(c => c.id === canalId);
-    const moneda = canal ? canal.moneda : 'CLP';
+    if (!pricing) return;
 
-    const precioListaCLP = pricing.totalPrice;
-    let precioListaOriginal = precioListaCLP;
-    if (moneda === 'USD' && valorDolarDia > 0) {
-        precioListaOriginal = precioListaCLP / valorDolarDia;
-    }
-    
-    document.getElementById('summary-noches').textContent = pricing.nights || 0;
-    document.getElementById('summary-precio-lista').textContent = `${formatCurrency(precioListaOriginal, moneda)} (${moneda})`;
+    const { totalPriceOriginal, currencyOriginal, nights } = pricing;
+
+    document.getElementById('summary-noches').textContent = nights || 0;
+    document.getElementById('summary-precio-lista').textContent = `${formatCurrency(totalPriceOriginal, currencyOriginal)} (${currencyOriginal})`;
 
     const valorFinalInput = document.getElementById('valor-final-input');
     const pctInput = document.getElementById('descuento-pct');
     const fijoInput = document.getElementById('descuento-fijo-total');
 
-    let descuentoOriginal = 0;
-    let precioFinalOriginal;
+    let descuentoEnMonedaOriginal = 0;
+    let precioFinalEnMonedaOriginal;
 
     if (valorFinalInput.value) {
-        precioFinalOriginal = parseFloat(valorFinalInput.value) || 0;
-        descuentoOriginal = precioListaOriginal - precioFinalOriginal;
+        precioFinalEnMonedaOriginal = parseFloat(valorFinalInput.value) || 0;
+        descuentoEnMonedaOriginal = totalPriceOriginal - precioFinalEnMonedaOriginal;
     } else {
         const pct = parseFloat(pctInput.value) || 0;
         const fijo = parseFloat(fijoInput.value) || 0;
-        if (pct > 0) descuentoOriginal = precioListaOriginal * (pct / 100);
-        else if (fijo > 0) descuentoOriginal = fijo;
-        precioFinalOriginal = precioListaOriginal - descuentoOriginal;
+        if (pct > 0) descuentoEnMonedaOriginal = totalPriceOriginal * (pct / 100);
+        else if (fijo > 0) descuentoEnMonedaOriginal = fijo;
+        precioFinalEnMonedaOriginal = totalPriceOriginal - descuentoEnMonedaOriginal;
     }
 
-    document.getElementById('summary-descuento').textContent = `-${formatCurrency(descuentoOriginal, moneda)}`;
+    document.getElementById('summary-descuento').textContent = `-${formatCurrency(descuentoEnMonedaOriginal, currencyOriginal)}`;
     
-    let precioFinalCLP;
-    if (moneda === 'USD') {
-        precioFinalCLP = precioFinalOriginal * valorDolarDia;
-    } else {
-        precioFinalCLP = precioFinalOriginal;
-    }
+    const precioFinalCLP = currencyOriginal === 'USD' 
+        ? Math.round(precioFinalEnMonedaOriginal * valorDolarDia) 
+        : precioFinalEnMonedaOriginal;
+
     document.getElementById('summary-precio-final').textContent = formatCurrency(precioFinalCLP, 'CLP');
 }
 
@@ -207,7 +199,6 @@ function handleCanalChange() {
     document.getElementById('valor-dolar-container').classList.toggle('hidden', moneda !== 'USD');
     
     if (availabilityData.suggestion) {
-        // Al cambiar de canal, es necesario volver a buscar para obtener las tarifas correctas
         const buscarBtn = document.getElementById('buscar-btn');
         if (buscarBtn) {
             buscarBtn.click();

@@ -3,6 +3,7 @@
 const express = require('express');
 const { getAvailabilityData, findNormalCombination, findSegmentedCombination, calculatePrice } = require('../services/propuestasService');
 const { generarTextoPropuesta } = require('../services/mensajeService');
+const { obtenerValorDolarHoy } = require('../services/dolarService');
 
 module.exports = (db) => {
     const router = express.Router();
@@ -19,7 +20,13 @@ module.exports = (db) => {
         const endDate = new Date(fechaSalida + 'T00:00:00Z');
 
         try {
-            const { availableProperties, allProperties, allTarifas, availabilityMap } = await getAvailabilityData(db, empresaId, startDate, endDate, sinCamarotes);
+            const [availability, dolar] = await Promise.all([
+                getAvailabilityData(db, empresaId, startDate, endDate, sinCamarotes),
+                obtenerValorDolarHoy(db, empresaId)
+            ]);
+            
+            const { availableProperties, allProperties, allTarifas, availabilityMap } = availability;
+            const valorDolarDia = dolar.valor;
             
             let result;
             let isSegmented = !!permitirCambios;
@@ -41,7 +48,7 @@ module.exports = (db) => {
                 });
             }
 
-            const pricing = await calculatePrice(db, empresaId, combination, startDate, endDate, allTarifas, canalId, isSegmented);
+            const pricing = await calculatePrice(db, empresaId, combination, startDate, endDate, allTarifas, canalId, valorDolarDia, isSegmented);
             
             const propertiesInSuggestion = isSegmented 
                 ? combination.flatMap(seg => seg.propiedades) 
@@ -76,8 +83,14 @@ module.exports = (db) => {
             const startDate = new Date(fechaLlegada + 'T00:00:00Z');
             const endDate = new Date(fechaSalida + 'T00:00:00Z');
             
-            const { allTarifas } = await getAvailabilityData(db, empresaId, startDate, endDate);
-            const pricing = await calculatePrice(db, empresaId, propiedades, startDate, endDate, allTarifas, canalId);
+            const [availability, dolar] = await Promise.all([
+                getAvailabilityData(db, empresaId, startDate, endDate),
+                obtenerValorDolarHoy(db, empresaId)
+            ]);
+            const { allTarifas } = availability;
+            const valorDolarDia = dolar.valor;
+
+            const pricing = await calculatePrice(db, empresaId, propiedades, startDate, endDate, allTarifas, canalId, valorDolarDia);
             res.status(200).json(pricing);
         } catch (error) {
             console.error("Error al recalcular precio:", error);
