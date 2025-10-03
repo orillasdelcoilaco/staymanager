@@ -5,7 +5,7 @@ const { getAvailabilityData } = require('./propuestasService');
 const { crearOActualizarCliente } = require('./clientesService');
 
 const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExistente = null) => {
-    const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, canalId, canalNombre } = datos;
+    const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, canalId, canalNombre, moneda, valorDolarDia, valorOriginal } = datos;
 
     let clienteId = cliente.id;
     if (!clienteId) {
@@ -31,6 +31,8 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
         for (const prop of propiedades) {
             const nuevaReservaRef = reservasRef.doc();
             const idUnicoReserva = `${idGrupo}-${prop.id}`;
+            const precioFinalPorPropiedad = Math.round(precioFinal / propiedades.length);
+            const valorOriginalPorPropiedad = moneda === 'USD' ? (valorOriginal / propiedades.length) : precioFinalPorPropiedad;
 
             const datosReserva = {
                 id: nuevaReservaRef.id,
@@ -46,8 +48,12 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
                 totalNoches: noches,
                 cantidadHuespedes: prop.capacidad,
                 estado: 'Propuesta',
+                moneda,
+                valorDolarDia,
                 valores: {
-                    valorHuesped: Math.round(precioFinal / propiedades.length),
+                    valorOriginal: valorOriginalPorPropiedad,
+                    valorTotal: precioFinalPorPropiedad,
+                    valorHuesped: precioFinalPorPropiedad
                 },
                 fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
                 fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()

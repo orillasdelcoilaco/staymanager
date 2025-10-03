@@ -11,15 +11,26 @@ let availabilityData = {};
 let selectedProperties = [];
 let currentPricing = {};
 let editId = null;
+let valorDolarDia = 0;
 
-function formatCurrency(value) { return `$${(Math.round(value) || 0).toLocaleString('es-CL')}`; }
+function formatCurrency(value, currency = 'CLP') {
+    if (currency === 'USD') {
+        return `$${(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+    return `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
+}
 
 async function loadInitialData() {
     try {
-        [allClients, allCanales] = await Promise.all([
+        const [clients, canales, dolar] = await Promise.all([
             fetchAPI('/clientes'),
-            fetchAPI('/canales')
+            fetchAPI('/canales'),
+            fetchAPI('/dolar/hoy')
         ]);
+        allClients = clients;
+        allCanales = canales;
+        valorDolarDia = dolar.valor;
+
         const canalSelect = document.getElementById('canal-select');
         if (canalSelect) {
             canalSelect.innerHTML = allCanales.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
@@ -28,8 +39,11 @@ async function loadInitialData() {
                 canalSelect.value = appChannel.id;
             }
         }
+        document.getElementById('valor-dolar-info').textContent = `Valor Dólar del Día: ${formatCurrency(valorDolarDia)}`;
+        handleCanalChange();
     } catch (error) {
         console.error("No se pudieron cargar los datos iniciales:", error);
+        alert("Error al cargar datos iniciales. Por favor, recargue la página.");
     }
 }
 
@@ -96,7 +110,7 @@ function renderSelectionUI() {
          suggestionList.innerHTML = `
             <h4 class="font-medium text-gray-700">Propuesta de Itinerario</h4>
             <div class="space-y-2 p-3 bg-white rounded-md border">${
-                availabilityData.suggestion.itinerary.map((segment, index) => {
+                availabilityData.suggestion.itinerary.map((segment) => {
                     return `
                         <div class="grid grid-cols-5 gap-4 items-center text-sm">
                             <span class="font-semibold">${segment.propiedad.nombre}</span>
@@ -128,7 +142,8 @@ async function handleSelectionChange() {
         const payload = {
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
-            propiedades: selectedProperties
+            propiedades: selectedProperties,
+            canalId: document.getElementById('canal-select').value
         };
         const newPricing = await fetchAPI('/propuestas/recalcular', { method: 'POST', body: payload });
         updateSummary(newPricing);
@@ -139,31 +154,58 @@ async function handleSelectionChange() {
 
 function updateSummary(pricing) {
     currentPricing = pricing;
-    const precioLista = pricing.totalPrice;
+    const canalId = document.getElementById('canal-select').value;
+    const canal = allCanales.find(c => c.id === canalId);
+    const moneda = canal ? canal.moneda : 'CLP';
+
+    const precioListaOriginal = pricing.totalPrice;
     document.getElementById('summary-noches').textContent = pricing.nights || 0;
-    document.getElementById('summary-precio-lista').textContent = formatCurrency(precioLista);
+    document.getElementById('summary-precio-lista').textContent = `${formatCurrency(precioListaOriginal, moneda)} (${moneda})`;
 
     const valorFinalInput = document.getElementById('valor-final-input');
     const pctInput = document.getElementById('descuento-pct');
     const fijoInput = document.getElementById('descuento-fijo-total');
 
-    let descuentoTotal = 0;
-    let precioFinal;
+    let descuentoOriginal = 0;
+    let precioFinalOriginal;
 
     if (valorFinalInput.value) {
-        precioFinal = parseFloat(valorFinalInput.value) || 0;
-        descuentoTotal = precioLista - precioFinal;
+        precioFinalOriginal = parseFloat(valorFinalInput.value) || 0;
+        descuentoOriginal = precioListaOriginal - precioFinalOriginal;
     } else {
         const pct = parseFloat(pctInput.value) || 0;
         const fijo = parseFloat(fijoInput.value) || 0;
-        if (pct > 0) descuentoTotal = precioLista * (pct / 100);
-        else if (fijo > 0) descuentoTotal = fijo;
-        precioFinal = precioLista - descuentoTotal;
+        if (pct > 0) descuentoOriginal = precioListaOriginal * (pct / 100);
+        else if (fijo > 0) descuentoOriginal = fijo;
+        precioFinalOriginal = precioListaOriginal - descuentoOriginal;
     }
 
-    document.getElementById('summary-descuento').textContent = `-${formatCurrency(descuentoTotal)}`;
-    document.getElementById('summary-precio-final').textContent = formatCurrency(precioFinal);
+    document.getElementById('summary-descuento').textContent = `-${formatCurrency(descuentoOriginal, moneda)}`;
+    
+    let precioFinalCLP;
+    if (moneda === 'USD') {
+        precioFinalCLP = precioFinalOriginal * valorDolarDia;
+    } else {
+        precioFinalCLP = precioFinalOriginal;
+    }
+    document.getElementById('summary-precio-final').textContent = formatCurrency(precioFinalCLP, 'CLP');
 }
+
+function handleCanalChange() {
+    const canalId = document.getElementById('canal-select').value;
+    const canal = allCanales.find(c => c.id === canalId);
+    if (!canal) return;
+
+    const moneda = canal.moneda;
+    document.getElementById('descuento-fijo-label').textContent = `Descuento Fijo (${moneda})`;
+    document.getElementById('valor-final-label').textContent = `O Ingresar Valor Final (${moneda})`;
+    document.getElementById('valor-dolar-container').classList.toggle('hidden', moneda !== 'USD');
+    
+    if (availabilityData.suggestion) {
+        updateSummary(currentPricing);
+    }
+}
+
 
 export function render() {
     return `
@@ -226,15 +268,16 @@ export function render() {
                         <h3 class="font-semibold text-gray-800 mb-4">4. Descuentos y Resumen Final</h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div class="space-y-4">
+                                <div id="valor-dolar-container" class="hidden"><p id="valor-dolar-info" class="text-sm font-semibold text-blue-600"></p></div>
                                 <div><label for="descuento-pct" class="block text-sm font-medium">Descuento (%)</label><input type="number" id="descuento-pct" placeholder="Ej: 15" class="discount-input form-input mt-1"></div>
-                                <div><label for="descuento-fijo-total" class="block text-sm font-medium">Descuento Fijo (CLP)</label><input type="number" id="descuento-fijo-total" placeholder="Ej: 20000" class="discount-input form-input mt-1"></div>
-                                <div><label for="valor-final-input" class="block text-sm font-medium">O Ingresar Valor Final (CLP)</label><input type="number" id="valor-final-input" placeholder="Ej: 350000" class="discount-input form-input mt-1"></div>
+                                <div><label id="descuento-fijo-label" for="descuento-fijo-total" class="block text-sm font-medium">Descuento Fijo (CLP)</label><input type="number" id="descuento-fijo-total" placeholder="Ej: 20000" class="discount-input form-input mt-1"></div>
+                                <div><label id="valor-final-label" for="valor-final-input" class="block text-sm font-medium">O Ingresar Valor Final (CLP)</label><input type="number" id="valor-final-input" placeholder="Ej: 350000" class="discount-input form-input mt-1"></div>
                             </div>
                             <div class="p-4 bg-white rounded-md border space-y-2">
                                 <div class="flex justify-between text-sm"><span class="text-gray-600">Noches Totales:</span><span id="summary-noches" class="font-medium">0</span></div>
                                 <div class="flex justify-between text-sm"><span class="text-gray-600">Precio de Lista:</span><span id="summary-precio-lista" class="font-medium">$0</span></div>
                                 <div class="flex justify-between text-sm text-red-600"><span class="font-medium">Descuento:</span><span id="summary-descuento" class="font-medium">-$0</span></div>
-                                <div class="flex justify-between text-lg font-bold border-t pt-2 mt-2"><span>Precio Final:</span><span id="summary-precio-final" class="text-indigo-600">$0</span></div>
+                                <div class="flex justify-between text-lg font-bold border-t pt-2 mt-2"><span>Precio Final a Cobrar:</span><span id="summary-precio-final" class="text-indigo-600">$0</span></div>
                             </div>
                         </div>
                     </div>
@@ -261,6 +304,7 @@ export function render() {
 }
 
 export async function afterRender() {
+    await loadInitialData();
     const buscarBtn = document.getElementById('buscar-btn');
     
     const runSearch = async () => {
@@ -268,7 +312,8 @@ export async function afterRender() {
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
             personas: document.getElementById('personas').value,
-            permitirCambios: document.getElementById('permitir-cambios').checked
+            permitirCambios: document.getElementById('permitir-cambios').checked,
+            canalId: document.getElementById('canal-select').value
         };
         if (!payload.fechaLlegada || !payload.fechaSalida || !payload.personas) {
             alert('Por favor, completa las fechas y la cantidad de personas.'); return null;
@@ -306,6 +351,7 @@ export async function afterRender() {
     
     document.getElementById('client-search').addEventListener('input', filterClients);
     document.querySelectorAll('.discount-input').forEach(input => input.addEventListener('input', () => updateSummary(currentPricing)));
+    document.getElementById('canal-select').addEventListener('change', handleCanalChange);
 
     document.getElementById('guardar-propuesta-btn').addEventListener('click', async () => {
         const btn = document.getElementById('guardar-propuesta-btn');
@@ -331,15 +377,23 @@ export async function afterRender() {
         }
         
         const canalSelect = document.getElementById('canal-select');
+        const canal = allCanales.find(c => c.id === canalSelect.value);
+
+        const precioFinalCLP = parseFloat(document.getElementById('summary-precio-final').textContent.replace(/\$|\./g, '').replace(',','.')) || 0;
+        const valorOriginal = canal.moneda === 'USD' ? (precioFinalCLP / valorDolarDia) : precioFinalCLP;
+
         const payloadGuardar = {
             cliente: clienteParaGuardar,
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
             propiedades: selectedProperties,
-            precioFinal: parseFloat(document.getElementById('summary-precio-final').textContent.replace(/\$|\./g, '').replace(',','.')) || 0,
+            precioFinal: precioFinalCLP,
             noches: currentPricing.nights,
-            canalId: canalSelect.value,
-            canalNombre: canalSelect.options[canalSelect.selectedIndex].text
+            canalId: canal.id,
+            canalNombre: canal.nombre,
+            moneda: canal.moneda,
+            valorDolarDia,
+            valorOriginal
         };
         
         btn.disabled = true;
@@ -384,7 +438,6 @@ export async function afterRender() {
         setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
     });
 
-    await loadInitialData();
     const params = new URLSearchParams(window.location.search);
     editId = params.get('edit');
 

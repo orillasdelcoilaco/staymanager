@@ -1,3 +1,5 @@
+// backend/services/propuestasService.js
+
 const admin = require('firebase-admin');
 
 async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarotes = false) {
@@ -169,14 +171,9 @@ function findSegmentedCombination(allProperties, allTarifas, availabilityMap, re
     return { combination: itinerary, capacity: requiredCapacity, dailyOptions: allDailyOptions };
 }
 
-async function calculatePrice(db, empresaId, items, startDate, endDate, allTarifas, isSegmented = false) {
+async function calculatePrice(db, empresaId, items, startDate, endDate, allTarifas, canalId, isSegmented = false) {
     let totalPrice = 0;
     const priceDetails = [];
-    
-    const canalesSnapshot = await db.collection('empresas').doc(empresaId).collection('canales').get();
-    const allCanales = canalesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    const canalApp = allCanales.find(c => c.nombre.toLowerCase() === 'app');
-    const canalAppId = canalApp ? canalApp.id : null;
 
     if (isSegmented) {
         for (const segment of items) {
@@ -196,7 +193,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
                     );
                     if (tarifasDelDia.length > 0) {
                         const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
-                        const precioNoche = (canalAppId && tarifa.precios && tarifa.precios[canalAppId]) ? tarifa.precios[canalAppId].valor : 0;
+                        const precioNoche = (canalId && tarifa.precios && tarifa.precios[canalId]) ? tarifa.precios[canalId].valor : 0;
                         propTotalPrice += precioNoche;
                     }
                 }
@@ -235,7 +232,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
 
             if (tarifasDelDia.length > 0) {
                 const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
-                const precioNoche = (canalAppId && tarifa.precios && tarifa.precios[canalAppId]) ? tarifa.precios[canalAppId].valor : 0;
+                const precioNoche = (canalId && tarifa.precios && tarifa.precios[canalId]) ? tarifa.precios[canalId].valor : 0;
                 propTotalPrice += precioNoche;
             }
         }

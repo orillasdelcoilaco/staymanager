@@ -9,10 +9,10 @@ module.exports = (db) => {
 
     router.post('/generar', async (req, res) => {
         const { empresaId } = req.user;
-        const { fechaLlegada, fechaSalida, personas, permitirCambios, sinCamarotes } = req.body;
+        const { fechaLlegada, fechaSalida, personas, permitirCambios, sinCamarotes, canalId } = req.body;
 
-        if (!fechaLlegada || !fechaSalida || !personas) {
-            return res.status(400).json({ error: 'Se requieren fechas y cantidad de personas.' });
+        if (!fechaLlegada || !fechaSalida || !personas || !canalId) {
+            return res.status(400).json({ error: 'Se requieren fechas, cantidad de personas y canal.' });
         }
 
         const startDate = new Date(fechaLlegada + 'T00:00:00Z');
@@ -41,7 +41,7 @@ module.exports = (db) => {
                 });
             }
 
-            const pricing = await calculatePrice(db, empresaId, combination, startDate, endDate, allTarifas, isSegmented);
+            const pricing = await calculatePrice(db, empresaId, combination, startDate, endDate, allTarifas, canalId, isSegmented);
             
             const propertiesInSuggestion = isSegmented 
                 ? combination.flatMap(seg => seg.propiedades) 
@@ -68,8 +68,8 @@ module.exports = (db) => {
 
     router.post('/recalcular', async (req, res) => {
         const { empresaId } = req.user;
-        const { fechaLlegada, fechaSalida, propiedades } = req.body;
-        if (!fechaLlegada || !fechaSalida || !propiedades) {
+        const { fechaLlegada, fechaSalida, propiedades, canalId } = req.body;
+        if (!fechaLlegada || !fechaSalida || !propiedades || !canalId) {
             return res.status(400).json({ error: 'Faltan datos para recalcular.' });
         }
         try {
@@ -77,7 +77,7 @@ module.exports = (db) => {
             const endDate = new Date(fechaSalida + 'T00:00:00Z');
             
             const { allTarifas } = await getAvailabilityData(db, empresaId, startDate, endDate);
-            const pricing = await calculatePrice(db, empresaId, propiedades, startDate, endDate, allTarifas);
+            const pricing = await calculatePrice(db, empresaId, propiedades, startDate, endDate, allTarifas, canalId);
             res.status(200).json(pricing);
         } catch (error) {
             console.error("Error al recalcular precio:", error);
