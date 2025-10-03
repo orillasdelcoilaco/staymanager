@@ -97,8 +97,6 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
         '[GRUPO_SOLICITADO]': personas,
         '[DETALLE_PROPIEDADES_PROPUESTA]': detallePropiedades,
         '[RESUMEN_VALORES_PROPUESTA]': resumenValores,
-        '[SUBTOTAL_PROPUESTA]': formatCurrency(precioListaCLP),
-        '[TOTAL_GENERAL]': formatCurrency(precioFinal),
         '[FECHA_VENCIMIENTO_PROPUESTA]': fechaVencimientoStr,
         '[PORCENTAJE_ABONO]': `${porcentajeAbono}%`,
         '[MONTO_ABONO]': formatCurrency(montoAbono),

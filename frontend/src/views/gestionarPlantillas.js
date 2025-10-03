@@ -19,11 +19,10 @@ const ETIQUETAS_DISPONIBLES = [
     { etiqueta: '[COBRO]', descripcion: 'Genera un resumen detallado del cobro (Total, abonos, saldo, etc.)' },
     
     // Etiquetas Específicas para Propuestas y Presupuestos
+    { etiqueta: '[RESUMEN_VALORES_PROPUESTA]', descripcion: '(Para Propuestas) Bloque completo con detalle de precios, descuentos y totales' },
     { etiqueta: '[PROPUESTA_ID]', descripcion: 'ID único generado para la propuesta de reserva' },
     { etiqueta: '[FECHAS_ESTADIA_TEXTO]', descripcion: 'Texto formateado de las fechas (ej: 7 al 17 de octubre)' },
     { etiqueta: '[DETALLE_PROPIEDADES_PROPUESTA]', descripcion: 'Bloque con el detalle de las cabañas seleccionadas' },
-    { etiqueta: '[RESUMEN_VALORES_PROPUESTA]', descripcion: 'Bloque con el desglose de precios por noche y totales' },
-    { etiqueta: '[SUBTOTAL_PROPUESTA]', descripcion: 'Monto subtotal de la propuesta' },
     { etiqueta: '[FECHA_VENCIMIENTO_PROPUESTA]', descripcion: 'Fecha y hora de expiración de la propuesta' },
     { etiqueta: '[PORCENTAJE_ABONO]', descripcion: 'Porcentaje de abono requerido (ej: 10%)' },
     { etiqueta: '[MONTO_ABONO]', descripcion: 'Monto del abono requerido' },
@@ -31,8 +30,8 @@ const ETIQUETAS_DISPONIBLES = [
     { etiqueta: '[FECHA_EMISION]', descripcion: 'Fecha en que se genera el documento' },
     { etiqueta: '[GRUPO_SOLICITADO]', descripcion: 'N° de personas solicitadas' },
     { etiqueta: '[TOTAL_DIAS]', descripcion: 'Cantidad de días de la estadía (noches + 1)' },
-    { etiqueta: '[LISTA_DE_CABANAS]', descripcion: 'Bloque dinámico con detalle para presupuestos' },
-    { etiqueta: '[TOTAL_GENERAL]', descripcion: 'Monto total del documento' },
+    { etiqueta: '[LISTA_DE_CABANAS]', descripcion: '(Para Presupuestos) Bloque dinámico con detalle para presupuestos' },
+    { etiqueta: '[TOTAL_GENERAL]', descripcion: '(Para Presupuestos) Monto total del documento' },
     { etiqueta: '[RESUMEN_CANTIDAD_CABANAS]', descripcion: 'N° total de cabañas' },
     { etiqueta: '[RESUMEN_CAPACIDAD_TOTAL]', descripcion: 'Suma de la capacidad de las cabañas' },
 
