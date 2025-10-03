@@ -1,6 +1,9 @@
+// backend/services/presupuestosService.js
+
 const { calculatePrice } = require('./propuestasService');
 const { obtenerTiposPlantilla, obtenerPlantillasPorEmpresa } = require('./plantillasService');
 const { obtenerDetallesEmpresa } = require('./empresaService');
+const { obtenerValorDolarHoy } = require('./dolarService');
 
 const formatDate = (dateString) => {
     return new Date(dateString + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -9,11 +12,12 @@ const formatDate = (dateString) => {
 const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
 
 const generarTextoPresupuesto = async (db, empresaId, cliente, fechaLlegada, fechaSalida, propiedades, personas) => {
-    // Se pasa el empresaId a todas las funciones que consultan la base de datos.
-    const [tipos, plantillas, empresaData] = await Promise.all([
+    const [tipos, plantillas, empresaData, dolarHoy, canales] = await Promise.all([
         obtenerTiposPlantilla(db, empresaId),
         obtenerPlantillasPorEmpresa(db, empresaId),
-        obtenerDetallesEmpresa(db, empresaId)
+        obtenerDetallesEmpresa(db, empresaId),
+        obtenerValorDolarHoy(db, empresaId),
+        db.collection('empresas').doc(empresaId).collection('canales').get()
     ]);
 
     const tipoPresupuesto = tipos.find(t => t.nombre.toLowerCase().includes('presupuesto'));
@@ -32,7 +36,14 @@ const generarTextoPresupuesto = async (db, empresaId, cliente, fechaLlegada, fec
     const endDate = new Date(fechaSalida + 'T00:00:00Z');
     const noches = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
 
-    // Se pasa el empresaId para obtener las tarifas de la empresa correcta.
+    const allCanales = canales.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const appCanal = allCanales.find(c => c.nombre.toLowerCase() === 'app');
+    if (!appCanal) {
+        throw new Error("No se encontró el canal 'App' necesario para los cálculos de precios del presupuesto.");
+    }
+    const appCanalId = appCanal.id;
+    const valorDolarDia = dolarHoy.valor;
+
     const tarifasSnapshot = await db.collection('empresas').doc(empresaId).collection('tarifas').get();
     const allTarifas = tarifasSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -45,7 +56,7 @@ const generarTextoPresupuesto = async (db, empresaId, cliente, fechaLlegada, fec
         };
     });
 
-    const pricing = await calculatePrice(db, empresaId, propiedades, startDate, endDate, allTarifas);
+    const pricing = await calculatePrice(db, empresaId, propiedades, startDate, endDate, allTarifas, appCanalId, valorDolarDia);
     
     let detalleCabañas = '';
     for (const prop of propiedades) {
@@ -70,8 +81,15 @@ const generarTextoPresupuesto = async (db, empresaId, cliente, fechaLlegada, fec
 
         if (prop.linkFotos) detalleCabañas += `📷 Ver fotos: ${prop.linkFotos}\n`;
         if (precioDetalle) {
-            detalleCabañas += `💵 Valor por noche: ${formatCurrency(precioDetalle.precioPorNoche)}\n`;
-            detalleCabañas += `💵 Total por ${noches} noches: ${formatCurrency(precioDetalle.precioTotal)}\n`;
+            const precioNocheCLP = appCanal.moneda === 'USD' 
+                ? Math.round(precioDetalle.precioPorNoche * valorDolarDia) 
+                : precioDetalle.precioPorNoche;
+            const precioTotalCLP = appCanal.moneda === 'USD' 
+                ? Math.round(precioDetalle.precioTotal * valorDolarDia) 
+                : precioDetalle.precioTotal;
+            
+            detalleCabañas += `💵 Valor por noche: ${formatCurrency(precioNocheCLP)}\n`;
+            detalleCabañas += `💵 Total por ${noches} noches: ${formatCurrency(precioTotalCLP)}\n`;
         }
         detalleCabañas += '\n';
     }
@@ -86,7 +104,7 @@ const generarTextoPresupuesto = async (db, empresaId, cliente, fechaLlegada, fec
         '[TOTAL_NOCHES]': noches,
         '[GRUPO_SOLICITADO]': personas,
         '[LISTA_DE_CABANAS]': detalleCabañas.trim(),
-        '[TOTAL_GENERAL]': formatCurrency(pricing.totalPrice),
+        '[TOTAL_GENERAL]': formatCurrency(pricing.totalPriceCLP),
         '[RESUMEN_CANTIDAD_CABANAS]': propiedades.length,
         '[RESUMEN_CAPACIDAD_TOTAL]': propiedades.reduce((sum, p) => sum + p.capacidad, 0),
         '[EMPRESA_NOMBRE]': empresaData.nombre || '',
