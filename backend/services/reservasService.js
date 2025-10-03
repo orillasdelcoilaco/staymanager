@@ -432,20 +432,28 @@ const actualizarIdReservaCanalEnCascada = async (db, empresaId, idReserva, idAnt
     }
     
     return db.runTransaction(async (transaction) => {
-        // 1. Actualizar documentos en Firestore usando el manifiesto
+        // --- INICIO DE LA CORRECCIÓN ---
+        // FASE 1: Lectura
+        const updatesToPerform = [];
+        
         for (const item of idUpdateManifest) {
             const collectionRef = db.collection('empresas').doc(empresaId).collection(item.collection);
             const snapshot = await transaction.get(collectionRef.where(item.field, '==', idAntiguo));
             
             snapshot.forEach(doc => {
                 const updateData = { [item.field]: idNuevo };
-                // Si es el identificador principal en la colección 'reservas', también actualizamos la edición manual.
                 if (item.isGroupIdentifier) {
                     updateData['edicionesManuales.idReservaCanal'] = true;
                 }
-                transaction.update(doc.ref, updateData);
+                updatesToPerform.push({ ref: doc.ref, data: updateData });
             });
         }
+
+        // FASE 2: Escritura
+        updatesToPerform.forEach(update => {
+            transaction.update(update.ref, update.data);
+        });
+        // --- FIN DE LA CORRECCIÓN ---
     });
 };
 
