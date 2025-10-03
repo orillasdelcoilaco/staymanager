@@ -1,8 +1,12 @@
+// frontend/src/views/generadorPresupuestos.js
+
 import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
 
 let allClients = [];
 let allProperties = [];
+let allCanales = [];
+let appCanalId = null;
 let availabilityData = {};
 let selectedProperties = [];
 let currentPricing = {};
@@ -10,11 +14,21 @@ let editId = null;
 
 function formatCurrency(value) { return `$${(Math.round(value) || 0).toLocaleString('es-CL')}`; }
 
-async function loadClients() {
+async function loadInitialData() {
     try {
-        allClients = await fetchAPI('/clientes');
+        [allClients, allCanales] = await Promise.all([
+            fetchAPI('/clientes'),
+            fetchAPI('/canales')
+        ]);
+        const appChannel = allCanales.find(c => c.nombre.toLowerCase() === 'app');
+        if (appChannel) {
+            appCanalId = appChannel.id;
+        } else {
+            console.error("No se encontró el canal 'App'. El generador de presupuestos podría no funcionar correctamente.");
+            alert("Advertencia: No se encontró un canal de venta llamado 'App'. Los cálculos de precios pueden fallar.");
+        }
     } catch (error) {
-        console.error("No se pudieron cargar los clientes:", error);
+        console.error("No se pudieron cargar los datos iniciales:", error);
     }
 }
 
@@ -92,7 +106,7 @@ async function handleSelectionChange() {
 
     if (selectedProperties.length === 0) {
         document.getElementById('presupuesto-preview').value = 'Selecciona al menos una cabaña para generar el presupuesto.';
-        updateSummary({ totalPrice: 0, nights: currentPricing.nights, details: [] });
+        updateSummary({ totalPriceCLP: 0, nights: currentPricing.nights, details: [] });
         return;
     }
     
@@ -107,20 +121,21 @@ async function updatePricingAndBudgetText() {
         const payload = {
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
-            propiedades: selectedProperties
+            propiedades: selectedProperties,
+            canalId: appCanalId
         };
         const newPricing = await fetchAPI('/propuestas/recalcular', { method: 'POST', body: payload });
         updateSummary(newPricing);
         await generateBudgetText();
     } catch (error) {
         previewTextarea.value = `Error al recalcular: ${error.message}`;
-        updateSummary({ totalPrice: 0, nights: currentPricing.nights || 0, details: [] });
+        updateSummary({ totalPriceCLP: 0, nights: currentPricing.nights || 0, details: [] });
     }
 }
 
 function updateSummary(pricing) {
     currentPricing = pricing;
-    document.getElementById('summary-precio-final').textContent = formatCurrency(pricing.totalPrice);
+    document.getElementById('summary-precio-final').textContent = formatCurrency(pricing.totalPriceCLP);
 }
 
 async function generateBudgetText() {
@@ -232,6 +247,7 @@ export function render() {
 }
 
 export async function afterRender() {
+    await loadInitialData();
     const generarBtn = document.getElementById('generar-propuesta-btn');
     
     const runSearch = async () => {
@@ -239,7 +255,8 @@ export async function afterRender() {
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
             personas: document.getElementById('personas').value,
-            sinCamarotes: document.getElementById('sin-camarotes').checked
+            sinCamarotes: document.getElementById('sin-camarotes').checked,
+            canalId: appCanalId
         };
         if (!payload.fechaLlegada || !payload.fechaSalida || !payload.personas) {
             alert('Por favor, completa las fechas y la cantidad de personas.'); return null;
@@ -303,7 +320,7 @@ export async function afterRender() {
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
             propiedades: selectedProperties,
-            precioFinal: currentPricing.totalPrice || 0,
+            precioFinal: currentPricing.totalPriceCLP || 0,
             noches: currentPricing.nights || 0,
             texto: document.getElementById('presupuesto-preview').value
         };
@@ -313,7 +330,7 @@ export async function afterRender() {
 
         try {
             const endpoint = editId ? `/gestion-propuestas/presupuesto/${editId}` : '/gestion-propuestas/presupuesto';
-            const method = editId ? 'PUT' : 'POST'; // Este es el cambio clave
+            const method = editId ? 'PUT' : 'POST';
             
             await fetchAPI(endpoint, { method, body: payload });
             alert(`Presupuesto ${editId ? 'actualizado' : 'guardado'} con éxito. Puedes gestionarlo en "Gestionar Propuestas".`);
@@ -326,7 +343,7 @@ export async function afterRender() {
         }
     });
 
-    await loadClients();
+    
     const params = new URLSearchParams(window.location.search);
     editId = params.get('edit');
 
