@@ -436,8 +436,32 @@ const actualizarIdReservaCanalEnCascada = async (db, empresaId, idReserva, idAnt
         storage: { renombrados: 0, errores: 0 },
         googleContacts: { actualizado: false, mensaje: 'No fue necesario actualizar.' }
     };
+    
+    const reservaDoc = await db.collection('empresas').doc(empresaId).collection('reservas').doc(idReserva).get();
+    if (!reservaDoc.exists) throw new Error("La reserva principal no fue encontrada.");
+    const reservaData = reservaDoc.data();
 
-    // 1. Actualización en Firestore
+    // --- INICIO DE LA CORRECCIÓN ---
+    // 1. Actualización en Google Contacts (fuera de la transacción)
+    const clienteDoc = await db.collection('empresas').doc(empresaId).collection('clientes').doc(reservaData.clienteId).get();
+    if (clienteDoc.exists && clienteDoc.data().googleContactSynced) {
+        const clienteData = clienteDoc.data();
+        const oldContactName = `${clienteData.nombre} ${reservaData.canalNombre} ${idAntiguo}`;
+        const canalesSnapshot = await db.collection('empresas').doc(empresaId).collection('canales').get();
+        const canalNuevoNombre = canalesSnapshot.docs.find(doc => doc.id === reservaData.canalId)?.data().nombre || reservaData.canalNombre;
+
+        const newContactData = { ...clienteData, canalNombre: canalNuevoNombre, idReservaCanal: idNuevo };
+        try {
+            const result = await updateGoogleContact(db, empresaId, oldContactName, newContactData);
+            summary.googleContacts.actualizado = result.status === 'updated' || result.status === 'created';
+            summary.googleContacts.mensaje = `Contacto en Google ${result.status}.`;
+        } catch (error) {
+            summary.googleContacts.mensaje = `Error al actualizar en Google: ${error.message}`;
+        }
+    }
+    // --- FIN DE LA CORRECCIÓN ---
+
+    // 2. Actualización en Firestore (dentro de la transacción)
     await db.runTransaction(async (transaction) => {
         const updatesToPerform = [];
         
@@ -461,7 +485,7 @@ const actualizarIdReservaCanalEnCascada = async (db, empresaId, idReserva, idAnt
         });
     });
 
-    // 2. Operaciones fuera de la transacción (Storage, Google Contacts, etc.)
+    // 3. Operaciones de Storage (fuera de la transacción)
     const transaccionesRef = db.collection('empresas').doc(empresaId).collection('transacciones');
     const transaccionesSnapshot = await transaccionesRef.where('reservaIdOriginal', '==', idNuevo).get();
 

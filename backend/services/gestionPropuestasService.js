@@ -6,18 +6,23 @@ const { crearOActualizarCliente } = require('./clientesService');
 
 const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExistente = null) => {
     const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, canalId, canalNombre, moneda, valorDolarDia, valorOriginal } = datos;
+    
+    const idGrupo = idPropuestaExistente || db.collection('empresas').doc().id;
 
-    let clienteId = cliente.id;
-    if (!clienteId) {
+    let clienteId;
+    // Si el cliente ya existe, no necesitamos crearlo, pero si es nuevo, pasamos los datos para la sincronización con Google.
+    if (cliente.id) {
+        clienteId = cliente.id;
+    } else {
         const resultadoCliente = await crearOActualizarCliente(db, empresaId, {
             nombre: cliente.nombre,
             telefono: cliente.telefono,
-            email: cliente.email
+            email: cliente.email,
+            canalNombre: canalNombre, // <-- Se pasa el nombre del canal
+            idReservaCanal: idGrupo   // <-- Se pasa el ID de la propuesta
         });
         clienteId = resultadoCliente.cliente.id;
     }
-    
-    const idGrupo = idPropuestaExistente || db.collection('empresas').doc().id;
     
     await db.runTransaction(async (transaction) => {
         const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
@@ -120,8 +125,8 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
     const propuestasAgrupadas = new Map();
     propuestasSnapshot.forEach(doc => {
         const data = doc.data();
-        const id = data.idReservaCanal; // <-- INICIO DE LA CORRECCIÓN
-        if (!id) return; // Ignorar reservas de propuesta malformadas sin ID de grupo
+        const id = data.idReservaCanal;
+        if (!id) return;
 
         if (!propuestasAgrupadas.has(id)) {
             propuestasAgrupadas.set(id, {
@@ -144,7 +149,7 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
             capacidad: propiedad ? propiedad.capacidad : 0
         });
         grupo.idsReservas.push(data.id);
-    }); // <-- FIN DE LA CORRECCIÓN
+    });
 
     const presupuestos = presupuestosSnapshot.docs.map(doc => {
         const data = doc.data();
