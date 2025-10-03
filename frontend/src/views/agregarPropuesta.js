@@ -433,7 +433,9 @@ export async function afterRender() {
                 personas: document.getElementById('personas').value,
                 idPropuesta: resultadoGuardado.id,
                 precioLista: currentPricing,
-                descuento: descuentoCLP
+                precioListaCLP: precioListaCLP,
+                descuentoCLP: descuentoCLP,
+                pricingDetails: currentPricing.details
             };
 
             const resultadoTexto = await fetchAPI('/propuestas/generar-texto', { method: 'POST', body: payloadTexto });

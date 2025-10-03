@@ -30,7 +30,7 @@ const prepararMensaje = async (db, empresaId, grupoReserva, tipoMensaje) => {
 };
 
 const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
-    const { cliente, propiedades, fechaLlegada, fechaSalida, personas, noches, precioFinal, idPropuesta, precioLista, descuento } = datosPropuesta;
+    const { cliente, propiedades, fechaLlegada, fechaSalida, personas, noches, precioFinal, idPropuesta, precioListaCLP, descuentoCLP, pricingDetails, moneda, valorDolarDia } = datosPropuesta;
 
     const [plantillas, tipos, empresaData] = await Promise.all([
         obtenerPlantillasPorEmpresa(db, empresaId),
@@ -63,21 +63,20 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
         return detalle + '\n' + detalles.join('\n');
     }).join('\n\n');
 
-    const precioListaTotal = propiedades.reduce((sum, prop) => {
-        const precioDetalle = precioLista.details.find(d => d.nombre === prop.nombre);
-        return sum + (precioDetalle ? precioDetalle.precioTotal : 0);
-    }, 0);
-
     let resumenValores = `📊 Detalle por Alojamiento (${noches} Noches)\n----------------------------------\n`;
     resumenValores += propiedades.map(prop => {
-        const precioDetalle = precioLista.details.find(d => d.nombre === prop.nombre);
-        return `${prop.nombre}: ${formatCurrency(precioDetalle ? precioDetalle.precioTotal : 0)}`;
+        const precioDetalle = pricingDetails.find(d => d.nombre === prop.nombre);
+        if (!precioDetalle) return `${prop.nombre}: $0`;
+        
+        const precioDetalleOriginal = precioDetalle.precioTotal;
+        const precioDetalleCLP = moneda === 'USD' ? Math.round(precioDetalleOriginal * valorDolarDia) : precioDetalleOriginal;
+        return `${prop.nombre}: ${formatCurrency(precioDetalleCLP)}`;
     }).join('\n');
     
     resumenValores += `\n\n📈 Totales Generales\n----------------------------------\n`;
-    resumenValores += `Subtotal: ${formatCurrency(precioListaTotal)}\n`;
-    if (descuento > 0) {
-        resumenValores += `Descuento Aplicado: -${formatCurrency(descuento)}\n`;
+    resumenValores += `Subtotal: ${formatCurrency(precioListaCLP)}\n`;
+    if (descuentoCLP > 0) {
+        resumenValores += `Descuento Aplicado: -${formatCurrency(descuentoCLP)}\n`;
     }
     resumenValores += `----------------------------------\n`;
     resumenValores += `*TOTAL A PAGAR: ${formatCurrency(precioFinal)}* (IVA incluido)`;
@@ -98,7 +97,7 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
         '[GRUPO_SOLICITADO]': personas,
         '[DETALLE_PROPIEDADES_PROPUESTA]': detallePropiedades,
         '[RESUMEN_VALORES_PROPUESTA]': resumenValores,
-        '[SUBTOTAL_PROPUESTA]': formatCurrency(precioListaTotal),
+        '[SUBTOTAL_PROPUESTA]': formatCurrency(precioListaCLP),
         '[TOTAL_GENERAL]': formatCurrency(precioFinal),
         '[FECHA_VENCIMIENTO_PROPUESTA]': fechaVencimientoStr,
         '[PORCENTAJE_ABONO]': `${porcentajeAbono}%`,
