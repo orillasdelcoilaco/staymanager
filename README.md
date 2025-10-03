@@ -441,3 +441,17 @@ Dashboard y KPIs: Implementar un panel de control con indicadores clave de rendi
 Generador de Presupuestos: Crear una herramienta para generar cotizaciones y propuestas de reserva de forma rápida.
 
 Sincronización iCal: Implementar la exportación de calendarios en formato iCal para sincronizar la disponibilidad con plataformas externas.
+
+### Arquitectura de Actualización en Cascada (Manifiesto)
+Para manejar de forma robusta y escalable la actualización de identificadores clave, como el `idReservaCanal`, el sistema utiliza un "Manifiesto de Actualización".
+
+- **Ubicación:** `backend/config/idUpdateManifest.js`
+- **Propósito:** Este archivo actúa como un registro centralizado que define todas las colecciones y campos en la base de datos que dependen del ID de una reserva.
+- **Funcionamiento:** Cuando un usuario modifica un `idReservaCanal` a través de la interfaz, una función especializada en el backend (`actualizarIdReservaCanalEnCascada`) lee este manifiesto y recorre cada entrada. Para cada una, ejecuta una operación de actualización en la base de datos, asegurando que el cambio se propague a todos los rincones del sistema de forma automática.
+- **Ventaja a Futuro:** Si una nueva funcionalidad (ej. "Encuestas") necesita guardar el ID de la reserva, solo es necesario añadir una nueva línea al manifiesto. La lógica de actualización en cascada funcionará para esta nueva funcionalidad sin necesidad de modificar el código principal, garantizando la mantenibilidad y reduciendo la posibilidad de errores.
+
+## 4. Hoja de Ruta del Desarrollo
+- **Dashboard y KPIs:** Implementar un panel de control con indicadores clave de rendimiento (KPIs).
+- **Generador de Presupuestos:** Mejorar la herramienta para generar cotizaciones y propuestas de reserva.
+- **Sincronización iCal:** Implementar la exportación de calendarios en formato iCal.
+- **Reportes Avanzados:** Crear un módulo para generar reportes financieros y de ocupación personalizables.

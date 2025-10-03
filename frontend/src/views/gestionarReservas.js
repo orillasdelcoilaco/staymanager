@@ -1,3 +1,5 @@
+// frontend/src/views/gestionarReservas.js
+
 import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
 
@@ -500,9 +502,30 @@ export function afterRender() {
     formEdit.addEventListener('submit', async(e) => {
         e.preventDefault();
         if (!editandoReserva) return;
+
+        const idAntiguo = editandoReserva.idReservaCanal;
+        const idNuevo = formEdit.idReservaCanal.value;
+
+        if (idAntiguo !== idNuevo) {
+            if (confirm(`Estás a punto de cambiar el ID de la reserva de "${idAntiguo}" a "${idNuevo}". Esto actualizará todas las referencias en cascada (pagos, notas, archivos). ¿Estás seguro?`)) {
+                try {
+                    await fetchAPI(`/reservas/actualizar-id-canal/${editandoReserva.id}`, {
+                        method: 'PUT',
+                        body: { idAntiguo, idNuevo }
+                    });
+                    // La actualización en cascada ya se hizo. Ahora guardamos el resto de los datos.
+                } catch (error) {
+                    alert(`Error crítico al actualizar el ID en cascada: ${error.message}`);
+                    return; // Detenemos el proceso si la actualización del ID falla.
+                }
+            } else {
+                formEdit.idReservaCanal.value = idAntiguo; // Revertimos el cambio si el usuario cancela.
+                return;
+            }
+        }
         
         const datosReserva = {
-            idReservaCanal: formEdit.idReservaCanal.value,
+            idReservaCanal: idNuevo, // Usamos el ID nuevo (o el antiguo si no cambió)
             alojamientoId: formEdit.alojamientoId.value,
             clienteId: formEdit.clienteId.value,
             fechaLlegada: formEdit.fechaLlegada.value,

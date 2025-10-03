@@ -5,7 +5,7 @@ const { getAvailabilityData } = require('./propuestasService');
 const { crearOActualizarCliente } = require('./clientesService');
 
 const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExistente = null) => {
-    const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches } = datos;
+    const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, canalId, canalNombre } = datos;
 
     let clienteId = cliente.id;
     if (!clienteId) {
@@ -17,15 +17,12 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
         clienteId = resultadoCliente.cliente.id;
     }
     
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Usamos un solo ID para el grupo, ya sea uno nuevo o el que se está editando.
     const idGrupo = idPropuestaExistente || db.collection('empresas').doc().id;
     
     await db.runTransaction(async (transaction) => {
         const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
         
         if (idPropuestaExistente) {
-            // Buscamos por el ID de grupo estándar para eliminar las propuestas anteriores.
             const queryExistentes = reservasRef.where('idReservaCanal', '==', idPropuestaExistente).where('estado', '==', 'Propuesta');
             const snapshotExistentes = await transaction.get(queryExistentes);
             snapshotExistentes.forEach(doc => transaction.delete(doc.ref));
@@ -33,18 +30,17 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
 
         for (const prop of propiedades) {
             const nuevaReservaRef = reservasRef.doc();
-            // Se crea un ID único para cada reserva individual dentro de la propuesta.
             const idUnicoReserva = `${idGrupo}-${prop.id}`;
 
             const datosReserva = {
                 id: nuevaReservaRef.id,
                 idUnicoReserva,
-                idReservaCanal: idGrupo, // Se utiliza el campo estándar 'idReservaCanal'.
+                idReservaCanal: idGrupo,
                 clienteId,
                 alojamientoId: prop.id,
                 alojamientoNombre: prop.nombre,
-                canalId: 'APP',
-                canalNombre: 'App',
+                canalId: canalId || 'APP',
+                canalNombre: canalNombre || 'App',
                 fechaLlegada: admin.firestore.Timestamp.fromDate(new Date(fechaLlegada + 'T00:00:00Z')),
                 fechaSalida: admin.firestore.Timestamp.fromDate(new Date(fechaSalida + 'T00:00:00Z')),
                 totalNoches: noches,
@@ -62,7 +58,6 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
 
     return { id: idGrupo };
 };
-// --- FIN DE LA CORRECCIÓN ---
 
 const guardarPresupuesto = async (db, empresaId, datos) => {
     const { id, cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, texto } = datos;
@@ -119,7 +114,7 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
     const propuestasAgrupadas = new Map();
     propuestasSnapshot.forEach(doc => {
         const data = doc.data();
-        const id = data.idReservaCanal; // Se agrupa por el campo estándar
+        const id = data.idReservaCanal;
         if (!propuestasAgrupadas.has(id)) {
             propuestasAgrupadas.set(id, {
                 id,

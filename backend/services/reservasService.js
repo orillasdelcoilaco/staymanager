@@ -1,6 +1,10 @@
+// backend/services/reservasService.js
+
 const admin = require('firebase-admin');
 const { obtenerValorDolar } = require('./dolarService');
-const { deleteFileByUrl, uploadFile } = require('./storageService'); 
+const { deleteFileByUrl, uploadFile, renameFileByUrl } = require('./storageService'); 
+const { updateGoogleContact } = require('./googleContactsService');
+const idUpdateManifest = require('../config/idUpdateManifest');
 const path = require('path');
 
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
@@ -19,10 +23,13 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
         const ediciones = reservaExistente.edicionesManuales || {};
         
         let hayCambios = false;
-        const datosAActualizar = {
-            idCarga: datosReserva.idCarga
-        };
+        const datosAActualizar = {};
         
+        if (datosReserva.idCarga && reservaExistente.idCarga !== datosReserva.idCarga) {
+            datosAActualizar.idCarga = datosReserva.idCarga;
+            hayCambios = true;
+        }
+
         if (!ediciones['valores.valorTotal'] && !ediciones['valores.valorHuesped'] && !ediciones['valores.valorPotencial']) {
              if (JSON.stringify(reservaExistente.valores) !== JSON.stringify(datosReserva.valores)) {
                 datosAActualizar.valores = datosReserva.valores;
@@ -52,7 +59,7 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
             hayCambios = true;
         }
         
-        if (hayCambios || reservaExistente.idCarga !== datosReserva.idCarga) {
+        if (hayCambios) {
             datosAActualizar.fechaActualizacion = admin.firestore.FieldValue.serverTimestamp();
             await reservaDoc.ref.update(datosAActualizar);
             const dataActualizada = { ...reservaExistente, ...datosAActualizar };
@@ -109,6 +116,7 @@ const obtenerReservasPorEmpresa = async (db, empresaId) => {
         const cliente = clientesMap.get(data.clienteId);
         return {
             ...data,
+            id: doc.id,
             telefono: cliente ? cliente.telefono : 'N/A',
             nombreCliente: cliente ? cliente.nombre : 'Cliente no encontrado',
             fechaLlegada: data.fechaLlegada?.toDate().toISOString() || null,
@@ -127,18 +135,22 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
         throw new Error('Reserva no encontrada');
     }
     const reservaData = doc.data();
-    const idReservaCanal = reservaData.idReservaCanal;
+    
+    const idReservaOriginal = reservaData.idReservaCanal;
+    if (!idReservaOriginal) {
+         throw new Error('La reserva no tiene un identificador de grupo (idReservaCanal).');
+    }
 
     const grupoSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
-        .where('idReservaCanal', '==', idReservaCanal)
+        .where('idReservaCanal', '==', idReservaOriginal)
         .get();
     
     const reservasIndividuales = grupoSnapshot.docs.map(d => d.data());
 
     const [clienteDoc, notasSnapshot, transaccionesSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('clientes').doc(reservaData.clienteId).get(),
-        db.collection('empresas').doc(empresaId).collection('gestionNotas').where('reservaIdOriginal', '==', idReservaCanal).orderBy('fecha', 'desc').get(),
-        db.collection('empresas').doc(empresaId).collection('transacciones').where('reservaIdOriginal', '==', idReservaCanal).orderBy('fecha', 'desc').get()
+        db.collection('empresas').doc(empresaId).collection('gestionNotas').where('reservaIdOriginal', '==', idReservaOriginal).orderBy('fecha', 'desc').get(),
+        db.collection('empresas').doc(empresaId).collection('transacciones').where('reservaIdOriginal', '==', idReservaOriginal).orderBy('fecha', 'desc').get()
     ]);
 
     const cliente = clienteDoc.exists ? clienteDoc.data() : {};
@@ -414,6 +426,30 @@ const contarReservasPorIdCarga = async (db, empresaId, idCarga) => {
     return { count: snapshot.size };
 };
 
+const actualizarIdReservaCanalEnCascada = async (db, empresaId, idReserva, idAntiguo, idNuevo) => {
+    if (!idAntiguo || !idNuevo || idAntiguo === idNuevo) {
+        throw new Error("Se requieren un ID antiguo y uno nuevo, y deben ser diferentes.");
+    }
+    
+    return db.runTransaction(async (transaction) => {
+        // 1. Actualizar documentos en Firestore usando el manifiesto
+        for (const item of idUpdateManifest) {
+            const collectionRef = db.collection('empresas').doc(empresaId).collection(item.collection);
+            const snapshot = await transaction.get(collectionRef.where(item.field, '==', idAntiguo));
+            
+            snapshot.forEach(doc => {
+                const updateData = { [item.field]: idNuevo };
+                // Si es el identificador principal en la colección 'reservas', también actualizamos la edición manual.
+                if (item.isGroupIdentifier) {
+                    updateData['edicionesManuales.idReservaCanal'] = true;
+                }
+                transaction.update(doc.ref, updateData);
+            });
+        }
+    });
+};
+
+
 module.exports = {
     crearOActualizarReserva,
     obtenerReservasPorEmpresa,
@@ -427,5 +463,6 @@ module.exports = {
     actualizarDocumentoReserva,
     gestionarDocumentoReserva,
     eliminarReservasPorIdCarga,
-    contarReservasPorIdCarga
+    contarReservasPorIdCarga,
+    actualizarIdReservaCanalEnCascada
 };

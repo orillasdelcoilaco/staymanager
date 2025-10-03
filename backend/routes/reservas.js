@@ -1,3 +1,5 @@
+// backend/routes/reservas.js
+
 const express = require('express');
 const multer = require('multer');
 const {
@@ -5,7 +7,8 @@ const {
     obtenerReservaPorId,
     actualizarReservaManualmente,
     eliminarReserva,
-    gestionarDocumentoReserva 
+    gestionarDocumentoReserva,
+    actualizarIdReservaCanalEnCascada
 } = require('../services/reservasService');
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -36,6 +39,19 @@ module.exports = (db) => {
             const reservaActualizada = await actualizarReservaManualmente(db, req.user.empresaId, req.params.id, req.body);
             res.status(200).json(reservaActualizada);
         } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    router.put('/actualizar-id-canal/:id', async (req, res) => {
+        try {
+            const { empresaId } = req.user;
+            const { id } = req.params;
+            const { idAntiguo, idNuevo } = req.body;
+            await actualizarIdReservaCanalEnCascada(db, empresaId, id, idAntiguo, idNuevo);
+            res.status(200).json({ message: 'El ID de la reserva se ha actualizado en cascada correctamente.' });
+        } catch (error) {
+            console.error("Error en la ruta de actualización de ID en cascada:", error);
             res.status(500).json({ error: error.message });
         }
     });

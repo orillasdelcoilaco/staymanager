@@ -5,6 +5,7 @@ import { handleNavigation } from '../router.js';
 
 let allClients = [];
 let allProperties = [];
+let allCanales = [];
 let selectedClient = null;
 let availabilityData = {};
 let selectedProperties = [];
@@ -13,11 +14,22 @@ let editId = null;
 
 function formatCurrency(value) { return `$${(Math.round(value) || 0).toLocaleString('es-CL')}`; }
 
-async function loadClients() {
+async function loadInitialData() {
     try {
-        allClients = await fetchAPI('/clientes');
+        [allClients, allCanales] = await Promise.all([
+            fetchAPI('/clientes'),
+            fetchAPI('/canales')
+        ]);
+        const canalSelect = document.getElementById('canal-select');
+        if (canalSelect) {
+            canalSelect.innerHTML = allCanales.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+            const appChannel = allCanales.find(c => c.nombre.toLowerCase() === 'app');
+            if (appChannel) {
+                canalSelect.value = appChannel.id;
+            }
+        }
     } catch (error) {
-        console.error("No se pudieron cargar los clientes:", error);
+        console.error("No se pudieron cargar los datos iniciales:", error);
     }
 }
 
@@ -203,6 +215,10 @@ export function render() {
                                 <input type="tel" id="new-client-phone" placeholder="Teléfono" class="form-input mt-2">
                                 <input type="email" id="new-client-email" placeholder="Email (opcional)" class="form-input mt-2">
                             </div>
+                            <div>
+                                <label for="canal-select" class="block text-sm font-medium text-gray-700">Canal de Venta</label>
+                                <select id="canal-select" class="form-select mt-1"></select>
+                            </div>
                          </div>
                     </div>
 
@@ -313,14 +329,17 @@ export async function afterRender() {
             alert('Debes seleccionar al menos una propiedad.');
             return;
         }
-
+        
+        const canalSelect = document.getElementById('canal-select');
         const payloadGuardar = {
             cliente: clienteParaGuardar,
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
             propiedades: selectedProperties,
             precioFinal: parseFloat(document.getElementById('summary-precio-final').textContent.replace(/\$|\./g, '').replace(',','.')) || 0,
-            noches: currentPricing.nights
+            noches: currentPricing.nights,
+            canalId: canalSelect.value,
+            canalNombre: canalSelect.options[canalSelect.selectedIndex].text
         };
         
         btn.disabled = true;
@@ -365,7 +384,7 @@ export async function afterRender() {
         setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
     });
 
-    await loadClients();
+    await loadInitialData();
     const params = new URLSearchParams(window.location.search);
     editId = params.get('edit');
 
