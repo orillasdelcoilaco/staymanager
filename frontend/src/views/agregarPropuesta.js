@@ -200,11 +200,14 @@ function updateSummary(pricing) {
         summaryCLPContainer.classList.remove('md:col-span-1');
         summaryCLPContainer.classList.add('md:col-span-2');
     }
+    
+    const descuentoEnCLP = totalPriceCLP - precioFinalCLP;
 
     summaryCLPContainer.innerHTML = `
         <h4 class="font-bold text-gray-800 text-center mb-1">Totales en CLP</h4>
         <div class="flex justify-between text-sm"><span class="text-gray-600">Noches Totales:</span><span id="summary-noches" class="font-medium">${nights || 0}</span></div>
         <div class="flex justify-between text-sm"><span class="text-gray-600">Precio Lista (CLP):</span><span class="font-medium">${formatCurrency(totalPriceCLP)}</span></div>
+        <div class="flex justify-between text-sm text-red-600"><span class="font-medium">Descuento (CLP):</span><span class="font-medium">-${formatCurrency(descuentoEnCLP)}</span></div>
         <div class="flex justify-between text-lg font-bold border-t pt-2 mt-2"><span>Precio Final a Cobrar:</span><span id="summary-precio-final" class="text-indigo-600">${formatCurrency(precioFinalCLP)}</span></div>
     `;
 }
