@@ -11,12 +11,8 @@ let transaccionesActuales = [];
 // --- UTILS ---
 const formatDate = (dateString) => {
     if (!dateString) return '-';
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Nos aseguramos de tomar solo la parte de la fecha del string, antes de la 'T'.
-    // Esto hace que la función sea compatible tanto con '2026-02-14' como con '2026-02-14T00:00:00.000Z'.
     const datePart = dateString.split('T')[0];
     return new Date(datePart + 'T00:00:00Z').toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
-    // --- FIN DE LA CORRECCIÓN ---
 };
 const formatDateTime = (dateString) => {
     if (!dateString) return '-';
@@ -279,7 +275,7 @@ function renderTabla(filtros) {
     });
 
     if (reservasFiltradas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" class="text-center text-gray-500 py-4">No se encontraron reservas.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center text-gray-500 py-4">No se encontraron reservas.</td></tr>';
         return;
     }
 
@@ -293,6 +289,7 @@ function renderTabla(filtros) {
             <td class="py-2 px-3 font-mono text-center font-bold">${idNumericoCarga}</td>
             <td class="py-2 px-3 font-medium">${r.nombreCliente}</td>
             <td class="py-2 px-3">${r.alojamientoNombre}</td>
+            <td class="py-2 px-3">${r.canalNombre}</td>
             <td class="py-2 px-3 whitespace-nowrap">${formatDate(r.fechaLlegada)}</td>
             <td class="py-2 px-3 whitespace-nowrap">${formatDate(r.fechaSalida)}</td>
             <td class="py-2 px-3 text-center">${r.totalNoches || '-'}</td>
@@ -345,6 +342,7 @@ export async function render() {
                     <th class="th text-xs">ID Carga</th>
                     <th class="th text-xs">Nombre</th>
                     <th class="th text-xs">Alojamiento</th>
+                    <th class="th text-xs">Canal</th>
                     <th class="th text-xs">Check-in</th>
                     <th class="th text-xs">Check-out</th>
                     <th class="th text-xs">Noches</th>
