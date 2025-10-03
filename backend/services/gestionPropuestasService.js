@@ -1,3 +1,5 @@
+// backend/services/gestionPropuestasService.js
+
 const admin = require('firebase-admin');
 const { getAvailabilityData } = require('./propuestasService');
 const { crearOActualizarCliente } = require('./clientesService');
@@ -15,25 +17,29 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
         clienteId = resultadoCliente.cliente.id;
     }
     
-    const idPropuesta = idPropuestaExistente || db.collection('empresas').doc().id;
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Usamos un solo ID para el grupo, ya sea uno nuevo o el que se está editando.
+    const idGrupo = idPropuestaExistente || db.collection('empresas').doc().id;
     
     await db.runTransaction(async (transaction) => {
         const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
         
         if (idPropuestaExistente) {
-            const queryExistentes = reservasRef.where('idPropuesta', '==', idPropuestaExistente);
+            // Buscamos por el ID de grupo estándar para eliminar las propuestas anteriores.
+            const queryExistentes = reservasRef.where('idReservaCanal', '==', idPropuestaExistente).where('estado', '==', 'Propuesta');
             const snapshotExistentes = await transaction.get(queryExistentes);
             snapshotExistentes.forEach(doc => transaction.delete(doc.ref));
         }
 
         for (const prop of propiedades) {
             const nuevaReservaRef = reservasRef.doc();
-            const idUnicoReserva = `${idPropuesta}-${prop.id}`;
+            // Se crea un ID único para cada reserva individual dentro de la propuesta.
+            const idUnicoReserva = `${idGrupo}-${prop.id}`;
 
             const datosReserva = {
                 id: nuevaReservaRef.id,
                 idUnicoReserva,
-                idPropuesta: idPropuesta,
+                idReservaCanal: idGrupo, // Se utiliza el campo estándar 'idReservaCanal'.
                 clienteId,
                 alojamientoId: prop.id,
                 alojamientoNombre: prop.nombre,
@@ -54,8 +60,9 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
         }
     });
 
-    return { id: idPropuesta };
+    return { id: idGrupo };
 };
+// --- FIN DE LA CORRECCIÓN ---
 
 const guardarPresupuesto = async (db, empresaId, datos) => {
     const { id, cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, texto } = datos;
@@ -112,7 +119,7 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
     const propuestasAgrupadas = new Map();
     propuestasSnapshot.forEach(doc => {
         const data = doc.data();
-        const id = data.idPropuesta || data.idUnicoReserva;
+        const id = data.idReservaCanal; // Se agrupa por el campo estándar
         if (!propuestasAgrupadas.has(id)) {
             propuestasAgrupadas.set(id, {
                 id,
@@ -177,7 +184,7 @@ const aprobarPropuesta = async (db, empresaId, idsReservas) => {
             const conflicto = reservasConflictivas.docs.find(doc => doc.data().fechaSalida.toDate() > startDate);
             if (conflicto) {
                 const dataConflicto = conflicto.data();
-                const idReserva = dataConflicto.idReservaCanal || dataConflicto.idPropuesta || dataConflicto.idPresupuesto || 'Desconocido';
+                const idReserva = dataConflicto.idReservaCanal || 'Desconocido';
                 const fechaReservaTimestamp = dataConflicto.fechaCreacion || dataConflicto.fechaReserva;
                 const fechaReserva = fechaReservaTimestamp ? fechaReservaTimestamp.toDate().toLocaleDateString('es-CL') : 'una fecha no registrada';
                 throw new Error(`La cabaña ${reserva.alojamientoNombre} ya no está disponible. Fue reservada por la reserva ${idReserva} del canal ${dataConflicto.canalNombre}, creada el ${fechaReserva}.`);
@@ -224,7 +231,7 @@ const aprobarPresupuesto = async (db, empresaId, presupuestoId) => {
             const conflicto = reservasConflictivas.docs.find(doc => doc.data().fechaSalida.toDate() > startDate);
             if (conflicto) {
                 const dataConflicto = conflicto.data();
-                const idReserva = dataConflicto.idReservaCanal || dataConflicto.idPropuesta || dataConflicto.idPresupuesto || 'Desconocido';
+                const idReserva = dataConflicto.idReservaCanal || 'Desconocido';
                 const fechaReservaTimestamp = dataConflicto.fechaCreacion || dataConflicto.fechaReserva;
                 const fechaReserva = fechaReservaTimestamp ? fechaReservaTimestamp.toDate().toLocaleDateString('es-CL') : 'una fecha no registrada';
                 throw new Error(`La cabaña ${prop.nombre} ya no está disponible. Fue reservada por la reserva ${idReserva} del canal ${dataConflicto.canalNombre}, creada el ${fechaReserva}.`);
