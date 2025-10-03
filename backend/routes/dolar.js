@@ -1,6 +1,8 @@
+// backend/routes/dolar.js
+
 const express = require('express');
 const multer = require('multer');
-const { processDolarCsv, getValoresPorMes, guardarValorDolar, eliminarValorDolar, obtenerValorDolarHoy } = require('../services/dolarService');
+const { processDolarCsv, getValoresPorMes, guardarValorDolar, eliminarValorDolar, obtenerValorDolarHoy, obtenerValorDolar } = require('../services/dolarService');
 
 const upload = multer({ storage: multer.memoryStorage() });
 const router = express.Router();
@@ -26,6 +28,21 @@ module.exports = (db) => {
     } catch (error) {
         res.status(500).json({ error: `No se pudo obtener el valor del dólar: ${error.message}` });
     }
+  });
+
+  router.get('/valor/:fecha', async (req, res) => {
+      try {
+          const { empresaId } = req.user;
+          const { fecha } = req.params;
+          const targetDate = new Date(fecha + 'T00:00:00Z');
+          if (isNaN(targetDate.getTime())) {
+              return res.status(400).json({ error: 'Formato de fecha inválido.' });
+          }
+          const valor = await obtenerValorDolar(db, empresaId, targetDate);
+          res.status(200).json({ valor, fecha });
+      } catch (error) {
+          res.status(500).json({ error: `No se pudo obtener el valor del dólar para la fecha: ${error.message}` });
+      }
   });
 
   router.get('/valores/:year/:month', async (req, res) => {

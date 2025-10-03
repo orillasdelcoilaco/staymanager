@@ -22,15 +22,10 @@ function formatCurrency(value, currency = 'CLP') {
 
 async function loadInitialData() {
     try {
-        const [clients, canales, dolar] = await Promise.all([
+        [allClients, allCanales] = await Promise.all([
             fetchAPI('/clientes'),
-            fetchAPI('/canales'),
-            fetchAPI('/dolar/hoy')
+            fetchAPI('/canales')
         ]);
-        allClients = clients;
-        allCanales = canales;
-        valorDolarDia = dolar.valor;
-
         const canalSelect = document.getElementById('canal-select');
         if (canalSelect) {
             canalSelect.innerHTML = allCanales.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
@@ -39,7 +34,6 @@ async function loadInitialData() {
                 canalSelect.value = appChannel.id;
             }
         }
-        document.getElementById('valor-dolar-info').textContent = `Valor Dólar del Día: ${formatCurrency(valorDolarDia)}`;
         handleCanalChange();
     } catch (error) {
         console.error("No se pudieron cargar los datos iniciales:", error);
@@ -329,8 +323,9 @@ export async function afterRender() {
     const buscarBtn = document.getElementById('buscar-btn');
     
     const runSearch = async () => {
+        const fechaLlegada = document.getElementById('fecha-llegada').value;
         const payload = {
-            fechaLlegada: document.getElementById('fecha-llegada').value,
+            fechaLlegada: fechaLlegada,
             fechaSalida: document.getElementById('fecha-salida').value,
             personas: document.getElementById('personas').value,
             permitirCambios: document.getElementById('permitir-cambios').checked,
@@ -348,6 +343,10 @@ export async function afterRender() {
         document.getElementById('results-container').classList.add('hidden');
 
         try {
+            const dolar = await fetchAPI(`/dolar/valor/${fechaLlegada}`);
+            valorDolarDia = dolar.valor;
+            document.getElementById('valor-dolar-info').textContent = `Valor Dólar del Día: ${formatCurrency(valorDolarDia)}`;
+
             availabilityData = await fetchAPI('/propuestas/generar', { method: 'POST', body: payload });
             allProperties = availabilityData.allProperties;
             if (availabilityData.suggestion) {
@@ -426,13 +425,12 @@ export async function afterRender() {
             const endpoint = editId ? `/gestion-propuestas/propuesta-tentativa/${editId}` : '/gestion-propuestas/propuesta-tentativa';
             const method = editId ? 'PUT' : 'POST';
             
-            const resultadoGuardado = await fetchAPI(endpoint, { method, body: payloadGuardar });
+            const resultadoGuardado = await fetchAPI(endpoint, { method: 'POST', body: payloadGuardar });
             
             const payloadTexto = {
                 ...payloadGuardar,
                 personas: document.getElementById('personas').value,
                 idPropuesta: resultadoGuardado.id,
-                precioLista: currentPricing,
                 precioListaCLP: precioListaCLP,
                 descuentoCLP: descuentoCLP,
                 pricingDetails: currentPricing.details

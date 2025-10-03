@@ -1,3 +1,5 @@
+// backend/services/sincronizacionService.js
+
 const xlsx = require('xlsx');
 const { crearOActualizarCliente, recalcularEstadisticasClientes } = require('./clientesService');
 const { crearOActualizarReserva } = require('./reservasService');
@@ -215,6 +217,10 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                     if (propiedad) capacidadAlojamiento = propiedad.capacidad;
                 }
             }
+
+            if (!alojamientoId) {
+                throw new Error(`No se encontró una conversión para el alojamiento "${nombreExternoAlojamiento}" en el canal ${canalNombre}.`);
+            }
             
             const valorAnfitrion = parsearMoneda(get('valorAnfitrion'), separadorDecimal);
             const comisionSumable = parsearMoneda(get('comision'), separadorDecimal);
@@ -238,7 +244,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
 
             const totalNoches = Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24));
             
-            const idUnicoReserva = `${idReservaCanal}-${normalizarString(nombreExternoAlojamiento).replace(/\s/g, '')}`;
+            const idUnicoReserva = `${idReservaCanal}-${alojamientoId}`;
 
             const datosReserva = {
                 empresaId: empresaId,
