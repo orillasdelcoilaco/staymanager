@@ -156,10 +156,10 @@ function updateSummary(pricing) {
     currentPricing = pricing;
     if (!pricing) return;
 
-    const { totalPriceOriginal, currencyOriginal, nights } = pricing;
-
-    document.getElementById('summary-noches').textContent = nights || 0;
-    document.getElementById('summary-precio-lista').textContent = `${formatCurrency(totalPriceOriginal, currencyOriginal)} (${currencyOriginal})`;
+    const { totalPriceOriginal, currencyOriginal, nights, totalPriceCLP } = pricing;
+    
+    const summaryOriginalContainer = document.getElementById('summary-original-currency-container');
+    const summaryCLPContainer = document.getElementById('summary-clp-container');
 
     const valorFinalInput = document.getElementById('valor-final-input');
     const pctInput = document.getElementById('descuento-pct');
@@ -178,15 +178,37 @@ function updateSummary(pricing) {
         else if (fijo > 0) descuentoEnMonedaOriginal = fijo;
         precioFinalEnMonedaOriginal = totalPriceOriginal - descuentoEnMonedaOriginal;
     }
-
-    document.getElementById('summary-descuento').textContent = `-${formatCurrency(descuentoEnMonedaOriginal, currencyOriginal)}`;
     
     const precioFinalCLP = currencyOriginal === 'USD' 
         ? Math.round(precioFinalEnMonedaOriginal * valorDolarDia) 
         : precioFinalEnMonedaOriginal;
 
-    document.getElementById('summary-precio-final').textContent = formatCurrency(precioFinalCLP, 'CLP');
+    if (currencyOriginal !== 'CLP') {
+        summaryOriginalContainer.classList.remove('hidden');
+        summaryOriginalContainer.innerHTML = `
+            <h4 class="font-bold text-blue-800 text-center mb-1">Valores en ${currencyOriginal}</h4>
+            <div class="flex justify-between text-sm"><span class="text-gray-600">Noches:</span><span class="font-medium">${nights || 0}</span></div>
+            <div class="flex justify-between text-sm"><span class="text-gray-600">Precio de Lista:</span><span class="font-medium">${formatCurrency(totalPriceOriginal, currencyOriginal)}</span></div>
+            <div class="flex justify-between text-sm text-red-600"><span class="font-medium">Descuento:</span><span class="font-medium">-${formatCurrency(descuentoEnMonedaOriginal, currencyOriginal)}</span></div>
+            <div class="flex justify-between text-base font-bold border-t pt-2 mt-2"><span>Total (${currencyOriginal}):</span><span class="text-blue-600">${formatCurrency(precioFinalEnMonedaOriginal, currencyOriginal)}</span></div>
+        `;
+        summaryCLPContainer.classList.add('md:col-span-1');
+        summaryCLPContainer.classList.remove('md:col-span-2');
+    } else {
+        summaryOriginalContainer.classList.add('hidden');
+        summaryOriginalContainer.innerHTML = '';
+        summaryCLPContainer.classList.remove('md:col-span-1');
+        summaryCLPContainer.classList.add('md:col-span-2');
+    }
+
+    summaryCLPContainer.innerHTML = `
+        <h4 class="font-bold text-gray-800 text-center mb-1">Totales en CLP</h4>
+        <div class="flex justify-between text-sm"><span class="text-gray-600">Noches Totales:</span><span id="summary-noches" class="font-medium">${nights || 0}</span></div>
+        <div class="flex justify-between text-sm"><span class="text-gray-600">Precio Lista (CLP):</span><span class="font-medium">${formatCurrency(totalPriceCLP)}</span></div>
+        <div class="flex justify-between text-lg font-bold border-t pt-2 mt-2"><span>Precio Final a Cobrar:</span><span id="summary-precio-final" class="text-indigo-600">${formatCurrency(precioFinalCLP)}</span></div>
+    `;
 }
+
 
 function handleCanalChange() {
     const canalId = document.getElementById('canal-select').value;
@@ -266,19 +288,15 @@ export function render() {
 
                     <div id="pricing-section" class="p-4 border rounded-md bg-gray-50">
                         <h3 class="font-semibold text-gray-800 mb-4">4. Descuentos y Resumen Final</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="space-y-4 md:col-span-1">
                                 <div id="valor-dolar-container" class="hidden"><p id="valor-dolar-info" class="text-sm font-semibold text-blue-600"></p></div>
                                 <div><label for="descuento-pct" class="block text-sm font-medium">Descuento (%)</label><input type="number" id="descuento-pct" placeholder="Ej: 15" class="discount-input form-input mt-1"></div>
-                                <div><label id="descuento-fijo-label" for="descuento-fijo-total" class="block text-sm font-medium">Descuento Fijo (CLP)</label><input type="number" id="descuento-fijo-total" placeholder="Ej: 20000" class="discount-input form-input mt-1"></div>
-                                <div><label id="valor-final-label" for="valor-final-input" class="block text-sm font-medium">O Ingresar Valor Final (CLP)</label><input type="number" id="valor-final-input" placeholder="Ej: 350000" class="discount-input form-input mt-1"></div>
+                                <div><label id="descuento-fijo-label" for="descuento-fijo-total" class="block text-sm font-medium">Descuento Fijo</label><input type="number" id="descuento-fijo-total" placeholder="Ej: 20000" class="discount-input form-input mt-1"></div>
+                                <div><label id="valor-final-label" for="valor-final-input" class="block text-sm font-medium">O Ingresar Valor Final</label><input type="number" id="valor-final-input" placeholder="Ej: 350000" class="discount-input form-input mt-1"></div>
                             </div>
-                            <div class="p-4 bg-white rounded-md border space-y-2">
-                                <div class="flex justify-between text-sm"><span class="text-gray-600">Noches Totales:</span><span id="summary-noches" class="font-medium">0</span></div>
-                                <div class="flex justify-between text-sm"><span class="text-gray-600">Precio de Lista:</span><span id="summary-precio-lista" class="font-medium">$0</span></div>
-                                <div class="flex justify-between text-sm text-red-600"><span class="font-medium">Descuento:</span><span id="summary-descuento" class="font-medium">-$0</span></div>
-                                <div class="flex justify-between text-lg font-bold border-t pt-2 mt-2"><span>Precio Final a Cobrar:</span><span id="summary-precio-final" class="text-indigo-600">$0</span></div>
-                            </div>
+                            <div id="summary-original-currency-container" class="p-4 bg-blue-50 border border-blue-200 rounded-md space-y-2 md:col-span-1 hidden"></div>
+                            <div id="summary-clp-container" class="p-4 bg-white rounded-md border space-y-2 md:col-span-1"></div>
                         </div>
                     </div>
 
