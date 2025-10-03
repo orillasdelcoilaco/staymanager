@@ -345,7 +345,7 @@ export async function afterRender() {
         try {
             const dolar = await fetchAPI(`/dolar/valor/${fechaLlegada}`);
             valorDolarDia = dolar.valor;
-            document.getElementById('valor-dolar-info').textContent = `Valor Dólar del Día: ${formatCurrency(valorDolarDia)}`;
+            document.getElementById('valor-dolar-info').textContent = `Valor Dólar para el Check-in: ${formatCurrency(valorDolarDia)}`;
 
             availabilityData = await fetchAPI('/propuestas/generar', { method: 'POST', body: payload });
             allProperties = availabilityData.allProperties;
