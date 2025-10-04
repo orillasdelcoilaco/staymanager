@@ -10,7 +10,6 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
     const idGrupo = idPropuestaExistente || db.collection('empresas').doc().id;
 
     let clienteId;
-    // Si el cliente ya existe, no necesitamos crearlo, pero si es nuevo, pasamos los datos para la sincronización con Google.
     if (cliente.id) {
         clienteId = cliente.id;
     } else {
@@ -18,8 +17,8 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
             nombre: cliente.nombre,
             telefono: cliente.telefono,
             email: cliente.email,
-            canalNombre: canalNombre, // <-- Se pasa el nombre del canal
-            idReservaCanal: idGrupo   // <-- Se pasa el ID de la propuesta
+            canalNombre: canalNombre,
+            idReservaCanal: idGrupo
         });
         clienteId = resultadoCliente.cliente.id;
     }
@@ -60,6 +59,7 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
                     valorTotal: precioFinalPorPropiedad,
                     valorHuesped: precioFinalPorPropiedad
                 },
+                fechaReserva: admin.firestore.FieldValue.serverTimestamp(), // <-- CORRECCIÓN AQUÍ
                 fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
                 fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
             };

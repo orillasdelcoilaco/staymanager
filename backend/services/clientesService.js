@@ -144,7 +144,7 @@ const actualizarCliente = async (db, empresaId, clienteId, datosActualizados) =>
     if (datosAntiguos.googleContactSynced) {
         const reservaSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
             .where('clienteId', '==', clienteId)
-            .orderBy('fechaReserva', 'desc')
+            .orderBy('fechaCreacion', 'desc') // <-- CORRECCIÓN AQUÍ
             .limit(1)
             .get();
 
@@ -189,7 +189,7 @@ const sincronizarClienteGoogle = async (db, empresaId, clienteId, overrideData =
 
         const reservaSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
             .where('clienteId', '==', clienteId)
-            .orderBy('fechaReserva', 'desc')
+            .orderBy('fechaCreacion', 'desc') // <-- CORRECCIÓN AQUÍ
             .limit(1)
             .get();
 
