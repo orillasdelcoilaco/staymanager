@@ -11,21 +11,22 @@ function renderTabla() {
     if (!tbody) return;
 
     if (todasLasPropuestas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-4">No hay propuestas ni presupuestos pendientes.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-gray-500 py-4">No hay propuestas ni presupuestos pendientes.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = todasLasPropuestas.map(item => `
+    tbody.innerHTML = todasLasPropuestas.map((item, index) => `
         <tr class="border-b text-sm">
+            <td class="p-2 text-center font-medium text-gray-500">${index + 1}</td>
             <td class="p-2">${item.tipo === 'propuesta' ? 'Reserva Tentativa' : 'Presupuesto Formal'}</td>
             <td class="p-2 font-medium">${item.clienteNombre}</td>
             <td class="p-2">${formatDate(item.fechaLlegada)} al ${formatDate(item.fechaSalida)}</td>
             <td class="p-2">${item.propiedadesNombres}</td>
             <td class="p-2 font-semibold text-right">${formatCurrency(item.monto)}</td>
             <td class="p-2 text-center space-x-2 whitespace-nowrap">
-                <button data-id="${item.id}" data-tipo="${item.tipo}" class="edit-btn btn-secondary text-xs">Editar</button>
-                <button data-id="${item.id}" data-tipo="${item.tipo}" data-ids-reservas="${item.idsReservas?.join(',')}" class="approve-btn btn-primary text-xs bg-green-600 hover:bg-green-700">Aprobar</button>
-                <button data-id="${item.id}" data-tipo="${item.tipo}" data-ids-reservas="${item.idsReservas?.join(',')}" class="reject-btn btn-danger text-xs">Rechazar</button>
+                <button data-id="${item.id}" data-tipo="${item.tipo}" class="edit-btn btn-table-copy">Editar</button>
+                <button data-id="${item.id}" data-tipo="${item.tipo}" data-ids-reservas="${item.idsReservas?.join(',')}" class="approve-btn btn-table-edit">Aprobar</button>
+                <button data-id="${item.id}" data-tipo="${item.tipo}" data-ids-reservas="${item.idsReservas?.join(',')}" class="reject-btn btn-table-delete">Rechazar</button>
             </td>
         </tr>
     `).join('');
@@ -37,7 +38,7 @@ async function fetchAndRender() {
         renderTabla();
     } catch (error) {
         const tbody = document.getElementById('propuestas-tbody');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center text-red-500 py-4">Error al cargar: ${error.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center text-red-500 py-4">Error al cargar: ${error.message}</td></tr>`;
     }
 }
 
@@ -45,9 +46,10 @@ export async function render() {
     return `
         <div class="bg-white p-8 rounded-lg shadow">
             <h2 class="text-2xl font-semibold text-gray-900 mb-4">Gestionar Propuestas y Presupuestos</h2>
-            <div class="overflow-x-auto">
+            <div class="table-container">
                 <table class="min-w-full bg-white">
-                    <thead class="bg-gray-50"><tr>
+                    <thead><tr>
+                        <th class="th w-12">#</th>
                         <th class="th">Tipo</th>
                         <th class="th">Cliente</th>
                         <th class="th">Fechas</th>
