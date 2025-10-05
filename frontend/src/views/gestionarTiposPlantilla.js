@@ -32,17 +32,18 @@ function renderTabla() {
     if (!tbody) return;
 
     if (tipos.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-gray-500 py-4">No hay tipos de plantilla registrados.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-gray-500 py-4">No hay tipos de plantilla registrados.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = tipos.map(t => `
+    tbody.innerHTML = tipos.map((t, index) => `
         <tr class="border-b">
+            <td class="py-3 px-4 text-center font-medium text-gray-500">${index + 1}</td>
             <td class="py-3 px-4 font-medium">${t.nombre}</td>
             <td class="py-3 px-4">${t.descripcion}</td>
             <td class="py-3 px-4">
-                <button data-id="${t.id}" class="edit-btn text-indigo-600 hover:text-indigo-800 text-sm font-medium mr-3">Editar</button>
-                <button data-id="${t.id}" class="delete-btn text-red-600 hover:text-red-800 text-sm font-medium">Eliminar</button>
+                <button data-id="${t.id}" class="edit-btn btn-table-edit mr-2">Editar</button>
+                <button data-id="${t.id}" class="delete-btn btn-table-delete">Eliminar</button>
             </td>
         </tr>
     `).join('');
@@ -55,10 +56,11 @@ export async function render() {
                 <h2 class="text-2xl font-semibold text-gray-900">Gestionar Tipos de Plantilla</h2>
                 <button id="add-tipo-btn" class="btn-primary">+ Nuevo Tipo</button>
             </div>
-            <div class="overflow-x-auto">
+            <div class="table-container">
                 <table class="min-w-full bg-white">
-                    <thead class="bg-gray-50">
+                    <thead>
                         <tr>
+                            <th class="th w-12">#</th>
                             <th class="th">Nombre</th>
                             <th class="th">Descripción</th>
                             <th class="th">Acciones</th>
@@ -96,7 +98,7 @@ async function fetchAndRender() {
         tipos = await fetchAPI('/plantillas/tipos');
         renderTabla();
     } catch (error) {
-        document.getElementById('tipos-tbody').innerHTML = `<tr><td colspan="3" class="text-center text-red-500 py-4">Error al cargar datos: ${error.message}</td></tr>`;
+        document.getElementById('tipos-tbody').innerHTML = `<tr><td colspan="4" class="text-center text-red-500 py-4">Error al cargar datos: ${error.message}</td></tr>`;
     }
 }
 
