@@ -46,19 +46,20 @@ function renderTabla() {
     if (!tbody) return;
 
     if (propiedades.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">No hay alojamientos registrados.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-4">No hay alojamientos registrados.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = propiedades.map(p => `
+    tbody.innerHTML = propiedades.map((p, index) => `
         <tr class="border-b">
+            <td class="py-3 px-4 text-center font-medium text-gray-500">${index + 1}</td>
             <td class="py-3 px-4 font-medium text-gray-800">${p.nombre}</td>
             <td class="py-3 px-4">${p.capacidad}</td>
             <td class="py-3 px-4">${p.numPiezas || 0}</td>
             <td class="py-3 px-4">${p.numBanos || 0}</td>
             <td class="py-3 px-4">
-                <button data-id="${p.id}" class="edit-btn text-indigo-600 hover:text-indigo-800 text-sm font-medium mr-3">Editar</button>
-                <button data-id="${p.id}" class="delete-btn text-red-600 hover:text-red-800 text-sm font-medium">Eliminar</button>
+                <button data-id="${p.id}" class="edit-btn btn-table-edit mr-2">Editar</button>
+                <button data-id="${p.id}" class="delete-btn btn-table-delete">Eliminar</button>
             </td>
         </tr>
     `).join('');
@@ -76,19 +77,20 @@ export async function render() {
         <div class="bg-white p-8 rounded-lg shadow">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-semibold text-gray-900">Gestionar Alojamientos</h2>
-                <button id="add-propiedad-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                <button id="add-propiedad-btn" class="btn-primary">
                     + Nuevo Alojamiento
                 </button>
             </div>
-            <div class="overflow-x-auto">
+            <div class="table-container">
                 <table class="min-w-full bg-white">
-                    <thead class="bg-gray-50">
+                    <thead>
                         <tr>
-                            <th class="text-left py-3 px-4 font-semibold text-sm text-gray-600">Nombre</th>
-                            <th class="text-left py-3 px-4 font-semibold text-sm text-gray-600">Capacidad</th>
-                            <th class="text-left py-3 px-4 font-semibold text-sm text-gray-600">Nº Piezas</th>
-                            <th class="text-left py-3 px-4 font-semibold text-sm text-gray-600">Nº Baños</th>
-                            <th class="text-left py-3 px-4 font-semibold text-sm text-gray-600">Acciones</th>
+                            <th class="th w-12">#</th>
+                            <th class="th">Nombre</th>
+                            <th class="th">Capacidad</th>
+                            <th class="th">Nº Piezas</th>
+                            <th class="th">Nº Baños</th>
+                            <th class="th">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="propiedades-tbody"></tbody>
@@ -106,43 +108,43 @@ export async function render() {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre Alojamiento</label>
-                            <input type="text" id="nombre" name="nombre" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            <input type="text" id="nombre" name="nombre" required class="form-input mt-1">
                         </div>
                         <div>
                             <label for="linkFotos" class="block text-sm font-medium text-gray-700">Link a Fotos</label>
-                            <input type="url" id="linkFotos" name="linkFotos" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            <input type="url" id="linkFotos" name="linkFotos" class="form-input mt-1">
                         </div>
                         <div>
                             <label for="numPiezas" class="block text-sm font-medium text-gray-700">Nº Piezas</label>
-                            <input type="number" id="numPiezas" name="numPiezas" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            <input type="number" id="numPiezas" name="numPiezas" class="form-input mt-1">
                         </div>
                         <div>
                             <label for="numBanos" class="block text-sm font-medium text-gray-700">Nº Baños</label>
-                            <input type="number" id="numBanos" name="numBanos" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            <input type="number" id="numBanos" name="numBanos" class="form-input mt-1">
                         </div>
                     </div>
                     <hr class="my-6">
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
                         <div>
                             <label for="matrimoniales" class="block text-sm font-medium text-gray-700">Matrimoniales</label>
-                            <input type="number" id="matrimoniales" name="matrimoniales" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            <input type="number" id="matrimoniales" name="matrimoniales" class="form-input mt-1">
                         </div>
                         <div>
                             <label for="plazaYMedia" class="block text-sm font-medium text-gray-700">1.5 Plazas</label>
-                            <input type="number" id="plazaYMedia" name="plazaYMedia" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            <input type="number" id="plazaYMedia" name="plazaYMedia" class="form-input mt-1">
                         </div>
                          <div>
                             <label for="camarotes" class="block text-sm font-medium text-gray-700">Camarotes</label>
-                            <input type="number" id="camarotes" name="camarotes" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            <input type="number" id="camarotes" name="camarotes" class="form-input mt-1">
                         </div>
                         <div>
                             <label for="capacidad" class="block text-sm font-medium text-gray-700">Capacidad Calculada</label>
-                            <input type="number" id="capacidad" name="capacidad" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            <input type="number" id="capacidad" name="capacidad" required class="form-input mt-1">
                         </div>
                     </div>
                      <div class="mt-6">
                         <label for="descripcion" class="block text-sm font-medium text-gray-700">Descripción</label>
-                        <textarea id="descripcion" name="descripcion" rows="6" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" style="min-height: 150px;"></textarea>
+                        <textarea id="descripcion" name="descripcion" rows="6" class="form-input mt-1" style="min-height: 150px;"></textarea>
                     </div>
                     <hr class="my-6">
                     <div>
@@ -157,8 +159,8 @@ export async function render() {
                         </div>
                     </div>
                     <div class="flex justify-end pt-6 border-t mt-6">
-                        <button type="button" id="cancel-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md mr-2 hover:bg-gray-300">Cancelar</button>
-                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Guardar</button>
+                        <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
+                        <button type="submit" class="btn-primary">Guardar</button>
                     </div>
                 </form>
             </div>
