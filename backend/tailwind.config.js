@@ -1,8 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
-    "./frontend/index.html",
-    "./frontend/src/**/*.js",
+    "../frontend/index.html",
+    "../frontend/src/**/*.js",
   ],
   safelist: [
     'bg-yellow-500',
