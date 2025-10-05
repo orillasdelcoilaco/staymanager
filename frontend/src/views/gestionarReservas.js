@@ -277,16 +277,17 @@ function renderTabla(filtros) {
     });
 
     if (reservasFiltradas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="12" class="text-center text-gray-500 py-4">No se encontraron reservas.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="13" class="text-center text-gray-500 py-4">No se encontraron reservas.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = reservasFiltradas.map(r => {
+    tbody.innerHTML = reservasFiltradas.map((r, index) => {
         const reporte = historialCargas.find(h => h.id === r.idCarga);
         const idNumericoCarga = reporte ? reporte.idNumerico : 'N/A';
 
         return `
         <tr class="border-b text-xs hover:bg-gray-50">
+            <td class="py-2 px-3 text-center font-medium text-gray-500">${index + 1}</td>
             <td class="py-2 px-3 font-mono">${r.idReservaCanal}</td>
             <td class="py-2 px-3 font-mono text-center font-bold">${idNumericoCarga}</td>
             <td class="py-2 px-3 font-medium">${r.nombreCliente}</td>
@@ -302,9 +303,9 @@ function renderTabla(filtros) {
                 <div class="text-xs text-gray-600" title="Payout para el Anfitrión">${formatCurrency(r.valores.valorTotal)}</div>
             </td>
             <td class="py-2 px-3 whitespace-nowrap text-center">
-                <button data-id="${r.id}" class="view-btn text-blue-600 hover:text-blue-800 font-medium" title="Ver Detalles de la Reserva">Ver</button>
-                <button data-id="${r.id}" class="edit-btn text-indigo-600 hover:text-indigo-800 font-medium ml-2" title="Editar Reserva">Editar</button>
-                <button data-id="${r.id}" class="delete-btn text-red-600 hover:text-red-800 font-medium ml-2" title="Eliminar Reserva">Eliminar</button>
+                <button data-id="${r.id}" class="view-btn btn-table-view mr-2">Ver</button>
+                <button data-id="${r.id}" class="edit-btn btn-table-edit mr-2">Editar</button>
+                <button data-id="${r.id}" class="delete-btn btn-table-delete">Eliminar</button>
             </td>
         </tr>
     `}).join('');
@@ -338,20 +339,21 @@ export async function render() {
                     </select>
                 </div>
             </div>
-            <div class="overflow-x-auto">
+            <div class="table-container">
                 <table class="min-w-full bg-white"><thead class="bg-gray-50"><tr>
-                    <th class="th text-xs">ID Canal</th>
-                    <th class="th text-xs">ID Carga</th>
-                    <th class="th text-xs">Nombre</th>
-                    <th class="th text-xs">Alojamiento</th>
-                    <th class="th text-xs">Canal</th>
-                    <th class="th text-xs">Check-in</th>
-                    <th class="th text-xs">Check-out</th>
-                    <th class="th text-xs">Noches</th>
-                    <th class="th text-xs">Estado</th>
-                    <th class="th text-xs">Estado Gestión</th>
-                    <th class="th text-xs text-right">Datos Financieros</th>
-                    <th class="th text-xs text-center">Acciones</th>
+                    <th class="th w-12">#</th>
+                    <th class="th">ID Canal</th>
+                    <th class="th">ID Carga</th>
+                    <th class="th">Nombre</th>
+                    <th class="th">Alojamiento</th>
+                    <th class="th">Canal</th>
+                    <th class="th">Check-in</th>
+                    <th class="th">Check-out</th>
+                    <th class="th">Noches</th>
+                    <th class="th">Estado</th>
+                    <th class="th">Estado Gestión</th>
+                    <th class="th text-right">Datos Financieros</th>
+                    <th class="th text-center">Acciones</th>
                 </tr></thead><tbody id="reservas-tbody"></tbody></table>
             </div>
         </div>
