@@ -162,9 +162,9 @@ export async function render() {
 
         <div class="bg-white p-6 rounded-lg shadow">
             <h2 class="text-xl font-semibold text-gray-800 mb-4">Historial de Tarifas</h2>
-            <div class="overflow-x-auto">
+            <div class="table-container">
                 <table class="min-w-full bg-white">
-                    <thead class="bg-gray-50">
+                    <thead>
                         <tr>
                             <th class="th">Alojamiento</th>
                             <th class="th">Temporada</th>
