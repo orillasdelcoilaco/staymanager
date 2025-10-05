@@ -302,9 +302,9 @@ function renderTabla(filtros) {
                 <div class="font-semibold" title="Total Pagado por el Huésped">${formatCurrency(r.valores.valorHuesped)}</div>
                 <div class="text-xs text-gray-600" title="Payout para el Anfitrión">${formatCurrency(r.valores.valorTotal)}</div>
             </td>
-            <td class="py-2 px-3 whitespace-nowrap text-center">
-                <button data-id="${r.id}" class="view-btn btn-table-view mr-2">Ver</button>
-                <button data-id="${r.id}" class="edit-btn btn-table-edit mr-2">Editar</button>
+            <td class="py-2 px-3 whitespace-nowrap text-center space-x-2">
+                <button data-id="${r.id}" class="view-btn btn-table-view">Ver</button>
+                <button data-id="${r.id}" class="edit-btn btn-table-edit">Editar</button>
                 <button data-id="${r.id}" class="delete-btn btn-table-delete">Eliminar</button>
             </td>
         </tr>
