@@ -12,18 +12,19 @@ function renderTabla() {
     if (!tbody) return;
 
     if (historial.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">No se han cargado reportes todavía.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-4">No se han cargado reportes todavía.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = historial.map(item => `
+    tbody.innerHTML = historial.map((item, index) => `
         <tr class="border-b">
+            <td class="py-3 px-4 text-center font-medium text-gray-500">${index + 1}</td>
             <td class="py-3 px-4 font-bold text-center">${item.idNumerico || '-'}</td>
             <td class="py-3 px-4 font-mono text-sm">${item.nombreArchivo}</td>
             <td class="py-3 px-4">${new Date(item.fechaCarga).toLocaleString('es-CL')}</td>
             <td class="py-3 px-4">${item.usuarioEmail}</td>
             <td class="py-3 px-4 text-center">
-                <button data-id="${item.id}" data-nombre-archivo="${item.nombreArchivo}" class="delete-btn text-red-600 hover:text-red-800 text-sm font-medium">
+                <button data-id="${item.id}" data-nombre-archivo="${item.nombreArchivo}" class="delete-btn btn-table-delete">
                     Eliminar Carga
                 </button>
             </td>
@@ -36,10 +37,11 @@ export async function render() {
     return `
         <div class="bg-white p-8 rounded-lg shadow">
             <h2 class="text-2xl font-semibold text-gray-900 mb-4">Historial de Reportes Cargados</h2>
-            <div class="overflow-x-auto">
+            <div class="table-container">
                 <table class="min-w-full bg-white">
-                    <thead class="bg-gray-50">
+                    <thead>
                         <tr>
+                            <th class="th w-12">#</th>
                             <th class="th">ID Carga</th>
                             <th class="th">Nombre del Archivo</th>
                             <th class="th">Fecha y Hora de Carga</th>
