@@ -71,7 +71,7 @@ function renderTabla() {
             <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-100 text-gray-800 text-xs font-semibold rounded-full">${c.tipoCliente || 'N/A'} (${c.numeroDeReservas || 0})</span></td>
             <td class="py-2 px-3">${c.pais || '-'}</td>
             <td class="py-2 px-3 whitespace-nowrap space-x-2">
-                <button data-id="${c.id}" class="view-btn btn-table-view">Ver Perfil</button>
+                <button data-id="${c.id}" class="view-btn btn-table-edit">Ver Perfil</button>
                 ${syncStatusHtml}
                 <button data-id="${c.id}" class="delete-btn btn-table-delete">Eliminar</button>
             </td>
