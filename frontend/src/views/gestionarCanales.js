@@ -15,13 +15,13 @@ function abrirModal(canal = null) {
         form.clienteIdCanal.value = canal.clienteIdCanal || '';
         form.descripcion.value = canal.descripcion || '';
         form.moneda.value = canal.moneda || 'CLP';
-        form.separadorDecimal.value = canal.separadorDecimal || ','; // <-- AÑADIDO
+        form.separadorDecimal.value = canal.separadorDecimal || ',';
     } else {
         editandoCanal = null;
         modalTitle.textContent = 'Nuevo Canal';
         form.reset();
         form.moneda.value = 'CLP';
-        form.separadorDecimal.value = ','; // <-- AÑADIDO
+        form.separadorDecimal.value = ',';
     }
     
     modal.classList.remove('hidden');
@@ -38,19 +38,20 @@ function renderTabla() {
     if (!tbody) return;
 
     if (canales.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">No hay canales registrados.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-4">No hay canales registrados.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = canales.map(c => `
+    tbody.innerHTML = canales.map((c, index) => `
         <tr class="border-b">
+            <td class="py-3 px-4 text-center font-medium text-gray-500">${index + 1}</td>
             <td class="py-3 px-4 font-medium">${c.nombre}</td>
             <td class="py-3 px-4">${c.moneda}</td>
             <td class="py-3 px-4">${c.separadorDecimal === ',' ? 'Coma (,)' : 'Punto (.)'}</td>
             <td class="py-3 px-4 truncate max-w-sm">${c.descripcion || '-'}</td>
             <td class="py-3 px-4">
-                <button data-id="${c.id}" class="edit-btn text-indigo-600 hover:text-indigo-800 text-sm font-medium mr-3">Editar</button>
-                <button data-id="${c.id}" class="delete-btn text-red-600 hover:text-red-800 text-sm font-medium">Eliminar</button>
+                <button data-id="${c.id}" class="edit-btn btn-table-edit mr-2">Editar</button>
+                <button data-id="${c.id}" class="delete-btn btn-table-delete">Eliminar</button>
             </td>
         </tr>
     `).join('');
@@ -69,14 +70,15 @@ export async function render() {
         <div class="bg-white p-8 rounded-lg shadow">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-semibold text-gray-900">Gestionar Canales de Venta</h2>
-                <button id="add-canal-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                <button id="add-canal-btn" class="btn-primary">
                     + Nuevo Canal
                 </button>
             </div>
-            <div class="overflow-x-auto">
+            <div class="table-container">
                 <table class="min-w-full bg-white">
-                    <thead class="bg-gray-50">
+                    <thead>
                         <tr>
+                            <th class="th w-12">#</th>
                             <th class="th">Nombre</th>
                             <th class="th">Moneda Reporte</th>
                             <th class="th">Separador Decimal</th>
@@ -99,22 +101,22 @@ export async function render() {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="mb-4">
                             <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre del Canal</label>
-                            <input type="text" id="nombre" name="nombre" required class="mt-1 form-input">
+                            <input type="text" id="nombre" name="nombre" required class="form-input mt-1">
                         </div>
                          <div class="mb-4">
                             <label for="clienteIdCanal" class="block text-sm font-medium text-gray-700">ID de Cliente (Opcional)</label>
-                            <input type="text" id="clienteIdCanal" name="clienteIdCanal" class="mt-1 form-input">
+                            <input type="text" id="clienteIdCanal" name="clienteIdCanal" class="form-input mt-1">
                         </div>
                         <div class="mb-4">
                             <label for="moneda" class="block text-sm font-medium text-gray-700">Moneda del Reporte</label>
-                            <select id="moneda" name="moneda" class="mt-1 form-select">
+                            <select id="moneda" name="moneda" class="form-select mt-1">
                                 <option value="CLP">CLP (Peso Chileno)</option>
                                 <option value="USD">USD (Dólar Americano)</option>
                             </select>
                         </div>
                         <div class="mb-4">
                             <label for="separadorDecimal" class="block text-sm font-medium text-gray-700">Separador Decimal</label>
-                            <select id="separadorDecimal" name="separadorDecimal" class="mt-1 form-select">
+                            <select id="separadorDecimal" name="separadorDecimal" class="form-select mt-1">
                                 <option value=",">Coma (ej: 1.234,56)</option>
                                 <option value=".">Punto (ej: 1,234.56)</option>
                             </select>
@@ -122,11 +124,11 @@ export async function render() {
                     </div>
                     <div class="mb-4">
                         <label for="descripcion" class="block text-sm font-medium text-gray-700">Descripción (Opcional)</label>
-                        <textarea id="descripcion" name="descripcion" rows="3" class="mt-1 form-input"></textarea>
+                        <textarea id="descripcion" name="descripcion" rows="3" class="form-input mt-1"></textarea>
                     </div>
                     <div class="flex justify-end pt-4">
-                        <button type="button" id="cancel-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md mr-2 hover:bg-gray-300">Cancelar</button>
-                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Guardar</button>
+                        <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
+                        <button type="submit" class="btn-primary">Guardar</button>
                     </div>
                 </form>
             </div>
@@ -149,7 +151,7 @@ export function afterRender() {
             clienteIdCanal: form.clienteIdCanal.value,
             descripcion: form.descripcion.value,
             moneda: form.moneda.value,
-            separadorDecimal: form.separadorDecimal.value // <-- AÑADIDO
+            separadorDecimal: form.separadorDecimal.value
         };
 
         try {
