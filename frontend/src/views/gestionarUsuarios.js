@@ -37,16 +37,17 @@ function renderTabla() {
     if (!tbody) return;
 
     if (usuarios.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-gray-500 py-4">No hay usuarios registrados.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-gray-500 py-4">No hay usuarios registrados.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = usuarios.map(u => `
+    tbody.innerHTML = usuarios.map((u, index) => `
         <tr class="border-b">
+            <td class="py-3 px-4 text-center font-medium text-gray-500">${index + 1}</td>
             <td class="py-3 px-4 font-medium">${u.email}</td>
             <td class="py-3 px-4">${u.rol}</td>
             <td class="py-3 px-4">
-                <button data-uid="${u.uid}" class="delete-btn text-red-600 hover:text-red-800 text-sm font-medium">Eliminar</button>
+                <button data-uid="${u.uid}" class="delete-btn btn-table-delete">Eliminar</button>
             </td>
         </tr>
     `).join('');
@@ -67,10 +68,11 @@ export async function render() {
                     + Nuevo Usuario
                 </button>
             </div>
-            <div class="overflow-x-auto">
+            <div class="table-container">
                 <table class="min-w-full bg-white">
-                    <thead class="bg-gray-50">
+                    <thead>
                         <tr>
+                            <th class="th w-12">#</th>
                             <th class="th">Email (Usuario)</th>
                             <th class="th">Rol</th>
                             <th class="th">Acciones</th>
