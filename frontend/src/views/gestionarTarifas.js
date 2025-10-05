@@ -22,7 +22,7 @@ function renderizarCamposDePrecio(precios = {}) {
             <label for="precio-${c.id}" class="block text-sm font-medium text-gray-700">${c.nombre} (${c.moneda})</label>
             <input type="number" id="precio-${c.id}" name="precio-${c.id}" data-canal-id="${c.id}" 
                    value="${precios[c.id]?.valor || ''}"
-                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                   class="form-input mt-1">
             <input type="hidden" name="moneda-${c.id}" value="${c.moneda}">
         </div>
     `).join('');
@@ -53,7 +53,7 @@ function abrirModalEditar(tarifa) {
             <label for="edit-precio-${c.id}" class="block text-sm font-medium text-gray-700">${c.nombre} (${c.moneda})</label>
             <input type="number" id="edit-precio-${c.id}" name="precio-${c.id}" data-canal-id="${c.id}" 
                    value="${tarifa.precios[c.id]?.valor || ''}"
-                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                   class="form-input mt-1">
              <input type="hidden" name="moneda-${c.id}" value="${c.moneda}">
         </div>
     `).join('');
@@ -71,6 +71,11 @@ function cerrarModalEditar() {
 function renderTabla() {
     const tbody = document.getElementById('tarifas-tbody');
     if (!tbody) return;
+
+    if (tarifas.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-gray-500 py-4">No hay tarifas registradas.</td></tr>`;
+        return;
+    }
 
     const extraerNumero = (texto) => {
         const match = texto.match(/\d+/);
@@ -94,7 +99,7 @@ function renderTabla() {
         return new Date(b.fechaInicio) - new Date(a.fechaInicio);
     });
 
-    tbody.innerHTML = tarifasOrdenadas.map(t => {
+    tbody.innerHTML = tarifasOrdenadas.map((t, index) => {
         const preciosHtml = canales.map(c => {
             const precio = t.precios[c.id];
             return `<li><strong>${c.nombre}:</strong> ${precio ? `${new Intl.NumberFormat().format(precio.valor)} ${c.moneda}` : 'No definido'}</li>`;
@@ -102,6 +107,7 @@ function renderTabla() {
 
         return `
             <tr class="border-b">
+                <td class="py-3 px-4 text-center font-medium text-gray-500">${index + 1}</td>
                 <td class="py-3 px-4">${t.alojamientoNombre}</td>
                 <td class="py-3 px-4">${t.temporada}</td>
                 <td class="py-3 px-4">${t.fechaInicio}</td>
@@ -137,25 +143,25 @@ export async function render() {
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                         <label for="alojamiento-select" class="block text-sm font-medium text-gray-700">Alojamiento</label>
-                        <select id="alojamiento-select" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"></select>
+                        <select id="alojamiento-select" class="form-input mt-1"></select>
                     </div>
                     <div>
                         <label for="temporada-input" class="block text-sm font-medium text-gray-700">Temporada</label>
-                        <input type="text" id="temporada-input" placeholder="Ej: Alta Verano 2025" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        <input type="text" id="temporada-input" placeholder="Ej: Alta Verano 2025" required class="form-input mt-1">
                     </div>
                     <div>
                         <label for="fecha-inicio-input" class="block text-sm font-medium text-gray-700">Fecha Inicio</label>
-                        <input type="date" id="fecha-inicio-input" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        <input type="date" id="fecha-inicio-input" required class="form-input mt-1">
                     </div>
                     <div>
                         <label for="fecha-termino-input" class="block text-sm font-medium text-gray-700">Fecha Término</label>
-                        <input type="date" id="fecha-termino-input" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        <input type="date" id="fecha-termino-input" required class="form-input mt-1">
                     </div>
                 </div>
                 <div id="precios-dinamicos-container" class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
                     </div>
                 <div class="flex justify-end">
-                    <button type="submit" class="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Guardar Tarifa</button>
+                    <button type="submit" class="btn-primary">Guardar Tarifa</button>
                 </div>
             </form>
         </div>
@@ -166,6 +172,7 @@ export async function render() {
                 <table class="min-w-full bg-white">
                     <thead>
                         <tr>
+                            <th class="th w-12">#</th>
                             <th class="th">Alojamiento</th>
                             <th class="th">Temporada</th>
                             <th class="th">Fecha Inicio</th>
@@ -183,14 +190,14 @@ export async function render() {
              <div class="modal-content">
                 <h3 class="text-xl font-semibold mb-4">Editar Tarifa</h3>
                 <form id="tarifa-form-edit" class="space-y-4">
-                    <input type="text" id="alojamientoNombre" disabled class="mt-1 block w-full bg-gray-100 px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                    <input type="text" id="temporada" placeholder="Temporada" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                    <input type="date" id="fechaInicio" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                    <input type="date" id="fechaTermino" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                    <input type="text" id="alojamientoNombre" disabled class="form-input mt-1 bg-gray-100">
+                    <input type="text" id="temporada" placeholder="Temporada" required class="form-input mt-1">
+                    <input type="date" id="fechaInicio" required class="form-input mt-1">
+                    <input type="date" id="fechaTermino" required class="form-input mt-1">
                     <div id="precios-dinamicos-container-edit" class="grid grid-cols-2 gap-4 pt-4 border-t"></div>
                     <div class="flex justify-end pt-4">
-                        <button type="button" id="cancel-edit-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md mr-2 hover:bg-gray-300">Cancelar</button>
-                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Guardar Cambios</button>
+                        <button type="button" id="cancel-edit-btn" class="btn-secondary mr-2">Cancelar</button>
+                        <button type="submit" class="btn-primary">Guardar Cambios</button>
                     </div>
                 </form>
             </div>
