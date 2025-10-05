@@ -981,6 +981,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .th {
+  position: sticky;
+  top: 0px;
+  z-index: 10;
   border-bottom-width: 1px;
   --tw-border-opacity: 1;
   border-color: rgb(229 231 235 / var(--tw-border-opacity, 1));
