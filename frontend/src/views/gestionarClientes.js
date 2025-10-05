@@ -53,26 +53,27 @@ function renderTabla() {
     });
 
     if (clientesFiltrados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-4">No se encontraron clientes.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-gray-500 py-4">No se encontraron clientes.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = clientesFiltrados.map(c => {
+    tbody.innerHTML = clientesFiltrados.map((c, index) => {
         const syncStatusHtml = c.googleContactSynced
-            ? '<span class="text-green-600 font-medium" title="Sincronizado con Google Contacts">✅ Sincronizado</span>'
-            : `<button data-id="${c.id}" class="sync-btn text-blue-600 hover:text-blue-800 font-medium">Sincronizar</button>`;
+            ? '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800" title="Sincronizado con Google Contacts">Sincronizado</span>'
+            : `<button data-id="${c.id}" class="sync-btn btn-table-sync">Sincronizar</button>`;
 
         return `
         <tr class="border-b hover:bg-gray-50 text-sm">
+            <td class="py-2 px-3 text-center font-medium text-gray-500">${index + 1}</td>
             <td class="py-2 px-3 font-medium">${c.nombre}</td>
             <td class="py-2 px-3">${c.telefono}</td>
             <td class="py-2 px-3">${c.email || '-'}</td>
             <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-100 text-gray-800 text-xs font-semibold rounded-full">${c.tipoCliente || 'N/A'} (${c.numeroDeReservas || 0})</span></td>
             <td class="py-2 px-3">${c.pais || '-'}</td>
-            <td class="py-2 px-3 whitespace-nowrap space-x-4">
-                <button data-id="${c.id}" class="view-btn text-indigo-600 hover:text-indigo-800 font-medium">Ver Perfil</button>
+            <td class="py-2 px-3 whitespace-nowrap space-x-2">
+                <button data-id="${c.id}" class="view-btn btn-table-view">Ver Perfil</button>
                 ${syncStatusHtml}
-                <button data-id="${c.id}" class="delete-btn text-red-600 hover:text-red-800 font-medium">Eliminar</button>
+                <button data-id="${c.id}" class="delete-btn btn-table-delete">Eliminar</button>
             </td>
         </tr>
     `}).join('');
@@ -101,16 +102,17 @@ export async function render() {
                 </div>
                 <button id="add-cliente-btn" class="btn-primary">+ Nuevo Cliente</button>
             </div>
-            <div class="overflow-x-auto">
+            <div class="table-container">
                 <table class="min-w-full bg-white">
-                    <thead class="bg-gray-50">
+                    <thead>
                         <tr>
-                            <th class="th text-sm">Nombre</th>
-                            <th class="th text-sm">Teléfono</th>
-                            <th class="th text-sm">Email</th>
-                            <th class="th text-sm">Tipo Cliente</th>
-                            <th class="th text-sm">País</th>
-                            <th class="th text-sm">Acciones</th>
+                            <th class="th w-12">#</th>
+                            <th class="th">Nombre</th>
+                            <th class="th">Teléfono</th>
+                            <th class="th">Email</th>
+                            <th class="th">Tipo Cliente</th>
+                            <th class="th">País</th>
+                            <th class="th">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="clientes-tbody"></tbody>
@@ -125,26 +127,26 @@ export async function render() {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="mb-2">
                             <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre Completo</label>
-                            <input type="text" id="nombre" name="nombre" required class="mt-1 form-input">
+                            <input type="text" id="nombre" name="nombre" required class="form-input mt-1">
                         </div>
                         <div class="mb-2">
                             <label for="telefono" class="block text-sm font-medium text-gray-700">Teléfono</label>
-                            <input type="tel" id="telefono" name="telefono" required class="mt-1 form-input" placeholder="Ej: 56912345678">
+                            <input type="tel" id="telefono" name="telefono" required class="form-input mt-1" placeholder="Ej: 56912345678">
                         </div>
                         <div class="mb-2">
                             <label for="email" class="block text-sm font-medium text-gray-700">Email (Opcional)</label>
-                            <input type="email" id="email" name="email" class="mt-1 form-input">
+                            <input type="email" id="email" name="email" class="form-input mt-1">
                         </div>
                          <div class="mb-2">
                             <label for="pais" class="block text-sm font-medium text-gray-700">País (Opcional)</label>
-                            <input type="text" id="pais" name="pais" class="mt-1 form-input" placeholder="Ej: CL">
+                            <input type="text" id="pais" name="pais" class="form-input mt-1" placeholder="Ej: CL">
                         </div>
                     </div>
                     <hr class="my-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="mb-2">
                             <label for="calificacion" class="block text-sm font-medium text-gray-700">Calificación</label>
-                            <select id="calificacion" name="calificacion" class="mt-1 form-select">
+                            <select id="calificacion" name="calificacion" class="form-select mt-1">
                                 <option value="0">Sin calificar</option>
                                 <option value="1">⭐</option><option value="2">⭐⭐</option><option value="3">⭐⭐⭐</option>
                                 <option value="4">⭐⭐⭐⭐</option><option value="5">⭐⭐⭐⭐⭐</option>
@@ -152,16 +154,16 @@ export async function render() {
                         </div>
                         <div class="mb-2">
                             <label for="ubicacion" class="block text-sm font-medium text-gray-700">Ubicación (Opcional)</label>
-                            <input type="text" id="ubicacion" name="ubicacion" class="mt-1 form-input" placeholder="Ej: Santiago, Chile">
+                            <input type="text" id="ubicacion" name="ubicacion" class="form-input mt-1" placeholder="Ej: Santiago, Chile">
                         </div>
                     </div>
                     <div class="mb-2">
                         <label for="notas" class="block text-sm font-medium text-gray-700">Notas (Opcional)</label>
-                        <textarea id="notas" name="notas" rows="3" class="mt-1 form-input"></textarea>
+                        <textarea id="notas" name="notas" rows="3" class="form-input mt-1"></textarea>
                     </div>
                     <div class="flex justify-end pt-4 mt-4 border-t">
-                        <button type="button" id="cancel-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md mr-2 hover:bg-gray-300">Cancelar</button>
-                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Guardar</button>
+                        <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
+                        <button type="submit" class="btn-primary">Guardar</button>
                     </div>
                 </form>
             </div>
