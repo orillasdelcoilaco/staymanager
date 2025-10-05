@@ -988,7 +988,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   --tw-border-opacity: 1;
   border-color: rgb(229 231 235 / var(--tw-border-opacity, 1));
   --tw-bg-opacity: 1;
-  background-color: rgb(249 250 251 / var(--tw-bg-opacity, 1));
+  background-color: rgb(243 244 246 / var(--tw-bg-opacity, 1));
   padding: 0.75rem;
   padding-left: 1rem;
   padding-right: 1rem;
