@@ -14,16 +14,11 @@
 }
 
 /* --- Layout Principal --- */
-#app-container {
-    height: 100%;
+#app-root {
+    @apply relative md:flex;
 }
-
 .main-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    overflow-x: hidden;
+    @apply flex-1 flex flex-col overflow-y-auto overflow-x-hidden;
 }
 
 /* --- Componentes de Formulario --- */
@@ -54,8 +49,6 @@
     .btn-danger {
         @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
     }
-
-    /* Botones pequeños para acciones en tablas */
     .btn-table {
         @apply px-2 py-1 rounded-md text-xs font-medium transition-colors;
     }
@@ -83,7 +76,7 @@
     }
 }
 
-/* --- Estilos de Layout y Menú (copiados del original para asegurar compatibilidad) --- */
+/* --- Estilos de Layout y Menú --- */
 .sidebar {
     background-color: #111827; color: white; width: 260px; position: fixed; top: 0; left: 0;
     bottom: 0; z-index: 40; display: flex; flex-direction: column; transform: translateX(-100%);
@@ -136,6 +129,7 @@
 @media (min-width: 768px) {
     .sidebar { position: static; transform: none; flex-shrink: 0; }
     .sidebar-overlay { display: none; }
+    .sidebar.collapsed { width: 80px; }
     .sidebar.collapsed #sidebar-title span,
     .sidebar.collapsed .sidebar-footer { display: none; }
     .sidebar.collapsed .link-text { display: none; }

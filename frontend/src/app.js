@@ -6,38 +6,36 @@ let currentUser = null;
 export async function renderAppLayout(dollarInfo) {
     const appRoot = document.getElementById('app-root');
     appRoot.innerHTML = `
-        <div id="app-container" class="relative h-screen md:flex">
-            <div id="sidebar-overlay" class="sidebar-overlay"></div>
-            <aside id="sidebar" class="sidebar">
-                <div class="sidebar-header">
-                    <div class="flex items-center justify-between p-4">
-                        <h1 id="sidebar-title" class="text-xl font-bold text-white"><span>StayManager</span></h1>
-                        <button id="sidebar-toggle-desktop" class="p-2 rounded-md text-gray-300 hover:bg-gray-700 hover:text-white hidden md:block">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                        </button>
-                        <button id="sidebar-close-mobile" class="p-2 rounded-md text-gray-300 hover:bg-gray-700 hover:text-white md:hidden">
-                             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                    </div>
+        <div id="sidebar-overlay" class="sidebar-overlay"></div>
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <div class="flex items-center justify-between p-4">
+                    <h1 id="sidebar-title" class="text-xl font-bold text-white"><span>StayManager</span></h1>
+                    <button id="sidebar-toggle-desktop" class="p-2 rounded-md text-gray-300 hover:bg-gray-700 hover:text-white hidden md:block">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                    <button id="sidebar-close-mobile" class="p-2 rounded-md text-gray-300 hover:bg-gray-700 hover:text-white md:hidden">
+                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
                 </div>
-                <nav id="main-nav" class="flex-grow mt-4"></nav>
-                <footer class="sidebar-footer">
-                    <p>Desarrollado por Sacatines SPA</p>
-                    <p>Todos los derechos reservados V 1.0.0</p>
-                </footer>
-            </aside>
-            <div id="main-content" class="main-content">
-                <header class="bg-white shadow-sm">
-                    <div class="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
-                         <button id="sidebar-toggle-mobile" class="p-2 rounded-md text-gray-500 hover:bg-gray-100 md:hidden">
-                            <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-                        </button>
-                        <div id="auth-info" class="flex-grow flex items-center space-x-4 text-xs md:text-sm"></div>
-                        <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 flex-shrink-0">Cerrar Sesión</button>
-                    </div>
-                </header>
-                <main id="view-content"></main>
             </div>
+            <nav id="main-nav" class="flex-grow mt-4"></nav>
+            <footer class="sidebar-footer">
+                <p>Desarrollado por Sacatines SPA</p>
+                <p>Todos los derechos reservados V 1.0.0</p>
+            </footer>
+        </aside>
+        <div id="main-content" class="main-content">
+            <header class="bg-white shadow-sm">
+                <div class="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
+                     <button id="sidebar-toggle-mobile" class="p-2 rounded-md text-gray-500 hover:bg-gray-100 md:hidden">
+                        <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                    </button>
+                    <div id="auth-info" class="flex-grow flex items-center space-x-4 text-xs md:text-sm"></div>
+                    <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 flex-shrink-0">Cerrar Sesión</button>
+                </div>
+            </header>
+            <main id="view-content"></main>
         </div>
     `;
     
@@ -71,8 +69,6 @@ export async function checkAuthAndRender() {
         ]);
         currentUser = userData;
         
-        // Si el layout principal ya existe, solo actualizamos los datos.
-        // Si no, lo renderizamos por primera vez.
         const authInfo = document.getElementById('auth-info');
         if (authInfo) {
             const formattedDate = new Date(dollarInfo.fecha + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' });
@@ -119,7 +115,9 @@ function setupSidebarToggle() {
     if (toggleDesktopBtn) {
         toggleDesktopBtn.addEventListener('click', () => {
             sidebar.classList.toggle('collapsed');
-            mainContent.classList.toggle('sidebar-collapsed');
+            if (mainContent) {
+                mainContent.classList.toggle('sidebar-collapsed');
+            }
         });
     }
 }
