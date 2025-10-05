@@ -22,16 +22,17 @@ function renderTabla() {
     const tbody = document.getElementById('valores-tbody');
     if (!tbody) return;
     if (valoresDelMes.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-gray-500">No hay valores para el mes seleccionado.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">No hay valores para el mes seleccionado.</td></tr>';
         return;
     }
-    tbody.innerHTML = valoresDelMes.map(v => `
+    tbody.innerHTML = valoresDelMes.map((v, index) => `
         <tr class="border-b">
+            <td class="px-4 py-2 text-center font-medium text-gray-500">${index + 1}</td>
             <td class="px-4 py-2">${v.fecha}</td>
             <td class="px-4 py-2 font-mono">${v.valor.toLocaleString('es-CL')} ${v.modificadoManualmente ? '✏️' : ''}</td>
             <td class="px-4 py-2 text-right">
-                <button data-fecha="${v.fecha}" class="edit-btn text-indigo-600 hover:text-indigo-800 text-sm font-medium mr-2">Editar</button>
-                <button data-fecha="${v.fecha}" class="delete-btn text-red-600 hover:text-red-800 text-sm font-medium">Eliminar</button>
+                <button data-fecha="${v.fecha}" class="edit-btn btn-table-edit mr-2">Editar</button>
+                <button data-fecha="${v.fecha}" class="delete-btn btn-table-delete">Eliminar</button>
             </td>
         </tr>
     `).join('');
@@ -44,13 +45,13 @@ async function fetchAndRenderMonth() {
     currentMonth = month;
 
     const tbody = document.getElementById('valores-tbody');
-    tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-gray-500">Cargando...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">Cargando...</td></tr>';
 
     try {
         valoresDelMes = await fetchAPI(`/dolar/valores/${year}/${month}`);
         renderTabla();
     } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-red-500">Error: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-red-500">Error: ${error.message}</td></tr>`;
     }
 }
 
@@ -111,10 +112,18 @@ export function render() {
                     </div>
                     <button id="add-valor-btn" class="btn-primary">Añadir Valor</button>
                 </div>
-                <div class="overflow-x-auto border rounded-lg max-h-96">
-                    <table class="min-w-full bg-white"><thead class="bg-gray-50"><tr>
-                        <th class="th">Fecha</th><th class="th">Valor (CLP)</th><th class="th"></th>
-                    </tr></thead><tbody id="valores-tbody"></tbody></table>
+                <div class="table-container">
+                    <table class="min-w-full bg-white">
+                        <thead>
+                            <tr>
+                                <th class="th w-12">#</th>
+                                <th class="th">Fecha</th>
+                                <th class="th">Valor (CLP)</th>
+                                <th class="th text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="valores-tbody"></tbody>
+                    </table>
                 </div>
             </div>
 
