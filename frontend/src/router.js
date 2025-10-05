@@ -181,7 +181,9 @@ export function renderMenu() {
     nav.querySelectorAll('.category-title').forEach(button => {
         button.addEventListener('click', () => {
             const category = button.parentElement;
-            category.classList.toggle('open');
+            if (category) {
+                category.classList.toggle('open');
+            }
         });
     });
 }

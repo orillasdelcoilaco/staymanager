@@ -3,10 +3,27 @@
 @tailwind utilities;
 
 @layer base {
+    html, body, #app-root {
+        height: 100%;
+        overflow: hidden;
+    }
     body {
         font-family: 'Inter', sans-serif;
-        background-color: #f9fafb; /* Un gris muy claro para el fondo general */
+        background-color: #f9fafb;
     }
+}
+
+/* --- Layout Principal --- */
+#app-container {
+    height: 100%;
+}
+
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 /* --- Componentes de Formulario --- */
@@ -17,7 +34,6 @@
     .form-input-file {
         @apply block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer;
     }
-    /* Para colorear el icono del calendario en inputs de fecha */
     input[type="date"]::-webkit-calendar-picker-indicator {
         cursor: pointer;
         filter: invert(50%) sepia(10%) saturate(300%) hue-rotate(180deg);
@@ -60,9 +76,71 @@
     }
 }
 
-/* --- Títulos y otros elementos de UI --- */
+/* --- Otros Componentes --- */
 @layer components {
     .th {
         @apply text-left py-3 px-4 font-semibold text-sm text-gray-600 uppercase tracking-wider;
     }
+}
+
+/* --- Estilos de Layout y Menú (copiados del original para asegurar compatibilidad) --- */
+.sidebar {
+    background-color: #111827; color: white; width: 260px; position: fixed; top: 0; left: 0;
+    bottom: 0; z-index: 40; display: flex; flex-direction: column; transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out, width 0.3s ease-in-out;
+}
+.sidebar.open { transform: translateX(0); }
+.modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5);
+    display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 1rem;
+}
+.modal.hidden { display: none; }
+.modal-content {
+    background-color: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    width: 100%; max-height: 90vh; overflow-y: auto;
+}
+.sidebar nav { overflow-y: auto; overflow-x: hidden; }
+.sidebar-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5);
+    z-index: 39; opacity: 0; visibility: hidden; transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+}
+.sidebar-overlay.visible { opacity: 1; visibility: visible; }
+.sidebar-footer {
+    padding: 1rem; margin-top: auto; text-align: center; font-size: 0.7rem; color: #9ca3af; white-space: normal;
+}
+.sidebar-footer p { margin: 0; line-height: 1.2; }
+.menu-category { margin-bottom: 0.5rem; }
+.category-title {
+    display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 0.75rem 1rem;
+    font-size: 0.875rem; font-weight: 600; color: #d1d5db; text-transform: uppercase; background: none;
+    border: none; cursor: pointer; text-align: left; transition: background-color 0.2s;
+}
+.category-title:hover { background-color: #374151; }
+.category-title .category-icon { margin-right: 0.75rem; }
+.category-title .arrow-icon { width: 1.25rem; height: 1.25rem; transition: transform 0.2s ease-in-out; }
+.menu-category.open > .category-title .arrow-icon { transform: rotate(180deg); }
+.submenu {
+    list-style: none; padding: 0; margin: 0; overflow: hidden; max-height: 0;
+    transition: max-height 0.3s ease-out; background-color: rgba(0,0,0,0.2);
+}
+.menu-category.open > .submenu { max-height: 500px; transition: max-height 0.4s ease-in; }
+.submenu .nav-link { padding-left: 2.5rem; }
+.nav-link {
+    display: flex; align-items: center; padding: 0.75rem 1rem; font-size: 0.875rem; color: #d1d5db;
+    text-decoration: none; transition: background-color 0.2s, color 0.2s; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+}
+.nav-link:hover { background-color: #374151; color: white; }
+.nav-link.active { background-color: #4f46e5; color: white; font-weight: 600; }
+
+@media (min-width: 768px) {
+    .sidebar { position: static; transform: none; flex-shrink: 0; }
+    .sidebar-overlay { display: none; }
+    .sidebar.collapsed #sidebar-title span,
+    .sidebar.collapsed .sidebar-footer { display: none; }
+    .sidebar.collapsed .link-text { display: none; }
+    .sidebar.collapsed .nav-link,
+    .sidebar.collapsed .category-title { justify-content: center; }
+    .sidebar.collapsed .category-title .category-icon { margin-right: 0; }
+    .sidebar.collapsed .submenu { display: none !important; }
 }
