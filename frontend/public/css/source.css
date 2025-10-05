@@ -69,6 +69,7 @@
     }
 }
 
+
 /* --- Otros Componentes --- */
 @layer components {
     .th {
@@ -140,9 +141,4 @@
     .sidebar.collapsed .category-title { justify-content: center; }
     .sidebar.collapsed .category-title .category-icon { margin-right: 0; }
     .sidebar.collapsed .submenu { display: none !important; }
-}
-
-/* --- Correcciones Específicas --- */
-#reserva-view-content * {
-    all: revert;
 }

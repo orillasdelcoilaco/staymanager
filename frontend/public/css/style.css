@@ -2376,12 +2376,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
 }
 
-/* --- Correcciones Específicas --- */
-
-#reserva-view-content * {
-  all: revert;
-}
-
 .file\:mr-4::file-selector-button {
   margin-right: 1rem;
 }
