@@ -108,9 +108,9 @@ function renderTabla() {
                 <td class="py-3 px-4">${t.fechaTermino}</td>
                 <td class="py-3 px-4"><ul>${preciosHtml}</ul></td>
                 <td class="py-3 px-4 whitespace-nowrap">
-                    <button data-id="${t.id}" class="copy-btn text-blue-600 hover:text-blue-800 text-sm font-medium mr-3">Copiar</button>
-                    <button data-id="${t.id}" class="edit-btn text-indigo-600 hover:text-indigo-800 text-sm font-medium mr-3">Editar</button>
-                    <button data-id="${t.id}" class="delete-btn text-red-600 hover:text-red-800 text-sm font-medium">Eliminar</button>
+                    <button data-id="${t.id}" class="copy-btn btn-table-copy mr-2">Copiar</button>
+                    <button data-id="${t.id}" class="edit-btn btn-table-edit mr-2">Editar</button>
+                    <button data-id="${t.id}" class="delete-btn btn-table-delete">Eliminar</button>
                 </td>
             </tr>
         `;
