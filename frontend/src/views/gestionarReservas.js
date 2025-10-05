@@ -42,7 +42,6 @@ async function abrirModalVer(reservaId) {
     try {
         const data = await fetchAPI(`/reservas/${reservaId}`);
         
-        // Poblar datos de la reserva
         document.getElementById('view-modal-title').textContent = `Detalle Reserva: ${data.idReservaCanal}`;
         document.getElementById('view-alojamiento').textContent = data.alojamientoNombre;
         document.getElementById('view-canal').textContent = data.canalNombre;
@@ -55,7 +54,6 @@ async function abrirModalVer(reservaId) {
         document.getElementById('view-doc-reserva').innerHTML = renderDocumentoLink(data.documentos?.enlaceReserva);
         document.getElementById('view-doc-boleta').innerHTML = renderDocumentoLink(data.documentos?.enlaceBoleta);
 
-        // Poblar datos del cliente
         document.getElementById('view-cliente-nombre').textContent = data.cliente.nombre || '-';
         document.getElementById('view-cliente-telefono').textContent = data.cliente.telefono || '-';
         document.getElementById('view-cliente-email').textContent = data.cliente.email || '-';
@@ -64,7 +62,6 @@ async function abrirModalVer(reservaId) {
         document.getElementById('view-cliente-ubicacion').textContent = data.cliente.ubicacion || '-';
         document.getElementById('view-cliente-notas').textContent = data.cliente.notas || 'Sin notas.';
         
-        // Poblar datos financieros
         document.getElementById('view-total-cliente').textContent = formatCurrency(data.datosAgregados.valorTotalHuesped);
         document.getElementById('view-abonado').textContent = formatCurrency(data.datosAgregados.abonoTotal);
         document.getElementById('view-saldo').textContent = formatCurrency(data.datosAgregados.valorTotalHuesped - data.datosAgregados.abonoTotal);
@@ -72,7 +69,6 @@ async function abrirModalVer(reservaId) {
         document.getElementById('view-costo-canal').textContent = formatCurrency(data.datosAgregados.costoCanal);
         document.getElementById('view-valor-potencial').textContent = data.datosAgregados.valorPotencial > 0 ? formatCurrency(data.datosAgregados.valorPotencial) : 'No calculado';
 
-        // Poblar transacciones
         const transaccionesContainer = document.getElementById('view-transacciones-list');
         if (data.transacciones.length > 0) {
             transaccionesContainer.innerHTML = data.transacciones.map(t => `
@@ -87,7 +83,6 @@ async function abrirModalVer(reservaId) {
             transaccionesContainer.innerHTML = '<p class="text-gray-500">No hay transacciones registradas.</p>';
         }
 
-        // Poblar notas
         const notasContainer = document.getElementById('view-notas-list');
         if (data.notas.length > 0) {
             notasContainer.innerHTML = data.notas.map(n => `
