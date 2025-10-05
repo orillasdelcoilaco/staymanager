@@ -36,99 +36,77 @@ async function abrirModalVer(reservaId) {
     const contentEl = document.getElementById('reserva-view-content');
     
     modal.classList.remove('hidden');
-    contentEl.innerHTML = '<p class="text-center">Cargando detalles...</p>';
-    
+    contentEl.classList.add('hidden'); // Ocultar contenido mientras carga
+    document.getElementById('view-loading-state').classList.remove('hidden');
+
     try {
         const data = await fetchAPI(`/reservas/${reservaId}`);
-        document.getElementById('modal-title-view').textContent = `Detalle Reserva: ${data.idReservaCanal}`;
+        
+        // Poblar datos de la reserva
+        document.getElementById('view-modal-title').textContent = `Detalle Reserva: ${data.idReservaCanal}`;
+        document.getElementById('view-alojamiento').textContent = data.alojamientoNombre;
+        document.getElementById('view-canal').textContent = data.canalNombre;
+        document.getElementById('view-checkin').textContent = formatDate(data.fechaLlegada);
+        document.getElementById('view-checkout').textContent = formatDate(data.fechaSalida);
+        document.getElementById('view-noches').textContent = data.totalNoches;
+        document.getElementById('view-huespedes').textContent = data.cantidadHuespedes;
+        document.getElementById('view-estado-reserva').textContent = data.estado;
+        document.getElementById('view-estado-gestion').textContent = data.estadoGestion || 'N/A';
+        document.getElementById('view-doc-reserva').innerHTML = renderDocumentoLink(data.documentos?.enlaceReserva);
+        document.getElementById('view-doc-boleta').innerHTML = renderDocumentoLink(data.documentos?.enlaceBoleta);
 
-        const { cliente, notas, transacciones, datosAgregados } = data;
+        // Poblar datos del cliente
+        document.getElementById('view-cliente-nombre').textContent = data.cliente.nombre || '-';
+        document.getElementById('view-cliente-telefono').textContent = data.cliente.telefono || '-';
+        document.getElementById('view-cliente-email').textContent = data.cliente.email || '-';
+        document.getElementById('view-cliente-pais').textContent = data.cliente.pais || '-';
+        document.getElementById('view-cliente-calificacion').innerHTML = formatStars(data.cliente.calificacion);
+        document.getElementById('view-cliente-ubicacion').textContent = data.cliente.ubicacion || '-';
+        document.getElementById('view-cliente-notas').textContent = data.cliente.notas || 'Sin notas.';
+        
+        // Poblar datos financieros
+        document.getElementById('view-total-cliente').textContent = formatCurrency(data.datosAgregados.valorTotalHuesped);
+        document.getElementById('view-abonado').textContent = formatCurrency(data.datosAgregados.abonoTotal);
+        document.getElementById('view-saldo').textContent = formatCurrency(data.datosAgregados.valorTotalHuesped - data.datosAgregados.abonoTotal);
+        document.getElementById('view-payout').textContent = formatCurrency(data.datosAgregados.payoutFinalReal);
+        document.getElementById('view-costo-canal').textContent = formatCurrency(data.datosAgregados.costoCanal);
+        document.getElementById('view-valor-potencial').textContent = data.datosAgregados.valorPotencial > 0 ? formatCurrency(data.datosAgregados.valorPotencial) : 'No calculado';
 
-        contentEl.innerHTML = `
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="space-y-4">
-                    <section>
-                        <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Información de la Reserva</h4>
-                        <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                            <dt class="text-gray-500">Alojamiento:</dt><dd>${data.alojamientoNombre}</dd>
-                            <dt class="text-gray-500">Canal:</dt><dd>${data.canalNombre}</dd>
-                            <dt class="text-gray-500">Check-in:</dt><dd>${formatDate(data.fechaLlegada)}</dd>
-                            <dt class="text-gray-500">Check-out:</dt><dd>${formatDate(data.fechaSalida)}</dd>
-                            <dt class="text-gray-500">Noches:</dt><dd>${data.totalNoches}</dd>
-                            <dt class="text-gray-500">Huéspedes:</dt><dd>${data.cantidadHuespedes}</dd>
-                            <dt class="text-gray-500">Estado Reserva:</dt><dd class="font-semibold">${data.estado}</dd>
-                            <dt class="text-gray-500">Estado Gestión:</dt><dd class="font-semibold">${data.estadoGestion || 'N/A'}</dd>
-                        </dl>
-                    </section>
-                     <section>
-                        <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Documentos de la Reserva</h4>
-                        <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                           <dt class="text-gray-500">Doc. Reserva:</dt><dd>${renderDocumentoLink(data.documentos?.enlaceReserva)}</dd>
-                           <dt class="text-gray-500">Boleta/Factura:</dt><dd>${renderDocumentoLink(data.documentos?.enlaceBoleta)}</dd>
-                        </dl>
-                    </section>
+        // Poblar transacciones
+        const transaccionesContainer = document.getElementById('view-transacciones-list');
+        if (data.transacciones.length > 0) {
+            transaccionesContainer.innerHTML = data.transacciones.map(t => `
+                <div class="bg-gray-50 p-2 rounded grid grid-cols-4 gap-2 items-center">
+                    <span>${t.tipo}</span>
+                    <span class="font-semibold">${formatCurrency(t.monto)}</span>
+                    <span>${t.medioDePago}</span>
+                    <div>${renderDocumentoLink(t.enlaceComprobante, 'Sin comprobante')}</div>
                 </div>
-                <div class="space-y-4">
-                     <section>
-                        <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Información del Cliente</h4>
-                        <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                            <dt class="text-gray-500">Nombre:</dt><dd>${cliente.nombre || '-'}</dd>
-                            <dt class="text-gray-500">Teléfono:</dt><dd>${cliente.telefono || '-'}</dd>
-                            <dt class="text-gray-500">Email:</dt><dd>${cliente.email || '-'}</dd>
-                            <dt class="text-gray-500">País:</dt><dd>${cliente.pais || '-'}</dd>
-                            <dt class="text-gray-500">Calificación:</dt><dd>${formatStars(cliente.calificacion)}</dd>
-                            <dt class="text-gray-500">Ubicación:</dt><dd>${cliente.ubicacion || '-'}</dd>
-                            <dt class="text-gray-500 col-span-2">Notas Cliente:</dt>
-                            <dd class="col-span-2 text-xs bg-gray-50 p-2 rounded whitespace-pre-wrap">${cliente.notas || 'Sin notas.'}</dd>
-                        </dl>
-                    </section>
+            `).join('');
+        } else {
+            transaccionesContainer.innerHTML = '<p class="text-gray-500">No hay transacciones registradas.</p>';
+        }
+
+        // Poblar notas
+        const notasContainer = document.getElementById('view-notas-list');
+        if (data.notas.length > 0) {
+            notasContainer.innerHTML = data.notas.map(n => `
+                <div class="bg-gray-50 p-2 rounded">
+                    <p class="whitespace-pre-wrap">${n.texto}</p>
+                    <p class="text-gray-500 text-right">-- ${n.autor} el ${n.fecha}</p>
                 </div>
-            </div>
-            <div class="space-y-4 border-t pt-4 mt-4">
-                <section>
-                    <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Análisis Financiero</h4>
-                    <dl class="grid grid-cols-3 gap-x-4 gap-y-1 text-sm">
-                        <dt class="text-gray-500">Total Cliente:</dt><dd class="font-semibold">${formatCurrency(datosAgregados.valorTotalHuesped)}</dd>
-                        <dd></dd>
-                        <dt class="text-gray-500">Abonado:</dt><dd class="text-green-600">${formatCurrency(datosAgregados.abonoTotal)}</dd>
-                        <dd></dd>
-                        <dt class="text-gray-500">Saldo:</dt><dd class="text-red-600 font-bold">${formatCurrency(datosAgregados.valorTotalHuesped - datosAgregados.abonoTotal)}</dd>
-                        <dd></dd>
-                        <dt class="text-gray-500">Payout (Ingreso Real):</dt><dd>${formatCurrency(datosAgregados.payoutFinalReal)}</dd>
-                        <dd></dd>
-                        <dt class="text-gray-500">Costo del Canal:</dt><dd>${formatCurrency(datosAgregados.costoCanal)}</dd>
-                        <dd></dd>
-                        <dt class="text-gray-500">Valor Potencial (KPI):</dt><dd>${datosAgregados.valorPotencial > 0 ? formatCurrency(datosAgregados.valorPotencial) : 'No calculado'}</dd>
-                    </dl>
-                </section>
-                <section>
-                    <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Transacciones y Pagos</h4>
-                    <div class="space-y-2 text-sm max-h-40 overflow-y-auto">
-                         ${transacciones.length > 0 ? transacciones.map(t => `
-                            <div class="bg-gray-50 p-2 rounded grid grid-cols-4 gap-2 items-center">
-                                <span>${t.tipo}</span>
-                                <span class="font-semibold">${formatCurrency(t.monto)}</span>
-                                <span>${t.medioDePago}</span>
-                                <div>${renderDocumentoLink(t.enlaceComprobante, 'Sin comprobante')}</div>
-                            </div>
-                        `).join('') : '<p class="text-gray-500">No hay transacciones registradas.</p>'}
-                    </div>
-                </section>
-                <section>
-                    <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Bitácora de Gestión</h4>
-                    <div class="space-y-2 text-xs max-h-40 overflow-y-auto">
-                        ${notas.length > 0 ? notas.map(n => `
-                            <div class="bg-gray-50 p-2 rounded">
-                                <p class="whitespace-pre-wrap">${n.texto}</p>
-                                <p class="text-gray-500 text-right">-- ${n.autor} el ${n.fecha}</p>
-                            </div>
-                        `).join('') : '<p class="text-gray-500">Sin notas en la bitácora.</p>'}
-                    </div>
-                </section>
-            </div>
-        `;
+            `).join('');
+        } else {
+            notasContainer.innerHTML = '<p class="text-gray-500">Sin notas en la bitácora.</p>';
+        }
+
+        contentEl.classList.remove('hidden');
     } catch (error) {
-        contentEl.innerHTML = `<p class="text-red-500 text-center">Error al cargar los detalles: ${error.message}</p>`;
+        document.getElementById('view-loading-state').innerHTML = `<p class="text-red-500 text-center">Error al cargar los detalles: ${error.message}</p>`;
+    } finally {
+        if (!contentEl.classList.contains('hidden')) {
+            document.getElementById('view-loading-state').classList.add('hidden');
+        }
     }
 }
 
@@ -417,13 +395,77 @@ export async function render() {
             </form>
         </div></div>
 
-        <div id="reserva-modal-view" class="modal hidden"><div class="modal-content !max-w-4xl">
-             <div class="flex justify-between items-center pb-3 border-b mb-4">
-                <h3 id="modal-title-view" class="text-xl font-semibold"></h3>
-                <button id="close-view-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+        <div id="reserva-modal-view" class="modal hidden">
+            <div class="modal-content !max-w-4xl">
+                 <div class="flex justify-between items-center pb-3 border-b mb-4">
+                    <h3 id="view-modal-title" class="text-xl font-semibold"></h3>
+                    <button id="close-view-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+                </div>
+                <div id="view-loading-state" class="text-center p-8"><p>Cargando detalles...</p></div>
+                <div id="reserva-view-content" class="hidden space-y-6 max-h-[75vh] overflow-y-auto pr-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <section>
+                                <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Información de la Reserva</h4>
+                                <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                                    <dt class="text-gray-500">Alojamiento:</dt><dd id="view-alojamiento"></dd>
+                                    <dt class="text-gray-500">Canal:</dt><dd id="view-canal"></dd>
+                                    <dt class="text-gray-500">Check-in:</dt><dd id="view-checkin"></dd>
+                                    <dt class="text-gray-500">Check-out:</dt><dd id="view-checkout"></dd>
+                                    <dt class="text-gray-500">Noches:</dt><dd id="view-noches"></dd>
+                                    <dt class="text-gray-500">Huéspedes:</dt><dd id="view-huespedes"></dd>
+                                    <dt class="text-gray-500">Estado Reserva:</dt><dd id="view-estado-reserva" class="font-semibold"></dd>
+                                    <dt class="text-gray-500">Estado Gestión:</dt><dd id="view-estado-gestion" class="font-semibold"></dd>
+                                </dl>
+                            </section>
+                             <section>
+                                <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Documentos</h4>
+                                <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                                   <dt class="text-gray-500">Doc. Reserva:</dt><dd id="view-doc-reserva"></dd>
+                                   <dt class="text-gray-500">Boleta/Factura:</dt><dd id="view-doc-boleta"></dd>
+                                </dl>
+                            </section>
+                        </div>
+                        <div class="space-y-4">
+                             <section>
+                                <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Información del Cliente</h4>
+                                <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                                    <dt class="text-gray-500">Nombre:</dt><dd id="view-cliente-nombre"></dd>
+                                    <dt class="text-gray-500">Teléfono:</dt><dd id="view-cliente-telefono"></dd>
+                                    <dt class="text-gray-500">Email:</dt><dd id="view-cliente-email"></dd>
+                                    <dt class="text-gray-500">País:</dt><dd id="view-cliente-pais"></dd>
+                                    <dt class="text-gray-500">Calificación:</dt><dd id="view-cliente-calificacion"></dd>
+                                    <dt class="text-gray-500">Ubicación:</dt><dd id="view-cliente-ubicacion"></dd>
+                                    <dt class="text-gray-500 col-span-2">Notas Cliente:</dt>
+                                    <dd id="view-cliente-notas" class="col-span-2 text-xs bg-gray-50 p-2 rounded whitespace-pre-wrap"></dd>
+                                </dl>
+                            </section>
+                        </div>
+                    </div>
+                    <div class="space-y-4 border-t pt-4 mt-4">
+                        <section>
+                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Análisis Financiero</h4>
+                            <dl class="grid grid-cols-3 gap-x-4 gap-y-1 text-sm">
+                                <dt class="text-gray-500">Total Cliente:</dt><dd id="view-total-cliente" class="font-semibold"></dd><dd></dd>
+                                <dt class="text-gray-500">Abonado:</dt><dd id="view-abonado" class="text-green-600"></dd><dd></dd>
+                                <dt class="text-gray-500">Saldo:</dt><dd id="view-saldo" class="text-red-600 font-bold"></dd><dd></dd>
+                                <dt class="text-gray-500">Payout (Ingreso Real):</dt><dd id="view-payout"></dd><dd></dd>
+                                <dt class="text-gray-500">Costo del Canal:</dt><dd id="view-costo-canal"></dd><dd></dd>
+                                <dt class="text-gray-500">Valor Potencial (KPI):</dt><dd id="view-valor-potencial"></dd>
+                            </dl>
+                        </section>
+                        <section>
+                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Transacciones y Pagos</h4>
+                            <div id="view-transacciones-list" class="space-y-2 text-sm max-h-40 overflow-y-auto"></div>
+                        </section>
+                        <section>
+                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Bitácora de Gestión</h4>
+                            <div id="view-notas-list" class="space-y-2 text-xs max-h-40 overflow-y-auto"></div>
+                        </section>
+                    </div>
+                </div>
             </div>
-            <div id="reserva-view-content" class="space-y-6 max-h-[75vh] overflow-y-auto pr-4"></div>
-        </div></div>
+        </div>
     `;
 }
 
