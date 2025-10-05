@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "build:css": "tailwindcss -i ./frontend/public/css/source.css -o ./frontend/public/css/style.css"
+    "build:css": "tailwindcss -i ../frontend/public/css/source.css -o ../frontend/public/css/style.css"
   },
   "author": "",
   "license": "ISC",
