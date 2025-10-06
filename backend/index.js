@@ -1,3 +1,4 @@
+// backend/index.js
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -24,8 +25,9 @@ const historialCargasRoutes = require('./routes/historialCargas.js');
 const plantillasRoutes = require('./routes/plantillas.js');
 const mensajesRoutes = require('./routes/mensajes.js');
 const propuestasRoutes = require('./routes/propuestas.js');
-const presupuestosRoutes = require('./routes/presupuestos.js'); // <-- AÑADIDO
-const gestionPropuestasRoutes = require('./routes/gestionPropuestas.js'); // <-- AÑADIDO
+const presupuestosRoutes = require('./routes/presupuestos.js');
+const gestionPropuestasRoutes = require('./routes/gestionPropuestas.js');
+const reportesRoutes = require('./routes/reportes.js');
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 
 // --- Carga de Credenciales y Configuración de Firebase ---
@@ -98,8 +100,9 @@ apiRouter.use('/historial-cargas', historialCargasRoutes(db));
 apiRouter.use('/plantillas', plantillasRoutes(db));
 apiRouter.use('/mensajes', mensajesRoutes(db));
 apiRouter.use('/propuestas', propuestasRoutes(db));
-apiRouter.use('/presupuestos', presupuestosRoutes(db)); // <-- AÑADIDO
-apiRouter.use('/gestion-propuestas', gestionPropuestasRoutes(db)); // <-- AÑADIDO
+apiRouter.use('/presupuestos', presupuestosRoutes(db));
+apiRouter.use('/gestion-propuestas', gestionPropuestasRoutes(db));
+apiRouter.use('/reportes', reportesRoutes(db));
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 
 app.use('/api', apiRouter);

@@ -2,6 +2,7 @@
 
 const { obtenerPlantillasPorEmpresa, obtenerTiposPlantilla } = require('./plantillasService');
 const { obtenerDetallesEmpresa } = require('./empresaService');
+const { getActividadDiaria, getDisponibilidadPeriodo } = require('./reportesService');
 
 const prepararMensaje = async (db, empresaId, grupoReserva, tipoMensaje) => {
     const [todasLasPlantillas, todosLosTipos] = await Promise.all([
@@ -112,7 +113,68 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
     return texto;
 };
 
+const generarTextoReporte = async (db, empresaId, tipoReporte, datos) => {
+    const [plantillas, tipos] = await Promise.all([
+        obtenerPlantillasPorEmpresa(db, empresaId),
+        obtenerTiposPlantilla(db, empresaId)
+    ]);
+    
+    const tipo = tipos.find(t => t.nombre.toLowerCase().includes(tipoReporte.toLowerCase()));
+    if (!tipo) throw new Error(`No se encontró un tipo de plantilla para '${tipoReporte}'.`);
+
+    const plantilla = plantillas.find(p => p.tipoId === tipo.id);
+    if (!plantilla) throw new Error(`No se encontró ninguna plantilla de tipo '${tipoReporte}'.`);
+
+    let texto = plantilla.texto;
+    let reporteGenerado = '';
+    const formatDate = (dateStr) => new Date(dateStr + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' });
+    const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
+
+    if (tipoReporte === 'actividad_diaria') {
+        const dataReporte = await getActividadDiaria(db, empresaId, datos.fecha);
+        dataReporte.forEach(item => {
+            reporteGenerado += `🏡 Cabaña ${item.nombre}\n`;
+            if (item.salida) reporteGenerado += `👋 Se retira hoy: ${item.salida.cliente}\nFechas: ${item.salida.fechas}\nReserva: ${item.salida.reservaId}\n`;
+            if (item.llegada) reporteGenerado += `🧑‍🤝‍🧑 Llega hoy: ${item.llegada.cliente}\nFechas: ${item.llegada.fechas}\nReserva: ${item.llegada.reservaId}\nCanal: ${item.llegada.canal}\n`;
+            else if (item.estadia) reporteGenerado += `💤 En estadía: ${item.estadia.cliente}\nReserva: ${item.estadia.reservaId}\nFechas: ${item.estadia.fechas}\n`;
+            else if (item.proxima) reporteGenerado += `🔜 Próxima reserva: ${item.proxima.fecha}\n(Faltan ${item.proxima.diasFaltantes} días)\nLlega: ${item.proxima.cliente}\n`;
+            else if (!item.salida) reporteGenerado += `❌ Sin reserva hoy\n`;
+            reporteGenerado += `\n`;
+        });
+        texto = texto.replace(/\[FECHA_REPORTE\]/g, formatDate(datos.fecha));
+        texto = texto.replace(/\[REPORTE_ACTIVIDAD_DIARIA\]/g, reporteGenerado.trim());
+    }
+
+    if (tipoReporte === 'disponibilidad') {
+        const dataReporte = await getDisponibilidadPeriodo(db, empresaId, datos.fechaInicio, datos.fechaFin);
+        dataReporte.forEach(item => {
+            if (item.periodos.length > 0) {
+                reporteGenerado += `🏡 Cabaña ${item.nombre}:\n`;
+                if(item.link) reporteGenerado += `${item.link}\n`;
+                if(item.valor > 0) reporteGenerado += `Valor: ${formatCurrency(item.valor)}\n`;
+                if(item.capacidad > 0) reporteGenerado += `Capacidad: ${item.capacidad} personas\n`;
+
+                item.periodos.forEach(p => {
+                    const finDate = new Date(p.fin + 'T00:00:00Z');
+                    finDate.setUTCDate(finDate.getUTCDate()); 
+                    if(new Date(p.inicio) < finDate) {
+                       reporteGenerado += `👍 Del ${formatDate(p.inicio)} al ${formatDate(finDate.toISOString().split('T')[0])}\n`;
+                    }
+                });
+                reporteGenerado += `\n`;
+            }
+        });
+        texto = texto.replace(/\[FECHA_INICIO_REPORTE\]/g, formatDate(datos.fechaInicio));
+        texto = texto.replace(/\[FECHA_FIN_REPORTE\]/g, formatDate(datos.fechaFin));
+        texto = texto.replace(/\[REPORTE_DISPONIBILIDAD\]/g, reporteGenerado.trim());
+    }
+    
+    return texto;
+};
+
+
 module.exports = {
     prepararMensaje,
-    generarTextoPropuesta
+    generarTextoPropuesta,
+    generarTextoReporte
 };

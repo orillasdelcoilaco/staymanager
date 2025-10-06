@@ -35,6 +35,13 @@ const ETIQUETAS_DISPONIBLES = [
     { etiqueta: '[RESUMEN_CANTIDAD_CABANAS]', descripcion: 'N° total de cabañas' },
     { etiqueta: '[RESUMEN_CAPACIDAD_TOTAL]', descripcion: 'Suma de la capacidad de las cabañas' },
 
+    // Etiquetas para Reportes
+    { etiqueta: '[FECHA_REPORTE]', descripcion: '(Para Reporte Actividad) La fecha seleccionada para el reporte.' },
+    { etiqueta: '[REPORTE_ACTIVIDAD_DIARIA]', descripcion: '(Para Reporte Actividad) Bloque completo con el estado de cada propiedad.' },
+    { etiqueta: '[FECHA_INICIO_REPORTE]', descripcion: '(Para Reporte Disponibilidad) Fecha de inicio del rango consultado.' },
+    { etiqueta: '[FECHA_FIN_REPORTE]', descripcion: '(Para Reporte Disponibilidad) Fecha de fin del rango consultado.' },
+    { etiqueta: '[REPORTE_DISPONIBILIDAD]', descripcion: '(Para Reporte Disponibilidad) Bloque completo con las propiedades y sus fechas libres.' },
+
     // Etiquetas de Configuración de la Empresa
     { etiqueta: '[EMPRESA_NOMBRE]', descripcion: 'Nombre de tu empresa' },
     { etiqueta: '[EMPRESA_SLOGAN]', descripcion: 'Slogan o bajada de título de tu empresa' },
