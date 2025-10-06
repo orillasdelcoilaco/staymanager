@@ -95,8 +95,10 @@ async function getActividadDiaria(db, empresaId, fechaStr) {
 
 
 async function getDisponibilidadPeriodo(db, empresaId, fechaInicioStr, fechaFinStr) {
+    console.log(`[Debug ReportesService] Iniciando getDisponibilidadPeriodo para empresa ${empresaId}`);
     const fechaInicio = new Date(fechaInicioStr + 'T00:00:00Z');
     const fechaFin = new Date(fechaFinStr + 'T23:59:59Z');
+    console.log(`[Debug ReportesService] Rango de fechas: ${fechaInicio.toISOString()} a ${fechaFin.toISOString()}`);
 
     const [propiedadesSnapshot, tarifasSnapshot, reservasSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('propiedades').orderBy('nombre', 'asc').get(),
@@ -106,35 +108,49 @@ async function getDisponibilidadPeriodo(db, empresaId, fechaInicioStr, fechaFinS
             .where('estado', '==', 'Confirmada')
             .get()
     ]);
+    
+    console.log(`[Debug ReportesService] Documentos encontrados: ${propiedadesSnapshot.size} propiedades, ${tarifasSnapshot.size} tarifas, ${reservasSnapshot.size} reservas.`);
 
     const propiedades = propiedadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const allTarifas = tarifasSnapshot.docs.map(doc => doc.data());
 
     const reporte = propiedades.map(propiedad => {
+        console.log(`\n[Debug ReportesService] Procesando propiedad: ${propiedad.nombre}`);
+        
         const tarifa = allTarifas
             .filter(t => t.alojamientoId === propiedad.id && new Date(t.fechaInicio) <= fechaInicio)
             .sort((a, b) => new Date(b.fechaInicio) - new Date(a.fechaInicio))[0];
 
-        if (!tarifa) return null;
+        if (!tarifa) {
+            console.log(`[Debug ReportesService]   -> Sin tarifa válida para el período. Omitiendo.`);
+            return null;
+        }
+        console.log(`[Debug ReportesService]   -> Tarifa encontrada: ${tarifa.temporada}`);
 
         const reservasDePropiedad = reservasSnapshot.docs
             .map(doc => doc.data())
             .filter(r => r.alojamientoId === propiedad.id && r.fechaLlegada.toDate() < fechaFin)
             .sort((a, b) => a.fechaLlegada.toDate() - b.fechaLlegada.toDate());
+        
+        console.log(`[Debug ReportesService]   -> Encontradas ${reservasDePropiedad.length} reservas que se cruzan con el período.`);
 
         const periodosDisponibles = [];
         let cursorFecha = new Date(fechaInicio);
 
         reservasDePropiedad.forEach(reserva => {
             const llegada = reserva.fechaLlegada.toDate();
+            console.log(`[Debug ReportesService]     - Evaluando reserva que llega el ${llegada.toISOString().split('T')[0]}`);
             if (cursorFecha < llegada) {
                 periodosDisponibles.push({ inicio: new Date(cursorFecha), fin: new Date(llegada) });
+                console.log(`[Debug ReportesService]       -> Período libre añadido: ${cursorFecha.toISOString().split('T')[0]} a ${llegada.toISOString().split('T')[0]}`);
             }
             cursorFecha = new Date(Math.max(cursorFecha, reserva.fechaSalida.toDate()));
+            console.log(`[Debug ReportesService]       -> Cursor movido a: ${cursorFecha.toISOString().split('T')[0]}`);
         });
 
         if (cursorFecha < fechaFin) {
             periodosDisponibles.push({ inicio: new Date(cursorFecha), fin: new Date(fechaFin) });
+            console.log(`[Debug ReportesService]   -> Período libre final añadido: ${cursorFecha.toISOString().split('T')[0]} a ${fechaFin.toISOString().split('T')[0]}`);
         }
         
         return {
@@ -148,7 +164,8 @@ async function getDisponibilidadPeriodo(db, empresaId, fechaInicioStr, fechaFinS
             }))
         };
     }).filter(Boolean);
-
+    
+    console.log('[Debug ReportesService] Reporte final generado:', JSON.stringify(reporte, null, 2));
     return reporte;
 }
 
