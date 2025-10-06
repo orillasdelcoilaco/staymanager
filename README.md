@@ -455,3 +455,48 @@ Para manejar de forma robusta y escalable la actualización de identificadores c
 - **Generador de Presupuestos:** Mejorar la herramienta para generar cotizaciones y propuestas de reserva.
 - **Sincronización iCal:** Implementar la exportación de calendarios en formato iCal.
 - **Reportes Avanzados:** Crear un módulo para generar reportes financieros y de ocupación personalizables.
+
+Anexo de Arquitectura: Definiciones Financieras Clave
+Para garantizar la precisión y consistencia de los datos en toda la aplicación, especialmente en el Dashboard y los reportes, se establecen las siguientes definiciones para las variables financieras principales:
+
+Ingreso Proyectado (Total Cliente):
+
+Definición: Es el monto total que se espera cobrar a un cliente por una reserva. Se calcula a partir de las tarifas base y se le pueden aplicar descuentos.
+
+Fuente: Campo valores.valorHuesped en los documentos de reserva.
+
+Estado de Reserva: Se considera para todas las reservas con estado: 'Confirmada'.
+
+Ingreso Facturado (Real):
+
+Definición: Es el ingreso que ya ha completado su ciclo de gestión y se considera "cerrado" o facturado. Representa el dinero real que ha ingresado o está asegurado.
+
+Fuente: Campo valores.valorHuesped de las reservas cuyo estadoGestion es 'Facturado'.
+
+Payout (Ingreso Neto):
+
+Definición: Es la ganancia neta para el anfitrión después de descontar los costos asociados al canal de venta (comisiones, tarifas de servicio, etc.). Este es el KPI de rentabilidad más importante.
+
+Fuente: Campo payoutFinalReal en los datos agrupados que se calculan en el backend (gestionService.js). Su fórmula es: valorTotalHuesped - costoCanal.
+
+Contexto: Se calcula tanto para ingresos proyectados como para facturados.
+
+Costo del Canal:
+
+Definición: Representa todos los costos directos deducidos por el canal de venta (ej. comisión de Booking, tarifa de servicio de Airbnb).
+
+Fuente: Campo costoCanal en los datos agrupados (gestionService.js), que a su vez suma los campos valores.comision o valores.costoCanal de las reservas individuales.
+
+Valor Potencial (Precio de Lista):
+
+Definición: Es el precio teórico de una reserva antes de cualquier descuento aplicado por el canal o manualmente. Se utiliza para medir la efectividad de las estrategias de precios y descuentos.
+
+Fuente: Campo valores.valorPotencial en los documentos de reserva. Este valor se calcula y guarda a través de la herramienta "Ajustar Tarifa" en la Gestión Diaria.
+
+Descuento Real:
+
+Definición: Es la diferencia entre el Valor Potencial y el Ingreso Proyectado. Cuantifica el valor "perdido" debido a descuentos y comisiones para asegurar una reserva.
+
+Fórmula: Valor Potencial - Ingreso Proyectado.
+
+Esta distinción clara entre lo proyectado y lo facturado es la piedra angular del nuevo Dashboard y permitirá un análisis financiero detallado y preciso del negocio.

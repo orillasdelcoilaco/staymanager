@@ -1,4 +1,5 @@
 // backend/index.js
+// backend/index.js
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -28,6 +29,7 @@ const propuestasRoutes = require('./routes/propuestas.js');
 const presupuestosRoutes = require('./routes/presupuestos.js');
 const gestionPropuestasRoutes = require('./routes/gestionPropuestas.js');
 const reportesRoutes = require('./routes/reportes.js');
+const kpiRoutes = require('./routes/kpi.js'); // Importar la nueva ruta de KPIs
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 
 // --- Carga de Credenciales y Configuración de Firebase ---
@@ -103,6 +105,7 @@ apiRouter.use('/propuestas', propuestasRoutes(db));
 apiRouter.use('/presupuestos', presupuestosRoutes(db));
 apiRouter.use('/gestion-propuestas', gestionPropuestasRoutes(db));
 apiRouter.use('/reportes', reportesRoutes(db));
+apiRouter.use('/kpis', kpiRoutes(db)); // Registrar la nueva ruta de KPIs
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 
 app.use('/api', apiRouter);
