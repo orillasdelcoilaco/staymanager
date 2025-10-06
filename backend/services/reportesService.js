@@ -6,15 +6,21 @@ async function getActividadDiaria(db, empresaId, fechaStr) {
     const fecha = new Date(fechaStr + 'T00:00:00Z');
     const fechaTimestamp = admin.firestore.Timestamp.fromDate(fecha);
 
-    const [propiedadesSnapshot, reservasSnapshot] = await Promise.all([
+    const [propiedadesSnapshot, reservasSnapshot, clientesSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('propiedades').orderBy('nombre', 'asc').get(),
         db.collection('empresas').doc(empresaId).collection('reservas')
-          .where('estado', '==', 'Confirmada').get()
+          .where('estado', '==', 'Confirmada').get(),
+        db.collection('empresas').doc(empresaId).collection('clientes').get()
     ]);
 
     if (propiedadesSnapshot.empty) {
         return [];
     }
+
+    const clientesMap = new Map();
+    clientesSnapshot.forEach(doc => {
+        clientesMap.set(doc.id, doc.data());
+    });
 
     const propiedades = propiedadesSnapshot.docs.map(doc => doc.data());
     const reporte = [];
@@ -33,23 +39,26 @@ async function getActividadDiaria(db, empresaId, fechaStr) {
         const propiedadInfo = { nombre: propiedad.nombre };
 
         if (salidaHoy) {
+            const cliente = clientesMap.get(salidaHoy.clienteId);
             propiedadInfo.salida = {
-                cliente: salidaHoy.clienteNombre,
+                cliente: cliente ? cliente.nombre : 'Cliente no encontrado',
                 reservaId: salidaHoy.idReservaCanal,
                 fechas: `${salidaHoy.fechaLlegada.toDate().toLocaleDateString('es-CL', { timeZone: 'UTC' })} al ${salidaHoy.fechaSalida.toDate().toLocaleDateString('es-CL', { timeZone: 'UTC' })}`
             };
         }
 
         if (llegadaHoy) {
+            const cliente = clientesMap.get(llegadaHoy.clienteId);
             propiedadInfo.llegada = {
-                cliente: llegadaHoy.clienteNombre,
+                cliente: cliente ? cliente.nombre : 'Cliente no encontrado',
                 reservaId: llegadaHoy.idReservaCanal,
                 fechas: `${llegadaHoy.fechaLlegada.toDate().toLocaleDateString('es-CL', { timeZone: 'UTC' })} al ${llegadaHoy.fechaSalida.toDate().toLocaleDateString('es-CL', { timeZone: 'UTC' })}`,
                 canal: llegadaHoy.canalNombre
             };
         } else if (enEstadia) {
+            const cliente = clientesMap.get(enEstadia.clienteId);
             propiedadInfo.estadia = {
-                cliente: enEstadia.clienteNombre,
+                cliente: cliente ? cliente.nombre : 'Cliente no encontrado',
                 reservaId: enEstadia.idReservaCanal,
                 fechas: `${enEstadia.fechaLlegada.toDate().toLocaleDateString('es-CL', { timeZone: 'UTC' })} al ${enEstadia.fechaSalida.toDate().toLocaleDateString('es-CL', { timeZone: 'UTC' })}`
             };
@@ -66,11 +75,12 @@ async function getActividadDiaria(db, empresaId, fechaStr) {
             
             if (!proximaReservaSnapshot.empty) {
                 const proxima = proximaReservaSnapshot.docs[0].data();
+                const cliente = clientesMap.get(proxima.clienteId);
                 const diasFaltantes = Math.ceil((proxima.fechaLlegada.toDate() - fecha) / (1000 * 60 * 60 * 24));
                 propiedadInfo.proxima = {
                     fecha: proxima.fechaLlegada.toDate().toLocaleDateString('es-CL', { timeZone: 'UTC' }),
                     diasFaltantes: diasFaltantes,
-                    cliente: proxima.clienteNombre
+                    cliente: cliente ? cliente.nombre : 'Cliente no encontrado'
                 };
             } else {
                 propiedadInfo.estado = 'Libre';
@@ -97,7 +107,7 @@ async function getDisponibilidadPeriodo(db, empresaId, fechaInicioStr, fechaFinS
             .get()
     ]);
 
-    const propiedades = propiedadesSnapshot.docs.map(doc => doc.data());
+    const propiedades = propiedadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const allTarifas = tarifasSnapshot.docs.map(doc => doc.data());
 
     const reporte = propiedades.map(propiedad => {
