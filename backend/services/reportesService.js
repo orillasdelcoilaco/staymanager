@@ -118,8 +118,8 @@ async function getDisponibilidadPeriodo(db, empresaId, fechaInicioStr, fechaFinS
         console.log(`\n[Debug ReportesService] Procesando propiedad: ${propiedad.nombre}`);
         
         const tarifa = allTarifas
-            .filter(t => t.alojamientoId === propiedad.id && new Date(t.fechaInicio) <= fechaFin && new Date(t.fechaTermino) >= fechaInicio)
-            .sort((a, b) => new Date(b.fechaInicio) - new Date(a.fechaInicio))[0];
+            .filter(t => t.alojamientoId === propiedad.id && t.fechaInicio.toDate() <= fechaFin && t.fechaTermino.toDate() >= fechaInicio)
+            .sort((a, b) => b.fechaInicio.toDate() - a.fechaInicio.toDate())[0];
 
         if (!tarifa) {
             console.log(`[Debug ReportesService]   -> Sin tarifa válida para el período. Omitiendo.`);
