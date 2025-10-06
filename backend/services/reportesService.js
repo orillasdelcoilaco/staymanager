@@ -100,16 +100,22 @@ async function getDisponibilidadPeriodo(db, empresaId, fechaInicioStr, fechaFinS
     const fechaFin = new Date(fechaFinStr + 'T23:59:59Z');
     console.log(`[Debug ReportesService] Rango de fechas: ${fechaInicio.toISOString()} a ${fechaFin.toISOString()}`);
 
-    const [propiedadesSnapshot, tarifasSnapshot, reservasSnapshot] = await Promise.all([
+    const [propiedadesSnapshot, tarifasSnapshot, reservasSnapshot, canalesSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('propiedades').orderBy('nombre', 'asc').get(),
         db.collection('empresas').doc(empresaId).collection('tarifas').get(),
         db.collection('empresas').doc(empresaId).collection('reservas')
             .where('fechaSalida', '>=', admin.firestore.Timestamp.fromDate(fechaInicio))
             .where('estado', '==', 'Confirmada')
-            .get()
+            .get(),
+        db.collection('empresas').doc(empresaId).collection('canales').where('nombre', '==', 'App').limit(1).get()
     ]);
     
     console.log(`[Debug ReportesService] Documentos encontrados: ${propiedadesSnapshot.size} propiedades, ${tarifasSnapshot.size} tarifas, ${reservasSnapshot.size} reservas.`);
+
+    const appCanalId = !canalesSnapshot.empty ? canalesSnapshot.docs[0].id : null;
+    if (!appCanalId) {
+        console.error('[Debug ReportesService] Error crítico: No se encontró el canal "App" para buscar precios.');
+    }
 
     const propiedades = propiedadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const allTarifas = tarifasSnapshot.docs.map(doc => doc.data());
@@ -153,10 +159,13 @@ async function getDisponibilidadPeriodo(db, empresaId, fechaInicioStr, fechaFinS
             console.log(`[Debug ReportesService]   -> Período libre final añadido: ${cursorFecha.toISOString().split('T')[0]} a ${fechaFin.toISOString().split('T')[0]}`);
         }
         
+        const valor = appCanalId && tarifa.precios && tarifa.precios[appCanalId] ? tarifa.precios[appCanalId].valor : 0;
+        console.log(`[Debug ReportesService]   -> Valor encontrado para el canal App (${appCanalId}): ${valor}`);
+
         return {
             nombre: propiedad.nombre,
             link: propiedad.linkFotos || '',
-            valor: tarifa.precios?.APP?.valor || 0,
+            valor: valor,
             capacidad: propiedad.capacidad,
             periodos: periodosDisponibles.map(p => ({
                 inicio: p.inicio.toISOString().split('T')[0],
