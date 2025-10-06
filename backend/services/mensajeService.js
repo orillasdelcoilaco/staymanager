@@ -114,29 +114,18 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
 };
 
 const generarTextoReporte = async (db, empresaId, tipoReporte, datos) => {
-    console.log(`[Debug MensajeService] Iniciando generarTextoReporte. Tipo: ${tipoReporte}, Datos:`, datos);
-
     const [plantillas, tipos] = await Promise.all([
         obtenerPlantillasPorEmpresa(db, empresaId),
         obtenerTiposPlantilla(db, empresaId)
     ]);
     
     const tipo = tipos.find(t => t.nombre.toLowerCase().includes(tipoReporte.toLowerCase()));
-    if (!tipo) {
-        console.error(`[Debug MensajeService] No se encontró tipo de plantilla para: ${tipoReporte}`);
-        throw new Error(`No se encontró un tipo de plantilla para '${tipoReporte}'.`);
-    }
+    if (!tipo) throw new Error(`No se encontró un tipo de plantilla para '${tipoReporte}'.`);
 
     const plantilla = plantillas.find(p => p.tipoId === tipo.id);
-    if (!plantilla) {
-        console.error(`[Debug MensajeService] No se encontró plantilla para el tipo: ${tipo.nombre}`);
-        throw new Error(`No se encontró ninguna plantilla de tipo '${tipoReporte}'.`);
-    }
-    
-    console.log('[Debug MensajeService] Plantilla encontrada:', plantilla.nombre);
+    if (!plantilla) throw new Error(`No se encontró ninguna plantilla de tipo '${tipoReporte}'.`);
+
     let texto = plantilla.texto;
-    console.log('[Debug MensajeService] Texto original de la plantilla:\n---', texto, '\n---');
-    
     let reporteGenerado = '';
     const formatDate = (dateStr) => new Date(dateStr + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' });
     const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
@@ -167,8 +156,8 @@ const generarTextoReporte = async (db, empresaId, tipoReporte, datos) => {
 
                 item.periodos.forEach(p => {
                     const finDate = new Date(p.fin + 'T00:00:00Z');
-                    finDate.setUTCDate(finDate.getUTCDate()); 
-                    if(new Date(p.inicio) < finDate) {
+                    finDate.setUTCDate(finDate.getUTCDate() - 1);
+                    if(new Date(p.inicio) <= finDate) {
                        reporteGenerado += `👍 Del ${formatDate(p.inicio)} al ${formatDate(finDate.toISOString().split('T')[0])}\n`;
                     }
                 });
@@ -180,11 +169,8 @@ const generarTextoReporte = async (db, empresaId, tipoReporte, datos) => {
         texto = texto.replace(/\[REPORTE_DISPONIBILIDAD\]/g, reporteGenerado.trim());
     }
     
-    console.log('[Debug MensajeService] Contenido del reporte generado:\n---', reporteGenerado, '\n---');
-    console.log('[Debug MensajeService] Texto final después de reemplazos:\n---', texto, '\n---');
     return texto;
 };
-
 
 module.exports = {
     prepararMensaje,
