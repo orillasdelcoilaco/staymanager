@@ -9,7 +9,7 @@ function formatCurrency(value) {
 }
 
 function displayKPIs(results) {
-    const kpis = results.kpisGenerales;
+    const kpis = results; // Corregido: Se accede directamente a los resultados
     const kpiCardsContainer = document.getElementById('kpi-cards');
     if (!kpiCardsContainer) return;
 
@@ -40,7 +40,9 @@ function renderRankingTable(rankingData) {
         return;
     }
 
-    tableBody.innerHTML = Object.values(rankingData).sort((a, b) => b.ingresoTotalFacturado - a.ingresoTotalFacturado).map(prop => `
+    const sortedData = Object.values(rankingData).sort((a, b) => b.ingresoTotalFacturado - a.ingresoTotalFacturado);
+
+    tableBody.innerHTML = sortedData.map(prop => `
         <tr class="hover:bg-gray-50 cursor-pointer" data-prop-nombre="${prop.nombre}">
             <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${prop.nombre}</td>
             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-center">${prop.nochesOcupadasFacturadas}</td>
@@ -61,8 +63,6 @@ function showDetailModal(propNombre) {
     const modal = document.getElementById('detail-modal');
     document.getElementById('detail-modal-title').textContent = `Detalle por Canal - ${propNombre}`;
     
-    // Aquí puedes construir una tabla o lista con los detalles del canal
-    // Por ahora, mostraremos un JSON para verificar los datos.
     document.getElementById('detail-modal-content').innerHTML = `<pre class="bg-gray-100 p-4 rounded-md">${JSON.stringify(propData, null, 2)}</pre>`;
     
     modal.classList.remove('hidden');
@@ -98,6 +98,13 @@ export async function render() {
             </div>
 
             <div id="status-container" class="text-center text-gray-500 hidden p-4"></div>
+            
+            <div id="empty-state-container" class="hidden text-center py-12 px-4 border-2 border-dashed rounded-lg">
+                <h3 class="text-xl font-semibold text-gray-700">Aún no hay datos para mostrar</h3>
+                <p class="mt-2 text-sm text-gray-500">Aquí verás tus métricas de rendimiento una vez que tengas reservas confirmadas o facturadas en el período seleccionado.</p>
+                <p class="mt-2 text-sm text-gray-500">Intenta seleccionar otro rango de fechas o procesa nuevas reservas.</p>
+            </div>
+
             <div id="kpi-results-container" class="hidden space-y-8">
                 <div id="kpi-cards" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 text-center"></div>
                 <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
@@ -147,6 +154,7 @@ export function afterRender() {
     const calculateBtn = document.getElementById('kpi-calculate-btn');
     const resultsContainer = document.getElementById('kpi-results-container');
     const statusContainer = document.getElementById('status-container');
+    const emptyStateContainer = document.getElementById('empty-state-container');
     const fechaInicioInput = document.getElementById('kpi-fecha-inicio');
     const fechaFinInput = document.getElementById('kpi-fecha-fin');
     
@@ -170,6 +178,7 @@ export function afterRender() {
         statusContainer.textContent = 'Calculando KPIs, esto puede tardar unos segundos...';
         statusContainer.classList.remove('hidden');
         resultsContainer.classList.add('hidden');
+        emptyStateContainer.classList.add('hidden');
         calculateBtn.disabled = true;
 
         try {
@@ -177,14 +186,20 @@ export function afterRender() {
             if (canal) params.append('canal', canal);
             
             const kpiResults = await fetchAPI(`/kpis?${params.toString()}`);
-            fullKpiResults = kpiResults; // Guardar los resultados completos
+            fullKpiResults = kpiResults;
 
-            displayKPIs(kpiResults);
-            renderCharts(kpiResults);
-            renderRankingTable(kpiResults.rendimientoPorPropiedad);
-
-            statusContainer.classList.add('hidden');
-            resultsContainer.classList.remove('hidden');
+            if (kpiResults.nochesOcupadasConfirmadas === 0 && kpiResults.nochesOcupadasFacturadas === 0) {
+                statusContainer.classList.add('hidden');
+                resultsContainer.classList.add('hidden');
+                emptyStateContainer.classList.remove('hidden');
+            } else {
+                displayKPIs(kpiResults);
+                renderCharts(kpiResults);
+                renderRankingTable(kpiResults.rendimientoPorPropiedad);
+                statusContainer.classList.add('hidden');
+                emptyStateContainer.classList.add('hidden');
+                resultsContainer.classList.remove('hidden');
+            }
 
         } catch (error) {
             statusContainer.textContent = `Error al calcular KPIs: ${error.message}`;
