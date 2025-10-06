@@ -118,7 +118,7 @@ async function getDisponibilidadPeriodo(db, empresaId, fechaInicioStr, fechaFinS
         console.log(`\n[Debug ReportesService] Procesando propiedad: ${propiedad.nombre}`);
         
         const tarifa = allTarifas
-            .filter(t => t.alojamientoId === propiedad.id && new Date(t.fechaInicio) <= fechaInicio)
+            .filter(t => t.alojamientoId === propiedad.id && new Date(t.fechaInicio) <= fechaFin && new Date(t.fechaTermino) >= fechaInicio)
             .sort((a, b) => new Date(b.fechaInicio) - new Date(a.fechaInicio))[0];
 
         if (!tarifa) {
