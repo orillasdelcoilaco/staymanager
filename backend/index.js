@@ -3,7 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const admin = require('firebase-admin');
-const ical = require('node-ical'); // Añadir la nueva dependencia
 
 // --- Importar Rutas y Middlewares ---
 const authRoutes = require('./routes/auth.js');
@@ -112,7 +111,8 @@ app.use('/api', apiRouter);
 
 // --- Sirviendo el Frontend Estático ---
 const frontendPath = path.join(__dirname, '..', 'frontend');
-app.use(express.static(frontendPath));
+app.use(express.static(path.join(frontendPath, 'public')));
+app.use('/src', express.static(path.join(frontendPath, 'src')));
 
 app.get('*', (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
