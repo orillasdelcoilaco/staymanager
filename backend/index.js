@@ -111,8 +111,7 @@ app.use('/api', apiRouter);
 
 // --- Sirviendo el Frontend Estático ---
 const frontendPath = path.join(__dirname, '..', 'frontend');
-app.use(express.static(path.join(frontendPath, 'public')));
-app.use('/src', express.static(path.join(frontendPath, 'src')));
+app.use(express.static(frontendPath));
 
 app.get('*', (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
