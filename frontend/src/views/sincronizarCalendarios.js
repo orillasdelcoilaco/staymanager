@@ -2,8 +2,9 @@
 import { fetchAPI } from '../api.js';
 
 let propiedades = [];
+let currentUser = null;
 
-function renderExportLinks() {
+async function renderExportLinks() {
     const container = document.getElementById('export-links-container');
     const loading = document.getElementById('export-loading');
 
@@ -12,11 +13,10 @@ function renderExportLinks() {
         return;
     }
 
-    const API_BASE_URL = window.location.origin; // Asume que el backend está en el mismo dominio
+    const API_BASE_URL = window.location.origin;
 
     container.innerHTML = propiedades.map(prop => {
-        const propNombreUrl = prop.nombre.replace(/\s/g, '-');
-        const icalUrl = `${API_BASE_URL}/api/ical/${propNombreUrl}.ics`; // Asumiendo que la ruta es /api/ical/
+        const icalUrl = `${API_BASE_URL}/ical/${currentUser.empresaId}/${prop.id}.ics`;
         return `
             <div class="p-4 border rounded-lg flex flex-col md:flex-row items-start md:items-center justify-between">
                 <div class="mb-2 md:mb-0">
@@ -38,7 +38,7 @@ function renderExportLinks() {
             navigator.clipboard.writeText(url).then(() => {
                 const originalText = e.target.textContent;
                 e.target.textContent = '¡Copiado!';
-                setTimeout(() => { e.target.textContent = originalText; }, 2000);
+                setTimeout(() => { e.target.textContent = 'Copiar URL'; }, 2000);
             });
         });
     });
@@ -75,7 +75,10 @@ export async function render() {
 
 export async function afterRender() {
     try {
-        propiedades = await fetchAPI('/propiedades');
+        [propiedades, currentUser] = await Promise.all([
+            fetchAPI('/propiedades'),
+            fetchAPI('/auth/me')
+        ]);
         renderExportLinks();
     } catch (error) {
         document.getElementById('export-loading').innerHTML = `<p class="text-red-500">Error al cargar las propiedades: ${error.message}</p>`;

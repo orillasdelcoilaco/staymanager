@@ -29,6 +29,7 @@ const presupuestosRoutes = require('./routes/presupuestos.js');
 const gestionPropuestasRoutes = require('./routes/gestionPropuestas.js');
 const reportesRoutes = require('./routes/reportes.js');
 const kpiRoutes = require('./routes/kpi.js');
+const icalRoutes = require('./routes/ical.js'); // Nueva ruta pública
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 
 // --- Carga de Credenciales y Configuración de Firebase ---
@@ -75,7 +76,10 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// --- Rutas de la API ---
+// --- Rutas Públicas ---
+app.use('/ical', icalRoutes(db));
+
+// --- Rutas de la API (Privadas) ---
 const apiRouter = express.Router();
 apiRouter.use('/auth', authRoutes(admin, db));
 

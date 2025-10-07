@@ -17,7 +17,7 @@ function renderTabla() {
     }
 
     tbody.innerHTML = todasLasPropuestas.map((item, index) => {
-        const isIcal = item.tipo === 'propuesta' && item.idsReservas && item.idsReservas.length > 0 && todasLasReservas.find(r => r.id === item.id)?.origen === 'ical';
+        const isIcal = item.origen === 'ical';
         const icalIndicator = isIcal ? '<span title="Generado desde iCal" class="mr-2">🗓️</span>' : '';
         const tipoTexto = isIcal ? 'Reserva iCal (Incompleta)' : (item.tipo === 'propuesta' ? 'Reserva Tentativa' : 'Presupuesto Formal');
 

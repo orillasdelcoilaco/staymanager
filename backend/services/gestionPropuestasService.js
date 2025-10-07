@@ -1,5 +1,4 @@
 // backend/services/gestionPropuestasService.js
-
 const admin = require('firebase-admin');
 const { getAvailabilityData } = require('./propuestasService');
 const { crearOActualizarCliente } = require('./clientesService');
@@ -59,7 +58,7 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
                     valorTotal: precioFinalPorPropiedad,
                     valorHuesped: precioFinalPorPropiedad
                 },
-                fechaReserva: admin.firestore.FieldValue.serverTimestamp(), // <-- CORRECCIÓN AQUÍ
+                fechaReserva: admin.firestore.FieldValue.serverTimestamp(),
                 fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
                 fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
             };
@@ -108,23 +107,31 @@ const guardarPresupuesto = async (db, empresaId, datos) => {
 };
 
 const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
-    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
-    const presupuestosRef = db.collection('empresas').doc(empresaId).collection('presupuestos');
-    const propiedadesRef = db.collection('empresas').doc(empresaId).collection('propiedades');
-
-    const [propuestasSnapshot, presupuestosSnapshot, propiedadesSnapshot, clientesSnapshot] = await Promise.all([
-        reservasRef.where('estado', '==', 'Propuesta').orderBy('fechaCreacion', 'desc').get(),
-        presupuestosRef.where('estado', 'in', ['Borrador', 'Enviado']).orderBy('fechaCreacion', 'desc').get(),
-        propiedadesRef.get(),
-        db.collection('empresas').doc(empresaId).collection('clientes').get()
+    const [propuestasSnapshot, presupuestosSnapshot] = await Promise.all([
+        db.collection('empresas').doc(empresaId).collection('reservas').where('estado', '==', 'Propuesta').orderBy('fechaCreacion', 'desc').get(),
+        db.collection('empresas').doc(empresaId).collection('presupuestos').where('estado', 'in', ['Borrador', 'Enviado']).orderBy('fechaCreacion', 'desc').get()
     ]);
 
-    const propiedadesMap = new Map(propiedadesSnapshot.docs.map(doc => [doc.id, doc.data()]));
-    const clientesMap = new Map(clientesSnapshot.docs.map(doc => [doc.id, doc.data().nombre]));
+    const allItems = [];
+    propuestasSnapshot.forEach(doc => allItems.push({ doc, type: 'propuesta' }));
+    presupuestosSnapshot.forEach(doc => allItems.push({ doc, type: 'presupuesto' }));
 
+    if (allItems.length === 0) return [];
+
+    const neededClientIds = new Set(allItems.map(item => item.doc.data().clienteId).filter(Boolean));
+    const neededPropIds = new Set(allItems.flatMap(item => (item.doc.data().propiedades || []).map(p => p.id)).filter(Boolean));
+    
+    const [clientesSnapshot, propiedadesSnapshot] = await Promise.all([
+        neededClientIds.size > 0 ? db.collection('empresas').doc(empresaId).collection('clientes').where(admin.firestore.FieldPath.documentId(), 'in', Array.from(neededClientIds)).get() : null,
+        neededPropIds.size > 0 ? db.collection('empresas').doc(empresaId).collection('propiedades').where(admin.firestore.FieldPath.documentId(), 'in', Array.from(neededPropIds)).get() : null,
+    ]);
+
+    const clientesMap = new Map(clientesSnapshot ? clientesSnapshot.docs.map(doc => [doc.id, doc.data().nombre]) : []);
+    const propiedadesMap = new Map(propiedadesSnapshot ? propiedadesSnapshot.docs.map(doc => [doc.id, doc.data()]) : []);
+    
     const propuestasAgrupadas = new Map();
-    propuestasSnapshot.forEach(doc => {
-        const data = doc.data();
+    allItems.filter(item => item.type === 'propuesta').forEach(item => {
+        const data = item.doc.data();
         const id = data.idReservaCanal;
         if (!id) return;
 
@@ -132,6 +139,7 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
             propuestasAgrupadas.set(id, {
                 id,
                 tipo: 'propuesta',
+                origen: data.origen || 'manual',
                 clienteId: data.clienteId,
                 fechaLlegada: data.fechaLlegada.toDate().toISOString().split('T')[0],
                 fechaSalida: data.fechaSalida.toDate().toISOString().split('T')[0],
@@ -142,33 +150,25 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
         }
         const grupo = propuestasAgrupadas.get(id);
         grupo.monto += data.valores.valorHuesped || 0;
-        const propiedad = propiedadesMap.get(data.alojamientoId);
-        grupo.propiedades.push({
-            id: data.alojamientoId,
-            nombre: data.alojamientoNombre,
-            capacidad: propiedad ? propiedad.capacidad : 0
-        });
+        const propiedad = propiedadesMap.get(data.alojamientoId) || { nombre: data.alojamientoNombre, capacidad: 0 };
+        grupo.propiedades.push({ id: data.alojamientoId, nombre: propiedad.nombre, capacidad: propiedad.capacidad });
         grupo.idsReservas.push(data.id);
     });
 
-    const presupuestos = presupuestosSnapshot.docs.map(doc => {
-        const data = doc.data();
+    const presupuestos = allItems.filter(item => item.type === 'presupuesto').map(item => {
+        const data = item.doc.data();
         const propiedadesConCapacidad = data.propiedades.map(p => {
             const propiedad = propiedadesMap.get(p.id);
             return { ...p, capacidad: propiedad ? propiedad.capacidad : 0 };
         });
-        return {
-            id: doc.id,
-            tipo: 'presupuesto',
-            ...data,
-            propiedades: propiedadesConCapacidad
-        };
+        return { id: item.doc.id, tipo: 'presupuesto', ...data, propiedades: propiedadesConCapacidad };
     });
 
     const resultado = [...propuestasAgrupadas.values(), ...presupuestos];
 
     return resultado.map(item => ({...item, clienteNombre: clientesMap.get(item.clienteId) || item.clienteNombre || 'N/A', propiedadesNombres: item.propiedades.map(p => p.nombre).join(', ')}));
 };
+
 
 const aprobarPropuesta = async (db, empresaId, idsReservas) => {
     const reservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas').where(admin.firestore.FieldPath.documentId(), 'in', idsReservas).get();
