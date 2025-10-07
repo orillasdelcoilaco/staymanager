@@ -12,22 +12,23 @@ function renderTabla() {
     if (!tbody) return;
 
     if (todasLasPropuestas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-gray-500 py-4">No hay propuestas ni presupuestos pendientes.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-500 py-4">No hay propuestas ni presupuestos pendientes.</td></tr>';
         return;
     }
 
     tbody.innerHTML = todasLasPropuestas.map((item, index) => {
         const isIcal = item.origen === 'ical';
         const icalIndicator = isIcal ? '<span title="Generado desde iCal" class="mr-2">🗓️</span>' : '';
-        const tipoTexto = isIcal ? `Reserva iCal (${item.canalNombre || 'N/A'})` : (item.tipo === 'propuesta' ? 'Reserva Tentativa' : 'Presupuesto Formal');
+        const tipoTexto = isIcal ? 'Reserva iCal' : (item.tipo === 'propuesta' ? 'Reserva Tentativa' : 'Presupuesto Formal');
         const clienteNombre = isIcal ? item.idReservaCanal : (item.clienteNombre || 'N/A');
         const montoTexto = isIcal ? 'Por completar' : formatCurrency(item.monto);
 
         return `
-        <tr class="border-b text-sm ${isIcal ? 'bg-yellow-50' : ''}">
+        <tr class="border-b text-sm ${isIcal ? 'bg-yellow-50 hover:bg-yellow-100' : 'hover:bg-gray-50'}">
             <td class="p-2 text-center font-medium text-gray-500">${index + 1}</td>
             <td class="p-2">${icalIndicator}${tipoTexto}</td>
-            <td class="p-2 font-medium">${clienteNombre}</td>
+            <td class="p-2 font-medium">${item.canalNombre || 'N/A'}</td>
+            <td class="p-2 font-medium truncate" style="max-width: 200px;" title="${clienteNombre}">${clienteNombre}</td>
             <td class="p-2">${formatDate(item.fechaLlegada)} al ${formatDate(item.fechaSalida)}</td>
             <td class="p-2">${item.propiedadesNombres}</td>
             <td class="p-2 font-semibold text-right">${montoTexto}</td>
@@ -46,7 +47,7 @@ async function fetchAndRender() {
         renderTabla();
     } catch (error) {
         const tbody = document.getElementById('propuestas-tbody');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center text-red-500 py-4">Error al cargar: ${error.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center text-red-500 py-4">Error al cargar: ${error.message}</td></tr>`;
     }
 }
 
@@ -59,6 +60,7 @@ export async function render() {
                     <thead><tr>
                         <th class="th w-12">#</th>
                         <th class="th">Tipo</th>
+                        <th class="th">Canal</th>
                         <th class="th">Cliente / ID iCal</th>
                         <th class="th">Fechas</th>
                         <th class="th">Propiedades</th>
@@ -98,7 +100,7 @@ export async function afterRender() {
                 fechaSalida: item.fechaSalida,
                 propiedades: item.propiedades.map(p => p.id).join(','),
                 personas: personas,
-                idReservaCanal: item.idReservaCanal || '',
+                idReservaCanal: item.idReservaCanal || (item.origen === 'ical' ? item.id : ''),
                 canalNombre: item.canalNombre || '',
                 origen: item.origen || 'manual'
             });
@@ -145,7 +147,7 @@ export async function afterRender() {
                 } else {
                     result = await fetchAPI(`/gestion-propuestas/presupuesto/${id}/rechazar`, { method: 'POST' });
                 }
-                alert(result.message);
+                alert('Propuesta rechazada y eliminada.');
                 await fetchAndRender();
              } catch(error) {
                 alert(`Error: ${error.message}`);

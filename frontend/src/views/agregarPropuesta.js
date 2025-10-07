@@ -11,7 +11,7 @@ let selectedProperties = [];
 let currentPricing = {};
 let editId = null;
 let valorDolarDia = 0;
-let origenReserva = 'manual'; // Nuevo: para saber si viene de iCal
+let origenReserva = 'manual';
 
 function formatCurrency(value, currency = 'CLP') {
     if (currency === 'USD') {
@@ -22,8 +22,9 @@ function formatCurrency(value, currency = 'CLP') {
 
 async function loadInitialData() {
     try {
-        [allClients, allCanales] = await Promise.all([
+        [allClients, allProperties, allCanales] = await Promise.all([
             fetchAPI('/clientes'),
+            fetchAPI('/propiedades'),
             fetchAPI('/canales')
         ]);
         const canalSelect = document.getElementById('canal-select');
@@ -278,7 +279,10 @@ export function render() {
                             <div>
                                 <label for="canal-select" class="block text-sm font-medium text-gray-700">Canal de Venta</label>
                                 <select id="canal-select" class="form-select mt-1"></select>
-                                <input type="hidden" id="id-reserva-canal-hidden">
+                                <div class="mt-2">
+                                    <label for="id-reserva-canal-input" class="block text-sm font-medium text-gray-700">ID Reserva Canal (iCal UID)</label>
+                                    <input type="text" id="id-reserva-canal-input" class="form-input mt-1 bg-gray-100" readonly>
+                                </div>
                             </div>
                          </div>
                     </div>
@@ -348,7 +352,7 @@ export async function afterRender() {
             document.getElementById('valor-dolar-info').textContent = `Valor Dólar para el Check-in: ${formatCurrency(valorDolarDia)}`;
 
             availabilityData = await fetchAPI('/propuestas/generar', { method: 'POST', body: payload });
-            allProperties = availabilityData.allProperties;
+            
             if (availabilityData.suggestion) {
                 statusContainer.classList.add('hidden');
                 document.getElementById('results-container').classList.remove('hidden');
@@ -404,13 +408,14 @@ export async function afterRender() {
         const descuentoCLP = precioListaCLP - precioFinalCLP;
         const valorOriginal = canal.moneda === 'USD' ? (precioFinalCLP / valorDolarDia) : precioFinalCLP;
 
-        const idReservaCanal = document.getElementById('id-reserva-canal-hidden').value;
+        const idReservaCanal = document.getElementById('id-reserva-canal-input').value;
 
         const payloadGuardar = {
             cliente: clienteParaGuardar,
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
             propiedades: selectedProperties,
+            personas: parseInt(document.getElementById('personas').value) || 0,
             precioFinal: precioFinalCLP,
             noches: currentPricing.nights,
             canalId: canal.id,
@@ -427,8 +432,9 @@ export async function afterRender() {
 
         try {
             const endpoint = `/gestion-propuestas/propuesta-tentativa/${editId || ''}`;
+            const method = editId ? 'PUT' : 'POST';
             
-            const resultadoGuardado = await fetchAPI(endpoint, { method: 'POST', body: payloadGuardar });
+            const resultadoGuardado = await fetchAPI(endpoint, { method, body: payloadGuardar });
             
             if (origenReserva === 'ical') {
                  alert('Reserva de iCal completada y guardada. Ahora puedes aprobarla en "Gestionar Propuestas".');
@@ -438,7 +444,6 @@ export async function afterRender() {
 
             const payloadTexto = {
                 ...payloadGuardar,
-                personas: document.getElementById('personas').value,
                 idPropuesta: resultadoGuardado.id,
                 precioListaCLP: precioListaCLP,
                 descuentoCLP: descuentoCLP,
@@ -480,7 +485,7 @@ export async function afterRender() {
         document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
         document.getElementById('fecha-salida').value = params.get('fechaSalida');
         document.getElementById('personas').value = params.get('personas');
-        document.getElementById('id-reserva-canal-hidden').value = params.get('idReservaCanal') || editId;
+        document.getElementById('id-reserva-canal-input').value = params.get('idReservaCanal');
 
         if(origenReserva === 'ical'){
             document.getElementById('guardar-propuesta-btn').textContent = 'Completar y Guardar Reserva';

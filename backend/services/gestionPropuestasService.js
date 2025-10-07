@@ -6,7 +6,8 @@ const { crearOActualizarCliente } = require('./clientesService');
 const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExistente = null) => {
     const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, canalId, canalNombre, moneda, valorDolarDia, valorOriginal, origen } = datos;
     
-    const idGrupo = idPropuestaExistente || db.collection('empresas').doc().id;
+    // Si es una reserva de iCal, el idReservaCanal ya viene, si no, se genera.
+    const idGrupo = idPropuestaExistente || datos.idReservaCanal || db.collection('empresas').doc().id;
 
     let clienteId;
     if (cliente.id) {
@@ -34,8 +35,8 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
         for (const prop of propiedades) {
             const nuevaReservaRef = reservasRef.doc();
             const idUnicoReserva = `${idGrupo}-${prop.id}`;
-            const precioFinalPorPropiedad = Math.round(precioFinal / propiedades.length);
-            const valorOriginalPorPropiedad = moneda === 'USD' ? (valorOriginal / propiedades.length) : precioFinalPorPropiedad;
+            const precioFinalPorPropiedad = (propiedades.length > 0) ? Math.round(precioFinal / propiedades.length) : 0;
+            const valorOriginalPorPropiedad = (propiedades.length > 0 && moneda === 'USD') ? (valorOriginal / propiedades.length) : precioFinalPorPropiedad;
 
             const datosReserva = {
                 id: nuevaReservaRef.id,
@@ -44,12 +45,12 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
                 clienteId,
                 alojamientoId: prop.id,
                 alojamientoNombre: prop.nombre,
-                canalId: canalId || 'APP',
+                canalId: canalId || null,
                 canalNombre: canalNombre || 'App',
                 fechaLlegada: admin.firestore.Timestamp.fromDate(new Date(fechaLlegada + 'T00:00:00Z')),
                 fechaSalida: admin.firestore.Timestamp.fromDate(new Date(fechaSalida + 'T00:00:00Z')),
                 totalNoches: noches,
-                cantidadHuespedes: prop.capacidad,
+                cantidadHuespedes: prop.capacidad || datos.personas || 0,
                 estado: 'Propuesta',
                 origen: origen || 'manual',
                 moneda,
@@ -123,21 +124,34 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
     const allPropiedadesIds = new Set();
     allItems.forEach(item => {
         const data = item.doc.data();
-        if (data.propiedades) { // Para presupuestos
+        if (data.propiedades) {
             data.propiedades.forEach(p => allPropiedadesIds.add(p.id));
         }
-        if (data.alojamientoId) { // Para propuestas
+        if (data.alojamientoId) {
             allPropiedadesIds.add(data.alojamientoId);
         }
     });
-
-    const [clientesSnapshot, propiedadesSnapshot] = await Promise.all([
-        neededClientIds.size > 0 ? db.collection('empresas').doc(empresaId).collection('clientes').where(admin.firestore.FieldPath.documentId(), 'in', Array.from(neededClientIds)).get() : null,
-        allPropiedadesIds.size > 0 ? db.collection('empresas').doc(empresaId).collection('propiedades').where(admin.firestore.FieldPath.documentId(), 'in', Array.from(allPropiedadesIds)).get() : null,
+    
+    // Firestore 'in' queries are limited to 30 items. If we have more, we need to do multiple queries.
+    const fetchInBatches = async (collection, ids) => {
+        const results = new Map();
+        const idBatches = [];
+        for (let i = 0; i < ids.length; i += 30) {
+            idBatches.push(ids.slice(i, i + 30));
+        }
+        for (const batch of idBatches) {
+            if (batch.length > 0) {
+                const snapshot = await db.collection('empresas').doc(empresaId).collection(collection).where(admin.firestore.FieldPath.documentId(), 'in', batch).get();
+                snapshot.forEach(doc => results.set(doc.id, doc.data()));
+            }
+        }
+        return results;
+    };
+    
+    const [clientesMap, propiedadesMap] = await Promise.all([
+        fetchInBatches('clientes', Array.from(neededClientIds)),
+        fetchInBatches('propiedades', Array.from(allPropiedadesIds)),
     ]);
-
-    const clientesMap = new Map(clientesSnapshot ? clientesSnapshot.docs.map(doc => [doc.id, doc.data()]) : []);
-    const propiedadesMap = new Map(propiedadesSnapshot ? propiedadesSnapshot.docs.map(doc => [doc.id, doc.data()]) : []);
     
     const propuestasAgrupadas = new Map();
     allItems.filter(item => item.type === 'propuesta').forEach(item => {
@@ -192,6 +206,9 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
 
 
 const aprobarPropuesta = async (db, empresaId, idsReservas) => {
+    if (!idsReservas || idsReservas.length === 0) {
+        throw new Error("No se proporcionaron IDs de reserva para aprobar.");
+    }
     const reservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas').where(admin.firestore.FieldPath.documentId(), 'in', idsReservas).get();
     if (reservasSnapshot.empty) throw new Error('No se encontraron las reservas de la propuesta.');
 
@@ -230,10 +247,13 @@ const aprobarPropuesta = async (db, empresaId, idsReservas) => {
 };
 
 const rechazarPropuesta = async (db, empresaId, idsReservas) => {
+    if (!idsReservas || idsReservas.length === 0) {
+        throw new Error("No se proporcionaron IDs de reserva para rechazar.");
+    }
     const batch = db.batch();
     idsReservas.forEach(id => {
         const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);
-        batch.update(ref, { estado: 'Rechazada' });
+        batch.delete(ref); // Se elimina en lugar de marcar como rechazada
     });
     await batch.commit();
 };
