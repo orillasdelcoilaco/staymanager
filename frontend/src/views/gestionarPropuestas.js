@@ -19,16 +19,18 @@ function renderTabla() {
     tbody.innerHTML = todasLasPropuestas.map((item, index) => {
         const isIcal = item.origen === 'ical';
         const icalIndicator = isIcal ? '<span title="Generado desde iCal" class="mr-2">🗓️</span>' : '';
-        const tipoTexto = isIcal ? 'Reserva iCal (Incompleta)' : (item.tipo === 'propuesta' ? 'Reserva Tentativa' : 'Presupuesto Formal');
+        const tipoTexto = isIcal ? `Reserva iCal (${item.canalNombre || 'N/A'})` : (item.tipo === 'propuesta' ? 'Reserva Tentativa' : 'Presupuesto Formal');
+        const clienteNombre = isIcal ? item.idReservaCanal : (item.clienteNombre || 'N/A');
+        const montoTexto = isIcal ? 'Por completar' : formatCurrency(item.monto);
 
         return `
         <tr class="border-b text-sm ${isIcal ? 'bg-yellow-50' : ''}">
             <td class="p-2 text-center font-medium text-gray-500">${index + 1}</td>
             <td class="p-2">${icalIndicator}${tipoTexto}</td>
-            <td class="p-2 font-medium">${item.clienteNombre}</td>
+            <td class="p-2 font-medium">${clienteNombre}</td>
             <td class="p-2">${formatDate(item.fechaLlegada)} al ${formatDate(item.fechaSalida)}</td>
             <td class="p-2">${item.propiedadesNombres}</td>
-            <td class="p-2 font-semibold text-right">${isIcal ? 'N/A' : formatCurrency(item.monto)}</td>
+            <td class="p-2 font-semibold text-right">${montoTexto}</td>
             <td class="p-2 text-center space-x-2 whitespace-nowrap">
                 <button data-id="${item.id}" data-tipo="${item.tipo}" class="edit-btn btn-table-copy">Editar/Completar</button>
                 <button data-id="${item.id}" data-tipo="${item.tipo}" data-ids-reservas="${item.idsReservas?.join(',')}" class="approve-btn btn-table-edit" ${isIcal ? 'disabled' : ''}>Aprobar</button>
@@ -57,7 +59,7 @@ export async function render() {
                     <thead><tr>
                         <th class="th w-12">#</th>
                         <th class="th">Tipo</th>
-                        <th class="th">Cliente</th>
+                        <th class="th">Cliente / ID iCal</th>
                         <th class="th">Fechas</th>
                         <th class="th">Propiedades</th>
                         <th class="th text-right">Monto</th>
@@ -95,7 +97,10 @@ export async function afterRender() {
                 fechaLlegada: item.fechaLlegada,
                 fechaSalida: item.fechaSalida,
                 propiedades: item.propiedades.map(p => p.id).join(','),
-                personas: personas
+                personas: personas,
+                idReservaCanal: item.idReservaCanal || '',
+                canalNombre: item.canalNombre || '',
+                origen: item.origen || 'manual'
             });
 
             const route = tipo === 'propuesta' ? '/agregar-propuesta' : '/generar-presupuesto';

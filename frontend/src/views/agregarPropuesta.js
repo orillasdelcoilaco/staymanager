@@ -1,5 +1,4 @@
 // frontend/src/views/agregarPropuesta.js
-
 import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
 
@@ -12,6 +11,7 @@ let selectedProperties = [];
 let currentPricing = {};
 let editId = null;
 let valorDolarDia = 0;
+let origenReserva = 'manual'; // Nuevo: para saber si viene de iCal
 
 function formatCurrency(value, currency = 'CLP') {
     if (currency === 'USD') {
@@ -208,7 +208,9 @@ function updateSummary(pricing) {
 
 
 function handleCanalChange() {
-    const canalId = document.getElementById('canal-select').value;
+    const canalSelect = document.getElementById('canal-select');
+    if (!canalSelect) return;
+    const canalId = canalSelect.value;
     const canal = allCanales.find(c => c.id === canalId);
     if (!canal) return;
 
@@ -218,10 +220,7 @@ function handleCanalChange() {
     document.getElementById('valor-dolar-container').classList.toggle('hidden', moneda !== 'USD');
     
     if (availabilityData.suggestion) {
-        const buscarBtn = document.getElementById('buscar-btn');
-        if (buscarBtn) {
-            buscarBtn.click();
-        }
+        handleSelectionChange();
     }
 }
 
@@ -279,6 +278,7 @@ export function render() {
                             <div>
                                 <label for="canal-select" class="block text-sm font-medium text-gray-700">Canal de Venta</label>
                                 <select id="canal-select" class="form-select mt-1"></select>
+                                <input type="hidden" id="id-reserva-canal-hidden">
                             </div>
                          </div>
                     </div>
@@ -404,6 +404,8 @@ export async function afterRender() {
         const descuentoCLP = precioListaCLP - precioFinalCLP;
         const valorOriginal = canal.moneda === 'USD' ? (precioFinalCLP / valorDolarDia) : precioFinalCLP;
 
+        const idReservaCanal = document.getElementById('id-reserva-canal-hidden').value;
+
         const payloadGuardar = {
             cliente: clienteParaGuardar,
             fechaLlegada: document.getElementById('fecha-llegada').value,
@@ -415,18 +417,25 @@ export async function afterRender() {
             canalNombre: canal.nombre,
             moneda: canal.moneda,
             valorDolarDia,
-            valorOriginal
+            valorOriginal,
+            idReservaCanal: idReservaCanal,
+            origen: origenReserva
         };
         
         btn.disabled = true;
         btn.textContent = editId ? 'Actualizando...' : 'Guardando...';
 
         try {
-            const endpoint = editId ? `/gestion-propuestas/propuesta-tentativa/${editId}` : '/gestion-propuestas/propuesta-tentativa';
-            const method = editId ? 'PUT' : 'POST';
+            const endpoint = `/gestion-propuestas/propuesta-tentativa/${editId || ''}`;
             
             const resultadoGuardado = await fetchAPI(endpoint, { method: 'POST', body: payloadGuardar });
             
+            if (origenReserva === 'ical') {
+                 alert('Reserva de iCal completada y guardada. Ahora puedes aprobarla en "Gestionar Propuestas".');
+                 handleNavigation('/gestionar-propuestas');
+                 return;
+            }
+
             const payloadTexto = {
                 ...payloadGuardar,
                 personas: document.getElementById('personas').value,
@@ -465,16 +474,33 @@ export async function afterRender() {
 
     const params = new URLSearchParams(window.location.search);
     editId = params.get('edit');
+    origenReserva = params.get('origen') || 'manual';
 
     if (editId) {
         document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
         document.getElementById('fecha-salida').value = params.get('fechaSalida');
         document.getElementById('personas').value = params.get('personas');
+        document.getElementById('id-reserva-canal-hidden').value = params.get('idReservaCanal') || editId;
+
+        if(origenReserva === 'ical'){
+            document.getElementById('guardar-propuesta-btn').textContent = 'Completar y Guardar Reserva';
+        } else {
+            document.getElementById('guardar-propuesta-btn').textContent = 'Actualizar Propuesta';
+        }
+
+        const canalNombre = params.get('canalNombre');
+        const canal = allCanales.find(c => c.nombre === canalNombre);
+        if (canal) {
+            document.getElementById('canal-select').value = canal.id;
+            handleCanalChange();
+        }
         
         const clienteId = params.get('clienteId');
-        const client = allClients.find(c => c.id === clienteId);
-        if (client) {
-            selectClient(client);
+        if (clienteId) {
+            const client = allClients.find(c => c.id === clienteId);
+            if (client) {
+                selectClient(client);
+            }
         }
 
         const data = await runSearch();
@@ -485,6 +511,5 @@ export async function afterRender() {
             });
             await handleSelectionChange();
         }
-        document.getElementById('guardar-propuesta-btn').textContent = 'Actualizar Propuesta';
     }
 }

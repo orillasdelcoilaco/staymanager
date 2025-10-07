@@ -4,7 +4,7 @@ const { getAvailabilityData } = require('./propuestasService');
 const { crearOActualizarCliente } = require('./clientesService');
 
 const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExistente = null) => {
-    const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, canalId, canalNombre, moneda, valorDolarDia, valorOriginal } = datos;
+    const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, canalId, canalNombre, moneda, valorDolarDia, valorOriginal, origen } = datos;
     
     const idGrupo = idPropuestaExistente || db.collection('empresas').doc().id;
 
@@ -51,6 +51,7 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
                 totalNoches: noches,
                 cantidadHuespedes: prop.capacidad,
                 estado: 'Propuesta',
+                origen: origen || 'manual',
                 moneda,
                 valorDolarDia,
                 valores: {
@@ -119,14 +120,23 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
     if (allItems.length === 0) return [];
 
     const neededClientIds = new Set(allItems.map(item => item.doc.data().clienteId).filter(Boolean));
-    const neededPropIds = new Set(allItems.flatMap(item => (item.doc.data().propiedades || []).map(p => p.id)).filter(Boolean));
-    
+    const allPropiedadesIds = new Set();
+    allItems.forEach(item => {
+        const data = item.doc.data();
+        if (data.propiedades) { // Para presupuestos
+            data.propiedades.forEach(p => allPropiedadesIds.add(p.id));
+        }
+        if (data.alojamientoId) { // Para propuestas
+            allPropiedadesIds.add(data.alojamientoId);
+        }
+    });
+
     const [clientesSnapshot, propiedadesSnapshot] = await Promise.all([
         neededClientIds.size > 0 ? db.collection('empresas').doc(empresaId).collection('clientes').where(admin.firestore.FieldPath.documentId(), 'in', Array.from(neededClientIds)).get() : null,
-        neededPropIds.size > 0 ? db.collection('empresas').doc(empresaId).collection('propiedades').where(admin.firestore.FieldPath.documentId(), 'in', Array.from(neededPropIds)).get() : null,
+        allPropiedadesIds.size > 0 ? db.collection('empresas').doc(empresaId).collection('propiedades').where(admin.firestore.FieldPath.documentId(), 'in', Array.from(allPropiedadesIds)).get() : null,
     ]);
 
-    const clientesMap = new Map(clientesSnapshot ? clientesSnapshot.docs.map(doc => [doc.id, doc.data().nombre]) : []);
+    const clientesMap = new Map(clientesSnapshot ? clientesSnapshot.docs.map(doc => [doc.id, doc.data()]) : []);
     const propiedadesMap = new Map(propiedadesSnapshot ? propiedadesSnapshot.docs.map(doc => [doc.id, doc.data()]) : []);
     
     const propuestasAgrupadas = new Map();
@@ -141,6 +151,9 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
                 tipo: 'propuesta',
                 origen: data.origen || 'manual',
                 clienteId: data.clienteId,
+                clienteNombre: data.clienteNombre,
+                canalNombre: data.canalNombre,
+                idReservaCanal: data.idReservaCanal,
                 fechaLlegada: data.fechaLlegada.toDate().toISOString().split('T')[0],
                 fechaSalida: data.fechaSalida.toDate().toISOString().split('T')[0],
                 monto: 0,
@@ -149,7 +162,7 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
             });
         }
         const grupo = propuestasAgrupadas.get(id);
-        grupo.monto += data.valores.valorHuesped || 0;
+        grupo.monto += data.valores?.valorHuesped || 0;
         const propiedad = propiedadesMap.get(data.alojamientoId) || { nombre: data.alojamientoNombre, capacidad: 0 };
         grupo.propiedades.push({ id: data.alojamientoId, nombre: propiedad.nombre, capacidad: propiedad.capacidad });
         grupo.idsReservas.push(data.id);
@@ -161,12 +174,20 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
             const propiedad = propiedadesMap.get(p.id);
             return { ...p, capacidad: propiedad ? propiedad.capacidad : 0 };
         });
-        return { id: item.doc.id, tipo: 'presupuesto', ...data, propiedades: propiedadesConCapacidad };
+        const cliente = clientesMap.get(data.clienteId);
+        return { id: item.doc.id, tipo: 'presupuesto', ...data, propiedades: propiedadesConCapacidad, clienteNombre: cliente?.nombre || data.clienteNombre };
     });
 
     const resultado = [...propuestasAgrupadas.values(), ...presupuestos];
+    
+    resultado.forEach(item => {
+        if(item.clienteId && clientesMap.has(item.clienteId)) {
+            item.clienteNombre = clientesMap.get(item.clienteId).nombre;
+        }
+        item.propiedadesNombres = item.propiedades.map(p => p.nombre).join(', ');
+    });
 
-    return resultado.map(item => ({...item, clienteNombre: clientesMap.get(item.clienteId) || item.clienteNombre || 'N/A', propiedadesNombres: item.propiedades.map(p => p.nombre).join(', ')}));
+    return resultado;
 };
 
 
