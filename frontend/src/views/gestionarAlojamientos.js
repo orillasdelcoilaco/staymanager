@@ -2,12 +2,24 @@
 import { fetchAPI } from '../api.js';
 
 let propiedades = [];
+let canales = [];
 let editandoPropiedad = null;
 
 function abrirModal(propiedad = null) {
     const modal = document.getElementById('propiedad-modal');
     const form = document.getElementById('propiedad-form');
     const modalTitle = document.getElementById('modal-title');
+    const icalContainer = document.getElementById('ical-fields-container');
+
+    // Generar campos de iCal dinámicamente
+    icalContainer.innerHTML = canales
+        .filter(canal => canal.nombre.toLowerCase() !== 'app')
+        .map(canal => `
+            <div>
+                <label for="ical-${canal.id}" class="block text-sm font-medium text-gray-700">URL iCal de ${canal.nombre}</label>
+                <input type="url" id="ical-${canal.id}" data-canal-key="${canal.nombre.toLowerCase()}" class="form-input mt-1 ical-input">
+            </div>
+        `).join('');
     
     if (propiedad) {
         editandoPropiedad = propiedad;
@@ -27,8 +39,15 @@ function abrirModal(propiedad = null) {
         form.juegoDeTerraza.checked = propiedad.equipamiento?.juegoDeTerraza || false;
         form.piezaEnSuite.checked = propiedad.equipamiento?.piezaEnSuite || false;
         form.dosPisos.checked = propiedad.equipamiento?.dosPisos || false;
-        form.icalBooking.value = propiedad.sincronizacionIcal?.booking || '';
-        form.icalAirbnb.value = propiedad.sincronizacionIcal?.airbnb || '';
+        
+        // Poblar los campos de iCal dinámicos
+        icalContainer.querySelectorAll('.ical-input').forEach(input => {
+            const canalKey = input.dataset.canalKey;
+            if (propiedad.sincronizacionIcal && propiedad.sincronizacionIcal[canalKey]) {
+                input.value = propiedad.sincronizacionIcal[canalKey];
+            }
+        });
+
     } else {
         editandoPropiedad = null;
         modalTitle.textContent = 'Nuevo Alojamiento';
@@ -70,9 +89,12 @@ function renderTabla() {
 
 export async function render() {
     try {
-        propiedades = await fetchAPI('/propiedades');
+        [propiedades, canales] = await Promise.all([
+            fetchAPI('/propiedades'),
+            fetchAPI('/canales')
+        ]);
     } catch (error) {
-        console.error("Error al cargar propiedades:", error);
+        console.error("Error al cargar datos:", error);
         return `<p class="text-red-500">Error al cargar los datos. Por favor, intente de nuevo.</p>`;
     }
 
@@ -164,15 +186,8 @@ export async function render() {
                     <hr class="my-6">
                     <div>
                         <label class="block text-base font-medium text-gray-800 mb-2">Sincronización de Calendarios (iCal)</label>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                           <div>
-                                <label for="icalBooking" class="block text-sm font-medium text-gray-700">URL iCal de Booking.com</label>
-                                <input type="url" id="icalBooking" name="icalBooking" class="form-input mt-1">
-                           </div>
-                           <div>
-                                <label for="icalAirbnb" class="block text-sm font-medium text-gray-700">URL iCal de Airbnb</label>
-                                <input type="url" id="icalAirbnb" name="icalAirbnb" class="form-input mt-1">
-                           </div>
+                        <div id="ical-fields-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           {/* Los campos de iCal se insertarán aquí dinámicamente */}
                         </div>
                     </div>
                     <div class="flex justify-end pt-6 border-t mt-6">
@@ -206,6 +221,15 @@ export function afterRender() {
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        const icalInputs = form.querySelectorAll('.ical-input');
+        const sincronizacionIcal = {};
+        icalInputs.forEach(input => {
+            if (input.value) {
+                sincronizacionIcal[input.dataset.canalKey] = input.value;
+            }
+        });
+
         const datos = {
             nombre: form.nombre.value,
             capacidad: parseInt(form.capacidad.value),
@@ -226,10 +250,7 @@ export function afterRender() {
                 piezaEnSuite: form.piezaEnSuite.checked,
                 dosPisos: form.dosPisos.checked,
             },
-            sincronizacionIcal: {
-                booking: form.icalBooking.value,
-                airbnb: form.icalAirbnb.value
-            }
+            sincronizacionIcal
         };
 
         try {
