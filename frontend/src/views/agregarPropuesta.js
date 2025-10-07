@@ -280,8 +280,8 @@ export function render() {
                                 <label for="canal-select" class="block text-sm font-medium text-gray-700">Canal de Venta</label>
                                 <select id="canal-select" class="form-select mt-1"></select>
                                 <div class="mt-2">
-                                    <label for="id-reserva-canal-input" class="block text-sm font-medium text-gray-700">ID Reserva Canal (iCal UID)</label>
-                                    <input type="text" id="id-reserva-canal-input" class="form-input mt-1 bg-gray-100" readonly>
+                                    <label for="id-reserva-canal-input" class="block text-sm font-medium text-gray-700">ID Reserva Canal (o iCal UID)</label>
+                                    <input type="text" id="id-reserva-canal-input" class="form-input mt-1">
                                 </div>
                             </div>
                          </div>
@@ -434,7 +434,7 @@ export async function afterRender() {
             const endpoint = `/gestion-propuestas/propuesta-tentativa/${editId || ''}`;
             const method = editId ? 'PUT' : 'POST';
             
-            const resultadoGuardado = await fetchAPI(endpoint, { method, body: payloadGuardar });
+            const resultadoGuardado = await fetchAPI(endpoint, { method: 'POST', body: payloadGuardar });
             
             if (origenReserva === 'ical') {
                  alert('Reserva de iCal completada y guardada. Ahora puedes aprobarla en "Gestionar Propuestas".');
@@ -489,6 +489,8 @@ export async function afterRender() {
 
         if(origenReserva === 'ical'){
             document.getElementById('guardar-propuesta-btn').textContent = 'Completar y Guardar Reserva';
+            document.getElementById('id-reserva-canal-input').readOnly = true;
+            document.getElementById('id-reserva-canal-input').classList.add('bg-gray-100');
         } else {
             document.getElementById('guardar-propuesta-btn').textContent = 'Actualizar Propuesta';
         }
