@@ -1,3 +1,4 @@
+// backend/routes/propiedades.js
 const express = require('express');
 const {
     crearPropiedad,

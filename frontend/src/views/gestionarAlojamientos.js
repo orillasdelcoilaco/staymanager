@@ -1,3 +1,4 @@
+// frontend/src/views/gestionarAlojamientos.js
 import { fetchAPI } from '../api.js';
 
 let propiedades = [];
@@ -26,6 +27,8 @@ function abrirModal(propiedad = null) {
         form.juegoDeTerraza.checked = propiedad.equipamiento?.juegoDeTerraza || false;
         form.piezaEnSuite.checked = propiedad.equipamiento?.piezaEnSuite || false;
         form.dosPisos.checked = propiedad.equipamiento?.dosPisos || false;
+        form.icalBooking.value = propiedad.sincronizacionIcal?.booking || '';
+        form.icalAirbnb.value = propiedad.sincronizacionIcal?.airbnb || '';
     } else {
         editandoPropiedad = null;
         modalTitle.textContent = 'Nuevo Alojamiento';
@@ -158,6 +161,20 @@ export async function render() {
                             ${checkbox('dosPisos', 'Dos Pisos')}
                         </div>
                     </div>
+                    <hr class="my-6">
+                    <div>
+                        <label class="block text-base font-medium text-gray-800 mb-2">Sincronización de Calendarios (iCal)</label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           <div>
+                                <label for="icalBooking" class="block text-sm font-medium text-gray-700">URL iCal de Booking.com</label>
+                                <input type="url" id="icalBooking" name="icalBooking" class="form-input mt-1">
+                           </div>
+                           <div>
+                                <label for="icalAirbnb" class="block text-sm font-medium text-gray-700">URL iCal de Airbnb</label>
+                                <input type="url" id="icalAirbnb" name="icalAirbnb" class="form-input mt-1">
+                           </div>
+                        </div>
+                    </div>
                     <div class="flex justify-end pt-6 border-t mt-6">
                         <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
                         <button type="submit" class="btn-primary">Guardar</button>
@@ -208,6 +225,10 @@ export function afterRender() {
                 juegoDeTerraza: form.juegoDeTerraza.checked,
                 piezaEnSuite: form.piezaEnSuite.checked,
                 dosPisos: form.dosPisos.checked,
+            },
+            sincronizacionIcal: {
+                booking: form.icalBooking.value,
+                airbnb: form.icalAirbnb.value
             }
         };
 

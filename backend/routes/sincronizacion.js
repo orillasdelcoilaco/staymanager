@@ -1,6 +1,8 @@
+// backend/routes/sincronizacion.js
 const express = require('express');
 const multer = require('multer');
 const { procesarArchivoReservas, analizarCabeceras, analizarValoresUnicosColumna } = require('../services/sincronizacionService');
+const { sincronizarCalendarios } = require('../services/icalService'); // Importar el nuevo servicio
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -62,6 +64,20 @@ module.exports = (db) => {
             });
         } catch (error) {
             console.error("Error en la ruta de sincronización:", error);
+            res.status(500).json({ error: `Error interno del servidor: ${error.message}` });
+        }
+    });
+
+    router.post('/ical', async (req, res) => {
+        try {
+            const { empresaId } = req.user;
+            const summary = await sincronizarCalendarios(db, empresaId);
+            res.status(200).json({
+                message: 'Sincronización de calendarios iCal completada.',
+                summary: summary
+            });
+        } catch (error) {
+            console.error("Error en la ruta de sincronización iCal:", error);
             res.status(500).json({ error: `Error interno del servidor: ${error.message}` });
         }
     });

@@ -1,3 +1,4 @@
+// backend/services/propiedadesService.js
 const admin = require('firebase-admin');
 
 const crearPropiedad = async (db, empresaId, datosPropiedad) => {
@@ -16,6 +17,7 @@ const crearPropiedad = async (db, empresaId, datosPropiedad) => {
         numBanos: datosPropiedad.numBanos || 0,
         camas: datosPropiedad.camas || {},
         equipamiento: datosPropiedad.equipamiento || {},
+        sincronizacionIcal: datosPropiedad.sincronizacionIcal || {}, // Añadido
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
     };
     
@@ -40,7 +42,13 @@ const obtenerPropiedadesPorEmpresa = async (db, empresaId) => {
 const actualizarPropiedad = async (db, empresaId, propiedadId, datosActualizados) => {
     const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
     
-    await propiedadRef.set(datosActualizados, { merge: true });
+    // Asegurarse de que el campo de sincronización iCal se actualice correctamente
+    const datosParaActualizar = { ...datosActualizados };
+    if (datosParaActualizar.sincronizacionIcal) {
+        datosParaActualizar.sincronizacionIcal = datosParaActualizar.sincronizacionIcal;
+    }
+
+    await propiedadRef.set(datosParaActualizar, { merge: true });
     await propiedadRef.update({
         fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
     });

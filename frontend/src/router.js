@@ -1,5 +1,5 @@
 // frontend/src/router.js
-
+import { fetchAPI } from './api.js';
 import { checkAuthAndRender, renderAppLayout } from './app.js';
 
 const views = {
@@ -30,6 +30,7 @@ const views = {
     '/gestionar-plantillas': () => import('./views/gestionarPlantillas.js'),
     '/gestionar-propuestas': () => import('./views/gestionarPropuestas.js'),
     '/generar-reportes-rapidos': () => import('./views/generarReportes.js'),
+    '/sincronizar-ical': () => import('./views/sincronizarCalendarios.js'),
 };
 
 const menuConfig = [
@@ -75,10 +76,35 @@ const menuConfig = [
             { name: '🔧 Reparar Fechas de Reservas', path: '/reparar-fechas', id: 'reparar-fechas' },
             { name: '📞 Reparar y Verificar Contactos', path: '/reparar-contactos', id: 'reparar-contactos' },
             { name: '🔧 Reparar Dólar Histórico', path: '/reparar-dolar', id: 'reparar-dolar' },
-            { name: '🗓️ Sincronizar Calendarios (iCal)', path: '#', id: 'sincronizar-ical' },
+            { name: '🗓️ Sincronizar Calendarios (iCal)', path: '/sincronizar-ical', id: 'sincronizar-ical' },
         ]
     }
 ];
+
+async function updatePendingProposalsCount() {
+    try {
+        const { count } = await fetchAPI('/gestion-propuestas/count');
+        const menuLink = document.querySelector('a[data-path="/gestionar-propuestas"]');
+        if (menuLink) {
+            let badge = menuLink.querySelector('.menu-badge');
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'menu-badge';
+                menuLink.appendChild(badge);
+            }
+            
+            if (count > 0) {
+                badge.textContent = count;
+                badge.style.display = 'inline-block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    } catch (error) {
+        console.error("Error al obtener el contador de propuestas:", error);
+    }
+}
+
 
 export async function handleNavigation(path) {
     if (path !== '/login') sessionStorage.setItem('lastPath', path);
@@ -101,6 +127,7 @@ async function loadView(path) {
         renderLogin(appRoot);
     } else {
         if (!document.getElementById('view-content')) {
+            // Este bloque puede ser innecesario si renderAppLayout siempre se llama antes
         }
         
         let cleanPath = path.split('?')[0];
@@ -185,6 +212,8 @@ export function renderMenu() {
             }
         });
     });
+
+    updatePendingProposalsCount();
 }
 
 function updateActiveLink(path) {

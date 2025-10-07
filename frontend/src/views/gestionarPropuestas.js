@@ -1,3 +1,4 @@
+// frontend/src/views/gestionarPropuestas.js
 import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
 
@@ -15,21 +16,26 @@ function renderTabla() {
         return;
     }
 
-    tbody.innerHTML = todasLasPropuestas.map((item, index) => `
-        <tr class="border-b text-sm">
+    tbody.innerHTML = todasLasPropuestas.map((item, index) => {
+        const isIcal = item.tipo === 'propuesta' && item.idsReservas && item.idsReservas.length > 0 && todasLasReservas.find(r => r.id === item.id)?.origen === 'ical';
+        const icalIndicator = isIcal ? '<span title="Generado desde iCal" class="mr-2">🗓️</span>' : '';
+        const tipoTexto = isIcal ? 'Reserva iCal (Incompleta)' : (item.tipo === 'propuesta' ? 'Reserva Tentativa' : 'Presupuesto Formal');
+
+        return `
+        <tr class="border-b text-sm ${isIcal ? 'bg-yellow-50' : ''}">
             <td class="p-2 text-center font-medium text-gray-500">${index + 1}</td>
-            <td class="p-2">${item.tipo === 'propuesta' ? 'Reserva Tentativa' : 'Presupuesto Formal'}</td>
+            <td class="p-2">${icalIndicator}${tipoTexto}</td>
             <td class="p-2 font-medium">${item.clienteNombre}</td>
             <td class="p-2">${formatDate(item.fechaLlegada)} al ${formatDate(item.fechaSalida)}</td>
             <td class="p-2">${item.propiedadesNombres}</td>
-            <td class="p-2 font-semibold text-right">${formatCurrency(item.monto)}</td>
+            <td class="p-2 font-semibold text-right">${isIcal ? 'N/A' : formatCurrency(item.monto)}</td>
             <td class="p-2 text-center space-x-2 whitespace-nowrap">
-                <button data-id="${item.id}" data-tipo="${item.tipo}" class="edit-btn btn-table-copy">Editar</button>
-                <button data-id="${item.id}" data-tipo="${item.tipo}" data-ids-reservas="${item.idsReservas?.join(',')}" class="approve-btn btn-table-edit">Aprobar</button>
+                <button data-id="${item.id}" data-tipo="${item.tipo}" class="edit-btn btn-table-copy">Editar/Completar</button>
+                <button data-id="${item.id}" data-tipo="${item.tipo}" data-ids-reservas="${item.idsReservas?.join(',')}" class="approve-btn btn-table-edit" ${isIcal ? 'disabled' : ''}>Aprobar</button>
                 <button data-id="${item.id}" data-tipo="${item.tipo}" data-ids-reservas="${item.idsReservas?.join(',')}" class="reject-btn btn-table-delete">Rechazar</button>
             </td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
 async function fetchAndRender() {
@@ -75,50 +81,25 @@ export async function afterRender() {
         if (!id || !tipo) return;
 
         if (target.classList.contains('edit-btn')) {
-            console.log(`[Debug] 1. Botón Editar presionado para ${tipo} con ID: ${id}`);
-            try {
-                const item = todasLasPropuestas.find(p => p.id === id);
-
-                if (!item) {
-                    console.error('[Debug] 2. ERROR: No se encontró el item correspondiente en los datos cargados.');
-                    alert('Error crítico: No se pudo encontrar la propuesta para editar.');
-                    return;
-                }
-
-                console.log('[Debug] 2. Item encontrado para editar:', JSON.parse(JSON.stringify(item)));
-
-                if (!item.propiedades || !Array.isArray(item.propiedades)) {
-                    console.error('[Debug] 3. ERROR: item.propiedades no es un array válido:', item.propiedades);
-                    alert('Error: Los datos de las propiedades para esta propuesta están corruptos.');
-                    return;
-                }
-
-                const personas = item.propiedades.reduce((sum, p) => sum + (p.capacidad || 0), 0);
-                console.log(`[Debug] 3. Capacidad total calculada para 'personas': ${personas}`);
-                
-                if (personas === 0) {
-                     alert('Advertencia: La capacidad total de las propiedades es 0. La edición podría no funcionar correctamente.');
-                }
-
-                const params = new URLSearchParams({
-                    edit: id,
-                    clienteId: item.clienteId,
-                    fechaLlegada: item.fechaLlegada,
-                    fechaSalida: item.fechaSalida,
-                    propiedades: item.propiedades.map(p => p.id).join(','),
-                    personas: personas
-                });
-
-                const route = tipo === 'propuesta' ? '/agregar-propuesta' : '/generar-presupuesto';
-                const url = `${route}?${params.toString()}`;
-
-                console.log(`[Debug] 4. Navegando a: ${url}`);
-                handleNavigation(url);
-
-            } catch (error) {
-                console.error('[Debug] 5. ERROR: Ocurrió un error inesperado en el proceso de edición:', error);
-                alert('Ocurrió un error inesperado al intentar editar. Revisa la consola para más detalles.');
+            const item = todasLasPropuestas.find(p => p.id === id);
+            if (!item) {
+                alert('Error: No se pudo encontrar la propuesta para editar.');
+                return;
             }
+
+            const personas = item.propiedades.reduce((sum, p) => sum + (p.capacidad || 1), 0);
+            
+            const params = new URLSearchParams({
+                edit: id,
+                clienteId: item.clienteId || '',
+                fechaLlegada: item.fechaLlegada,
+                fechaSalida: item.fechaSalida,
+                propiedades: item.propiedades.map(p => p.id).join(','),
+                personas: personas
+            });
+
+            const route = tipo === 'propuesta' ? '/agregar-propuesta' : '/generar-presupuesto';
+            handleNavigation(`${route}?${params.toString()}`);
         }
         
         if (target.classList.contains('approve-btn')) {

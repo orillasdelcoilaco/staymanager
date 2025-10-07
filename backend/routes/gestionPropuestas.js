@@ -1,3 +1,4 @@
+// backend/routes/gestionPropuestas.js
 const express = require('express');
 const {
     guardarOActualizarPropuesta,
@@ -11,6 +12,27 @@ const {
 
 module.exports = (db) => {
     const router = express.Router();
+
+    router.get('/count', async (req, res) => {
+        try {
+            const { empresaId } = req.user;
+            const snapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
+                .where('estado', '==', 'Propuesta')
+                .get();
+            
+            const grouped = new Map();
+            snapshot.forEach(doc => {
+                const id = doc.data().idReservaCanal;
+                if (id) {
+                    grouped.set(id, true);
+                }
+            });
+
+            res.status(200).json({ count: grouped.size });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
 
     router.post('/propuesta-tentativa', async (req, res) => {
         try {
@@ -39,10 +61,7 @@ module.exports = (db) => {
             res.status(500).json({ error: error.message });
         }
     });
-
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Se añade la ruta PUT que faltaba para actualizar un presupuesto existente.
-    // Esto resuelve el error 404 Not Found que ocurría al guardar en modo edición.
+    
     router.put('/presupuesto/:id', async (req, res) => {
         try {
             const resultado = await guardarPresupuesto(db, req.user.empresaId, { id: req.params.id, ...req.body });
@@ -51,7 +70,6 @@ module.exports = (db) => {
             res.status(500).json({ error: error.message });
         }
     });
-    // --- FIN DE LA CORRECCIÓN ---
 
     router.get('/', async (req, res) => {
         try {
