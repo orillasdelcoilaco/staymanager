@@ -280,7 +280,7 @@ export function render() {
                                 <label for="canal-select" class="block text-sm font-medium text-gray-700">Canal de Venta</label>
                                 <select id="canal-select" class="form-select mt-1"></select>
                                 <div class="mt-2">
-                                    <label for="id-reserva-canal-input" class="block text-sm font-medium text-gray-700">ID Reserva</label>
+                                    <label for="id-reserva-canal-input" class="block text-sm font-medium text-gray-700">ID Reserva Canal</label>
                                     <input type="text" id="id-reserva-canal-input" class="form-input mt-1">
                                 </div>
                             </div>
@@ -489,23 +489,18 @@ export async function afterRender() {
 
         if(origenReserva === 'ical'){
             document.getElementById('guardar-propuesta-btn').textContent = 'Completar y Guardar Reserva';
-            document.getElementById('id-reserva-canal-input').readOnly = true;
-            document.getElementById('id-reserva-canal-input').classList.add('bg-gray-100');
         } else {
             document.getElementById('guardar-propuesta-btn').textContent = 'Actualizar Propuesta';
         }
 
-        const canalNombre = params.get('canalNombre');
-        if (allCanales.length > 0) { // Asegurarse que los canales están cargados
-            const canal = allCanales.find(c => c.nombre === canalNombre);
-            if (canal) {
-                document.getElementById('canal-select').value = canal.id;
-                handleCanalChange();
-            }
+        const canalId = params.get('canalId');
+        if (allCanales.length > 0 && canalId) {
+            document.getElementById('canal-select').value = canalId;
+            handleCanalChange();
         }
         
         const clienteId = params.get('clienteId');
-        if (clienteId && allClients.length > 0) { // Asegurarse que los clientes están cargados
+        if (clienteId && allClients.length > 0) {
             const client = allClients.find(c => c.id === clienteId);
             if (client) {
                 selectClient(client);

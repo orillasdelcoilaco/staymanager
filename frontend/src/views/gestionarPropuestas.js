@@ -143,7 +143,7 @@ export async function afterRender() {
                 propiedades: item.propiedades.map(p => p.id).join(','),
                 personas: personas,
                 idReservaCanal: item.idReservaCanal || '',
-                canalNombre: item.canalNombre || '',
+                canalId: item.canalId || '',
                 origen: item.origen || 'manual'
             });
 
