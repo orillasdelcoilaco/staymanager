@@ -283,6 +283,10 @@ export function render() {
                                     <label for="id-reserva-canal-input" class="block text-sm font-medium text-gray-700">ID Reserva Canal</label>
                                     <input type="text" id="id-reserva-canal-input" class="form-input mt-1">
                                 </div>
+                                <div id="ical-uid-container" class="mt-2 hidden">
+                                    <label for="ical-uid-input" class="block text-sm font-medium text-gray-500">iCal UID (Referencia)</label>
+                                    <input type="text" id="ical-uid-input" class="form-input mt-1 bg-gray-100" readonly>
+                                </div>
                             </div>
                          </div>
                     </div>
@@ -497,6 +501,14 @@ export async function afterRender() {
         if (allCanales.length > 0 && canalId) {
             document.getElementById('canal-select').value = canalId;
             handleCanalChange();
+        }
+        
+        const icalUid = params.get('icalUid');
+        if (icalUid) {
+            const icalContainer = document.getElementById('ical-uid-container');
+            const icalInput = document.getElementById('ical-uid-input');
+            icalInput.value = icalUid;
+            icalContainer.classList.remove('hidden');
         }
         
         const clienteId = params.get('clienteId');

@@ -144,7 +144,8 @@ export async function afterRender() {
                 personas: personas,
                 idReservaCanal: item.idReservaCanal || '',
                 canalId: item.canalId || '',
-                origen: item.origen || 'manual'
+                origen: item.origen || 'manual',
+                icalUid: item.icalUid || ''
             });
 
             const route = tipo === 'propuesta' ? '/agregar-propuesta' : '/generar-presupuesto';
