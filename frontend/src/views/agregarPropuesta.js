@@ -230,7 +230,7 @@ export function render() {
     return `
         <div class="bg-white p-8 rounded-lg shadow space-y-8">
             <div>
-                <h2 class="text-2xl font-semibold text-gray-900 mb-6">Crear/Editar Propuesta de Reserva (v2)</h2>
+                <h2 class="text-2xl font-semibold text-gray-900 mb-6">Crear/Editar Propuesta de Reserva (v2-test)</h2>
                 
                 <div class="p-4 border rounded-md bg-gray-50 mb-6">
                     <h3 class="font-semibold text-gray-800 mb-2">1. Fechas, Personas y Disponibilidad</h3>
@@ -279,11 +279,7 @@ export function render() {
                             <div>
                                 <label for="canal-select" class="block text-sm font-medium text-gray-700">Canal de Venta</label>
                                 <select id="canal-select" class="form-select mt-1"></select>
-                                <div class="mt-2">
-                                    <label for="id-reserva-canal-input" class="block text-sm font-medium text-gray-700">ID Reserva Canal</label>
-                                    <input type="text" id="id-reserva-canal-input" class="form-input mt-1">
                                 </div>
-                            </div>
                          </div>
                     </div>
 
@@ -408,7 +404,7 @@ export async function afterRender() {
         const descuentoCLP = precioListaCLP - precioFinalCLP;
         const valorOriginal = canal.moneda === 'USD' ? (precioFinalCLP / valorDolarDia) : precioFinalCLP;
 
-        const idReservaCanal = document.getElementById('id-reserva-canal-input').value;
+        const idReservaCanal = document.getElementById('id-reserva-canal-input')?.value || '';
 
         const payloadGuardar = {
             cliente: clienteParaGuardar,
@@ -485,12 +481,18 @@ export async function afterRender() {
         document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
         document.getElementById('fecha-salida').value = params.get('fechaSalida');
         document.getElementById('personas').value = params.get('personas');
-        document.getElementById('id-reserva-canal-input').value = params.get('idReservaCanal');
+        
+        const idReservaCanalInput = document.getElementById('id-reserva-canal-input');
+        if (idReservaCanalInput) {
+            idReservaCanalInput.value = params.get('idReservaCanal');
+        }
 
         if(origenReserva === 'ical'){
             document.getElementById('guardar-propuesta-btn').textContent = 'Completar y Guardar Reserva';
-            document.getElementById('id-reserva-canal-input').readOnly = true;
-            document.getElementById('id-reserva-canal-input').classList.add('bg-gray-100');
+            if (idReservaCanalInput) {
+                idReservaCanalInput.readOnly = true;
+                idReservaCanalInput.classList.add('bg-gray-100');
+            }
         } else {
             document.getElementById('guardar-propuesta-btn').textContent = 'Actualizar Propuesta';
         }
