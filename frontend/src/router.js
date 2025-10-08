@@ -95,7 +95,7 @@ async function updatePendingProposalsCount() {
             
             if (count > 0) {
                 badge.textContent = count;
-                badge.style.display = 'inline-block';
+                badge.style.display = 'flex'; // Usar flex para centrar el número
             } else {
                 badge.style.display = 'none';
             }
