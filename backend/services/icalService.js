@@ -37,7 +37,7 @@ async function getICalForProperty(db, empresaId, propiedadId) {
             icalContent.push(`DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`);
             icalContent.push(`DTSTART;VALUE=DATE:${formatDateICal(dtstart)}`);
             icalContent.push(`DTEND;VALUE=DATE:${formatDateICal(dtend)}`);
-            icalContent.push(`SUMMARY:Reservado - ${reserva.nombreCliente || 'Ocupado'}`);
+            icalContent.push(`SUMMARY:Reservado - ${reserva.clienteNombre || 'Ocupado'}`);
             icalContent.push('END:VEVENT');
         });
     }
@@ -73,7 +73,7 @@ async function sincronizarCalendarios(db, empresaId) {
 
                     const startDate = new Date(event.start);
                     const endDate = new Date(event.end);
-                    const noches = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
+                    const noches = Math.max(1, Math.round((endDate - startDate) / (1000 * 60 * 60 * 24)));
 
                     const datosPropuesta = {
                         cliente: { nombre: 'Cliente iCal' },
@@ -100,14 +100,14 @@ async function sincronizarCalendarios(db, empresaId) {
                         idUnicoReserva: `${idGrupo}-${prop.id}`,
                         idReservaCanal: datosPropuesta.idReservaCanal,
                         icalUid: datosPropuesta.icalUid,
-                        clienteId: null,
+                        clienteId: null, // Se asigna al completar la propuesta
                         alojamientoId: prop.id,
                         alojamientoNombre: prop.nombre,
                         canalNombre: datosPropuesta.canalNombre,
                         fechaLlegada: admin.firestore.Timestamp.fromDate(startDate),
                         fechaSalida: admin.firestore.Timestamp.fromDate(endDate),
                         totalNoches: noches,
-                        cantidadHuespedes: 0,
+                        cantidadHuespedes: 0, // Se completa después
                         estado: 'Propuesta',
                         origen: 'ical',
                         moneda: 'CLP',

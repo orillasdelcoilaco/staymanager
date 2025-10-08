@@ -280,7 +280,7 @@ export function render() {
                                 <label for="canal-select" class="block text-sm font-medium text-gray-700">Canal de Venta</label>
                                 <select id="canal-select" class="form-select mt-1"></select>
                                 <div class="mt-2">
-                                    <label for="id-reserva-canal-input" class="block text-sm font-medium text-gray-700">ID Reserva Canal (o iCal UID)</label>
+                                    <label for="id-reserva-canal-input" class="block text-sm font-medium text-gray-700">ID Reserva Canal</label>
                                     <input type="text" id="id-reserva-canal-input" class="form-input mt-1">
                                 </div>
                             </div>
