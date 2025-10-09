@@ -3,6 +3,7 @@ const admin = require('firebase-admin');
 const ical = require('node-ical');
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 const { obtenerCanalesPorEmpresa } = require('./canalesService');
+const { registrarCarga } = require('./historialCargasService');
 
 async function getICalForProperty(db, empresaId, propiedadId) {
     const today = new Date();
@@ -46,12 +47,21 @@ async function getICalForProperty(db, empresaId, propiedadId) {
     return icalContent.join('\r\n');
 }
 
-async function sincronizarCalendarios(db, empresaId) {
+async function sincronizarCalendarios(db, empresaId, usuarioEmail) {
     console.log("[DEBUG] Iniciando sincronización de calendarios iCal...");
+
     const [propiedades, todosLosCanales] = await Promise.all([
         obtenerPropiedadesPorEmpresa(db, empresaId),
         obtenerCanalesPorEmpresa(db, empresaId)
     ]);
+
+    const canalIcal = todosLosCanales.find(c => c.esCanalIcal === true);
+    if (!canalIcal) {
+        throw new Error("No se ha configurado un canal para la sincronización iCal. Por favor, marque uno en 'Gestionar Canales'.");
+    }
+
+    const nombreCarga = `Sincronización iCal - ${new Date().toLocaleString('es-CL')}`;
+    const idCarga = await registrarCarga(db, empresaId, canalIcal.id, nombreCarga, usuarioEmail);
     
     const canalesMap = new Map(todosLosCanales.map(c => [c.nombre.toLowerCase(), c]));
     console.log("[DEBUG] Canales mapeados:", Array.from(canalesMap.keys()));
@@ -80,10 +90,7 @@ async function sincronizarCalendarios(db, empresaId) {
                         continue;
                     }
 
-                    const canalEncontrado = canalesMap.get(canalKey.toLowerCase());
-                    if (!canalEncontrado) {
-                        console.log(`[DEBUG] Advertencia: No se encontró un canal para la clave "${canalKey}" en la propiedad ${prop.nombre}.`);
-                    }
+                    const canalEncontrado = canalesMap.get(canalKey.toLowerCase()) || canalIcal;
 
                     const startDate = new Date(event.start);
                     const endDate = new Date(event.end);
@@ -95,28 +102,26 @@ async function sincronizarCalendarios(db, empresaId) {
 
                     const datosReserva = {
                         id: nuevaReservaRef.id,
+                        idCarga: idCarga,
                         idUnicoReserva: `${idGrupo}-${prop.id}`,
                         idReservaCanal: idGrupo,
                         icalUid: event.uid,
                         clienteId: null,
                         alojamientoId: prop.id,
                         alojamientoNombre: prop.nombre,
-                        canalId: canalEncontrado ? canalEncontrado.id : null,
-                        canalNombre: canalEncontrado ? canalEncontrado.nombre : canalKey,
+                        canalId: canalEncontrado.id,
+                        canalNombre: canalEncontrado.nombre,
                         fechaLlegada: admin.firestore.Timestamp.fromDate(startDate),
                         fechaSalida: admin.firestore.Timestamp.fromDate(endDate),
                         totalNoches: noches,
                         cantidadHuespedes: 0,
                         estado: 'Propuesta',
                         origen: 'ical',
-                        moneda: canalEncontrado ? canalEncontrado.moneda : 'CLP',
+                        moneda: canalEncontrado.moneda,
                         valores: { valorHuesped: 0 },
                         fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
                     };
                     
-                    console.log("--- DEBUG [PASO 1 - icalService]: Objeto de reserva a punto de ser creado ---");
-                    console.log(datosReserva);
-
                     await nuevaReservaRef.set(datosReserva);
                     existingIcalUIDs.add(event.uid);
                     nuevasReservasCreadas++;

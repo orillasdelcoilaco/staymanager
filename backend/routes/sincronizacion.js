@@ -70,8 +70,8 @@ module.exports = (db) => {
 
     router.post('/ical', async (req, res) => {
         try {
-            const { empresaId } = req.user;
-            const summary = await sincronizarCalendarios(db, empresaId);
+            const { empresaId, email } = req.user; // Obtener email del usuario autenticado
+            const summary = await sincronizarCalendarios(db, empresaId, email); // Pasar el email al servicio
             res.status(200).json({
                 message: 'Sincronización de calendarios iCal completada.',
                 summary: summary
