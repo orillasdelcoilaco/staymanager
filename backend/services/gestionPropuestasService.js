@@ -159,8 +159,9 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
         if (!id) return;
 
         if (!propuestasAgrupadas.has(id)) {
+            // Este es el objeto que se envía al frontend. Aseguramos que tenga todos los campos.
             propuestasAgrupadas.set(id, {
-                id,
+                id: id, // El ID del grupo es el idReservaCanal
                 tipo: 'propuesta',
                 origen: data.origen || 'manual',
                 clienteId: data.clienteId,
