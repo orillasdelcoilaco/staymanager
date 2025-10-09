@@ -1,3 +1,4 @@
+// frontend/src/views/gestionDiaria.js
 import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
 import { renderGrupos } from './components/gestionDiaria/gestionDiaria.cards.js';
@@ -14,6 +15,7 @@ export async function render() {
                 <h2 class="text-2xl font-semibold text-gray-900">Panel de Gestión Diaria</h2>
                 <input type="text" id="search-input" placeholder="Buscar por nombre, reserva, teléfono..." class="mt-4 md:mt-0 form-input md:w-1/3">
             </div>
+            <div id="diagnostico-container"></div>
             <div id="revision-container" class="hidden"><h3 class="text-xl font-bold text-amber-600 mb-4 border-b pb-2">⚠️ Requiere Revisión Manual</h3><div id="revision-list" class="space-y-4"></div></div>
             <div id="hoy-container" class="mt-8 hidden"><h3 class="text-xl font-bold text-red-600 mb-4 border-b pb-2">Requiere Acción Inmediata (Llegadas de hoy o pasadas)</h3><div id="hoy-list" class="space-y-4"></div></div>
             <div id="proximas-container" class="mt-8 hidden"><h3 class="text-xl font-semibold text-blue-600 mb-4 border-b pb-2">Próximas Llegadas</h3><div id="proximas-list" class="space-y-4"></div></div>
@@ -76,7 +78,7 @@ async function loadAndRender() {
         noPendientesEl.classList.toggle('hidden', allGrupos.length > 0);
 
     } catch(error) {
-        document.getElementById('diagnostico-container').innerHTML = ''; // Limpiar en caso de error
+        document.getElementById('diagnostico-container').innerHTML = `<p class="text-red-500">Error al cargar las gestiones: ${error.message}</p>`;
         loadingState.innerHTML = `<p class="text-red-500">Error al cargar las gestiones: ${error.message}</p>`;
     } finally {
         isLoading = false;

@@ -18,9 +18,10 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     if (snapshot.empty) {
         const qIcal = reservasRef
             .where('alojamientoId', '==', datosReserva.alojamientoId)
-            .where('fechaLlegada', '==', datosReserva.fechaLlegada)
             .where('origen', '==', 'ical')
-            .where('estado', '==', 'Propuesta');
+            .where('estado', '==', 'Propuesta')
+            .where('fechaLlegada', '<=', admin.firestore.Timestamp.fromDate(datosReserva.fechaLlegada))
+            .where('fechaSalida', '>=', admin.firestore.Timestamp.fromDate(datosReserva.fechaLlegada));
         
         snapshot = await qIcal.get();
     }
@@ -42,23 +43,23 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
         if (reservaExistente.origen === 'ical') {
             datosAActualizar.idUnicoReserva = datosReserva.idUnicoReserva;
             datosAActualizar.idReservaCanal = datosReserva.idReservaCanal;
+            datosAActualizar.origen = 'reporte'; // La fuente de verdad ahora es el reporte
             hayCambios = true;
         }
 
-        const nuevosValores = { ...reservaExistente.valores };
+        const nuevosValores = { ...reservaExistente.valores, ...datosReserva.valores };
         for (const key in datosReserva.valores) {
             if (!ediciones[`valores.${key}`]) {
                 if (nuevosValores[key] !== datosReserva.valores[key]) {
-                    nuevosValores[key] = datosReserva.valores[key];
                     hayCambios = true;
                 }
             }
         }
         datosAActualizar.valores = nuevosValores;
 
-        const camposSimples = ['moneda', 'estado', 'alojamientoId', 'fechaLlegada', 'fechaSalida', 'clienteId'];
+        const camposSimples = ['moneda', 'estado', 'alojamientoId', 'fechaLlegada', 'fechaSalida', 'clienteId', 'estadoGestion'];
         camposSimples.forEach(campo => {
-            if (!ediciones[campo] && datosReserva[campo] && JSON.stringify(reservaExistente[campo]) !== JSON.stringify(datosReserva[campo])) {
+            if (!ediciones[campo] && datosReserva[campo] !== undefined && JSON.stringify(reservaExistente[campo]) !== JSON.stringify(datosReserva[campo])) {
                 datosAActualizar[campo] = datosReserva[campo];
                 hayCambios = true;
             }

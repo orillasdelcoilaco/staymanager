@@ -30,7 +30,7 @@ const getReservasPendientes = async (db, empresaId) => {
 
     const allReservasData = allDocs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    const clienteIds = [...new Set(allReservasData.map(r => r.clienteId))];
+    const clienteIds = [...new Set(allReservasData.map(r => r.clienteId).filter(Boolean))]; // <-- CORRECCIÓN CLAVE
     const reservaIdsOriginales = [...new Set(allReservasData.map(r => r.idReservaCanal))];
 
     const [clientesSnapshot, notasSnapshot, transaccionesSnapshot, historialReservasSnapshot] = await Promise.all([
@@ -89,7 +89,7 @@ const getReservasPendientes = async (db, empresaId) => {
                 numeroDeReservas: clienteActual?.numeroDeReservas || 1,
                 fechaLlegada: data.fechaLlegada?.toDate(),
                 fechaSalida: data.fechaSalida?.toDate(),
-                totalNoches: data.totalNoches, // <-- CORRECCIÓN AQUÍ
+                totalNoches: data.totalNoches,
                 estado: data.estado,
                 estadoGestion: data.estadoGestion,
                 abonoTotal: abonosMap.get(reservaId) || 0,

@@ -165,8 +165,6 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
-    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
-
     for (const [index, filaArray] of datosJson.entries()) {
         const get = (campo) => obtenerValorConMapeo(filaArray, campo, mapeosDelCanal);
         
@@ -184,51 +182,12 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
 
             const fechaLlegadaCruda = get('fechaLlegada');
             let fechaLlegada = parsearFecha(fechaLlegadaCruda, formatoFecha);
+
             let fechaSalida = parsearFecha(get('fechaSalida'), formatoFecha);
 
             if (!fechaLlegada || !fechaSalida) throw new Error(`No se pudieron interpretar las fechas.`);
             if (fechaSalida <= fechaLlegada) throw new Error('La fecha de salida debe ser posterior a la de llegada.');
             
-            const nombreExternoAlojamiento = get('alojamientoNombre');
-            let alojamientoId = null, alojamientoNombre = 'Alojamiento no identificado', capacidadAlojamiento = 0;
-            const nombreExternoNormalizado = normalizarString(nombreExternoAlojamiento);
-            if (nombreExternoNormalizado) {
-                const conversion = conversionesAlojamiento.find(c => c.canalId === canalId && c.nombreExterno.split(';').map(normalizarString).includes(nombreExternoNormalizado));
-                if (conversion) {
-                    alojamientoId = conversion.alojamientoId;
-                    alojamientoNombre = conversion.alojamientoNombre;
-                    const propiedad = propiedades.find(p => p.id === alojamientoId);
-                    if (propiedad) capacidadAlojamiento = propiedad.capacidad;
-                }
-            }
-            if (!alojamientoId) throw new Error(`No se encontró una conversión para el alojamiento "${nombreExternoAlojamiento}" en el canal ${canalNombre}.`);
-
-            const idUnicoReserva = `${idReservaCanal}-${alojamientoId}`;
-            const q = reservasRef.where('idUnicoReserva', '==', idUnicoReserva);
-            const snapshot = await q.get();
-
-            if (snapshot.empty) {
-                const fechaLlegadaTimestamp = admin.firestore.Timestamp.fromDate(fechaLlegada);
-                const qIcalFlexible = reservasRef
-                    .where('alojamientoId', '==', alojamientoId)
-                    .where('canalId', '==', canal.id)
-                    .where('origen', '==', 'ical')
-                    .where('estado', '==', 'Propuesta')
-                    .where('fechaLlegada', '<=', fechaLlegadaTimestamp);
-                
-                const snapshotIcal = await qIcalFlexible.get();
-                const coincidenciaIcal = snapshotIcal.docs.find(doc => doc.data().fechaSalida.toDate() >= fechaLlegada);
-
-                if (coincidenciaIcal) {
-                    await coincidenciaIcal.ref.update({
-                        estado: 'Desconocido',
-                        idReservaCanal: `[REVISAR] ${coincidenciaIcal.data().idReservaCanal} (Posible match con ${idReservaCanal})`
-                    });
-                    resultados.reservasActualizadas++;
-                    continue; 
-                }
-            }
-
             const nombre = get('nombreCliente') || '';
             const apellido = get('apellidoCliente') || '';
             const nombreClienteCompleto = `${nombre} ${apellido}`.trim();
@@ -244,6 +203,23 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
 
             const resultadoCliente = await crearOActualizarCliente(db, empresaId, datosParaCliente);
             if (resultadoCliente.status === 'creado') resultados.clientesCreados++;
+            
+            const nombreExternoAlojamiento = get('alojamientoNombre');
+            let alojamientoId = null, alojamientoNombre = 'Alojamiento no identificado', capacidadAlojamiento = 0;
+            const nombreExternoNormalizado = normalizarString(nombreExternoAlojamiento);
+            if (nombreExternoNormalizado) {
+                const conversion = conversionesAlojamiento.find(c => c.canalId === canalId && c.nombreExterno.split(';').map(normalizarString).includes(nombreExternoNormalizado));
+                if (conversion) {
+                    alojamientoId = conversion.alojamientoId;
+                    alojamientoNombre = conversion.alojamientoNombre;
+                    const propiedad = propiedades.find(p => p.id === alojamientoId);
+                    if (propiedad) capacidadAlojamiento = propiedad.capacidad;
+                }
+            }
+
+            if (!alojamientoId) {
+                throw new Error(`No se encontró una conversión para el alojamiento "${nombreExternoAlojamiento}" en el canal ${canalNombre}.`);
+            }
             
             const valorAnfitrion = parsearMoneda(get('valorAnfitrion'), separadorDecimal);
             const comisionSumable = parsearMoneda(get('comision'), separadorDecimal);
@@ -266,6 +242,8 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             };
 
             const totalNoches = Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24));
+            
+            const idUnicoReserva = `${idReservaCanal}-${alojamientoId}`;
             
             const datosReserva = {
                 empresaId: empresaId,
