@@ -132,6 +132,9 @@ export async function afterRender() {
                 alert('Error: No se pudo encontrar la propuesta para editar.');
                 return;
             }
+            
+            console.log("--- DEBUG: Datos de la propuesta seleccionada ---");
+            console.log(item);
 
             const personas = item.propiedades.reduce((sum, p) => sum + (p.capacidad || 1), 0);
             
@@ -149,7 +152,12 @@ export async function afterRender() {
             });
 
             const route = tipo === 'propuesta' ? '/agregar-propuesta' : '/generar-presupuesto';
-            handleNavigation(`${route}?${params.toString()}`);
+            const url = `${route}?${params.toString()}`;
+            
+            console.log("--- DEBUG: URL de navegación generada ---");
+            console.log(url);
+            
+            handleNavigation(url);
         }
         
         if (target.classList.contains('approve-btn')) {

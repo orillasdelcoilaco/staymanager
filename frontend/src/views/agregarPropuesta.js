@@ -413,6 +413,7 @@ export async function afterRender() {
         const valorOriginal = canal.moneda === 'USD' ? (precioFinalCLP / valorDolarDia) : precioFinalCLP;
 
         const idReservaCanal = document.getElementById('id-reserva-canal-input').value;
+        const icalUid = document.getElementById('ical-uid-input').value;
 
         const payloadGuardar = {
             cliente: clienteParaGuardar,
@@ -428,6 +429,7 @@ export async function afterRender() {
             valorDolarDia,
             valorOriginal,
             idReservaCanal: idReservaCanal,
+            icalUid: icalUid,
             origen: origenReserva
         };
         
