@@ -1,7 +1,6 @@
 // backend/services/icalService.js
 const admin = require('firebase-admin');
 const ical = require('node-ical');
-const { guardarOActualizarPropuesta } = require('./gestionPropuestasService');
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 const { obtenerCanalesPorEmpresa } = require('./canalesService');
 
@@ -48,16 +47,19 @@ async function getICalForProperty(db, empresaId, propiedadId) {
 }
 
 async function sincronizarCalendarios(db, empresaId) {
+    console.log("[DEBUG] Iniciando sincronización de calendarios iCal...");
     const [propiedades, todosLosCanales] = await Promise.all([
         obtenerPropiedadesPorEmpresa(db, empresaId),
         obtenerCanalesPorEmpresa(db, empresaId)
     ]);
     
     const canalesMap = new Map(todosLosCanales.map(c => [c.nombre.toLowerCase(), c]));
+    console.log("[DEBUG] Canales mapeados:", Array.from(canalesMap.keys()));
 
     const propiedadesConIcal = propiedades.filter(p => p.sincronizacionIcal && Object.values(p.sincronizacionIcal).some(url => url));
 
     if (propiedadesConIcal.length === 0) {
+        console.log("[DEBUG] No se encontraron propiedades con URLs de iCal configuradas.");
         return { propiedadesRevisadas: 0, nuevasReservasCreadas: 0, errores: [] };
     }
 
@@ -79,6 +81,9 @@ async function sincronizarCalendarios(db, empresaId) {
                     }
 
                     const canalEncontrado = canalesMap.get(canalKey.toLowerCase());
+                    if (!canalEncontrado) {
+                        console.log(`[DEBUG] Advertencia: No se encontró un canal para la clave "${canalKey}" en la propiedad ${prop.nombre}.`);
+                    }
 
                     const startDate = new Date(event.start);
                     const endDate = new Date(event.end);
@@ -109,16 +114,21 @@ async function sincronizarCalendarios(db, empresaId) {
                         fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
                     };
                     
+                    console.log("--- DEBUG [PASO 1 - icalService]: Objeto de reserva a punto de ser creado ---");
+                    console.log(datosReserva);
+
                     await nuevaReservaRef.set(datosReserva);
                     existingIcalUIDs.add(event.uid);
                     nuevasReservasCreadas++;
                 }
             } catch (error) {
                 errores.push(`Error al procesar URL para ${prop.nombre} (${canalKey}): ${error.message}`);
+                console.error(`[DEBUG - ERROR en icalService]`, error);
             }
         }
     }
 
+    console.log("[DEBUG] Sincronización de iCal finalizada.");
     return {
         propiedadesRevisadas: propiedadesConIcal.length,
         nuevasReservasCreadas,

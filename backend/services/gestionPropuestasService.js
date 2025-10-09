@@ -109,6 +109,7 @@ const guardarPresupuesto = async (db, empresaId, datos) => {
 };
 
 const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
+    console.log("[DEBUG] Obteniendo propuestas y presupuestos...");
     const [propuestasSnapshot, presupuestosSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('reservas').where('estado', '==', 'Propuesta').orderBy('fechaCreacion', 'desc').get(),
         db.collection('empresas').doc(empresaId).collection('presupuestos').where('estado', 'in', ['Borrador', 'Enviado']).orderBy('fechaCreacion', 'desc').get()
@@ -155,13 +156,16 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
     const propuestasAgrupadas = new Map();
     allItems.filter(item => item.type === 'propuesta').forEach(item => {
         const data = item.doc.data();
+        
+        console.log(`--- DEBUG [PASO 2 - gestionPropuestasService]: Leyendo documento de reserva crudo (ID: ${item.doc.id}) ---`);
+        console.log(data);
+
         const id = data.idReservaCanal;
         if (!id) return;
 
         if (!propuestasAgrupadas.has(id)) {
-            // Este es el objeto que se envía al frontend. Aseguramos que tenga todos los campos.
-            propuestasAgrupadas.set(id, {
-                id: id, // El ID del grupo es el idReservaCanal
+            const newGroup = {
+                id: id,
                 tipo: 'propuesta',
                 origen: data.origen || 'manual',
                 clienteId: data.clienteId,
@@ -175,7 +179,12 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
                 monto: 0,
                 propiedades: [],
                 idsReservas: []
-            });
+            };
+
+            console.log(`--- DEBUG [PASO 3 - gestionPropuestasService]: Creando nuevo grupo para enviar al frontend ---`);
+            console.log(newGroup);
+
+            propuestasAgrupadas.set(id, newGroup);
         }
         const grupo = propuestasAgrupadas.get(id);
         grupo.monto += data.valores?.valorHuesped || 0;
