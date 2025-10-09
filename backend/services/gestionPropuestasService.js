@@ -290,6 +290,13 @@ const aprobarPresupuesto = async (db, empresaId, presupuestoId) => {
         }
     }
 
+    const canalesSnapshot = await db.collection('empresas').doc(empresaId).collection('canales').where('esCanalPorDefecto', '==', true).limit(1).get();
+    if (canalesSnapshot.empty) {
+        throw new Error("No se ha configurado un canal por defecto. Por favor, marque uno en 'Gestionar Canales' para poder aprobar presupuestos.");
+    }
+    const canalPorDefecto = canalesSnapshot.docs[0].data();
+    const canalPorDefectoId = canalesSnapshot.docs[0].id;
+
     const batch = db.batch();
     const idUnicoPresupuesto = presupuestoId;
 
@@ -302,8 +309,8 @@ const aprobarPresupuesto = async (db, empresaId, presupuestoId) => {
             clienteId: presupuesto.clienteId,
             alojamientoId: prop.id,
             alojamientoNombre: prop.nombre,
-            canalId: 'APP',
-            canalNombre: 'App',
+            canalId: canalPorDefectoId,
+            canalNombre: canalPorDefecto.nombre,
             fechaLlegada: admin.firestore.Timestamp.fromDate(startDate),
             fechaSalida: admin.firestore.Timestamp.fromDate(endDate),
             totalNoches: presupuesto.noches,

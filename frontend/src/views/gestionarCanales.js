@@ -16,6 +16,7 @@ function abrirModal(canal = null) {
         form.descripcion.value = canal.descripcion || '';
         form.moneda.value = canal.moneda || 'CLP';
         form.separadorDecimal.value = canal.separadorDecimal || ',';
+        form.esCanalPorDefecto.checked = canal.esCanalPorDefecto || false;
     } else {
         editandoCanal = null;
         modalTitle.textContent = 'Nuevo Canal';
@@ -45,7 +46,7 @@ function renderTabla() {
     tbody.innerHTML = canales.map((c, index) => `
         <tr class="border-b">
             <td class="py-3 px-4 text-center font-medium text-gray-500">${index + 1}</td>
-            <td class="py-3 px-4 font-medium">${c.nombre}</td>
+            <td class="py-3 px-4 font-medium">${c.nombre} ${c.esCanalPorDefecto ? '⭐' : ''}</td>
             <td class="py-3 px-4">${c.moneda}</td>
             <td class="py-3 px-4">${c.separadorDecimal === ',' ? 'Coma (,)' : 'Punto (.)'}</td>
             <td class="py-3 px-4 truncate max-w-sm">${c.descripcion || '-'}</td>
@@ -126,6 +127,12 @@ export async function render() {
                         <label for="descripcion" class="block text-sm font-medium text-gray-700">Descripción (Opcional)</label>
                         <textarea id="descripcion" name="descripcion" rows="3" class="form-input mt-1"></textarea>
                     </div>
+                    <div class="mb-4">
+                        <label for="esCanalPorDefecto" class="flex items-center">
+                            <input type="checkbox" id="esCanalPorDefecto" name="esCanalPorDefecto" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                            <span class="ml-2 text-sm text-gray-600">Establecer como canal por defecto para nuevas reservas manuales</span>
+                        </label>
+                    </div>
                     <div class="flex justify-end pt-4">
                         <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
                         <button type="submit" class="btn-primary">Guardar</button>
@@ -151,7 +158,8 @@ export function afterRender() {
             clienteIdCanal: form.clienteIdCanal.value,
             descripcion: form.descripcion.value,
             moneda: form.moneda.value,
-            separadorDecimal: form.separadorDecimal.value
+            separadorDecimal: form.separadorDecimal.value,
+            esCanalPorDefecto: form.esCanalPorDefecto.checked
         };
 
         try {
