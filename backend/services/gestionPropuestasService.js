@@ -132,7 +132,6 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
         }
     });
     
-    // Firestore 'in' queries are limited to 30 items. If we have more, we need to do multiple queries.
     const fetchInBatches = async (collection, ids) => {
         const results = new Map();
         const idBatches = [];
