@@ -46,7 +46,7 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
                 alojamientoId: prop.id,
                 alojamientoNombre: prop.nombre,
                 canalId: canalId || null,
-                canalNombre: canalNombre || 'App',
+                canalNombre: canalNombre || 'Por Defecto',
                 fechaLlegada: admin.firestore.Timestamp.fromDate(new Date(fechaLlegada + 'T00:00:00Z')),
                 fechaSalida: admin.firestore.Timestamp.fromDate(new Date(fechaSalida + 'T00:00:00Z')),
                 totalNoches: noches,
