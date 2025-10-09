@@ -3,6 +3,7 @@ const admin = require('firebase-admin');
 const ical = require('node-ical');
 const { guardarOActualizarPropuesta } = require('./gestionPropuestasService');
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
+const { obtenerCanalesPorEmpresa } = require('./canalesService');
 
 async function getICalForProperty(db, empresaId, propiedadId) {
     const today = new Date();
@@ -47,7 +48,13 @@ async function getICalForProperty(db, empresaId, propiedadId) {
 }
 
 async function sincronizarCalendarios(db, empresaId) {
-    const propiedades = await obtenerPropiedadesPorEmpresa(db, empresaId);
+    const [propiedades, todosLosCanales] = await Promise.all([
+        obtenerPropiedadesPorEmpresa(db, empresaId),
+        obtenerCanalesPorEmpresa(db, empresaId)
+    ]);
+    
+    const canalesMap = new Map(todosLosCanales.map(c => [c.nombre.toLowerCase(), c]));
+
     const propiedadesConIcal = propiedades.filter(p => p.sincronizacionIcal && Object.values(p.sincronizacionIcal).some(url => url));
 
     if (propiedadesConIcal.length === 0) {
@@ -71,46 +78,33 @@ async function sincronizarCalendarios(db, empresaId) {
                         continue;
                     }
 
+                    const canalEncontrado = canalesMap.get(canalKey.toLowerCase());
+
                     const startDate = new Date(event.start);
                     const endDate = new Date(event.end);
                     const noches = Math.max(1, Math.round((endDate - startDate) / (1000 * 60 * 60 * 24)));
-
-                    const datosPropuesta = {
-                        cliente: { nombre: 'Cliente iCal' },
-                        fechaLlegada: startDate.toISOString().split('T')[0],
-                        fechaSalida: endDate.toISOString().split('T')[0],
-                        propiedades: [prop],
-                        precioFinal: 0,
-                        noches,
-                        canalNombre: canalKey.charAt(0).toUpperCase() + canalKey.slice(1),
-                        moneda: 'CLP',
-                        valorDolarDia: null,
-                        valorOriginal: 0,
-                        idReservaCanal: event.summary || `iCal Event ${event.uid.substring(0, 8)}`,
-                        origen: 'ical',
-                        icalUid: event.uid
-                    };
                     
                     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
                     const nuevaReservaRef = reservasRef.doc();
-                    const idGrupo = nuevaReservaRef.id;
+                    const idGrupo = event.summary || `iCal Event ${event.uid.substring(0, 8)}`;
 
                     const datosReserva = {
                         id: nuevaReservaRef.id,
                         idUnicoReserva: `${idGrupo}-${prop.id}`,
-                        idReservaCanal: datosPropuesta.idReservaCanal,
-                        icalUid: datosPropuesta.icalUid,
-                        clienteId: null, // Se asigna al completar la propuesta
+                        idReservaCanal: idGrupo,
+                        icalUid: event.uid,
+                        clienteId: null,
                         alojamientoId: prop.id,
                         alojamientoNombre: prop.nombre,
-                        canalNombre: datosPropuesta.canalNombre,
+                        canalId: canalEncontrado ? canalEncontrado.id : null,
+                        canalNombre: canalEncontrado ? canalEncontrado.nombre : canalKey,
                         fechaLlegada: admin.firestore.Timestamp.fromDate(startDate),
                         fechaSalida: admin.firestore.Timestamp.fromDate(endDate),
                         totalNoches: noches,
-                        cantidadHuespedes: 0, // Se completa después
+                        cantidadHuespedes: 0,
                         estado: 'Propuesta',
                         origen: 'ical',
-                        moneda: 'CLP',
+                        moneda: canalEncontrado ? canalEncontrado.moneda : 'CLP',
                         valores: { valorHuesped: 0 },
                         fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
                     };
