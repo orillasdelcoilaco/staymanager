@@ -9,8 +9,21 @@ const path = require('path');
 
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
-    const q = reservasRef.where('idUnicoReserva', '==', datosReserva.idUnicoReserva);
-    const snapshot = await q.get();
+    
+    // Búsqueda Primaria por ID único
+    let q = reservasRef.where('idUnicoReserva', '==', datosReserva.idUnicoReserva);
+    let snapshot = await q.get();
+
+    // Búsqueda Secundaria (Heurística) si la primaria falla, para fusionar con iCal
+    if (snapshot.empty) {
+        const qIcal = reservasRef
+            .where('alojamientoId', '==', datosReserva.alojamientoId)
+            .where('fechaLlegada', '==', datosReserva.fechaLlegada)
+            .where('origen', '==', 'ical')
+            .where('estado', '==', 'Propuesta');
+        
+        snapshot = await qIcal.get();
+    }
 
     if (snapshot.empty) {
         const nuevaReservaRef = reservasRef.doc();
@@ -25,6 +38,13 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
         let hayCambios = false;
         const datosAActualizar = {};
 
+        // Si estamos fusionando una reserva de iCal, forzamos la actualización de los IDs.
+        if (reservaExistente.origen === 'ical') {
+            datosAActualizar.idUnicoReserva = datosReserva.idUnicoReserva;
+            datosAActualizar.idReservaCanal = datosReserva.idReservaCanal;
+            hayCambios = true;
+        }
+
         const nuevosValores = { ...reservaExistente.valores };
         for (const key in datosReserva.valores) {
             if (!ediciones[`valores.${key}`]) {
@@ -36,7 +56,7 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
         }
         datosAActualizar.valores = nuevosValores;
 
-        const camposSimples = ['moneda', 'estado', 'alojamientoId', 'fechaLlegada', 'fechaSalida'];
+        const camposSimples = ['moneda', 'estado', 'alojamientoId', 'fechaLlegada', 'fechaSalida', 'clienteId'];
         camposSimples.forEach(campo => {
             if (!ediciones[campo] && datosReserva[campo] && JSON.stringify(reservaExistente[campo]) !== JSON.stringify(datosReserva[campo])) {
                 datosAActualizar[campo] = datosReserva[campo];
