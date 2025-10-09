@@ -126,6 +126,10 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
     }
     const reservaData = doc.data();
     
+    if (!reservaData.clienteId && reservaData.origen === 'ical') {
+        throw new Error("Esta es una reserva provisional de iCal. Debe completarla y asignarle un cliente desde 'Gestionar Propuestas' antes de poder ver sus detalles.");
+    }
+    
     const idReservaOriginal = reservaData.idReservaCanal;
     if (!idReservaOriginal) {
          throw new Error('La reserva no tiene un identificador de grupo (idReservaCanal).');

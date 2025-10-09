@@ -28,16 +28,16 @@ function renderTabla() {
     }
 
     tbody.innerHTML = propuestasFiltradas.map((item, index) => {
-        const isIcal = item.origen === 'ical';
-        const icalIndicator = isIcal ? '<span title="Generado desde iCal" class="mr-2">🗓️</span>' : '';
-        const tipoTexto = isIcal ? 'Reserva iCal' : (item.tipo === 'propuesta' ? 'Reserva Tentativa' : 'Presupuesto Formal');
-        const clienteNombre = isIcal ? item.idReservaCanal : (item.clienteNombre || 'N/A');
-        const montoTexto = isIcal ? 'Por completar' : formatCurrency(item.monto);
+        const isIncomplete = !item.clienteId || item.monto === 0;
+        const icalIndicator = item.origen === 'ical' ? `<span title="Generado desde iCal" class="mr-2">🗓️</span>` : '';
+        const tipoTexto = item.tipo === 'propuesta' ? 'Reserva Tentativa' : 'Presupuesto Formal';
+        const clienteNombre = item.origen === 'ical' && isIncomplete ? item.idReservaCanal : (item.clienteNombre || 'N/A');
+        const montoTexto = isIncomplete ? 'Por completar' : formatCurrency(item.monto);
 
         return `
         <tr class="border-b text-sm hover:bg-gray-50">
             <td class="p-2 text-center font-medium text-gray-500">${index + 1}</td>
-            <td class="p-2">${icalIndicator}${tipoTexto}</td>
+            <td class="p-2">${icalIndicator}${tipoTexto} ${isIncomplete ? '(Incompleta)' : ''}</td>
             <td class="p-2 font-medium">${item.canalNombre || 'N/A'}</td>
             <td class="p-2 font-medium truncate" style="max-width: 200px;" title="${clienteNombre}">${clienteNombre}</td>
             <td class="p-2">${formatDate(item.fechaLlegada)} al ${formatDate(item.fechaSalida)}</td>
@@ -45,7 +45,7 @@ function renderTabla() {
             <td class="p-2 font-semibold text-right">${montoTexto}</td>
             <td class="p-2 text-center space-x-2 whitespace-nowrap">
                 <button data-id="${item.id}" data-tipo="${item.tipo}" class="edit-btn btn-table-copy">Editar/Completar</button>
-                <button data-id="${item.id}" data-tipo="${item.tipo}" data-ids-reservas="${item.idsReservas?.join(',')}" class="approve-btn btn-table-edit" ${isIcal ? 'disabled' : ''}>Aprobar</button>
+                <button data-id="${item.id}" data-tipo="${item.tipo}" data-ids-reservas="${item.idsReservas?.join(',')}" class="approve-btn btn-table-edit" ${isIncomplete ? 'disabled' : ''}>Aprobar</button>
                 <button data-id="${item.id}" data-tipo="${item.tipo}" data-ids-reservas="${item.idsReservas?.join(',')}" class="reject-btn btn-table-delete">Rechazar</button>
             </td>
         </tr>
