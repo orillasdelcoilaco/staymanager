@@ -4,9 +4,8 @@ const { getAvailabilityData } = require('./propuestasService');
 const { crearOActualizarCliente } = require('./clientesService');
 
 const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExistente = null) => {
-    const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, canalId, canalNombre, moneda, valorDolarDia, valorOriginal, origen } = datos;
+    const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, canalId, canalNombre, moneda, valorDolarDia, valorOriginal, origen, icalUid } = datos;
     
-    // Si es una reserva de iCal, el idReservaCanal ya viene, si no, se genera.
     const idGrupo = idPropuestaExistente || datos.idReservaCanal || db.collection('empresas').doc().id;
 
     let clienteId;
@@ -42,6 +41,7 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
                 id: nuevaReservaRef.id,
                 idUnicoReserva,
                 idReservaCanal: idGrupo,
+                icalUid: icalUid || null,
                 clienteId,
                 alojamientoId: prop.id,
                 alojamientoNombre: prop.nombre,
@@ -166,8 +166,10 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
                 origen: data.origen || 'manual',
                 clienteId: data.clienteId,
                 clienteNombre: data.clienteNombre,
+                canalId: data.canalId,
                 canalNombre: data.canalNombre,
                 idReservaCanal: data.idReservaCanal,
+                icalUid: data.icalUid || null,
                 fechaLlegada: data.fechaLlegada.toDate().toISOString().split('T')[0],
                 fechaSalida: data.fechaSalida.toDate().toISOString().split('T')[0],
                 monto: 0,
