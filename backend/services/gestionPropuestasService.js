@@ -7,7 +7,7 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
     const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, canalId, canalNombre, moneda, valorDolarDia, valorOriginal, origen, icalUid, idReservaCanal } = datos;
     
     // --- INICIO DE LA CORRECCIÓN ---
-    // Se prioriza el ID que viene del formulario, asegurando que el cambio se guarde.
+    // Se prioriza el ID que viene del formulario (idReservaCanal), asegurando que el cambio se guarde.
     const idGrupo = idReservaCanal || idPropuestaExistente || db.collection('empresas').doc().id;
     // --- FIN DE LA CORRECCIÓN ---
 
