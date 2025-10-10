@@ -7,6 +7,7 @@ let todasLasReservas = [];
 let historialCargas = [];
 let alojamientos = [];
 let clientes = [];
+let canales = [];
 let editandoReserva = null;
 let transaccionesActuales = [];
 
@@ -240,17 +241,24 @@ function renderTabla(filtros) {
     const filtroLowerCase = filtros.busqueda.toLowerCase();
     
     const reservasFiltradas = todasLasReservas.filter(r => {
-        const busquedaMatch = (r.nombreCliente?.toLowerCase().includes(filtroLowerCase)) ||
+        const busquedaMatch = !filtroLowerCase ||
+                              (r.nombreCliente?.toLowerCase().includes(filtroLowerCase)) ||
                               (r.alojamientoNombre?.toLowerCase().includes(filtroLowerCase)) ||
-                              (r.idReservaCanal?.toLowerCase().includes(filtroLowerCase));
+                              (r.idReservaCanal?.toLowerCase().includes(filtroLowerCase)) ||
+                              (r.totalNoches?.toString().includes(filtroLowerCase));
         
         const cargaMatch = !filtros.carga || r.idCarga === filtros.carga;
+        const canalMatch = !filtros.canal || r.canalNombre === filtros.canal;
+        const estadoMatch = !filtros.estado || r.estado === filtros.estado;
+        const estadoGestionMatch = !filtros.estadoGestion || r.estadoGestion === filtros.estadoGestion;
+        const fechaMatch = (!filtros.fechaInicio || r.fechaLlegada >= filtros.fechaInicio) &&
+                           (!filtros.fechaFin || r.fechaLlegada <= filtros.fechaFin);
 
-        return busquedaMatch && cargaMatch;
+        return busquedaMatch && cargaMatch && canalMatch && estadoMatch && estadoGestionMatch && fechaMatch;
     });
 
     if (reservasFiltradas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="13" class="text-center text-gray-500 py-4">No se encontraron reservas.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="13" class="text-center text-gray-500 py-4">No se encontraron reservas que coincidan con los filtros.</td></tr>';
         return;
     }
 
@@ -287,31 +295,40 @@ function renderTabla(filtros) {
 
 export async function render() {
     try {
-        [todasLasReservas, historialCargas, alojamientos, clientes] = await Promise.all([
+        [todasLasReservas, historialCargas, alojamientos, clientes, canales] = await Promise.all([
             fetchAPI('/reservas'),
             fetchAPI('/historial-cargas'),
             fetchAPI('/propiedades'),
-            fetchAPI('/clientes')
+            fetchAPI('/clientes'),
+            fetchAPI('/canales')
         ]);
     } catch (error) {
         return `<p class="text-red-500">Error al cargar los datos. Por favor, intente de nuevo.</p>`;
     }
 
     const opcionesCarga = historialCargas.map(h => `<option value="${h.id}">#${h.idNumerico} - ${h.nombreArchivo}</option>`).join('');
-    const estadosGestionOptions = ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', 'Pendiente Cliente', 'Facturado'].map(e => `<option value="${e}">${e}</option>`).join('');
+    const opcionesCanal = canales.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join('');
+    const estadosGestionOptions = ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', 'Pendiente Cliente', 'Facturado', 'Propuesta'].map(e => `<option value="${e}">${e}</option>`).join('');
+    const estadosReservaOptions = ['Confirmada', 'Cancelada', 'Desconocido', 'Propuesta'].map(e => `<option value="${e}">${e}</option>`).join('');
 
     return `
         <div class="bg-white p-8 rounded-lg shadow">
-            <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                <h2 class="text-2xl font-semibold text-gray-900">Gestionar Reservas</h2>
-                <div class="w-full md:w-1/2 grid grid-cols-2 gap-4">
-                    <input type="text" id="search-input" placeholder="Buscar por cliente, ID..." class="form-input w-full">
-                    <select id="carga-filter" class="form-select w-full">
-                        <option value="">-- Filtrar por reporte de carga --</option>
-                        ${opcionesCarga}
-                    </select>
+            <h2 class="text-2xl font-semibold text-gray-900 mb-6">Gestionar Reservas</h2>
+            
+            <div class="p-4 border rounded-md bg-gray-50 mb-6 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <input type="text" id="search-input" placeholder="Buscar por ID, cliente, noches..." class="form-input col-span-full">
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <div><label class="label-filter">Desde (Llegada)</label><input type="date" id="fecha-inicio-filter" class="form-input"></div>
+                    <div><label class="label-filter">Hasta (Llegada)</label><input type="date" id="fecha-fin-filter" class="form-input"></div>
+                    <div><label class="label-filter">Canal</label><select id="canal-filter" class="form-select"><option value="">Todos</option>${opcionesCanal}</select></div>
+                    <div><label class="label-filter">Estado Reserva</label><select id="estado-filter" class="form-select"><option value="">Todos</option>${estadosReservaOptions}</select></div>
+                    <div><label class="label-filter">Estado Gestión</label><select id="estado-gestion-filter" class="form-select"><option value="">Todos</option>${estadosGestionOptions}</select></div>
+                    <div><label class="label-filter">Reporte de Carga</label><select id="carga-filter" class="form-select"><option value="">Todos</option>${opcionesCarga}</select></div>
                 </div>
             </div>
+
             <div class="table-container">
                 <table class="min-w-full bg-white"><thead class="bg-gray-50"><tr>
                     <th class="th w-12">#</th>
@@ -344,7 +361,7 @@ export async function render() {
                 
                 <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Estados</legend>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label for="estado" class="label">Estado Reserva</label><select name="estado" class="form-select"><option value="Confirmada">Confirmada</option><option value="Cancelada">Cancelada</option><option value="Desconocido">Desconocido</option></select></div>
+                        <div><label for="estado" class="label">Estado Reserva</label><select name="estado" class="form-select"><option value="Confirmada">Confirmada</option><option value="Cancelada">Cancelada</option><option value="Desconocido">Desconocido</option><option value="Propuesta">Propuesta</option></select></div>
                         <div><label for="estadoGestion" class="label">Estado Gestión</label><select name="estadoGestion" class="form-select"><option value="">N/A</option>${estadosGestionOptions}</select></div>
                     </div>
                 </fieldset>
@@ -467,20 +484,32 @@ export async function render() {
 export function afterRender() {
     const searchInput = document.getElementById('search-input');
     const cargaFilter = document.getElementById('carga-filter');
+    const canalFilter = document.getElementById('canal-filter');
+    const estadoFilter = document.getElementById('estado-filter');
+    const estadoGestionFilter = document.getElementById('estado-gestion-filter');
+    const fechaInicioFilter = document.getElementById('fecha-inicio-filter');
+    const fechaFinFilter = document.getElementById('fecha-fin-filter');
+
     const tbody = document.getElementById('reservas-tbody');
     const formEdit = document.getElementById('reserva-form-edit');
     const urlParams = new URLSearchParams(window.location.search);
     const reservaIdParaEditar = urlParams.get('reservaId');
 
     const getFiltros = () => ({
-        busqueda: searchInput ? searchInput.value : '',
-        carga: cargaFilter ? cargaFilter.value : ''
+        busqueda: searchInput.value,
+        carga: cargaFilter.value,
+        canal: canalFilter.value,
+        estado: estadoFilter.value,
+        estadoGestion: estadoGestionFilter.value,
+        fechaInicio: fechaInicioFilter.value,
+        fechaFin: fechaFinFilter.value
     });
     
     renderTabla(getFiltros());
-    
-    if (searchInput) searchInput.addEventListener('input', () => renderTabla(getFiltros()));
-    if (cargaFilter) cargaFilter.addEventListener('change', () => renderTabla(getFiltros()));
+
+    [searchInput, cargaFilter, canalFilter, estadoFilter, estadoGestionFilter, fechaInicioFilter, fechaFinFilter].forEach(el => {
+        el.addEventListener('input', () => renderTabla(getFiltros()));
+    });
     
     document.getElementById('cancel-edit-btn').addEventListener('click', cerrarModalEditar);
     document.getElementById('close-view-btn').addEventListener('click', () => document.getElementById('reserva-modal-view').classList.add('hidden'));

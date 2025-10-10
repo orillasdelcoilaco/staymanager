@@ -25,9 +25,16 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
     await db.runTransaction(async (transaction) => {
         const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
         
+        let idCargaParaPreservar = null;
+
         if (idPropuestaExistente) {
             const queryExistentes = reservasRef.where('idReservaCanal', '==', idPropuestaExistente).where('estado', '==', 'Propuesta');
             const snapshotExistentes = await transaction.get(queryExistentes);
+            
+            if (!snapshotExistentes.empty) {
+                idCargaParaPreservar = snapshotExistentes.docs[0].data().idCarga;
+            }
+
             snapshotExistentes.forEach(doc => transaction.delete(doc.ref));
         }
 
@@ -40,6 +47,7 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
             const datosReserva = {
                 id: nuevaReservaRef.id,
                 idUnicoReserva,
+                idCarga: idCargaParaPreservar,
                 idReservaCanal: idGrupo,
                 icalUid: icalUid || null,
                 clienteId,
