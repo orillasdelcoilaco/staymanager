@@ -1,3 +1,4 @@
+// backend/services/calendarioService.js
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 const { obtenerReservasPorEmpresa } = require('./reservasService');
 
@@ -18,19 +19,19 @@ const obtenerDatosCalendario = async (db, empresaId) => {
 
     const reservas = await obtenerReservasPorEmpresa(db, empresaId);
     const eventos = reservas
-        // --- INICIO DEL CAMBIO ---
-        // Se añade la condición para filtrar solo por estado "Confirmada"
         .filter(r => r.alojamientoId && r.fechaLlegada && r.fechaSalida && r.estado === 'Confirmada')
-        // --- FIN DEL CAMBIO ---
         .map(r => {
-            const fechaSalidaCorrecta = new Date(r.fechaSalida);
-            fechaSalidaCorrecta.setUTCDate(fechaSalidaCorrecta.getUTCDate() + 1);
+            // --- INICIO DE LA CORRECCIÓN ---
+            // Se elimina la línea que agregaba un día extra a la fecha de salida.
+            // const fechaSalidaCorrecta = new Date(r.fechaSalida);
+            // fechaSalidaCorrecta.setUTCDate(fechaSalidaCorrecta.getUTCDate() + 1);
+            // --- FIN DE LA CORRECCIÓN ---
 
             return {
                 resourceId: r.alojamientoId,
                 title: r.nombreCliente,
                 start: formatDateToISO(r.fechaLlegada),
-                end: formatDateToISO(fechaSalidaCorrecta),
+                end: formatDateToISO(r.fechaSalida), // Se usa la fecha de salida original
                 extendedProps: {
                     idReserva: r.id,
                     alojamientoNombre: r.alojamientoNombre,
