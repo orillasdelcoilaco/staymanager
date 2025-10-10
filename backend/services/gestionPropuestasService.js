@@ -4,9 +4,12 @@ const { getAvailabilityData } = require('./propuestasService');
 const { crearOActualizarCliente } = require('./clientesService');
 
 const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExistente = null) => {
-    const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, canalId, canalNombre, moneda, valorDolarDia, valorOriginal, origen, icalUid } = datos;
+    const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, canalId, canalNombre, moneda, valorDolarDia, valorOriginal, origen, icalUid, idReservaCanal } = datos;
     
-    const idGrupo = idPropuestaExistente || datos.idReservaCanal || db.collection('empresas').doc().id;
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Se prioriza el ID que viene del formulario, asegurando que el cambio se guarde.
+    const idGrupo = idReservaCanal || idPropuestaExistente || db.collection('empresas').doc().id;
+    // --- FIN DE LA CORRECCIÓN ---
 
     let clienteId;
     if (cliente.id) {
