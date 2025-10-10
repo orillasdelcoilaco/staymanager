@@ -98,7 +98,11 @@ async function sincronizarCalendarios(db, empresaId, usuarioEmail) {
                     
                     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
                     const nuevaReservaRef = reservasRef.doc();
-                    const idGrupo = event.summary || `iCal Event ${event.uid.substring(0, 8)}`;
+                    
+                    // --- INICIO DE LA CORRECCIÓN ---
+                    // Se usa el UID del evento para asegurar un ID de grupo único.
+                    const idGrupo = `iCal-${event.uid.substring(0, 20)}`;
+                    // --- FIN DE LA CORRECCIÓN ---
 
                     const datosReserva = {
                         id: nuevaReservaRef.id,
