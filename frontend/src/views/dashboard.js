@@ -8,69 +8,94 @@ function formatCurrency(value) {
     return `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
 }
 
-function displayKPIs(results) {
-    const kpis = results; // Corregido: Se accede directamente a los resultados
+function displayKPIs(kpis) {
     const kpiCardsContainer = document.getElementById('kpi-cards');
     if (!kpiCardsContainer) return;
 
     kpiCardsContainer.innerHTML = `
-        {/* Fila Facturado */}
-        <div class="p-4 bg-green-100 rounded-lg"><div class="text-sm font-medium text-green-700">Ingreso Facturado</div><div class="text-2xl font-bold text-green-900">${formatCurrency(kpis.ingresoFacturado)}</div></div>
-        <div class="p-4 bg-green-100 rounded-lg"><div class="text-sm font-medium text-green-700">Payout Facturado</div><div class="text-2xl font-bold text-green-900">${formatCurrency(kpis.payoutFacturado)}</div></div>
-        <div class="p-4 bg-green-100 rounded-lg"><div class="text-sm font-medium text-green-700">Costo Canal (Fact.)</div><div class="text-2xl font-bold text-green-900">${formatCurrency(kpis.costoCanalFacturado)}</div></div>
+        <div class="p-4 bg-green-100 rounded-lg"><div class="text-sm font-medium text-green-700">Ingreso Real (Facturado)</div><div class="text-2xl font-bold text-green-900">${formatCurrency(kpis.ingresoFacturado)}</div></div>
+        <div class="p-4 bg-green-100 rounded-lg"><div class="text-sm font-medium text-green-700">Payout Neto (Facturado)</div><div class="text-2xl font-bold text-green-900">${formatCurrency(kpis.payoutFacturado)}</div></div>
+        <div class="p-4 bg-green-100 rounded-lg"><div class="text-sm font-medium text-green-700">Costo de Canales (Fact.)</div><div class="text-2xl font-bold text-green-900">${formatCurrency(kpis.costoCanalFacturado)}</div></div>
         
-        {/* Fila Proyectado */}
         <div class="p-4 bg-blue-100 rounded-lg"><div class="text-sm font-medium text-blue-700">Ingreso Proyectado</div><div class="text-2xl font-bold text-blue-900">${formatCurrency(kpis.ingresoProyectado)}</div></div>
-        <div class="p-4 bg-blue-100 rounded-lg"><div class="text-sm font-medium text-blue-700">Payout Proyectado</div><div class="text-2xl font-bold text-blue-900">${formatCurrency(kpis.payoutProyectado)}</div></div>
-        <div class="p-4 bg-red-100 rounded-lg"><div class="text-sm font-medium text-red-700">Descuento Identificado</div><div class="text-2xl font-bold text-red-900">${formatCurrency(kpis.descuentoTotalIdentificado)}</div></div>
+        <div class="p-4 bg-red-100 rounded-lg"><div class="text-sm font-medium text-red-700">Dsctos. Canal Externo</div><div class="text-2xl font-bold text-red-900">${formatCurrency(kpis.descuentosDeCanalExterno)}</div></div>
+        <div class="p-4 bg-yellow-100 rounded-lg"><div class="text-sm font-medium text-yellow-700">Ajustes Internos</div><div class="text-2xl font-bold text-yellow-800">${formatCurrency(kpis.ajustesManualesInternos)}</div></div>
 
-        {/* Fila Operacional */}
-        <div class="p-4 bg-gray-100 rounded-lg"><div class="text-sm font-medium text-gray-600">Ocup. (Confirmada)</div><div class="text-2xl font-bold text-gray-900">${kpis.tasaOcupacionProyectada.toFixed(1)}%</div></div>
+        <div class="p-4 bg-gray-100 rounded-lg"><div class="text-sm font-medium text-gray-600">Ocup. (Confirmada)</div><div class="text-2xl font-bold text-gray-900">${kpis.tasaOcupacionConfirmada.toFixed(1)}%</div></div>
         <div class="p-4 bg-gray-100 rounded-lg"><div class="text-sm font-medium text-gray-600">ADR (Facturado)</div><div class="text-2xl font-bold text-gray-900">${formatCurrency(kpis.adrFacturado)}</div></div>
         <div class="p-4 bg-gray-100 rounded-lg"><div class="text-sm font-medium text-gray-600">RevPAR (Facturado)</div><div class="text-2xl font-bold text-gray-900">${formatCurrency(kpis.revParFacturado)}</div></div>
     `;
 }
 
-function renderRankingTable(rankingData) {
-    const tableBody = document.getElementById('ranking-table-body');
+function renderRankingOperativoTable(data) {
+    const tableBody = document.getElementById('ranking-operativo-body');
     if (!tableBody) return;
 
-    if (!rankingData || Object.keys(rankingData).length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="8" class="text-center text-gray-500 py-4">No hay datos de rendimiento para mostrar.</td></tr>`;
+    if (!data || data.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-gray-500 py-4">No hay datos.</td></tr>`;
         return;
     }
 
-    const sortedData = Object.values(rankingData).sort((a, b) => b.ingresoTotalFacturado - a.ingresoTotalFacturado);
-
-    tableBody.innerHTML = sortedData.map(prop => `
-        <tr class="hover:bg-gray-50 cursor-pointer" data-prop-nombre="${prop.nombre}">
-            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${prop.nombre}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-center">${prop.nochesOcupadasFacturadas}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-center">${prop.nochesOcupadasConfirmadas}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-center">${prop.tasaOcupacion.toFixed(1)}%</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-right">${formatCurrency(prop.ingresoTotalFacturado)}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-right">${formatCurrency(prop.payoutTotalFacturado)}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-right">${formatCurrency(prop.adr)}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-red-600 text-right">${formatCurrency(prop.descuentoPromedio)}</td>
+    tableBody.innerHTML = data.sort((a,b) => b.nochesOcupadasConfirmadas - a.nochesOcupadasConfirmadas).map(prop => `
+        <tr class="hover:bg-gray-50">
+            <td class="px-4 py-3 text-sm font-medium text-gray-900">${prop.nombre}</td>
+            <td class="px-4 py-3 text-sm text-center">${prop.ocupacion.toFixed(1)}%</td>
+            <td class="px-4 py-3 text-sm text-center font-bold">${prop.reservasFacturadas}</td>
+            <td class="px-4 py-3 text-sm text-center">${prop.nochesOcupadasConfirmadas} / ${prop.nochesDisponibles}</td>
+            <td class="px-4 py-3 text-sm text-center">${prop.duracionPromedio.toFixed(1)} noches</td>
+            <td class="px-4 py-3 text-sm">${Object.entries(prop.nochesPorCanal).map(([canal, noches]) => `${canal}: ${noches}`).join(', ')}</td>
         </tr>
     `).join('');
 }
 
-function showDetailModal(propNombre) {
-    const propData = fullKpiResults.rendimientoPorPropiedad[propNombre];
-    if (!propData) return;
+function renderRankingFinancieroTable(data) {
+    const tableBody = document.getElementById('ranking-financiero-body');
+    if (!tableBody) return;
 
-    const modal = document.getElementById('detail-modal');
-    document.getElementById('detail-modal-title').textContent = `Detalle por Canal - ${propNombre}`;
+    if (!data || data.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="7" class="text-center text-gray-500 py-4">No hay datos.</td></tr>`;
+        return;
+    }
     
-    document.getElementById('detail-modal-content').innerHTML = `<pre class="bg-gray-100 p-4 rounded-md">${JSON.stringify(propData, null, 2)}</pre>`;
-    
-    modal.classList.remove('hidden');
+    tableBody.innerHTML = data.sort((a,b) => b.ingresoTotalFacturado - a.ingresoTotalFacturado).map(prop => `
+        <tr class="hover:bg-gray-50">
+            <td class="px-4 py-3 text-sm font-medium text-gray-900">${prop.nombre}</td>
+            <td class="px-4 py-3 text-sm text-right font-bold">${formatCurrency(prop.ingresoTotalFacturado)}</td>
+            <td class="px-4 py-3 text-sm text-right text-green-700 font-semibold">${formatCurrency(prop.payoutTotalFacturado)}</td>
+            <td class="px-4 py-3 text-sm text-right">${formatCurrency(prop.valorPromedioReserva)}</td>
+            <td class="px-4 py-3 text-sm text-right">${formatCurrency(prop.adr)}</td>
+            <td class="px-4 py-3 text-sm text-right text-red-600">${formatCurrency(prop.descuentosDeCanalExterno)}</td>
+            <td class="px-4 py-3 text-sm text-right text-yellow-800">${formatCurrency(prop.ajustesManualesInternos)}</td>
+        </tr>
+    `).join('');
 }
+
+function renderCanalTable(data) {
+    const tableBody = document.getElementById('canal-analysis-body');
+    if (!tableBody) return;
+
+    if (!data || data.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="7" class="text-center text-gray-500 py-4">No hay datos.</td></tr>`;
+        return;
+    }
+
+    tableBody.innerHTML = data.sort((a,b) => b.ingresoTotal - a.ingresoTotal).map(canal => `
+        <tr class="hover:bg-gray-50">
+            <td class="px-4 py-3 text-sm font-medium text-gray-900">${canal.nombre}</td>
+            <td class="px-4 py-3 text-sm text-center font-bold">${canal.numeroReservas}</td>
+            <td class="px-4 py-3 text-sm text-center">${canal.nochesVendidas}</td>
+            <td class="px-4 py-3 text-sm text-right font-semibold">${formatCurrency(canal.ingresoTotal)}</td>
+            <td class="px-4 py-3 text-sm text-right text-green-700">${formatCurrency(canal.payoutNeto)}</td>
+            <td class="px-4 py-3 text-sm text-right">${formatCurrency(canal.ingresoPromedioPorReserva)}</td>
+            <td class="px-4 py-3 text-sm text-right text-red-600">${formatCurrency(canal.costoPromedioPorReserva)}</td>
+        </tr>
+    `).join('');
+}
+
 
 export async function render() {
     const canales = await fetchAPI('/canales');
-    const canalOptions = canales.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join('');
+    const canalOptions = canales.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
 
     return `
         <div class="bg-white p-8 rounded-lg shadow space-y-8">
@@ -105,46 +130,72 @@ export async function render() {
                 <p class="mt-2 text-sm text-gray-500">Intenta seleccionar otro rango de fechas o procesa nuevas reservas.</p>
             </div>
 
-            <div id="kpi-results-container" class="hidden space-y-8">
-                <div id="kpi-cards" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 text-center"></div>
-                <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                    <div class="lg:col-span-2">
+            <div id="kpi-results-container" class="hidden space-y-12">
+                <div id="kpi-cards" class="grid grid-cols-2 md:grid-cols-3 gap-4 text-center"></div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div>
                         <h3 class="text-lg font-semibold text-gray-800 mb-2">Ingreso vs Payout por Canal</h3>
                         <canvas id="income-chart"></canvas>
                     </div>
-                    <div class="lg:col-span-3">
+                    <div>
                          <h3 class="text-lg font-semibold text-gray-800 mb-2">Distribución de Noches por Canal</h3>
                         <canvas id="nights-chart"></canvas>
                     </div>
                 </div>
+
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Rendimiento por Propiedad</h3>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Tabla 1: Rendimiento Operativo por Propiedad</h3>
                     <div class="table-container">
                         <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="th">Propiedad</th>
-                                    <th class="th text-center">Noches (Fact.)</th>
-                                    <th class="th text-center">Noches (Conf.)</th>
-                                    <th class="th text-center">Ocupación (%)</th>
-                                    <th class="th text-right">Ingreso (Fact.)</th>
-                                    <th class="th text-right">Payout (Fact.)</th>
-                                    <th class="th text-right">ADR (Fact.)</th>
-                                    <th class="th text-right">Descuento Promedio</th>
-                                </tr>
-                            </thead>
-                            <tbody id="ranking-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+                            <thead class="bg-gray-50"><tr>
+                                <th class="th">Propiedad</th>
+                                <th class="th text-center">Ocupación (%)</th>
+                                <th class="th text-center">Nº Reservas</th>
+                                <th class="th text-center">Noches (Vendidas/Disp)</th>
+                                <th class="th text-center">Duración Prom.</th>
+                                <th class="th">Desglose Noches</th>
+                            </tr></thead>
+                            <tbody id="ranking-operativo-body" class="bg-white divide-y divide-gray-200"></tbody>
                         </table>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <div id="detail-modal" class="modal hidden">
-            <div class="modal-content">
-                <h3 id="detail-modal-title" class="text-xl font-semibold mb-4"></h3>
-                <div id="detail-modal-content"></div>
-                <button id="detail-modal-close-btn" class="btn-secondary w-full mt-4">Cerrar</button>
+                
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Tabla 2: Análisis Financiero por Propiedad</h3>
+                    <div class="table-container">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50"><tr>
+                                <th class="th">Propiedad</th>
+                                <th class="th text-right">Ingreso (Fact.)</th>
+                                <th class="th text-right">Payout (Fact.)</th>
+                                <th class="th text-right">Valor Prom. Reserva</th>
+                                <th class="th text-right">ADR (Fact.)</th>
+                                <th class="th text-right">Dsctos. Canal</th>
+                                <th class="th text-right">Dsctos. Internos</th>
+                            </tr></thead>
+                            <tbody id="ranking-financiero-body" class="bg-white divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Tabla 3: Análisis por Canal de Venta</h3>
+                    <div class="table-container">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50"><tr>
+                                <th class="th">Canal</th>
+                                <th class="th text-center">Nº Reservas</th>
+                                <th class="th text-center">Noches Vendidas</th>
+                                <th class="th text-right">Ingreso Total</th>
+                                <th class="th text-right">Payout Neto</th>
+                                <th class="th text-right">Ing. Prom/Reserva</th>
+                                <th class="th text-right">Costo Prom/Reserva</th>
+                            </tr></thead>
+                            <tbody id="canal-analysis-body" class="bg-white divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     `;
@@ -158,7 +209,6 @@ export function afterRender() {
     const fechaInicioInput = document.getElementById('kpi-fecha-inicio');
     const fechaFinInput = document.getElementById('kpi-fecha-fin');
     
-    // Establecer fechas por defecto para el mes actual
     const today = new Date();
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
     const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
@@ -188,14 +238,21 @@ export function afterRender() {
             const kpiResults = await fetchAPI(`/kpis?${params.toString()}`);
             fullKpiResults = kpiResults;
 
-            if (kpiResults.nochesOcupadasConfirmadas === 0 && kpiResults.nochesOcupadasFacturadas === 0) {
+            if (kpiResults.kpisGenerales.nochesOcupadasConfirmadas === 0 && kpiResults.kpisGenerales.nochesOcupadasFacturadas === 0) {
                 statusContainer.classList.add('hidden');
                 resultsContainer.classList.add('hidden');
                 emptyStateContainer.classList.remove('hidden');
             } else {
-                displayKPIs(kpiResults);
-                renderCharts(kpiResults);
-                renderRankingTable(kpiResults.rendimientoPorPropiedad);
+                displayKPIs(kpiResults.kpisGenerales);
+                // NOTA: Los gráficos necesitan adaptarse a la nueva estructura de datos si se mantienen.
+                // Por ahora, se mantendrán los datos de `reservasPorCanal` si existen.
+                if (kpiResults.reservasPorCanal) {
+                     renderCharts(kpiResults);
+                }
+                renderRankingOperativoTable(kpiResults.rendimientoPorPropiedad);
+                renderRankingFinancieroTable(kpiResults.rendimientoPorPropiedad);
+                renderCanalTable(kpiResults.analisisPorCanal);
+                
                 statusContainer.classList.add('hidden');
                 emptyStateContainer.classList.add('hidden');
                 resultsContainer.classList.remove('hidden');
@@ -211,18 +268,6 @@ export function afterRender() {
     };
 
     calculateBtn.addEventListener('click', performCalculation);
-
-    document.getElementById('ranking-table-body').addEventListener('click', (e) => {
-        const row = e.target.closest('tr');
-        if (row && row.dataset.propNombre) {
-            showDetailModal(row.dataset.propNombre);
-        }
-    });
-
-    document.getElementById('detail-modal-close-btn').addEventListener('click', () => {
-        document.getElementById('detail-modal').classList.add('hidden');
-    });
-
-    // Cargar automáticamente los datos del mes actual al iniciar la vista
+    
     performCalculation();
 }
