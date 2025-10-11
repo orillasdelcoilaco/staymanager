@@ -111,13 +111,17 @@ export async function afterRender() {
 
     const searchInput = document.getElementById('search-input');
     searchInput.addEventListener('input', () => {
-        const filtro = searchInput.value.toLowerCase();
+        const filtro = searchInput.value.toLowerCase().trim();
         if (filtro) {
-            const gruposFiltrados = allGrupos.filter(g => 
-                g.clienteNombre.toLowerCase().includes(filtro) ||
-                g.reservaIdOriginal.toLowerCase().includes(filtro) ||
-                (g.telefono && g.telefono.includes(filtro))
-            );
+            const terminosBusqueda = filtro.split(' ').filter(t => t);
+            const gruposFiltrados = allGrupos.filter(g => {
+                const nombreCompleto = g.clienteNombre.toLowerCase();
+                const busquedaPorNombre = terminosBusqueda.every(termino => nombreCompleto.includes(termino));
+                
+                return busquedaPorNombre ||
+                       g.reservaIdOriginal.toLowerCase().includes(filtro) ||
+                       (g.telefono && g.telefono.includes(filtro));
+            });
             renderGrupos(gruposFiltrados);
         } else {
             renderGrupos(allGrupos);
