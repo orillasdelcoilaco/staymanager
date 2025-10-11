@@ -3,6 +3,7 @@ const admin = require('firebase-admin');
 const ical = require('node-ical');
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 const { obtenerCanalesPorEmpresa } = require('./canalesService');
+const { registrarCarga } = require('./historialCargasService');
 
 async function getICalForProperty(db, empresaId, propiedadId) {
     const today = new Date();
@@ -46,7 +47,7 @@ async function getICalForProperty(db, empresaId, propiedadId) {
     return icalContent.join('\r\n');
 }
 
-async function sincronizarCalendarios(db, empresaId, filtros = {}) {
+async function sincronizarCalendarios(db, empresaId, usuarioEmail, filtros = {}) {
     const { canalFiltroId, fechaInicio, fechaFin } = filtros;
     
     const [propiedades, todosLosCanales] = await Promise.all([
@@ -55,7 +56,10 @@ async function sincronizarCalendarios(db, empresaId, filtros = {}) {
     ]);
     
     const canalesMap = new Map(todosLosCanales.map(c => [c.id, c]));
-    const canalFiltroNombre = canalFiltroId ? canalesMap.get(canalFiltroId)?.nombre.toLowerCase() : null;
+    const canalFiltro = canalFiltroId ? canalesMap.get(canalFiltroId) : null;
+
+    const nombreArchivoCarga = `Sincronización iCal - ${canalFiltro ? canalFiltro.nombre : 'Todos los Canales'} (${new Date().toLocaleDateString('es-CL')})`;
+    const idCarga = await registrarCarga(db, empresaId, canalFiltroId, nombreArchivoCarga, usuarioEmail);
 
     const propiedadesConIcal = propiedades.filter(p => p.sincronizacionIcal && Object.values(p.sincronizacionIcal).some(url => url));
 
@@ -75,8 +79,9 @@ async function sincronizarCalendarios(db, empresaId, filtros = {}) {
     for (const prop of propiedadesConIcal) {
         for (const [canalKey, url] of Object.entries(prop.sincronizacionIcal)) {
             if (!url) continue;
-
-            if (canalFiltroNombre && canalKey.toLowerCase() !== canalFiltroNombre) {
+            
+            const canalEncontrado = todosLosCanales.find(c => c.nombre.toLowerCase() === canalKey.toLowerCase());
+            if (canalFiltroId && canalEncontrado?.id !== canalFiltroId) {
                 continue;
             }
 
@@ -93,8 +98,6 @@ async function sincronizarCalendarios(db, empresaId, filtros = {}) {
                     
                     const endDate = new Date(event.end);
                     const noches = Math.max(1, Math.round((endDate - startDate) / (1000 * 60 * 60 * 24)));
-                    
-                    const canalEncontrado = todosLosCanales.find(c => c.nombre.toLowerCase() === canalKey.toLowerCase());
 
                     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
                     const nuevaReservaRef = reservasRef.doc();
@@ -105,6 +108,7 @@ async function sincronizarCalendarios(db, empresaId, filtros = {}) {
                         idUnicoReserva: `${idGrupo}-${prop.id}`,
                         idReservaCanal: idGrupo,
                         icalUid: event.uid,
+                        idCarga: idCarga,
                         clienteId: null,
                         alojamientoId: prop.id,
                         alojamientoNombre: prop.nombre,
