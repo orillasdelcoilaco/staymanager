@@ -43,7 +43,7 @@ async function loadInitialData() {
 }
 
 function filterClients(e) {
-    const searchTerm = e.target.value.toLowerCase();
+    const searchTerm = e.target.value.toLowerCase().trim();
     const resultsList = document.getElementById('client-results-list');
     resultsList.innerHTML = '';
     resultsList.classList.add('hidden');
@@ -51,7 +51,15 @@ function filterClients(e) {
         clearClientSelection();
         return;
     }
-    const filtered = allClients.filter(c => c.nombre.toLowerCase().includes(searchTerm) || (c.telefono && c.telefono.includes(searchTerm)));
+
+    const terminosBusqueda = searchTerm.split(' ').filter(t => t);
+    const filtered = allClients.filter(c => {
+        const nombreCompleto = c.nombre.toLowerCase();
+        const busquedaPorNombre = terminosBusqueda.every(termino => nombreCompleto.includes(termino));
+
+        return busquedaPorNombre || (c.telefono && c.telefono.includes(searchTerm));
+    });
+
     if (filtered.length > 0) {
         resultsList.classList.remove('hidden');
     }
