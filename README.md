@@ -500,3 +500,52 @@ Definición: Es la diferencia entre el Valor Potencial y el Ingreso Proyectado. 
 Fórmula: Valor Potencial - Ingreso Proyectado.
 
 Esta distinción clara entre lo proyectado y lo facturado es la piedra angular del nuevo Dashboard y permitirá un análisis financiero detallado y preciso del negocio.
+
+## 5. Hoja de Ruta - Etapa 2: Módulo de CRM y Marketing (Próximo Paso)
+
+### Objetivo Principal
+Implementar un sistema de Customer Relationship Management (CRM) enfocado en la fidelización y el marketing directo, permitiendo a los usuarios enviar promociones personalizadas y realizar un seguimiento de su efectividad.
+
+### Modelo Estratégico: Híbrido (RFM + Triggers de Eventos)
+
+1.  **Segmentación RFM (Recencia, Frecuencia, Valor Monetario):**
+    * **Concepto:** Clasificar a todos los clientes en segmentos dinámicos basados en su comportamiento de compra. El sistema analizará el historial de reservas para calcular:
+        * **Recencia:** Cuándo fue su última estadía.
+        * **Frecuencia:** Cuántas veces ha reservado.
+        * **Monetario:** Cuánto ha gastado en total.
+    * **Segmentos a Crear:**
+        * **🏆 Campeones:** Clientes de alto valor, recientes y frecuentes.
+        * **❤️ Leales:** Clientes recurrentes que forman la base del negocio.
+        * **😟 En Riesgo:** Clientes valiosos que no han regresado en mucho tiempo.
+        * **🌱 Nuevos:** Clientes con una sola estadía, objetivo de fidelización.
+
+2.  **Marketing por Eventos (Triggers):**
+    * **Concepto:** Enviar mensajes automáticos basados en acciones o fechas específicas para mantener el contacto con el cliente.
+    * **Triggers a Implementar:**
+        * **Post-Estadía:** Mensaje de agradecimiento y solicitud de reseña.
+        * **Aniversario de Estadía:** Recordatorio y oferta especial al cumplirse un año de una visita.
+
+### Canal de Comunicación y Seguimiento
+
+* **Canal Principal:** **WhatsApp**, aprovechando que el número de teléfono es el dato de contacto primario. El sistema generará enlaces "Click-to-Chat" para facilitar el envío.
+* **Mecánica de Seguimiento:**
+    1.  **Envío:** El sistema ayuda a seleccionar un segmento y a redactar el mensaje. El envío final se realiza manualmente a través de los enlaces generados.
+    2.  **Conversación:** La interacción directa (respuestas, preguntas) se maneja fuera del sistema, en el WhatsApp del usuario.
+    3.  **Medición (Cierre del Círculo):** El éxito se medirá de forma automática. Cuando un cliente perteneciente a una campaña realice una nueva reserva, el sistema podrá vincularla y así medir la efectividad de la promoción.
+
+### Plan de Implementación
+
+#### Backend
+
+* Crear un nuevo `crmService.js` para contener la lógica de negocio del CRM.
+* Desarrollar una función que lea todas las reservas de una empresa para calcular los valores R, F y M de cada cliente y guardarlos en sus respectivos perfiles.
+* Crear una nueva ruta en `crm.js` (ej. `GET /api/crm/segmento/:nombreSegmento`) que devuelva la lista de clientes pertenecientes a un segmento específico.
+
+#### Frontend
+
+* Crear una nueva vista `crmPromociones.js`.
+* **Interfaz de la Vista:**
+    * Un selector de segmentos (Dropdown con "Campeones", "Leales", etc.).
+    * Una tabla para listar los clientes del segmento seleccionado.
+    * Un área para redactar el mensaje de la promoción, utilizando plantillas y etiquetas (ej. `[NOMBRE_CLIENTE]`).
+    * Un botón "Generar Campaña" que, al presionarlo, muestre una lista de los mensajes personalizados con sus respectivos botones "Enviar por WhatsApp".

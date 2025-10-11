@@ -2,6 +2,7 @@
 import { fetchAPI } from '../api.js';
 
 let propiedades = [];
+let canales = [];
 let currentUser = null;
 
 async function renderExportLinks() {
@@ -36,7 +37,6 @@ async function renderExportLinks() {
         button.addEventListener('click', (e) => {
             const url = e.target.dataset.url;
             navigator.clipboard.writeText(url).then(() => {
-                const originalText = e.target.textContent;
                 e.target.textContent = '¡Copiado!';
                 setTimeout(() => { e.target.textContent = 'Copiar URL'; }, 2000);
             });
@@ -62,11 +62,31 @@ export async function render() {
             <div class="bg-white p-8 rounded-lg shadow">
                 <h2 class="text-2xl font-semibold text-gray-900 mb-2">Importar Calendarios Externos</h2>
                 <p class="text-gray-600 mb-6">
-                    Presiona el botón para leer los calendarios de canales externos (cuyas URLs hayas guardado en "Gestionar Alojamientos") y crear reservas provisionales en "Gestionar Propuestas".
+                    Filtra por canal y/o rango de fechas para importar reservas externas y crear borradores en "Gestionar Propuestas".
                 </p>
-                <button id="sync-ical-btn" class="btn-primary">
-                    Sincronizar Ahora
-                </button>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end p-4 border rounded-md bg-gray-50">
+                    <div>
+                        <label for="canal-filter-import" class="block text-sm font-medium text-gray-700">Canal a Sincronizar</label>
+                        <select id="canal-filter-import" class="form-select mt-1">
+                            <option value="">Todos los Canales</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="fecha-inicio-import" class="block text-sm font-medium text-gray-700">Desde (Fecha de Inicio de la Reserva)</label>
+                        <input type="date" id="fecha-inicio-import" class="form-input mt-1">
+                    </div>
+                    <div>
+                        <label for="fecha-fin-import" class="block text-sm font-medium text-gray-700">Hasta (Fecha de Inicio de la Reserva)</label>
+                        <input type="date" id="fecha-fin-import" class="form-input mt-1">
+                    </div>
+                </div>
+
+                <div class="mt-6 text-center">
+                    <button id="sync-ical-btn" class="btn-primary btn-lg">
+                        Sincronizar Ahora
+                    </button>
+                </div>
                 <div id="sync-status" class="mt-4 p-4 rounded-md hidden"></div>
             </div>
         </div>
@@ -75,13 +95,22 @@ export async function render() {
 
 export async function afterRender() {
     try {
-        [propiedades, currentUser] = await Promise.all([
+        [propiedades, canales, currentUser] = await Promise.all([
             fetchAPI('/propiedades'),
+            fetchAPI('/canales'),
             fetchAPI('/auth/me')
         ]);
         renderExportLinks();
+        
+        const canalSelect = document.getElementById('canal-filter-import');
+        canales.forEach(canal => {
+            if (canal.nombre.toLowerCase() !== 'app') {
+                canalSelect.add(new Option(canal.nombre, canal.id));
+            }
+        });
+
     } catch (error) {
-        document.getElementById('export-loading').innerHTML = `<p class="text-red-500">Error al cargar las propiedades: ${error.message}</p>`;
+        document.getElementById('export-loading').innerHTML = `<p class="text-red-500">Error al cargar los datos: ${error.message}</p>`;
     }
 
     const syncBtn = document.getElementById('sync-ical-btn');
@@ -93,9 +122,18 @@ export async function afterRender() {
         syncStatus.className = 'mt-4 p-4 rounded-md text-sm bg-blue-100 text-blue-800';
         syncStatus.innerHTML = 'Iniciando proceso... Esto puede tardar unos segundos.';
         syncStatus.classList.remove('hidden');
+        
+        const payload = {
+            canalFiltroId: document.getElementById('canal-filter-import').value,
+            fechaInicio: document.getElementById('fecha-inicio-import').value || null,
+            fechaFin: document.getElementById('fecha-fin-import').value || null
+        };
 
         try {
-            const result = await fetchAPI('/sincronizar/ical', { method: 'POST' });
+            const result = await fetchAPI('/sincronizar/ical', { 
+                method: 'POST',
+                body: payload
+            });
             const { propiedadesRevisadas, nuevasReservasCreadas, errores } = result.summary;
             
             let summaryHtml = `<strong>¡Sincronización completada!</strong><ul class="list-disc list-inside mt-2">

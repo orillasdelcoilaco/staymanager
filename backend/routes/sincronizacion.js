@@ -2,7 +2,7 @@
 const express = require('express');
 const multer = require('multer');
 const { procesarArchivoReservas, analizarCabeceras, analizarValoresUnicosColumna } = require('../services/sincronizacionService');
-const { sincronizarCalendarios } = require('../services/icalService'); // Importar el nuevo servicio
+const { sincronizarCalendarios } = require('../services/icalService');
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -70,8 +70,9 @@ module.exports = (db) => {
 
     router.post('/ical', async (req, res) => {
         try {
-            const { empresaId, email } = req.user; // Obtener email del usuario autenticado
-            const summary = await sincronizarCalendarios(db, empresaId, email); // Pasar el email al servicio
+            const { empresaId } = req.user;
+            const { canalFiltroId, fechaInicio, fechaFin } = req.body;
+            const summary = await sincronizarCalendarios(db, empresaId, { canalFiltroId, fechaInicio, fechaFin });
             res.status(200).json({
                 message: 'Sincronización de calendarios iCal completada.',
                 summary: summary
