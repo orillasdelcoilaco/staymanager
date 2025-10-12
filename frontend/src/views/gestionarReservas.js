@@ -309,7 +309,7 @@ export async function render() {
     const opcionesCarga = historialCargas.map(h => `<option value="${h.id}">#${h.idNumerico} - ${h.nombreArchivo}</option>`).join('');
     const opcionesCanal = canales.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join('');
     const estadosGestionOptions = ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', 'Pendiente Cliente', 'Facturado', 'Propuesta'].map(e => `<option value="${e}">${e}</option>`).join('');
-    const estadosReservaOptions = ['Confirmada', 'Cancelada', 'Desconocido', 'Propuesta'].map(e => `<option value="${e}">${e}</option>`).join('');
+    const estadosReservaOptions = ['Confirmada', 'Cancelada', 'No Presentado', 'Desconocido', 'Propuesta'].map(e => `<option value="${e}">${e}</option>`).join('');
 
     return `
         <div class="bg-white p-8 rounded-lg shadow">
@@ -361,7 +361,7 @@ export async function render() {
                 
                 <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Estados</legend>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label for="estado" class="label">Estado Reserva</label><select name="estado" class="form-select"><option value="Confirmada">Confirmada</option><option value="Cancelada">Cancelada</option><option value="Desconocido">Desconocido</option><option value="Propuesta">Propuesta</option></select></div>
+                        <div><label for="estado" class="label">Estado Reserva</label><select name="estado" class="form-select"><option value="Confirmada">Confirmada</option><option value="Cancelada">Cancelada</option><option value="No Presentado">No Presentado</option><option value="Desconocido">Desconocido</option><option value="Propuesta">Propuesta</option></select></div>
                         <div><label for="estadoGestion" class="label">Estado Gestión</label><select name="estadoGestion" class="form-select"><option value="">N/A</option>${estadosGestionOptions}</select></div>
                     </div>
                 </fieldset>
