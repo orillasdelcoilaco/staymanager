@@ -277,7 +277,7 @@ export function render() {
                     <div id="cliente-section" class="p-4 border rounded-md bg-gray-50 mb-6">
                          <h3 class="font-semibold text-gray-800 mb-2">3. Cliente y Canal de Venta</h3>
                          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
+                            <div class="relative">
                                 <label id="client-form-title" class="block text-sm font-medium text-gray-700">Buscar o Crear Cliente</label>
                                 <input type="text" id="client-search" placeholder="Buscar por nombre o teléfono..." class="form-input mt-1">
                                 <div id="client-results-list" class="hidden mt-1 border rounded-md max-h-32 overflow-y-auto bg-white z-10 absolute w-full max-w-sm"></div>
