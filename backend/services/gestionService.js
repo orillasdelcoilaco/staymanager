@@ -4,23 +4,34 @@ const admin = require('firebase-admin');
 
 const getReservasPendientes = async (db, empresaId) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
+    
+    // CAMBIO: Obtener dinámicamente los estados de gestión desde la nueva colección
+    const estadosSnapshot = await db.collection('empresas').doc(empresaId).collection('estadosReserva').where('esEstadoDeGestion', '==', true).get();
+    const estadosDeGestion = estadosSnapshot.docs.map(doc => doc.data().nombre);
 
-    const queryGestion = reservasRef
-        .where('estado', '==', 'Confirmada')
-        .where('estadoGestion', 'in', ['Pendiente Bienvenida', 'Pendiente Cobro', 'Pendiente Pago', 'Pendiente Boleta', 'Pendiente Cliente']);
+    const queries = [];
+    if (estadosDeGestion.length > 0) {
+        queries.push(
+            reservasRef
+                .where('estado', '==', 'Confirmada')
+                .where('estadoGestion', 'in', estadosDeGestion)
+                .get()
+        );
+    }
+    queries.push(reservasRef.where('estado', '==', 'Desconocido').get());
 
-    const queryDesconocido = reservasRef.where('estado', '==', 'Desconocido');
-
-    const [gestionSnapshot, desconocidoSnapshot] = await Promise.all([
-        queryGestion.get(),
-        queryDesconocido.get()
-    ]);
+    const snapshots = await Promise.all(queries);
+    const [gestionSnapshot, desconocidoSnapshot] = snapshots;
 
     const allDocs = [];
     const docIds = new Set();
 
-    gestionSnapshot.forEach(doc => { allDocs.push(doc); docIds.add(doc.id); });
-    desconocidoSnapshot.forEach(doc => { if (!docIds.has(doc.id)) allDocs.push(doc); });
+    if(gestionSnapshot) {
+        gestionSnapshot.forEach(doc => { allDocs.push(doc); docIds.add(doc.id); });
+    }
+    if (desconocidoSnapshot) {
+        desconocidoSnapshot.forEach(doc => { if (!docIds.has(doc.id)) allDocs.push(doc); });
+    }
 
     if (allDocs.length === 0) {
         return { grupos: [], hasMore: false, lastVisible: null };
@@ -30,7 +41,7 @@ const getReservasPendientes = async (db, empresaId) => {
 
     const allReservasData = allDocs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    const clienteIds = [...new Set(allReservasData.map(r => r.clienteId).filter(Boolean))]; // <-- CORRECCIÓN CLAVE
+    const clienteIds = [...new Set(allReservasData.map(r => r.clienteId).filter(Boolean))];
     const reservaIdsOriginales = [...new Set(allReservasData.map(r => r.idReservaCanal))];
 
     const [clientesSnapshot, notasSnapshot, transaccionesSnapshot, historialReservasSnapshot] = await Promise.all([

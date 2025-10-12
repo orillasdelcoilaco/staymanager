@@ -31,6 +31,7 @@ const views = {
     '/gestionar-propuestas': () => import('./views/gestionarPropuestas.js'),
     '/generar-reportes-rapidos': () => import('./views/generarReportes.js'),
     '/sincronizar-ical': () => import('./views/sincronizarCalendarios.js'),
+    '/gestionar-estados': () => import('./views/gestionarEstados.js'), // <-- NUEVO
 };
 
 const menuConfig = [
@@ -70,6 +71,7 @@ const menuConfig = [
         children: [
             { name: '🏢 Empresa', path: '/empresa', id: 'config-empresa' },
             { name: '👥 Gestionar Usuarios', path: '/gestionar-usuarios', id: 'config-usuarios' },
+            { name: '🏷️ Gestionar Estados', path: '/gestionar-estados', id: 'config-estados' }, // <-- NUEVO
             { name: '🔄 Conversión Alojamientos', path: '/conversion-alojamientos', id: 'config-conversion' },
             { name: '🗺️ Mapeo de Reportes', path: '/mapeo-reportes', id: 'mapeo-reportes' },
             { name: '👤 Autorizar Google Contacts', path: '/autorizar-google', id: 'config-google' },

@@ -10,17 +10,22 @@ export function formatUSD(value, { includeSymbol = true } = {}) {
     return includeSymbol ? `$${formattedValue}` : formattedValue;
 }
 
-export function getStatusInfo(status) {
-    switch (status) {
-        case 'Pendiente Bienvenida': return { level: 1, text: 'PENDIENTE BIENVENIDA', color: 'bg-yellow-500', gestionType: 'enviar_bienvenida' };
-        case 'Pendiente Cobro': return { level: 2, text: 'PENDIENTE COBRO', color: 'bg-orange-500', gestionType: 'enviar_cobro' };
-        case 'Pendiente Pago': return { level: 3, text: 'PENDIENTE PAGO', color: 'bg-red-600', gestionType: null };
-        case 'Pendiente Boleta': return { level: 4, text: 'PENDIENTE BOLETA', color: 'bg-purple-600', gestionType: null };
-        case 'Pendiente Cliente': return { level: 5, text: 'PENDIENTE CLIENTE', color: 'bg-teal-600', gestionType: 'gestionar_cliente' };
-        case 'Desconocido': return { level: 0, text: 'ESTADO DESCONOCIDO', color: 'bg-amber-500', gestionType: 'corregir_estado' };
-        default: return { level: 99, text: status ? status.toUpperCase() : 'DESCONOCIDO', color: 'bg-gray-400', gestionType: null };
+export function getStatusInfo(statusName, allEstados = []) {
+    const estado = allEstados.find(e => e.nombre === statusName);
+    if (estado) {
+        return {
+            text: estado.nombre.toUpperCase(),
+            color: estado.color || 'bg-gray-400',
+            // Puedes añadir más lógica aquí si necesitas `level` o `gestionType` dinámicamente
+        };
+    }
+    // Fallback para estados no encontrados o especiales
+    switch (statusName) {
+        case 'Desconocido': return { text: 'ESTADO DESCONOCIDO', color: 'bg-amber-500' };
+        default: return { text: statusName ? statusName.toUpperCase() : 'DESCONOCIDO', color: 'bg-gray-400' };
     }
 }
+
 
 export function showPreview(file, thumb, container) {
     if (file && file.type.startsWith('image/')) {

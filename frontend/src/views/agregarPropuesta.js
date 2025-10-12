@@ -45,7 +45,6 @@ async function loadInitialData() {
 function filterClients(e) {
     const searchTerm = e.target.value.toLowerCase();
     const resultsList = document.getElementById('client-results-list');
-    console.log(`Buscando: "${searchTerm}"`); // Log para depuración
 
     resultsList.innerHTML = '';
     resultsList.classList.add('hidden');
@@ -59,8 +58,6 @@ function filterClients(e) {
         (c.telefono && c.telefono.includes(searchTerm))
     );
     
-    console.log(`Resultados encontrados: ${filtered.length}`); // Log para depuración
-
     if (filtered.length > 0) {
         resultsList.classList.remove('hidden');
     }
