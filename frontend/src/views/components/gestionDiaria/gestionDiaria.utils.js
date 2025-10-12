@@ -12,17 +12,24 @@ export function formatUSD(value, { includeSymbol = true } = {}) {
 
 export function getStatusInfo(statusName, allEstados = []) {
     const estado = allEstados.find(e => e.nombre === statusName);
-    if (estado) {
-        return {
-            text: estado.nombre.toUpperCase(),
-            color: estado.color || 'bg-gray-400',
-            // Puedes añadir más lógica aquí si necesitas `level` o `gestionType` dinámicamente
-        };
-    }
-    // Fallback para estados no encontrados o especiales
+    
+    const baseInfo = {
+        text: estado ? estado.nombre.toUpperCase() : (statusName ? statusName.toUpperCase() : 'DESCONOCIDO'),
+        color: estado ? estado.color : '#9ca3af' // bg-gray-400
+    };
+
+    // La lógica de negocio (qué acción dispara cada estado) se mantiene aquí
     switch (statusName) {
-        case 'Desconocido': return { text: 'ESTADO DESCONOCIDO', color: 'bg-amber-500' };
-        default: return { text: statusName ? statusName.toUpperCase() : 'DESCONOCIDO', color: 'bg-gray-400' };
+        case 'Pendiente Bienvenida': return { ...baseInfo, level: 1, gestionType: 'enviar_bienvenida' };
+        case 'Pendiente Cobro': return { ...baseInfo, level: 2, gestionType: 'enviar_cobro' };
+        case 'Pendiente Cliente': return { ...baseInfo, level: 5, gestionType: 'gestionar_cliente' };
+        case 'Desconocido': return { ...baseInfo, level: 0, gestionType: 'corregir_estado', color: '#f59e0b' }; // bg-amber-500
+        
+        // Estados sin acción directa en el tag
+        case 'Pendiente Pago': return { ...baseInfo, level: 3, gestionType: null };
+        case 'Pendiente Boleta': return { ...baseInfo, level: 4, gestionType: null };
+        case 'No Presentado': return { ...baseInfo, level: 100, gestionType: null };
+        default: return { ...baseInfo, level: 99, gestionType: null };
     }
 }
 

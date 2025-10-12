@@ -5,6 +5,7 @@ import { renderGrupos } from './components/gestionDiaria/gestionDiaria.cards.js'
 import { openManagementModal, initializeModals, openRevertModal } from './components/gestionDiaria/gestionDiaria.modals.js';
 
 let allGrupos = [];
+let allEstados = [];
 let currentUserEmail = '';
 let isLoading = false;
 
@@ -70,10 +71,14 @@ async function loadAndRender() {
             currentUserEmail = user.email;
         }
 
-        const data = await fetchAPI('/gestion/pendientes', { method: 'POST' });
+        const [data, estados] = await Promise.all([
+            fetchAPI('/gestion/pendientes', { method: 'POST' }),
+            fetchAPI('/estados')
+        ]);
         allGrupos = data.grupos;
+        allEstados = estados;
         
-        renderGrupos(allGrupos);
+        renderGrupos(allGrupos, allEstados);
         
         noPendientesEl.classList.toggle('hidden', allGrupos.length > 0);
 
@@ -98,11 +103,11 @@ function handleCardButtonClick(e) {
     if (!currentGrupo) return;
     
     if (target.classList.contains('gestion-btn')) {
-        openManagementModal(target.dataset.gestion, currentGrupo);
+        openManagementModal(target.dataset.gestion, currentGrupo, allEstados);
     }
     
     if (target.classList.contains('revert-btn')) {
-        openRevertModal(currentGrupo);
+        openRevertModal(currentGrupo, allEstados);
     }
 }
 
@@ -111,20 +116,16 @@ export async function afterRender() {
 
     const searchInput = document.getElementById('search-input');
     searchInput.addEventListener('input', () => {
-        const filtro = searchInput.value.toLowerCase().trim();
+        const filtro = searchInput.value.toLowerCase();
         if (filtro) {
-            const terminosBusqueda = filtro.split(' ').filter(t => t);
-            const gruposFiltrados = allGrupos.filter(g => {
-                const nombreCompleto = g.clienteNombre.toLowerCase();
-                const busquedaPorNombre = terminosBusqueda.every(termino => nombreCompleto.includes(termino));
-                
-                return busquedaPorNombre ||
-                       g.reservaIdOriginal.toLowerCase().includes(filtro) ||
-                       (g.telefono && g.telefono.includes(filtro));
-            });
-            renderGrupos(gruposFiltrados);
+            const gruposFiltrados = allGrupos.filter(g => 
+                (g.clienteNombre && g.clienteNombre.toLowerCase().includes(filtro)) ||
+                (g.reservaIdOriginal && g.reservaIdOriginal.toLowerCase().includes(filtro)) ||
+                (g.telefono && g.telefono.includes(filtro))
+            );
+            renderGrupos(gruposFiltrados, allEstados);
         } else {
-            renderGrupos(allGrupos);
+            renderGrupos(allGrupos, allEstados);
         }
     });
 
@@ -132,5 +133,5 @@ export async function afterRender() {
     document.getElementById('hoy-list').addEventListener('click', handleCardButtonClick);
     document.getElementById('proximas-list').addEventListener('click', handleCardButtonClick);
     
-    initializeModals(() => loadAndRender(), currentUserEmail);
+    initializeModals(() => loadAndRender(), currentUserEmail, () => allEstados);
 }

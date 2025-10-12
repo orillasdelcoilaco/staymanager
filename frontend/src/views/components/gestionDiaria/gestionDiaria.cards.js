@@ -11,7 +11,7 @@ function createNotificationBadge(isComplete = false, count = 0) {
     return '';
 }
 
-function createGrupoCard(grupo) {
+function createGrupoCard(grupo, allEstados) {
     if (grupo.estado === 'Desconocido') {
         return createUnknownStateCard(grupo);
     }
@@ -19,10 +19,10 @@ function createGrupoCard(grupo) {
     const card = document.createElement('div');
     card.id = `card-${grupo.reservaIdOriginal}`;
     card.className = 'p-4 border rounded-lg shadow-sm flex flex-col';
-    const statusInfo = getStatusInfo(grupo.estadoGestion);
+    const statusInfo = getStatusInfo(grupo.estadoGestion, allEstados);
     const alojamientos = grupo.reservasIndividuales.map(r => r.alojamientoNombre).join(', ');
 
-    const isGestionPagosActive = statusInfo.level >= 2;
+    const isGestionPagosActive = statusInfo.level >= 3;
     const isGestionBoletaActive = statusInfo.level >= 4;
     const isGestionClienteActive = statusInfo.level >= 5;
 
@@ -31,14 +31,14 @@ function createGrupoCard(grupo) {
             <a href="/cliente/${grupo.clienteId}" data-path="/cliente/${grupo.clienteId}" class="nav-link-style text-lg font-bold text-gray-800 hover:text-indigo-600" title="Abrir ficha del cliente">${grupo.clienteNombre}</a>
             <span class="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">${grupo.tipoCliente} (${grupo.numeroDeReservas})</span>
         </div>`;
-    const revertButtonHtml = statusInfo.level > 1 ? `<button data-id="${grupo.reservaIdOriginal}" class="revert-btn ml-2 text-xl" title="Revertir estado">↩️</button>` : '';
+    const revertButtonHtml = statusInfo.level > 1 && statusInfo.level < 99 ? `<button data-id="${grupo.reservaIdOriginal}" class="revert-btn ml-2 text-xl" title="Revertir estado">↩️</button>` : '';
 
     let statusHtml;
-    const gestionType = getStatusInfo(grupo.estadoGestion).gestionType;
-    if (gestionType) {
-        statusHtml = `<button data-gestion="${gestionType}" class="gestion-btn text-sm font-bold text-white px-2 py-1 rounded ${statusInfo.color} hover:opacity-80">${statusInfo.text}</button>`;
+    const styleAttr = `style="background-color: ${statusInfo.color};"`;
+    if (statusInfo.gestionType) {
+        statusHtml = `<button data-gestion="${statusInfo.gestionType}" class="gestion-btn text-sm font-bold text-white px-2 py-1 rounded hover:opacity-80" ${styleAttr}>${statusInfo.text}</button>`;
     } else {
-        statusHtml = `<span class="text-sm font-bold text-white px-2 py-1 rounded ${statusInfo.color}">${statusInfo.text}</span>`;
+        statusHtml = `<span class="text-sm font-bold text-white px-2 py-1 rounded" ${styleAttr}>${statusInfo.text}</span>`;
     }
 
     let financialDetailsHtml;
@@ -141,7 +141,7 @@ function createUnknownStateCard(grupo) {
 }
 
 
-export function renderGrupos(grupos) {
+export function renderGrupos(grupos, allEstados) {
     const revisionList = document.getElementById('revision-list');
     const hoyList = document.getElementById('hoy-list');
     const proximasList = document.getElementById('proximas-list');
@@ -181,14 +181,14 @@ export function renderGrupos(grupos) {
     }
 
     if (llegadasHoy.length > 0) {
-        llegadasHoy.forEach(g => hoyList.appendChild(createGrupoCard(g)));
+        llegadasHoy.forEach(g => hoyList.appendChild(createGrupoCard(g, allEstados)));
         hoyContainer.classList.remove('hidden');
     } else {
         hoyContainer.classList.add('hidden');
     }
 
     if (proximasLlegadas.length > 0) {
-        proximasLlegadas.forEach(g => proximasList.appendChild(createGrupoCard(g)));
+        proximasLlegadas.forEach(g => proximasList.appendChild(createGrupoCard(g, allEstados)));
         proximasContainer.classList.remove('hidden');
     } else {
         proximasContainer.classList.add('hidden');
