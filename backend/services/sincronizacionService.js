@@ -10,6 +10,7 @@ const { obtenerMapeosPorEmpresa } = require('./mapeosService');
 const { obtenerValorDolar, actualizarValorDolarApi } = require('./dolarService');
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 const { registrarCarga } = require('./historialCargasService');
+const { calculatePrice } = require('./propuestasService');
 
 const leerArchivo = (buffer, nombreArchivo) => {
     const esCsv = nombreArchivo && nombreArchivo.toLowerCase().endsWith('.csv');
@@ -141,12 +142,16 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
     const cabeceras = rows[0];
     const datosJson = rows.slice(1);
 
-    const [conversionesAlojamiento, todosLosMapeos, canales, propiedades] = await Promise.all([
+    const [conversionesAlojamiento, todosLosMapeos, canales, propiedades, tarifasSnapshot] = await Promise.all([
         obtenerConversionesPorEmpresa(db, empresaId),
         obtenerMapeosPorEmpresa(db, empresaId),
         obtenerCanalesPorEmpresa(db, empresaId),
-        obtenerPropiedadesPorEmpresa(db, empresaId)
+        obtenerPropiedadesPorEmpresa(db, empresaId),
+        db.collection('empresas').doc(empresaId).collection('tarifas').get()
     ]);
+    
+    const allTarifas = tarifasSnapshot.docs.map(doc => ({ ...doc.data(), fechaInicio: doc.data().fechaInicio.toDate(), fechaTermino: doc.data().fechaTermino.toDate() }));
+
 
     const mapeosDelCanal = todosLosMapeos.filter(m => m.canalId === canalId);
     if (mapeosDelCanal.length === 0) throw new Error("No se ha configurado un mapeo para este canal.");
@@ -182,7 +187,6 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
 
             const fechaLlegadaCruda = get('fechaLlegada');
             let fechaLlegada = parsearFecha(fechaLlegadaCruda, formatoFecha);
-
             let fechaSalida = parsearFecha(get('fechaSalida'), formatoFecha);
 
             if (!fechaLlegada || !fechaSalida) throw new Error(`No se pudieron interpretar las fechas.`);
@@ -204,76 +208,89 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             const resultadoCliente = await crearOActualizarCliente(db, empresaId, datosParaCliente);
             if (resultadoCliente.status === 'creado') resultados.clientesCreados++;
             
-            const nombreExternoAlojamiento = get('alojamientoNombre');
-            let alojamientoId = null, alojamientoNombre = 'Alojamiento no identificado', capacidadAlojamiento = 0;
-            const nombreExternoNormalizado = normalizarString(nombreExternoAlojamiento);
-            if (nombreExternoNormalizado) {
+            const nombresExternosAlojamientos = (get('alojamientoNombre') || '').toString().split(',').map(s => s.trim()).filter(Boolean);
+            if (nombresExternosAlojamientos.length === 0) {
+                throw new Error("La columna de alojamiento está vacía o es inválida.");
+            }
+            
+            const valorDolarDia = monedaCanal === 'USD' ? await obtenerValorDolar(db, empresaId, fechaLlegada) : null;
+
+            const alojamientosDeReserva = [];
+            for (const nombreExterno of nombresExternosAlojamientos) {
+                const nombreExternoNormalizado = normalizarString(nombreExterno);
                 const conversion = conversionesAlojamiento.find(c => c.canalId === canalId && c.nombreExterno.split(';').map(normalizarString).includes(nombreExternoNormalizado));
-                if (conversion) {
-                    alojamientoId = conversion.alojamientoId;
-                    alojamientoNombre = conversion.alojamientoNombre;
-                    const propiedad = propiedades.find(p => p.id === alojamientoId);
-                    if (propiedad) capacidadAlojamiento = propiedad.capacidad;
+                if (!conversion) {
+                    throw new Error(`No se encontró una conversión para el alojamiento "${nombreExterno}" en el canal ${canalNombre}.`);
                 }
-            }
-
-            if (!alojamientoId) {
-                throw new Error(`No se encontró una conversión para el alojamiento "${nombreExternoAlojamiento}" en el canal ${canalNombre}.`);
-            }
-            
-            const valorAnfitrion = parsearMoneda(get('valorAnfitrion'), separadorDecimal);
-            const comisionSumable = parsearMoneda(get('comision'), separadorDecimal);
-            const costoCanalInformativo = parsearMoneda(get('costoCanal'), separadorDecimal);
-
-            const subtotalSinIva = valorAnfitrion + comisionSumable;
-            const ivaCalculado = configuracionIva === 'agregar' ? subtotalSinIva * 0.19 : 0;
-            const valorHuesped = subtotalSinIva + ivaCalculado;
-            
-            let valorDolarDia = null;
-            if (monedaCanal === 'USD') {
-                valorDolarDia = await obtenerValorDolar(db, empresaId, fechaLlegada);
-            }
-
-            const convertirACLPSIesNecesario = (monto) => {
-                if (monedaCanal === 'USD' && valorDolarDia) {
-                    return monto * valorDolarDia;
+                const propiedad = propiedades.find(p => p.id === conversion.alojamientoId);
+                if (!propiedad) {
+                    throw new Error(`La propiedad interna con ID ${conversion.alojamientoId} no fue encontrada.`);
                 }
-                return monto;
-            };
+                alojamientosDeReserva.push(propiedad);
+            }
 
-            const totalNoches = Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24));
+            const preciosBase = await calculatePrice(db, empresaId, alojamientosDeReserva, fechaLlegada, fechaSalida, allTarifas, canalId, valorDolarDia);
+            const totalPayoutReporte = parsearMoneda(get('valorAnfitrion'), separadorDecimal);
+
+            let distribucionValores = {};
+            if (alojamientosDeReserva.length === 1) {
+                distribucionValores[alojamientosDeReserva[0].id] = { valorAnfitrion: totalPayoutReporte };
+            } else {
+                const alojamientosConPrecio = preciosBase.details.map(d => ({...alojamientosDeReserva.find(a => a.nombre === d.nombre), precioBase: d.precioTotal })).sort((a,b) => a.precioBase - b.precioBase);
+                let payoutRestante = totalPayoutReporte;
+                
+                alojamientosConPrecio.forEach((aloj, idx) => {
+                    if (idx < alojamientosConPrecio.length - 1) {
+                        const montoAsignado = Math.min(payoutRestante, aloj.precioBase);
+                        distribucionValores[aloj.id] = { valorAnfitrion: montoAsignado };
+                        payoutRestante -= montoAsignado;
+                    } else {
+                        distribucionValores[aloj.id] = { valorAnfitrion: payoutRestante };
+                    }
+                });
+            }
+
+            const totalPayoutDistribuido = Object.values(distribucionValores).reduce((sum, v) => sum + v.valorAnfitrion, 0);
+
+            for (const alojamiento of alojamientosDeReserva) {
+                const proporcion = totalPayoutDistribuido > 0 ? distribucionValores[alojamiento.id].valorAnfitrion / totalPayoutDistribuido : 1 / alojamientosDeReserva.length;
+
+                const valorAnfitrion = distribucionValores[alojamiento.id].valorAnfitrion;
+                const comisionSumable = parsearMoneda(get('comision'), separadorDecimal) * proporcion;
+                const costoCanalInformativo = parsearMoneda(get('costoCanal'), separadorDecimal) * proporcion;
             
-            const idUnicoReserva = `${idReservaCanal}-${alojamientoId}`;
-            
-            const datosReserva = {
-                empresaId: empresaId,
-                idUnicoReserva: idUnicoReserva,
-                idCarga: idCarga,
-                idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
-                estado: estadoFinal,
-                estadoGestion: estadoFinal === 'Confirmada' ? 'Pendiente Bienvenida' : null,
-                fechaReserva: parsearFecha(get('fechaReserva'), formatoFecha),
-                fechaLlegada, fechaSalida, totalNoches: totalNoches > 0 ? totalNoches : 1,
-                cantidadHuespedes: parseInt(get('invitados')) || capacidadAlojamiento || 0,
-                clienteId: resultadoCliente.cliente.id,
-                alojamientoId, alojamientoNombre,
-                moneda: monedaCanal,
-                valores: {
-                    valorOriginal: valorAnfitrion,
-                    valorTotal: Math.round(convertirACLPSIesNecesario(valorAnfitrion)),
-                    valorHuesped: Math.round(convertirACLPSIesNecesario(valorHuesped)),
-                    comision: Math.round(convertirACLPSIesNecesario(comisionSumable)),
-                    costoCanal: Math.round(convertirACLPSIesNecesario(costoCanalInformativo)),
-                    iva: Math.round(convertirACLPSIesNecesario(ivaCalculado))
-                },
-                valorDolarDia: valorDolarDia,
-                requiereActualizacionDolar: monedaCanal === 'USD' && fechaLlegada > today
-            };
-            
-            const res = await crearOActualizarReserva(db, empresaId, datosReserva);
-            if(res.status === 'creada') resultados.reservasCreadas++;
-            if(res.status === 'actualizada') resultados.reservasActualizadas++;
-            if(res.status === 'sin_cambios') resultados.reservasSinCambios++;
+                const subtotalSinIva = valorAnfitrion + comisionSumable;
+                const ivaCalculado = configuracionIva === 'agregar' ? subtotalSinIva * 0.19 : 0;
+                const valorHuesped = subtotalSinIva + ivaCalculado;
+
+                const convertirACLPSIesNecesario = (monto) => (monedaCanal === 'USD' && valorDolarDia) ? monto * valorDolarDia : monto;
+
+                const totalNoches = Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24));
+                const idUnicoReserva = `${idReservaCanal}-${alojamiento.id}`;
+                
+                const datosReserva = {
+                    empresaId, idUnicoReserva, idCarga, idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
+                    estado: estadoFinal, estadoGestion: estadoFinal === 'Confirmada' ? 'Pendiente Bienvenida' : null,
+                    fechaReserva: parsearFecha(get('fechaReserva'), formatoFecha), fechaLlegada, fechaSalida, totalNoches: totalNoches > 0 ? totalNoches : 1,
+                    cantidadHuespedes: Math.ceil((parseInt(get('invitados')) || alojamiento.capacidad || 1) / alojamientosDeReserva.length),
+                    clienteId: resultadoCliente.cliente.id, alojamientoId: alojamiento.id, alojamientoNombre: alojamiento.nombre,
+                    moneda: monedaCanal,
+                    valores: {
+                        valorOriginal: valorAnfitrion,
+                        valorTotal: Math.round(convertirACLPSIesNecesario(valorAnfitrion)),
+                        valorHuesped: Math.round(convertirACLPSIesNecesario(valorHuesped)),
+                        comision: Math.round(convertirACLPSIesNecesario(comisionSumable)),
+                        costoCanal: Math.round(convertirACLPSIesNecesario(costoCanalInformativo)),
+                        iva: Math.round(convertirACLPSIesNecesario(ivaCalculado))
+                    },
+                    valorDolarDia, requiereActualizacionDolar: monedaCanal === 'USD' && fechaLlegada > today
+                };
+                
+                const res = await crearOActualizarReserva(db, empresaId, datosReserva);
+                if (res.status === 'creada') resultados.reservasCreadas++;
+                else if (res.status === 'actualizada') resultados.reservasActualizadas++;
+                else if (res.status === 'sin_cambios') resultados.reservasSinCambios++;
+            }
 
         } catch (error) {
             console.error(`Error procesando fila ${idFilaParaError}:`, error);
