@@ -45,7 +45,7 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
     const canalPorDefecto = canalesSnapshot.docs.find(doc => doc.data().esCanalPorDefecto);
 
     if (!canalPorDefecto) {
-        return []; // O manejar el error como prefieras
+        return [];
     }
     const canalPorDefectoId = canalPorDefecto.id;
 
@@ -61,12 +61,20 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
         const preciosFinales = {};
         const precioBase = data.precios && data.precios[canalPorDefectoId] ? data.precios[canalPorDefectoId] : 0;
 
-        // --- INICIO DE LA SIMPLIFICACIÓN PARA DEBUG ---
-        // Temporalmente, se asigna el precio base a todos los canales sin aplicar modificadores.
         for (const canal of canalesMap.values()) {
-            preciosFinales[canal.id] = { valor: precioBase, moneda: canal.moneda };
+            let valorFinal = precioBase;
+            // --- INICIO DE LA CORRECCIÓN DE LÓGICA ---
+            // Asegurarse de que el modificador solo se aplique si el canal NO es el canal por defecto.
+            if (canal.id !== canalPorDefectoId && canal.modificadorValor) {
+                if (canal.modificadorTipo === 'porcentaje') {
+                    valorFinal *= (1 + (canal.modificadorValor / 100));
+                } else if (canal.modificadorTipo === 'fijo') {
+                    valorFinal += canal.modificadorValor;
+                }
+            }
+            // --- FIN DE LA CORRECCIÓN DE LÓGICA ---
+            preciosFinales[canal.id] = { valor: valorFinal, moneda: canal.moneda };
         }
-        // --- FIN DE LA SIMPLIFICACIÓN PARA DEBUG ---
 
         return {
             id: doc.id,
@@ -81,8 +89,6 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
 };
 
 const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
-    const tarifaRef = db.collection('empresas').doc(empresaId).collection('tarifas').doc(tarifaId);
-
     const canalesRef = db.collection('empresas').doc(empresaId).collection('canales');
     const canalDefectoSnapshot = await canalesRef.where('esCanalPorDefecto', '==', true).limit(1).get();
     if (canalDefectoSnapshot.empty) {
@@ -90,9 +96,11 @@ const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
     }
     const canalPorDefectoId = canalDefectoSnapshot.docs[0].id;
 
+    const tarifaRef = db.collection('empresas').doc(empresaId).collection('tarifas').doc(tarifaId);
+    
     // --- INICIO DE LA CORRECCIÓN DE LÓGICA DE ACTUALIZACIÓN ---
-    // Este es el método más robusto para actualizar un campo dentro de un mapa en Firestore.
-    // Se utiliza "dot notation" para apuntar directamente al campo que queremos cambiar.
+    // Se utiliza un objeto plano y "dot notation" para actualizar el campo anidado,
+    // lo cual es el método más robusto y recomendado por Firestore.
     const datosParaActualizar = {
         temporada: datosActualizados.temporada,
         fechaInicio: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaInicio + 'T00:00:00Z')),
