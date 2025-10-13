@@ -224,6 +224,11 @@ export function afterRender() {
     });
 
     document.getElementById('cancel-edit-btn').addEventListener('click', cerrarModalEditar);
+
+    // --- INICIO DE LA CORRECCIÓN ---
+    // El error estaba aquí. El código anterior intentaba leer múltiples campos de precio
+    // que ya no existen en el formulario de edición.
+    // La versión corregida lee el único campo 'precioBase' y envía ese dato al backend.
     formEdit.addEventListener('submit', async(e) => {
         e.preventDefault();
         
@@ -243,6 +248,7 @@ export function afterRender() {
             alert(`Error al actualizar tarifa: ${error.message}`);
         }
     });
+    // --- FIN DE LA CORRECCIÓN ---
 
     tbody.addEventListener('click', (e) => {
         const target = e.target;
