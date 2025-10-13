@@ -42,7 +42,12 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
 
     const propiedadesMap = new Map(propiedadesSnapshot.docs.map(doc => [doc.id, doc.data().nombre]));
     const canalesMap = new Map(canalesSnapshot.docs.map(doc => [doc.id, doc.data()]));
-    const canalPorDefectoId = canalesSnapshot.docs.find(doc => doc.data().esCanalPorDefecto)?.id;
+    const canalPorDefecto = canalesSnapshot.docs.find(doc => doc.data().esCanalPorDefecto);
+
+    if (!canalPorDefecto) {
+        return []; // O manejar el error como prefieras
+    }
+    const canalPorDefectoId = canalPorDefecto.id;
 
     return tarifasSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -54,7 +59,7 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
             : data.fechaTermino;
         
         const preciosFinales = {};
-        const precioBase = data.precios && canalPorDefectoId ? data.precios[canalPorDefectoId] || 0 : 0;
+        const precioBase = data.precios && data.precios[canalPorDefectoId] ? data.precios[canalPorDefectoId] : 0;
 
         for (const canal of canalesMap.values()) {
             let valorFinal = precioBase;
@@ -81,6 +86,8 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
 };
 
 const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
+    const tarifaRef = db.collection('empresas').doc(empresaId).collection('tarifas').doc(tarifaId);
+
     const canalesRef = db.collection('empresas').doc(empresaId).collection('canales');
     const canalDefectoSnapshot = await canalesRef.where('esCanalPorDefecto', '==', true).limit(1).get();
     if (canalDefectoSnapshot.empty) {
@@ -88,19 +95,28 @@ const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
     }
     const canalPorDefectoId = canalDefectoSnapshot.docs[0].id;
 
-    const tarifaRef = db.collection('empresas').doc(empresaId).collection('tarifas').doc(tarifaId);
-    
-    const datosParaActualizar = {
-        temporada: datosActualizados.temporada,
-        fechaInicio: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaInicio + 'T00:00:00Z')),
-        fechaTermino: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaTermino + 'T00:00:00Z')),
-        precios: {
-            [canalPorDefectoId]: parseFloat(datosActualizados.precioBase)
-        },
-        fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
-    };
+    await db.runTransaction(async (transaction) => {
+        const tarifaDoc = await transaction.get(tarifaRef);
+        if (!tarifaDoc.exists) {
+            throw new Error("La tarifa que intentas actualizar no existe.");
+        }
 
-    await tarifaRef.set(datosParaActualizar, { merge: true });
+        const datosAntiguos = tarifaDoc.data();
+        
+        const datosNuevos = {
+            ...datosAntiguos, // Mantenemos todos los campos antiguos
+            temporada: datosActualizados.temporada,
+            fechaInicio: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaInicio + 'T00:00:00Z')),
+            fechaTermino: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaTermino + 'T00:00:00Z')),
+            precios: {
+                ...datosAntiguos.precios, // Mantenemos precios de otros posibles canales si existieran
+                [canalPorDefectoId]: parseFloat(datosActualizados.precioBase) // Sobreescribimos/añadimos el precio base
+            },
+            fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
+        };
+
+        transaction.set(tarifaRef, datosNuevos);
+    });
 
     return { id: tarifaId, ...datosActualizados };
 };
