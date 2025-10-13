@@ -61,17 +61,12 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
         const preciosFinales = {};
         const precioBase = data.precios && data.precios[canalPorDefectoId] ? data.precios[canalPorDefectoId] : 0;
 
+        // --- INICIO DE LA SIMPLIFICACIÓN PARA DEBUG ---
+        // Temporalmente, se asigna el precio base a todos los canales sin aplicar modificadores.
         for (const canal of canalesMap.values()) {
-            let valorFinal = precioBase;
-            if (canal.modificadorValor && canal.id !== canalPorDefectoId) {
-                if (canal.modificadorTipo === 'porcentaje') {
-                    valorFinal *= (1 + (canal.modificadorValor / 100));
-                } else if (canal.modificadorTipo === 'fijo') {
-                    valorFinal += canal.modificadorValor;
-                }
-            }
-            preciosFinales[canal.id] = { valor: valorFinal, moneda: canal.moneda };
+            preciosFinales[canal.id] = { valor: precioBase, moneda: canal.moneda };
         }
+        // --- FIN DE LA SIMPLIFICACIÓN PARA DEBUG ---
 
         return {
             id: doc.id,
@@ -95,28 +90,19 @@ const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
     }
     const canalPorDefectoId = canalDefectoSnapshot.docs[0].id;
 
-    await db.runTransaction(async (transaction) => {
-        const tarifaDoc = await transaction.get(tarifaRef);
-        if (!tarifaDoc.exists) {
-            throw new Error("La tarifa que intentas actualizar no existe.");
-        }
+    // --- INICIO DE LA CORRECCIÓN DE LÓGICA DE ACTUALIZACIÓN ---
+    // Este es el método más robusto para actualizar un campo dentro de un mapa en Firestore.
+    // Se utiliza "dot notation" para apuntar directamente al campo que queremos cambiar.
+    const datosParaActualizar = {
+        temporada: datosActualizados.temporada,
+        fechaInicio: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaInicio + 'T00:00:00Z')),
+        fechaTermino: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaTermino + 'T00:00:00Z')),
+        [`precios.${canalPorDefectoId}`]: parseFloat(datosActualizados.precioBase),
+        fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
+    };
 
-        const datosAntiguos = tarifaDoc.data();
-        
-        const datosNuevos = {
-            ...datosAntiguos, // Mantenemos todos los campos antiguos
-            temporada: datosActualizados.temporada,
-            fechaInicio: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaInicio + 'T00:00:00Z')),
-            fechaTermino: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaTermino + 'T00:00:00Z')),
-            precios: {
-                ...datosAntiguos.precios, // Mantenemos precios de otros posibles canales si existieran
-                [canalPorDefectoId]: parseFloat(datosActualizados.precioBase) // Sobreescribimos/añadimos el precio base
-            },
-            fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
-        };
-
-        transaction.set(tarifaRef, datosNuevos);
-    });
+    await tarifaRef.update(datosParaActualizar);
+    // --- FIN DE LA CORRECCIÓN DE LÓGICA DE ACTUALIZACIÓN ---
 
     return { id: tarifaId, ...datosActualizados };
 };
