@@ -31,13 +31,15 @@ module.exports = (db) => {
 
     router.put('/:id', async (req, res) => {
         try {
-            console.log(`[DEBUG Backend Route] PUT /api/tarifas/${req.params.id}`);
+            console.log(`[DEBUG Backend Route] INICIO: PUT /api/tarifas/${req.params.id}`);
             console.log('[DEBUG Backend Route] Body recibido:', JSON.stringify(req.body, null, 2));
             const { empresaId } = req.user;
             const { id } = req.params;
             const tarifaActualizada = await actualizarTarifa(db, empresaId, id, req.body);
+            console.log('[DEBUG Backend Route] FIN: La tarifa se actualizó con éxito en el servicio.');
             res.status(200).json(tarifaActualizada);
         } catch (error) {
+            console.error('[DEBUG Backend Route] ERROR:', error);
             res.status(500).json({ error: error.message });
         }
     });
