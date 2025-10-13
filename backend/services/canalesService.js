@@ -16,13 +16,6 @@ const crearCanal = async (db, empresaId, datosCanal) => {
                 transaction.update(doc.ref, { esCanalPorDefecto: false });
             });
         }
-        if (datosCanal.esCanalIcal) {
-            const qIcal = canalesRef.where('esCanalIcal', '==', true);
-            const snapshotIcal = await transaction.get(qIcal);
-            snapshotIcal.forEach(doc => {
-                transaction.update(doc.ref, { esCanalIcal: false });
-            });
-        }
 
         const canalRef = canalesRef.doc();
         const nuevoCanal = {
@@ -33,6 +26,8 @@ const crearCanal = async (db, empresaId, datosCanal) => {
             separadorDecimal: datosCanal.separadorDecimal || ',',
             esCanalPorDefecto: datosCanal.esCanalPorDefecto || false,
             esCanalIcal: datosCanal.esCanalIcal || false,
+            modificadorTipo: datosCanal.modificadorTipo || null,
+            modificadorValor: datosCanal.modificadorValor || 0,
             fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
         };
         transaction.set(canalRef, nuevoCanal);
@@ -67,16 +62,7 @@ const actualizarCanal = async (db, empresaId, canalId, datosActualizados) => {
                 }
             });
         }
-        if (datosActualizados.esCanalIcal) {
-            const qIcal = canalesRef.where('esCanalIcal', '==', true);
-            const snapshotIcal = await transaction.get(qIcal);
-            snapshotIcal.forEach(doc => {
-                if (doc.id !== canalId) {
-                    transaction.update(doc.ref, { esCanalIcal: false });
-                }
-            });
-        }
-
+        
         transaction.update(canalRef, {
             ...datosActualizados,
             fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()

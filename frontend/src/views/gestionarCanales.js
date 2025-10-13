@@ -19,6 +19,8 @@ function abrirModal(canal = null) {
         form.separadorDecimal.value = canal.separadorDecimal || ',';
         form.esCanalPorDefecto.checked = canal.esCanalPorDefecto || false;
         form.esCanalIcal.checked = canal.esCanalIcal || false;
+        form.modificadorTipo.value = canal.modificadorTipo || '';
+        form.modificadorValor.value = canal.modificadorValor || 0;
     } else {
         editandoCanal = null;
         modalTitle.textContent = 'Nuevo Canal';
@@ -95,7 +97,7 @@ export async function render() {
         </div>
 
         <div id="canal-modal" class="modal hidden">
-            <div class="modal-content">
+            <div class="modal-content !max-w-3xl">
                 <div class="flex justify-between items-center pb-3">
                     <h3 id="modal-title" class="text-xl font-semibold">Nuevo Canal</h3>
                     <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800">&times;</button>
@@ -125,6 +127,21 @@ export async function render() {
                             </select>
                         </div>
                     </div>
+                     <div class="border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="mb-4">
+                            <label for="modificadorTipo" class="block text-sm font-medium text-gray-700">Modificador de Tarifa</label>
+                            <select id="modificadorTipo" name="modificadorTipo" class="form-select mt-1">
+                                <option value="">Sin modificador</option>
+                                <option value="porcentaje">Porcentaje (%)</option>
+                                <option value="fijo">Monto Fijo</option>
+                            </select>
+                        </div>
+                        <div class="mb-4">
+                            <label for="modificadorValor" class="block text-sm font-medium text-gray-700">Valor del Modificador</label>
+                            <input type="number" id="modificadorValor" name="modificadorValor" class="form-input mt-1" value="0" step="0.01">
+                             <p class="text-xs text-gray-500 mt-1">Ej: 18 para +18%, o 5000 para +$5.000</p>
+                        </div>
+                    </div>
                     <div class="mb-4">
                         <label for="descripcion" class="block text-sm font-medium text-gray-700">Descripción (Opcional)</label>
                         <textarea id="descripcion" name="descripcion" rows="3" class="form-input mt-1"></textarea>
@@ -132,7 +149,7 @@ export async function render() {
                     <div class="space-y-2">
                         <label for="esCanalPorDefecto" class="flex items-center">
                             <input type="checkbox" id="esCanalPorDefecto" name="esCanalPorDefecto" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
-                            <span class="ml-2 text-sm text-gray-600">⭐ Marcar como canal por defecto para nuevas reservas manuales.</span>
+                            <span class="ml-2 text-sm text-gray-600">⭐ Marcar como canal por defecto para la tarifa base.</span>
                         </label>
                         <label for="esCanalIcal" class="flex items-center">
                             <input type="checkbox" id="esCanalIcal" name="esCanalIcal" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
@@ -166,7 +183,9 @@ export function afterRender() {
             moneda: form.moneda.value,
             separadorDecimal: form.separadorDecimal.value,
             esCanalPorDefecto: form.esCanalPorDefecto.checked,
-            esCanalIcal: form.esCanalIcal.checked
+            esCanalIcal: form.esCanalIcal.checked,
+            modificadorTipo: form.modificadorTipo.value,
+            modificadorValor: parseFloat(form.modificadorValor.value) || 0
         };
 
         try {

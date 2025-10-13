@@ -111,19 +111,11 @@ async function abrirModalVer(reservaId) {
 function toggleDolarFields(form) {
     const moneda = form.moneda.value;
     const dolarContainer = form.querySelector('#dolar-container');
-    const valorTotalInput = form.valorTotal;
-    const valorOriginalInput = form.valorOriginal;
-
-    valorOriginalInput.step = moneda === 'USD' ? '0.01' : '1';
 
     if (moneda === 'USD') {
         dolarContainer.style.display = 'grid';
-        valorTotalInput.readOnly = true;
-        valorTotalInput.classList.add('bg-gray-100');
     } else {
         dolarContainer.style.display = 'none';
-        valorTotalInput.readOnly = false;
-        valorTotalInput.classList.remove('bg-gray-100');
     }
 }
 
@@ -377,8 +369,8 @@ export async function render() {
                 <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Montos</legend>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div><label for="moneda" class="label">Moneda</label><select name="moneda" class="form-select"><option value="CLP">CLP</option><option value="USD">USD</option></select></div>
-                        <div><label for="valorOriginal" class="label">Valor Original (Payout)</label><input type="number" name="valorOriginal" class="form-input"></div>
-                        <div><label for="valorTotal" class="label">Valor Final (Payout CLP)</label><input type="number" name="valorTotal" step="1" class="form-input"></div>
+                        <div><label for="valorOriginal" class="label">Valor Original (KPI)</label><input type="number" name="valorOriginal" class="form-input bg-gray-100" readonly></div>
+                        <div><label for="valorTotal" class="label">Valor Final (Payout CLP)</label><input type="number" name="valorTotal" step="1" class="form-input bg-gray-100" readonly></div>
                     </div>
                     <div id="dolar-container" class="hidden mt-4"><label for="valorDolarDia" class="label">Valor Dólar del Día</label><input type="number" step="0.01" name="valorDolarDia" class="form-input w-full md:w-1/3"></div>
                 </fieldset>
@@ -613,14 +605,7 @@ export function afterRender() {
             fechaSalida: formEdit.fechaSalida.value,
             estado: formEdit.estado.value,
             estadoGestion: formEdit.estadoGestion.value || null,
-            moneda: formEdit.moneda.value,
             cantidadHuespedes: parseInt(formEdit.cantidadHuespedes.value) || 0,
-            valorDolarDia: parseFloat(formEdit.valorDolarDia.value) || null,
-            valores: {
-                ...editandoReserva.valores,
-                valorOriginal: parseFloat(formEdit.valorOriginal.value) || 0,
-                valorTotal: parseFloat(formEdit.valorTotal.value) || 0,
-            }
         };
 
         try {

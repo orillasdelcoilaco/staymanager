@@ -1,196 +1,236 @@
-import { handleNavigation } from '../../../router.js'; 
-import { getStatusInfo, formatCurrency, formatDate, formatUSD } from './gestionDiaria.utils.js';
+// backend/services/gestionService.js
 
-function createNotificationBadge(isComplete = false, count = 0) {
-    if (isComplete) {
-        return `<span class="absolute -top-1 -right-1 flex h-4 w-4"><span class="relative inline-flex rounded-full h-4 w-4 bg-green-500 text-white items-center justify-center text-xs">✓</span></span>`;
-    }
-    if (count > 0) {
-        return `<span class="absolute -top-2 -right-2 bg-blue-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">${count}</span>`;
-    }
-    return '';
-}
+const admin = require('firebase-admin');
 
-function createGrupoCard(grupo, allEstados) {
-    if (grupo.estado === 'Desconocido') {
-        return createUnknownStateCard(grupo);
-    }
-
-    const card = document.createElement('div');
-    card.id = `card-${grupo.reservaIdOriginal}`;
-    card.className = 'p-4 border rounded-lg shadow-sm flex flex-col';
-    const statusInfo = getStatusInfo(grupo.estadoGestion, allEstados);
-    const alojamientos = grupo.reservasIndividuales.map(r => r.alojamientoNombre).join(', ');
-
-    const isGestionPagosActive = statusInfo.level >= 3;
-    const isGestionBoletaActive = statusInfo.level >= 4;
-    const isGestionClienteActive = statusInfo.level >= 5;
-
-    const clienteLink = `
-        <div class="flex items-center gap-3">
-            <a href="/cliente/${grupo.clienteId}" data-path="/cliente/${grupo.clienteId}" class="nav-link-style text-lg font-bold text-gray-800 hover:text-indigo-600" title="Abrir ficha del cliente">${grupo.clienteNombre}</a>
-            <span class="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">${grupo.tipoCliente} (${grupo.numeroDeReservas})</span>
-        </div>`;
-    const revertButtonHtml = statusInfo.level > 1 && statusInfo.level < 99 ? `<button data-id="${grupo.reservaIdOriginal}" class="revert-btn ml-2 text-xl" title="Revertir estado">↩️</button>` : '';
-
-    let statusHtml;
-    const styleAttr = `style="background-color: ${statusInfo.color};"`;
-    if (statusInfo.gestionType) {
-        statusHtml = `<button data-gestion="${statusInfo.gestionType}" class="gestion-btn text-sm font-bold text-white px-2 py-1 rounded hover:opacity-80" ${styleAttr}>${statusInfo.text}</button>`;
-    } else {
-        statusHtml = `<span class="text-sm font-bold text-white px-2 py-1 rounded" ${styleAttr}>${statusInfo.text}</span>`;
-    }
-
-    let financialDetailsHtml;
-    const saldo = grupo.valorTotalHuesped - grupo.abonoTotal;
-
-    if (grupo.esUSD) {
-        const valorDolar = grupo.reservasIndividuales[0]?.valorDolarDia || 0;
-        financialDetailsHtml = `
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 font-semibold w-full">
-                <div class="text-sm space-y-1 p-2 bg-blue-50 rounded-md border border-blue-200">
-                    <h4 class="font-bold text-blue-800 text-center mb-1">Valores en USD</h4>
-                    <div class="flex justify-between"><span>Tarifa Base:</span> <span>${formatUSD(grupo.valoresUSD?.payout || 0)}</span></div>
-                    <div class="flex justify-between text-gray-600"><span>(+) IVA:</span> <span>${formatUSD(grupo.valoresUSD?.iva || 0)}</span></div>
-                    <div class="flex justify-between border-t border-blue-200 mt-1 pt-1 font-bold"><span>Total Cliente:</span> <span>${formatUSD(grupo.valoresUSD?.totalCliente || 0)}</span></div>
-                </div>
-                <div class="text-sm space-y-1 p-2 bg-gray-50 rounded-md">
-                    <h4 class="font-bold text-gray-800 text-center mb-1">Equivalente en CLP (Dólar a ${formatCurrency(valorDolar)})</h4>
-                    <div class="flex justify-between font-bold text-base"><span>Total a Pagar:</span> <span>${formatCurrency(grupo.valorTotalHuesped)}</span></div>
-                     <div class="flex justify-between text-green-600"><span>Abonado:</span> <span>${formatCurrency(grupo.abonoTotal)}</span></div>
-                    <div class="flex justify-between text-red-600"><span>Saldo Pendiente:</span> <span>${formatCurrency(saldo)}</span></div>
-                </div>
-            </div>
-        `;
-    } else {
-        financialDetailsHtml = `
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 font-semibold w-full md:w-2/3">
-                <div class="col-span-full text-base flex justify-between">
-                    <span><span class="text-gray-500 font-medium">Payout Final:</span> ${formatCurrency(grupo.payoutFinalReal)}</span>
-                    <span class="text-orange-600" title="Costo del Canal (Comisiones + Tarifas)"><span class="text-gray-500 font-medium">Costo Canal:</span> ${formatCurrency(grupo.costoCanal)}</span>
-                </div>
-                <div class="text-right border-t pt-2 font-bold text-lg"><span class="text-gray-500 font-medium">Total Cliente:</span> ${formatCurrency(grupo.valorTotalHuesped)}</div>
-                <div class="text-right border-t pt-2 grid grid-cols-2 gap-2">
-                    <div class="text-green-600"><span class="text-gray-500 font-medium">Abonado:</span> <span>${formatCurrency(grupo.abonoTotal)}</span></div>
-                    <div class="text-red-600"><span class="text-gray-500 font-medium">Saldo:</span> <span>${formatCurrency(saldo)}</span></div>
-                </div>
-            </div>
-        `;
-    }
-
-    const baseButtonClasses = "w-full px-3 py-1 text-xs font-semibold rounded-md transition-colors relative";
-    const activeButtonClasses = "bg-gray-100 text-gray-800 hover:bg-gray-200";
-    const disabledButtonClasses = "bg-gray-100 text-gray-400 cursor-not-allowed";
-
-    card.innerHTML = `
-        <div class="flex items-center mb-2">
-            ${statusHtml}
-            ${revertButtonHtml}
-            <div class="ml-4 flex-grow">${clienteLink}</div>
-        </div>
-        <div class="text-sm text-gray-600 mt-2 flex flex-wrap gap-x-4 gap-y-1">
-            <span><strong>Teléfono:</strong> ${grupo.telefono || 'N/A'}</span>
-            <span><strong>ID Reserva:</strong> ${grupo.reservaIdOriginal}</span>
-            <span><strong>Estancia:</strong> ${formatDate(grupo.fechaLlegada)} al ${formatDate(grupo.fechaSalida)}</span>
-            <span><strong>Alojamientos (${grupo.reservasIndividuales.length}):</strong> ${alojamientos}</span>
-        </div>
-        <div class="border-t mt-4 pt-3 flex flex-col md:flex-row justify-between items-center text-sm">
-            ${financialDetailsHtml}
-            <div class="mt-3 md:mt-0 grid grid-cols-3 gap-2 w-full md:w-auto">
-                <button data-id="${grupo.reservaIdOriginal}" data-gestion="gestionar_reserva" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Gestionar Reserva ${createNotificationBadge(!!grupo.documentos?.enlaceReserva)}</button>
-                <button data-id="${grupo.reservaIdOriginal}" data-gestion="ajuste_tarifa" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Ajustar Tarifa ${createNotificationBadge(grupo.ajusteManualRealizado || grupo.potencialCalculado)}</button>
-                <button data-id="${grupo.reservaIdOriginal}" data-gestion="pagos" class="gestion-btn ${baseButtonClasses} ${isGestionPagosActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionPagosActive ? 'disabled' : ''}>Gestionar Pagos ${createNotificationBadge(false, grupo.transaccionesCount)}</button>
-                <button data-id="${grupo.reservaIdOriginal}" data-gestion="boleta" class="gestion-btn ${baseButtonClasses} ${isGestionBoletaActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionBoletaActive ? 'disabled' : ''}>Gestionar Boleta ${createNotificationBadge(!!grupo.documentos?.enlaceBoleta)}</button>
-                <button data-id="${grupo.reservaIdOriginal}" data-gestion="gestionar_cliente" class="gestion-btn ${baseButtonClasses} ${isGestionClienteActive ? activeButtonClasses : disabledButtonClasses}" ${!isGestionClienteActive ? 'disabled' : ''}>Gestionar Cliente ${createNotificationBadge(grupo.clienteGestionado)}</button>
-                <button data-id="${grupo.reservaIdOriginal}" data-gestion="bitacora" class="gestion-btn ${baseButtonClasses} ${activeButtonClasses}">Bitácora 🗂️ ${createNotificationBadge(false, grupo.notasCount)}</button>
-            </div>
-        </div>`;
+const getReservasPendientes = async (db, empresaId) => {
+    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
     
-    card.querySelectorAll('.nav-link-style').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            handleNavigation(e.currentTarget.dataset.path);
+    // CAMBIO: Obtener dinámicamente los estados de gestión desde la nueva colección
+    const estadosSnapshot = await db.collection('empresas').doc(empresaId).collection('estadosReserva').where('esEstadoDeGestion', '==', true).get();
+    const estadosDeGestion = estadosSnapshot.docs.map(doc => doc.data().nombre);
+
+    const queries = [];
+    if (estadosDeGestion.length > 0) {
+        queries.push(
+            reservasRef
+                .where('estado', '==', 'Confirmada')
+                .where('estadoGestion', 'in', estadosDeGestion)
+                .get()
+        );
+    }
+    queries.push(reservasRef.where('estado', '==', 'Desconocido').get());
+
+    const snapshots = await Promise.all(queries);
+    const [gestionSnapshot, desconocidoSnapshot] = snapshots;
+
+    const allDocs = [];
+    const docIds = new Set();
+
+    if(gestionSnapshot) {
+        gestionSnapshot.forEach(doc => { allDocs.push(doc); docIds.add(doc.id); });
+    }
+    if (desconocidoSnapshot) {
+        desconocidoSnapshot.forEach(doc => { if (!docIds.has(doc.id)) allDocs.push(doc); });
+    }
+
+    if (allDocs.length === 0) {
+        return { grupos: [], hasMore: false, lastVisible: null };
+    }
+    
+    allDocs.sort((a, b) => a.data().fechaLlegada.toDate() - b.data().fechaLlegada.toDate());
+
+    const allReservasData = allDocs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    const clienteIds = [...new Set(allReservasData.map(r => r.clienteId).filter(Boolean))];
+    const reservaIdsOriginales = [...new Set(allReservasData.map(r => r.idReservaCanal))];
+
+    const [clientesSnapshot, notasSnapshot, transaccionesSnapshot, historialReservasSnapshot] = await Promise.all([
+        clienteIds.length > 0 ? db.collection('empresas').doc(empresaId).collection('clientes').where(admin.firestore.FieldPath.documentId(), 'in', clienteIds).get() : Promise.resolve({ docs: [] }),
+        reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('gestionNotas').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
+        reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('transacciones').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
+        clienteIds.length > 0 ? db.collection('empresas').doc(empresaId).collection('reservas').where('clienteId', 'in', clienteIds).where('estado', '==', 'Confirmada').get() : Promise.resolve({ docs: [] })
+    ]);
+
+    const clientsMap = new Map();
+    clientesSnapshot.docs.forEach(doc => {
+        const clienteData = doc.data();
+        const historialCliente = historialReservasSnapshot.docs
+            .filter(reservaDoc => reservaDoc.data().clienteId === doc.id)
+            .map(reservaDoc => reservaDoc.data());
+
+        const totalGastado = historialCliente.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0);
+        const numeroDeReservas = historialCliente.length;
+        
+        let tipoCliente = 'Cliente Nuevo';
+        if (totalGastado > 1000000) {
+            tipoCliente = 'Cliente Premium';
+        } else if (numeroDeReservas > 1) {
+            tipoCliente = 'Cliente Frecuente';
+        }
+
+        clientsMap.set(doc.id, {
+            ...clienteData,
+            numeroDeReservas,
+            tipoCliente
         });
     });
-
-    return card;
-}
-
-function createUnknownStateCard(grupo) {
-    const card = document.createElement('div');
-    card.id = `card-${grupo.reservaIdOriginal}`;
-    card.className = 'p-4 border border-amber-300 bg-amber-50 rounded-lg shadow-sm flex flex-col';
-    const alojamientos = grupo.reservasIndividuales.map(r => r.alojamientoNombre).join(', ');
-
-    card.innerHTML = `
-        <div class="flex items-center justify-between mb-2">
-            <span class="text-sm font-bold text-white px-2 py-1 rounded bg-amber-500">ESTADO DESCONOCIDO</span>
-            <span class="text-lg font-bold text-gray-800">${grupo.clienteNombre}</span>
-        </div>
-        <div class="text-sm text-gray-600 mt-2 flex flex-wrap gap-x-4 gap-y-1">
-            <span><strong>ID Reserva:</strong> ${grupo.reservaIdOriginal}</span>
-            <span><strong>Estancia:</strong> ${formatDate(grupo.fechaLlegada)} al ${formatDate(grupo.fechaSalida)}</span>
-            <span><strong>Alojamientos:</strong> ${alojamientos}</span>
-        </div>
-        <div class="border-t mt-4 pt-3 flex justify-end items-center">
-            <button data-gestion="corregir_estado" data-id="${grupo.reservasIndividuales[0].id}" class="gestion-btn px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700">
-                Revisar y Corregir Estado
-            </button>
-        </div>`;
-    return card;
-}
-
-
-export function renderGrupos(grupos, allEstados) {
-    const revisionList = document.getElementById('revision-list');
-    const hoyList = document.getElementById('hoy-list');
-    const proximasList = document.getElementById('proximas-list');
-    const noPendientes = document.getElementById('no-pendientes');
-    const revisionContainer = document.getElementById('revision-container');
-    const hoyContainer = document.getElementById('hoy-container');
-    const proximasContainer = document.getElementById('proximas-container');
     
-    revisionList.innerHTML = '';
-    hoyList.innerHTML = '';
-    proximasList.innerHTML = '';
+    const notesCountMap = new Map();
+    notasSnapshot.forEach(doc => {
+        const id = doc.data().reservaIdOriginal;
+        notesCountMap.set(id, (notesCountMap.get(id) || 0) + 1);
+    });
+    const abonosMap = new Map();
+    transaccionesSnapshot.forEach(doc => {
+        const id = doc.data().reservaIdOriginal;
+        abonosMap.set(id, (abonosMap.get(id) || 0) + (parseFloat(doc.data().monto) || 0));
+    });
 
-    if (grupos.length === 0) {
-        noPendientes.classList.remove('hidden');
-        revisionContainer.classList.add('hidden');
-        hoyContainer.classList.add('hidden');
-        proximasContainer.classList.add('hidden');
-        return;
-    }
+    const reservasAgrupadas = new Map();
+    allReservasData.forEach(data => {
+        const reservaId = data.idReservaCanal;
+        if (!reservasAgrupadas.has(reservaId)) {
+            const clienteActual = clientsMap.get(data.clienteId);
+            reservasAgrupadas.set(reservaId, {
+                reservaIdOriginal: reservaId,
+                clienteId: data.clienteId,
+                clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
+                telefono: clienteActual?.telefono || 'N/A',
+                tipoCliente: clienteActual?.tipoCliente || 'Nuevo',
+                numeroDeReservas: clienteActual?.numeroDeReservas || 1,
+                fechaLlegada: data.fechaLlegada?.toDate(),
+                fechaSalida: data.fechaSalida?.toDate(),
+                totalNoches: data.totalNoches,
+                estado: data.estado,
+                estadoGestion: data.estadoGestion,
+                abonoTotal: abonosMap.get(reservaId) || 0,
+                notasCount: notesCountMap.get(reservaId) || 0,
+                transaccionesCount: transaccionesSnapshot.docs.filter(d => d.data().reservaIdOriginal === reservaId).length,
+                reservasIndividuales: []
+            });
+        }
+        reservasAgrupadas.get(reservaId).reservasIndividuales.push(data);
+    });
+
+    const gruposProcesados = Array.from(reservasAgrupadas.values()).map(grupo => {
+        const primerReserva = grupo.reservasIndividuales[0];
+        const esUSD = primerReserva.moneda === 'USD';
+
+        const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
+            acc.valorTotalHuesped += r.valores?.valorHuesped || 0;
+            acc.costoCanal += (r.valores?.comision > 0 ? r.valores.comision : r.valores?.costoCanal || 0);
+            acc.valorListaBaseTotal += r.valores?.valorOriginal || 0;
+            if (r.ajusteManualRealizado) acc.ajusteManualRealizado = true;
+            if (r.potencialCalculado) acc.potencialCalculado = true;
+            if (r.clienteGestionado) acc.clienteGestionado = true;
+            if (r.documentos) acc.documentos = { ...acc.documentos, ...r.documentos };
+            return acc;
+        }, { valorTotalHuesped: 0, costoCanal: 0, valorListaBaseTotal: 0, ajusteManualRealizado: false, potencialCalculado: false, clienteGestionado: false, documentos: {} });
+        
+        const resultado = {
+            ...grupo,
+            ...valoresAgregados,
+            esUSD,
+            payoutFinalReal: valoresAgregados.valorTotalHuesped - valoresAgregados.costoCanal
+        };
+
+        if (esUSD) {
+            const valorDolarDia = primerReserva.valorDolarDia || 1;
+            const totalPayoutUSD = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorOriginal || 0), 0);
+            const totalIvaCLP = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.iva || 0), 0);
+            const totalIvaUSD = valorDolarDia > 0 ? totalIvaCLP / valorDolarDia : 0;
+            
+            resultado.valoresUSD = {
+                payout: totalPayoutUSD,
+                iva: totalIvaUSD,
+                totalCliente: totalPayoutUSD + totalIvaUSD
+            };
+        }
+
+        return resultado;
+    });
     
-    noPendientes.classList.add('hidden');
+    return { grupos: gruposProcesados, hasMore: false, lastVisible: null };
+};
+
+
+const actualizarEstadoGrupo = async (db, empresaId, idsIndividuales, nuevoEstado) => {
+    const batch = db.batch();
+    idsIndividuales.forEach(id => {
+        const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);
+        batch.update(ref, { estadoGestion: nuevoEstado });
+    });
+    await batch.commit();
+};
+
+const getNotas = async (db, empresaId, reservaIdOriginal) => {
+    const snapshot = await db.collection('empresas').doc(empresaId).collection('gestionNotas')
+        .where('reservaIdOriginal', '==', reservaIdOriginal)
+        .orderBy('fecha', 'desc')
+        .get();
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, fecha: doc.data().fecha.toDate().toLocaleString('es-CL') }));
+};
+
+const addNota = async (db, empresaId, notaData) => {
+    const nota = { ...notaData, fecha: admin.firestore.FieldValue.serverTimestamp() };
+    const docRef = await db.collection('empresas').doc(empresaId).collection('gestionNotas').add(nota);
+    return { id: docRef.id, ...nota };
+};
+
+const getTransacciones = async (db, empresaId, idsIndividuales) => {
+    const transaccionesRef = db.collection('empresas').doc(empresaId).collection('transacciones');
+    const reservaDoc = await db.collection('empresas').doc(empresaId).collection('reservas').doc(idsIndividuales[0]).get();
+    if (!reservaDoc.exists) return [];
     
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
+    const reservaIdOriginal = reservaDoc.data().idReservaCanal;
+    
+    const snapshot = await transaccionesRef
+        .where('reservaIdOriginal', '==', reservaIdOriginal)
+        .get();
 
-    const paraRevision = grupos.filter(g => g.estado === 'Desconocido');
-    const confirmados = grupos.filter(g => g.estado === 'Confirmada');
+    if (snapshot.empty) return [];
 
-    const llegadasHoy = confirmados.filter(g => new Date(g.fechaLlegada).getTime() <= today.getTime());
-    const proximasLlegadas = confirmados.filter(g => new Date(g.fechaLlegada).getTime() > today.getTime());
+    const transacciones = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            fecha: data.fecha ? data.fecha.toDate() : new Date()
+        };
+    });
+    transacciones.sort((a, b) => b.fecha - a.fecha);
+    return transacciones;
+};
 
-    if (paraRevision.length > 0) {
-        paraRevision.forEach(g => revisionList.appendChild(createUnknownStateCard(g)));
-        revisionContainer.classList.remove('hidden');
-    } else {
-        revisionContainer.classList.add('hidden');
+const marcarClienteComoGestionado = async (db, empresaId, reservaIdOriginal) => {
+    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
+    const q = reservasRef.where('idReservaCanal', '==', reservaIdOriginal);
+    const snapshot = await q.get();
+
+    if (snapshot.empty) {
+        throw new Error('No se encontraron reservas para marcar al cliente como gestionado.');
     }
 
-    if (llegadasHoy.length > 0) {
-        llegadasHoy.forEach(g => hoyList.appendChild(createGrupoCard(g, allEstados)));
-        hoyContainer.classList.remove('hidden');
-    } else {
-        hoyContainer.classList.add('hidden');
-    }
+    const batch = db.batch();
+    let estadoActual = '';
+    snapshot.forEach(doc => {
+        estadoActual = doc.data().estadoGestion;
+        const updateData = { clienteGestionado: true };
+        if (estadoActual === 'Pendiente Cliente') {
+            updateData.estadoGestion = 'Facturado';
+        }
+        batch.update(doc.ref, updateData);
+    });
+    
+    await batch.commit();
+};
 
-    if (proximasLlegadas.length > 0) {
-        proximasLlegadas.forEach(g => proximasList.appendChild(createGrupoCard(g, allEstados)));
-        proximasContainer.classList.remove('hidden');
-    } else {
-        proximasContainer.classList.add('hidden');
-    }
-}
+module.exports = {
+    getReservasPendientes,
+    actualizarEstadoGrupo,
+    getNotas,
+    addNota,
+    getTransacciones,
+    marcarClienteComoGestionado
+};

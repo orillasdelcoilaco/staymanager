@@ -80,7 +80,6 @@ function renderSimuladorVentaDirecta() {
     const numPropiedades = currentGrupo.reservasIndividuales.length;
     let dolarInfoHtml = '';
 
-    // --- INICIO DE CAMBIOS ---
     let tarifaBaseTotalCLP;
     let tarifaBaseLabel = `Tarifa Base (${totalNoches} Noches x ${numPropiedades} Prop.):`;
     let totalClienteLabel = "Total Cliente:";
@@ -108,7 +107,6 @@ function renderSimuladorVentaDirecta() {
     }
 
     const rentabilidadVsTarifa = payoutFinalRealCLP - tarifaBaseTotalCLP;
-    // --- FIN DE CAMBIOS ---
 
     let recomendacionHtml = '';
     if (rentabilidadVsTarifa >= 0) {
@@ -193,9 +191,9 @@ export function renderAjusteTarifaModal(grupo, callback) {
     contentContainer.innerHTML = `
         <div class="border-b border-gray-200">
             <nav id="modal-tabs" class="-mb-px flex space-x-6" aria-label="Tabs">
-                <button data-tab="potencial" class="modal-tab whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-indigo-500 text-indigo-600">Calcular Potencial (KPI)</button>
+                <button data-tab="simulador" class="modal-tab whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-indigo-500 text-indigo-600">Simulador de Rentabilidad</button>
+                <button data-tab="potencial" class="modal-tab whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Calcular Potencial (KPI)</button>
                 <button data-tab="ajuste" class="modal-tab whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Ajustar Cobro</button>
-                <button data-tab="simulador" class="modal-tab whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Simulador de Rentabilidad</button>
             </nav>
         </div>
         <div id="modal-tab-content" class="mt-5"></div>
@@ -210,5 +208,5 @@ export function renderAjusteTarifaModal(grupo, callback) {
         });
     });
 
-    renderTabContent('potencial');
+    renderTabContent('simulador');
 }

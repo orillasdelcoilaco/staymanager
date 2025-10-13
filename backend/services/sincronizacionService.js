@@ -150,7 +150,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
         db.collection('empresas').doc(empresaId).collection('tarifas').get()
     ]);
     
-    const allTarifas = tarifasSnapshot.docs.map(doc => ({ ...doc.data(), fechaInicio: doc.data().fechaInicio.toDate(), fechaTermino: doc.data().fechaTermino.toDate() }));
+    const allTarifas = tarifasSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, fechaInicio: doc.data().fechaInicio.toDate(), fechaTermino: doc.data().fechaTermino.toDate() }));
 
 
     const mapeosDelCanal = todosLosMapeos.filter(m => m.canalId === canalId);
@@ -228,34 +228,17 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 }
                 alojamientosDeReserva.push(propiedad);
             }
-
-            const preciosBase = await calculatePrice(db, empresaId, alojamientosDeReserva, fechaLlegada, fechaSalida, allTarifas, canalId, valorDolarDia);
+            
             const totalPayoutReporte = parsearMoneda(get('valorAnfitrion'), separadorDecimal);
 
-            let distribucionValores = {};
-            if (alojamientosDeReserva.length === 1) {
-                distribucionValores[alojamientosDeReserva[0].id] = { valorAnfitrion: totalPayoutReporte };
-            } else {
-                const alojamientosConPrecio = preciosBase.details.map(d => ({...alojamientosDeReserva.find(a => a.nombre === d.nombre), precioBase: d.precioTotal })).sort((a,b) => a.precioBase - b.precioBase);
-                let payoutRestante = totalPayoutReporte;
-                
-                alojamientosConPrecio.forEach((aloj, idx) => {
-                    if (idx < alojamientosConPrecio.length - 1) {
-                        const montoAsignado = Math.min(payoutRestante, aloj.precioBase);
-                        distribucionValores[aloj.id] = { valorAnfitrion: montoAsignado };
-                        payoutRestante -= montoAsignado;
-                    } else {
-                        distribucionValores[aloj.id] = { valorAnfitrion: payoutRestante };
-                    }
-                });
-            }
-
-            const totalPayoutDistribuido = Object.values(distribucionValores).reduce((sum, v) => sum + v.valorAnfitrion, 0);
-
             for (const alojamiento of alojamientosDeReserva) {
-                const proporcion = totalPayoutDistribuido > 0 ? distribucionValores[alojamiento.id].valorAnfitrion / totalPayoutDistribuido : 1 / alojamientosDeReserva.length;
+                const proporcion = 1 / alojamientosDeReserva.length; // Asumimos distribución equitativa
+                const valorAnfitrion = totalPayoutReporte * proporcion;
 
-                const valorAnfitrion = distribucionValores[alojamiento.id].valorAnfitrion;
+                // Calcular el precio base teórico para KPI
+                const precioBaseTeorico = await calculatePrice(db, empresaId, [alojamiento], fechaLlegada, fechaSalida, allTarifas, canalId);
+                const valorOriginalParaGuardar = precioBaseTeorico.totalPriceOriginal;
+
                 const comisionSumable = parsearMoneda(get('comision'), separadorDecimal) * proporcion;
                 const costoCanalInformativo = parsearMoneda(get('costoCanal'), separadorDecimal) * proporcion;
             
@@ -276,9 +259,9 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                     clienteId: resultadoCliente.cliente.id, alojamientoId: alojamiento.id, alojamientoNombre: alojamiento.nombre,
                     moneda: monedaCanal,
                     valores: {
-                        valorOriginal: valorAnfitrion,
-                        valorTotal: Math.round(convertirACLPSIesNecesario(valorAnfitrion)),
-                        valorHuesped: Math.round(convertirACLPSIesNecesario(valorHuesped)),
+                        valorOriginal: valorOriginalParaGuardar, // Precio teórico de lista para KPI
+                        valorTotal: Math.round(convertirACLPSIesNecesario(valorAnfitrion)), // Payout real
+                        valorHuesped: Math.round(convertirACLPSIesNecesario(valorHuesped)), // Cobro real al cliente
                         comision: Math.round(convertirACLPSIesNecesario(comisionSumable)),
                         costoCanal: Math.round(convertirACLPSIesNecesario(costoCanalInformativo)),
                         iva: Math.round(convertirACLPSIesNecesario(ivaCalculado))

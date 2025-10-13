@@ -4,6 +4,7 @@ let tarifas = [];
 let alojamientos = [];
 let canales = [];
 let editandoTarifa = null;
+let canalPorDefecto = null;
 
 // --- Lógica del Formulario Principal ---
 function poblarSelectAlojamientos(alojamientoSeleccionadoId = '') {
@@ -14,25 +15,10 @@ function poblarSelectAlojamientos(alojamientoSeleccionadoId = '') {
     ).join('');
 }
 
-function renderizarCamposDePrecio(precios = {}) {
-    const container = document.getElementById('precios-dinamicos-container');
-    if (!container) return;
-    container.innerHTML = canales.map(c => `
-        <div>
-            <label for="precio-${c.id}" class="block text-sm font-medium text-gray-700">${c.nombre} (${c.moneda})</label>
-            <input type="number" id="precio-${c.id}" name="precio-${c.id}" data-canal-id="${c.id}" 
-                   value="${precios[c.id]?.valor || ''}"
-                   class="form-input mt-1">
-            <input type="hidden" name="moneda-${c.id}" value="${c.moneda}">
-        </div>
-    `).join('');
-}
-
 function limpiarFormularioPrincipal() {
     const form = document.getElementById('tarifa-form');
     if (form) form.reset();
     poblarSelectAlojamientos();
-    renderizarCamposDePrecio();
 }
 
 // --- Lógica del Modal de Edición ---
@@ -42,21 +28,13 @@ function abrirModalEditar(tarifa) {
     const form = document.getElementById('tarifa-form-edit');
     if (!modal || !form) return;
 
+    const precioBaseObj = tarifa.precios[canalPorDefecto.id];
+
     form.alojamientoNombre.value = tarifa.alojamientoNombre;
     form.temporada.value = tarifa.temporada;
     form.fechaInicio.value = tarifa.fechaInicio;
     form.fechaTermino.value = tarifa.fechaTermino;
-
-    const preciosContainer = document.getElementById('precios-dinamicos-container-edit');
-    preciosContainer.innerHTML = canales.map(c => `
-        <div>
-            <label for="edit-precio-${c.id}" class="block text-sm font-medium text-gray-700">${c.nombre} (${c.moneda})</label>
-            <input type="number" id="edit-precio-${c.id}" name="precio-${c.id}" data-canal-id="${c.id}" 
-                   value="${tarifa.precios[c.id]?.valor || ''}"
-                   class="form-input mt-1">
-             <input type="hidden" name="moneda-${c.id}" value="${c.moneda}">
-        </div>
-    `).join('');
+    form.precioBase.value = precioBaseObj ? precioBaseObj.valor : 0;
     
     modal.classList.remove('hidden');
 }
@@ -102,7 +80,7 @@ function renderTabla() {
     tbody.innerHTML = tarifasOrdenadas.map((t, index) => {
         const preciosHtml = canales.map(c => {
             const precio = t.precios[c.id];
-            return `<li><strong>${c.nombre}:</strong> ${precio ? `${new Intl.NumberFormat().format(precio.valor)} ${c.moneda}` : 'No definido'}</li>`;
+            return `<li><strong>${c.nombre}:</strong> ${precio ? `${new Intl.NumberFormat().format(Math.round(precio.valor))} ${c.moneda}` : 'No definido'}</li>`;
         }).join('');
 
         return `
@@ -112,7 +90,7 @@ function renderTabla() {
                 <td class="py-3 px-4">${t.temporada}</td>
                 <td class="py-3 px-4">${t.fechaInicio}</td>
                 <td class="py-3 px-4">${t.fechaTermino}</td>
-                <td class="py-3 px-4"><ul>${preciosHtml}</ul></td>
+                <td class="py-3 px-4 text-xs"><ul>${preciosHtml}</ul></td>
                 <td class="py-3 px-4 whitespace-nowrap">
                     <button data-id="${t.id}" class="copy-btn btn-table-copy mr-2">Copiar</button>
                     <button data-id="${t.id}" class="edit-btn btn-table-edit mr-2">Editar</button>
@@ -131,6 +109,10 @@ export async function render() {
             fetchAPI('/propiedades'),
             fetchAPI('/canales')
         ]);
+        canalPorDefecto = canales.find(c => c.esCanalPorDefecto);
+        if (!canalPorDefecto) {
+            return `<div class="bg-red-100 p-4 rounded-md text-red-800"><b>Error de configuración:</b> No se ha definido un "Canal por Defecto". Por favor, ve a la sección de "Gestionar Canales" y marca uno con la estrella ⭐.</div>`;
+        }
     } catch (error) {
         console.error("Error al cargar datos para tarifas:", error);
         return `<p class="text-red-500">Error al cargar los datos. Por favor, intente de nuevo.</p>`;
@@ -140,7 +122,7 @@ export async function render() {
         <div class="bg-white p-6 rounded-lg shadow mb-8">
             <h2 class="text-xl font-semibold text-gray-800 mb-4">Añadir Nuevo Período de Tarifa</h2>
             <form id="tarifa-form" class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     <div>
                         <label for="alojamiento-select" class="block text-sm font-medium text-gray-700">Alojamiento</label>
                         <select id="alojamiento-select" class="form-input mt-1"></select>
@@ -157,10 +139,12 @@ export async function render() {
                         <label for="fecha-termino-input" class="block text-sm font-medium text-gray-700">Fecha Término</label>
                         <input type="date" id="fecha-termino-input" required class="form-input mt-1">
                     </div>
-                </div>
-                <div id="precios-dinamicos-container" class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
+                    <div>
+                        <label for="precio-base-input" class="block text-sm font-medium text-gray-700">Precio Base (${canalPorDefecto.moneda})</label>
+                        <input type="number" id="precio-base-input" required class="form-input mt-1">
                     </div>
-                <div class="flex justify-end">
+                </div>
+                <div class="flex justify-end pt-4 border-t">
                     <button type="submit" class="btn-primary">Guardar Tarifa</button>
                 </div>
             </form>
@@ -177,7 +161,7 @@ export async function render() {
                             <th class="th">Temporada</th>
                             <th class="th">Fecha Inicio</th>
                             <th class="th">Fecha Término</th>
-                            <th class="th">Tarifas por Canal</th>
+                            <th class="th">Tarifas Calculadas</th>
                             <th class="th">Acciones</th>
                         </tr>
                     </thead>
@@ -194,8 +178,11 @@ export async function render() {
                     <input type="text" id="temporada" placeholder="Temporada" required class="form-input mt-1">
                     <input type="date" id="fechaInicio" required class="form-input mt-1">
                     <input type="date" id="fechaTermino" required class="form-input mt-1">
-                    <div id="precios-dinamicos-container-edit" class="grid grid-cols-2 gap-4 pt-4 border-t"></div>
-                    <div class="flex justify-end pt-4">
+                    <div>
+                        <label for="precioBase" class="block text-sm font-medium text-gray-700">Precio Base (${canalPorDefecto.moneda})</label>
+                        <input type="number" id="precioBase" name="precioBase" required class="form-input mt-1">
+                    </div>
+                    <div class="flex justify-end pt-4 border-t">
                         <button type="button" id="cancel-edit-btn" class="btn-secondary mr-2">Cancelar</button>
                         <button type="submit" class="btn-primary">Guardar Cambios</button>
                     </div>
@@ -206,8 +193,9 @@ export async function render() {
 }
 
 export function afterRender() {
+    if (!canalPorDefecto) return;
+    
     poblarSelectAlojamientos();
-    renderizarCamposDePrecio();
     renderTabla();
 
     const form = document.getElementById('tarifa-form');
@@ -216,23 +204,13 @@ export function afterRender() {
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const alojamientoSelect = document.getElementById('alojamiento-select');
-        const precios = {};
-        canales.forEach(canal => {
-            const input = form[`precio-${canal.id}`];
-            const moneda = form[`moneda-${canal.id}`].value;
-            if (input && input.value) {
-                precios[canal.id] = { valor: parseFloat(input.value), moneda: moneda };
-            }
-        });
-
+        
         const datos = {
-            alojamientoId: alojamientoSelect.value,
-            alojamientoNombre: alojamientoSelect.options[alojamientoSelect.selectedIndex].text,
+            alojamientoId: document.getElementById('alojamiento-select').value,
             temporada: document.getElementById('temporada-input').value,
             fechaInicio: document.getElementById('fecha-inicio-input').value,
             fechaTermino: document.getElementById('fecha-termino-input').value,
-            precios
+            precioBase: document.getElementById('precio-base-input').value
         };
 
         try {
@@ -248,20 +226,12 @@ export function afterRender() {
     document.getElementById('cancel-edit-btn').addEventListener('click', cerrarModalEditar);
     formEdit.addEventListener('submit', async(e) => {
         e.preventDefault();
-        const precios = {};
-        canales.forEach(canal => {
-            const input = formEdit[`precio-${canal.id}`];
-            const moneda = formEdit[`moneda-${canal.id}`].value;
-            if (input && input.value) {
-                precios[canal.id] = { valor: parseFloat(input.value), moneda: moneda };
-            }
-        });
-
+        
         const datos = {
             temporada: formEdit.temporada.value,
             fechaInicio: formEdit.fechaInicio.value,
             fechaTermino: formEdit.fechaTermino.value,
-            precios
+            precioBase: formEdit.precioBase.value
         };
 
         try {
@@ -291,7 +261,10 @@ export function afterRender() {
             document.getElementById('temporada-input').value = tarifa.temporada;
             document.getElementById('fecha-inicio-input').value = tarifa.fechaInicio;
             document.getElementById('fecha-termino-input').value = tarifa.fechaTermino;
-            renderizarCamposDePrecio(tarifa.precios);
+            
+            const precioBaseObj = tarifa.precios[canalPorDefecto.id];
+            document.getElementById('precio-base-input').value = precioBaseObj ? precioBaseObj.valor : '';
+
             window.scrollTo(0, 0);
         }
         

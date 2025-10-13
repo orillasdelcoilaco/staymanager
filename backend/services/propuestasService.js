@@ -1,8 +1,10 @@
 // backend/services/propuestasService.js
 
 const admin = require('firebase-admin');
+const { obtenerValorDolar } = require('./dolarService');
 
 async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarotes = false) {
+    // ... (código existente sin cambios)
     const [propiedadesSnapshot, tarifasSnapshot, reservasSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('propiedades').get(),
         db.collection('empresas').doc(empresaId).collection('tarifas').get(),
@@ -48,7 +50,7 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
             return null;
         }
 
-        return { ...data, fechaInicio, fechaTermino };
+        return { ...data, id: doc.id, fechaInicio, fechaTermino };
     }).filter(Boolean);
 
     const propiedadesConTarifa = allProperties.filter(prop => {
@@ -85,6 +87,7 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
 }
 
 function findNormalCombination(availableProperties, requiredCapacity) {
+    // ... (código existente sin cambios)
     const sortedCabanas = availableProperties.sort((a, b) => b.capacidad - a.capacidad);
     
     let combination = [];
@@ -107,6 +110,7 @@ function findNormalCombination(availableProperties, requiredCapacity) {
 }
 
 function findSegmentedCombination(allProperties, allTarifas, availabilityMap, requiredCapacity, startDate, endDate) {
+    // ... (código existente sin cambios)
     const areCombinationsEqual = (comboA, comboB) => {
         if (comboA.length !== comboB.length) return false;
         const idsA = comboA.map(p => p.id).sort();
@@ -171,20 +175,26 @@ function findSegmentedCombination(allProperties, allTarifas, availabilityMap, re
     return { combination: itinerary, capacity: requiredCapacity, dailyOptions: allDailyOptions };
 }
 
-async function calculatePrice(db, empresaId, items, startDate, endDate, allTarifas, canalId, valorDolarDia, isSegmented = false) {
-    const canalDoc = await db.collection('empresas').doc(empresaId).collection('canales').doc(canalId).get();
-    if (!canalDoc.exists) throw new Error("El canal seleccionado no es válido.");
-    const monedaOriginal = canalDoc.data().moneda;
+async function calculatePrice(db, empresaId, items, startDate, endDate, allTarifas, canalObjetivoId) {
+    const canalesRef = db.collection('empresas').doc(empresaId).collection('canales');
+    const [canalDefectoSnapshot, canalObjetivoDoc] = await Promise.all([
+        canalesRef.where('esCanalPorDefecto', '==', true).limit(1).get(),
+        canalesRef.doc(canalObjetivoId).get()
+    ]);
 
-    let totalEnMonedaOriginal = 0;
+    if (canalDefectoSnapshot.empty) throw new Error("No se ha configurado un canal por defecto.");
+    if (!canalObjetivoDoc.exists) throw new Error("El canal de venta seleccionado no es válido.");
+
+    const canalPorDefecto = { id: canalDefectoSnapshot.docs[0].id, ...canalDefectoSnapshot.docs[0].data() };
+    const canalObjetivo = { id: canalObjetivoDoc.id, ...canalObjetivoDoc.data() };
+    
+    let totalPrecioBase = 0;
     const priceDetails = [];
     const nights = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
-    if (nights <= 0) {
-        return { totalPriceCLP: 0, totalPriceOriginal: 0, currencyOriginal: monedaOriginal, nights: 0, details: [] };
-    }
+    if (nights <= 0) return { totalPriceCLP: 0, totalPriceOriginal: 0, currencyOriginal: canalObjetivo.moneda, nights: 0, details: [] };
 
     for (const prop of items) {
-        let propTotalPriceOriginal = 0;
+        let propPrecioBaseTotal = 0;
         for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
             const currentDate = new Date(d);
             const tarifasDelDia = allTarifas.filter(t => 
@@ -195,28 +205,49 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
 
             if (tarifasDelDia.length > 0) {
                 const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
-                const precioNoche = (tarifa.precios && tarifa.precios[canalId]) ? tarifa.precios[canalId].valor : 0;
-                propTotalPriceOriginal += precioNoche;
+                const precioNocheBase = (tarifa.precios && tarifa.precios[canalPorDefecto.id]) ? tarifa.precios[canalPorDefecto.id] : 0;
+                propPrecioBaseTotal += precioNocheBase;
             }
         }
-        totalEnMonedaOriginal += propTotalPriceOriginal;
+        totalPrecioBase += propPrecioBaseTotal;
         priceDetails.push({
             nombre: prop.nombre,
-            precioTotal: propTotalPriceOriginal,
-            precioPorNoche: propTotalPriceOriginal > 0 ? propTotalPriceOriginal / nights : 0,
+            precioTotal: propPrecioBaseTotal, // Este es el precio base en la moneda del canal por defecto
+            precioPorNoche: propPrecioBaseTotal > 0 ? propPrecioBaseTotal / nights : 0,
         });
     }
 
-    const totalEnCLP = monedaOriginal === 'USD' ? Math.round(totalEnMonedaOriginal * valorDolarDia) : totalEnMonedaOriginal;
+    let precioModificado = totalPrecioBase;
+    if (canalObjetivo.id !== canalPorDefecto.id && canalObjetivo.modificadorValor) {
+        if (canalObjetivo.modificadorTipo === 'porcentaje') {
+            precioModificado *= (1 + (canalObjetivo.modificadorValor / 100));
+        } else if (canalObjetivo.modificadorTipo === 'fijo') {
+            precioModificado += canalObjetivo.modificadorValor;
+        }
+    }
+
+    let totalPriceOriginal = precioModificado;
+    let totalPriceCLP = precioModificado;
+    let valorDolarDia = null;
+
+    if (canalPorDefecto.moneda === 'USD' && canalObjetivo.moneda === 'CLP') {
+        valorDolarDia = await obtenerValorDolar(db, empresaId, startDate);
+        totalPriceCLP = Math.round(precioModificado * valorDolarDia);
+    } else if (canalPorDefecto.moneda === 'CLP' && canalObjetivo.moneda === 'USD') {
+        valorDolarDia = await obtenerValorDolar(db, empresaId, startDate);
+        totalPriceOriginal = valorDolarDia > 0 ? (precioModificado / valorDolarDia) : 0;
+    }
 
     return { 
-        totalPriceCLP: totalEnCLP, 
-        totalPriceOriginal: totalEnMonedaOriginal,
-        currencyOriginal: monedaOriginal,
+        totalPriceCLP: Math.round(totalPriceCLP), 
+        totalPriceOriginal: totalPriceOriginal,
+        currencyOriginal: canalObjetivo.moneda,
+        valorDolarDia,
         nights, 
         details: priceDetails 
     };
 }
+
 
 module.exports = {
     getAvailabilityData,

@@ -30,9 +30,9 @@ async function loadInitialData() {
         const canalSelect = document.getElementById('canal-select');
         if (canalSelect) {
             canalSelect.innerHTML = allCanales.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
-            const appChannel = allCanales.find(c => c.nombre.toLowerCase() === 'app');
-            if (appChannel) {
-                canalSelect.value = appChannel.id;
+            const canalPorDefecto = allCanales.find(c => c.esCanalPorDefecto);
+            if (canalPorDefecto) {
+                canalSelect.value = canalPorDefecto.id;
             }
         }
         handleCanalChange();
@@ -157,7 +157,8 @@ function updateSummary(pricing) {
     currentPricing = pricing;
     if (!pricing) return;
 
-    const { totalPriceOriginal, currencyOriginal, nights, totalPriceCLP } = pricing;
+    const { totalPriceOriginal, currencyOriginal, nights, totalPriceCLP, valorDolarDia: vd } = pricing;
+    valorDolarDia = vd;
     
     const summaryOriginalContainer = document.getElementById('summary-original-currency-container');
     const summaryCLPContainer = document.getElementById('summary-clp-container');
@@ -224,7 +225,6 @@ function handleCanalChange() {
     const moneda = canal.moneda;
     document.getElementById('descuento-fijo-label').textContent = `Descuento Fijo (${moneda})`;
     document.getElementById('valor-final-label').textContent = `O Ingresar Valor Final (${moneda})`;
-    document.getElementById('valor-dolar-container').classList.toggle('hidden', moneda !== 'USD');
     
     if (availabilityData.suggestion) {
         handleSelectionChange();
@@ -301,7 +301,6 @@ export function render() {
                         <h3 class="font-semibold text-gray-800 mb-4">4. Descuentos y Resumen Final</h3>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div class="space-y-4 md:col-span-1">
-                                <div id="valor-dolar-container" class="hidden"><p id="valor-dolar-info" class="text-sm font-semibold text-blue-600"></p></div>
                                 <div><label for="descuento-pct" class="block text-sm font-medium">Descuento (%)</label><input type="number" id="descuento-pct" placeholder="Ej: 15" class="discount-input form-input mt-1"></div>
                                 <div><label id="descuento-fijo-label" for="descuento-fijo-total" class="block text-sm font-medium">Descuento Fijo</label><input type="number" id="descuento-fijo-total" placeholder="Ej: 20000" class="discount-input form-input mt-1"></div>
                                 <div><label id="valor-final-label" for="valor-final-input" class="block text-sm font-medium">O Ingresar Valor Final</label><input type="number" id="valor-final-input" placeholder="Ej: 350000" class="discount-input form-input mt-1"></div>
@@ -337,9 +336,8 @@ export async function afterRender() {
     const buscarBtn = document.getElementById('buscar-btn');
     
     const runSearch = async () => {
-        const fechaLlegada = document.getElementById('fecha-llegada').value;
         const payload = {
-            fechaLlegada: fechaLlegada,
+            fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
             personas: document.getElementById('personas').value,
             permitirCambios: document.getElementById('permitir-cambios').checked,
@@ -357,10 +355,6 @@ export async function afterRender() {
         document.getElementById('results-container').classList.add('hidden');
 
         try {
-            const dolar = await fetchAPI(`/dolar/valor/${fechaLlegada}`);
-            valorDolarDia = dolar.valor;
-            document.getElementById('valor-dolar-info').textContent = `Valor Dólar para el Check-in: ${formatCurrency(valorDolarDia)}`;
-
             availabilityData = await fetchAPI('/propuestas/generar', { method: 'POST', body: payload });
             
             if (availabilityData.suggestion) {
