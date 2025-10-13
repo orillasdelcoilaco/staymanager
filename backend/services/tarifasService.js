@@ -86,8 +86,6 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
 };
 
 const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
-    const tarifaRef = db.collection('empresas').doc(empresaId).collection('tarifas').doc(tarifaId);
-
     const canalesRef = db.collection('empresas').doc(empresaId).collection('canales');
     const canalDefectoSnapshot = await canalesRef.where('esCanalPorDefecto', '==', true).limit(1).get();
     if (canalDefectoSnapshot.empty) {
@@ -95,28 +93,21 @@ const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
     }
     const canalPorDefectoId = canalDefectoSnapshot.docs[0].id;
 
-    await db.runTransaction(async (transaction) => {
-        const tarifaDoc = await transaction.get(tarifaRef);
-        if (!tarifaDoc.exists) {
-            throw new Error("La tarifa que intentas actualizar no existe.");
-        }
+    const tarifaRef = db.collection('empresas').doc(empresaId).collection('tarifas').doc(tarifaId);
+    
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Se utiliza un objeto plano y "dot notation" para actualizar el campo anidado,
+    // lo cual es el método más robusto y recomendado por Firestore.
+    const datosParaActualizar = {
+        temporada: datosActualizados.temporada,
+        fechaInicio: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaInicio + 'T00:00:00Z')),
+        fechaTermino: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaTermino + 'T00:00:00Z')),
+        [`precios.${canalPorDefectoId}`]: parseFloat(datosActualizados.precioBase),
+        fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
+    };
 
-        const datosAntiguos = tarifaDoc.data();
-        
-        const datosNuevos = {
-            ...datosAntiguos, // Mantenemos todos los campos antiguos
-            temporada: datosActualizados.temporada,
-            fechaInicio: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaInicio + 'T00:00:00Z')),
-            fechaTermino: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaTermino + 'T00:00:00Z')),
-            precios: {
-                ...datosAntiguos.precios, // Mantenemos precios de otros posibles canales si existieran
-                [canalPorDefectoId]: parseFloat(datosActualizados.precioBase) // Sobreescribimos/añadimos el precio base
-            },
-            fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
-        };
-
-        transaction.set(tarifaRef, datosNuevos);
-    });
+    await tarifaRef.update(datosParaActualizar);
+    // --- FIN DE LA CORRECCIÓN ---
 
     return { id: tarifaId, ...datosActualizados };
 };
