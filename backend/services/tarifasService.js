@@ -42,7 +42,7 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
 
     const propiedadesMap = new Map(propiedadesSnapshot.docs.map(doc => [doc.id, doc.data().nombre]));
     const canalesMap = new Map(canalesSnapshot.docs.map(doc => [doc.id, doc.data()]));
-    const canalPorDefecto = canalesSnapshot.docs.find(doc => doc.data().esCanalPorDefecto)?.id;
+    const canalPorDefectoId = canalesSnapshot.docs.find(doc => doc.data().esCanalPorDefecto)?.id;
 
     return tarifasSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -54,11 +54,11 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
             : data.fechaTermino;
         
         const preciosFinales = {};
-        const precioBase = data.precios && canalPorDefecto ? data.precios[canalPorDefecto] : 0;
+        const precioBase = data.precios && canalPorDefectoId ? data.precios[canalPorDefectoId] || 0 : 0;
 
         for (const canal of canalesMap.values()) {
             let valorFinal = precioBase;
-            if (canal.modificadorValor && canal.id !== canalPorDefecto) {
+            if (canal.modificadorValor && canal.id !== canalPorDefectoId) {
                 if (canal.modificadorTipo === 'porcentaje') {
                     valorFinal *= (1 + (canal.modificadorValor / 100));
                 } else if (canal.modificadorTipo === 'fijo') {
@@ -97,14 +97,10 @@ const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
         precios: {
             [canalPorDefectoId]: parseFloat(datosActualizados.precioBase)
         },
-        // --- INICIO DE LA CORRECCIÓN ---
-        // El error estaba en la siguiente línea. El nombre del campo tenía una tilde ("fechaActualización")
-        // lo que causaba que la actualización fallara silenciosamente. Se ha corregido a "fechaActualizacion".
         fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
-        // --- FIN DE LA CORRECCIÓN ---
     };
 
-    await tarifaRef.update(datosParaActualizar);
+    await tarifaRef.set(datosParaActualizar, { merge: true });
 
     return { id: tarifaId, ...datosActualizados };
 };
