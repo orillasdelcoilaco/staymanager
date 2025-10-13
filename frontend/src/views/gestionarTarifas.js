@@ -174,10 +174,10 @@ export async function render() {
              <div class="modal-content">
                 <h3 class="text-xl font-semibold mb-4">Editar Tarifa</h3>
                 <form id="tarifa-form-edit" class="space-y-4">
-                    <input type="text" id="alojamientoNombre" disabled class="form-input mt-1 bg-gray-100">
-                    <input type="text" id="temporada" placeholder="Temporada" required class="form-input mt-1">
-                    <input type="date" id="fechaInicio" required class="form-input mt-1">
-                    <input type="date" id="fechaTermino" required class="form-input mt-1">
+                    <input type="text" id="alojamientoNombre" name="alojamientoNombre" disabled class="form-input mt-1 bg-gray-100">
+                    <input type="text" id="temporada" name="temporada" placeholder="Temporada" required class="form-input mt-1">
+                    <input type="date" id="fechaInicio" name="fechaInicio" required class="form-input mt-1">
+                    <input type="date" id="fechaTermino" name="fechaTermino" required class="form-input mt-1">
                     <div>
                         <label for="precioBase" class="block text-sm font-medium text-gray-700">Precio Base (${canalPorDefecto.moneda})</label>
                         <input type="number" id="precioBase" name="precioBase" required class="form-input mt-1">
@@ -229,13 +229,11 @@ export function afterRender() {
         e.preventDefault();
         
         const datos = {
-            temporada: formEdit.temporada.value,
-            fechaInicio: formEdit.fechaInicio.value,
-            fechaTermino: formEdit.fechaTermino.value,
-            precioBase: formEdit.precioBase.value
+            temporada: formEdit.elements.temporada.value,
+            fechaInicio: formEdit.elements.fechaInicio.value,
+            fechaTermino: formEdit.elements.fechaTermino.value,
+            precioBase: formEdit.elements.precioBase.value
         };
-        
-        console.log('[DEBUG Frontend] Datos enviados para actualizar tarifa:', JSON.stringify(datos, null, 2));
 
         try {
             await fetchAPI(`/tarifas/${editandoTarifa.id}`, { method: 'PUT', body: datos });

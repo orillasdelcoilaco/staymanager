@@ -86,42 +86,32 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
 };
 
 const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
-    console.log('[DEBUG Service] 1. Iniciando actualizarTarifa. Datos recibidos:', datosActualizados);
-
     const canalesRef = db.collection('empresas').doc(empresaId).collection('canales');
     const canalDefectoSnapshot = await canalesRef.where('esCanalPorDefecto', '==', true).limit(1).get();
     if (canalDefectoSnapshot.empty) {
         throw new Error('No se ha configurado un canal por defecto.');
     }
     const canalPorDefectoId = canalDefectoSnapshot.docs[0].id;
-    console.log(`[DEBUG Service] 2. ID del canal por defecto encontrado: ${canalPorDefectoId}`);
 
     const tarifaRef = db.collection('empresas').doc(empresaId).collection('tarifas').doc(tarifaId);
     
-    console.log(`[DEBUG Service] 3. Obteniendo documento de tarifa existente con ID: ${tarifaId}`);
-    const tarifaDoc = await tarifaRef.get();
-    if (!tarifaDoc.exists) {
-        throw new Error('La tarifa que intentas actualizar no existe.');
-    }
-    console.log('[DEBUG Service] 4. Documento existente encontrado:', tarifaDoc.data());
+    await db.runTransaction(async (transaction) => {
+        const tarifaDoc = await transaction.get(tarifaRef);
+        if (!tarifaDoc.exists) {
+            throw new Error("La tarifa que intentas actualizar no existe.");
+        }
 
-    const preciosActuales = tarifaDoc.data().precios || {};
-    console.log('[DEBUG Service] 5. Objeto de precios antes de la modificación:', preciosActuales);
-    
-    preciosActuales[canalPorDefectoId] = parseFloat(datosActualizados.precioBase);
-    console.log('[DEBUG Service] 6. Objeto de precios DESPUÉS de la modificación:', preciosActuales);
+        const preciosActuales = tarifaDoc.data().precios || {};
+        preciosActuales[canalPorDefectoId] = parseFloat(datosActualizados.precioBase);
 
-    const datosParaActualizar = {
-        temporada: datosActualizados.temporada,
-        fechaInicio: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaInicio + 'T00:00:00Z')),
-        fechaTermino: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaTermino + 'T00:00:00Z')),
-        precios: preciosActuales,
-        fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
-    };
-    console.log('[DEBUG Service] 7. Objeto final que se enviará a Firestore:', datosParaActualizar);
-
-    await tarifaRef.update(datosParaActualizar);
-    console.log('[DEBUG Service] 8. ¡Update en Firestore completado con éxito!');
+        transaction.update(tarifaRef, {
+            temporada: datosActualizados.temporada,
+            fechaInicio: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaInicio + 'T00:00:00Z')),
+            fechaTermino: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaTermino + 'T00:00:00Z')),
+            precios: preciosActuales,
+            fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
+        });
+    });
 
     return { id: tarifaId, ...datosActualizados };
 };
