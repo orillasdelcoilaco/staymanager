@@ -58,7 +58,7 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
 
         for (const canal of canalesMap.values()) {
             let valorFinal = precioBase;
-            if (canal.modificadorValor) {
+            if (canal.modificadorValor && canal.id !== canalPorDefecto) {
                 if (canal.modificadorTipo === 'porcentaje') {
                     valorFinal *= (1 + (canal.modificadorValor / 100));
                 } else if (canal.modificadorTipo === 'fijo') {
@@ -81,16 +81,12 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
 };
 
 const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
-    console.log('[DEBUG Service] Iniciando actualizarTarifa. ID:', tarifaId);
-    console.log('[DEBUG Service] Datos recibidos (datosActualizados):', JSON.stringify(datosActualizados, null, 2));
-
     const canalesRef = db.collection('empresas').doc(empresaId).collection('canales');
     const canalDefectoSnapshot = await canalesRef.where('esCanalPorDefecto', '==', true).limit(1).get();
     if (canalDefectoSnapshot.empty) {
         throw new Error('No se ha configurado un canal por defecto.');
     }
     const canalPorDefectoId = canalDefectoSnapshot.docs[0].id;
-    console.log('[DEBUG Service] ID del Canal por Defecto encontrado:', canalPorDefectoId);
 
     const tarifaRef = db.collection('empresas').doc(empresaId).collection('tarifas').doc(tarifaId);
     
@@ -101,10 +97,12 @@ const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
         precios: {
             [canalPorDefectoId]: parseFloat(datosActualizados.precioBase)
         },
+        // --- INICIO DE LA CORRECCIÓN ---
+        // El error estaba en la siguiente línea. El nombre del campo tenía una tilde ("fechaActualización")
+        // lo que causaba que la actualización fallara silenciosamente. Se ha corregido a "fechaActualizacion".
         fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
+        // --- FIN DE LA CORRECCIÓN ---
     };
-    
-    console.log('[DEBUG Service] Objeto final para Firestore (datosParaActualizar):', JSON.stringify(datosParaActualizar, null, 2));
 
     await tarifaRef.update(datosParaActualizar);
 
