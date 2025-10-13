@@ -63,8 +63,6 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
 
         for (const canal of canalesMap.values()) {
             let valorFinal = precioBase;
-            // --- INICIO DE LA CORRECCIÓN DE LÓGICA ---
-            // Asegurarse de que el modificador solo se aplique si el canal NO es el canal por defecto.
             if (canal.id !== canalPorDefectoId && canal.modificadorValor) {
                 if (canal.modificadorTipo === 'porcentaje') {
                     valorFinal *= (1 + (canal.modificadorValor / 100));
@@ -72,7 +70,6 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
                     valorFinal += canal.modificadorValor;
                 }
             }
-            // --- FIN DE LA CORRECCIÓN DE LÓGICA ---
             preciosFinales[canal.id] = { valor: valorFinal, moneda: canal.moneda };
         }
 
@@ -98,19 +95,23 @@ const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
 
     const tarifaRef = db.collection('empresas').doc(empresaId).collection('tarifas').doc(tarifaId);
     
-    // --- INICIO DE LA CORRECCIÓN DE LÓGICA DE ACTUALIZACIÓN ---
-    // Se utiliza un objeto plano y "dot notation" para actualizar el campo anidado,
-    // lo cual es el método más robusto y recomendado por Firestore.
+    const tarifaDoc = await tarifaRef.get();
+    if (!tarifaDoc.exists) {
+        throw new Error('La tarifa que intentas actualizar no existe.');
+    }
+
+    const preciosActuales = tarifaDoc.data().precios || {};
+    preciosActuales[canalPorDefectoId] = parseFloat(datosActualizados.precioBase);
+
     const datosParaActualizar = {
         temporada: datosActualizados.temporada,
         fechaInicio: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaInicio + 'T00:00:00Z')),
         fechaTermino: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaTermino + 'T00:00:00Z')),
-        [`precios.${canalPorDefectoId}`]: parseFloat(datosActualizados.precioBase),
+        precios: preciosActuales,
         fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
     };
 
     await tarifaRef.update(datosParaActualizar);
-    // --- FIN DE LA CORRECCIÓN DE LÓGICA DE ACTUALIZACIÓN ---
 
     return { id: tarifaId, ...datosActualizados };
 };

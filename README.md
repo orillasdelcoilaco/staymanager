@@ -549,3 +549,76 @@ Implementar un sistema de Customer Relationship Management (CRM) enfocado en la 
     * Una tabla para listar los clientes del segmento seleccionado.
     * Un área para redactar el mensaje de la promoción, utilizando plantillas y etiquetas (ej. `[NOMBRE_CLIENTE]`).
     * Un botón "Generar Campaña" que, al presionarlo, muestre una lista de los mensajes personalizados con sus respectivos botones "Enviar por WhatsApp".
+
+    Anexo de Arquitectura: Refactorización del Motor de Tarifas (Octubre 2025)
+Se ha llevado a cabo una refactorización integral del sistema de gestión de tarifas para reemplazar un modelo manual y propenso a errores por una arquitectura de "Tarifa Base + Modificadores", que es más flexible, potente y fácil de mantener.
+
+Objetivo de la Modificación
+El objetivo principal fue simplificar drásticamente la creación y gestión de precios. En lugar de que el usuario deba introducir manualmente el precio para cada propiedad en cada canal y para cada temporada, ahora solo necesita definir un único Precio Base. El sistema se encarga de calcular automáticamente el precio final para los demás canales aplicando reglas predefinidas.
+
+Principio Arquitectónico Clave: La Fuente de la Verdad
+Un principio fundamental de esta nueva arquitectura es la integridad de los datos financieros existentes:
+
+La Verdad Absoluta: El valor financiero de una reserva (valorHuesped, valorTotal) que proviene de un reporte externo (CSV de Booking, Airbnb, etc.) o que ha sido ajustado manualmente por un usuario es siempre la fuente de la verdad y NUNCA se sobreescribe por el nuevo motor de cálculo de tarifas.
+
+El Rol del Nuevo Motor de Tarifas: Este sistema tiene dos propósitos claros:
+
+Para Nuevas Reservas Manuales: Calcular precios de forma automática y consistente al usar herramientas como "Agregar Propuesta" o "Generador de Presupuestos".
+
+Como Herramienta de KPI: Para las reservas importadas o existentes, el motor calcula el precio teórico según las tarifas configuradas y lo guarda como un valor de referencia (valores.valorOriginal). Esto permite realizar análisis de rentabilidad comparando el ingreso real contra el esperado.
+se modificaron todos estos arhcivos  gestionarReservas, gestionarTarifas, gestionarCanales, agregarPropuesta,gestionDiaria.cards, ajusteTarifaModal, gestionDiaria, tarifasService, propuestaService, sincronizacinSErvice, canalesService
+
+Resumen de Modificaciones por Módulo
+Backend (Lógica de Negocio)
+services/canalesService.js:
+
+Se ha enriquecido el modelo de canales. Ahora cada canal puede tener un modificadorTipo (porcentaje o fijo) y un modificadorValor.
+
+Se gestiona la bandera esCanalPorDefecto para asegurar que siempre exista un único canal de referencia para los precios base.
+
+services/tarifasService.js:
+
+Creación/Actualización: Las funciones crearTarifa y actualizarTarifa fueron refactorizadas. Ahora solo guardan un único precioBase, vinculándolo al ID del canal por defecto en la base de datos (ej. precios: { id_canal_defecto: 100000 }).
+
+Lectura y Cálculo: La función obtenerTarifasPorEmpresa fue rediseñada. Lee el precioBase y, al momento de la consulta, calcula dinámicamente los precios para todos los demás canales aplicando los modificadores configurados en cada uno.
+
+services/propuestasService.js:
+
+La función calculatePrice se ha convertido en el nuevo motor de precios centralizado. Es responsable de obtener la tarifa base, aplicar los modificadores del canal solicitado y gestionar la conversión de moneda (ej. de CLP a USD) utilizando el dolarService y la fecha de check-in.
+
+services/sincronizacionService.js:
+
+Se modificó para respetar el principio de la "fuente de la verdad". Durante la importación de un reporte, el servicio guarda los valores financieros reales del archivo.
+
+Posteriormente, utiliza el nuevo calculatePrice únicamente para obtener el precio base teórico (para KPI) y lo almacena en valores.valorOriginal sin alterar los montos reales de la reserva.
+
+services/gestionService.js:
+
+Se actualizó para que, al obtener los datos para la "Gestión Diaria", también calcule y provea el valorListaBaseTotal (el precio de lista teórico), permitiendo comparativas de rentabilidad en el frontend.
+
+Frontend (Interfaz de Usuario)
+views/gestionarCanales.js:
+
+El modal de edición fue actualizado para permitir la configuración de los nuevos campos modificadorTipo y modificadorValor, además de la bandera esCanalPorDefecto.
+
+views/gestionarTarifas.js:
+
+La interfaz de creación y edición de tarifas fue drásticamente simplificada. El usuario ahora solo necesita gestionar un único campo de "Precio Base".
+
+La tabla del historial, aunque los datos se guardan de forma simple, ahora muestra una columna de "Tarifas Calculadas" que presenta los precios finales para todos los canales, aplicando los modificadores automáticamente para una visualización completa.
+
+views/agregarPropuesta.js:
+
+La lógica de precios y descuentos fue reconstruida para consumir el nuevo calculatePrice.
+
+El resumen de precios ahora maneja escenarios multi-moneda de forma transparente, mostrando desgloses en la moneda original (ej. USD) y su equivalente final en CLP.
+
+views/components/gestionDiaria/:
+
+gestionDiaria.cards.js: Las tarjetas de reserva ahora muestran un desglose financiero detallado para reservas en moneda extranjera, indicando los valores en USD y su conversión a CLP.
+
+ajusteTarifaModal.js: La pestaña "Simulador de Rentabilidad" fue completamente rediseñada. Ahora compara el ingreso real (payoutFinalReal) contra la tarifa base teórica (valorListaBaseTotal) para calcular y mostrar la rentabilidad precisa de la reserva y ofrecer recomendaciones estratégicas.
+
+views/gestionarReservas.js:
+
+El modal de edición fue ajustado para reflejar la nueva lógica. Los campos de precios ahora son editables para permitir correcciones manuales, consolidando que el valor almacenado en la reserva es la "verdad absoluta", mientras el sistema asiste con cálculos de conversión de moneda si es necesario.
