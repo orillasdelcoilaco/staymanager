@@ -81,12 +81,16 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
 };
 
 const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
+    console.log('[DEBUG Service] Iniciando actualizarTarifa. ID:', tarifaId);
+    console.log('[DEBUG Service] Datos recibidos (datosActualizados):', JSON.stringify(datosActualizados, null, 2));
+
     const canalesRef = db.collection('empresas').doc(empresaId).collection('canales');
     const canalDefectoSnapshot = await canalesRef.where('esCanalPorDefecto', '==', true).limit(1).get();
     if (canalDefectoSnapshot.empty) {
         throw new Error('No se ha configurado un canal por defecto.');
     }
     const canalPorDefectoId = canalDefectoSnapshot.docs[0].id;
+    console.log('[DEBUG Service] ID del Canal por Defecto encontrado:', canalPorDefectoId);
 
     const tarifaRef = db.collection('empresas').doc(empresaId).collection('tarifas').doc(tarifaId);
     
@@ -99,8 +103,11 @@ const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
         },
         fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
     };
+    
+    console.log('[DEBUG Service] Objeto final para Firestore (datosParaActualizar):', JSON.stringify(datosParaActualizar, null, 2));
 
     await tarifaRef.update(datosParaActualizar);
+
     return { id: tarifaId, ...datosActualizados };
 };
 

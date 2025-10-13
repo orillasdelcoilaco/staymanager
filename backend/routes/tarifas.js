@@ -31,6 +31,8 @@ module.exports = (db) => {
 
     router.put('/:id', async (req, res) => {
         try {
+            console.log(`[DEBUG Backend Route] PUT /api/tarifas/${req.params.id}`);
+            console.log('[DEBUG Backend Route] Body recibido:', JSON.stringify(req.body, null, 2));
             const { empresaId } = req.user;
             const { id } = req.params;
             const tarifaActualizada = await actualizarTarifa(db, empresaId, id, req.body);
