@@ -160,7 +160,7 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
         .where('idReservaCanal', '==', idReservaOriginal)
         .get();
     
-    const reservasIndividuales = grupoSnapshot.docs.map(d => d.data());
+    const reservasDelGrupo = grupoSnapshot.docs.map(d => d.data());
 
     const [clienteDoc, notasSnapshot, transaccionesSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('clientes').doc(reservaData.clienteId).get(),
@@ -172,10 +172,17 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
     const notas = notasSnapshot.docs.map(d => ({...d.data(), fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
     const transacciones = transaccionesSnapshot.docs.map(d => ({...d.data(), id: d.id, fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
 
-    const valorTotalHuesped = reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0);
-    const costoCanal = reservasIndividuales.reduce((sum, r) => sum + (r.valores?.comision || r.valores?.costoCanal || 0), 0);
-    const valorPotencial = reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorPotencial || 0), 0);
-    const abonoTotal = transacciones.reduce((sum, t) => sum + (t.monto || 0), 0);
+    const valorTotalHuesped = reservaData.valores?.valorHuesped || 0;
+    const costoCanal = reservaData.valores?.comision || reservaData.valores?.costoCanal || 0;
+    const valorPotencial = reservaData.valores?.valorPotencial || 0;
+    
+    const abonoTotalGrupo = transacciones.reduce((sum, t) => sum + (t.monto || 0), 0);
+
+    const datosGrupo = {
+        propiedades: reservasDelGrupo.map(r => r.alojamientoNombre),
+        valorTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0),
+        payoutTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorTotal || 0), 0)
+    };
 
     return {
         ...reservaData,
@@ -185,12 +192,16 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
         cliente,
         notas,
         transacciones,
-        datosAgregados: {
+        datosIndividuales: {
             valorTotalHuesped,
             costoCanal,
             valorPotencial,
-            abonoTotal,
             payoutFinalReal: valorTotalHuesped - costoCanal,
+        },
+        datosGrupo: {
+            ...datosGrupo,
+            abonoTotal: abonoTotalGrupo,
+            saldo: datosGrupo.valorTotal - abonoTotalGrupo
         }
     };
 };
@@ -224,12 +235,9 @@ const actualizarValoresGrupo = async (db, empresaId, valoresCabanas, nuevoTotalH
             const nuevosValores = { ...reserva.valores };
             const valorHuespedActualIndividual = nuevosValores.valorHuesped;
 
-            // --- INICIO DE LA CORRECCIÓN ---
-            // Solo guardar el valor original si no existe ya
             if (!nuevosValores.valorHuespedOriginal || nuevosValores.valorHuespedOriginal === 0) {
                 nuevosValores.valorHuespedOriginal = valorHuespedActualIndividual;
             }
-            // --- FIN DE LA CORRECCIÓN ---
 
             nuevosValores.valorHuesped = Math.round(valorHuespedActualIndividual * proporcion);
 
@@ -244,7 +252,6 @@ const actualizarValoresGrupo = async (db, empresaId, valoresCabanas, nuevoTotalH
     await batch.commit();
 };
 
-
 const calcularPotencialGrupo = async (db, empresaId, idsIndividuales, descuento) => {
     const batch = db.batch();
     for (const id of idsIndividuales) {
@@ -255,14 +262,11 @@ const calcularPotencialGrupo = async (db, empresaId, idsIndividuales, descuento)
             if (valorHuesped > 0 && descuento > 0 && descuento < 100) {
                 const valorPotencial = Math.round(valorHuesped / (1 - (parseFloat(descuento) / 100)));
                 
-                // --- INICIO DE LA CORRECCIÓN ---
-                // Guardar el valor potencial dentro del objeto 'valores'
                 batch.update(ref, { 
                     'valores.valorPotencial': valorPotencial,
                     'edicionesManuales.valores.valorPotencial': true,
                     'potencialCalculado': true
                 });
-                // --- FIN DE LA CORRECCIÓN ---
             }
         }
     }
