@@ -28,13 +28,14 @@ function abrirModalEditar(tarifa) {
     const form = document.getElementById('tarifa-form-edit');
     if (!modal || !form) return;
 
+    // El precio base ahora se deriva del precio en CLP del canal por defecto.
     const precioBaseObj = tarifa.precios[canalPorDefecto.id];
 
     form.alojamientoNombre.value = tarifa.alojamientoNombre;
     form.temporada.value = tarifa.temporada;
     form.fechaInicio.value = tarifa.fechaInicio;
     form.fechaTermino.value = tarifa.fechaTermino;
-    form.precioBase.value = precioBaseObj ? precioBaseObj.valor : 0;
+    form.precioBase.value = precioBaseObj ? precioBaseObj.valorCLP : 0;
     
     modal.classList.remove('hidden');
 }
@@ -51,7 +52,7 @@ function renderTabla() {
     if (!tbody) return;
 
     if (tarifas.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-gray-500 py-4">No hay tarifas registradas.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-gray-500 py-4">No hay tarifas registradas.</td></tr>`;
         return;
     }
 
@@ -76,11 +77,22 @@ function renderTabla() {
 
         return new Date(b.fechaInicio) - new Date(a.fechaInicio);
     });
+    
+    const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
 
     tbody.innerHTML = tarifasOrdenadas.map((t, index) => {
         const preciosHtml = canales.map(c => {
             const precio = t.precios[c.id];
-            return `<li><strong>${c.nombre}:</strong> ${precio ? `${new Intl.NumberFormat().format(Math.round(precio.valor))} ${c.moneda}` : 'No definido'}</li>`;
+            if (!precio) {
+                return `<li><strong>${c.nombre}:</strong> No definido</li>`;
+            }
+
+            if (precio.moneda === 'USD') {
+                const valorUSDFormatted = (precio.valorUSD || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                return `<li><strong>${c.nombre}:</strong> ${formatCurrency(precio.valorCLP)} CLP (${valorUSDFormatted} USD)</li>`;
+            } else {
+                return `<li><strong>${c.nombre}:</strong> ${formatCurrency(precio.valorCLP)} ${c.moneda}</li>`;
+            }
         }).join('');
 
         return `
@@ -90,6 +102,7 @@ function renderTabla() {
                 <td class="py-3 px-4">${t.temporada}</td>
                 <td class="py-3 px-4">${t.fechaInicio}</td>
                 <td class="py-3 px-4">${t.fechaTermino}</td>
+                <td class="py-3 px-4 text-center">${t.valorDolarDia ? formatCurrency(t.valorDolarDia) : '-'}</td>
                 <td class="py-3 px-4 text-xs"><ul>${preciosHtml}</ul></td>
                 <td class="py-3 px-4 whitespace-nowrap">
                     <button data-id="${t.id}" class="copy-btn btn-table-copy mr-2">Copiar</button>
@@ -100,6 +113,7 @@ function renderTabla() {
         `;
     }).join('');
 }
+
 
 // --- Lógica Principal de la Vista ---
 export async function render() {
@@ -161,6 +175,7 @@ export async function render() {
                             <th class="th">Temporada</th>
                             <th class="th">Fecha Inicio</th>
                             <th class="th">Fecha Término</th>
+                            <th class="th">Valor Dólar</th>
                             <th class="th">Tarifas Calculadas</th>
                             <th class="th">Acciones</th>
                         </tr>
@@ -264,7 +279,7 @@ export function afterRender() {
             document.getElementById('fecha-termino-input').value = tarifa.fechaTermino;
             
             const precioBaseObj = tarifa.precios[canalPorDefecto.id];
-            document.getElementById('precio-base-input').value = precioBaseObj ? precioBaseObj.valor : '';
+            document.getElementById('precio-base-input').value = precioBaseObj ? precioBaseObj.valorCLP : '';
 
             window.scrollTo(0, 0);
         }

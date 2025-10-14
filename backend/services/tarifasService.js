@@ -1,4 +1,5 @@
 const admin = require('firebase-admin');
+const { obtenerValorDolar } = require('./dolarService');
 
 const calcularYGuardarPrecios = async (db, empresaId, datosTarifa, tarifaRef, transaction = null) => {
     const canalesRef = db.collection('empresas').doc(empresaId).collection('canales');
@@ -16,28 +17,17 @@ const calcularYGuardarPrecios = async (db, empresaId, datosTarifa, tarifaRef, tr
         throw new Error('El valor de precioBase no es válido.');
     }
 
-    const preciosCalculados = {};
-    todosLosCanalesSnapshot.forEach(doc => {
-        const canal = doc.data();
-        const idCanal = doc.id;
-        let valorFinal = precioBase;
-
-        if (idCanal !== canalPorDefectoId && canal.modificadorValor) {
-            if (canal.modificadorTipo === 'porcentaje') {
-                valorFinal *= (1 + canal.modificadorValor / 100);
-            } else if (canal.modificadorTipo === 'fijo') {
-                valorFinal += canal.modificadorValor;
-            }
-        }
-        preciosCalculados[idCanal] = valorFinal;
-    });
+    // Ahora solo guardamos el precio base. El resto se calculará dinámicamente.
+    const preciosCalculados = {
+        [canalPorDefectoId]: precioBase
+    };
 
     const datosParaGuardar = {
         alojamientoId: datosTarifa.alojamientoId,
         temporada: datosTarifa.temporada,
         fechaInicio: admin.firestore.Timestamp.fromDate(new Date(datosTarifa.fechaInicio + 'T00:00:00Z')),
         fechaTermino: admin.firestore.Timestamp.fromDate(new Date(datosTarifa.fechaTermino + 'T00:00:00Z')),
-        precios: preciosCalculados,
+        precios: preciosCalculados, // Guardamos solo el precio base
         fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
     };
 
@@ -56,6 +46,7 @@ const crearTarifa = async (db, empresaId, datosTarifa) => {
         throw new Error('Faltan datos requeridos para crear la tarifa.');
     }
     const tarifaRef = db.collection('empresas').doc(empresaId).collection('tarifas').doc();
+    // La función calcularYGuardarPrecios ahora solo guarda el precio base.
     const nuevaTarifa = await calcularYGuardarPrecios(db, empresaId, datosTarifa, tarifaRef);
     return { id: tarifaRef.id, ...nuevaTarifa };
 };
@@ -72,19 +63,57 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
     }
 
     const propiedadesMap = new Map(propiedadesSnapshot.docs.map(doc => [doc.id, doc.data().nombre]));
-    const canalesMap = new Map(canalesSnapshot.docs.map(doc => [doc.id, doc.data()]));
-    
-    return tarifasSnapshot.docs.map(doc => {
+    const canales = canalesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const canalPorDefecto = canales.find(c => c.esCanalPorDefecto);
+
+    if (!canalPorDefecto) {
+        throw new Error("No se ha configurado un canal por defecto. Por favor, marque uno en 'Gestionar Canales'.");
+    }
+
+    const tarifasPromises = tarifasSnapshot.docs.map(async (doc) => {
         const data = doc.data();
-        const fechaInicio = data.fechaInicio.toDate().toISOString().split('T')[0];
+        const fechaInicioDate = data.fechaInicio.toDate();
+        const fechaInicio = fechaInicioDate.toISOString().split('T')[0];
         const fechaTermino = data.fechaTermino.toDate().toISOString().split('T')[0];
         
+        const valorDolarDia = await obtenerValorDolar(db, empresaId, fechaInicioDate);
+        const precioBase = (data.precios && data.precios[canalPorDefecto.id]) ? data.precios[canalPorDefecto.id] : 0;
+
         const preciosFinales = {};
-        for (const [canalId, canal] of canalesMap.entries()) {
-            preciosFinales[canalId] = {
-                valor: data.precios[canalId] || 0,
-                moneda: canal.moneda
-            };
+        for (const canal of canales) {
+            let precioConvertido = precioBase;
+
+            // 1. Convertir moneda ANTES de aplicar modificador
+            if (canal.moneda === 'USD' && canalPorDefecto.moneda === 'CLP' && valorDolarDia > 0) {
+                precioConvertido = precioBase / valorDolarDia;
+            } else if (canal.moneda === 'CLP' && canalPorDefecto.moneda === 'USD' && valorDolarDia > 0) {
+                precioConvertido = precioBase * valorDolarDia;
+            }
+
+            let valorFinal = precioConvertido;
+
+            // 2. Aplicar modificador sobre el valor ya convertido
+            if (canal.id !== canalPorDefecto.id && canal.modificadorValor) {
+                if (canal.modificadorTipo === 'porcentaje') {
+                    valorFinal *= (1 + canal.modificadorValor / 100);
+                } else if (canal.modificadorTipo === 'fijo') {
+                    valorFinal += canal.modificadorValor;
+                }
+            }
+
+            // 3. Guardar resultados para el frontend
+            if (canal.moneda === 'USD') {
+                preciosFinales[canal.id] = {
+                    valorUSD: valorFinal,
+                    valorCLP: valorFinal * valorDolarDia,
+                    moneda: 'USD'
+                };
+            } else {
+                 preciosFinales[canal.id] = {
+                    valorCLP: valorFinal,
+                    moneda: 'CLP'
+                };
+            }
         }
 
         return {
@@ -94,9 +123,12 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
             temporada: data.temporada,
             precios: preciosFinales,
             fechaInicio,
-            fechaTermino
+            fechaTermino,
+            valorDolarDia
         };
     });
+
+    return Promise.all(tarifasPromises);
 };
 
 const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
