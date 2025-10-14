@@ -63,8 +63,6 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
 
         for (const canal of canalesMap.values()) {
             let valorFinal = precioBase;
-            // --- INICIO DE LA CORRECCIÓN DE LÓGICA ---
-            // Asegurarse de que el modificador solo se aplique si el canal NO es el canal por defecto.
             if (canal.id !== canalPorDefectoId && canal.modificadorValor) {
                 if (canal.modificadorTipo === 'porcentaje') {
                     valorFinal *= (1 + (canal.modificadorValor / 100));
@@ -72,7 +70,6 @@ const obtenerTarifasPorEmpresa = async (db, empresaId) => {
                     valorFinal += canal.modificadorValor;
                 }
             }
-            // --- FIN DE LA CORRECCIÓN DE LÓGICA ---
             preciosFinales[canal.id] = { valor: valorFinal, moneda: canal.moneda };
         }
 
@@ -105,8 +102,6 @@ const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
         }
 
         const preciosActuales = tarifaDoc.data().precios || {};
-        
-        // Se actualiza el valor del precio base directamente.
         preciosActuales[canalPorDefectoId] = parseFloat(datosActualizados.precioBase);
 
         transaction.update(tarifaRef, {
