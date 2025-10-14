@@ -43,21 +43,30 @@ function renderFinancialDetails(grupo) {
 
 function renderActionButtons(grupo) {
     const estadoInfo = getStatusInfo(grupo.estadoGestion);
-    let buttons = `
-        <button class="gestion-btn btn-table-copy text-xs" data-gestion="ajuste_tarifa">Ajuste Tarifa</button>
-        <button class="gestion-btn btn-table-copy text-xs" data-gestion="bitacora">Bitácora (${grupo.notasCount})</button>
-        <button class="gestion-btn btn-table-copy text-xs" data-gestion="gestionar_reserva">Doc. Reserva</button>
-    `;
     
     // --- INICIO DE LA CORRECCIÓN ---
-    // Añadir botones de Pagos y Boleta según el estado
-    if (grupo.estadoGestion === 'Pendiente Pago' || grupo.estadoGestion === 'Pendiente Boleta' || grupo.estadoGestion === 'Facturado' || grupo.estadoGestion === 'Pendiente Cliente') {
-        buttons += `<button class="gestion-btn btn-table-edit text-xs" data-gestion="pagos">Pagos (${grupo.transaccionesCount})</button>`;
+    const ajusteRealizado = grupo.ajusteManualRealizado || grupo.potencialCalculado;
+    const pagoFinalRealizado = ['Pendiente Boleta', 'Pendiente Cliente', 'Facturado'].includes(grupo.estadoGestion);
+    const boletaAdjunta = grupo.documentos && grupo.documentos.enlaceBoleta;
+    const reservaAdjunta = grupo.documentos && grupo.documentos.enlaceReserva;
+
+    let buttons = `
+        <button class="gestion-btn btn-table-copy text-xs" data-gestion="ajuste_tarifa">Ajuste Tarifa ${ajusteRealizado ? '✓' : ''}</button>
+        <button class="gestion-btn btn-table-copy text-xs" data-gestion="bitacora">Bitácora (${grupo.notasCount})</button>
+        <button class="gestion-btn btn-table-copy text-xs" data-gestion="gestionar_reserva">Doc. Reserva ${reservaAdjunta ? '✓' : ''}</button>
+    `;
+
+    if (estadoInfo.level >= 2) { // Aparece desde "Pendiente Cobro" en adelante
+        buttons += `<button class="gestion-btn btn-table-edit text-xs" data-gestion="pagos">Pagos (${grupo.transaccionesCount}) ${pagoFinalRealizado ? '✓' : ''}</button>`;
     }
 
-    if (grupo.estadoGestion === 'Pendiente Boleta' || grupo.estadoGestion === 'Facturado' || grupo.estadoGestion === 'Pendiente Cliente') {
-        const docStatusClass = grupo.documentos.enlaceBoleta ? 'bg-green-500 hover:bg-green-700' : 'bg-amber-500 hover:bg-amber-700';
-        buttons += `<button class="gestion-btn btn-table-edit text-xs ${docStatusClass}" data-gestion="boleta">Boleta</button>`;
+    if (estadoInfo.level >= 4) { // Aparece desde "Pendiente Boleta" en adelante
+        const docStatusClass = boletaAdjunta ? 'bg-green-500 hover:bg-green-700' : 'bg-amber-500 hover:bg-amber-700';
+        buttons += `<button class="gestion-btn btn-table-edit text-xs ${docStatusClass}" data-gestion="boleta">Boleta ${boletaAdjunta ? '✓' : ''}</button>`;
+    }
+    
+    if (estadoInfo.level >= 5) { // Aparece en "Pendiente Cliente"
+         buttons += `<button class="gestion-btn btn-table-edit text-xs" data-gestion="gestionar_cliente">Gestionar Cliente ${grupo.clienteGestionado ? '✓' : ''}</button>`;
     }
     // --- FIN DE LA CORRECCIÓN ---
 
@@ -68,6 +77,7 @@ function renderActionButtons(grupo) {
     return buttons;
 }
 
+
 function createCard(grupo, allEstados) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -77,12 +87,9 @@ function createCard(grupo, allEstados) {
     const estadoInfo = getStatusInfo(grupo.estadoGestion, allEstados);
     const alojamientosNombres = grupo.reservasIndividuales.map(r => r.alojamientoNombre).join(', ');
 
-    // --- INICIO DE LA CORRECCIÓN ---
-    // El estado principal ahora es un botón si tiene una acción asociada
     const estadoBotonHtml = estadoInfo.gestionType 
         ? `<button class="gestion-btn px-2 py-1 text-xs font-semibold rounded-full" data-gestion="${estadoInfo.gestionType}" style="background-color: ${estadoInfo.color}; color: white;">${estadoInfo.text}</button>`
         : `<span class="px-2 py-1 text-xs font-semibold rounded-full" style="background-color: ${estadoInfo.color}; color: white;">${estadoInfo.text}</span>`;
-    // --- FIN DE LA CORRECCIÓN ---
 
     return `
     <div id="card-${grupo.reservaIdOriginal}" class="p-4 border rounded-lg bg-white shadow-sm flex flex-col md:flex-row gap-4">
