@@ -129,9 +129,23 @@ export async function afterRender() {
         }
     });
 
-    document.getElementById('revision-list').addEventListener('click', handleCardButtonClick);
-    document.getElementById('hoy-list').addEventListener('click', handleCardButtonClick);
-    document.getElementById('proximas-list').addEventListener('click', handleCardButtonClick);
+    const listsContainer = [
+        document.getElementById('revision-list'),
+        document.getElementById('hoy-list'),
+        document.getElementById('proximas-list')
+    ];
+
+    listsContainer.forEach(container => {
+        container.addEventListener('click', (e) => {
+            const link = e.target.closest('a[data-navigo]');
+            if (link) {
+                e.preventDefault();
+                handleNavigation(link.getAttribute('href'));
+            } else {
+                handleCardButtonClick(e);
+            }
+        });
+    });
     
     initializeModals(() => loadAndRender(), currentUserEmail, () => allEstados);
 }

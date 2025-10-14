@@ -85,6 +85,7 @@ function renderSimuladorVentaDirecta() {
     let totalClienteLabel = "Total Cliente:";
     let costoCanalLabel = "(-) Costos del Canal:";
     let payoutFinalLabel = "Payout Final (Ingreso Real):";
+    let ivaLabel = "(+) IVA:";
 
     if (moneda === 'USD' && valorDolarDia) {
         const fechaCheckIn = formatDate(currentGrupo.fechaLlegada);
@@ -92,57 +93,72 @@ function renderSimuladorVentaDirecta() {
 
         const tarifaBaseUSD = currentGrupo.valorListaBaseTotal;
         tarifaBaseTotalCLP = tarifaBaseUSD * valorDolarDia;
-        tarifaBaseLabel = `Tarifa Base (${totalNoches} Noches x ${numPropiedades} Prop.) (USD ${formatUSD(tarifaBaseUSD, { includeSymbol: false })}):`;
+        tarifaBaseLabel = `Tarifa Base (USD ${formatUSD(tarifaBaseUSD, { includeSymbol: false })}):`;
         
-        const totalClienteUSD = totalClienteCLP / valorDolarDia;
+        const totalClienteUSD = currentGrupo.valoresUSD.totalCliente;
         totalClienteLabel = `Total Cliente (USD ${formatUSD(totalClienteUSD, { includeSymbol: false })}):`;
 
-        const costoCanalUSD = costoCanalCLP / valorDolarDia;
+        const costoCanalUSD = valorDolarDia > 0 ? costoCanalCLP / valorDolarDia : 0;
         costoCanalLabel = `(-) Costos del Canal (USD ${formatUSD(costoCanalUSD, { includeSymbol: false })}):`;
         
-        const payoutFinalUSD = payoutFinalRealCLP / valorDolarDia;
+        const payoutFinalUSD = valorDolarDia > 0 ? payoutFinalRealCLP / valorDolarDia : 0;
         payoutFinalLabel = `Payout Final (Ingreso Real) (USD ${formatUSD(payoutFinalUSD, { includeSymbol: false })}):`;
-    } else {
-        tarifaBaseTotalCLP = currentGrupo.valorListaBaseTotal;
-    }
+        
+        const ivaUSD = currentGrupo.valoresUSD.iva || 0;
+        const ivaCLP = ivaUSD * valorDolarDia;
+        ivaLabel = `(+) IVA (USD ${formatUSD(ivaUSD, { includeSymbol: false })}):`;
 
-    const rentabilidadVsTarifa = payoutFinalRealCLP - tarifaBaseTotalCLP;
+        const rentabilidadVsTarifa = payoutFinalRealCLP - tarifaBaseTotalCLP;
 
-    let recomendacionHtml = '';
-    if (rentabilidadVsTarifa >= 0) {
-        recomendacionHtml = `
-            <div class="p-3 bg-green-50 border border-green-200 rounded-md">
-                <h4 class="font-semibold text-green-800">Recomendación</h4>
-                <p class="mt-2 text-sm text-green-700">Esta reserva es rentable. El Payout supera la Tarifa Base en <strong>${formatCurrency(rentabilidadVsTarifa)}</strong>.</p>
-            </div>`;
-    } else {
-        const descuentoSugerido = tarifaBaseTotalCLP > 0 ? (Math.abs(rentabilidadVsTarifa) / tarifaBaseTotalCLP) * 100 : 0;
-        recomendacionHtml = `
-            <div class="p-3 bg-blue-50 border border-blue-200 rounded-md">
-                <h4 class="font-semibold text-blue-800">Potencial de Venta Directa</h4>
-                <p class="mt-2 text-sm text-blue-700">Para igualar la rentabilidad del canal (${formatCurrency(payoutFinalRealCLP)}), podrías ofrecer un descuento de hasta un <strong>${descuentoSugerido.toFixed(1)}%</strong> (equivalente a ${formatCurrency(Math.abs(rentabilidadVsTarifa))}) sobre tu Tarifa Base en una venta directa.</p>
-            </div>`;
-    }
-
-    contentContainer.innerHTML = `
+        contentContainer.innerHTML = `
         <p class="text-sm text-gray-600 mb-2">Analiza la rentabilidad real de esta reserva y compárala con una venta directa.</p>
         ${dolarInfoHtml}
-        <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
             <div class="p-3 bg-gray-50 border rounded-md">
-                <h4 class="font-semibold text-gray-800">Análisis Financiero de la Reserva</h4>
+                <h4 class="font-semibold text-gray-800">Análisis Financiero</h4>
+                <dl class="mt-2 text-sm space-y-1">
+                    <div class="flex justify-between text-gray-500"><dt>${totalClienteLabel}</dt><dd class="font-medium">${formatCurrency(totalClienteCLP)}</dd></div>
+                    <div class="flex justify-between text-gray-500"><dt>${ivaLabel}</dt><dd class="font-medium">${formatCurrency(ivaCLP)}</dd></div>
+                    <div class="flex justify-between text-red-600"><dt>${costoCanalLabel}</dt><dd class="font-medium">${formatCurrency(costoCanalCLP)}</dd></div>
+                    <div class="flex justify-between border-t pt-1 mt-1 font-bold"><dt>${payoutFinalLabel}</dt><dd class="text-green-700">${formatCurrency(payoutFinalRealCLP)}</dd></div>
+                </dl>
+            </div>
+            <div class="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                 <h4 class="font-semibold text-blue-800">Potencial Venta Directa</h4>
+                 <dl class="mt-2 text-sm space-y-1">
+                    <div class="flex justify-between"><dt>${tarifaBaseLabel}</dt><dd class="font-medium">${formatCurrency(tarifaBaseTotalCLP)}</dd></div>
+                    <div class="flex justify-between border-t pt-1 mt-1 font-semibold"><dt>Rentabilidad vs Tarifa:</dt><dd class="${rentabilidadVsTarifa >= 0 ? 'text-green-700' : 'text-red-600'}">${formatCurrency(rentabilidadVsTarifa)}</dd></div>
+                </dl>
+            </div>
+        </div>
+        `;
+
+    } else { // Si es CLP
+        tarifaBaseTotalCLP = currentGrupo.valorListaBaseTotal;
+        const rentabilidadVsTarifa = payoutFinalRealCLP - tarifaBaseTotalCLP;
+
+        contentContainer.innerHTML = `
+        <p class="text-sm text-gray-600 mb-2">Analiza la rentabilidad real de esta reserva y compárala con una venta directa.</p>
+        <div class="grid grid-cols-2 gap-4">
+            <div class="p-3 bg-gray-50 border rounded-md">
+                <h4 class="font-semibold text-gray-800">Análisis Financiero</h4>
                 <dl class="mt-2 text-sm space-y-1">
                     <div class="flex justify-between text-gray-500"><dt>${totalClienteLabel}</dt><dd class="font-medium">${formatCurrency(totalClienteCLP)}</dd></div>
                     <div class="flex justify-between text-red-600"><dt>${costoCanalLabel}</dt><dd class="font-medium">${formatCurrency(costoCanalCLP)}</dd></div>
                     <div class="flex justify-between border-t pt-1 mt-1 font-bold"><dt>${payoutFinalLabel}</dt><dd class="text-green-700">${formatCurrency(payoutFinalRealCLP)}</dd></div>
-                    <div class="flex justify-between"><dt>${tarifaBaseLabel}</dt><dd class="font-medium">${formatCurrency(tarifaBaseTotalCLP)}</dd></div>
-                    <div class="flex justify-between border-t pt-1 mt-1 font-semibold"><dt>Rentabilidad vs. Tarifa Base:</dt><dd class="${rentabilidadVsTarifa >= 0 ? 'text-green-700' : 'text-red-600'}">${formatCurrency(rentabilidadVsTarifa)}</dd></div>
                 </dl>
             </div>
-            ${recomendacionHtml}
-            ${currentGrupo.potencialCalculado ? `<p class="text-xs text-center text-gray-500">Dato KPI: El canal vendió esta reserva a un valor potencial de ${formatCurrency(currentGrupo.potencialTotal)}.</p>` : ''}
-        </div>`;
+            <div class="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                 <h4 class="font-semibold text-blue-800">Potencial Venta Directa</h4>
+                 <dl class="mt-2 text-sm space-y-1">
+                    <div class="flex justify-between"><dt>${tarifaBaseLabel}</dt><dd class="font-medium">${formatCurrency(tarifaBaseTotalCLP)}</dd></div>
+                    <div class="flex justify-between border-t pt-1 mt-1 font-semibold"><dt>Rentabilidad vs Tarifa:</dt><dd class="${rentabilidadVsTarifa >= 0 ? 'text-green-700' : 'text-red-600'}">${formatCurrency(rentabilidadVsTarifa)}</dd></div>
+                </dl>
+            </div>
+        </div>
+        `;
+    }
 }
-
 
 async function handleSavePotencial() {
     const descuento = document.getElementById('descuento-agregado-pct').value;
