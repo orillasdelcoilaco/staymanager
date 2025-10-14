@@ -10,8 +10,12 @@ function renderTabContent(tabName) {
 
     switch(tabName) {
         case 'potencial':
-            const potencialGuardado = currentGrupo.potencialTotal || 0;
+            // --- INICIO DE LA CORRECCIÓN ---
+            // Usar el valor 'valorPotencial' que ahora viene del backend
+            const potencialGuardado = currentGrupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorPotencial || 0), 0);
             const valorHuespedActual = currentGrupo.valorTotalHuesped;
+            // --- FIN DE LA CORRECCIÓN ---
+
             contentContainer.innerHTML = `
                 <p class="text-sm text-gray-600 mb-3">Registra el descuento total (%) que un canal aplicó para calcular y guardar su <strong>precio de venta original (Valor Potencial)</strong>. Esto es solo para fines de KPI y no altera el cobro.</p>
                 ${potencialGuardado > 0 ? `<div class="p-3 bg-blue-50 border border-blue-200 rounded-md"><p class="text-sm font-semibold text-blue-800">Valor Potencial Guardado: ${formatCurrency(potencialGuardado)}</p></div>` : ''}
@@ -44,9 +48,10 @@ function renderTabContent(tabName) {
 
         case 'ajuste':
             const valorActualTotal = currentGrupo.valorTotalHuesped;
-            const valorOriginal = currentGrupo.valorTotalHuespedOriginal > 0 && currentGrupo.valorTotalHuespedOriginal !== valorActualTotal
-                ? currentGrupo.valorTotalHuespedOriginal
-                : valorActualTotal;
+            // --- INICIO DE LA CORRECCIÓN ---
+            // Usar el campo 'valorHuespedOriginal' que ahora viene del backend
+            const valorOriginal = currentGrupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorHuespedOriginal || 0), 0) || valorActualTotal;
+            // --- FIN DE LA CORRECCIÓN ---
 
             contentContainer.innerHTML = `
                 <p class="text-sm text-gray-600 mb-3">Modifica el monto final que se cobrará al cliente (Total Cliente). Esta acción es permanente y quedará registrada.</p>

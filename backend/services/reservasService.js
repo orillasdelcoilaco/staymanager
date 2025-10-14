@@ -224,9 +224,12 @@ const actualizarValoresGrupo = async (db, empresaId, valoresCabanas, nuevoTotalH
             const nuevosValores = { ...reserva.valores };
             const valorHuespedActualIndividual = nuevosValores.valorHuesped;
 
+            // --- INICIO DE LA CORRECCIÓN ---
+            // Solo guardar el valor original si no existe ya
             if (!nuevosValores.valorHuespedOriginal || nuevosValores.valorHuespedOriginal === 0) {
                 nuevosValores.valorHuespedOriginal = valorHuespedActualIndividual;
             }
+            // --- FIN DE LA CORRECCIÓN ---
 
             nuevosValores.valorHuesped = Math.round(valorHuespedActualIndividual * proporcion);
 
@@ -241,6 +244,7 @@ const actualizarValoresGrupo = async (db, empresaId, valoresCabanas, nuevoTotalH
     await batch.commit();
 };
 
+
 const calcularPotencialGrupo = async (db, empresaId, idsIndividuales, descuento) => {
     const batch = db.batch();
     for (const id of idsIndividuales) {
@@ -250,11 +254,15 @@ const calcularPotencialGrupo = async (db, empresaId, idsIndividuales, descuento)
             const valorHuesped = doc.data().valores.valorHuesped || 0;
             if (valorHuesped > 0 && descuento > 0 && descuento < 100) {
                 const valorPotencial = Math.round(valorHuesped / (1 - (parseFloat(descuento) / 100)));
+                
+                // --- INICIO DE LA CORRECCIÓN ---
+                // Guardar el valor potencial dentro del objeto 'valores'
                 batch.update(ref, { 
                     'valores.valorPotencial': valorPotencial,
                     'edicionesManuales.valores.valorPotencial': true,
                     'potencialCalculado': true
                 });
+                // --- FIN DE LA CORRECCIÓN ---
             }
         }
     }

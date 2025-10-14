@@ -48,15 +48,18 @@ function renderActionButtons(grupo) {
         <button class="gestion-btn btn-table-copy text-xs" data-gestion="bitacora">Bitácora (${grupo.notasCount})</button>
         <button class="gestion-btn btn-table-copy text-xs" data-gestion="gestionar_reserva">Doc. Reserva</button>
     `;
-
+    
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Añadir botones de Pagos y Boleta según el estado
     if (grupo.estadoGestion === 'Pendiente Pago' || grupo.estadoGestion === 'Pendiente Boleta' || grupo.estadoGestion === 'Facturado' || grupo.estadoGestion === 'Pendiente Cliente') {
         buttons += `<button class="gestion-btn btn-table-edit text-xs" data-gestion="pagos">Pagos (${grupo.transaccionesCount})</button>`;
     }
 
-    if (grupo.estadoGestion === 'Pendiente Boleta') {
+    if (grupo.estadoGestion === 'Pendiente Boleta' || grupo.estadoGestion === 'Facturado' || grupo.estadoGestion === 'Pendiente Cliente') {
         const docStatusClass = grupo.documentos.enlaceBoleta ? 'bg-green-500 hover:bg-green-700' : 'bg-amber-500 hover:bg-amber-700';
         buttons += `<button class="gestion-btn btn-table-edit text-xs ${docStatusClass}" data-gestion="boleta">Boleta</button>`;
     }
+    // --- FIN DE LA CORRECCIÓN ---
 
     if (estadoInfo.level > 1) { // Puede revertir si no es el primer estado
         buttons += `<button class="revert-btn btn-table-delete text-xs">Revertir</button>`;
@@ -74,9 +77,12 @@ function createCard(grupo, allEstados) {
     const estadoInfo = getStatusInfo(grupo.estadoGestion, allEstados);
     const alojamientosNombres = grupo.reservasIndividuales.map(r => r.alojamientoNombre).join(', ');
 
+    // --- INICIO DE LA CORRECCIÓN ---
+    // El estado principal ahora es un botón si tiene una acción asociada
     const estadoBotonHtml = estadoInfo.gestionType 
         ? `<button class="gestion-btn px-2 py-1 text-xs font-semibold rounded-full" data-gestion="${estadoInfo.gestionType}" style="background-color: ${estadoInfo.color}; color: white;">${estadoInfo.text}</button>`
         : `<span class="px-2 py-1 text-xs font-semibold rounded-full" style="background-color: ${estadoInfo.color}; color: white;">${estadoInfo.text}</span>`;
+    // --- FIN DE LA CORRECCIÓN ---
 
     return `
     <div id="card-${grupo.reservaIdOriginal}" class="p-4 border rounded-lg bg-white shadow-sm flex flex-col md:flex-row gap-4">
