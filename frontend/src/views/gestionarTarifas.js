@@ -174,13 +174,13 @@ export async function render() {
              <div class="modal-content">
                 <h3 class="text-xl font-semibold mb-4">Editar Tarifa</h3>
                 <form id="tarifa-form-edit" class="space-y-4">
-                    <input type="text" name="alojamientoNombre" disabled class="form-input mt-1 bg-gray-100">
-                    <input type="text" name="temporada" placeholder="Temporada" required class="form-input mt-1">
-                    <input type="date" name="fechaInicio" required class="form-input mt-1">
-                    <input type="date" name="fechaTermino" required class="form-input mt-1">
+                    <input type="text" id="alojamientoNombre" name="alojamientoNombre" disabled class="form-input mt-1 bg-gray-100">
+                    <input type="text" id="temporada" name="temporada" placeholder="Temporada" required class="form-input mt-1">
+                    <input type="date" id="fechaInicio" name="fechaInicio" required class="form-input mt-1">
+                    <input type="date" id="fechaTermino" name="fechaTermino" required class="form-input mt-1">
                     <div>
                         <label for="precioBase" class="block text-sm font-medium text-gray-700">Precio Base (${canalPorDefecto.moneda})</label>
-                        <input type="number" name="precioBase" required class="form-input mt-1">
+                        <input type="number" id="precioBase" name="precioBase" required class="form-input mt-1">
                     </div>
                     <div class="flex justify-end pt-4 border-t">
                         <button type="button" id="cancel-edit-btn" class="btn-secondary mr-2">Cancelar</button>
