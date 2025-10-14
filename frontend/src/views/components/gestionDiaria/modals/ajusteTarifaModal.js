@@ -143,6 +143,7 @@ function renderSimuladorVentaDirecta() {
         </div>`;
 }
 
+
 async function handleSavePotencial() {
     const descuento = document.getElementById('descuento-agregado-pct').value;
     const statusEl = document.getElementById('potencial-status');

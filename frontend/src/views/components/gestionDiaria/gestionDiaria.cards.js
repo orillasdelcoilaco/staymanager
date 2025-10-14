@@ -1,236 +1,116 @@
-// backend/services/gestionService.js
+// frontend/src/views/components/gestionDiaria/gestionDiaria.cards.js
+import { getStatusInfo, formatCurrency, formatDate, formatUSD } from './gestionDiaria.utils.js';
 
-const admin = require('firebase-admin');
-
-const getReservasPendientes = async (db, empresaId) => {
-    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
-    
-    // CAMBIO: Obtener dinámicamente los estados de gestión desde la nueva colección
-    const estadosSnapshot = await db.collection('empresas').doc(empresaId).collection('estadosReserva').where('esEstadoDeGestion', '==', true).get();
-    const estadosDeGestion = estadosSnapshot.docs.map(doc => doc.data().nombre);
-
-    const queries = [];
-    if (estadosDeGestion.length > 0) {
-        queries.push(
-            reservasRef
-                .where('estado', '==', 'Confirmada')
-                .where('estadoGestion', 'in', estadosDeGestion)
-                .get()
-        );
+function renderFinancialDetails(grupo) {
+    if (grupo.esUSD) {
+        const valorDolar = grupo.reservasIndividuales[0]?.valorDolarDia || 0;
+        return `
+            <div class="text-xs text-gray-500 space-y-1">
+                <div class="flex justify-between"><span>Total Cliente (USD):</span> <span class="font-medium">${formatUSD(grupo.valoresUSD.totalCliente)}</span></div>
+                <div class="flex justify-between"><span>Total Cliente (CLP):</span> <span class="font-semibold">${formatCurrency(grupo.valorTotalHuesped)}</span></div>
+                <div class="flex justify-between"><span>Abonado:</span> <span class="text-green-600">${formatCurrency(grupo.abonoTotal)}</span></div>
+                <div class="flex justify-between border-t border-gray-300 pt-1 mt-1"><span class="font-semibold">Saldo:</span> <span class="font-bold text-red-600">${formatCurrency(grupo.valorTotalHuesped - grupo.abonoTotal)}</span></div>
+            </div>`;
     }
-    queries.push(reservasRef.where('estado', '==', 'Desconocido').get());
+    return `
+        <div class="text-xs text-gray-500 space-y-1">
+            <div class="flex justify-between"><span>Total Cliente:</span> <span class="font-semibold">${formatCurrency(grupo.valorTotalHuesped)}</span></div>
+            <div class="flex justify-between"><span>Abonado:</span> <span class="text-green-600">${formatCurrency(grupo.abonoTotal)}</span></div>
+            <div class="flex justify-between border-t border-gray-300 pt-1 mt-1"><span class="font-semibold">Saldo:</span> <span class="font-bold text-red-600">${formatCurrency(grupo.valorTotalHuesped - grupo.abonoTotal)}</span></div>
+        </div>`;
+}
 
-    const snapshots = await Promise.all(queries);
-    const [gestionSnapshot, desconocidoSnapshot] = snapshots;
+function renderActionButtons(grupo) {
+    const estadoInfo = getStatusInfo(grupo.estadoGestion);
+    let buttons = `
+        <button class="gestion-btn btn-table-copy text-xs" data-gestion="ajuste_tarifa">Ajuste Tarifa</button>
+        <button class="gestion-btn btn-table-copy text-xs" data-gestion="bitacora">Bitácora (${grupo.notasCount})</button>
+    `;
 
-    const allDocs = [];
-    const docIds = new Set();
-
-    if(gestionSnapshot) {
-        gestionSnapshot.forEach(doc => { allDocs.push(doc); docIds.add(doc.id); });
-    }
-    if (desconocidoSnapshot) {
-        desconocidoSnapshot.forEach(doc => { if (!docIds.has(doc.id)) allDocs.push(doc); });
-    }
-
-    if (allDocs.length === 0) {
-        return { grupos: [], hasMore: false, lastVisible: null };
+    if (estadoInfo.gestionType) {
+        buttons += `<button class="gestion-btn btn-table-edit text-xs" data-gestion="${estadoInfo.gestionType}">${estadoInfo.text}</button>`;
     }
     
-    allDocs.sort((a, b) => a.data().fechaLlegada.toDate() - b.data().fechaLlegada.toDate());
+    if (grupo.estadoGestion === 'Pendiente Pago' || grupo.estadoGestion === 'Pendiente Boleta') {
+        buttons += `<button class="gestion-btn btn-table-edit text-xs" data-gestion="pagos">Pagos (${grupo.transaccionesCount})</button>`;
+    }
 
-    const allReservasData = allDocs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (grupo.estadoGestion === 'Pendiente Boleta') {
+        const docStatusClass = grupo.documentos.enlaceBoleta ? 'bg-green-500 hover:bg-green-700' : 'bg-amber-500 hover:bg-amber-700';
+        buttons += `<button class="gestion-btn btn-table-edit text-xs ${docStatusClass}" data-gestion="boleta">Boleta</button>`;
+    }
 
-    const clienteIds = [...new Set(allReservasData.map(r => r.clienteId).filter(Boolean))];
-    const reservaIdsOriginales = [...new Set(allReservasData.map(r => r.idReservaCanal))];
+    if (estadoInfo.level > 1) { // Puede revertir si no es el primer estado
+        buttons += `<button class="revert-btn btn-table-delete text-xs">Revertir</button>`;
+    }
 
-    const [clientesSnapshot, notasSnapshot, transaccionesSnapshot, historialReservasSnapshot] = await Promise.all([
-        clienteIds.length > 0 ? db.collection('empresas').doc(empresaId).collection('clientes').where(admin.firestore.FieldPath.documentId(), 'in', clienteIds).get() : Promise.resolve({ docs: [] }),
-        reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('gestionNotas').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
-        reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('transacciones').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
-        clienteIds.length > 0 ? db.collection('empresas').doc(empresaId).collection('reservas').where('clienteId', 'in', clienteIds).where('estado', '==', 'Confirmada').get() : Promise.resolve({ docs: [] })
-    ]);
+    return buttons;
+}
 
-    const clientsMap = new Map();
-    clientesSnapshot.docs.forEach(doc => {
-        const clienteData = doc.data();
-        const historialCliente = historialReservasSnapshot.docs
-            .filter(reservaDoc => reservaDoc.data().clienteId === doc.id)
-            .map(reservaDoc => reservaDoc.data());
 
-        const totalGastado = historialCliente.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0);
-        const numeroDeReservas = historialCliente.length;
-        
-        let tipoCliente = 'Cliente Nuevo';
-        if (totalGastado > 1000000) {
-            tipoCliente = 'Cliente Premium';
-        } else if (numeroDeReservas > 1) {
-            tipoCliente = 'Cliente Frecuente';
+function createCard(grupo, allEstados) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkinDate = new Date(grupo.fechaLlegada);
+    const diasParaLlegada = Math.round((checkinDate - today) / (1000 * 60 * 60 * 24));
+    
+    const estadoInfo = getStatusInfo(grupo.estadoGestion, allEstados);
+    const alojamientosNombres = grupo.reservasIndividuales.map(r => r.alojamientoNombre).join(', ');
+
+    return `
+    <div id="card-${grupo.reservaIdOriginal}" class="p-4 border rounded-lg bg-white shadow-sm flex flex-col md:flex-row gap-4">
+        <div class="flex-grow">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-3">
+                    <span class="px-2 py-1 text-xs font-semibold rounded-full" style="background-color: ${estadoInfo.color}; color: white;">${estadoInfo.text}</span>
+                    <a href="/cliente/${grupo.clienteId}" data-navigo class="text-lg font-bold text-blue-800 hover:underline">${grupo.clienteNombre}</a>
+                    <span class="px-2 py-0.5 bg-gray-100 text-gray-800 text-xs font-semibold rounded-full">${grupo.tipoCliente} (${grupo.numeroDeReservas})</span>
+                </div>
+                <span class="text-sm font-semibold text-gray-600">${diasParaLlegada > 0 ? `Llega en ${diasParaLlegada} día(s)` : (diasParaLlegada === 0 ? 'Llega HOY' : `Llegó hace ${-diasParaLlegada} día(s)`)}</span>
+            </div>
+            <div class="grid grid-cols-3 gap-4 text-sm">
+                <div><span class="font-medium text-gray-500">Check-in:</span> ${formatDate(grupo.fechaLlegada)}</div>
+                <div><span class="font-medium text-gray-500">Check-out:</span> ${formatDate(grupo.fechaSalida)}</div>
+                <div><span class="font-medium text-gray-500">Noches:</span> ${grupo.totalNoches}</div>
+                <div class="col-span-3"><span class="font-medium text-gray-500">Alojamientos:</span> ${alojamientosNombres}</div>
+                <div class="col-span-3"><span class="font-medium text-gray-500">ID Reserva:</span> <span class="font-mono text-xs">${grupo.reservaIdOriginal}</span></div>
+            </div>
+        </div>
+        <div class="flex-shrink-0 w-full md:w-64 space-y-3">
+            ${renderFinancialDetails(grupo)}
+            <div class="flex flex-wrap gap-2 justify-end pt-2 border-t">
+                ${renderActionButtons(grupo)}
+            </div>
+        </div>
+    </div>`;
+}
+
+export function renderGrupos(grupos, allEstados) {
+    const revisionList = document.getElementById('revision-list');
+    const hoyList = document.getElementById('hoy-list');
+    const proximasList = document.getElementById('proximas-list');
+
+    revisionList.innerHTML = '';
+    hoyList.innerHTML = '';
+    proximasList.innerHTML = '';
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    grupos.forEach(grupo => {
+        const cardHtml = createCard(grupo, allEstados);
+        const checkinDate = new Date(grupo.fechaLlegada);
+
+        if (grupo.estadoGestion === 'Desconocido') {
+            revisionList.innerHTML += cardHtml;
+        } else if (checkinDate <= today) {
+            hoyList.innerHTML += cardHtml;
+        } else {
+            proximasList.innerHTML += cardHtml;
         }
-
-        clientsMap.set(doc.id, {
-            ...clienteData,
-            numeroDeReservas,
-            tipoCliente
-        });
-    });
-    
-    const notesCountMap = new Map();
-    notasSnapshot.forEach(doc => {
-        const id = doc.data().reservaIdOriginal;
-        notesCountMap.set(id, (notesCountMap.get(id) || 0) + 1);
-    });
-    const abonosMap = new Map();
-    transaccionesSnapshot.forEach(doc => {
-        const id = doc.data().reservaIdOriginal;
-        abonosMap.set(id, (abonosMap.get(id) || 0) + (parseFloat(doc.data().monto) || 0));
     });
 
-    const reservasAgrupadas = new Map();
-    allReservasData.forEach(data => {
-        const reservaId = data.idReservaCanal;
-        if (!reservasAgrupadas.has(reservaId)) {
-            const clienteActual = clientsMap.get(data.clienteId);
-            reservasAgrupadas.set(reservaId, {
-                reservaIdOriginal: reservaId,
-                clienteId: data.clienteId,
-                clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
-                telefono: clienteActual?.telefono || 'N/A',
-                tipoCliente: clienteActual?.tipoCliente || 'Nuevo',
-                numeroDeReservas: clienteActual?.numeroDeReservas || 1,
-                fechaLlegada: data.fechaLlegada?.toDate(),
-                fechaSalida: data.fechaSalida?.toDate(),
-                totalNoches: data.totalNoches,
-                estado: data.estado,
-                estadoGestion: data.estadoGestion,
-                abonoTotal: abonosMap.get(reservaId) || 0,
-                notasCount: notesCountMap.get(reservaId) || 0,
-                transaccionesCount: transaccionesSnapshot.docs.filter(d => d.data().reservaIdOriginal === reservaId).length,
-                reservasIndividuales: []
-            });
-        }
-        reservasAgrupadas.get(reservaId).reservasIndividuales.push(data);
-    });
-
-    const gruposProcesados = Array.from(reservasAgrupadas.values()).map(grupo => {
-        const primerReserva = grupo.reservasIndividuales[0];
-        const esUSD = primerReserva.moneda === 'USD';
-
-        const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
-            acc.valorTotalHuesped += r.valores?.valorHuesped || 0;
-            acc.costoCanal += (r.valores?.comision > 0 ? r.valores.comision : r.valores?.costoCanal || 0);
-            acc.valorListaBaseTotal += r.valores?.valorOriginal || 0;
-            if (r.ajusteManualRealizado) acc.ajusteManualRealizado = true;
-            if (r.potencialCalculado) acc.potencialCalculado = true;
-            if (r.clienteGestionado) acc.clienteGestionado = true;
-            if (r.documentos) acc.documentos = { ...acc.documentos, ...r.documentos };
-            return acc;
-        }, { valorTotalHuesped: 0, costoCanal: 0, valorListaBaseTotal: 0, ajusteManualRealizado: false, potencialCalculado: false, clienteGestionado: false, documentos: {} });
-        
-        const resultado = {
-            ...grupo,
-            ...valoresAgregados,
-            esUSD,
-            payoutFinalReal: valoresAgregados.valorTotalHuesped - valoresAgregados.costoCanal
-        };
-
-        if (esUSD) {
-            const valorDolarDia = primerReserva.valorDolarDia || 1;
-            const totalPayoutUSD = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorOriginal || 0), 0);
-            const totalIvaCLP = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.iva || 0), 0);
-            const totalIvaUSD = valorDolarDia > 0 ? totalIvaCLP / valorDolarDia : 0;
-            
-            resultado.valoresUSD = {
-                payout: totalPayoutUSD,
-                iva: totalIvaUSD,
-                totalCliente: totalPayoutUSD + totalIvaUSD
-            };
-        }
-
-        return resultado;
-    });
-    
-    return { grupos: gruposProcesados, hasMore: false, lastVisible: null };
-};
-
-
-const actualizarEstadoGrupo = async (db, empresaId, idsIndividuales, nuevoEstado) => {
-    const batch = db.batch();
-    idsIndividuales.forEach(id => {
-        const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);
-        batch.update(ref, { estadoGestion: nuevoEstado });
-    });
-    await batch.commit();
-};
-
-const getNotas = async (db, empresaId, reservaIdOriginal) => {
-    const snapshot = await db.collection('empresas').doc(empresaId).collection('gestionNotas')
-        .where('reservaIdOriginal', '==', reservaIdOriginal)
-        .orderBy('fecha', 'desc')
-        .get();
-    if (snapshot.empty) return [];
-    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, fecha: doc.data().fecha.toDate().toLocaleString('es-CL') }));
-};
-
-const addNota = async (db, empresaId, notaData) => {
-    const nota = { ...notaData, fecha: admin.firestore.FieldValue.serverTimestamp() };
-    const docRef = await db.collection('empresas').doc(empresaId).collection('gestionNotas').add(nota);
-    return { id: docRef.id, ...nota };
-};
-
-const getTransacciones = async (db, empresaId, idsIndividuales) => {
-    const transaccionesRef = db.collection('empresas').doc(empresaId).collection('transacciones');
-    const reservaDoc = await db.collection('empresas').doc(empresaId).collection('reservas').doc(idsIndividuales[0]).get();
-    if (!reservaDoc.exists) return [];
-    
-    const reservaIdOriginal = reservaDoc.data().idReservaCanal;
-    
-    const snapshot = await transaccionesRef
-        .where('reservaIdOriginal', '==', reservaIdOriginal)
-        .get();
-
-    if (snapshot.empty) return [];
-
-    const transacciones = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-            id: doc.id,
-            ...data,
-            fecha: data.fecha ? data.fecha.toDate() : new Date()
-        };
-    });
-    transacciones.sort((a, b) => b.fecha - a.fecha);
-    return transacciones;
-};
-
-const marcarClienteComoGestionado = async (db, empresaId, reservaIdOriginal) => {
-    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
-    const q = reservasRef.where('idReservaCanal', '==', reservaIdOriginal);
-    const snapshot = await q.get();
-
-    if (snapshot.empty) {
-        throw new Error('No se encontraron reservas para marcar al cliente como gestionado.');
-    }
-
-    const batch = db.batch();
-    let estadoActual = '';
-    snapshot.forEach(doc => {
-        estadoActual = doc.data().estadoGestion;
-        const updateData = { clienteGestionado: true };
-        if (estadoActual === 'Pendiente Cliente') {
-            updateData.estadoGestion = 'Facturado';
-        }
-        batch.update(doc.ref, updateData);
-    });
-    
-    await batch.commit();
-};
-
-module.exports = {
-    getReservasPendientes,
-    actualizarEstadoGrupo,
-    getNotas,
-    addNota,
-    getTransacciones,
-    marcarClienteComoGestionado
-};
+    document.getElementById('revision-container').classList.toggle('hidden', revisionList.innerHTML === '');
+    document.getElementById('hoy-container').classList.toggle('hidden', hoyList.innerHTML === '');
+    document.getElementById('proximas-container').classList.toggle('hidden', proximasList.innerHTML === '');
+}
