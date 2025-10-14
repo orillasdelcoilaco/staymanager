@@ -1,11 +1,10 @@
-
 {
   "name": "staymanager-backend",
   "version": "1.0.0",
   "description": "Backend for StayManager",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "npm run build:css && node index.js",
     "build:css": "tailwindcss -i ../frontend/public/css/source.css -o ../frontend/public/css/style.css"
   },
   "author": "",
