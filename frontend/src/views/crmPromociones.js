@@ -94,7 +94,7 @@ async function generarCampana() {
                         <p class="font-semibold">${cliente.nombre}</p>
                         <p class="text-xs text-gray-500">${cliente.telefono}</p>
                     </div>
-                    <div class="text-center">
+                    <div class="text-center flex items-center justify-center">
                         <select data-interaccion-id="${interaccion.id}" class="form-select form-select-sm estado-interaccion">
                             <option value="Enviado" selected>📬 Enviado</option>
                             <option value="Respondio">💬 Respondió</option>
@@ -102,6 +102,7 @@ async function generarCampana() {
                             <option value="Reservo">✅ Reservó</option>
                             <option value="SinRespuesta">⏳ Sin Respuesta</option>
                         </select>
+                        <span id="status-${interaccion.id}" class="ml-2 w-6 h-6"></span>
                     </div>
                     <div class="text-right">
                         <a href="${whatsappUrl}" target="_blank" class="btn-primary">Enviar WhatsApp</a>
@@ -226,25 +227,22 @@ export async function afterRender() {
         if (e.target.classList.contains('estado-interaccion')) {
             const interaccionId = e.target.dataset.interaccionId;
             const nuevoEstado = e.target.value;
-            const select = e.target;
+            const statusIndicator = document.getElementById(`status-${interaccionId}`);
 
-            select.classList.remove('status-success', 'status-error');
-            select.classList.add('status-saving');
+            statusIndicator.innerHTML = '💾'; // Saving icon
 
             try {
                 await fetchAPI(`/crm/interacciones/${interaccionId}`, {
                     method: 'PUT',
                     body: { estado: nuevoEstado }
                 });
-                select.classList.remove('status-saving');
-                select.classList.add('status-success');
+                statusIndicator.innerHTML = '✅'; // Success icon
                 setTimeout(() => {
-                    select.classList.remove('status-success');
-                }, 1500);
+                    statusIndicator.innerHTML = '';
+                }, 2000);
             } catch (error) {
+                statusIndicator.innerHTML = '❌'; // Error icon
                 alert(`Error al actualizar el estado: ${error.message}`);
-                select.classList.remove('status-saving');
-                select.classList.add('status-error');
             }
         }
     });

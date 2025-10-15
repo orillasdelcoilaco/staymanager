@@ -4,7 +4,7 @@ import { fetchAPI } from '../api.js';
 let todasLasCampanas = [];
 let interaccionesCache = {};
 
-const formatDateTime = (isoString) => new Date(isoString).toLocaleString('es-CL');
+const formatDateTime = (dateString) => new Date(dateString).toLocaleString('es-CL');
 
 function renderTablaCampanas() {
     const tbody = document.getElementById('campanas-tbody');
@@ -16,7 +16,7 @@ function renderTablaCampanas() {
     tbody.innerHTML = todasLasCampanas.map(c => `
         <tr class="border-b text-sm">
             <td class="py-2 px-3 font-semibold">${c.nombre}</td>
-            <td class="py-2 px-3">${formatDateTime(c.fechaCreacion.toDate())}</td>
+            <td class="py-2 px-3">${formatDateTime(c.fechaCreacion)}</td>
             <td class="py-2 px-3">${c.segmento}</td>
             <td class="py-2 px-3 text-center">${c.totalEnviados}</td>
             <td class="py-2 px-3 text-center font-bold text-green-600">${c.estados.Reservo || 0}</td>
@@ -52,7 +52,7 @@ async function abrirModalDetalles(campanaId) {
             <tr class="border-b text-xs">
                 <td class="py-2 px-3">${i.clienteNombre}</td>
                 <td class="py-2 px-3">${i.estado}</td>
-                <td class="py-2 px-3">${formatDateTime(i.fechaUltimaActualizacion.toDate())}</td>
+                <td class="py-2 px-3">${formatDateTime(i.fechaUltimaActualizacion)}</td>
             </tr>
         `).join('');
 
