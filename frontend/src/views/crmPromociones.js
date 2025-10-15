@@ -22,6 +22,9 @@ function renderTablaClientes() {
             <td class="py-2 px-3">${c.telefono}</td>
             <td class="py-2 px-3 text-center">${c.numeroDeReservas}</td>
             <td class="py-2 px-3 text-right">${(c.totalGastado || 0).toLocaleString('es-CL', { style: 'currency', currency: 'CLP' })}</td>
+            <td class="py-2 px-3 text-center">
+                <button data-cliente-id="${c.id}" class="generar-cupon-btn btn-table-copy text-xs">Generar Cupón</button>
+            </td>
         </tr>
     `).join('');
 }
@@ -154,6 +157,7 @@ export function render() {
                                 <th class="th">Teléfono</th>
                                 <th class="th text-center">Nº Reservas</th>
                                 <th class="th text-right">Gasto Histórico</th>
+                                <th class="th text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="clientes-tbody"></tbody>
@@ -171,7 +175,7 @@ export function render() {
                     <div>
                         <label for="mensaje-promocion" class="block text-sm font-medium text-gray-700">Mensaje de la Promoción</label>
                         <textarea id="mensaje-promocion" rows="5" class="form-input mt-1" placeholder="Hola [NOMBRE_CLIENTE], tenemos una oferta especial para ti..."></textarea>
-                        <p class="text-xs text-gray-500 mt-1">Usa la etiqueta <code class="font-bold">[NOMBRE_CLIENTE]</code> para personalizar el saludo.</p>
+                        <p class="text-xs text-gray-500 mt-1">Usa las etiquetas <code class="font-bold">[NOMBRE_CLIENTE]</code> y <code class="font-bold">[CUPON_DESCUENTO]</code> para personalizar.</p>
                     </div>
                 </div>
                 <div class="text-right mt-4">
@@ -211,7 +215,6 @@ export async function afterRender() {
         try {
             const response = await fetchAPI('/crm/recalcular-segmentos', { method: 'POST' });
             statusDiv.textContent = response.message;
-            // Recargar los clientes del segmento actual
             await cargarClientes(segmentoSelect.value);
         } catch (error) {
             statusDiv.textContent = `Error: ${error.message}`;
@@ -223,30 +226,49 @@ export async function afterRender() {
 
     document.getElementById('generar-campana-btn').addEventListener('click', generarCampana);
 
+    document.getElementById('clientes-tbody').addEventListener('click', async (e) => {
+        if (e.target.classList.contains('generar-cupon-btn')) {
+            const clienteId = e.target.dataset.clienteId;
+            const porcentaje = prompt('Ingresa el porcentaje de descuento para este cupón (ej: 15):');
+            if (porcentaje && !isNaN(porcentaje)) {
+                try {
+                    const cupon = await fetchAPI('/crm/cupones', {
+                        method: 'POST',
+                        body: { clienteId, porcentajeDescuento: parseFloat(porcentaje) }
+                    });
+                    const mensajeTextarea = document.getElementById('mensaje-promocion');
+                    mensajeTextarea.value += ` Tu cupón es: ${cupon.codigo}`;
+                    alert(`¡Cupón ${cupon.codigo} generado con ${cupon.porcentajeDescuento}% de descuento! Se ha añadido al mensaje.`);
+                } catch (error) {
+                    alert(`Error al generar el cupón: ${error.message}`);
+                }
+            }
+        }
+    });
+
     document.getElementById('lista-mensajes').addEventListener('change', async (e) => {
         if (e.target.classList.contains('estado-interaccion')) {
             const interaccionId = e.target.dataset.interaccionId;
             const nuevoEstado = e.target.value;
             const statusIndicator = document.getElementById(`status-${interaccionId}`);
 
-            statusIndicator.innerHTML = '💾'; // Saving icon
+            statusIndicator.innerHTML = '💾';
 
             try {
                 await fetchAPI(`/crm/interacciones/${interaccionId}`, {
                     method: 'PUT',
                     body: { estado: nuevoEstado }
                 });
-                statusIndicator.innerHTML = '✅'; // Success icon
+                statusIndicator.innerHTML = '✅';
                 setTimeout(() => {
                     statusIndicator.innerHTML = '';
                 }, 2000);
             } catch (error) {
-                statusIndicator.innerHTML = '❌'; // Error icon
+                statusIndicator.innerHTML = '❌';
                 alert(`Error al actualizar el estado: ${error.message}`);
             }
         }
     });
 
-    // Carga inicial
     await cargarClientes(segmentoSelect.value);
 }

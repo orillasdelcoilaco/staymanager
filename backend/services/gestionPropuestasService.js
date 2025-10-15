@@ -2,14 +2,12 @@
 const admin = require('firebase-admin');
 const { getAvailabilityData } = require('./propuestasService');
 const { crearOActualizarCliente } = require('./clientesService');
+const { marcarCuponComoUtilizado } = require('./cuponesService');
 
 const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExistente = null) => {
-    const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, canalId, canalNombre, moneda, valorDolarDia, valorOriginal, origen, icalUid, idReservaCanal } = datos;
+    const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, canalId, canalNombre, moneda, valorDolarDia, valorOriginal, origen, icalUid, idReservaCanal, codigoCupon } = datos;
     
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Se prioriza el ID que viene del formulario (idReservaCanal), asegurando que el cambio se guarde.
     const idGrupo = idReservaCanal || idPropuestaExistente || db.collection('empresas').doc().id;
-    // --- FIN DE LA CORRECCIÓN ---
 
     let clienteId;
     if (cliente.id) {
@@ -66,6 +64,7 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
                 origen: origen || 'manual',
                 moneda,
                 valorDolarDia,
+                cuponUtilizado: codigoCupon || null,
                 valores: {
                     valorOriginal: valorOriginalPorPropiedad,
                     valorTotal: precioFinalPorPropiedad,
@@ -120,7 +119,6 @@ const guardarPresupuesto = async (db, empresaId, datos) => {
 };
 
 const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
-    console.log("[DEBUG] Obteniendo propuestas y presupuestos...");
     const [propuestasSnapshot, presupuestosSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('reservas').where('estado', '==', 'Propuesta').orderBy('fechaCreacion', 'desc').get(),
         db.collection('empresas').doc(empresaId).collection('presupuestos').where('estado', 'in', ['Borrador', 'Enviado']).orderBy('fechaCreacion', 'desc').get()
@@ -167,15 +165,11 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
     const propuestasAgrupadas = new Map();
     allItems.filter(item => item.type === 'propuesta').forEach(item => {
         const data = item.doc.data();
-        
-        console.log(`--- DEBUG [PASO 2 - gestionPropuestasService]: Leyendo documento de reserva crudo (ID: ${item.doc.id}) ---`);
-        console.log(data);
-
         const id = data.idReservaCanal;
         if (!id) return;
 
         if (!propuestasAgrupadas.has(id)) {
-            const newGroup = {
+            propuestasAgrupadas.set(id, {
                 id: id,
                 tipo: 'propuesta',
                 origen: data.origen || 'manual',
@@ -190,12 +184,7 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
                 monto: 0,
                 propiedades: [],
                 idsReservas: []
-            };
-
-            console.log(`--- DEBUG [PASO 3 - gestionPropuestasService]: Creando nuevo grupo para enviar al frontend ---`);
-            console.log(newGroup);
-
-            propuestasAgrupadas.set(id, newGroup);
+            });
         }
         const grupo = propuestasAgrupadas.get(id);
         grupo.monto += data.valores?.valorHuesped || 0;
@@ -231,41 +220,52 @@ const aprobarPropuesta = async (db, empresaId, idsReservas) => {
     if (!idsReservas || idsReservas.length === 0) {
         throw new Error("No se proporcionaron IDs de reserva para aprobar.");
     }
-    const reservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas').where(admin.firestore.FieldPath.documentId(), 'in', idsReservas).get();
-    if (reservasSnapshot.empty) throw new Error('No se encontraron las reservas de la propuesta.');
-
-    const propuestaReservas = reservasSnapshot.docs.map(d => d.data());
-    const startDate = propuestaReservas[0].fechaLlegada.toDate();
-    const endDate = propuestaReservas[0].fechaSalida.toDate();
     
-    const { availableProperties } = await getAvailabilityData(db, empresaId, startDate, endDate);
-    const availableIds = new Set(availableProperties.map(p => p.id));
+    const reservasRefs = idsReservas.map(id => db.collection('empresas').doc(empresaId).collection('reservas').doc(id));
     
-    for (const reserva of propuestaReservas) {
-        if (!availableIds.has(reserva.alojamientoId)) {
-            const reservasConflictivas = await db.collection('empresas').doc(empresaId).collection('reservas')
-                .where('alojamientoId', '==', reserva.alojamientoId)
-                .where('estado', '==', 'Confirmada')
-                .where('fechaLlegada', '<', reserva.fechaSalida)
-                .get();
+    await db.runTransaction(async (transaction) => {
+        const reservasDocs = await transaction.getAll(...reservasRefs);
 
-            const conflicto = reservasConflictivas.docs.find(doc => doc.data().fechaSalida.toDate() > startDate);
-            if (conflicto) {
-                const dataConflicto = conflicto.data();
-                const idReserva = dataConflicto.idReservaCanal || 'Desconocido';
-                const fechaReservaTimestamp = dataConflicto.fechaCreacion || dataConflicto.fechaReserva;
-                const fechaReserva = fechaReservaTimestamp ? fechaReservaTimestamp.toDate().toLocaleDateString('es-CL') : 'una fecha no registrada';
-                throw new Error(`La cabaña ${reserva.alojamientoNombre} ya no está disponible. Fue reservada por la reserva ${idReserva} del canal ${dataConflicto.canalNombre}, creada el ${fechaReserva}.`);
+        if (reservasDocs.some(doc => !doc.exists)) {
+            throw new Error('Una o más reservas de la propuesta no fueron encontradas.');
+        }
+
+        const propuestaReservas = reservasDocs.map(d => d.data());
+        const primeraReserva = propuestaReservas[0];
+        const startDate = primeraReserva.fechaLlegada.toDate();
+        const endDate = primeraReserva.fechaSalida.toDate();
+        const codigoCupon = primeraReserva.cuponUtilizado;
+    
+        const { availableProperties } = await getAvailabilityData(db, empresaId, startDate, endDate);
+        const availableIds = new Set(availableProperties.map(p => p.id));
+    
+        for (const reserva of propuestaReservas) {
+            if (!availableIds.has(reserva.alojamientoId)) {
+                const reservasConflictivas = await db.collection('empresas').doc(empresaId).collection('reservas')
+                    .where('alojamientoId', '==', reserva.alojamientoId)
+                    .where('estado', '==', 'Confirmada')
+                    .where('fechaLlegada', '<', reserva.fechaSalida)
+                    .get();
+
+                const conflicto = reservasConflictivas.docs.find(doc => doc.data().fechaSalida.toDate() > startDate);
+                if (conflicto) {
+                    const dataConflicto = conflicto.data();
+                    const idReserva = dataConflicto.idReservaCanal || 'Desconocido';
+                    const fechaReservaTimestamp = dataConflicto.fechaCreacion || dataConflicto.fechaReserva;
+                    const fechaReserva = fechaReservaTimestamp ? fechaReservaTimestamp.toDate().toLocaleDateString('es-CL') : 'una fecha no registrada';
+                    throw new Error(`La cabaña ${reserva.alojamientoNombre} ya no está disponible. Fue reservada por la reserva ${idReserva} del canal ${dataConflicto.canalNombre}, creada el ${fechaReserva}.`);
+                }
             }
         }
-    }
 
-    const batch = db.batch();
-    idsReservas.forEach(id => {
-        const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);
-        batch.update(ref, { estado: 'Confirmada', estadoGestion: 'Pendiente Bienvenida' });
+        if (codigoCupon) {
+            await marcarCuponComoUtilizado(transaction, db, empresaId, codigoCupon, primeraReserva.id, primeraReserva.clienteId);
+        }
+
+        reservasDocs.forEach(doc => {
+            transaction.update(doc.ref, { estado: 'Confirmada', estadoGestion: 'Pendiente Bienvenida' });
+        });
     });
-    await batch.commit();
 };
 
 const rechazarPropuesta = async (db, empresaId, idsReservas) => {
@@ -275,7 +275,7 @@ const rechazarPropuesta = async (db, empresaId, idsReservas) => {
     const batch = db.batch();
     idsReservas.forEach(id => {
         const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);
-        batch.delete(ref); // Se elimina en lugar de marcar como rechazada
+        batch.delete(ref);
     });
     await batch.commit();
 };
