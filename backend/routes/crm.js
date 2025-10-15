@@ -2,7 +2,7 @@
 const express = require('express');
 const { obtenerClientesPorSegmento, segmentarClienteRFM } = require('../services/crmService');
 const { recalcularEstadisticasClientes } = require('../services/clientesService');
-const { crearCampanaYRegistrarInteracciones, actualizarEstadoInteraccion } = require('../services/campanasService');
+const { crearCampanaYRegistrarInteracciones, actualizarEstadoInteraccion, obtenerCampanas } = require('../services/campanasService');
 const { generarCuponParaCliente, validarCupon } = require('../services/cuponesService');
 
 module.exports = (db) => {
@@ -37,6 +37,16 @@ module.exports = (db) => {
             const datosCampana = { ...req.body, autor: email };
             const nuevaCampana = await crearCampanaYRegistrarInteracciones(db, empresaId, datosCampana);
             res.status(201).json(nuevaCampana);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    router.get('/campanas', async (req, res) => {
+        try {
+            const { empresaId } = req.user;
+            const campanas = await obtenerCampanas(db, empresaId);
+            res.status(200).json(campanas);
         } catch (error) {
             res.status(500).json({ error: error.message });
         }

@@ -31,7 +31,8 @@ const views = {
     '/gestionar-propuestas': () => import('./views/gestionarPropuestas.js'),
     '/generar-reportes-rapidos': () => import('./views/generarReportes.js'),
     '/sincronizar-ical': () => import('./views/sincronizarCalendarios.js'),
-    '/crm-promociones': () => import('./views/crmPromociones.js'), // Nueva vista
+    '/crm-promociones': () => import('./views/crmPromociones.js'),
+    '/historial-campanas': () => import('./views/historialCampanas.js'), // Nueva vista
 };
 
 const menuConfig = [
@@ -42,7 +43,8 @@ const menuConfig = [
         children: [
             { name: '☀️ Gestión Diaria', path: '/gestion-diaria', id: 'gestion-diaria' },
             { name: '📅 Calendario', path: '/calendario', id: 'calendario' },
-            { name: '🎯 CRM y Promociones', path: '/crm-promociones', id: 'crm-promociones' }, // Nuevo enlace
+            { name: '🎯 CRM y Promociones', path: '/crm-promociones', id: 'crm-promociones' },
+            { name: '📈 Historial de Campañas', path: '/historial-campanas', id: 'historial-campanas' }, // Nuevo enlace
             { name: '📄 Generar Reportes Rápidos', path: '/generar-reportes-rapidos', id: 'reportes-rapidos' },
             { name: '➕ Agregar Propuesta', path: '/agregar-propuesta', id: 'agregar-propuesta' },
             { name: '💲 Generar Presupuestos', path: '/generar-presupuesto', id: 'generar-presupuestos' },

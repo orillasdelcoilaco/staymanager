@@ -92,8 +92,20 @@ const actualizarEstadoInteraccion = async (db, empresaId, interaccionId, nuevoEs
     });
 };
 
+const obtenerCampanas = async (db, empresaId) => {
+    const snapshot = await db.collection('empresas').doc(empresaId).collection('campanas')
+        .orderBy('fechaCreacion', 'desc')
+        .get();
+    
+    if (snapshot.empty) {
+        return [];
+    }
+    return snapshot.docs.map(doc => doc.data());
+};
+
 
 module.exports = {
     crearCampanaYRegistrarInteracciones,
-    actualizarEstadoInteraccion
+    actualizarEstadoInteraccion,
+    obtenerCampanas
 };
