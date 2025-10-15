@@ -164,3 +164,19 @@
     .sidebar.collapsed .category-title .category-icon { margin-right: 0; }
     .sidebar.collapsed .submenu { display: none !important; }
 }
+
+.form-select-sm {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  padding-left: 0.5rem;
+  font-size: 0.75rem;
+}
+.status-saving {
+  border-color: #f59e0b !important;
+}
+.status-success {
+  border-color: #22c55e !important;
+}
+.status-error {
+  border-color: #ef4444 !important;
+}

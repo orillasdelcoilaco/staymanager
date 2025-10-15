@@ -228,21 +228,23 @@ export async function afterRender() {
             const nuevoEstado = e.target.value;
             const select = e.target;
 
-            const originalBorder = select.style.borderColor;
-            select.style.borderColor = 'orange';
+            select.classList.remove('status-success', 'status-error');
+            select.classList.add('status-saving');
 
             try {
                 await fetchAPI(`/crm/interacciones/${interaccionId}`, {
                     method: 'PUT',
                     body: { estado: nuevoEstado }
                 });
-                select.style.borderColor = 'green';
+                select.classList.remove('status-saving');
+                select.classList.add('status-success');
                 setTimeout(() => {
-                    select.style.borderColor = originalBorder;
+                    select.classList.remove('status-success');
                 }, 1500);
             } catch (error) {
                 alert(`Error al actualizar el estado: ${error.message}`);
-                select.style.borderColor = 'red';
+                select.classList.remove('status-saving');
+                select.classList.add('status-error');
             }
         }
     });
