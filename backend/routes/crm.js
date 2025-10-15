@@ -2,7 +2,7 @@
 const express = require('express');
 const { obtenerClientesPorSegmento, segmentarClienteRFM } = require('../services/crmService');
 const { recalcularEstadisticasClientes } = require('../services/clientesService');
-const { crearCampanaYRegistrarInteracciones } = require('../services/campanasService');
+const { crearCampanaYRegistrarInteracciones, actualizarEstadoInteraccion } = require('../services/campanasService');
 const { generarCuponParaCliente, validarCupon } = require('../services/cuponesService');
 
 module.exports = (db) => {
@@ -37,6 +37,31 @@ module.exports = (db) => {
             const datosCampana = { ...req.body, autor: email };
             const nuevaCampana = await crearCampanaYRegistrarInteracciones(db, empresaId, datosCampana);
             res.status(201).json(nuevaCampana);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    router.get('/campanas/:campanaId/interacciones', async (req, res) => {
+        try {
+            const { empresaId } = req.user;
+            const { campanaId } = req.params;
+            const snapshot = await db.collection('empresas').doc(empresaId).collection('interacciones')
+                .where('campanaId', '==', campanaId).get();
+            const interacciones = snapshot.docs.map(doc => doc.data());
+            res.status(200).json(interacciones);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    router.put('/interacciones/:interaccionId', async (req, res) => {
+        try {
+            const { empresaId } = req.user;
+            const { interaccionId } = req.params;
+            const { estado } = req.body;
+            await actualizarEstadoInteraccion(db, empresaId, interaccionId, estado);
+            res.status(200).json({ message: 'Estado actualizado.' });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }

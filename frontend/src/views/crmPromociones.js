@@ -3,6 +3,7 @@ import { fetchAPI } from '../api.js';
 
 let clientesSeleccionados = [];
 const segmentos = ['🏆 Campeones', '❤️ Leales', '🤝 Potenciales', '😟 En Riesgo', '🥶 Hibernando', 'Sin Reservas'];
+let campanaActual = null;
 
 function renderTablaClientes() {
     const tbody = document.getElementById('clientes-tbody');
@@ -72,12 +73,17 @@ async function generarCampana() {
             clientes: clientesSeleccionados
         };
         
-        await fetchAPI('/crm/campanas', { method: 'POST', body: payload });
+        campanaActual = await fetchAPI('/crm/campanas', { method: 'POST', body: payload });
+        
+        const interacciones = await fetchAPI(`/crm/campanas/${campanaActual.id}/interacciones`);
         
         campanaContainer.classList.remove('hidden');
         const listaMensajes = document.getElementById('lista-mensajes');
         
         listaMensajes.innerHTML = clientesSeleccionados.map(cliente => {
+            const interaccion = interacciones.find(i => i.clienteId === cliente.id);
+            if (!interaccion) return '';
+
             const mensajePersonalizado = mensaje.replace(/\[NOMBRE_CLIENTE\]/g, cliente.nombre.split(' ')[0]);
             const telefonoLimpio = cliente.telefono.replace(/\D/g, '');
             const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajePersonalizado)}`;
@@ -89,7 +95,7 @@ async function generarCampana() {
                         <p class="text-xs text-gray-500">${cliente.telefono}</p>
                     </div>
                     <div class="text-center">
-                        <select data-cliente-id="${cliente.id}" class="form-select form-select-sm estado-interaccion">
+                        <select data-interaccion-id="${interaccion.id}" class="form-select form-select-sm estado-interaccion">
                             <option value="Enviado" selected>📬 Enviado</option>
                             <option value="Respondio">💬 Respondió</option>
                             <option value="NoInteresado">🚫 No Interesado</option>
@@ -108,7 +114,7 @@ async function generarCampana() {
         alert(`Error al crear la campaña: ${error.message}`);
     } finally {
         btn.disabled = false;
-        btn.textContent = 'Generar Campaña';
+        btn.textContent = 'Crear y Generar Campaña';
     }
 }
 
@@ -215,6 +221,31 @@ export async function afterRender() {
     });
 
     document.getElementById('generar-campana-btn').addEventListener('click', generarCampana);
+
+    document.getElementById('lista-mensajes').addEventListener('change', async (e) => {
+        if (e.target.classList.contains('estado-interaccion')) {
+            const interaccionId = e.target.dataset.interaccionId;
+            const nuevoEstado = e.target.value;
+            const select = e.target;
+
+            const originalBorder = select.style.borderColor;
+            select.style.borderColor = 'orange';
+
+            try {
+                await fetchAPI(`/crm/interacciones/${interaccionId}`, {
+                    method: 'PUT',
+                    body: { estado: nuevoEstado }
+                });
+                select.style.borderColor = 'green';
+                setTimeout(() => {
+                    select.style.borderColor = originalBorder;
+                }, 1500);
+            } catch (error) {
+                alert(`Error al actualizar el estado: ${error.message}`);
+                select.style.borderColor = 'red';
+            }
+        }
+    });
 
     // Carga inicial
     await cargarClientes(segmentoSelect.value);

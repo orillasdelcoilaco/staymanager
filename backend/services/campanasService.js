@@ -54,6 +54,46 @@ const crearCampanaYRegistrarInteracciones = async (db, empresaId, datosCampana) 
     return nuevaCampana;
 };
 
+const actualizarEstadoInteraccion = async (db, empresaId, interaccionId, nuevoEstado) => {
+    const interaccionRef = db.collection('empresas').doc(empresaId).collection('interacciones').doc(interaccionId);
+
+    return db.runTransaction(async (transaction) => {
+        const interaccionDoc = await transaction.get(interaccionRef);
+        if (!interaccionDoc.exists) {
+            throw new Error('La interacción no fue encontrada.');
+        }
+
+        const interaccionData = interaccionDoc.data();
+        const estadoAntiguo = interaccionData.estado;
+
+        if (estadoAntiguo === nuevoEstado) {
+            return; // No hay cambios que hacer
+        }
+
+        const campanaRef = db.collection('empresas').doc(empresaId).collection('campanas').doc(interaccionData.campanaId);
+        const campanaDoc = await transaction.get(campanaRef);
+        if (!campanaDoc.exists) {
+            throw new Error('La campaña asociada no fue encontrada.');
+        }
+
+        // Actualizar la interacción
+        transaction.update(interaccionRef, {
+            estado: nuevoEstado,
+            fechaUltimaActualizacion: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Actualizar los contadores de la campaña
+        const campanaData = campanaDoc.data();
+        const nuevosEstados = { ...campanaData.estados };
+        nuevosEstados[estadoAntiguo] = (nuevosEstados[estadoAntiguo] || 0) - 1;
+        nuevosEstados[nuevoEstado] = (nuevosEstados[nuevoEstado] || 0) + 1;
+
+        transaction.update(campanaRef, { estados: nuevosEstados });
+    });
+};
+
+
 module.exports = {
-    crearCampanaYRegistrarInteracciones
+    crearCampanaYRegistrarInteracciones,
+    actualizarEstadoInteraccion
 };
