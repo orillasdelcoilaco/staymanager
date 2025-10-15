@@ -362,57 +362,136 @@ export async function render() {
             </div>
         </div>
 
-        <div id="reserva-modal-edit" class="modal hidden">
-            <div class="modal-content !max-w-4xl">
-                <h3 id="modal-title-edit" class="text-xl font-semibold mb-4">Editar Reserva</h3>
-                <div id="resumen-grupo-container" class="hidden mb-4"></div>
-                <form id="reserva-form-edit" class="space-y-6 max-h-[75vh] overflow-y-auto pr-4">
-                    
-                    <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Datos de la Reserva</legend>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label for="idReservaCanal" class="label">ID Reserva Canal</label><input type="text" name="idReservaCanal" class="form-input"></div>
-                            <div><label for="alojamiento-select" class="label">Alojamiento</label><select id="alojamiento-select" name="alojamientoId" class="form-select"></select></div>
-                        </div>
-                    </fieldset>
-                    
-                    <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Estados</legend>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label for="estado" class="label">Estado Reserva</label><select name="estado" class="form-select"><option value="Confirmada">Confirmada</option><option value="Cancelada">Cancelada</option><option value="No Presentado">No Presentado</option><option value="Desconocido">Desconocido</option><option value="Propuesta">Propuesta</option></select></div>
-                            <div><label for="estadoGestion" class="label">Estado Gestión</label><select name="estadoGestion" class="form-select"><option value="">N/A</option>${estadosGestionOptions}</select></div>
-                        </div>
-                    </fieldset>
-
-                    <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Fechas y Huéspedes</legend>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div><label for="fechaLlegada" class="label">Fecha Llegada</label><input type="date" name="fechaLlegada" class="form-input"></div>
-                            <div><label for="fechaSalida" class="label">Fecha Salida</label><input type="date" name="fechaSalida" class="form-input"></div>
-                            <div><label for="cantidadHuespedes" class="label">Nº Huéspedes</label><input type="number" name="cantidadHuespedes" class="form-input"></div>
-                        </div>
-                    </fieldset>
-
-                    <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Montos (Individual)</legend>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div><label for="moneda" class="label">Moneda</label><select name="moneda" class="form-select"><option value="CLP">CLP</option><option value="USD">USD</option></select></div>
-                            <div><label for="valorOriginal" class="label">Valor Original (KPI)</label><input type="number" name="valorOriginal" step="0.01" class="form-input"></div>
-                            <div><label for="valorTotal" class="label">Valor Final (Huésped CLP)</label><input type="number" name="valorTotal" step="1" class="form-input"></div>
-                        </div>
-                        <div id="dolar-container" class="hidden mt-4"><label for="valorDolarDia" class="label">Valor Dólar del Día</label><input type="number" step="0.01" name="valorDolarDia" class="form-input w-full md:w-1/3"></div>
-                    </fieldset>
-
-                    <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Datos del Cliente</legend>
-                        <div><label for="cliente-select" class="label">Cliente</label><select id="cliente-select" name="clienteId" class="form-select"></select></div>
-                    </fieldset>
-
-                    <div class="flex justify-end pt-4 border-t">
-                        <button type="button" id="cancel-edit-btn" class="btn-secondary">Cancelar</button>
-                        <button type="submit" class="btn-primary ml-2">Guardar Cambios</button>
+        <div id="reserva-modal-edit" class="modal hidden"><div class="modal-content !max-w-4xl">
+            <h3 id="modal-title-edit" class="text-xl font-semibold mb-4">Editar Reserva</h3>
+            <div id="resumen-grupo-container" class="hidden mb-4"></div>
+            <form id="reserva-form-edit" class="space-y-6 max-h-[75vh] overflow-y-auto pr-4">
+                
+                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Datos de la Reserva</legend>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label for="idReservaCanal" class="label">ID Reserva Canal</label><input type="text" name="idReservaCanal" class="form-input"></div>
+                        <div><label for="alojamiento-select" class="label">Alojamiento</label><select id="alojamiento-select" name="alojamientoId" class="form-select"></select></div>
                     </div>
-                </form>
-            </div>
-        </div>
+                </fieldset>
+                
+                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Estados</legend>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label for="estado" class="label">Estado Reserva</label><select name="estado" class="form-select"><option value="Confirmada">Confirmada</option><option value="Cancelada">Cancelada</option><option value="No Presentado">No Presentado</option><option value="Desconocido">Desconocido</option><option value="Propuesta">Propuesta</option></select></div>
+                        <div><label for="estadoGestion" class="label">Estado Gestión</label><select name="estadoGestion" class="form-select"><option value="">N/A</option>${estadosGestionOptions}</select></div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Fechas y Huéspedes</legend>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div><label for="fechaLlegada" class="label">Fecha Llegada</label><input type="date" name="fechaLlegada" class="form-input"></div>
+                        <div><label for="fechaSalida" class="label">Fecha Salida</label><input type="date" name="fechaSalida" class="form-input"></div>
+                        <div><label for="cantidadHuespedes" class="label">Nº Huéspedes</label><input type="number" name="cantidadHuespedes" class="form-input"></div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Montos (Individual)</legend>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div><label for="moneda" class="label">Moneda</label><select name="moneda" class="form-select"><option value="CLP">CLP</option><option value="USD">USD</option></select></div>
+                        <div><label for="valorOriginal" class="label">Valor Original (KPI)</label><input type="number" name="valorOriginal" step="0.01" class="form-input"></div>
+                        <div><label for="valorTotal" class="label">Valor Final (Huésped CLP)</label><input type="number" name="valorTotal" step="1" class="form-input"></div>
+                    </div>
+                    <div id="dolar-container" class="hidden mt-4"><label for="valorDolarDia" class="label">Valor Dólar del Día</label><input type="number" step="0.01" name="valorDolarDia" class="form-input w-full md:w-1/3"></div>
+                </fieldset>
+
+                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Datos del Cliente</legend>
+                    <div><label for="cliente-select" class="label">Cliente</label><select id="cliente-select" name="clienteId" class="form-select"></select></div>
+                </fieldset>
+
+                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Documentos</legend>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label class="label">Documento Reserva</label><div id="documento-reserva-container"></div></div>
+                        <div><label class="label">Boleta/Factura</label><div id="documento-boleta-container"></div></div>
+                    </div>
+                </fieldset>
+                
+                <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Transacciones y Pagos</legend>
+                    <div id="lista-transacciones-edit" class="space-y-2 text-sm max-h-40 overflow-y-auto"></div>
+                    <button type="button" id="add-pago-btn-edit" class="btn-secondary text-xs mt-2">+ Registrar Nuevo Pago</button>
+                    <div id="form-pago-container-edit" class="hidden mt-2"></div>
+                </fieldset>
+
+                <div class="flex justify-end pt-4 border-t">
+                    <button type="button" id="cancel-edit-btn" class="btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn-primary ml-2">Guardar Cambios</button>
+                </div>
+            </form>
+        </div></div>
 
         <div id="reserva-modal-view" class="modal hidden">
-            {/* ... (contenido del modal de vista sin cambios) ... */}
+            <div class="modal-content !max-w-4xl">
+                 <div class="flex justify-between items-center pb-3 border-b mb-4">
+                    <h3 id="view-modal-title" class="text-xl font-semibold"></h3>
+                    <button id="close-view-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+                </div>
+                <div id="view-loading-state" class="text-center p-8"><p>Cargando detalles...</p></div>
+                <div id="reserva-view-content" class="hidden space-y-6 max-h-[75vh] overflow-y-auto pr-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <section>
+                                <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Información de la Reserva</h4>
+                                <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                                    <dt class="text-gray-500">Alojamiento:</dt><dd id="view-alojamiento"></dd>
+                                    <dt class="text-gray-500">Canal:</dt><dd id="view-canal"></dd>
+                                    <dt class="text-gray-500">Check-in:</dt><dd id="view-checkin"></dd>
+                                    <dt class="text-gray-500">Check-out:</dt><dd id="view-checkout"></dd>
+                                    <dt class="text-gray-500">Noches:</dt><dd id="view-noches"></dd>
+                                    <dt class="text-gray-500">Huéspedes:</dt><dd id="view-huespedes"></dd>
+                                    <dt class="text-gray-500">Estado Reserva:</dt><dd id="view-estado-reserva" class="font-semibold"></dd>
+                                    <dt class="text-gray-500">Estado Gestión:</dt><dd id="view-estado-gestion" class="font-semibold"></dd>
+                                </dl>
+                            </section>
+                             <section>
+                                <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Documentos</h4>
+                                <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                                   <dt class="text-gray-500">Doc. Reserva:</dt><dd id="view-doc-reserva"></dd>
+                                   <dt class="text-gray-500">Boleta/Factura:</dt><dd id="view-doc-boleta"></dd>
+                                </dl>
+                            </section>
+                        </div>
+                        <div class="space-y-4">
+                             <section>
+                                <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Información del Cliente</h4>
+                                <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                                    <dt class="text-gray-500">Nombre:</dt><dd id="view-cliente-nombre"></dd>
+                                    <dt class="text-gray-500">Teléfono:</dt><dd id="view-cliente-telefono"></dd>
+                                    <dt class="text-gray-500">Email:</dt><dd id="view-cliente-email"></dd>
+                                    <dt class="text-gray-500">País:</dt><dd id="view-cliente-pais"></dd>
+                                    <dt class="text-gray-500">Calificación:</dt><dd id="view-cliente-calificacion"></dd>
+                                    <dt class="text-gray-500">Ubicación:</dt><dd id="view-cliente-ubicacion"></dd>
+                                    <dt class="text-gray-500 col-span-2">Notas Cliente:</dt>
+                                    <dd id="view-cliente-notas" class="col-span-2 text-xs bg-gray-50 p-2 rounded whitespace-pre-wrap"></dd>
+                                </dl>
+                            </section>
+                        </div>
+                    </div>
+                    <div class="space-y-4 border-t pt-4 mt-4">
+                        <section>
+                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Análisis Financiero</h4>
+                            <dl class="grid grid-cols-3 gap-x-4 gap-y-1 text-sm">
+                                <dt class="text-gray-500">Total Cliente:</dt><dd id="view-total-cliente" class="font-semibold"></dd><dd></dd>
+                                <dt class="text-gray-500">Abonado:</dt><dd id="view-abonado" class="text-green-600"></dd><dd></dd>
+                                <dt class="text-gray-500">Saldo:</dt><dd id="view-saldo" class="text-red-600 font-bold"></dd><dd></dd>
+                                <dt class="text-gray-500">Payout (Ingreso Real):</dt><dd id="view-payout"></dd><dd></dd>
+                                <dt class="text-gray-500">Costo del Canal:</dt><dd id="view-costo-canal"></dd><dd></dd>
+                                <dt class="text-gray-500">Valor Potencial (KPI):</dt><dd id="view-valor-potencial"></dd>
+                            </dl>
+                        </section>
+                        <section>
+                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Transacciones y Pagos</h4>
+                            <div id="view-transacciones-list" class="space-y-2 text-sm max-h-40 overflow-y-auto"></div>
+                        </section>
+                        <section>
+                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Bitácora de Gestión</h4>
+                            <div id="view-notas-list" class="space-y-2 text-xs max-h-40 overflow-y-auto"></div>
+                        </section>
+                    </div>
+                </div>
+            </div>
         </div>
     `;
 }
@@ -460,6 +539,22 @@ export function afterRender() {
         valorOriginalInput.addEventListener('input', () => calcularValorFinal(formEdit, 'original'));
         valorTotalInput.addEventListener('input', () => calcularValorFinal(formEdit, 'total'));
         valorDolarInput.addEventListener('input', () => calcularValorFinal(formEdit, 'dolar'));
+
+        formEdit.addEventListener('change', e => {
+            if (e.target.classList.contains('doc-input')) {
+                handleGestionarDocumento(editandoReserva.id, e.target.dataset.tipo, e.target.files[0], 'upload');
+            }
+        });
+        formEdit.addEventListener('click', e => {
+            if (e.target.classList.contains('delete-doc-btn')) {
+                if (confirm('¿Seguro que quieres eliminar este documento?')) {
+                    handleGestionarDocumento(editandoReserva.id, e.target.dataset.tipo, null, 'delete');
+                }
+            }
+            if (e.target.id === 'add-pago-btn-edit') {
+                document.getElementById('form-pago-container-edit').classList.toggle('hidden');
+            }
+        });
     }
     
     if (reservaIdParaEditar) {
