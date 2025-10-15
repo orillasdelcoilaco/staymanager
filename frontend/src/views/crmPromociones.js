@@ -42,10 +42,16 @@ async function cargarClientes(segmento) {
     }
 }
 
-function generarCampana() {
+async function generarCampana() {
+    const nombreCampana = document.getElementById('nombre-campana').value.trim();
     const mensaje = document.getElementById('mensaje-promocion').value;
     const campanaContainer = document.getElementById('campana-container');
-    
+    const btn = document.getElementById('generar-campana-btn');
+
+    if (!nombreCampana) {
+        alert('Por favor, dale un nombre a tu campaña para poder identificarla.');
+        return;
+    }
     if (!mensaje) {
         alert('Por favor, escribe un mensaje para la promoción.');
         return;
@@ -55,23 +61,55 @@ function generarCampana() {
         return;
     }
 
-    campanaContainer.classList.remove('hidden');
-    const listaMensajes = document.getElementById('lista-mensajes');
-    listaMensajes.innerHTML = clientesSeleccionados.map(cliente => {
-        const mensajePersonalizado = mensaje.replace(/\[NOMBRE_CLIENTE\]/g, cliente.nombre.split(' ')[0]);
-        const telefonoLimpio = cliente.telefono.replace(/\D/g, '');
-        const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajePersonalizado)}`;
+    btn.disabled = true;
+    btn.textContent = 'Guardando y Generando...';
 
-        return `
-            <div class="p-3 border rounded-md flex justify-between items-center bg-white">
-                <div>
-                    <p class="font-semibold">${cliente.nombre}</p>
-                    <p class="text-xs text-gray-500">${cliente.telefono}</p>
+    try {
+        const payload = {
+            nombre: nombreCampana,
+            segmento: document.getElementById('segmento-select').value,
+            mensaje,
+            clientes: clientesSeleccionados
+        };
+        
+        await fetchAPI('/crm/campanas', { method: 'POST', body: payload });
+        
+        campanaContainer.classList.remove('hidden');
+        const listaMensajes = document.getElementById('lista-mensajes');
+        
+        listaMensajes.innerHTML = clientesSeleccionados.map(cliente => {
+            const mensajePersonalizado = mensaje.replace(/\[NOMBRE_CLIENTE\]/g, cliente.nombre.split(' ')[0]);
+            const telefonoLimpio = cliente.telefono.replace(/\D/g, '');
+            const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajePersonalizado)}`;
+
+            return `
+                <div class="p-3 border rounded-md grid grid-cols-3 items-center bg-white gap-4">
+                    <div>
+                        <p class="font-semibold">${cliente.nombre}</p>
+                        <p class="text-xs text-gray-500">${cliente.telefono}</p>
+                    </div>
+                    <div class="text-center">
+                        <select data-cliente-id="${cliente.id}" class="form-select form-select-sm estado-interaccion">
+                            <option value="Enviado" selected>📬 Enviado</option>
+                            <option value="Respondio">💬 Respondió</option>
+                            <option value="NoInteresado">🚫 No Interesado</option>
+                            <option value="Reservo">✅ Reservó</option>
+                            <option value="SinRespuesta">⏳ Sin Respuesta</option>
+                        </select>
+                    </div>
+                    <div class="text-right">
+                        <a href="${whatsappUrl}" target="_blank" class="btn-primary">Enviar WhatsApp</a>
+                    </div>
                 </div>
-                <a href="${whatsappUrl}" target="_blank" class="btn-primary">Enviar WhatsApp</a>
-            </div>
-        `;
-    }).join('');
+            `;
+        }).join('');
+        
+    } catch (error) {
+        alert(`Error al crear la campaña: ${error.message}`);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Generar Campaña';
+    }
 }
 
 export function render() {
@@ -118,20 +156,31 @@ export function render() {
 
             <div class="border-t pt-6">
                 <h3 class="text-lg font-semibold">3. Crear Campaña de WhatsApp</h3>
-                <div class="mt-2">
-                    <label for="mensaje-promocion" class="block text-sm font-medium text-gray-700">Mensaje de la Promoción</label>
-                    <textarea id="mensaje-promocion" rows="5" class="form-input mt-1" placeholder="Hola [NOMBRE_CLIENTE], tenemos una oferta especial para ti..."></textarea>
-                    <p class="text-xs text-gray-500 mt-1">Usa la etiqueta <code class="font-bold">[NOMBRE_CLIENTE]</code> para personalizar el saludo.</p>
+                <div class="space-y-4 mt-2">
+                    <div>
+                        <label for="nombre-campana" class="block text-sm font-medium text-gray-700">Nombre de la Campaña</label>
+                        <input type="text" id="nombre-campana" class="form-input mt-1" placeholder="Ej: Oferta Fin de Semana Largo - Octubre">
+                    </div>
+                    <div>
+                        <label for="mensaje-promocion" class="block text-sm font-medium text-gray-700">Mensaje de la Promoción</label>
+                        <textarea id="mensaje-promocion" rows="5" class="form-input mt-1" placeholder="Hola [NOMBRE_CLIENTE], tenemos una oferta especial para ti..."></textarea>
+                        <p class="text-xs text-gray-500 mt-1">Usa la etiqueta <code class="font-bold">[NOMBRE_CLIENTE]</code> para personalizar el saludo.</p>
+                    </div>
                 </div>
                 <div class="text-right mt-4">
-                    <button id="generar-campana-btn" class="btn-primary">Generar Campaña</button>
+                    <button id="generar-campana-btn" class="btn-primary">Crear y Generar Campaña</button>
                 </div>
             </div>
 
             <div id="campana-container" class="hidden border-t pt-6">
-                <h3 class="text-lg font-semibold">4. Enviar Mensajes</h3>
-                <p class="text-sm text-gray-500 mb-4">Haz clic en cada botón para abrir WhatsApp y enviar el mensaje personalizado.</p>
-                <div id="lista-mensajes" class="space-y-3 max-h-96 overflow-y-auto pr-4"></div>
+                <h3 class="text-lg font-semibold">4. Seguimiento de la Campaña</h3>
+                <p class="text-sm text-gray-500 mb-4">Usa esta sección para registrar las respuestas de los clientes a medida que interactúas con ellos en WhatsApp.</p>
+                <div class="grid grid-cols-3 items-center bg-gray-50 p-2 rounded-t-md font-semibold text-sm">
+                    <span>Cliente</span>
+                    <span class="text-center">Estado de la Interacción</span>
+                    <span class="text-right">Acción</span>
+                </div>
+                <div id="lista-mensajes" class="space-y-3 max-h-96 overflow-y-auto pr-4 border p-2 rounded-b-md"></div>
             </div>
         </div>
     `;

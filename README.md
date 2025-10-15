@@ -622,3 +622,53 @@ ajusteTarifaModal.js: La pestaña "Simulador de Rentabilidad" fue completamente 
 views/gestionarReservas.js:
 
 El modal de edición fue ajustado para reflejar la nueva lógica. Los campos de precios ahora son editables para permitir correcciones manuales, consolidando que el valor almacenado en la reserva es la "verdad absoluta", mientras el sistema asiste con cálculos de conversión de moneda si es necesario.
+
+Modulo CRM y Promociones 
+
+- **Bloque 10: Segmentación de Clientes:** Implementación del modelo RFM (Recencia, Frecuencia, Valor Monetario) para clasificar a los clientes en segmentos de valor (Campeones, Leales, etc.) y creación de la vista inicial de CRM. - ✅ **Completado**
+
+### Etapa 3: Sistema de Campañas y Cupones (Próximo Paso)
+
+#### Objetivo
+Evolucionar el CRM desde una herramienta de segmentación a una plataforma completa de marketing directo con seguimiento de interacciones y un sistema de cupones de un solo uso para incentivar la recurrencia y los referidos.
+
+#### Bloque 11: Backend - Estructura de Campañas y Cupones
+
+**Objetivo:** Crear la base de datos y la lógica de servidor para gestionar campañas y cupones.
+
+1.  **Definir Modelos de Datos (Firestore):**
+    * Crear una nueva sub-colección `empresas/{empresaId}/campanas`. Cada documento representará una campaña con su nombre, fecha, segmento objetivo y el mensaje enviado.
+    * Crear una nueva sub-colección `empresas/{empresaId}/interacciones`. Cada documento vinculará a un cliente con una campaña y registrará su estado (Enviado, Respondió, No Interesado, Reservó).
+    * Crear una nueva sub-colección `empresas/{empresaId}/cupones` para almacenar los cupones de un solo uso con su código, estado (disponible, utilizado), valor y cliente propietario.
+
+2.  **Desarrollar Servicios de Backend:**
+    * Crear `campanasService.js` con funciones para `crearCampana` y `registrarInteraccion`.
+    * Crear `cuponesService.js` con lógica para `generarCuponParaCliente`, `validarCupon` y `marcarCuponComoUtilizado`.
+
+3.  **Ampliar Rutas de la API (`crm.js`):**
+    * Añadir nuevos endpoints para gestionar las campañas y los cupones (crear, validar, etc.).
+
+#### Bloque 12: Frontend - Interfaz de Gestión de Campañas
+
+**Objetivo:** Actualizar la vista de CRM para que el usuario pueda crear y dar seguimiento a las campañas.
+
+1.  **Modificar la vista `crmPromociones.js`:**
+    * Transformar la sección "Crear Campaña" en un formulario que pida un **nombre para la campaña**.
+    * Al "Generar Campaña", el sistema primero creará el registro de la campaña en el backend y luego generará los mensajes.
+    * Debajo de la lista de mensajes a enviar, mostrará una nueva tabla de **"Seguimiento de Interacciones"**.
+    * Esta tabla mostrará cada cliente de la campaña con su estado inicial "📬 Enviado" y permitirá al usuario cambiarlo manualmente (a "💬 Respondió", "🚫 No Interesado", etc.).
+
+#### Bloque 13: Integración del Sistema de Cupones
+
+**Objetivo:** Conectar la generación y el uso de cupones en el flujo de trabajo del usuario.
+
+1.  **Actualizar la vista `crmPromociones.js`:**
+    * Añadir una acción en la lista de clientes para "Generar Cupón de Descuento".
+    * Añadir la etiqueta `[CUPON_DESCUENTO]` al editor de mensajes para incluir el código del cupón en las promociones.
+
+2.  **Modificar la vista `agregarPropuesta.js`:**
+    * Añadir un campo de texto para "Aplicar Código de Descuento".
+    * Implementar la lógica para que, al ingresar un código, se llame al backend para validarlo y, si es correcto, se aplique el descuento al total de la propuesta.
+
+3.  **Actualizar el Proceso de Aprobación (`gestionPropuestasService.js`):**
+    * Modificar la función `aprobarPropuesta` para que, si se usó un cupón, este se marque automáticamente como "utilizado" en la misma transacción en que se confirma la reserva, garantizando así su uso único.
