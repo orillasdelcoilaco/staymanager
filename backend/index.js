@@ -29,8 +29,8 @@ const presupuestosRoutes = require('./routes/presupuestos.js');
 const gestionPropuestasRoutes = require('./routes/gestionPropuestas.js');
 const reportesRoutes = require('./routes/reportes.js');
 const kpiRoutes = require('./routes/kpi.js');
-const icalRoutes = require('./routes/ical.js'); // Nueva ruta pública
-const estadosRoutes = require('./routes/estados.js'); // <-- NUEVO
+const icalRoutes = require('./routes/ical.js');
+const crmRoutes = require('./routes/crm.js'); // Nueva ruta
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 
 // --- Carga de Credenciales y Configuración de Firebase ---
@@ -110,7 +110,7 @@ apiRouter.use('/presupuestos', presupuestosRoutes(db));
 apiRouter.use('/gestion-propuestas', gestionPropuestasRoutes(db));
 apiRouter.use('/reportes', reportesRoutes(db));
 apiRouter.use('/kpis', kpiRoutes(db));
-apiRouter.use('/estados', estadosRoutes(db)); // <-- NUEVO
+apiRouter.use('/crm', crmRoutes(db)); // Nueva ruta registrada
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 
 app.use('/api', apiRouter);

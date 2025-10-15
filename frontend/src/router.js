@@ -31,7 +31,7 @@ const views = {
     '/gestionar-propuestas': () => import('./views/gestionarPropuestas.js'),
     '/generar-reportes-rapidos': () => import('./views/generarReportes.js'),
     '/sincronizar-ical': () => import('./views/sincronizarCalendarios.js'),
-    '/gestionar-estados': () => import('./views/gestionarEstados.js'), // <-- NUEVO
+    '/crm-promociones': () => import('./views/crmPromociones.js'), // Nueva vista
 };
 
 const menuConfig = [
@@ -42,11 +42,11 @@ const menuConfig = [
         children: [
             { name: '☀️ Gestión Diaria', path: '/gestion-diaria', id: 'gestion-diaria' },
             { name: '📅 Calendario', path: '/calendario', id: 'calendario' },
+            { name: '🎯 CRM y Promociones', path: '/crm-promociones', id: 'crm-promociones' }, // Nuevo enlace
             { name: '📄 Generar Reportes Rápidos', path: '/generar-reportes-rapidos', id: 'reportes-rapidos' },
             { name: '➕ Agregar Propuesta', path: '/agregar-propuesta', id: 'agregar-propuesta' },
             { name: '💲 Generar Presupuestos', path: '/generar-presupuesto', id: 'generar-presupuestos' },
             { name: '🗂️ Gestionar Propuestas', path: '/gestionar-propuestas', id: 'gestionar-propuestas' },
-            { name: '💬 Generar mensajes', path: '#', id: 'generar-mensajes' },
         ]
     },
     {
@@ -71,7 +71,6 @@ const menuConfig = [
         children: [
             { name: '🏢 Empresa', path: '/empresa', id: 'config-empresa' },
             { name: '👥 Gestionar Usuarios', path: '/gestionar-usuarios', id: 'config-usuarios' },
-            { name: '🏷️ Gestionar Estados', path: '/gestionar-estados', id: 'config-estados' }, // <-- NUEVO
             { name: '🔄 Conversión Alojamientos', path: '/conversion-alojamientos', id: 'config-conversion' },
             { name: '🗺️ Mapeo de Reportes', path: '/mapeo-reportes', id: 'mapeo-reportes' },
             { name: '👤 Autorizar Google Contacts', path: '/autorizar-google', id: 'config-google' },

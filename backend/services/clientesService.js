@@ -2,6 +2,7 @@
 
 const admin = require('firebase-admin');
 const { createGoogleContact, findContactByName, updateGoogleContact } = require('./googleContactsService');
+const { segmentarClienteRFM } = require('./crmService');
 
 const normalizarTelefono = (telefono) => {
     if (!telefono) return null;
@@ -144,7 +145,7 @@ const actualizarCliente = async (db, empresaId, clienteId, datosActualizados) =>
     if (datosAntiguos.googleContactSynced) {
         const reservaSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
             .where('clienteId', '==', clienteId)
-            .orderBy('fechaCreacion', 'desc') // <-- CORRECCIÓN AQUÍ
+            .orderBy('fechaCreacion', 'desc')
             .limit(1)
             .get();
 
@@ -189,7 +190,7 @@ const sincronizarClienteGoogle = async (db, empresaId, clienteId, overrideData =
 
         const reservaSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
             .where('clienteId', '==', clienteId)
-            .orderBy('fechaCreacion', 'desc') // <-- CORRECCIÓN AQUÍ
+            .orderBy('fechaCreacion', 'desc')
             .limit(1)
             .get();
 
@@ -258,10 +259,13 @@ const recalcularEstadisticasClientes = async (db, empresaId) => {
             tipoCliente = 'Cliente Frecuente';
         }
 
+        const rfmSegmento = segmentarClienteRFM(historialReservas, totalGastado);
+
         const updates = {
             totalGastado,
             numeroDeReservas,
-            tipoCliente
+            tipoCliente,
+            rfmSegmento
         };
 
         batch.update(doc.ref, updates);
