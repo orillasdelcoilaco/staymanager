@@ -172,17 +172,29 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
     const notas = notasSnapshot.docs.map(d => ({...d.data(), fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
     const transacciones = transaccionesSnapshot.docs.map(d => ({...d.data(), id: d.id, fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
 
-    const valorTotalHuesped = reservaData.valores?.valorHuesped || 0;
-    const costoCanal = reservaData.valores?.comision || reservaData.valores?.costoCanal || 0;
-    const valorPotencial = reservaData.valores?.valorPotencial || 0;
-    
-    const abonoTotalGrupo = transacciones.reduce((sum, t) => sum + (t.monto || 0), 0);
-
     const datosGrupo = {
         propiedades: reservasDelGrupo.map(r => r.alojamientoNombre),
         valorTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0),
-        payoutTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorTotal || 0), 0)
+        payoutTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorTotal || 0), 0),
+        abonoTotal: transacciones.reduce((sum, t) => sum + (t.monto || 0), 0),
     };
+    datosGrupo.saldo = datosGrupo.valorTotal - datosGrupo.abonoTotal;
+
+    const valorHuespedIndividual = reservaData.valores?.valorHuesped || 0;
+    const abonoProporcional = (datosGrupo.valorTotal > 0)
+        ? (valorHuespedIndividual / datosGrupo.valorTotal) * datosGrupo.abonoTotal
+        : 0;
+    
+    const valorPotencial = reservaData.valores?.valorPotencial || 0;
+    const descuentoPotencialPct = (valorPotencial > 0 && valorPotencial > valorHuespedIndividual)
+        ? (1 - (valorHuespedIndividual / valorPotencial)) * 100
+        : 0;
+
+    const valorHuespedOriginal = reservaData.valores?.valorHuespedOriginal || 0;
+    const ajusteCobro = (valorHuespedOriginal > 0 && valorHuespedOriginal !== valorHuespedIndividual)
+        ? valorHuespedIndividual - valorHuespedOriginal
+        : 0;
+
 
     return {
         ...reservaData,
@@ -193,16 +205,17 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
         notas,
         transacciones,
         datosIndividuales: {
-            valorTotalHuesped,
-            costoCanal,
+            valorTotalHuesped: valorHuespedIndividual,
+            costoCanal: reservaData.valores?.comision || reservaData.valores?.costoCanal || 0,
+            payoutFinalReal: valorHuespedIndividual - (reservaData.valores?.comision || reservaData.valores?.costoCanal || 0),
             valorPotencial,
-            payoutFinalReal: valorTotalHuesped - costoCanal,
+            descuentoPotencialPct,
+            abonoProporcional,
+            saldo: valorHuespedIndividual - abonoProporcional,
+            ajusteCobro,
+            valorHuespedOriginal,
         },
-        datosGrupo: {
-            ...datosGrupo,
-            abonoTotal: abonoTotalGrupo,
-            saldo: datosGrupo.valorTotal - abonoTotalGrupo
-        }
+        datosGrupo
     };
 };
 

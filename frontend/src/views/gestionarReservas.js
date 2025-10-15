@@ -43,6 +43,18 @@ async function abrirModalVer(reservaId) {
     try {
         const data = await fetchAPI(`/reservas/${reservaId}`);
         
+        const infoGrupoEl = document.getElementById('view-info-grupo');
+        if (data.datosGrupo && data.datosGrupo.propiedades.length > 1) {
+            infoGrupoEl.innerHTML = `
+                <div class="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm mb-4">
+                    <p>Esta reserva es parte de un grupo de <strong>${data.datosGrupo.propiedades.length} propiedades</strong> (${data.datosGrupo.propiedades.join(', ')}).</p>
+                    <p class="font-semibold">Valor Total del Grupo: ${formatCurrency(data.datosGrupo.valorTotal)} | Abonado: ${formatCurrency(data.datosGrupo.abonoTotal)} | Saldo: ${formatCurrency(data.datosGrupo.saldo)}</p>
+                </div>`;
+            infoGrupoEl.classList.remove('hidden');
+        } else {
+            infoGrupoEl.classList.add('hidden');
+        }
+
         document.getElementById('view-modal-title').textContent = `Detalle Reserva: ${data.idReservaCanal}`;
         document.getElementById('view-alojamiento').textContent = data.alojamientoNombre;
         document.getElementById('view-canal').textContent = data.canalNombre;
@@ -63,12 +75,32 @@ async function abrirModalVer(reservaId) {
         document.getElementById('view-cliente-ubicacion').textContent = data.cliente.ubicacion || '-';
         document.getElementById('view-cliente-notas').textContent = data.cliente.notas || 'Sin notas.';
         
-        document.getElementById('view-total-cliente').textContent = formatCurrency(data.datosIndividuales.valorTotalHuesped);
-        document.getElementById('view-abonado').textContent = formatCurrency(data.datosGrupo.abonoTotal);
-        document.getElementById('view-saldo').textContent = formatCurrency(data.datosGrupo.saldo);
-        document.getElementById('view-payout').textContent = formatCurrency(data.datosIndividuales.payoutFinalReal);
-        document.getElementById('view-costo-canal').textContent = formatCurrency(data.datosIndividuales.costoCanal);
-        document.getElementById('view-valor-potencial').textContent = data.datosIndividuales.valorPotencial > 0 ? formatCurrency(data.datosIndividuales.valorPotencial) : 'No calculado';
+        const { datosIndividuales } = data;
+        const analisisCobranzaEl = document.getElementById('analisis-cobranza');
+        analisisCobranzaEl.innerHTML = `
+            <dt class="text-gray-500">Total Cliente (Individual):</dt><dd class="font-semibold">${formatCurrency(datosIndividuales.valorTotalHuesped)}</dd>
+            <dt class="text-gray-500">Abono (Proporcional):</dt><dd class="text-green-600">${formatCurrency(datosIndividuales.abonoProporcional)}</dd>
+            <dt class="text-gray-500">Saldo (Individual):</dt><dd class="text-red-600 font-bold">${formatCurrency(datosIndividuales.saldo)}</dd>
+            ${datosIndividuales.ajusteCobro !== 0 ? `
+                <dt class="text-gray-500 col-span-2 border-t mt-1 pt-1">Ajuste de Cobro:</dt>
+                <dd class="col-span-2 grid grid-cols-2">
+                    <span>${formatCurrency(datosIndividuales.ajusteCobro)}</span>
+                    <span class="text-xs text-right text-gray-500">Valor Original: ${formatCurrency(datosIndividuales.valorHuespedOriginal)}</span>
+                </dd>
+            ` : ''}
+        `;
+
+        const analisisRentabilidadEl = document.getElementById('analisis-rentabilidad');
+        analisisRentabilidadEl.innerHTML = `
+            <dt class="text-gray-500">Payout (Ingreso Real):</dt><dd>${formatCurrency(datosIndividuales.payoutFinalReal)}</dd>
+            <dt class="text-gray-500">Costo del Canal:</dt><dd>${formatCurrency(datosIndividuales.costoCanal)}</dd>
+            <dt class="text-gray-500 col-span-2">Valor Potencial (KPI):</dt>
+            <dd class="col-span-2 grid grid-cols-2">
+                <span>${formatCurrency(datosIndividuales.valorPotencial)}</span>
+                ${datosIndividuales.descuentoPotencialPct > 0 ? `<span class="text-xs text-right text-red-500">(${datosIndividuales.descuentoPotencialPct.toFixed(1)}% dscto.)</span>` : ''}
+            </dd>
+        `;
+
 
         const transaccionesContainer = document.getElementById('view-transacciones-list');
         if (data.transacciones.length > 0) {
@@ -430,6 +462,7 @@ export async function render() {
                 </div>
                 <div id="view-loading-state" class="text-center p-8"><p>Cargando detalles...</p></div>
                 <div id="reserva-view-content" class="hidden space-y-6 max-h-[75vh] overflow-y-auto pr-4">
+                    <div id="view-info-grupo" class="hidden"></div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="space-y-4">
                             <section>
@@ -471,22 +504,24 @@ export async function render() {
                     </div>
                     <div class="space-y-4 border-t pt-4 mt-4">
                         <section>
-                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Análisis Financiero</h4>
-                            <dl class="grid grid-cols-3 gap-x-4 gap-y-1 text-sm">
-                                <dt class="text-gray-500">Total Cliente:</dt><dd id="view-total-cliente" class="font-semibold"></dd><dd></dd>
-                                <dt class="text-gray-500">Abonado:</dt><dd id="view-abonado" class="text-green-600"></dd><dd></dd>
-                                <dt class="text-gray-500">Saldo:</dt><dd id="view-saldo" class="text-red-600 font-bold"></dd><dd></dd>
-                                <dt class="text-gray-500">Payout (Ingreso Real):</dt><dd id="view-payout"></dd><dd></dd>
-                                <dt class="text-gray-500">Costo del Canal:</dt><dd id="view-costo-canal"></dd><dd></dd>
-                                <dt class="text-gray-500">Valor Potencial (KPI):</dt><dd id="view-valor-potencial"></dd>
-                            </dl>
+                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Análisis Financiero (Individual)</h4>
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 text-sm">
+                                <div>
+                                    <h5 class="font-semibold text-gray-600 mb-1">Cobranza</h5>
+                                    <dl id="analisis-cobranza" class="grid grid-cols-2 gap-x-4 gap-y-1"></dl>
+                                </div>
+                                <div class="border-t md:border-t-0 md:border-l md:pl-4">
+                                    <h5 class="font-semibold text-gray-600 mb-1">Rentabilidad (KPIs)</h5>
+                                    <dl id="analisis-rentabilidad" class="grid grid-cols-2 gap-x-4 gap-y-1"></dl>
+                                </div>
+                            </div>
                         </section>
                         <section>
-                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Transacciones y Pagos</h4>
+                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Transacciones y Pagos (Grupo)</h4>
                             <div id="view-transacciones-list" class="space-y-2 text-sm max-h-40 overflow-y-auto"></div>
                         </section>
                         <section>
-                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Bitácora de Gestión</h4>
+                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Bitácora de Gestión (Grupo)</h4>
                             <div id="view-notas-list" class="space-y-2 text-xs max-h-40 overflow-y-auto"></div>
                         </section>
                     </div>
