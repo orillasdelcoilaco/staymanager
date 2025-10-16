@@ -39,6 +39,17 @@ const obtenerPropiedadesPorEmpresa = async (db, empresaId) => {
     }));
 };
 
+const obtenerPropiedadPorId = async (db, empresaId, propiedadId) => {
+    const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
+    const doc = await propiedadRef.get();
+
+    if (!doc.exists) {
+        return null;
+    }
+
+    return { id: doc.id, ...doc.data() };
+};
+
 const actualizarPropiedad = async (db, empresaId, propiedadId, datosActualizados) => {
     const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
     
@@ -64,6 +75,7 @@ const eliminarPropiedad = async (db, empresaId, propiedadId) => {
 module.exports = {
     crearPropiedad,
     obtenerPropiedadesPorEmpresa,
+    obtenerPropiedadPorId,
     actualizarPropiedad,
     eliminarPropiedad
 };

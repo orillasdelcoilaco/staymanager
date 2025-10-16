@@ -1,6 +1,6 @@
+// backend/routes/historialCargas.js
 const express = require('express');
-const { obtenerHistorialPorEmpresa } = require('../services/historialCargasService');
-const { eliminarReservasPorIdCarga, contarReservasPorIdCarga } = require('../services/reservasService'); 
+const { obtenerHistorialPorEmpresa, eliminarReservasPorIdCarga, contarReservasPorIdCarga } = require('../services/historialCargasService'); 
 
 module.exports = (db) => {
     const router = express.Router();
@@ -33,10 +33,8 @@ module.exports = (db) => {
             const { empresaId } = req.user;
             const { idCarga } = req.params;
             
-            // Paso 1: Eliminar las reservas y sus archivos
             const resultado = await eliminarReservasPorIdCarga(db, empresaId, idCarga);
 
-            // Paso 2: Eliminar el registro del historial de carga
             const historialDocRef = db.collection('empresas').doc(empresaId).collection('historialCargas').doc(idCarga);
             await historialDocRef.delete();
 

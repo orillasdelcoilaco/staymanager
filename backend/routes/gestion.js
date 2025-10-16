@@ -1,9 +1,12 @@
+// backend/routes/gestion.js
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const { getReservasPendientes, actualizarEstadoGrupo, getNotas, addNota, getTransacciones, marcarClienteComoGestionado } = require('../services/gestionService');
 const { uploadFile } = require('../services/storageService');
-const { actualizarValoresGrupo, calcularPotencialGrupo, registrarPago, eliminarPago, actualizarDocumentoReserva } = require('../services/reservasService');
+const { actualizarValoresGrupo, calcularPotencialGrupo } = require('../services/analisisFinancieroService');
+const { registrarPago, eliminarPago } = require('../services/transaccionesService');
+const { actualizarDocumentoReserva } = require('../services/documentosService');
 
 const upload = multer({ storage: multer.memoryStorage() });
 

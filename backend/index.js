@@ -31,7 +31,9 @@ const reportesRoutes = require('./routes/reportes.js');
 const kpiRoutes = require('./routes/kpi.js');
 const icalRoutes = require('./routes/ical.js');
 const crmRoutes = require('./routes/crm.js'); // Nueva ruta
+const websiteRoutes = require('./routes/website.js'); // NUEVO: Rutas para el sitio público
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
+const { createTenantResolver } = require('./middleware/tenantResolver.js'); // NUEVO: Middleware para SSR
 
 // --- Carga de Credenciales y Configuración de Firebase ---
 try {
@@ -57,6 +59,10 @@ const db = admin.firestore();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// --- Configuración del Motor de Vistas (EJS) para SSR ---
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
 // --- Configuración de CORS ---
 const allowedOrigins = [
     'https://orillasdelcoilaco.cl',
@@ -77,8 +83,12 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// --- Rutas Públicas ---
+// --- Rutas Públicas (iCal y Sitio Web SSR) ---
 app.use('/ical', icalRoutes(db));
+
+// Middleware y rutas para el sitio web público (SSR)
+const tenantResolver = createTenantResolver(db);
+app.use('/', tenantResolver, websiteRoutes(db));
 
 // --- Rutas de la API (Privadas) ---
 const apiRouter = express.Router();
@@ -110,17 +120,22 @@ apiRouter.use('/presupuestos', presupuestosRoutes(db));
 apiRouter.use('/gestion-propuestas', gestionPropuestasRoutes(db));
 apiRouter.use('/reportes', reportesRoutes(db));
 apiRouter.use('/kpis', kpiRoutes(db));
-apiRouter.use('/crm', crmRoutes(db)); // Nueva ruta registrada
+apiRouter.use('/crm', crmRoutes(db)); 
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 
 app.use('/api', apiRouter);
 
-// --- Sirviendo el Frontend Estático ---
+// --- Sirviendo el Frontend Estático (SPA) ---
 const frontendPath = path.join(__dirname, '..', 'frontend');
 app.use(express.static(frontendPath));
 
 app.get('*', (req, res) => {
-    res.sendFile(path.join(frontendPath, 'index.html'));
+    // Si el tenantResolver no encontró una empresa, es una ruta para la SPA
+    if (!req.empresa) {
+        res.sendFile(path.join(frontendPath, 'index.html'));
+    }
+    // Si req.empresa existe, ya fue manejado por websiteRoutes y no debería llegar aquí.
+    // Si llega, es un 404 para el sitio público.
 });
 
 // --- Iniciar el Servidor ---

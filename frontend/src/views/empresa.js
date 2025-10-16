@@ -19,52 +19,76 @@ function renderFormulario() {
 
     formContainer.innerHTML = `
         <form id="empresa-form" class="space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre de la Empresa</label>
-                    <input type="text" id="nombre" name="nombre" value="${empresaInfo.nombre || ''}" class="mt-1 form-input">
+             <fieldset class="border p-4 rounded-md">
+                <legend class="px-2 font-semibold text-gray-700">Información General y de Contacto</legend>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <div>
+                        <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre de la Empresa</label>
+                        <input type="text" id="nombre" name="nombre" value="${empresaInfo.nombre || ''}" class="mt-1 form-input">
+                    </div>
+                    <div>
+                        <label for="slogan" class="block text-sm font-medium text-gray-700">Slogan o Bajada de Título</label>
+                        <input type="text" id="slogan" name="slogan" value="${empresaInfo.slogan || ''}" class="mt-1 form-input">
+                    </div>
+                     <div>
+                        <label for="contactoNombre" class="block text-sm font-medium text-gray-700">Nombre de Contacto (para presupuestos)</label>
+                        <input type="text" id="contactoNombre" name="contactoNombre" value="${empresaInfo.contactoNombre || ''}" class="mt-1 form-input">
+                    </div>
+                    <div>
+                        <label for="contactoEmail" class="block text-sm font-medium text-gray-700">Email de Contacto</label>
+                        <input type="email" id="contactoEmail" name="contactoEmail" value="${empresaInfo.contactoEmail || ''}" class="mt-1 form-input">
+                    </div>
+                    <div>
+                        <label for="contactoTelefono" class="block text-sm font-medium text-gray-700">Teléfono de Contacto</label>
+                        <input type="tel" id="contactoTelefono" name="contactoTelefono" value="${empresaInfo.contactoTelefono || ''}" class="mt-1 form-input">
+                    </div>
                 </div>
-                <div>
-                    <label for="slogan" class="block text-sm font-medium text-gray-700">Slogan o Bajada de Título</label>
-                    <input type="text" id="slogan" name="slogan" value="${empresaInfo.slogan || ''}" class="mt-1 form-input">
-                </div>
-                 <div>
-                    <label for="contactoNombre" class="block text-sm font-medium text-gray-700">Nombre de Contacto (para presupuestos)</label>
-                    <input type="text" id="contactoNombre" name="contactoNombre" value="${empresaInfo.contactoNombre || ''}" class="mt-1 form-input">
-                </div>
-                <div>
-                    <label for="contactoEmail" class="block text-sm font-medium text-gray-700">Email de Contacto</label>
-                    <input type="email" id="contactoEmail" name="contactoEmail" value="${empresaInfo.contactoEmail || ''}" class="mt-1 form-input">
-                </div>
-                <div>
-                    <label for="contactoTelefono" class="block text-sm font-medium text-gray-700">Teléfono de Contacto</label>
-                    <input type="tel" id="contactoTelefono" name="contactoTelefono" value="${empresaInfo.contactoTelefono || ''}" class="mt-1 form-input">
-                </div>
-                 <div>
-                    <label for="website" class="block text-sm font-medium text-gray-700">Sitio Web</label>
-                    <input type="url" id="website" name="website" value="${empresaInfo.website || ''}" class="mt-1 form-input">
-                </div>
-            </div>
-            
-            <div class="border-t pt-6">
-                <label for="serviciosGenerales" class="block text-sm font-medium text-gray-700">Servicios Generales Incluidos (para presupuestos)</label>
-                <textarea id="serviciosGenerales" name="serviciosGenerales" rows="4" class="mt-1 form-input">${empresaInfo.serviciosGenerales || ''}</textarea>
-            </div>
-            <div>
-                <label for="condicionesReserva" class="block text-sm font-medium text-gray-700">Condiciones de Reserva (para presupuestos)</label>
-                <textarea id="condicionesReserva" name="condicionesReserva" rows="4" class="mt-1 form-input">${empresaInfo.condicionesReserva || ''}</textarea>
-            </div>
+            </fieldset>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <div>
-                    <label for="ubicacionTexto" class="block text-sm font-medium text-gray-700">Texto de Ubicación</label>
-                    <input type="text" id="ubicacionTexto" name="ubicacionTexto" value="${empresaInfo.ubicacionTexto || ''}" class="mt-1 form-input">
+             <fieldset class="border p-4 rounded-md">
+                <legend class="px-2 font-semibold text-gray-700">Configuración Sitio Web Público</legend>
+                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <div>
+                        <label for="websiteDomain" class="block text-sm font-medium text-gray-700">Dominio Principal</label>
+                        <input type="text" id="websiteDomain" name="websiteDomain" value="${empresaInfo.websiteSettings?.domain || ''}" class="mt-1 form-input" placeholder="www.miempresa.com">
+                    </div>
+                    <div>
+                        <label for="websiteSubdomain" class="block text-sm font-medium text-gray-700">Subdominio (para pruebas)</label>
+                        <div class="flex items-center">
+                            <input type="text" id="websiteSubdomain" name="websiteSubdomain" value="${empresaInfo.websiteSettings?.subdomain || ''}" class="mt-1 form-input rounded-r-none" placeholder="miempresa">
+                            <span class="inline-flex items-center px-3 mt-1 text-sm text-gray-500 bg-gray-200 border border-l-0 border-gray-300 rounded-r-md h-10">.onrender.com</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="website" class="block text-sm font-medium text-gray-700">Sitio Web (Informativo)</label>
+                        <input type="url" id="website" name="website" value="${empresaInfo.website || ''}" class="mt-1 form-input">
+                    </div>
                 </div>
-                <div>
-                    <label for="googleMapsLink" class="block text-sm font-medium text-gray-700">Link a Google Maps</label>
-                    <input type="url" id="googleMapsLink" name="googleMapsLink" value="${empresaInfo.googleMapsLink || ''}" class="mt-1 form-input">
+            </fieldset>
+
+            <fieldset class="border p-4 rounded-md">
+                <legend class="px-2 font-semibold text-gray-700">Contenido para Presupuestos</legend>
+                <div class="space-y-4 mt-4">
+                    <div>
+                        <label for="serviciosGenerales" class="block text-sm font-medium text-gray-700">Servicios Generales Incluidos</label>
+                        <textarea id="serviciosGenerales" name="serviciosGenerales" rows="4" class="mt-1 form-input">${empresaInfo.serviciosGenerales || ''}</textarea>
+                    </div>
+                    <div>
+                        <label for="condicionesReserva" class="block text-sm font-medium text-gray-700">Condiciones de Reserva</label>
+                        <textarea id="condicionesReserva" name="condicionesReserva" rows="4" class="mt-1 form-input">${empresaInfo.condicionesReserva || ''}</textarea>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         <div>
+                            <label for="ubicacionTexto" class="block text-sm font-medium text-gray-700">Texto de Ubicación</label>
+                            <input type="text" id="ubicacionTexto" name="ubicacionTexto" value="${empresaInfo.ubicacionTexto || ''}" class="mt-1 form-input">
+                        </div>
+                        <div>
+                            <label for="googleMapsLink" class="block text-sm font-medium text-gray-700">Link a Google Maps</label>
+                            <input type="url" id="googleMapsLink" name="googleMapsLink" value="${empresaInfo.googleMapsLink || ''}" class="mt-1 form-input">
+                        </div>
+                    </div>
                 </div>
-            </div>
+            </fieldset>
 
             <div class="border-t pt-6">
                 <h3 class="text-base font-semibold text-gray-800 mb-2">Sincronización con Google Contacts</h3>
@@ -113,7 +137,11 @@ export async function afterRender() {
                 serviciosGenerales: form.serviciosGenerales.value,
                 condicionesReserva: form.condicionesReserva.value,
                 ubicacionTexto: form.ubicacionTexto.value,
-                googleMapsLink: form.googleMapsLink.value
+                googleMapsLink: form.googleMapsLink.value,
+                websiteSettings: {
+                    domain: form.websiteDomain.value,
+                    subdomain: form.websiteSubdomain.value
+                }
             };
 
             try {

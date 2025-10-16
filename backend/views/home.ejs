@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <meta name="description" content="<%= description %>">
+    <link rel="stylesheet" href="/public/css/website.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+
+    <%- include('partials/header') %>
+
+    <main class="container py-12">
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-900"><%= empresa.nombre %></h1>
+            <p class="mt-2 text-lg text-gray-600"><%= empresa.slogan || 'Tu mejor opción para descansar.' %></p>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-12">
+            <form action="/" method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div>
+                    <label for="fechaLlegada" class="block text-sm font-medium text-gray-700">Llegada</label>
+                    <input type="date" name="fechaLlegada" id="fechaLlegada" class="form-input mt-1" value="<%= locals.query && query.fechaLlegada ? query.fechaLlegada : '' %>">
+                </div>
+                <div>
+                    <label for="fechaSalida" class="block text-sm font-medium text-gray-700">Salida</label>
+                    <input type="date" name="fechaSalida" id="fechaSalida" class="form-input mt-1" value="<%= locals.query && query.fechaSalida ? query.fechaSalida : '' %>">
+                </div>
+                <div>
+                    <label for="personas" class="block text-sm font-medium text-gray-700">Huéspedes</label>
+                    <input type="number" name="personas" id="personas" min="1" class="form-input mt-1" placeholder="Ej: 2" value="<%= locals.query && query.personas ? query.personas : '' %>">
+                </div>
+                <button type="submit" class="btn w-full">Buscar Disponibilidad</button>
+            </form>
+        </div>
+        
+        <div id="propiedades">
+            <h2 class="text-3xl font-bold text-gray-900 mb-8">
+                <% if (locals.isSearchResult) { %>
+                    Propiedades Disponibles
+                <% } else { %>
+                    Nuestras Propiedades
+                <% } %>
+            </h2>
+
+            <% if (propiedades.length > 0) { %>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <% propiedades.forEach(prop => { %>
+                        <div class="property-card">
+                            <a href="/propiedad/<%= prop.id %>">
+                                <img src="<%= prop.linkFotos || 'https://via.placeholder.com/400x300.png?text=Imagen+no+disponible' %>" alt="Foto de <%= prop.nombre %>">
+                            </a>
+                            <div class="property-card-content">
+                                <h3 class="property-card-title"><a href="/propiedad/<%= prop.id %>"><%= prop.nombre %></a></h3>
+                                <p class="property-card-details">Capacidad: hasta <%= prop.capacidad %> personas</p>
+                            </div>
+                        </div>
+                    <% }) %>
+                </div>
+            <% } else { %>
+                <div class="text-center py-12 px-4 border-2 border-dashed rounded-lg">
+                    <h3 class="text-xl font-semibold text-gray-700">No se encontraron propiedades</h3>
+                    <p class="mt-2 text-sm text-gray-500">
+                        <% if (locals.isSearchResult) { %>
+                            No hay propiedades disponibles para las fechas o cantidad de huéspedes seleccionada. Intenta con otras fechas.
+                        <% } else { %>
+                            Actualmente no tenemos propiedades para mostrar.
+                        <% } %>
+                    </p>
+                </div>
+            <% } %>
+        </div>
+
+    </main>
+
+    <%- include('partials/footer') %>
+
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/public/css/website.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+    <%- include('partials/header') %>
+
+    <main class="container py-12 text-center">
+        <div class="bg-white p-12 rounded-lg shadow-lg max-w-2xl mx-auto">
+            <h1 class="text-3xl font-bold text-green-600">¡Tu reserva está confirmada!</h1>
+            <p class="mt-4 text-gray-700">Hemos recibido tu solicitud de reserva. Pronto, uno de nuestros ejecutivos se pondrá en contacto contigo para coordinar los detalles del pago y la llegada.</p>
+            <div class="mt-8 text-left border-t pt-6 bg-gray-50 p-6 rounded-lg">
+                <h2 class="font-bold mb-4 text-lg">Detalles de tu reserva:</h2>
+                <div class="space-y-2">
+                    <p><strong>Número de Reserva:</strong> <%= reserva.idReservaCanal %></p>
+                    <p><strong>Alojamiento:</strong> <%= reserva.alojamientoNombre %></p>
+                    <p><strong>Cliente:</strong> <%= cliente.nombre %></p>
+                    <p><strong>Llegada:</strong> <%= reserva.fechaLlegada.toDate().toLocaleDateString('es-CL', { timeZone: 'UTC' }) %></p>
+                    <p><strong>Salida:</strong> <%= reserva.fechaSalida.toDate().toLocaleDateString('es-CL', { timeZone: 'UTC' }) %></p>
+                    <p><strong>Total a Pagar:</strong> <span class="font-bold text-lg">$<%= reserva.valores.valorHuesped.toLocaleString('es-CL') %></span></p>
+                </div>
+            </div>
+            <a href="/" class="btn mt-8">Volver al Inicio</a>
+        </div>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

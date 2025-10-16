@@ -672,3 +672,88 @@ Evolucionar el CRM desde una herramienta de segmentación a una plataforma compl
 
 3.  **Actualizar el Proceso de Aprobación (`gestionPropuestasService.js`):**
     * Modificar la función `aprobarPropuesta` para que, si se usó un cupón, este se marque automáticamente como "utilizado" en la misma transacción en que se confirma la reserva, garantizando así su uso único.
+
+6. Hoja de Ruta - Etapa 4: Ecosistema de Venta Directa y Metabuscadores
+Con el núcleo de gestión operativa consolidado, la siguiente fase se centra en transformar SuiteManager en un motor de crecimiento para sus clientes. Se construirá un ecosistema de canales de venta directa que reduce la dependencia de las OTAs (Online Travel Agencies) y se conecta con metabuscadores globales para captar tráfico de alta intención de compra.
+
+Este ecosistema se apoya en tres pilares técnicos fundamentales:
+
+Motor de Reservas SSR: El corazón del sistema, un sitio web de reservas directas para cada cliente.
+
+Integración con Metabuscadores: El puente hacia una visibilidad masiva en plataformas como Google Hotels, TripAdvisor y Trivago.
+
+Red de Marketing Directo: Herramientas para captar y convertir tráfico desde campañas de pago y canales de mensajería.
+
+Pilar 1: Motor de Reservas SSR Multi-Inquilino (El Núcleo)
+Objetivo: Proveer a cada empresa de un sitio web de reservas de alto rendimiento, optimizado para SEO, personalizable y servido desde su propio dominio.
+
+Arquitectura Técnica: Renderizado en el Servidor (SSR)
+Se desarrollará como una aplicación de Renderizado en el Servidor (SSR) integrada en el backend de Express.js, utilizando EJS como motor de plantillas.
+
+Justificación: Esta arquitectura es la elección óptima para:
+
+Máximo Rendimiento (FCP): El servidor entrega un HTML completo, logrando un First Contentful Paint casi instantáneo, métrica clave para las Core Web Vitals de Google.
+
+SEO Infalible: Los crawlers de búsqueda reciben un documento HTML estático y rico en contenido, garantizando una indexación rápida y completa.
+
+Componentes Clave y Fases de Implementación
+Fase 1: Implementación del Motor SSR Multi-Inquilino
+
+Middleware de Resolución de Inquilino: Un middleware en Express.js detectará el hostname de la petición, buscará en Firestore la empresaId asociada al websiteSettings.domain y cargará la configuración del cliente en el objeto req.
+
+Motor de Renderizado con EJS: Se crearán rutas (/, /propiedad/:slug) que usarán los datos del inquilino para consultar Firestore y renderizar las plantillas EJS con la información específica de la empresa (propiedades, textos, tarifas).
+
+Optimización SEO Avanzada:
+
+Generación dinámica de metadatos (<title>, <meta description>, og:tags).
+
+Inclusión de JSON-LD con Schema.org (Hotel, HotelRoom, Offer) para resultados enriquecidos.
+
+Generación de sitemap.xml dinámico por inquilino.
+
+Optimización de Imágenes: Se integrará la librería sharp para crear un endpoint que redimensione, comprima y sirva imágenes en formato WebP bajo demanda.
+
+Widget Embebible: Se diseñará una vista especial que pueda ser incrustada como un iframe o script en sitios de terceros, ampliando el alcance del motor de reservas.
+
+Pilar 2: Integración con Metabuscadores
+Objetivo: Conectar el inventario de SuiteManager con Google Hotels, TripAdvisor y Trivago, reutilizando la misma lógica de negocio central.
+
+Arquitectura de Integración: API Pull con Feeds ARI (Availability, Rates, and Inventory)
+Se expondrán endpoints públicos XML/JSON que los metabuscadores consultarán para obtener datos de disponibilidad, tarifas e inventario.
+
+Fases de Implementación
+Fase 2: Feed ARI para Google Hotels
+
+Servicio Central (googleHotelsService.js): Contendrá la lógica para generar los feeds.
+
+Feed de Listado de Propiedades: Un endpoint GET /integrations/google/properties/{empresaId} que devolverá un XML con los datos estáticos de las propiedades (nombre, dirección, fotos) según la especificación de Transaction (Property Data).
+
+Feed ARI: Un endpoint GET /integrations/google/ari/{empresaId} que responderá a las peticiones de Google con precios y disponibilidad en tiempo real, consultando las colecciones reservas y tarifas.
+
+Fase 3: Deep Linking y Reservas Pre-seleccionadas
+
+Página de Aterrizaje Inteligente: El motor SSR se adaptará para procesar parámetros de URL provenientes de Google (ID de hotel, fechas, duración de la estancia).
+
+Flujo de Conversión Directa: Cuando un usuario haga clic en un resultado de Google Hotels, será redirigido al sitio SSR, que pre-cargará la propiedad y las fechas, mostrando el precio final y simplificando drásticamente el proceso de reserva.
+
+Fase 4: Adaptación para Trivago y TripAdvisor
+
+Reutilización del Servicio ARI: Se extenderá el googleHotelsService.js para soportar las variaciones en los formatos XML/JSON de Trivago y TripAdvisor.
+
+Nuevos Endpoints: Se crearán endpoints específicos para cada metabuscador (ej. /integrations/trivago/ari/{empresaId}), pero reutilizando el 90% de la lógica de negocio ya construida.
+
+Pilar 3: Red de Marketing Directo
+Objetivo: Complementar el tráfico de los metabuscadores con herramientas para campañas de pago y canales de mensajería.
+
+Fases de Implementación
+Fase 5: Campañas de Ads y Tracking Avanzado
+
+Integración de Pixels: El motor SSR insertará dinámicamente los códigos de seguimiento (ej. Meta Pixel, Google Analytics 4) basándose en el googleAnalyticsId guardado en websiteSettings de cada empresa.
+
+Landing Pages Dinámicas: El sistema permitirá crear páginas de aterrizaje optimizadas para SEO local (ej. "cabañas con tinaja en pucón"), asociadas a propiedades específicas para campañas de Google Ads.
+
+Fase 6: Integración con WhatsApp API y Asistente de Ventas
+
+Cierre de Ventas Asistido: Se añadirá un botón "Reservar por WhatsApp" en el motor SSR. Al hacer clic, se abrirá una conversación con un mensaje pre-cargado que incluye la propiedad, las fechas y el precio, facilitando el cierre de la venta.
+
+Futura Evolución (Chatbot Concierge): Esta integración sentará las bases para un futuro chatbot impulsado por IA que pueda responder preguntas frecuentes y guiar a los usuarios en el proceso de reserva.

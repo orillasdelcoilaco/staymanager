@@ -7,9 +7,9 @@ const {
     obtenerReservaPorId,
     actualizarReservaManualmente,
     eliminarReserva,
-    gestionarDocumentoReserva,
-    actualizarIdReservaCanalEnCascada
 } = require('../services/reservasService');
+const { gestionarDocumentoReserva } = require('../services/documentosService');
+const { actualizarIdReservaCanalEnCascada } = require('../services/utils/cascadingUpdateService');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -27,10 +27,7 @@ module.exports = (db) => {
 
     router.get('/:id', async (req, res) => {
         try {
-            // --- INICIO DE LA CORRECCIÓN ---
-            // Se corrige la llamada a la función incorrecta.
             const reserva = await obtenerReservaPorId(db, req.user.empresaId, req.params.id);
-            // --- FIN DE LA CORRECCIÓN ---
             res.status(200).json(reserva);
         } catch (error) {
             res.status(404).json({ error: error.message });
