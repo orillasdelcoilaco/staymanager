@@ -6,6 +6,7 @@ const admin = require('firebase-admin');
 
 // --- Importar Rutas y Middlewares ---
 // ... (todas las importaciones se mantienen igual)
+const estadosRoutes = require('./routes/estados.js'); // Asegúrate de que esta línea esté
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 const { createTenantResolver } = require('./middleware/tenantResolver.js');
 
@@ -25,31 +26,33 @@ app.use(express.json());
 
 // **PRIORIDAD 1: Rutas de la API (/api/...)**
 const apiRouter = express.Router();
-// ... (todo el contenido de apiRouter se mantiene igual)
+// ... (todo el contenido de apiRouter se mantiene igual, incluyendo apiRouter.use('/estados', estadosRoutes(db));)
 app.use('/api', apiRouter);
 
 // **PRIORIDAD 2: Rutas Públicas Específicas (iCal, Integraciones)**
 app.use('/ical', icalRoutes(db));
 app.use('/integrations', integrationsRoutes(db));
 
-// **PRIORIDAD 3: Sirviendo Archivos Estáticos del Frontend**
-// Nota: Se sirve desde una ruta específica '/admin-assets' para evitar colisiones
+// **PRIORIDAD 3: Sirviendo Archivos Estáticos del Frontend (SPA) bajo /admin-assets**
 const frontendPath = path.join(__dirname, '..', 'frontend');
+// **MODIFICACIÓN CLAVE**: Servir la SPA desde una ruta específica
 app.use('/admin-assets', express.static(frontendPath));
 
-
-// **PRIORIDAD 4: Middleware de Resolución de Inquilino y Rutas SSR**
-// Este bloque ahora manejará TODO el tráfico que no sea API o assets.
+// **PRIORIDAD 4: Rutas del Sitio Web Público (SSR)**
 const tenantResolver = createTenantResolver(db);
+// **MODIFICACIÓN CLAVE**: El tenantResolver ahora va aquí.
 app.use('/', tenantResolver, (req, res, next) => {
-    // Si el tenantResolver encontró una empresa, pasa la petición al router del sitio web.
+    // Si se encontró una empresa, se pasa al router del sitio web.
     if (req.empresa) {
         return websiteRoutes(db)(req, res, next);
     }
-    // Si NO encontró una empresa, es una petición para la SPA.
-    // Sirve el index.html y deja que el router del frontend se encargue.
+    // Si NO se encontró empresa, se asume que es para la SPA (login o ruta directa a admin).
+    // Servimos el index.html de la SPA.
     res.sendFile(path.join(frontendPath, 'index.html'));
 });
+
+// **PRIORIDAD 5: (Eliminada) La ruta catch-all anterior ya no es necesaria aquí.**
+// La lógica ahora está dentro del middleware de la Prioridad 4.
 
 // --- Iniciar el Servidor ---
 app.listen(PORT, () => {
