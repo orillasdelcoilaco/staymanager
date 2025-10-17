@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %> | <%= empresa.nombre %></title>
+    <link rel="stylesheet" href="/public/css/website.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+    <%- include('partials/header') %>
+
+    <main class="container py-20 text-center">
+        <h1 class="text-6xl font-bold text-indigo-600">404</h1>
+        <h2 class="mt-4 text-3xl font-bold text-gray-900">Página no encontrada</h2>
+        <p class="mt-2 text-gray-600">Lo sentimos, no pudimos encontrar la página que estás buscando.</p>
+        <a href="/" class="btn mt-8">Volver al Inicio</a>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>
