@@ -2,6 +2,7 @@
 const admin = require('firebase-admin');
 
 const obtenerDetallesEmpresa = async (db, empresaId) => {
+    // ... (código sin cambios)
     if (!empresaId) {
         throw new Error('El ID de la empresa es requerido.');
     }
@@ -17,7 +18,8 @@ const obtenerDetallesEmpresa = async (db, empresaId) => {
 };
 
 const actualizarDetallesEmpresa = async (db, empresaId, datos) => {
-    if (!empresaId) {
+    // ... (código sin cambios)
+     if (!empresaId) {
         throw new Error('El ID de la empresa es requerido.');
     }
     const empresaRef = db.collection('empresas').doc(empresaId);
@@ -28,6 +30,7 @@ const actualizarDetallesEmpresa = async (db, empresaId, datos) => {
 };
 
 const obtenerProximoIdNumericoCarga = async (db, empresaId) => {
+    // ... (código sin cambios)
     const empresaRef = db.collection('empresas').doc(empresaId);
 
     return db.runTransaction(async (transaction) => {
@@ -36,34 +39,43 @@ const obtenerProximoIdNumericoCarga = async (db, empresaId) => {
             throw new Error("La empresa no existe.");
         }
         const proximoId = (empresaDoc.data().proximoIdCargaNumerico || 0) + 1;
-        
+
         transaction.update(empresaRef, { proximoIdCargaNumerico: proximoId });
-        
+
         return proximoId;
     });
 };
 
 const obtenerEmpresaPorDominio = async (db, hostname) => {
     const empresasRef = db.collection('empresas');
-    const q = empresasRef.where('websiteSettings.domain', '==', hostname).limit(1);
-    const snapshot = await q.get();
 
-    if (snapshot.empty) {
-        // También busca en el subdominio de render para pruebas
-        if (hostname.endsWith('.onrender.com')) {
-            const subdomain = hostname.split('.')[0];
-            const qSubdomain = empresasRef.where('websiteSettings.subdomain', '==', subdomain).limit(1);
-            const subdomainSnapshot = await qSubdomain.get();
-            if (!subdomainSnapshot.empty) {
-                const doc = subdomainSnapshot.docs[0];
-                return { id: doc.id, ...doc.data() };
-            }
+    // **MODIFICACIÓN CLAVE**: Añadir lógica para subdominios .onrender.com
+    if (hostname.endsWith('.onrender.com')) {
+        const subdomain = hostname.split('.')[0];
+        console.log(`[TenantResolver] Buscando empresa por subdominio Render: ${subdomain}`);
+        const qSubdomain = empresasRef.where('websiteSettings.subdomain', '==', subdomain).limit(1);
+        const subdomainSnapshot = await qSubdomain.get();
+        if (!subdomainSnapshot.empty) {
+            const doc = subdomainSnapshot.docs[0];
+            console.log(`[TenantResolver] Empresa encontrada por subdominio: ${doc.id}`);
+            return { id: doc.id, ...doc.data() };
         }
-        return null;
+        console.log(`[TenantResolver] No se encontró empresa para el subdominio Render: ${subdomain}`);
     }
 
-    const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() };
+    // Buscar por dominio principal (como antes)
+    console.log(`[TenantResolver] Buscando empresa por dominio principal: ${hostname}`);
+    const qDomain = empresasRef.where('websiteSettings.domain', '==', hostname).limit(1);
+    const domainSnapshot = await qDomain.get();
+
+    if (!domainSnapshot.empty) {
+        const doc = domainSnapshot.docs[0];
+         console.log(`[TenantResolver] Empresa encontrada por dominio principal: ${doc.id}`);
+        return { id: doc.id, ...doc.data() };
+    }
+
+    console.log(`[TenantResolver] No se encontró empresa para el hostname: ${hostname}`);
+    return null; // Si no se encuentra por ninguno de los métodos
 };
 
 
