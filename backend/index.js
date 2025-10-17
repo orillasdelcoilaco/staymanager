@@ -30,10 +30,11 @@ const gestionPropuestasRoutes = require('./routes/gestionPropuestas.js');
 const reportesRoutes = require('./routes/reportes.js');
 const kpiRoutes = require('./routes/kpi.js');
 const icalRoutes = require('./routes/ical.js');
-const crmRoutes = require('./routes/crm.js'); // Nueva ruta
-const websiteRoutes = require('./routes/website.js'); // NUEVO: Rutas para el sitio público
+const crmRoutes = require('./routes/crm.js');
+const websiteRoutes = require('./routes/website.js');
+const integrationsRoutes = require('./routes/integrations.js');
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
-const { createTenantResolver } = require('./middleware/tenantResolver.js'); // NUEVO: Middleware para SSR
+const { createTenantResolver } = require('./middleware/tenantResolver.js');
 
 // --- Carga de Credenciales y Configuración de Firebase ---
 try {
@@ -83,20 +84,14 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// --- Rutas Públicas (iCal y Sitio Web SSR) ---
-app.use('/ical', icalRoutes(db));
 
-// Middleware y rutas para el sitio web público (SSR)
-const tenantResolver = createTenantResolver(db);
-app.use('/', tenantResolver, websiteRoutes(db));
+// --- ORDEN DE RUTAS CORREGIDO ---
 
-// --- Rutas de la API (Privadas) ---
+// 1. Rutas de API (Privadas) - Las más específicas primero
 const apiRouter = express.Router();
 apiRouter.use('/auth', authRoutes(admin, db));
-
 const authMiddleware = createAuthMiddleware(admin, db);
 apiRouter.use(authMiddleware); 
-
 apiRouter.use('/propiedades', propiedadesRoutes(db));
 apiRouter.use('/canales', canalesRoutes(db));
 apiRouter.use('/tarifas', tarifasRoutes(db));
@@ -122,20 +117,25 @@ apiRouter.use('/reportes', reportesRoutes(db));
 apiRouter.use('/kpis', kpiRoutes(db));
 apiRouter.use('/crm', crmRoutes(db)); 
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
-
 app.use('/api', apiRouter);
 
-// --- Sirviendo el Frontend Estático (SPA) ---
+// 2. Otras Rutas Públicas Específicas
+app.use('/ical', icalRoutes(db));
+app.use('/integrations', integrationsRoutes(db));
+
+// 3. Rutas del Sitio Web Público (SSR)
+const tenantResolver = createTenantResolver(db);
+app.use('/', tenantResolver, websiteRoutes(db));
+
+// 4. Sirviendo el Frontend Estático (SPA)
 const frontendPath = path.join(__dirname, '..', 'frontend');
 app.use(express.static(frontendPath));
 
+// 5. Ruta "Catch-All" para la SPA (Debe ir al final)
 app.get('*', (req, res) => {
-    // Si el tenantResolver no encontró una empresa, es una ruta para la SPA
     if (!req.empresa) {
         res.sendFile(path.join(frontendPath, 'index.html'));
     }
-    // Si req.empresa existe, ya fue manejado por websiteRoutes y no debería llegar aquí.
-    // Si llega, es un 404 para el sitio público.
 });
 
 // --- Iniciar el Servidor ---
