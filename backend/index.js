@@ -33,6 +33,7 @@ const icalRoutes = require('./routes/ical.js');
 const crmRoutes = require('./routes/crm.js');
 const websiteRoutes = require('./routes/website.js');
 const integrationsRoutes = require('./routes/integrations.js');
+const estadosRoutes = require('./routes/estados.js'); // NUEVA IMPORTACIÓN
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 const { createTenantResolver } = require('./middleware/tenantResolver.js');
 
@@ -63,17 +64,16 @@ const PORT = process.env.PORT || 3001;
 // --- Configuración Global ---
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
-app.use(cors()); // Se simplifica corsOptions si no es estrictamente necesario
+app.use(cors());
 app.use(express.json());
 
 // --- ORDEN DE RUTAS ESTRATÉGICO ---
 
 // **PRIORIDAD 1: Rutas de la API (/api/...)**
-// Todas las peticiones que comiencen con /api serán manejadas aquí y no continuarán hacia abajo.
 const apiRouter = express.Router();
 const authMiddleware = createAuthMiddleware(admin, db);
 apiRouter.use('/auth', authRoutes(admin, db));
-apiRouter.use(authMiddleware); // Proteger todas las rutas subsiguientes
+apiRouter.use(authMiddleware); 
 apiRouter.use('/propiedades', propiedadesRoutes(db));
 apiRouter.use('/canales', canalesRoutes(db));
 apiRouter.use('/tarifas', tarifasRoutes(db));
@@ -98,28 +98,23 @@ apiRouter.use('/gestion-propuestas', gestionPropuestasRoutes(db));
 apiRouter.use('/reportes', reportesRoutes(db));
 apiRouter.use('/kpis', kpiRoutes(db));
 apiRouter.use('/crm', crmRoutes(db)); 
+apiRouter.use('/estados', estadosRoutes(db)); // NUEVA RUTA REGISTRADA
 apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
 app.use('/api', apiRouter);
 
 // **PRIORIDAD 2: Rutas Públicas Específicas (iCal, Integraciones)**
-// Estas rutas no necesitan el tenantResolver y deben ser resueltas antes del sitio web.
 app.use('/ical', icalRoutes(db));
 app.use('/integrations', integrationsRoutes(db));
 
 // **PRIORIDAD 3: Sirviendo Archivos Estáticos del Frontend**
-// Servir CSS, JS, etc. de la SPA y del sitio SSR antes de cualquier ruta general.
 const frontendPath = path.join(__dirname, '..', 'frontend');
 app.use(express.static(frontendPath));
 
 // **PRIORIDAD 4: Rutas del Sitio Web Público (SSR)**
-// El tenantResolver se activa. Si encuentra una empresa, las rutas de website.js tomarán el control.
-// Si no, llamará a next() y la petición continuará hacia la última ruta (el catch-all de la SPA).
 const tenantResolver = createTenantResolver(db);
 app.use('/', tenantResolver, websiteRoutes(db));
 
 // **PRIORIDAD 5: Ruta "Catch-All" para la SPA (Debe ir al final de todo)**
-// Si ninguna de las rutas anteriores coincidió (ni API, ni iCal, ni SSR),
-// se asume que es una navegación interna de la SPA y se sirve el index.html.
 app.get('*', (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
 });
