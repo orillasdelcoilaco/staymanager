@@ -90,7 +90,7 @@ function renderTabla() {
     tbody.innerHTML = propiedades.map((p, index) => `
         <tr class="border-b">
             <td class="py-3 px-4 text-center font-medium text-gray-500">${index + 1}</td>
-            {/* **NUEVA CELDA PARA MOSTRAR EL ID** */}
+            {/* Celda para mostrar el ID */}
             <td class="py-3 px-4 font-mono text-xs text-gray-600">${p.id}</td>
             <td class="py-3 px-4 font-medium text-gray-800">${p.nombre}</td>
             <td class="py-3 px-4 text-center">${p.capacidad}</td>
@@ -129,7 +129,7 @@ export async function render() {
                     <thead>
                         <tr>
                             <th class="th w-12">#</th>
-                            {/* **NUEVA CABECERA PARA EL ID** */}
+                            {/* Cabecera para el ID */}
                             <th class="th">ID Propiedad</th>
                             <th class="th">Nombre</th>
                             <th class="th text-center">Capacidad</th>
@@ -269,14 +269,14 @@ export function afterRender() {
 
     const form = document.getElementById('propiedad-form');
     const tbody = document.getElementById('propiedades-tbody');
-    
+
     document.getElementById('add-propiedad-btn').addEventListener('click', () => abrirModal());
     document.getElementById('close-modal-btn').addEventListener('click', cerrarModal);
     document.getElementById('cancel-btn').addEventListener('click', cerrarModal);
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+
         const icalInputs = form.querySelectorAll('.ical-input');
         const sincronizacionIcal = {};
         icalInputs.forEach(input => {
@@ -331,7 +331,7 @@ export function afterRender() {
             const endpoint = editandoPropiedad ? `/propiedades/${editandoPropiedad.id}` : '/propiedades';
             const method = editandoPropiedad ? 'PUT' : 'POST';
             await fetchAPI(endpoint, { method, body: datos });
-            
+
             propiedades = await fetchAPI('/propiedades'); // Recargar la lista
             renderTabla(); // Actualizar la tabla
             cerrarModal(); // Cerrar el modal
