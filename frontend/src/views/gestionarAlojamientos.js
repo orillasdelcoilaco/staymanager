@@ -48,10 +48,20 @@ function abrirModal(propiedad = null) {
             }
         });
 
+        // Cargar datos de Google Hotels
+        form.googleHotelId.value = propiedad.googleHotelData?.hotelId || '';
+        form.googleHotelIsListed.checked = propiedad.googleHotelData?.isListed || false;
+        form.googleHotelStreet.value = propiedad.googleHotelData?.address?.street || '';
+        form.googleHotelCity.value = propiedad.googleHotelData?.address?.city || '';
+        form.googleHotelCountry.value = propiedad.googleHotelData?.address?.countryCode || 'CL';
+
+
     } else {
         editandoPropiedad = null;
         modalTitle.textContent = 'Nuevo Alojamiento';
         form.reset();
+        // Valor por defecto para país en Google Hotels
+        form.googleHotelCountry.value = 'CL';
     }
     
     modal.classList.remove('hidden');
@@ -124,19 +134,20 @@ export async function render() {
         </div>
 
         <div id="propiedad-modal" class="modal hidden">
-            <div class="modal-content !max-w-3xl">
+            <div class="modal-content !max-w-4xl max-h-[90vh] overflow-y-auto"> {/* Ajustado max-w y overflow */}
                 <div class="flex justify-between items-center pb-3 border-b mb-4">
                     <h3 id="modal-title" class="text-xl font-semibold"></h3>
                     <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
                 </div>
                 <form id="propiedad-form">
+                    {/* Campos Generales */}
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre Alojamiento</label>
                             <input type="text" id="nombre" name="nombre" required class="form-input mt-1">
                         </div>
                         <div>
-                            <label for="linkFotos" class="block text-sm font-medium text-gray-700">Link a Fotos</label>
+                            <label for="linkFotos" class="block text-sm font-medium text-gray-700">Link a Foto Principal</label>
                             <input type="url" id="linkFotos" name="linkFotos" class="form-input mt-1">
                         </div>
                         <div>
@@ -148,6 +159,7 @@ export async function render() {
                             <input type="number" id="numBanos" name="numBanos" class="form-input mt-1">
                         </div>
                     </div>
+                    {/* Camas y Capacidad */}
                     <hr class="my-6">
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
                         <div>
@@ -167,10 +179,12 @@ export async function render() {
                             <input type="number" id="capacidad" name="capacidad" required class="form-input mt-1">
                         </div>
                     </div>
+                    {/* Descripción */}
                      <div class="mt-6">
                         <label for="descripcion" class="block text-sm font-medium text-gray-700">Descripción</label>
                         <textarea id="descripcion" name="descripcion" rows="6" class="form-input mt-1" style="min-height: 150px;"></textarea>
                     </div>
+                    {/* Equipamiento */}
                     <hr class="my-6">
                     <div>
                         <label class="block text-base font-medium text-gray-800 mb-2">Equipamiento</label>
@@ -183,6 +197,7 @@ export async function render() {
                             ${checkbox('dosPisos', 'Dos Pisos')}
                         </div>
                     </div>
+                    {/* Sincronización iCal */}
                     <hr class="my-6">
                     <div>
                         <label class="block text-base font-medium text-gray-800 mb-2">Sincronización de Calendarios (iCal)</label>
@@ -190,6 +205,36 @@ export async function render() {
                            {/* Los campos de iCal se insertarán aquí dinámicamente */}
                         </div>
                     </div>
+                    {/* Integración Google Hotels */}
+                    <hr class="my-6">
+                    <fieldset class="border p-4 rounded-md">
+                        <legend class="px-2 font-semibold text-gray-700">Integración con Google Hotels</legend>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                            <div>
+                                <label for="googleHotelId" class="block text-sm font-medium">ID del Hotel (Único)</label>
+                                <input type="text" id="googleHotelId" name="googleHotelId" class="form-input mt-1" placeholder="Ej: PROPIEDAD_01">
+                            </div>
+                            <div>
+                                <label for="googleHotelIsListed" class="flex items-center pt-6 space-x-2 text-sm">
+                                    <input type="checkbox" id="googleHotelIsListed" name="googleHotelIsListed" class="rounded border-gray-300">
+                                    <span>Listar esta propiedad en Google Hotels</span>
+                                </label>
+                            </div>
+                            <div>
+                                <label for="googleHotelStreet" class="block text-sm font-medium">Dirección (Calle y Número)</label>
+                                <input type="text" id="googleHotelStreet" name="googleHotelStreet" class="form-input mt-1">
+                            </div>
+                            <div>
+                                <label for="googleHotelCity" class="block text-sm font-medium">Ciudad</label>
+                                <input type="text" id="googleHotelCity" name="googleHotelCity" class="form-input mt-1">
+                            </div>
+                            <div>
+                                <label for="googleHotelCountry" class="block text-sm font-medium">País (Código 2 letras)</label>
+                                <input type="text" id="googleHotelCountry" name="googleHotelCountry" class="form-input mt-1" value="CL" maxlength="2">
+                            </div>
+                        </div>
+                    </fieldset>
+                    {/* Botones */}
                     <div class="flex justify-end pt-6 border-t mt-6">
                         <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
                         <button type="submit" class="btn-primary">Guardar</button>
@@ -250,17 +295,37 @@ export function afterRender() {
                 piezaEnSuite: form.piezaEnSuite.checked,
                 dosPisos: form.dosPisos.checked,
             },
-            sincronizacionIcal
+            sincronizacionIcal,
+            googleHotelData: {
+                hotelId: form.googleHotelId.value.trim(), // Asegurar que no haya espacios extra
+                isListed: form.googleHotelIsListed.checked,
+                address: {
+                    street: form.googleHotelStreet.value.trim(),
+                    city: form.googleHotelCity.value.trim(),
+                    countryCode: form.googleHotelCountry.value.trim().toUpperCase()
+                }
+            }
         };
+
+        // Validación simple para el ID de Google Hotel
+        if (datos.googleHotelData.isListed && !datos.googleHotelData.hotelId) {
+            alert('El "ID del Hotel (Único)" es obligatorio si marcas "Listar esta propiedad en Google Hotels".');
+            return;
+        }
+         if (datos.googleHotelData.isListed && (!datos.googleHotelData.address.street || !datos.googleHotelData.address.city || !datos.googleHotelData.address.countryCode)) {
+            alert('La Dirección completa (Calle, Ciudad, País) es obligatoria si marcas "Listar esta propiedad en Google Hotels".');
+            return;
+        }
+
 
         try {
             const endpoint = editandoPropiedad ? `/propiedades/${editandoPropiedad.id}` : '/propiedades';
             const method = editandoPropiedad ? 'PUT' : 'POST';
             await fetchAPI(endpoint, { method, body: datos });
             
-            propiedades = await fetchAPI('/propiedades');
-            renderTabla();
-            cerrarModal();
+            propiedades = await fetchAPI('/propiedades'); // Recargar la lista
+            renderTabla(); // Actualizar la tabla
+            cerrarModal(); // Cerrar el modal
         } catch (error) {
             alert(`Error al guardar: ${error.message}`);
         }
@@ -280,8 +345,8 @@ export function afterRender() {
             if (confirm('¿Estás seguro de que quieres eliminar este alojamiento?')) {
                 try {
                     await fetchAPI(`/propiedades/${id}`, { method: 'DELETE' });
-                    propiedades = await fetchAPI('/propiedades');
-                    renderTabla();
+                    propiedades = await fetchAPI('/propiedades'); // Recargar la lista
+                    renderTabla(); // Actualizar la tabla
                 } catch (error) {
                     alert(`Error al eliminar: ${error.message}`);
                 }
