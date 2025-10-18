@@ -90,7 +90,7 @@ function renderTabla() {
     tbody.innerHTML = propiedades.map((p, index) => `
         <tr class="border-b">
             <td class="py-3 px-4 text-center font-medium text-gray-500">${index + 1}</td>
-            {/* Celda para mostrar el ID */}
+            <!-- Cabecera para el ID -->
             <td class="py-3 px-4 font-mono text-xs text-gray-600">${p.id}</td>
             <td class="py-3 px-4 font-medium text-gray-800">${p.nombre}</td>
             <td class="py-3 px-4 text-center">${p.capacidad}</td>
@@ -129,7 +129,7 @@ export async function render() {
                     <thead>
                         <tr>
                             <th class="th w-12">#</th>
-                            {/* Cabecera para el ID */}
+                            <!-- Cabecera para el ID -->
                             <th class="th">ID Propiedad</th>
                             <th class="th">Nombre</th>
                             <th class="th text-center">Capacidad</th>
@@ -150,7 +150,7 @@ export async function render() {
                     <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
                 </div>
                 <form id="propiedad-form">
-                    {/* Campos Generales */}
+                    <!-- Campos Generales -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre Alojamiento</label>
@@ -169,7 +169,7 @@ export async function render() {
                             <input type="number" id="numBanos" name="numBanos" class="form-input mt-1">
                         </div>
                     </div>
-                    {/* Camas y Capacidad */}
+                    <!-- Camas y capacidad -->
                     <hr class="my-6">
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
                         <div>
@@ -189,12 +189,12 @@ export async function render() {
                             <input type="number" id="capacidad" name="capacidad" required class="form-input mt-1">
                         </div>
                     </div>
-                    {/* Descripción */}
+                    <!-- Descripcion -->
                      <div class="mt-6">
                         <label for="descripcion" class="block text-sm font-medium text-gray-700">Descripción</label>
                         <textarea id="descripcion" name="descripcion" rows="6" class="form-input mt-1" style="min-height: 150px;"></textarea>
                     </div>
-                    {/* Equipamiento */}
+                    <!-- Equipamiento -->
                     <hr class="my-6">
                     <div>
                         <label class="block text-base font-medium text-gray-800 mb-2">Equipamiento</label>
@@ -207,15 +207,15 @@ export async function render() {
                             ${checkbox('dosPisos', 'Dos Pisos')}
                         </div>
                     </div>
-                    {/* Sincronización iCal */}
+                    <!-- Sincronizacion Ical -->
                     <hr class="my-6">
                     <div>
                         <label class="block text-base font-medium text-gray-800 mb-2">Sincronización de Calendarios (iCal)</label>
                         <div id="ical-fields-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                           {/* Los campos de iCal se insertarán aquí dinámicamente */}
+                           <!-- Los campos de iCal se insertarán aquí dinámicamente -->
                         </div>
                     </div>
-                    {/* Integración Google Hotels */}
+                    <!-- Integracion Google Hotels -->
                     <hr class="my-6">
                     <fieldset class="border p-4 rounded-md">
                         <legend class="px-2 font-semibold text-gray-700">Integración con Google Hotels</legend>
@@ -244,7 +244,7 @@ export async function render() {
                             </div>
                         </div>
                     </fieldset>
-                    {/* Botones */}
+                    <!-- Botones -->
                     <div class="flex justify-end pt-6 border-t mt-6">
                         <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
                         <button type="submit" class="btn-primary">Guardar</button>
