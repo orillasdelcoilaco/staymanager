@@ -37,19 +37,22 @@
             <div class="lg:col-span-1">
                 <div class="bg-white p-6 rounded-lg shadow-lg sticky top-8">
                     <h3 class="text-xl font-bold text-gray-900 mb-4">Reserva tu Estadía</h3>
-                    <form id="booking-form">
+                    <form id="booking-form"> {/* Quitamos action y method */}
                         <div class="space-y-4">
                             <div>
                                 <label for="fechaLlegada" class="block text-sm font-medium text-gray-700">Llegada</label>
-                                <input type="date" name="fechaLlegada" id="fechaLlegada" class="form-input mt-1" required value="<%= query.fechaLlegada || '' %>">
+                                {/* **MODIFICACIÓN**: Usar valor prefill */}
+                                <input type="date" name="fechaLlegada" id="fechaLlegada" class="form-input mt-1" required value="<%= prefill.fechaLlegada %>">
                             </div>
                             <div>
                                 <label for="fechaSalida" class="block text-sm font-medium text-gray-700">Salida</label>
-                                <input type="date" name="fechaSalida" id="fechaSalida" class="form-input mt-1" required value="<%= query.fechaSalida || '' %>">
+                                {/* **MODIFICACIÓN**: Usar valor prefill */}
+                                <input type="date" name="fechaSalida" id="fechaSalida" class="form-input mt-1" required value="<%= prefill.fechaSalida %>">
                             </div>
                             <div>
                                 <label for="personas" class="block text-sm font-medium text-gray-700">Huéspedes</label>
-                                <input type="number" name="personas" id="personas" min="1" max="<%= propiedad.capacidad %>" class="form-input mt-1" required placeholder="Ej: 2" value="<%= query.personas || '' %>">
+                                {/* **MODIFICACIÓN**: Usar valor prefill */}
+                                <input type="number" name="personas" id="personas" min="1" max="<%= propiedad.capacidad %>" class="form-input mt-1" required placeholder="Ej: 2" value="<%= prefill.personas %>">
                             </div>
                         </div>
 
@@ -78,6 +81,7 @@
     <%- include('partials/footer') %>
 
     <script>
+        // ... (el JavaScript para calcularPrecio se mantiene igual)
         const form = document.getElementById('booking-form');
         const fechaLlegadaEl = document.getElementById('fechaLlegada');
         const fechaSalidaEl = document.getElementById('fechaSalida');
@@ -126,6 +130,8 @@
             } catch (error) {
                 console.error(error);
                 alert(error.message);
+                priceSummaryEl.classList.add('hidden'); // Ocultar resumen si hay error
+                submitButton.disabled = true; // Deshabilitar botón si hay error
             } finally {
                 priceLoaderEl.classList.add('hidden');
             }
@@ -153,7 +159,7 @@
         fechaLlegadaEl.addEventListener('change', calcularPrecio);
         fechaSalidaEl.addEventListener('change', calcularPrecio);
         
-        // Calcular precio al cargar la página si las fechas ya están puestas
+        // Calcular precio al cargar la página si las fechas ya están puestas (viene de prefill)
         if (fechaLlegadaEl.value && fechaSalidaEl.value) {
             calcularPrecio();
         }
