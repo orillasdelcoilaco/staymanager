@@ -83,7 +83,7 @@ function renderTabla() {
     if (!tbody) return;
 
     if (propiedades.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-gray-500 py-4">No hay alojamientos registrados.</td></tr>'; // Incrementado colspan
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-gray-500 py-4">No hay alojamientos registrados.</td></tr>';
         return;
     }
 
