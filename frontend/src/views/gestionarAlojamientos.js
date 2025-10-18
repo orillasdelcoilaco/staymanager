@@ -20,7 +20,7 @@ function abrirModal(propiedad = null) {
                 <input type="url" id="ical-${canal.id}" data-canal-key="${canal.nombre.toLowerCase()}" class="form-input mt-1 ical-input">
             </div>
         `).join('');
-    
+
     if (propiedad) {
         editandoPropiedad = propiedad;
         modalTitle.textContent = `Editar Alojamiento: ${propiedad.nombre}`;
@@ -39,12 +39,14 @@ function abrirModal(propiedad = null) {
         form.juegoDeTerraza.checked = propiedad.equipamiento?.juegoDeTerraza || false;
         form.piezaEnSuite.checked = propiedad.equipamiento?.piezaEnSuite || false;
         form.dosPisos.checked = propiedad.equipamiento?.dosPisos || false;
-        
+
         // Poblar los campos de iCal dinámicos
         icalContainer.querySelectorAll('.ical-input').forEach(input => {
             const canalKey = input.dataset.canalKey;
             if (propiedad.sincronizacionIcal && propiedad.sincronizacionIcal[canalKey]) {
                 input.value = propiedad.sincronizacionIcal[canalKey];
+            } else {
+                input.value = ''; // Limpiar si no hay URL guardada
             }
         });
 
@@ -62,10 +64,13 @@ function abrirModal(propiedad = null) {
         form.reset();
         // Valor por defecto para país en Google Hotels
         form.googleHotelCountry.value = 'CL';
+         // Limpiar campos iCal al crear nuevo
+        icalContainer.querySelectorAll('.ical-input').forEach(input => input.value = '');
     }
-    
+
     modal.classList.remove('hidden');
 }
+
 
 function cerrarModal() {
     const modal = document.getElementById('propiedad-modal');
@@ -78,17 +83,19 @@ function renderTabla() {
     if (!tbody) return;
 
     if (propiedades.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-4">No hay alojamientos registrados.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-gray-500 py-4">No hay alojamientos registrados.</td></tr>'; // Incrementado colspan
         return;
     }
 
     tbody.innerHTML = propiedades.map((p, index) => `
         <tr class="border-b">
             <td class="py-3 px-4 text-center font-medium text-gray-500">${index + 1}</td>
+            {/* **NUEVA CELDA PARA MOSTRAR EL ID** */}
+            <td class="py-3 px-4 font-mono text-xs text-gray-600">${p.id}</td>
             <td class="py-3 px-4 font-medium text-gray-800">${p.nombre}</td>
-            <td class="py-3 px-4">${p.capacidad}</td>
-            <td class="py-3 px-4">${p.numPiezas || 0}</td>
-            <td class="py-3 px-4">${p.numBanos || 0}</td>
+            <td class="py-3 px-4 text-center">${p.capacidad}</td>
+            <td class="py-3 px-4 text-center">${p.numPiezas || 0}</td>
+            <td class="py-3 px-4 text-center">${p.numBanos || 0}</td>
             <td class="py-3 px-4">
                 <button data-id="${p.id}" class="edit-btn btn-table-edit mr-2">Editar</button>
                 <button data-id="${p.id}" class="delete-btn btn-table-delete">Eliminar</button>
@@ -96,6 +103,7 @@ function renderTabla() {
         </tr>
     `).join('');
 }
+
 
 export async function render() {
     try {
@@ -121,10 +129,12 @@ export async function render() {
                     <thead>
                         <tr>
                             <th class="th w-12">#</th>
+                            {/* **NUEVA CABECERA PARA EL ID** */}
+                            <th class="th">ID Propiedad</th>
                             <th class="th">Nombre</th>
-                            <th class="th">Capacidad</th>
-                            <th class="th">Nº Piezas</th>
-                            <th class="th">Nº Baños</th>
+                            <th class="th text-center">Capacidad</th>
+                            <th class="th text-center">Nº Piezas</th>
+                            <th class="th text-center">Nº Baños</th>
                             <th class="th">Acciones</th>
                         </tr>
                     </thead>
@@ -134,7 +144,7 @@ export async function render() {
         </div>
 
         <div id="propiedad-modal" class="modal hidden">
-            <div class="modal-content !max-w-4xl max-h-[90vh] overflow-y-auto"> {/* Ajustado max-w y overflow */}
+            <div class="modal-content !max-w-4xl max-h-[90vh] overflow-y-auto">
                 <div class="flex justify-between items-center pb-3 border-b mb-4">
                     <h3 id="modal-title" class="text-xl font-semibold"></h3>
                     <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
@@ -297,7 +307,7 @@ export function afterRender() {
             },
             sincronizacionIcal,
             googleHotelData: {
-                hotelId: form.googleHotelId.value.trim(), // Asegurar que no haya espacios extra
+                hotelId: form.googleHotelId.value.trim(),
                 isListed: form.googleHotelIsListed.checked,
                 address: {
                     street: form.googleHotelStreet.value.trim(),
@@ -307,7 +317,6 @@ export function afterRender() {
             }
         };
 
-        // Validación simple para el ID de Google Hotel
         if (datos.googleHotelData.isListed && !datos.googleHotelData.hotelId) {
             alert('El "ID del Hotel (Único)" es obligatorio si marcas "Listar esta propiedad en Google Hotels".');
             return;
