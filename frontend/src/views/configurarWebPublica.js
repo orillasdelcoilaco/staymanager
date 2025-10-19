@@ -66,14 +66,21 @@ function renderizarGestorImagenes() {
         </fieldset>
     `).join('');
 
-    // Añadir listeners generales para subida y eliminación
+    // Añadir listeners generales para subida y eliminación después de actualizar el innerHTML
     container.querySelectorAll('.subir-imagenes-input').forEach(input => {
         input.addEventListener('change', (e) => handleSubirImagenes(e.target.dataset.componentId, e.target.files));
     });
+    // Volver a añadir listeners a los botones de eliminar imagen CADA VEZ que se renderiza
+    container.querySelectorAll('.eliminar-imagen-btn').forEach(button => {
+        // Eliminar listener anterior si existe para evitar duplicados
+        button.replaceWith(button.cloneNode(true));
+    });
+    // Añadir el listener a los botones clonados
     container.querySelectorAll('.eliminar-imagen-btn').forEach(button => {
         button.addEventListener('click', (e) => handleEliminarImagen(e.currentTarget.dataset.componentId, e.currentTarget.dataset.imageId));
     });
 }
+
 
 // Renderiza las imágenes de un componente específico
 function renderizarImagenesComponente(componentId) {
@@ -82,19 +89,27 @@ function renderizarImagenesComponente(componentId) {
         return '<p class="text-xs text-gray-500 col-span-full">No hay imágenes para este componente.</p>';
     }
 
+    // Asegurarse de que storagePath sea una URL válida para la etiqueta img src
+    const getImageUrl = (storagePath) => {
+        if (!storagePath) return '';
+        // Asume que storagePath ya es la URL pública https://storage.googleapis.com/...
+        return storagePath;
+    };
+
     return imagenes.map(img => `
         <div class="relative border rounded-md overflow-hidden group">
-            <img src="${img.storagePath.replace('gs://', 'https://storage.googleapis.com/')}" alt="${img.altText}" title="${img.title || ''}" class="w-full h-24 object-cover">
+            <img src="${getImageUrl(img.storagePath)}" alt="${img.altText || 'Imagen de alojamiento'}" title="${img.title || ''}" class="w-full h-24 object-cover">
              <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-opacity flex flex-col justify-between p-1 text-white text-[10px] opacity-0 group-hover:opacity-100">
-                <button data-component-id="${componentId}" data-image-id="${img.imageId}" class="eliminar-imagen-btn absolute top-1 right-1 bg-red-600 rounded-full w-4 h-4 flex items-center justify-center text-white font-bold leading-none">&times;</button>
-                <div class="bg-black bg-opacity-50 p-0.5 rounded-sm">
-                    <p class="truncate" title="Alt: ${img.altText}">Alt: ${img.altText}</p>
+                <button data-component-id="${componentId}" data-image-id="${img.imageId}" class="eliminar-imagen-btn absolute top-1 right-1 bg-red-600 rounded-full w-4 h-4 flex items-center justify-center text-white font-bold leading-none p-0 cursor-pointer">&times;</button>
+                <div class="bg-black bg-opacity-50 p-0.5 rounded-sm overflow-hidden">
+                    <p class="truncate" title="Alt: ${img.altText || ''}">Alt: ${img.altText || '(no generado)'}</p>
                     ${img.title ? `<p class="truncate" title="Title: ${img.title}">Title: ${img.title}</p>` : ''}
                 </div>
             </div>
         </div>
     `).join('');
 }
+
 
 // --- Funciones de Lógica y API ---
 
@@ -110,8 +125,11 @@ async function cargarDatosWebPropiedad(propiedadId) {
         propiedadSeleccionada = todasLasPropiedades.find(p => p.id === propiedadId);
         if (!propiedadSeleccionada) throw new Error('Propiedad no encontrada localmente.');
 
-        // Inicializamos websiteData con lo que tenga la propiedad o vacío
+        // Asegurarse de que websiteData y sus sub-objetos existan
         websiteDataActual = propiedadSeleccionada.websiteData || { aiDescription: '', images: {} };
+        if (!websiteDataActual.images) {
+            websiteDataActual.images = {};
+        }
 
         // Renderizamos las secciones con los datos cargados
         renderizarSeccionTexto();
@@ -134,9 +152,10 @@ async function generarTextoIA() {
 
     try {
         const payload = {
+            // Pasar la descripción actual real como base
             descripcionActual: propiedadSeleccionada.descripcion || `Alojamiento llamado ${propiedadSeleccionada.nombre}`
         };
-        const resultado = await fetchAPI(`/website-config/propiedad/${propiedadSeleccionada.id}/generate-ai-text`, {
+        const resultado = await fetchAPI(`/api/website-config/propiedad/${propiedadSeleccionada.id}/generate-ai-text`, {
             method: 'POST',
             body: payload
         });
@@ -161,23 +180,28 @@ async function guardarTextoIA() {
     statusSpan.textContent = 'Guardando texto...';
 
     try {
+        // Enviar solo la descripción IA para actualizarla
         const payload = {
-            websiteData: {
-                ...websiteDataActual, // Mantenemos las imágenes existentes
-                aiDescription: texto
-            }
+            aiDescription: texto
         };
-        // Usamos la ruta de actualización general de propiedad para guardar el websiteData completo
-        await fetchAPI(`/propiedades/${propiedadSeleccionada.id}`, {
+        // Usar la ruta específica para actualizar websiteData
+        await fetchAPI(`/api/website-config/propiedad/${propiedadSeleccionada.id}`, {
             method: 'PUT',
             body: payload
         });
-        websiteDataActual.aiDescription = texto; // Actualizar estado local
+
+        // Actualizar estado local
+        websiteDataActual.aiDescription = texto;
         statusSpan.textContent = 'Texto guardado con éxito.';
+
         // Actualizar la propiedad en la lista local también
         const index = todasLasPropiedades.findIndex(p => p.id === propiedadSeleccionada.id);
         if (index !== -1) {
-            todasLasPropiedades[index].websiteData = websiteDataActual;
+             // Asegurarse de que websiteData exista antes de asignar
+            if (!todasLasPropiedades[index].websiteData) {
+                 todasLasPropiedades[index].websiteData = { images: {} };
+            }
+            todasLasPropiedades[index].websiteData.aiDescription = texto;
         }
 
     } catch (error) {
@@ -202,7 +226,7 @@ async function handleSubirImagenes(componentId, files) {
     }
 
     try {
-        const resultado = await fetchAPI(`/website-config/propiedad/${propiedadSeleccionada.id}/upload-image/${componentId}`, {
+        const resultado = await fetchAPI(`/api/website-config/propiedad/${propiedadSeleccionada.id}/upload-image/${componentId}`, {
             method: 'POST',
             body: formData
         });
@@ -211,6 +235,12 @@ async function handleSubirImagenes(componentId, files) {
         if (!websiteDataActual.images) websiteDataActual.images = {};
         if (!websiteDataActual.images[componentId]) websiteDataActual.images[componentId] = [];
         websiteDataActual.images[componentId].push(...resultado);
+
+        // Actualizar también la propiedad en la lista global
+        const index = todasLasPropiedades.findIndex(p => p.id === propiedadSeleccionada.id);
+         if (index !== -1) {
+            todasLasPropiedades[index].websiteData = websiteDataActual;
+        }
 
         statusDiv.textContent = `¡${files.length} imágen(es) subida(s) y procesada(s)!`;
         statusDiv.className = 'text-xs mt-1 text-green-600';
@@ -229,8 +259,12 @@ async function handleSubirImagenes(componentId, files) {
 async function handleEliminarImagen(componentId, imageId) {
     if (!propiedadSeleccionada || !confirm('¿Estás seguro de eliminar esta imagen?')) return;
 
+    // Podríamos añadir un indicador visual de 'eliminando...' aquí
+    const button = document.querySelector(`.eliminar-imagen-btn[data-image-id="${imageId}"]`);
+    if(button) button.disabled = true; // Deshabilitar botón mientras se elimina
+
     try {
-        await fetchAPI(`/website-config/propiedad/${propiedadSeleccionada.id}/delete-image/${componentId}/${imageId}`, {
+        await fetchAPI(`/api/website-config/propiedad/${propiedadSeleccionada.id}/delete-image/${componentId}/${imageId}`, {
             method: 'DELETE'
         });
 
@@ -238,9 +272,17 @@ async function handleEliminarImagen(componentId, imageId) {
         if (websiteDataActual.images && websiteDataActual.images[componentId]) {
             websiteDataActual.images[componentId] = websiteDataActual.images[componentId].filter(img => img.imageId !== imageId);
         }
+
+        // Actualizar la propiedad en la lista global
+         const index = todasLasPropiedades.findIndex(p => p.id === propiedadSeleccionada.id);
+         if (index !== -1) {
+            todasLasPropiedades[index].websiteData = websiteDataActual;
+        }
+
         renderizarGestorImagenes(); // Re-renderizar la galería del componente
     } catch (error) {
         alert(`Error al eliminar imagen: ${error.message}`);
+         if(button) button.disabled = false; // Rehabilitar si falla
     }
 }
 
@@ -260,17 +302,14 @@ export async function render() {
                 <label for="propiedad-select" class="block text-sm font-medium text-gray-700">Seleccionar Alojamiento</label>
                 <select id="propiedad-select" class="form-select mt-1">
                     <option value="">-- Elige un alojamiento --</option>
-                    ${/* Las opciones se llenarán en afterRender */}
-                </select>
+                    </select>
             </div>
 
             <div id="config-container" class="hidden space-y-6">
                 <div id="seccion-texto-seo">
-                    {/* Contenido de texto SEO se renderizará aquí */}
-                </div>
+                    </div>
                 <div id="seccion-imagenes">
-                    {/* Contenido de gestión de imágenes se renderizará aquí */}
-                </div>
+                    </div>
             </div>
         </div>
     `;
@@ -282,7 +321,7 @@ export async function afterRender() {
 
     // Cargar propiedades para el selector
     try {
-        todasLasPropiedades = await fetchAPI('/propiedades');
+        todasLasPropiedades = await fetchAPI('/api/propiedades'); // Corregido: añadir /api
         propiedadSelect.innerHTML = '<option value="">-- Elige un alojamiento --</option>' +
             todasLasPropiedades.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
     } catch (error) {
