@@ -3,8 +3,9 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const admin = require('firebase-admin'); // Importar admin aquí
+const sharp = require('sharp'); // Asegurarse de importar sharp si no estaba antes
 
-// --- Importar Rutas y Middlewares --- (Mantener todas las importaciones)
+// --- Importar Rutas y Middlewares --- (Mantener todas las importaciones existentes)
 const authRoutes = require('./routes/auth.js');
 const propiedadesRoutes = require('./routes/propiedades.js');
 const canalesRoutes = require('./routes/canales.js');
@@ -34,6 +35,8 @@ const crmRoutes = require('./routes/crm.js');
 const websiteRoutes = require('./routes/website.js');
 const integrationsRoutes = require('./routes/integrations.js');
 const estadosRoutes = require('./routes/estados.js');
+const websiteConfigRoutes = require('./routes/websiteConfigRoutes.js'); // <-- NUEVA IMPORTACIÓN
+// const imageOptimizerRoutes = require('./routes/imageOptimizer.js'); // <-- Descomentar si se crea endpoint separado
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 const { createTenantResolver } = require('./middleware/tenantResolver.js');
 
@@ -59,7 +62,7 @@ try {
         console.log('[Startup] Llamando a admin.initializeApp()...');
         admin.initializeApp({
           credential: admin.credential.cert(serviceAccount),
-          storageBucket: 'suite-manager-app.firebasestorage.app'
+          storageBucket: 'suite-manager-app.appspot.com' // Asegúrate que sea el correcto
         });
         console.log(`[Startup] Firebase Admin SDK inicializado correctamente para el proyecto: ${serviceAccount.project_id}.`);
     } else {
@@ -69,13 +72,11 @@ try {
     console.log('[Startup] Intentando obtener instancia de Firestore...');
     db = admin.firestore(); // Inicializar db DESPUÉS de initializeApp()
     if (!db) {
-        // Añadimos una verificación extra por si acaso.
         throw new Error('admin.firestore() devolvió undefined o null.');
     }
     console.log('[Startup] ¡Éxito! Conexión a Firestore (db) establecida.');
 
     // --- CREACIÓN Y CONFIGURACIÓN DE LA APP EXPRESS ---
-    // **MODIFICACIÓN CLAVE**: Mover todo esto DENTRO del try, después de inicializar 'db'.
     const app = express();
     const PORT = process.env.PORT || 3001;
 
@@ -91,7 +92,7 @@ try {
     const apiRouter = express.Router();
     const authMiddleware = createAuthMiddleware(admin, db); // Ahora 'db' está garantizado
     apiRouter.use('/auth', authRoutes(admin, db));
-    apiRouter.use(authMiddleware);
+    apiRouter.use(authMiddleware); // Aplicar middleware a todas las rutas siguientes
     // Pasar 'db' a todas las rutas que lo necesiten
     apiRouter.use('/propiedades', propiedadesRoutes(db));
     apiRouter.use('/canales', canalesRoutes(db));
@@ -118,12 +119,14 @@ try {
     apiRouter.use('/kpis', kpiRoutes(db));
     apiRouter.use('/crm', crmRoutes(db));
     apiRouter.use('/estados', estadosRoutes(db));
+    apiRouter.use('/website-config', websiteConfigRoutes(db)); // <-- NUEVA RUTA REGISTRADA
     apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
     app.use('/api', apiRouter);
 
-    // **PRIORIDAD 2: Rutas Públicas Específicas (iCal, Integraciones)**
+    // **PRIORIDAD 2: Rutas Públicas Específicas (iCal, Integraciones, Imágenes Optimizadas)**
     app.use('/ical', icalRoutes(db));
     app.use('/integrations', integrationsRoutes(db));
+    // app.use('/images/optimized', imageOptimizerRoutes(db)); // <-- Descomentar si se usa endpoint dedicado
 
     // **PRIORIDAD 3: Sirviendo Archivos Estáticos del Frontend (SPA) bajo /admin-assets**
     const frontendPath = path.join(__dirname, '..', 'frontend');
@@ -131,12 +134,18 @@ try {
 
     // **PRIORIDAD 4: Rutas del Sitio Web Público (SSR)**
     const tenantResolver = createTenantResolver(db);
+    // Servir CSS público específico del website SSR
+    app.use('/public', express.static(path.join(frontendPath, 'public'))); // Servir css/website.css
+
     app.use('/', tenantResolver, (req, res, next) => {
         if (req.empresa) {
+            // Si hay empresa, pasamos al router del sitio público
             return websiteRoutes(db)(req, res, next);
         }
+        // Si no hay empresa (dominio no coincide), servimos la SPA de administración
         res.sendFile(path.join(frontendPath, 'index.html'));
     });
+
 
     // --- Iniciar el Servidor ---
     app.listen(PORT, () => {
@@ -152,5 +161,5 @@ try {
     console.error("Stack trace:", error.stack);
     console.error("La aplicación no puede continuar. Saliendo...");
     console.error("---------------------------------------------------------------");
-    process.exit(1);
+    process.exit(1); // Salir si hay error crítico al inicio
 }

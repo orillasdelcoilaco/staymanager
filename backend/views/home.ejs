@@ -37,7 +37,7 @@
                 <button type="submit" class="btn w-full">Buscar Disponibilidad</button>
             </form>
         </div>
-        
+
         <div id="propiedades">
             <h2 class="text-3xl font-bold text-gray-900 mb-8">
                 <% if (locals.isSearchResult) { %>
@@ -50,13 +50,30 @@
             <% if (propiedades.length > 0) { %>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     <% propiedades.forEach(prop => { %>
+                        <%
+                           // Intentar obtener la imagen de portada o exterior, si no, la antigua linkFotos o placeholder
+                           const imagenPortadaArray = prop.websiteData?.images?.['portadaRecinto'] || prop.websiteData?.images?.['exteriorAlojamiento'];
+                           const imagenPortada = imagenPortadaArray?.[0]; // Tomar la primera imagen de la categoría
+                           const imagenUrl = imagenPortada?.storagePath || prop.linkFotos || 'https://via.placeholder.com/400x300.png?text=Imagen+no+disponible';
+                           const altText = imagenPortada?.altText || `Imagen de ${prop.nombre}`;
+                           const titleText = imagenPortada?.title || prop.nombre;
+                           const descripcion = prop.websiteData?.aiDescription || prop.descripcion || 'Descripción no disponible.';
+                        %>
                         <div class="property-card">
                             <a href="/propiedad/<%= prop.id %>">
-                                <img src="<%= prop.linkFotos || 'https://via.placeholder.com/400x300.png?text=Imagen+no+disponible' %>" alt="Foto de <%= prop.nombre %>">
+                                <picture>
+                                    <source srcset="<%= imagenUrl %>" type="image/webp">
+                                    <img src="<%= imagenUrl %>" alt="<%= altText %>" title="<%= titleText %>" loading="lazy" class="w-full h-48 object-cover">
+                                </picture>
                             </a>
                             <div class="property-card-content">
                                 <h3 class="property-card-title"><a href="/propiedad/<%= prop.id %>"><%= prop.nombre %></a></h3>
                                 <p class="property-card-details">Capacidad: hasta <%= prop.capacidad %> personas</p>
+                                <p class="text-sm text-gray-600 mt-2 truncate"><%= descripcion.substring(0, 100) %>...</p>
+                                {/* Añadir precio "Desde" si se implementa en el backend */}
+                                <div class="text-right mt-4">
+                                     <a href="/propiedad/<%= prop.id %>" class="btn-secondary text-sm">Ver Detalles</a>
+                                </div>
                             </div>
                         </div>
                     <% }) %>

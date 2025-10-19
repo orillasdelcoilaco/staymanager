@@ -757,3 +757,136 @@ Fase 6: Integración con WhatsApp API y Asistente de Ventas
 Cierre de Ventas Asistido: Se añadirá un botón "Reservar por WhatsApp" en el motor SSR. Al hacer clic, se abrirá una conversación con un mensaje pre-cargado que incluye la propiedad, las fechas y el precio, facilitando el cierre de la venta.
 
 Futura Evolución (Chatbot Concierge): Esta integración sentará las bases para un futuro chatbot impulsado por IA que pueda responder preguntas frecuentes y guiar a los usuarios en el proceso de reserva.
+
+# SuiteManager: Plan de Desarrollo y Arquitectura
+Última actualización: 18 de Octubre de 2025
+
+## 1. Resumen Ejecutivo
+SuiteManager es una aplicación web de Software como Servicio (SaaS) diseñada para la gestión integral y multi-empresa de propiedades de arriendo a corto plazo. El sistema centraliza la operación, automatiza flujos de trabajo y proporciona herramientas de auditoría y gestión, permitiendo a cada empresa cliente administrar sus propiedades, clientes y reservas de forma aislada y segura.
+
+Construido sobre una arquitectura moderna que separa un backend robusto (Node.js/Express) de un frontend modular (JavaScript Vainilla - SPA), SuiteManager está diseñado para ser escalable, mantenible y ofrecer una experiencia de usuario fluida y eficiente, complementado ahora con un **motor de reservas público de alto rendimiento (SSR)** para cada cliente y la base para la **integración con metabuscadores**.
+
+## 2. Estado Actual: Plataforma Operativa con Canal de Venta Directa Funcional
+El proyecto ha superado las fases de desarrollo inicial y la implementación del núcleo de gestión. Se encuentra en un estado funcionalmente completo y estable, con una arquitectura refactorizada y modular. Se ha implementado con éxito un **motor de reservas web (SSR) multi-inquilino** que permite a cada empresa tener su propio sitio público identificable por dominio/subdominio, incluyendo búsqueda de disponibilidad, cálculo de precios y flujo de reserva completo. Además, se han sentado las bases técnicas para la **integración con Google Hotels**, generando los feeds de propiedades y ARI necesarios.
+
+### Funcionalidades Clave Implementadas:
+✅ **Arquitectura Multi-Empresa:** Soporte completo con aislamiento de datos.
+✅ **Gestión de Usuarios:** Administración de usuarios por empresa.
+✅ **Panel de Gestión Diaria (SPA):** Flujo de trabajo basado en estados para la operación.
+✅ **Sincronización de Reportes:** Procesamiento y consolidación de reportes de OTAs.
+✅ **CRM y Gestión de Clientes:** Base de datos con perfiles, historial y segmentación RFM.
+✅ **Integración con Google Contacts:** Sincronización automática y herramientas de reparación.
+✅ **Gestión de Activos:** Módulos para Propiedades, Canales y Tarifas Base + Modificadores.
+✅ **Auditoría de Cargas:** Trazabilidad de reservas a reportes de origen.
+✅ **Refactorización de Servicios Backend:** Lógica modularizada (`reservasService`, `transaccionesService`, `documentosService`, etc.).
+✅ **Motor de Reservas Web (SSR):** Implementado con EJS y Express:
+    * Identificación de empresa por dominio/subdominio (`tenantResolver`).
+    * Páginas renderizadas en servidor (Home, Detalle Propiedad, Checkout, Confirmación).
+    * Buscador de disponibilidad funcional.
+    * Cálculo de precios en tiempo real en página de propiedad.
+    * Flujo de reserva completo con creación de cliente/reserva.
+    * Base para optimización SEO (metadatos dinámicos).
+✅ **Integración Google Hotels (Fases 1-3 Completadas):**
+    * Configuración de datos específicos (ID, dirección) por propiedad.
+    * Generación del **Feed de Listado de Propiedades** (XML) vía `endpoint` público.
+    * Generación del **Feed ARI** (XML) con disponibilidad y precios base en tiempo real vía `endpoint` público.
+    * Implementación de **Deep Linking** en la página de propiedad para pre-rellenar formulario desde URL.
+
+## 3. Arquitectura Técnica
+
+### Backend (Node.js + Express)
+Gestiona lógica de negocio, seguridad multi-inquilino y comunicación con la base de datos. Estructura modular:
+- **`routes/`**: Endpoints API (`/api/*`), Integraciones (`/integrations/*`), iCal (`/ical/*`), Sitio Web SSR (`/`).
+- **`services/`**: Lógica de negocio pura (modularizada por funcionalidad).
+- **`middleware/`**: `authMiddleware` (protege API), `tenantResolver` (identifica empresa para SSR).
+- **`views/`**: Plantillas EJS para el sitio web público SSR.
+
+### Frontend (JavaScript Vainilla - SPA Modular)
+Interfaz para el panel de administración.
+- **`router.js`**: Gestiona URLs del panel (`/gestion-diaria`, `/clientes`, etc.) y carga vistas.
+- **`views/`**: Módulos JS que actúan como orquestadores de cada sección del panel.
+- **`views/components/`**: Componentes reutilizables específicos de cada vista del panel.
+- **`public/`**: Archivos estáticos (CSS compilado, imágenes). Servidos bajo `/admin-assets`.
+
+### Base de Datos (Cloud Firestore)
+Arquitectura multi-empresa con aislamiento total:
+`empresas/{empresaId}`
+- `users/`
+- `clientes/`
+- `reservas/`
+- `propiedades/` (ahora incluye `googleHotelData`)
+- `historialCargas/`
+- `canales/`
+- `tarifas/`
+- `tiposPlantilla/`
+- `plantillasMensajes/`
+- `campanas/`
+- `interacciones/`
+- `cupones/`
+- `valoresDolar/`
+- `(documento empresa)`: `nombre`, `websiteSettings` (incluye `domain`, `subdomain`), etc.
+
+## 4. Hoja de Ruta - Etapa 4: Ecosistema de Venta Directa y Metabuscadores
+
+Hemos completado las fases iniciales de esta etapa.
+
+### Pilares del Ecosistema:
+1.  **Motor de Reservas SSR (✅ Implementado)**
+2.  **Integración con Metabuscadores**
+3.  **Red de Marketing Directo**
+
+### Fases de Implementación (Actualizado):
+
+- **Fase 1: Motor SSR Multi-Inquilino
+#### Fase 1.a: Configuración Web Pública por Alojamiento (Detalle)
+
+Esta fase implementa la personalización detallada del contenido y las imágenes para cada propiedad dentro del sitio web público SSR.
+
+1.  **Definir Componentes (Backend y Admin):**
+    * **Firestore:** Añadir campo `componentes` (array de objetos `{ id: string, nombre: string, tipo: string }`) al modelo `propiedades`. El `id` será único dentro de la propiedad (ej. `nombre-normalizado-timestamp`).
+    * **Frontend (Admin - `gestionarAlojamientos.js`):** Modificar el modal de edición de propiedades para permitir al usuario definir/añadir/eliminar estos componentes (ej. "Dormitorio Principal", "Baño en Suite", "Terraza con Parrilla").
+
+2.  **Nueva Vista "Configurar Web Pública" (Frontend - Admin):**
+    * **Crear:** Vista `configurarWebPublica.js` y añadir ruta `/configurar-web-publica` (bajo "Herramientas").
+    * **UI:**
+        * Selector de Alojamiento por `propiedadId`.
+        * **Textos SEO (IA):** Mostrar descripción actual (lectura), botón "Generar Texto SEO con IA", `<textarea>` para texto generado (editable), botón "Guardar Texto".
+        * **Imágenes por Componente:**
+            * Al seleccionar alojamiento, listar sus `componentes` definidos.
+            * Para cada `componente`:
+                * Botón "Subir Imágenes" (`<input type="file" multiple>`).
+                * Galería/lista de miniaturas de imágenes subidas para ese componente.
+                * Mostrar `altText` y `title` (generados por IA, solo lectura) bajo cada miniatura.
+                * Botón "Eliminar" en cada imagen (usa `imageId`).
+
+3.  **Backend - API y Lógica:**
+    * **Modelo Firestore:** En `propiedades/{propiedadId}/websiteData/images`, cada clave será un `componentId` y su valor será un **ARRAY** de objetos: `{ imageId: "uuid", storagePath: "...", altText: "...", title: "..." }`.
+    * **Servicios:**
+        * `storageService.js`: Funciones `uploadFile` (devuelve `storagePath`), `deleteFileByPath`.
+        * `propiedadesService.js`: Adaptar CRUD para `componentes` y operaciones `FieldValue.arrayUnion`/`arrayRemove` en `websiteData.images[componentId]`.
+        * `aiContentService.js` (Nuevo): Función `generarMetadataImagen(nombreEmpresa, nombrePropiedad, descripcionPropiedad, nombreComponente, tipoComponente)` que retorna `{ altText, title }`.
+    * **Rutas API (`websiteConfigRoutes.js` - Nuevo):**
+        * `GET /api/website-config/propiedad/:propiedadId`: Obtiene `websiteData`.
+        * `PUT /api/website-config/propiedad/:propiedadId`: Guarda `aiDescription`.
+        * `POST /api/website-config/propiedad/:propiedadId/upload-image/:componentId`:
+            * Recibe múltiples archivos (`multer`).
+            * **Para cada archivo:** genera `imageId`, optimiza (`sharp`), sube a Storage (`empresas/{empresaId}/propiedades/{propiedadId}/images/{componentId}/{imageId}.webp`), llama a `generarMetadataImagen`, **añade** objeto al array en Firestore.
+            * Devuelve lista de objetos de imagen creados.
+        * `DELETE /api/website-config/propiedad/:propiedadId/delete-image/:componentId/:imageId`: Busca por `imageId` en el array, obtiene `storagePath`, borra de Storage, **elimina** del array en Firestore.
+        * `POST /api/website-config/propiedad/:propiedadId/generate-ai-text`: Llama a IA para generar `aiDescription`, devuelve el texto (sin guardar).
+    * **Firebase Storage:** Configurar el bucket (o el directorio `empresas/`) como **público** para lectura simplificada de imágenes.
+
+4.  **Actualización Sitio Público SSR (EJS):**
+    * **Backend (`website.js`):** Pasar `propiedad.componentes` y `propiedad.websiteData.images` a `propiedad.ejs`.
+    * **Plantillas EJS (`propiedad.ejs`, `home.ejs`, etc.):**
+        * Iterar sobre `componentes` y `websiteData.images[componente.id]` para mostrar galerías o imágenes específicas.
+        * Usar URLs públicas de Storage (construidas desde `storagePath`), `altText`, y `title` guardados en Firestore.
+        * Implementar `<picture>` para WebP y `loading="lazy"`.
+
+- **Fase 2: Feed ARI Google Hotels - Listado Propiedades** - ✅ **Completado**
+- **Fase 3: Feed ARI Google Hotels - ARI Feed y Deep Linking** - ✅ **Completado**
+- **Fase 4: Adaptar feeds para Trivago / TripAdvisor** - ⏳ **Próximo Paso**
+- **Fase 5: Campañas Ads + tracking (GA4, Meta Pixel)** - ⏳ Pendiente
+- **Fase 6: WhatsApp API / chatbot IA Concierge** - ⏳ Pendiente
+
+---
