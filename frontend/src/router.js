@@ -32,19 +32,20 @@ const views = {
     '/generar-reportes-rapidos': () => import('./views/generarReportes.js'),
     '/sincronizar-ical': () => import('./views/sincronizarCalendarios.js'),
     '/crm-promociones': () => import('./views/crmPromociones.js'),
-    '/historial-campanas': () => import('./views/historialCampanas.js'), // Nueva vista
+    '/historial-campanas': () => import('./views/historialCampanas.js'),
+    '/configurar-web-publica': () => import('./views/configurarWebPublica.js'), // <-- NUEVA VISTA
 };
 
 const menuConfig = [
     { name: '📊 Dashboard', path: '/', id: 'dashboard' },
-    { 
+    {
         name: '💼 Flujo de Trabajo',
         id: 'flujo-trabajo',
         children: [
             { name: '☀️ Gestión Diaria', path: '/gestion-diaria', id: 'gestion-diaria' },
             { name: '📅 Calendario', path: '/calendario', id: 'calendario' },
             { name: '🎯 CRM y Promociones', path: '/crm-promociones', id: 'crm-promociones' },
-            { name: '📈 Historial de Campañas', path: '/historial-campanas', id: 'historial-campanas' }, // Nuevo enlace
+            { name: '📈 Historial de Campañas', path: '/historial-campanas', id: 'historial-campanas' },
             { name: '📄 Generar Reportes Rápidos', path: '/generar-reportes-rapidos', id: 'reportes-rapidos' },
             { name: '➕ Agregar Propuesta', path: '/agregar-propuesta', id: 'agregar-propuesta' },
             { name: '💲 Generar Presupuestos', path: '/generar-presupuesto', id: 'generar-presupuestos' },
@@ -58,13 +59,14 @@ const menuConfig = [
             { name: '⚙️ Procesar y Consolidar', path: '/procesar-y-consolidar', id: 'procesar-consolidar' },
             { name: '🗂️ Historial de Cargas', path: '/historial-cargas', id: 'historial-cargas' },
             { name: '👥 Gestionar Clientes', path: '/clientes', id: 'clientes' },
-            { name: '🏨 Gestionar Reservas', path: '/gestionar-reservas', id: 'gestionar-reservas' }, 
+            { name: '🏨 Gestionar Reservas', path: '/gestionar-reservas', id: 'gestionar-reservas' },
             { name: '📈 Gestionar Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' },
             { name: '📈 Gestionar Valor Dólar', path: '/gestionar-dolar', id: 'gestionar-dolar' },
             { name: '🏡 Gestionar Alojamientos', path: '/gestionar-alojamientos', id: 'gestionar-alojamientos' },
             { name: '📡 Gestionar Canales', path: '/gestionar-canales', id: 'gestionar-canales' },
             { name: '🏷️ Tipos de Plantilla', path: '/gestionar-tipos-plantilla', id: 'gestionar-tipos-plantilla' },
             { name: '✉️ Gestionar Plantillas', path: '/gestionar-plantillas', id: 'gestionar-plantillas' },
+            { name: '🌐 Configurar Web Pública', path: '/configurar-web-publica', id: 'config-web-publica' }, // <-- NUEVO ENLACE
         ]
     },
     {
@@ -84,6 +86,10 @@ const menuConfig = [
     }
 ];
 
+// --- Resto del archivo router.js sin cambios ---
+// (Funciones updatePendingProposalsCount, handleNavigation, loadView, renderMenu, updateActiveLink, listeners...)
+// ...
+
 async function updatePendingProposalsCount() {
     try {
         const { count } = await fetchAPI('/gestion-propuestas/count');
@@ -95,7 +101,7 @@ async function updatePendingProposalsCount() {
                 badge.className = 'menu-badge';
                 menuLink.appendChild(badge);
             }
-            
+
             if (count > 0) {
                 badge.textContent = count;
                 badge.style.display = 'flex'; // Usar flex para centrar el número
@@ -118,13 +124,13 @@ export async function handleNavigation(path) {
 async function loadView(path) {
     const isAuthenticated = await checkAuthAndRender();
     const appRoot = document.getElementById('app-root');
-    
+
     if (!isAuthenticated && path !== '/login') return handleNavigation('/login');
     if (isAuthenticated && path === '/login') {
         const lastPath = sessionStorage.getItem('lastPath') || '/';
         return handleNavigation(lastPath);
     }
-    
+
     if (path === '/login') {
         const { renderLogin } = await views['/login']();
         renderLogin(appRoot);
@@ -132,7 +138,7 @@ async function loadView(path) {
         if (!document.getElementById('view-content')) {
             // Este bloque puede ser innecesario si renderAppLayout siempre se llama antes
         }
-        
+
         let cleanPath = path.split('?')[0];
         if (cleanPath.length > 1 && cleanPath.endsWith('/')) {
             cleanPath = cleanPath.slice(0, -1);
@@ -145,9 +151,13 @@ async function loadView(path) {
 
         const viewLoader = views[dynamicRoute] || views['/'];
         const viewModule = await viewLoader();
-        
-        document.getElementById('view-content').innerHTML = await viewModule.render();
-        
+
+        const viewContentEl = document.getElementById('view-content');
+        if (viewContentEl) {
+           viewContentEl.innerHTML = await viewModule.render();
+        }
+
+
         if (viewModule.afterRender && typeof viewModule.afterRender === 'function') {
             viewModule.afterRender();
         }
@@ -196,17 +206,17 @@ export function renderMenu() {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             const path = e.currentTarget.getAttribute('href');
-            
+
             const sidebar = document.getElementById('sidebar');
             if (sidebar?.classList.contains('open')) {
                 sidebar.classList.remove('open');
                 document.getElementById('sidebar-overlay').classList.remove('visible');
             }
-            
+
             if (path !== '#') handleNavigation(path);
         });
     });
-    
+
     nav.querySelectorAll('.category-title').forEach(button => {
         button.addEventListener('click', () => {
             const category = button.parentElement;

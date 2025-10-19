@@ -198,13 +198,11 @@ export async function render() {
         </div>
 
         <div id="propiedad-modal" class="modal hidden">
-            <div class="modal-content !max-w-4xl max-h-[90vh] overflow-y-auto pr-4"> {/* Añadido pr-4 */}
-                <div class="flex justify-between items-center pb-3 border-b mb-4">
+            <div class="modal-content !max-w-4xl max-h-[90vh] overflow-y-auto pr-4"> <div class="flex justify-between items-center pb-3 border-b mb-4">
                     <h3 id="modal-title" class="text-xl font-semibold"></h3>
                     <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
                 </div>
                 <form id="propiedad-form">
-                    {/* Campos Generales */}
                     <fieldset class="border p-4 rounded-md mb-6">
                         <legend class="px-2 font-semibold text-gray-700">Información General</legend>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
@@ -226,7 +224,6 @@ export async function render() {
                             </div>
                         </div>
                     </fieldset>
-                    {/* Camas y capacidad */}
                     <fieldset class="border p-4 rounded-md mb-6">
                          <legend class="px-2 font-semibold text-gray-700">Distribución y Capacidad</legend>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mt-4">
@@ -248,14 +245,12 @@ export async function render() {
                             </div>
                         </div>
                     </fieldset>
-                    {/* Descripcion */}
                     <fieldset class="border p-4 rounded-md mb-6">
                         <legend class="px-2 font-semibold text-gray-700">Descripción</legend>
                         <div class="mt-4">
                             <textarea id="descripcion" name="descripcion" rows="6" class="form-input w-full" style="min-height: 150px;"></textarea>
                         </div>
                     </fieldset>
-                    {/* Equipamiento */}
                     <fieldset class="border p-4 rounded-md mb-6">
                         <legend class="px-2 font-semibold text-gray-700">Equipamiento</legend>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
@@ -267,12 +262,10 @@ export async function render() {
                             ${checkbox('dosPisos', 'Dos Pisos')}
                         </div>
                     </fieldset>
-                    {/* Componentes */}
                     <fieldset class="border p-4 rounded-md mb-6">
                         <legend class="px-2 font-semibold text-gray-700">Componentes del Alojamiento</legend>
                         <div class="mt-4 space-y-3" id="lista-componentes">
-                            {/* La lista de componentes se renderizará aquí */}
-                        </div>
+                            </div>
                         <div class="mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                             <div class="md:col-span-1">
                                 <label for="nuevo-componente-nombre" class="block text-sm font-medium">Nombre Componente</label>
@@ -289,14 +282,11 @@ export async function render() {
                             </div>
                         </div>
                     </fieldset>
-                    {/* Sincronizacion Ical */}
                     <fieldset class="border p-4 rounded-md mb-6">
                         <legend class="px-2 font-semibold text-gray-700">Sincronización iCal (Importar)</legend>
                         <div id="ical-fields-container" class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                           {/* Los campos de iCal se insertarán aquí dinámicamente */}
-                        </div>
+                           </div>
                     </fieldset>
-                    {/* Integracion Google Hotels */}
                     <fieldset class="border p-4 rounded-md mb-6">
                         <legend class="px-2 font-semibold text-gray-700">Integración con Google Hotels</legend>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
@@ -324,7 +314,6 @@ export async function render() {
                             </div>
                         </div>
                     </fieldset>
-                    {/* Botones */}
                     <div class="flex justify-end pt-6 border-t mt-6">
                         <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
                         <button type="submit" class="btn-primary">Guardar</button>
@@ -397,6 +386,7 @@ export function afterRender() {
                     countryCode: form.googleHotelCountry.value.trim().toUpperCase()
                 }
             }
+            // No incluimos websiteData aquí, se gestiona en la otra vista
         };
 
         if (datos.googleHotelData.isListed && !datos.googleHotelData.hotelId) {
