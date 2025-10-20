@@ -15,8 +15,37 @@ if (!API_KEY) {
 
 // Inicializar el cliente (solo si hay API Key)
 const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
-// **CAMBIO:** Usar un modelo más estable como 'gemini-pro' en lugar de 'gemini-1.5-flash'
-const model = genAI ? genAI.getGenerativeModel({ model: "gemini-pro" }) : null;
+let model = null; // Lo inicializaremos de forma asíncrona
+
+// --- Función para encontrar un modelo compatible ---
+async function initializeModel() {
+    if (!genAI || model) return; // Si ya está inicializado o no hay API key, no hacer nada
+
+    try {
+        console.log("[AI Service] Intentando listar modelos disponibles...");
+        const modelInfo = await genAI.listModels(); // Llamar a listModels
+        let compatibleModelName = null;
+
+        for (const m of modelInfo.models) {
+             // Verificar si el modelo soporta 'generateContent'
+            if (m.supportedGenerationMethods.includes("generateContent")) {
+                compatibleModelName = m.name; // Usar el nombre completo (ej: 'models/gemini-pro')
+                console.log(`[AI Service] Modelo compatible encontrado: ${compatibleModelName}`);
+                break; // Usar el primero que encontremos
+            }
+        }
+
+        if (compatibleModelName) {
+            model = genAI.getGenerativeModel({ model: compatibleModelName });
+            console.log(`[AI Service] Modelo ${compatibleModelName} inicializado correctamente.`);
+        } else {
+            console.warn("[AI Service] No se encontró ningún modelo compatible con 'generateContent'. Se usará simulación.");
+        }
+    } catch (error) {
+        console.error("[AI Service] Error al listar o inicializar modelos:", error);
+        console.warn("[AI Service] Se usará simulación debido al error.");
+    }
+}
 
 // --- Función Placeholder (Mantenida por si falla la API) ---
 async function llamarIASimulada(prompt) {
@@ -37,11 +66,17 @@ async function llamarIASimulada(prompt) {
  * @returns {Promise<string>} La respuesta de texto de la IA.
  */
 async function llamarGeminiAPI(prompt) {
-    if (!model) {
-        console.warn("Llamando a IA Simulada (Falta API Key o inicialización falló)");
-        return llamarIASimulada(prompt); // Usar simulación si no hay API
+    // Asegurarse de que el modelo esté inicializado antes de usarlo
+    if (!model && genAI) {
+        await initializeModel();
+    }
+
+    if (!model) { // Si después de inicializar sigue sin haber modelo
+        console.warn("Llamando a IA Simulada (No se encontró modelo compatible o falta API Key)");
+        return llamarIASimulada(prompt);
     }
     try {
+        console.log(`[AI Service] Enviando prompt al modelo ${model.model}...`);
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
