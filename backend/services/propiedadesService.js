@@ -8,22 +8,20 @@ const crearPropiedad = async (db, empresaId, datosPropiedad) => {
 
     const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc();
 
-    // Asegurarse de que componentes sea un array, incluso si viene vacío o undefined
     const componentes = Array.isArray(datosPropiedad.componentes) ? datosPropiedad.componentes : [];
 
     const nuevaPropiedad = {
         nombre: datosPropiedad.nombre,
         capacidad: datosPropiedad.capacidad,
         descripcion: datosPropiedad.descripcion || '',
-        // linkFotos: ELIMINADO
         numPiezas: datosPropiedad.numPiezas || 0,
         numBanos: datosPropiedad.numBanos || 0,
         camas: datosPropiedad.camas || {},
         equipamiento: datosPropiedad.equipamiento || {},
         sincronizacionIcal: datosPropiedad.sincronizacionIcal || {},
-        componentes: componentes, // Añadido: Guardar lista de componentes
-        googleHotelData: datosPropiedad.googleHotelData || {}, // Asegurarse que existe el objeto
-        websiteData: datosPropiedad.websiteData || {}, // Añadir objeto para datos web
+        componentes: componentes,
+        googleHotelData: datosPropiedad.googleHotelData || {},
+        websiteData: datosPropiedad.websiteData || { aiDescription: '', images: {} }, // Asegurar que exista
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
     };
 
@@ -50,12 +48,13 @@ const obtenerPropiedadPorId = async (db, empresaId, propiedadId) => {
     const doc = await propiedadRef.get();
 
     if (!doc.exists) {
-        return null; // Cambiado para devolver null si no se encuentra
+        return null;
     }
 
     return { id: doc.id, ...doc.data() };
 };
 
+// *** CORRECCIÓN P1 (Asegurar Merge) ***
 const actualizarPropiedad = async (db, empresaId, propiedadId, datosActualizados) => {
     const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
 
@@ -63,36 +62,26 @@ const actualizarPropiedad = async (db, empresaId, propiedadId, datosActualizados
     if (datosActualizados.componentes && !Array.isArray(datosActualizados.componentes)) {
         datosActualizados.componentes = [];
     }
+    
+    // Eliminar linkFotos si viene (limpieza)
+    delete datosActualizados.linkFotos;
 
-    // Asegurarse de que el campo de sincronización iCal se actualice correctamente
-    const datosParaActualizar = { ...datosActualizados };
-    if (datosParaActualizar.sincronizacionIcal) {
-        datosParaActualizar.sincronizacionIcal = datosParaActualizar.sincronizacionIcal;
-    }
-    // Asegurarse que googleHotelData y websiteData existen si vienen datos para ellos
-    if (datosParaActualizar.googleHotelData) {
-         datosParaActualizar.googleHotelData = datosParaActualizar.googleHotelData;
-    }
-    if (datosParaActualizar.websiteData) {
-         datosParaActualizar.websiteData = datosParaActualizar.websiteData;
-    }
+    // Usar set con merge: true para actualizar campos anidados (como 'websiteData.aiDescription')
+    // sin sobrescribir el objeto 'websiteData' completo.
+    await propiedadRef.set(datosActualizados, { merge: true }); 
 
-    // Eliminar linkFotos si viene en la actualización (para limpiar datos antiguos)
-    delete datosParaActualizar.linkFotos;
-
-    await propiedadRef.set(datosParaActualizar, { merge: true }); // Usar set con merge para crear campos si no existen
+    // Actualizar fecha y eliminar campo antiguo
     await propiedadRef.update({
         fechaActualizacion: admin.firestore.FieldValue.serverTimestamp(),
-        linkFotos: admin.firestore.FieldValue.delete() // Asegurarse de eliminar el campo antiguo
+        linkFotos: admin.firestore.FieldValue.delete()
     });
 
-    // Devolver los datos actualizados fusionados con los existentes para tener el estado completo
     const docActualizado = await propiedadRef.get();
     return { id: propiedadId, ...docActualizado.data() };
 };
 
 const eliminarPropiedad = async (db, empresaId, propiedadId) => {
-    // Considerar eliminar datos asociados en Storage si es necesario en el futuro
+    // TODO: Eliminar imágenes de Storage asociadas a esta propiedad
     const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
     await propiedadRef.delete();
 };
