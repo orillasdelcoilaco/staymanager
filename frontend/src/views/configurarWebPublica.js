@@ -155,7 +155,8 @@ async function generarTextoIA() {
             // Pasar la descripción actual real como base
             descripcionActual: propiedadSeleccionada.descripcion || `Alojamiento llamado ${propiedadSeleccionada.nombre}`
         };
-        const resultado = await fetchAPI(`/api/website-config/propiedad/${propiedadSeleccionada.id}/generate-ai-text`, {
+        // **CORRECCIÓN:** Asegurarse que la ruta de la API es correcta
+        const resultado = await fetchAPI(`/website-config/propiedad/${propiedadSeleccionada.id}/generate-ai-text`, {
             method: 'POST',
             body: payload
         });
@@ -184,8 +185,8 @@ async function guardarTextoIA() {
         const payload = {
             aiDescription: texto
         };
-        // Usar la ruta específica para actualizar websiteData
-        await fetchAPI(`/api/website-config/propiedad/${propiedadSeleccionada.id}`, {
+        // **CORRECCIÓN:** Asegurarse que la ruta de la API es correcta
+        await fetchAPI(`/website-config/propiedad/${propiedadSeleccionada.id}`, {
             method: 'PUT',
             body: payload
         });
@@ -226,7 +227,8 @@ async function handleSubirImagenes(componentId, files) {
     }
 
     try {
-        const resultado = await fetchAPI(`/api/website-config/propiedad/${propiedadSeleccionada.id}/upload-image/${componentId}`, {
+        // **CORRECCIÓN:** Asegurarse que la ruta de la API es correcta
+        const resultado = await fetchAPI(`/website-config/propiedad/${propiedadSeleccionada.id}/upload-image/${componentId}`, {
             method: 'POST',
             body: formData
         });
@@ -264,7 +266,8 @@ async function handleEliminarImagen(componentId, imageId) {
     if(button) button.disabled = true; // Deshabilitar botón mientras se elimina
 
     try {
-        await fetchAPI(`/api/website-config/propiedad/${propiedadSeleccionada.id}/delete-image/${componentId}/${imageId}`, {
+        // **CORRECCIÓN:** Asegurarse que la ruta de la API es correcta
+        await fetchAPI(`/website-config/propiedad/${propiedadSeleccionada.id}/delete-image/${componentId}/${imageId}`, {
             method: 'DELETE'
         });
 
@@ -321,8 +324,8 @@ export async function afterRender() {
 
     // Cargar propiedades para el selector
     try {
-        // **CORRECCIÓN:** Asegurarse de que el endpoint incluye /api
-        todasLasPropiedades = await fetchAPI('/api/propiedades');
+        // **CORRECCIÓN:** La llamada a fetchAPI ya añade /api, así que solo necesitamos el endpoint base.
+        todasLasPropiedades = await fetchAPI('/propiedades'); // <-- SIN /api aquí
         propiedadSelect.innerHTML = '<option value="">-- Elige un alojamiento --</option>' +
             todasLasPropiedades.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
     } catch (error) {
