@@ -15,11 +15,11 @@ async function uploadFile(fileBuffer, destinationPath, mimeType) {
                 metadata: {
                     firebaseStorageDownloadTokens: token
                 }
-            },
-            public: true,
+            }
         });
         
-        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${encodeURIComponent(destinationPath)}`;
+        // Generar URL pública basada en el token
+        const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(destinationPath)}?alt=media&token=${token}`;
         
         console.log(`Archivo subido exitosamente a Firebase Storage: ${publicUrl}`);
         return publicUrl;
