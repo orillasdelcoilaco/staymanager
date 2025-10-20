@@ -156,7 +156,9 @@ function renderizarSeccionTextoPropiedad() {
 function renderizarGestorImagenes() {
     const container = document.getElementById('seccion-imagenes-propiedad');
     if (!container || !propiedadSeleccionada || !propiedadSeleccionada.componentes || propiedadSeleccionada.componentes.length === 0) {
-        container.innerHTML = `<p class="text-sm text-gray-500 p-4 border rounded-md">Define los 'Componentes' de este alojamiento en 'Gestionar Alojamientos' para poder subir imágenes.</p>`;
+        if (container) { // Asegurarse que el contenedor existe antes de escribir
+            container.innerHTML = `<p class="text-sm text-gray-500 p-4 border rounded-md">Define los 'Componentes' de este alojamiento en 'Gestionar Alojamientos' para poder subir imágenes.</p>`;
+        }
         return;
     }
 
@@ -219,14 +221,24 @@ function renderizarImagenesComponente(componentId) {
 
 // Carga los datos web de la propiedad Y los datos generales de la empresa
 async function cargarDatosWebPropiedad(propiedadId) {
-    const configContainer = document.getElementById('config-container');
+    // *** INICIO DE LA CORRECCIÓN ***
+    // El ID correcto del contenedor es 'config-container-propiedad'
+    const configContainer = document.getElementById('config-container-propiedad'); 
+    // *** FIN DE LA CORRECCIÓN ***
+
     const textoPropiedadContainer = document.getElementById('seccion-texto-propiedad');
     const imagenesPropiedadContainer = document.getElementById('seccion-imagenes-propiedad');
+
+    // Comprobación de nulidad para evitar el error
+    if (!configContainer || !textoPropiedadContainer || !imagenesPropiedadContainer) {
+        console.error("Error crítico: No se encontraron los contenedores de configuración de propiedad.");
+        return;
+    }
 
     // Mostrar estado de carga
     textoPropiedadContainer.innerHTML = '<p class="text-sm text-gray-500">Cargando datos de la propiedad...</p>';
     imagenesPropiedadContainer.innerHTML = '';
-    configContainer.classList.remove('hidden'); // Mostrar contenedor general
+    configContainer.classList.remove('hidden'); // <-- Esta línea ahora es segura
 
     try {
         // Cargar datos de la propiedad específica
@@ -546,7 +558,7 @@ export async function afterRender() {
     propiedadSelect.addEventListener('change', async (e) => {
         const propiedadId = e.target.value;
         if (propiedadId) {
-            configContainerPropiedad.classList.remove('hidden');
+            // configContainerPropiedad.classList.remove('hidden'); // Movido dentro de cargarDatosWebPropiedad
             await cargarDatosWebPropiedad(propiedadId); // Carga datos específicos de la prop
         } else {
             propiedadSeleccionada = null;
