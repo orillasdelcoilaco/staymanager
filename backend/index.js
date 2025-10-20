@@ -62,7 +62,7 @@ try {
         console.log('[Startup] Llamando a admin.initializeApp()...');
         admin.initializeApp({
           credential: admin.credential.cert(serviceAccount),
-          storageBucket: 'suite-manager-app.appspot.com' // Asegúrate que sea el correcto
+          storageBucket: 'suite-manager-app.firebasestorage.app'// Asegúrate que sea el correcto
         });
         console.log(`[Startup] Firebase Admin SDK inicializado correctamente para el proyecto: ${serviceAccount.project_id}.`);
     } else {
