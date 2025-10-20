@@ -16,7 +16,8 @@ if (!API_KEY) {
 // Inicializar el cliente (solo si hay API Key)
 const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
 // **CAMBIO:** Intentar con el modelo estable 'gemini-1.0-pro'
-const model = genAI ? genAI.getGenerativeModel({ model: "gemini-1.0-pro" }) : null;
+const model = genAI ? genAI.getGenerativeModel({ model: "models/gemini-2.5-flash" }) : null;
+
 
 // --- Función Placeholder (Mantenida por si falla la API) ---
 async function llamarIASimulada(prompt) {
