@@ -321,7 +321,8 @@ export async function afterRender() {
 
     // Cargar propiedades para el selector
     try {
-        todasLasPropiedades = await fetchAPI('/api/propiedades'); // Corregido: añadir /api
+        // **CORRECCIÓN:** Asegurarse de que el endpoint incluye /api
+        todasLasPropiedades = await fetchAPI('/api/propiedades');
         propiedadSelect.innerHTML = '<option value="">-- Elige un alojamiento --</option>' +
             todasLasPropiedades.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
     } catch (error) {
