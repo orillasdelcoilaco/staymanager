@@ -18,13 +18,39 @@ const obtenerDetallesEmpresa = async (db, empresaId) => {
 };
 
 const actualizarDetallesEmpresa = async (db, empresaId, datos) => {
-    // ... (código sin cambios)
-     if (!empresaId) {
+    if (!empresaId) {
         throw new Error('El ID de la empresa es requerido.');
     }
     const empresaRef = db.collection('empresas').doc(empresaId);
+
+    // Asegurarse de que websiteSettings existe antes de intentar anidar
+    const datosParaActualizar = { ...datos };
+    if (!datosParaActualizar.websiteSettings) {
+        datosParaActualizar.websiteSettings = {};
+    }
+    if (!datosParaActualizar.websiteSettings.theme) {
+        datosParaActualizar.websiteSettings.theme = {};
+    }
+
+    // Mapear explícitamente los nuevos campos
+    datosParaActualizar.tipoAlojamientoPrincipal = datos.tipoAlojamientoPrincipal || '';
+    datosParaActualizar.palabrasClaveAdicionales = datos.palabrasClaveAdicionales || '';
+    datosParaActualizar.enfoqueMarketing = datos.enfoqueMarketing || '';
+
+    // Manejar logoUrl (temporalmente solo guarda URL, la subida se implementará después)
+    if (datos.logoUrl) {
+        // TODO: Implementar lógica de subida de archivo si se envía un archivo en lugar de una URL
+        datosParaActualizar.websiteSettings.theme.logoUrl = datos.logoUrl;
+    } else {
+        // Si no se envía logoUrl, asegurarse de eliminarlo si existe
+        datosParaActualizar['websiteSettings.theme.logoUrl'] = admin.firestore.FieldValue.delete();
+    }
+    // Eliminar logoUrl del objeto principal para no guardarlo fuera de theme
+    delete datosParaActualizar.logoUrl;
+
+
+    await empresaRef.set(datosParaActualizar, { merge: true }); // Usar set con merge para crear campos anidados si no existen
     await empresaRef.update({
-        ...datos,
         fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
     });
 };

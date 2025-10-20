@@ -15,7 +15,7 @@ const crearPropiedad = async (db, empresaId, datosPropiedad) => {
         nombre: datosPropiedad.nombre,
         capacidad: datosPropiedad.capacidad,
         descripcion: datosPropiedad.descripcion || '',
-        linkFotos: datosPropiedad.linkFotos || '',
+        // linkFotos: ELIMINADO
         numPiezas: datosPropiedad.numPiezas || 0,
         numBanos: datosPropiedad.numBanos || 0,
         camas: datosPropiedad.camas || {},
@@ -77,10 +77,13 @@ const actualizarPropiedad = async (db, empresaId, propiedadId, datosActualizados
          datosParaActualizar.websiteData = datosParaActualizar.websiteData;
     }
 
+    // Eliminar linkFotos si viene en la actualización (para limpiar datos antiguos)
+    delete datosParaActualizar.linkFotos;
 
     await propiedadRef.set(datosParaActualizar, { merge: true }); // Usar set con merge para crear campos si no existen
     await propiedadRef.update({
-        fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
+        fechaActualizacion: admin.firestore.FieldValue.serverTimestamp(),
+        linkFotos: admin.firestore.FieldValue.delete() // Asegurarse de eliminar el campo antiguo
     });
 
     // Devolver los datos actualizados fusionados con los existentes para tener el estado completo

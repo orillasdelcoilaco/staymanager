@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <% const pageTitle = `${propiedad.nombre} | ${empresa.nombre}`; %>
-    <% const pageDescription = (propiedad.websiteData?.aiDescription || propiedad.descripcion || `Descubre ${propiedad.nombre}`).substring(0, 155); %>
+    <% const pageTitle = `${propiedad.nombre} |
+${empresa.nombre}`; %>
+    <% const pageDescription = (propiedad.websiteData?.aiDescription || propiedad.descripcion || `Descubre ${propiedad.nombre}`).substring(0, 155);
+%>
     <title><%= pageTitle %></title>
     <meta name="description" content="<%= pageDescription %>">
     <link rel="stylesheet" href="/public/css/website.css">
@@ -19,120 +21,154 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-12">
             <div class="lg:col-span-2">
                 <%
-                   const imagenes = propiedad.websiteData?.images || {};
+
+                const imagenes = propiedad.websiteData?.images ||
+{};
                    const todasLasImagenes = Object.values(imagenes).flat();
                    const imagenPrincipal = todasLasImagenes[0]; // Tomar la primera imagen subida como principal
                 %>
                 <% if (imagenPrincipal) { %>
                     <picture>
-                         <source srcset="<%= imagenPrincipal.storagePath %>" type="image/webp">
+                         <source srcset="<%= imagenPrincipal.storagePath
+%>" type="image/webp">
                          <img src="<%= imagenPrincipal.storagePath %>"
                               alt="<%= imagenPrincipal.altText %>"
                               title="<%= imagenPrincipal.title || '' %>"
-                              class="w-full h-96 object-cover rounded-lg shadow-lg mb-4" loading="eager">
+
+                         class="w-full h-96 object-cover rounded-lg shadow-lg mb-4" loading="eager">
                     </picture>
-                <% } else if (propiedad.linkFotos) { %>
-                     <img src="<%= propiedad.linkFotos %>" alt="Foto principal de <%= propiedad.nombre %>" class="w-full h-96 object-cover rounded-lg shadow-lg mb-4">
+                <% } else { %>
+                     <img src="https://via.placeholder.com/800x600.png?text=Imagen+Principal+No+Disponible" alt="Imagen principal de <%= propiedad.nombre %> no disponible" class="w-full h-96 object-cover rounded-lg shadow-lg mb-4">
                 <% } %>
 
                 <% if (todasLasImagenes.length > 1) { %>
                     <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 mb-8">
-                        <% todasLasImagenes.slice(0, 10).forEach(img => { %> {/* Limitar a 10 miniaturas por ej */}
+                        <%
+todasLasImagenes.slice(0, 10).forEach(img => { %> {/* Limitar a 10 miniaturas por ej */}
                             <picture>
                                 <source srcset="<%= img.storagePath %>" type="image/webp">
-                                <img src="<%= img.storagePath %>"
+
+        <img src="<%= img.storagePath %>"
                                      alt="<%= img.altText %>"
-                                     title="<%= img.title || '' %>"
+                                     title="<%= img.title ||
+'' %>"
                                      class="w-full h-20 object-cover rounded cursor-pointer" loading="lazy">
                                      {/* Podría añadirse JS para un lightbox aquí */}
-                            </picture>
+
+                </picture>
                         <% }) %>
                     </div>
                 <% } %>
 
 
                 <div class="prose max-w-none mt-8">
-                    <h1 class="text-4xl font-bold text-gray-900"><%= propiedad.nombre %></h1>
+
+                   <h1 class="text-4xl font-bold text-gray-900"><%= propiedad.nombre %></h1>
                     <p class="mt-2 text-lg text-gray-600"><strong>Capacidad:</strong> <%= propiedad.capacidad %> personas</p>
 
                     <h2>Descripción</h2>
-                    <%# Usar descripción IA si existe, si no la normal %>
-                    <p><%= propiedad.websiteData?.aiDescription || propiedad.descripcion || 'No hay descripción disponible.' %></p>
+                    <%# Usar descripción IA si existe, si no la
+normal %>
+                    <p><%= propiedad.websiteData?.aiDescription || propiedad.descripcion || 'No hay descripción disponible.'
+%></p>
 
                     <%# Mostrar detalle por componentes definidos %>
                     <% if (propiedad.componentes && propiedad.componentes.length > 0) { %>
                         <h2>Características Detalladas</h2>
-                        <% propiedad.componentes.forEach(componente => { %>
+
+   <% propiedad.componentes.forEach(componente => { %>
                             <div class="mb-4">
                                 <h4 class="font-semibold"><%= componente.nombre %></h4>
-                                <%# Mostrar imágenes específicas del componente si existen %>
+
+   <%# Mostrar imágenes específicas del componente si existen %>
                                 <% const imagenesComponente = propiedad.websiteData?.images?.[componente.id]; %>
                                 <% if (imagenesComponente && imagenesComponente.length > 0) { %>
-                                    <div class="flex flex-wrap gap-2 mt-2">
+
+                        <div class="flex flex-wrap gap-2 mt-2">
                                         <% imagenesComponente.slice(0, 3).forEach(img => { %> {/* Mostrar hasta 3 por componente */}
-                                            <picture>
+
+                        <picture>
                                                  <source srcset="<%= img.storagePath %>" type="image/webp">
-                                                 <img src="<%= img.storagePath %>" alt="<%= img.altText %>" title="<%= img.title || '' %>" class="h-16 w-auto rounded" loading="lazy">
+
+                          <img src="<%= img.storagePath %>" alt="<%= img.altText %>" title="<%= img.title ||
+'' %>" class="h-16 w-auto rounded" loading="lazy">
                                             </picture>
                                         <% }) %>
-                                    </div>
+
+                           </div>
                                 <% } %>
-                                <%# Podría añadirse una descripción IA específica del componente aquí en el futuro %>
+                                <%# Podría añadirse una descripción IA específica
+del componente aquí en el futuro %>
                             </div>
                         <% }) %>
                     <% } else { %>
-                        <%# Fallback si no hay componentes definidos %>
+
+        <%# Fallback si no hay componentes definidos %>
                         <h2>Características</h2>
                         <ul>
                             <li><strong>Dormitorios:</strong> <%= propiedad.numPiezas || 'No especificado' %></li>
-                            <li><strong>Baños:</strong> <%= propiedad.numBanos || 'No especificado' %></li>
+
+                         <li><strong>Baños:</strong> <%= propiedad.numBanos || 'No especificado' %></li>
                             <% if (propiedad.equipamiento) { %>
-                                <% for (const [key, value] of Object.entries(propiedad.equipamiento)) { %>
+                                <% for (const [key, value]
+of Object.entries(propiedad.equipamiento)) { %>
                                     <% if (value) { %><li><strong><%= key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) %>:</strong> Sí</li><% } %>
                                 <% } %>
-                            <% } %>
+
+               <% } %>
                         </ul>
                     <% } %>
                 </div>
             </div>
 
-            <div class="lg:col-span-1">
+
+   <div class="lg:col-span-1">
                 <div class="bg-white p-6 rounded-lg shadow-lg sticky top-8">
                     <h3 class="text-xl font-bold text-gray-900 mb-4">Reserva tu Estadía</h3>
                     <form id="booking-form"> {/* Quitamos action y method */}
-                        <input type="hidden" name="propiedadId" value="<%= propiedad.id %>"> {/* Guardar ID para el submit */}
+
+   <input type="hidden" name="propiedadId" value="<%= propiedad.id %>"> {/* Guardar ID para el submit */}
                         <div class="space-y-4">
                             <div>
-                                <label for="fechaLlegada" class="block text-sm font-medium text-gray-700">Llegada</label>
+
+<label for="fechaLlegada" class="block text-sm font-medium text-gray-700">Llegada</label>
                                 <input type="date" name="fechaLlegada" id="fechaLlegada" class="form-input mt-1" required value="<%= prefill.fechaLlegada %>">
                             </div>
-                            <div>
+
+  <div>
                                 <label for="fechaSalida" class="block text-sm font-medium text-gray-700">Salida</label>
                                 <input type="date" name="fechaSalida" id="fechaSalida" class="form-input mt-1" required value="<%= prefill.fechaSalida %>">
-                            </div>
+
+        </div>
                             <div>
                                 <label for="personas" class="block text-sm font-medium text-gray-700">Huéspedes</label>
-                                <input type="number" name="personas" id="personas" min="1" max="<%= propiedad.capacidad %>" class="form-input mt-1" required placeholder="Ej: 2" value="<%= prefill.personas %>">
+
+     <input type="number" name="personas" id="personas" min="1" max="<%= propiedad.capacidad %>" class="form-input mt-1" required placeholder="Ej: 2" value="<%= prefill.personas %>">
                             </div>
                         </div>
 
-                        <div id="price-summary" class="mt-6 border-t pt-4 space-y-2 hidden">
+                        <div id="price-summary" class="mt-6 border-t
+pt-4 space-y-2 hidden">
                             <div class="flex justify-between text-gray-600">
                                 <span id="price-label"></span>
                                 <span id="price-subtotal"></span>
-                            </div>
+
+                           </div>
                             <div class="flex justify-between text-xl font-bold text-gray-900">
                                 <span>Total</span>
-                                <span id="price-total"></span>
+
+                        <span id="price-total"></span>
                             </div>
                         </div>
 
-                        <div id="price-loader" class="mt-6 text-center hidden">Calculando...</div>
+
+ <div id="price-loader" class="mt-6 text-center hidden">Calculando...</div>
 
                         <button type="submit" id="submit-button" class="btn w-full mt-6" disabled>
                             Continuar a la Reserva
                         </button>
-                    </form>
+
+          </form>
                 </div>
             </div>
         </div>
@@ -142,34 +178,34 @@
 
     <script>
         const form = document.getElementById('booking-form');
-        const fechaLlegadaEl = document.getElementById('fechaLlegada');
+const fechaLlegadaEl = document.getElementById('fechaLlegada');
         const fechaSalidaEl = document.getElementById('fechaSalida');
         const personasEl = document.getElementById('personas');
         const priceSummaryEl = document.getElementById('price-summary');
         const priceLoaderEl = document.getElementById('price-loader');
-        const submitButton = document.getElementById('submit-button');
+const submitButton = document.getElementById('submit-button');
         let currentPriceData = null;
 
         async function calcularPrecio() {
             const fechaLlegada = fechaLlegadaEl.value;
-            const fechaSalida = fechaSalidaEl.value;
+const fechaSalida = fechaSalidaEl.value;
             currentPriceData = null; // Resetear precio actual
 
             // Validaciones básicas de fecha
             const today = new Date().toISOString().split('T')[0];
-            if (!fechaLlegada || !fechaSalida || fechaSalida <= fechaLlegada || fechaLlegada < today) {
+if (!fechaLlegada || !fechaSalida || fechaSalida <= fechaLlegada || fechaLlegada < today) {
                 priceSummaryEl.classList.add('hidden');
-                submitButton.disabled = true;
-                if (fechaLlegada && fechaLlegada < today) fechaLlegadaEl.value = today; // Resetear si es pasada
-                if (fechaSalida && fechaSalida <= fechaLlegada) fechaSalidaEl.value = ''; // Limpiar si es inválida
+submitButton.disabled = true;
+                if (fechaLlegada && fechaLlegada < today) fechaLlegadaEl.value = today;
+// Resetear si es pasada
+                if (fechaSalida && fechaSalida <= fechaLlegada) fechaSalidaEl.value = '';
+// Limpiar si es inválida
                 return;
-            }
+}
 
             // Actualizar min de fechaSalida
             fechaSalidaEl.min = new Date(new Date(fechaLlegada).getTime() + 86400000).toISOString().split('T')[0];
-
-
-            priceLoaderEl.classList.remove('hidden');
+priceLoaderEl.classList.remove('hidden');
             priceSummaryEl.classList.add('hidden');
             submitButton.disabled = true;
 
@@ -177,34 +213,34 @@
                 const response = await fetch('/propiedad/<%= propiedad.id %>/calcular-precio', { // Usa la ruta API interna
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ fechaLlegada, fechaSalida })
-                });
 
-                if (!response.ok) {
+body: JSON.stringify({ fechaLlegada, fechaSalida })
+                });
+if (!response.ok) {
                     const error = await response.json();
-                    throw new Error(error.error || 'No se pudo calcular el precio. Puede que no haya tarifas o disponibilidad para este período.');
-                }
+throw new Error(error.error || 'No se pudo calcular el precio. Puede que no haya tarifas o disponibilidad para este período.');
+}
 
                 const data = await response.json();
-                currentPriceData = data; // Guardar datos para el submit
+currentPriceData = data; // Guardar datos para el submit
 
                 // Formatear moneda localmente
                 const formatCLP = (value) => `$${Math.round(value || 0).toLocaleString('es-CL')}`;
-
-                document.getElementById('price-label').textContent = `${formatCLP(data.totalPriceCLP / data.nights)} x ${data.nights} noche(s)`;
+document.getElementById('price-label').textContent = `${formatCLP(data.totalPriceCLP / data.nights)} x ${data.nights} noche(s)`;
                 document.getElementById('price-subtotal').textContent = formatCLP(data.totalPriceCLP);
                 document.getElementById('price-total').textContent = formatCLP(data.totalPriceCLP);
 
                 priceSummaryEl.classList.remove('hidden');
-                submitButton.disabled = false; // Habilitar botón de reserva
+                submitButton.disabled = false;
+// Habilitar botón de reserva
             } catch (error) {
                 console.error(error);
-                alert(error.message);
+alert(error.message);
                 priceSummaryEl.classList.add('hidden');
                 submitButton.disabled = true;
             } finally {
                 priceLoaderEl.classList.add('hidden');
-            }
+}
         }
 
         form.addEventListener('submit', (e) => {
@@ -212,38 +248,39 @@
             if (!currentPriceData || !personasEl.value) {
                 alert('Por favor, selecciona fechas válidas y el número de huéspedes.');
                 return;
-            }
+
+}
 
             const params = new URLSearchParams({
                 propiedadId: '<%= propiedad.id %>',
                 fechaLlegada: fechaLlegadaEl.value,
                 fechaSalida: fechaSalidaEl.value,
                 personas: personasEl.value,
-                noches: currentPriceData.nights,
+
+  noches: currentPriceData.nights,
                 precioFinal: currentPriceData.totalPriceCLP
             });
 
             window.location.href = `/reservar?${params.toString()}`;
         });
-
-        fechaLlegadaEl.addEventListener('change', calcularPrecio);
+fechaLlegadaEl.addEventListener('change', calcularPrecio);
         fechaSalidaEl.addEventListener('change', calcularPrecio);
 
         // Calcular precio al cargar si las fechas ya están (viene de prefill o búsqueda)
         if (fechaLlegadaEl.value && fechaSalidaEl.value) {
             // Asegurarse que la fecha de llegada no sea pasada
             const today = new Date().toISOString().split('T')[0];
-            if (fechaLlegadaEl.value < today) fechaLlegadaEl.value = today;
+if (fechaLlegadaEl.value < today) fechaLlegadaEl.value = today;
             // Asegurarse que la fecha de salida sea posterior a la llegada
             if (fechaSalidaEl.value <= fechaLlegadaEl.value) {
                  const nextDay = new Date(new Date(fechaLlegadaEl.value).getTime() + 86400000).toISOString().split('T')[0];
-                 fechaSalidaEl.value = nextDay;
+fechaSalidaEl.value = nextDay;
             }
             calcularPrecio();
-        } else {
+} else {
              // Si no hay prefill, poner fecha de llegada mínima hoy
              fechaLlegadaEl.min = new Date().toISOString().split('T')[0];
-        }
+}
 
     </script>
 

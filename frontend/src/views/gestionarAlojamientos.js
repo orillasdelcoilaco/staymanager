@@ -73,7 +73,7 @@ function abrirModal(propiedad = null) {
         editandoPropiedad = propiedad;
         modalTitle.textContent = `Editar Alojamiento: ${propiedad.nombre}`;
         form.nombre.value = propiedad.nombre || '';
-        form.linkFotos.value = propiedad.linkFotos || '';
+        // linkFotos: ELIMINADO
         form.numPiezas.value = propiedad.numPiezas || 0;
         form.numBanos.value = propiedad.numBanos || 0;
         form.descripcion.value = propiedad.descripcion || '';
@@ -108,7 +108,6 @@ function abrirModal(propiedad = null) {
         form.googleHotelCity.value = propiedad.googleHotelData?.address?.city || '';
         form.googleHotelCountry.value = propiedad.googleHotelData?.address?.countryCode || 'CL';
 
-
     } else {
         editandoPropiedad = null;
         modalTitle.textContent = 'Nuevo Alojamiento';
@@ -121,7 +120,6 @@ function abrirModal(propiedad = null) {
     renderizarListaComponentes(); // Renderizar componentes al abrir
     modal.classList.remove('hidden');
 }
-
 
 function cerrarModal() {
     const modal = document.getElementById('propiedad-modal');
@@ -154,7 +152,6 @@ function renderTabla() {
         </tr>
     `).join('');
 }
-
 
 export async function render() {
     try {
@@ -209,10 +206,6 @@ export async function render() {
                             <div>
                                 <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre Alojamiento</label>
                                 <input type="text" id="nombre" name="nombre" required class="form-input mt-1">
-                            </div>
-                            <div>
-                                <label for="linkFotos" class="block text-sm font-medium text-gray-700">Link a Foto Principal</label>
-                                <input type="url" id="linkFotos" name="linkFotos" class="form-input mt-1">
                             </div>
                             <div>
                                 <label for="numPiezas" class="block text-sm font-medium text-gray-700">Nº Piezas</label>
@@ -358,7 +351,7 @@ export function afterRender() {
         const datos = {
             nombre: form.nombre.value,
             capacidad: parseInt(form.capacidad.value),
-            linkFotos: form.linkFotos.value,
+            // linkFotos: ELIMINADO
             numPiezas: parseInt(form.numPiezas.value) || 0,
             numBanos: parseInt(form.numBanos.value) || 0,
             descripcion: form.descripcion.value,

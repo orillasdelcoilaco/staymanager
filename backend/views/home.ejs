@@ -17,22 +17,28 @@
     <main class="container py-12">
         <div class="text-center mb-12">
             <h1 class="text-4xl font-bold text-gray-900"><%= empresa.nombre %></h1>
-            <p class="mt-2 text-lg text-gray-600"><%= empresa.slogan || 'Tu mejor opción para descansar.' %></p>
+
+     <p class="mt-2 text-lg text-gray-600"><%= empresa.slogan || 'Tu mejor opción para descansar.'
+%></p>
         </div>
 
         <div class="bg-white p-6 rounded-lg shadow-lg mb-12">
             <form action="/" method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div>
                     <label for="fechaLlegada" class="block text-sm font-medium text-gray-700">Llegada</label>
-                    <input type="date" name="fechaLlegada" id="fechaLlegada" class="form-input mt-1" value="<%= locals.query && query.fechaLlegada ? query.fechaLlegada : '' %>">
+
+ <input type="date" name="fechaLlegada" id="fechaLlegada" class="form-input mt-1" value="<%= locals.query && query.fechaLlegada ? query.fechaLlegada : '' %>">
                 </div>
                 <div>
                     <label for="fechaSalida" class="block text-sm font-medium text-gray-700">Salida</label>
-                    <input type="date" name="fechaSalida" id="fechaSalida" class="form-input mt-1" value="<%= locals.query && query.fechaSalida ? query.fechaSalida : '' %>">
+                    <input type="date" name="fechaSalida" id="fechaSalida" class="form-input mt-1" value="<%= locals.query
+
+&& query.fechaSalida ? query.fechaSalida : '' %>">
                 </div>
                 <div>
                     <label for="personas" class="block text-sm font-medium text-gray-700">Huéspedes</label>
-                    <input type="number" name="personas" id="personas" min="1" class="form-input mt-1" placeholder="Ej: 2" value="<%= locals.query && query.personas ? query.personas : '' %>">
+                    <input type="number" name="personas" id="personas" min="1" class="form-input mt-1" placeholder="Ej: 2" value="<%= locals.query && query.personas ?
+query.personas : '' %>">
                 </div>
                 <button type="submit" class="btn w-full">Buscar Disponibilidad</button>
             </form>
@@ -40,53 +46,64 @@
 
         <div id="propiedades">
             <h2 class="text-3xl font-bold text-gray-900 mb-8">
-                <% if (locals.isSearchResult) { %>
+
+<% if (locals.isSearchResult) { %>
                     Propiedades Disponibles
                 <% } else { %>
                     Nuestras Propiedades
                 <% } %>
             </h2>
 
-            <% if (propiedades.length > 0) { %>
+
+        <% if (propiedades.length > 0) { %>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     <% propiedades.forEach(prop => { %>
                         <%
-                           // Intentar obtener la imagen de portada o exterior, si no, la antigua linkFotos o placeholder
+
+          // Intentar obtener la imagen de portada o exterior, si no, placeholder
                            const imagenPortadaArray = prop.websiteData?.images?.['portadaRecinto'] || prop.websiteData?.images?.['exteriorAlojamiento'];
                            const imagenPortada = imagenPortadaArray?.[0]; // Tomar la primera imagen de la categoría
-                           const imagenUrl = imagenPortada?.storagePath || prop.linkFotos || 'https://via.placeholder.com/400x300.png?text=Imagen+no+disponible';
+                           const imagenUrl = imagenPortada?.storagePath || 'https://via.placeholder.com/400x300.png?text=Imagen+no+disponible'; // Eliminado fallback a linkFotos
                            const altText = imagenPortada?.altText || `Imagen de ${prop.nombre}`;
                            const titleText = imagenPortada?.title || prop.nombre;
-                           const descripcion = prop.websiteData?.aiDescription || prop.descripcion || 'Descripción no disponible.';
-                        %>
+const descripcion = prop.websiteData?.aiDescription || prop.descripcion || 'Descripción no disponible.';
+%>
                         <div class="property-card">
                             <a href="/propiedad/<%= prop.id %>">
                                 <picture>
-                                    <source srcset="<%= imagenUrl %>" type="image/webp">
+
+                        <source srcset="<%= imagenUrl %>" type="image/webp">
                                     <img src="<%= imagenUrl %>" alt="<%= altText %>" title="<%= titleText %>" loading="lazy" class="w-full h-48 object-cover">
-                                </picture>
+
+         </picture>
                             </a>
                             <div class="property-card-content">
-                                <h3 class="property-card-title"><a href="/propiedad/<%= prop.id %>"><%= prop.nombre %></a></h3>
+                                <h3 class="property-card-title"><a
+href="/propiedad/<%= prop.id %>"><%= prop.nombre %></a></h3>
                                 <p class="property-card-details">Capacidad: hasta <%= prop.capacidad %> personas</p>
                                 <p class="text-sm text-gray-600 mt-2 truncate"><%= descripcion.substring(0, 100) %>...</p>
-                                {/* Añadir precio "Desde" si se implementa en el backend */}
+
+             {/* Añadir precio "Desde" si se implementa en el backend */}
                                 <div class="text-right mt-4">
-                                     <a href="/propiedad/<%= prop.id %>" class="btn-secondary text-sm">Ver Detalles</a>
+                                     <a href="/propiedad/<%= prop.id %>" class="btn-secondary text-sm">Ver
+Detalles</a>
                                 </div>
                             </div>
                         </div>
-                    <% }) %>
+
+    <% }) %>
                 </div>
             <% } else { %>
                 <div class="text-center py-12 px-4 border-2 border-dashed rounded-lg">
                     <h3 class="text-xl font-semibold text-gray-700">No se encontraron propiedades</h3>
-                    <p class="mt-2 text-sm text-gray-500">
+
+      <p class="mt-2 text-sm text-gray-500">
                         <% if (locals.isSearchResult) { %>
-                            No hay propiedades disponibles para las fechas o cantidad de huéspedes seleccionada. Intenta con otras fechas.
+                            No hay propiedades disponibles para las fechas o cantidad de huéspedes seleccionada.
+Intenta con otras fechas.
                         <% } else { %>
                             Actualmente no tenemos propiedades para mostrar.
-                        <% } %>
+<% } %>
                     </p>
                 </div>
             <% } %>
