@@ -2,10 +2,11 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const admin = require('firebase-admin'); // Importar admin aquí
-const sharp = require('sharp'); // Asegurarse de importar sharp si no estaba antes
+const admin = require('firebase-admin');
+const sharp = require('sharp');
 
-// --- Importar Rutas y Middlewares --- (Mantener todas las importaciones existentes)
+// --- Importar Rutas y Middlewares ---
+// (Mantener todas las importaciones existentes...)
 const authRoutes = require('./routes/auth.js');
 const propiedadesRoutes = require('./routes/propiedades.js');
 const canalesRoutes = require('./routes/canales.js');
@@ -35,52 +36,32 @@ const crmRoutes = require('./routes/crm.js');
 const websiteRoutes = require('./routes/website.js');
 const integrationsRoutes = require('./routes/integrations.js');
 const estadosRoutes = require('./routes/estados.js');
-const websiteConfigRoutes = require('./routes/websiteConfigRoutes.js'); // <-- NUEVA IMPORTACIÓN
-// const imageOptimizerRoutes = require('./routes/imageOptimizer.js'); // <-- Descomentar si se crea endpoint separado
+const websiteConfigRoutes = require('./routes/websiteConfigRoutes.js');
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 const { createTenantResolver } = require('./middleware/tenantResolver.js');
 
 // --- Carga de Credenciales y Configuración de Firebase ---
-let db; // Declarar db aquí
-
+let db;
 console.log(`[Startup] Verificando entorno. RENDER variable: ${process.env.RENDER ? 'definida' : 'no definida'}`);
-
 try {
     let serviceAccount;
-    // ... (lógica de carga de serviceAccount se mantiene igual)
     if (process.env.RENDER) {
-        console.log('[Startup] Entorno de Render detectado. Intentando cargar credenciales desde /etc/secrets/serviceAccountKey.json');
         serviceAccount = require('/etc/secrets/serviceAccountKey.json');
-        console.log('[Startup] ¡Éxito! serviceAccountKey.json cargado desde la ruta de secretos.');
     } else {
-        console.log('[Startup] Entorno local detectado. Intentando cargar credenciales desde ./serviceAccountKey.json');
         serviceAccount = require('./serviceAccountKey.json');
-        console.log('[Startup] ¡Éxito! serviceAccountKey.json cargado localmente.');
     }
-
     if (!admin.apps.length) {
-        console.log('[Startup] Llamando a admin.initializeApp()...');
         admin.initializeApp({
           credential: admin.credential.cert(serviceAccount),
-          storageBucket: 'suite-manager-app.firebasestorage.app'// Asegúrate que sea el correcto
+          storageBucket: 'suite-manager-app.firebasestorage.app' // VERIFICA QUE ESTE SEA EL CORRECTO
         });
-        console.log(`[Startup] Firebase Admin SDK inicializado correctamente para el proyecto: ${serviceAccount.project_id}.`);
-    } else {
-        console.log('[Startup] Firebase Admin SDK ya estaba inicializado.');
     }
-
-    console.log('[Startup] Intentando obtener instancia de Firestore...');
-    db = admin.firestore(); // Inicializar db DESPUÉS de initializeApp()
-    if (!db) {
-        throw new Error('admin.firestore() devolvió undefined o null.');
-    }
+    db = admin.firestore();
     console.log('[Startup] ¡Éxito! Conexión a Firestore (db) establecida.');
 
     // --- CREACIÓN Y CONFIGURACIÓN DE LA APP EXPRESS ---
     const app = express();
     const PORT = process.env.PORT || 3001;
-
-    // --- Configuración Global ---
     app.set('view engine', 'ejs');
     app.set('views', path.join(__dirname, 'views'));
     app.use(cors());
@@ -90,10 +71,10 @@ try {
 
     // **PRIORIDAD 1: Rutas de la API (/api/...)**
     const apiRouter = express.Router();
-    const authMiddleware = createAuthMiddleware(admin, db); // Ahora 'db' está garantizado
+    const authMiddleware = createAuthMiddleware(admin, db);
     apiRouter.use('/auth', authRoutes(admin, db));
-    apiRouter.use(authMiddleware); // Aplicar middleware a todas las rutas siguientes
-    // Pasar 'db' a todas las rutas que lo necesiten
+    apiRouter.use(authMiddleware);
+    // ... (registro de todas las rutas API como estaban)
     apiRouter.use('/propiedades', propiedadesRoutes(db));
     apiRouter.use('/canales', canalesRoutes(db));
     apiRouter.use('/tarifas', tarifasRoutes(db));
@@ -119,24 +100,25 @@ try {
     apiRouter.use('/kpis', kpiRoutes(db));
     apiRouter.use('/crm', crmRoutes(db));
     apiRouter.use('/estados', estadosRoutes(db));
-    apiRouter.use('/website-config', websiteConfigRoutes(db)); // <-- NUEVA RUTA REGISTRADA
+    apiRouter.use('/website-config', websiteConfigRoutes(db));
     apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
     app.use('/api', apiRouter);
 
-    // **PRIORIDAD 2: Rutas Públicas Específicas (iCal, Integraciones, Imágenes Optimizadas)**
+    // **PRIORIDAD 2: Rutas Públicas Específicas (iCal, Integraciones)**
     app.use('/ical', icalRoutes(db));
     app.use('/integrations', integrationsRoutes(db));
-    // app.use('/images/optimized', imageOptimizerRoutes(db)); // <-- Descomentar si se usa endpoint dedicado
 
     // **PRIORIDAD 3: Sirviendo Archivos Estáticos del Frontend (SPA) bajo /admin-assets**
     const frontendPath = path.join(__dirname, '..', 'frontend');
     app.use('/admin-assets', express.static(frontendPath));
 
-    // **PRIORIDAD 4: Rutas del Sitio Web Público (SSR)**
-    const tenantResolver = createTenantResolver(db);
-    // Servir CSS público específico del website SSR
-    app.use('/public', express.static(path.join(frontendPath, 'public'))); // Servir css/website.css
+    // **PRIORIDAD 4: Sirviendo Archivos Estáticos del Sitio Público (SSR) bajo /public**
+    // <-- CAMBIO AQUÍ: Servir desde backend/public
+    const backendPublicPath = path.join(__dirname, 'public');
+    app.use('/public', express.static(backendPublicPath));
 
+    // **PRIORIDAD 5: Rutas del Sitio Web Público (SSR)**
+    const tenantResolver = createTenantResolver(db);
     app.use('/', tenantResolver, (req, res, next) => {
         if (req.empresa) {
             // Si hay empresa, pasamos al router del sitio público
@@ -146,20 +128,13 @@ try {
         res.sendFile(path.join(frontendPath, 'index.html'));
     });
 
-
     // --- Iniciar el Servidor ---
     app.listen(PORT, () => {
       console.log(`[Startup] Servidor de StayManager escuchando en http://localhost:${PORT}`);
     });
 
-
 } catch (error) {
-    // Este catch ahora captura errores tanto de Firebase como de la configuración de Express.
-    console.error("---------------------------------------------------------------");
     console.error("--- ¡ERROR CRÍTICO DURANTE LA INICIALIZACIÓN! ---");
     console.error("Detalle del error:", error.message);
-    console.error("Stack trace:", error.stack);
-    console.error("La aplicación no puede continuar. Saliendo...");
-    console.error("---------------------------------------------------------------");
-    process.exit(1); // Salir si hay error crítico al inicio
+    process.exit(1);
 }

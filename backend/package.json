@@ -6,12 +6,12 @@
   "scripts": {
     "start": "npm run build:css && npm run build:website-css && node index.js",
     "build:css": "tailwindcss -i ../frontend/public/css/source.css -o ../frontend/public/css/style.css",
-    "build:website-css": "tailwindcss -i ./public/css/website-source.css -o ../frontend/public/css/website.css"
+    "build:website-css": "tailwindcss -i ./public/css/website-source.css -o ./public/css/website.css" // <-- CAMBIO AQUÍ
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
+    "@google/generative-ai": "latest",
     "cors": "^2.8.5",
     "csv-parser": "^3.0.0",
     "ejs": "^3.1.9",
