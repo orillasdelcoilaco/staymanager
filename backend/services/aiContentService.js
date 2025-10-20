@@ -15,16 +15,23 @@ if (!API_KEY) {
 
 // Inicializar el cliente (solo si hay API Key)
 const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
-// **CAMBIO:** Intentar con el modelo estable 'gemini-1.0-pro'
-const model = genAI ? genAI.getGenerativeModel({ model: "models/gemini-2.5-flash" }) : null;
-
+// Usar el modelo que funcionó: 'models/gemini-1.5-flash' o el que te haya resultado.
+// Asegúrate que este sea el nombre correcto.
+const model = genAI ? genAI.getGenerativeModel({ model: "models/gemini-2.5-flash" }) : null; // Reemplaza si usaste otro finalmente
 
 // --- Función Placeholder (Mantenida por si falla la API) ---
 async function llamarIASimulada(prompt) {
     console.log("--- Llamando a IA (Simulado por falta de API Key o error) ---");
     // Mensaje simulado, puedes ajustarlo si necesitas algo más específico
     if (prompt.includes("generar una descripción SEO")) {
-        return `(SIMULADO) Descripción SEO atractiva y optimizada para el alojamiento, destacando características únicas y beneficios para el descanso y la naturaleza. Ideal para atraer visitantes.`;
+        // Extraer contexto del prompt para simulación más realista
+        const propiedadMatch = prompt.match(/para "(.*?)"/);
+        const ciudadMatch = prompt.match(/ubicada en (.*?)(?:,|$)/);
+        const nombreAlojamiento = propiedadMatch ? propiedadMatch[1] : 'el alojamiento';
+        const ubicacionTexto = ciudadMatch ? ` en ${ciudadMatch[1]}` : '';
+
+        return `(SIMULADO) Descubre ${nombreAlojamiento}${ubicacionTexto}, el refugio perfecto para tu descanso. Disfruta de la naturaleza y comodidades como tinaja privada. Ideal para familias y grupos buscando arriendo de cabañas. ¡Reserva tu escapada!`; // Añadida variación simulada
+
     } else if (prompt.includes("generar metadatos (alt text y title)")) {
         // Extraer contexto del prompt para simulación más realista
         const empresaMatch = prompt.match(/Empresa: (.*)/);
@@ -66,15 +73,38 @@ async function llamarGeminiAPI(prompt) {
     }
 }
 
+// **CAMBIO:** Añadir parámetro 'ubicacion'
+const generarDescripcionAlojamiento = async (descripcionActual, nombreAlojamiento, nombreEmpresa, ubicacion) => {
+    // Construir texto de ubicación para el prompt
+    let ubicacionTexto = '';
+    if (ubicacion && ubicacion.city) { // Asegurarse de que al menos la ciudad exista
+        ubicacionTexto = ` ubicada en ${ubicacion.city}`;
+        if (ubicacion.countryCode) {
+            ubicacionTexto += `, ${ubicacion.countryCode}`;
+        }
+    }
 
-const generarDescripcionAlojamiento = async (descripcionActual, nombreAlojamiento, nombreEmpresa) => {
+    // **CAMBIO:** Prompt mejorado con contexto de ubicación, instrucciones SEO y VARIACIONES DE KEYWORDS
     const prompt = `
-        Eres un experto en SEO para alojamientos turísticos llamado SuiteManager Helper.
-        Genera una descripción SEO atractiva y optimizada para "${nombreAlojamiento}", de la empresa "${nombreEmpresa}".
-        Descripción base actual: "${descripcionActual || '(No proporcionada)'}". Mejórala o créala si no existe.
-        Destaca características únicas, beneficios y palabras clave (cabaña, descanso, naturaleza, etc.).
-        Estilo: Persuasivo, conciso (máx 2 párrafos).
-        Formato: Solo texto plano. NO incluyas markdown como '*' o '#'.
+        Eres un experto en SEO copywriting para la industria del turismo, optimizando para Google Hotels, Trivago, Booking y reserva directa. Tu objetivo es generar una descripción ALTAMENTE OPTIMIZADA y atractiva.
+
+        Contexto:
+        - Alojamiento: "${nombreAlojamiento}"
+        - Empresa: "${nombreEmpresa}"
+        - Ubicación: ${ubicacionTexto || '(Ubicación no proporcionada)'}
+        - Descripción base actual: "${descripcionActual || '(No proporcionada)'}"
+
+        Instrucciones Clave:
+        1.  **SEO Local PRIMERO:** Integra natural y prominentemente la CIUDAD y REGIÓN (ej. "arriendo de cabaña con tinaja en Pucón", "alojamiento en la Araucanía"). Usa el nombre de la ciudad/zona varias veces si suena natural.
+        2.  **Keywords Relevantes:** Incluye palabras clave principales como: cabaña, arriendo, alojamiento, descanso, naturaleza, vacaciones, escapada, ${ubicacion ? ubicacion.city : ''}.
+        3.  **VARIACIONES de Keywords:** Incorpora variaciones importantes de forma natural. Ejemplos: "arriendo de cabañas en [ciudad]", "alojamiento con tinaja privada", "cabañas para familias", "alquiler vacacional". No uses todas si no encajan, prioriza la naturalidad.
+        4.  **Beneficios Claros:** Destaca QUÉ GANA el huésped (relax, desconexión, comodidad, vistas, experiencia única, momentos inolvidables).
+        5.  **Características Únicas:** Menciona detalles específicos y atractivos (tinaja privada, terraza techada, parrilla, dormitorios en suite, capacidad).
+        6.  **Llamada a la Acción (Sutil):** Anima a la reserva (ej: "perfecta para tu próxima escapada", "reserva tu estancia").
+        7.  **Estilo:** Persuasivo, conciso (máximo 2 párrafos cortos), fácil de leer.
+        8.  **Formato:** SOLO texto plano. SIN markdown (*, #), SIN títulos o encabezados.
+
+        Genera la descripción optimizada. Mejora la descripción base o créala. Asegúrate que la ubicación y las variaciones de keywords sean elementos centrales y naturales.
     `;
 
     const respuestaIA = await llamarGeminiAPI(prompt);
@@ -83,6 +113,7 @@ const generarDescripcionAlojamiento = async (descripcionActual, nombreAlojamient
 };
 
 const generarMetadataImagen = async (nombreEmpresa, nombrePropiedad, descripcionPropiedad, nombreComponente, tipoComponente) => {
+    // Se mantiene la lógica de esta función sin cambios.
     const prompt = `
         Eres un experto en SEO de imágenes (SuiteManager Helper). Genera metadatos JSON para una imagen.
         Contexto:
