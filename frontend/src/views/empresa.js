@@ -1,3 +1,4 @@
+// frontend/src/views/empresa.js
 import { fetchAPI } from '../api.js';
 
 let empresaInfo = {};
@@ -7,15 +8,22 @@ function renderFormulario() {
     if (!formContainer) return;
 
     // --- Lógica para el estado de Google Auth ---
+    // (Asegurarse de que googleRefreshToken se esté cargando correctamente)
     const authStatusHtml = empresaInfo.googleRefreshToken
         ? `<div class="p-4 bg-green-100 border border-green-300 rounded-md">
                <p class="font-semibold text-green-800">Estado: Activa</p>
-               <p class="text-sm text-green-700 mt-1">La sincronización con Google Contacts está configurada y funcionando.</p>
+               <p class="text-sm text-green-700 mt-1">La sincronización con Google Contacts está configurada.</p>
            </div>`
         : `<div class="p-4 bg-yellow-100 border border-yellow-300 rounded-md">
                <p class="font-semibold text-yellow-800">Estado: Inactiva</p>
-               <p class="text-sm text-yellow-700 mt-1">Para activar la creación automática de contactos, autoriza la conexión en la sección de Configuración.</p>
+               <p class="text-sm text-yellow-700 mt-1">Autoriza la conexión en 'Configuración' para sincronizar contactos.</p>
            </div>`;
+
+    // Opciones para Enfoque de Marketing
+    const enfoquesMarketing = ['Familiar', 'Parejas', 'Negocios', 'Aventura', 'Relax', 'Económico', 'Lujo', 'Otro'];
+    const enfoqueOptions = enfoquesMarketing.map(e =>
+        `<option value="${e}" ${empresaInfo.enfoqueMarketing === e ? 'selected' : ''}>${e}</option>`
+    ).join('');
 
     formContainer.innerHTML = `
         <form id="empresa-form" class="space-y-6">
@@ -42,6 +50,31 @@ function renderFormulario() {
                         <label for="contactoTelefono" class="block text-sm font-medium text-gray-700">Teléfono de Contacto</label>
                         <input type="tel" id="contactoTelefono" name="contactoTelefono" value="${empresaInfo.contactoTelefono || ''}" class="mt-1 form-input">
                     </div>
+                    <div>
+                        <label for="ubicacionTexto" class="block text-sm font-medium text-gray-700">Ubicación Principal (Ciudad, Región)</label>
+                        <input type="text" id="ubicacionTexto" name="ubicacionTexto" value="${empresaInfo.ubicacionTexto || ''}" class="mt-1 form-input" placeholder="Ej: Pucón, Araucanía, Chile">
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="border p-4 rounded-md">
+                <legend class="px-2 font-semibold text-gray-700">Información para IA y SEO (NUEVO)</legend>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+                    <div>
+                        <label for="tipoAlojamientoPrincipal" class="block text-sm font-medium text-gray-700">Tipo Principal Alojamiento</label>
+                        <input type="text" id="tipoAlojamientoPrincipal" name="tipoAlojamientoPrincipal" value="${empresaInfo.tipoAlojamientoPrincipal || ''}" class="mt-1 form-input" placeholder="Ej: Cabañas con tinaja">
+                    </div>
+                    <div>
+                        <label for="enfoqueMarketing" class="block text-sm font-medium text-gray-700">Enfoque de Marketing</label>
+                        <select id="enfoqueMarketing" name="enfoqueMarketing" class="mt-1 form-select">
+                            <option value="">-- Selecciona --</option>
+                            ${enfoqueOptions}
+                        </select>
+                    </div>
+                    <div class="md:col-span-3">
+                        <label for="palabrasClaveAdicionales" class="block text-sm font-medium text-gray-700">Palabras Clave Adicionales (separadas por coma)</label>
+                        <input type="text" id="palabrasClaveAdicionales" name="palabrasClaveAdicionales" value="${empresaInfo.palabrasClaveAdicionales || ''}" class="mt-1 form-input" placeholder="Ej: turismo aventura, cerca del lago, pet friendly">
+                    </div>
                 </div>
             </fieldset>
 
@@ -63,6 +96,14 @@ function renderFormulario() {
                         <label for="website" class="block text-sm font-medium text-gray-700">Sitio Web (Informativo)</label>
                         <input type="url" id="website" name="website" value="${empresaInfo.website || ''}" class="mt-1 form-input">
                     </div>
+                     <div>
+                        <label for="logoUrl" class="block text-sm font-medium text-gray-700">URL del Logo (Temporal)</label>
+                        <input type="url" id="logoUrl" name="logoUrl" value="${empresaInfo.websiteSettings?.theme?.logoUrl || ''}" class="mt-1 form-input">
+                        </div>
+                     <div>
+                        <label for="googleMapsLink" class="block text-sm font-medium text-gray-700">Link a Google Maps</label>
+                        <input type="url" id="googleMapsLink" name="googleMapsLink" value="${empresaInfo.googleMapsLink || ''}" class="mt-1 form-input">
+                    </div>
                 </div>
             </fieldset>
 
@@ -76,16 +117,6 @@ function renderFormulario() {
                     <div>
                         <label for="condicionesReserva" class="block text-sm font-medium text-gray-700">Condiciones de Reserva</label>
                         <textarea id="condicionesReserva" name="condicionesReserva" rows="4" class="mt-1 form-input">${empresaInfo.condicionesReserva || ''}</textarea>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         <div>
-                            <label for="ubicacionTexto" class="block text-sm font-medium text-gray-700">Texto de Ubicación</label>
-                            <input type="text" id="ubicacionTexto" name="ubicacionTexto" value="${empresaInfo.ubicacionTexto || ''}" class="mt-1 form-input">
-                        </div>
-                        <div>
-                            <label for="googleMapsLink" class="block text-sm font-medium text-gray-700">Link a Google Maps</label>
-                            <input type="url" id="googleMapsLink" name="googleMapsLink" value="${empresaInfo.googleMapsLink || ''}" class="mt-1 form-input">
-                        </div>
                     </div>
                 </div>
             </fieldset>
@@ -106,8 +137,8 @@ export async function render() {
     return `
         <div class="bg-white p-8 rounded-lg shadow max-w-4xl mx-auto">
             <h2 class="text-2xl font-semibold text-gray-900 mb-2">Configuración de la Empresa</h2>
-            <p class="text-gray-600 mb-6">Esta información se usará para personalizar los presupuestos y otros documentos.</p>
-            
+            <p class="text-gray-600 mb-6">Esta información se usará para personalizar los presupuestos, la web pública y otros documentos.</p>
+
             <div id="form-container" class="border-t pt-6">
                 <p class="text-center text-gray-500">Cargando datos de la empresa...</p>
             </div>
@@ -138,16 +169,39 @@ export async function afterRender() {
                 condicionesReserva: form.condicionesReserva.value,
                 ubicacionTexto: form.ubicacionTexto.value,
                 googleMapsLink: form.googleMapsLink.value,
+                
+                // Nuevos campos para IA
+                tipoAlojamientoPrincipal: form.tipoAlojamientoPrincipal.value,
+                palabrasClaveAdicionales: form.palabrasClaveAdicionales.value,
+                enfoqueMarketing: form.enfoqueMarketing.value,
+                
+                // Campos de websiteSettings (el servicio se encargará de anidarlos)
                 websiteSettings: {
                     domain: form.websiteDomain.value,
-                    subdomain: form.websiteSubdomain.value
+                    subdomain: form.websiteSubdomain.value,
+                    // Aseguramos mantener otros settings si existen
+                    ...(empresaInfo.websiteSettings || {}),
+                    // Anidamos theme dentro de websiteSettings
+                    theme: {
+                        ...(empresaInfo.websiteSettings?.theme || {}),
+                        logoUrl: form.logoUrl.value // Sobrescribimos logoUrl aquí
+                    }
                 }
             };
 
+            // No es necesario borrar 'logoUrl' del nivel superior, 
+            // pero nos aseguramos que se guarde anidado en websiteSettings.theme
+            // El servicio 'empresaService' (backend) se actualizó para manejar esto.
+            
             try {
+                // Enviamos el objeto 'datos' completo
                 await fetchAPI('/empresa', { method: 'PUT', body: datos });
+                
                 alert('¡Datos de la empresa actualizados con éxito!');
-                empresaInfo = { ...empresaInfo, ...datos }; // Actualizamos la data local
+                
+                // Recargamos los datos para reflejar los cambios guardados
+                empresaInfo = await fetchAPI('/empresa'); 
+                renderFormulario(); // Re-renderizar con los datos actualizados
             } catch (error) {
                 alert(`Error al guardar: ${error.message}`);
             } finally {
