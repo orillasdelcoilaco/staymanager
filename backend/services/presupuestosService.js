@@ -2,23 +2,22 @@
 const { obtenerPropiedadPorId } = require('./propiedadesService');
 const { obtenerClientePorId } = require('./clientesService');
 const { obtenerTarifasParaRango } = require('./tarifasService');
-const { calcularPrecioDetallado } = require('../services/utils/calculoTarifaUtils');
-const { obtenerDolarObservado } = require('./dolarService'); // Importar
+// *** INICIO DE LA CORRECCIÓN ***
+// La ruta correcta es relativa a la carpeta 'services'
+const { calcularPrecioDetallado } = require('./utils/calculoTarifaUtils');
+// *** FIN DE LA CORRECCIÓN ***
+const { obtenerDolarObservado } = require('./dolarService');
 const { format } = require('date-fns');
 
 // Función auxiliar para obtener la imagen principal de una propiedad
 function obtenerImagenPrincipal(propiedad) {
     if (propiedad.websiteData && propiedad.websiteData.images) {
         const imagenes = propiedad.websiteData.images;
-        // Priorizar categorías específicas
         const portada = imagenes['portadaRecinto']?.[0] || imagenes['exteriorAlojamiento']?.[0];
         if (portada) return portada.storagePath;
-
-        // Fallback: tomar la primera imagen de cualquier componente
         const allImages = Object.values(imagenes).flat();
         if (allImages.length > 0) return allImages[0].storagePath;
     }
-    // Si no hay nada, placeholder
     return 'https://via.placeholder.com/400x300.png?text=Imagen+no+disponible';
 }
 
@@ -62,32 +61,28 @@ async function generarPresupuesto(db, empresaId, datos) {
             if (!p) continue;
 
             const tarifas = await obtenerTarifasParaRango(db, empresaId, propId, fechaLlegada, fechaSalida);
-            const calculo = calcularPrecioDetallado(tarifas, noches, comisionAgencia); // Pasar comisión
+            const calculo = calcularPrecioDetallado(tarifas, noches, comisionAgencia);
 
-            // *** INICIO DE LA CORRECCIÓN ***
-            // Usar la nueva función para obtener la imagen
             const imagenUrl = obtenerImagenPrincipal(p);
-            // *** FIN DE LA CORRECCIÓN ***
 
             propiedadesInfo.push({
                 id: p.id,
                 nombre: p.nombre,
-                // linkFotos: p.linkFotos, // Campo antiguo eliminado
-                linkFotos: imagenUrl, // Usar la nueva URL
+                linkFotos: imagenUrl,
                 capacidad: p.capacidad,
                 precioNocheCLP: calculo.precioPromedioNocheCLP,
                 precioTotalCLP: calculo.precioTotalCLP,
                 precioTotalUSD: (calculo.precioTotalCLP / valorDolar),
-                comisionCalculada: calculo.comisionTotalCLP // Añadir comisión
+                comisionCalculada: calculo.comisionTotalCLP
             });
         }
 
-        // 4. Calcular totales (lógica existente...)
+        // 4. Calcular totales
         let precioTotalConsolidadoCLP = propiedadesInfo.reduce((acc, p) => acc + p.precioTotalCLP, 0);
         let precioTotalConsolidadoUSD = propiedadesInfo.reduce((acc, p) => acc + p.precioTotalUSD, 0);
         let comisionTotalConsolidadaCLP = propiedadesInfo.reduce((acc, p) => acc + p.comisionCalculada, 0);
 
-        // 5. Aplicar servicios adicionales y ajustes (lógica existente...)
+        // 5. Aplicar servicios adicionales y ajustes
         let totalAdicionalesCLP = 0;
         if (serviciosAdicionales && serviciosAdicionales.length > 0) {
             totalAdicionalesCLP = serviciosAdicionales.reduce((acc, s) => acc + s.monto, 0);
@@ -102,13 +97,9 @@ async function generarPresupuesto(db, empresaId, datos) {
             }
         }
 
-        let precioFinalCLP;
-        if (aplicarAjusteTotal) {
-             precioFinalCLP = (precioTotalConsolidadoCLP + totalAdicionalesCLP) + montoAjusteCLP;
-        } else {
-            // El ajuste se aplica por propiedad (más complejo, asumamos que es sobre el total por ahora)
-             precioFinalCLP = (precioTotalConsolidadoCLP + totalAdicionalesCLP) + montoAjusteCLP;
-        }
+        let precioFinalCLP = (precioTotalConsolidadoCLP + totalAdicionalesCLP) + montoAjusteCLP;
+        // La lógica de 'aplicarAjusteTotal' puede necesitar revisión si el ajuste debe ser por propiedad
+        // if (!aplicarAjusteTotal) { /* lógica compleja aquí */ }
 
         const precioFinalUSD = precioFinalCLP / valorDolar;
 
@@ -131,7 +122,7 @@ async function generarPresupuesto(db, empresaId, datos) {
                 monto: montoAjusteCLP,
                 tipo: tipoAjuste || null,
                 descripcion: datos.descripcionAjuste || '',
-                aplicadoAlTotal: aplicarAjusteTotal || false
+                aplicadoAlTotal: aplicarAjusteTotal !== undefined ? aplicarAjusteTotal : true // Default a true
             },
             comisionAgencia: comisionAgencia || 0,
             comisionTotalCalculada: comisionTotalConsolidadaCLP,
@@ -139,7 +130,7 @@ async function generarPresupuesto(db, empresaId, datos) {
             adicionalesCLP: totalAdicionalesCLP,
             totalFinalCLP: precioFinalCLP,
             totalFinalUSD: precioFinalUSD,
-            estado: 'pendiente', // 'pendiente', 'aceptado', 'rechazado'
+            estado: 'pendiente',
             enviadoPorEmail: enviarEmail || false
         };
 
@@ -147,8 +138,8 @@ async function generarPresupuesto(db, empresaId, datos) {
 
         // 7. Enviar email (si aplica)
         if (enviarEmail) {
-            // TODO: Implementar lógica de envío de email
             console.log(`Simulando envío de email para presupuesto ${presupuestoRef.id} a ${cliente.email}`);
+            // TODO: Implementar lógica de envío de email
         }
 
         return nuevoPresupuesto;
@@ -162,7 +153,7 @@ async function generarPresupuesto(db, empresaId, datos) {
 async function obtenerPresupuestos(db, empresaId) {
     const snapshot = await db.collection('empresas').doc(empresaId).collection('presupuestos')
         .orderBy('fechaCreacion', 'desc')
-        .limit(50) // Limitar a los últimos 50
+        .limit(50)
         .get();
 
     if (snapshot.empty) return [];
