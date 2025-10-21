@@ -16,10 +16,8 @@
 
     <%- include('partials/header') %>
 
-    <main>
-        <% if (empresa.websiteSettings?.theme?.heroImageUrl) { %>
-            <div class="relative bg-gray-900 h-64 md:h-96">
-                <picture>
+    <main class="overflow-hidden"> <% if (empresa.websiteSettings?.theme?.heroImageUrl) { %>
+            <div class="relative bg-gray-900 h-64 md:h-96 min-h-[250px] flex items-center justify-center"> <picture>
                     <source srcset="<%= empresa.websiteSettings.theme.heroImageUrl %>" type="image/webp">
                     <img src="<%= empresa.websiteSettings.theme.heroImageUrl %>" 
                          alt="<%= empresa.websiteSettings.theme.heroImageAlt || 'Imagen de portada' %>" 
@@ -38,13 +36,15 @@
                 </div>
             </div>
         <% } else { %>
-            <div class="container py-12 text-center">
-                 <h1 class="text-4xl font-bold text-gray-900">
-                    <%= empresa.websiteSettings?.content?.homeH1 || empresa.nombre %>
-                </h1>
-                <p class="mt-2 text-lg text-gray-600">
-                    <%= empresa.websiteSettings?.content?.homeIntro || empresa.slogan || 'Tu mejor opción para descansar.' %>
-                </p>
+            <div class="bg-indigo-700 text-white py-12 px-4 text-center h-64 md:h-80 flex items-center justify-center">
+                 <div>
+                     <h1 class="text-4xl md:text-5xl font-bold">
+                        <%= empresa.websiteSettings?.content?.homeH1 || empresa.nombre %>
+                    </h1>
+                    <p class="mt-4 text-lg md:text-xl max-w-2xl">
+                        <%= empresa.websiteSettings?.content?.homeIntro || empresa.slogan || 'Tu mejor opción para descansar.' %>
+                    </p>
+                 </div>
             </div>
         <% } %>
         <div class="container py-12">
