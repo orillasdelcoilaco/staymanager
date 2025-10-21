@@ -1,27 +1,41 @@
 // backend/routes/websiteConfigRoutes.js
 const express = require('express');
-const multer = require('multer'); // <-- CORRECCIÓN: Importación de Multer (necesaria)
+const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const sharp = require('sharp');
 
 const { obtenerPropiedadPorId, actualizarPropiedad } = require('../services/propiedadesService');
-const { obtenerDetallesEmpresa, actualizarDetallesEmpresa } = require('../services/empresaService'); // <-- Añadido para config. home
-// <-- CORRECCIÓN: Importar *todas* las funciones de aiService
+// Asegurar que ambos servicios de empresa estén importados
+const { obtenerDetallesEmpresa, actualizarDetallesEmpresa } = require('../services/empresaService');
 const { generarDescripcionAlojamiento, generarMetadataImagen, generarSeoHomePage, generarContenidoHomePage } = require('../services/aiContentService');
-// <-- CORRECCIÓN: Importación de storageService (ruta correcta)
 const { uploadFile, deleteFileByPath } = require('../services/storageService');
 const admin = require('firebase-admin');
 
-// <-- CORRECCIÓN: Configuración de Multer (necesaria)
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 module.exports = (db) => {
     const router = express.Router();
 
-    // Obtener configuración web de una propiedad (sin cambios)
-    router.get('/propiedad/:propiedadId', async (req, res) => {
+    // *** INICIO VERIFICACIÓN/CORRECCIÓN ***
+    // Ruta para OBTENER la configuración web de la empresa (para la carga inicial de la vista)
+    router.get('/configuracion-web', async (req, res, next) => {
+        try {
+            const { empresaId } = req.user; // Obtener empresaId del usuario autenticado
+            const empresaData = await obtenerDetallesEmpresa(db, empresaId);
+            // Devolver solo la parte de websiteSettings o un objeto vacío si no existe
+            res.status(200).json(empresaData.websiteSettings || {});
+        } catch (error) {
+            console.error("Error GET /website-config/configuracion-web:", error);
+             // Pasar el error al manejador de errores de Express
+             next(error); // Es mejor que enviar HTML directamente
+        }
+    });
+    // *** FIN VERIFICACIÓN/CORRECCIÓN ***
+
+    // Obtener configuración web de una propiedad específica
+    router.get('/propiedad/:propiedadId', async (req, res, next) => { // Añadir next
         try {
             const { empresaId } = req.user;
             const { propiedadId } = req.params;
@@ -32,14 +46,14 @@ module.exports = (db) => {
             res.status(200).json(propiedad.websiteData || { aiDescription: '', images: {} });
         } catch (error) {
             console.error(`Error GET /website-config/propiedad/${req.params.propiedadId}:`, error);
-            res.status(500).json({ error: 'Error interno del servidor.' });
+            next(error); // Pasar error
         }
     });
 
-    // --- NUEVAS RUTAS PARA LA PÁGINA DE INICIO ---
+    // --- RUTAS DE PÁGINA DE INICIO (HOME) ---
 
     // Generar textos SEO para Home (sin guardar)
-    router.post('/generate-ai-home-seo', async (req, res) => {
+    router.post('/generate-ai-home-seo', async (req, res, next) => { // Añadir next
         try {
             const { empresaId } = req.user;
             const empresaData = await obtenerDetallesEmpresa(db, empresaId);
@@ -47,12 +61,12 @@ module.exports = (db) => {
             res.status(200).json(textosSeo);
         } catch (error) {
             console.error(`Error POST /generate-ai-home-seo:`, error);
-            res.status(500).json({ error: error.message || 'Error al generar textos SEO para Home.' });
+            next(error); // Pasar error
         }
     });
 
     // Generar textos de contenido para Home (sin guardar)
-    router.post('/generate-ai-home-content', async (req, res) => {
+    router.post('/generate-ai-home-content', async (req, res, next) => { // Añadir next
         try {
             const { empresaId } = req.user;
             const empresaData = await obtenerDetallesEmpresa(db, empresaId);
@@ -60,12 +74,12 @@ module.exports = (db) => {
             res.status(200).json(textosContent);
         } catch (error) {
             console.error(`Error POST /generate-ai-home-content:`, error);
-            res.status(500).json({ error: error.message || 'Error al generar contenido para Home.' });
+            next(error); // Pasar error
         }
     });
 
     // Guardar textos SEO y de Contenido para Home
-    router.put('/home-settings', async (req, res) => {
+    router.put('/home-settings', async (req, res, next) => { // Añadir next
         try {
             const { empresaId } = req.user;
             const { metaTitle, metaDescription, h1, introParagraph } = req.body;
@@ -74,24 +88,23 @@ module.exports = (db) => {
                 return res.status(400).json({ error: 'Se requiere al menos un campo de texto para guardar.' });
             }
 
-            // Usar notación de puntos para actualizar campos anidados
             const updatePayload = {};
             if (metaTitle !== undefined) updatePayload['websiteSettings.seo.homeTitle'] = metaTitle;
             if (metaDescription !== undefined) updatePayload['websiteSettings.seo.homeDescription'] = metaDescription;
             if (h1 !== undefined) updatePayload['websiteSettings.content.homeH1'] = h1;
             if (introParagraph !== undefined) updatePayload['websiteSettings.content.homeIntro'] = introParagraph;
 
-            await actualizarDetallesEmpresa(db, empresaId, updatePayload); // 'actualizarDetallesEmpresa' debe usar .update()
+            await actualizarDetallesEmpresa(db, empresaId, updatePayload);
             res.status(200).json({ message: 'Configuración de la página de inicio guardada.' });
 
         } catch (error) {
             console.error(`Error PUT /home-settings:`, error);
-            res.status(500).json({ error: 'Error al guardar la configuración de inicio.' });
+            next(error); // Pasar error
         }
     });
 
      // Subir imagen de portada (Hero Image)
-    router.post('/upload-hero-image', upload.single('heroImage'), async (req, res) => {
+    router.post('/upload-hero-image', upload.single('heroImage'), async (req, res, next) => { // Añadir next
         try {
             const { empresaId, nombreEmpresa } = req.user;
 
@@ -110,34 +123,40 @@ module.exports = (db) => {
 
             const publicUrl = await uploadFile(optimizedBuffer, storagePath, `image/${outputFormat}`);
 
-            const { altText, title } = await generarMetadataImagen(
+            // Responder rápido (la IA de metadata puede tardar)
+            res.status(201).json({ url: publicUrl, alt: "Generando...", title: "Generando..." });
+
+            // --- Tarea Asíncrona (después de responder) ---
+            generarMetadataImagen(
                 nombreEmpresa,
                 `Portada Principal`,
                 `Imagen principal del sitio web de ${nombreEmpresa}`,
                 'Portada',
                 'General'
-            );
-
-            // Usar notación de puntos para guardar
-            const updatePayload = {
-                'websiteSettings.theme.heroImageUrl': publicUrl,
-                'websiteSettings.theme.heroImageAlt': altText,
-                'websiteSettings.theme.heroImageTitle': title
-            };
-            await actualizarDetallesEmpresa(db, empresaId, updatePayload);
-
-            res.status(201).json({ url: publicUrl, alt: altText, title: title });
+            ).then(async (metadata) => {
+                const updatePayload = {
+                    'websiteSettings.theme.heroImageUrl': publicUrl,
+                    'websiteSettings.theme.heroImageAlt': metadata.altText,
+                    'websiteSettings.theme.heroImageTitle': metadata.title
+                };
+                await actualizarDetallesEmpresa(db, empresaId, updatePayload);
+                console.log(`[Async Hero Upload] Metadata IA guardada para ${empresaId}`);
+            }).catch(err => {
+                console.error(`[Async Hero Upload] Error generando metadata IA para ${empresaId}:`, err);
+                // Considerar guardar un estado de error en Firestore si falla la IA
+            });
+            // --- Fin Tarea Asíncrona ---
 
         } catch (error) {
             console.error(`Error POST /upload-hero-image:`, error);
-            res.status(500).json({ error: 'Error al subir o procesar imagen de portada.' });
+            next(error); // Pasar error
         }
     });
 
-    // --- RUTAS EXISTENTES PARA PROPIEDADES ---
+    // --- RUTAS PARA PROPIEDADES ---
 
     // Guardar/Actualizar descripción IA de una Propiedad
-    router.put('/propiedad/:propiedadId', async (req, res) => {
+    router.put('/propiedad/:propiedadId', async (req, res, next) => { // Añadir next
         try {
             const { empresaId } = req.user;
             const { propiedadId } = req.params;
@@ -147,7 +166,6 @@ module.exports = (db) => {
                 return res.status(400).json({ error: 'Se requiere la descripción (aiDescription).' });
             }
 
-            // Usar notación de puntos para actualizar solo este campo
             const updatePayload = {
                 'websiteData.aiDescription': aiDescription
             };
@@ -157,12 +175,12 @@ module.exports = (db) => {
 
         } catch (error) {
             console.error(`Error PUT /website-config/propiedad/${req.params.propiedadId}:`, error);
-            res.status(500).json({ error: 'Error interno del servidor.' });
+            next(error); // Pasar error
         }
     });
 
     // Generar texto IA para una Propiedad
-    router.post('/propiedad/:propiedadId/generate-ai-text', async (req, res) => {
+    router.post('/propiedad/:propiedadId/generate-ai-text', async (req, res, next) => { // Añadir next
         try {
             const { empresaId, nombreEmpresa } = req.user;
             const { propiedadId } = req.params;
@@ -188,12 +206,12 @@ module.exports = (db) => {
 
         } catch (error) {
             console.error(`Error POST /generate-ai-text/${req.params.propiedadId}:`, error);
-            res.status(500).json({ error: error.message || 'Error al generar texto IA para propiedad.' });
+            next(error); // Pasar error
         }
     });
 
     // Subir imágenes para un componente (con IA asíncrona)
-    router.post('/propiedad/:propiedadId/upload-image/:componentId', upload.array('images'), async (req, res) => {
+    router.post('/propiedad/:propiedadId/upload-image/:componentId', upload.array('images'), async (req, res, next) => { // Añadir next
         try {
             const { empresaId, nombreEmpresa } = req.user;
             const { propiedadId, componentId } = req.params;
@@ -247,6 +265,7 @@ module.exports = (db) => {
                         );
                         
                         const doc = await propiedadRef.get();
+                        if (!doc.exists) return; // Propiedad pudo ser borrada
                         const currentData = doc.data();
                         const images = currentData.websiteData?.images?.[cid] || [];
                         const imageIndex = images.findIndex(img => img.imageId === imgId);
@@ -258,10 +277,10 @@ module.exports = (db) => {
                             const updateMetaPayload = {};
                             updateMetaPayload[`websiteData.images.${cid}`] = images;
                             await propiedadRef.update(updateMetaPayload);
-                            console.log(`[Async Upload] Metadata IA guardada para ${imgId} en ${cid}`);
                         }
                     } catch (err) {
                         console.error(`[Async Upload] Error generando metadata IA para ${imgId}:`, err);
+                        // Opcional: Actualizar Firestore para indicar error en 'altText'/'title'
                     }
                 })(propiedadId, componentId, imageId, publicUrl);
                 // --- Fin Tarea Asíncrona ---
@@ -270,12 +289,12 @@ module.exports = (db) => {
 
         } catch (error) {
             console.error(`Error POST /upload-image/${req.params.propiedadId}/${req.params.componentId}:`, error);
-            res.status(500).json({ error: 'Error al subir o procesar imágenes.' });
+            next(error); // Pasar error
         }
     });
 
     // Eliminar una imagen específica
-    router.delete('/propiedad/:propiedadId/delete-image/:componentId/:imageId', async (req, res) => {
+    router.delete('/propiedad/:propiedadId/delete-image/:componentId/:imageId', async (req, res, next) => { // Añadir next
          try {
             const { empresaId } = req.user;
             const { propiedadId, componentId, imageId } = req.params;
@@ -291,21 +310,23 @@ module.exports = (db) => {
 
             if (!imagenAEliminar) return res.status(404).json({ error: 'Imagen no encontrada.' });
 
+            // 1. Eliminar de Storage
             const bucketName = admin.storage().bucket().name;
             let storagePathToDelete = '';
             try {
-                // Adaptado para la URL de Firebase Storage
                 if (imagenAEliminar.storagePath.startsWith(`https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/`)) {
                     const encodedPath = imagenAEliminar.storagePath.split(`${bucketName}/o/`)[1].split('?')[0];
                     storagePathToDelete = decodeURIComponent(encodedPath);
                     await deleteFileByPath(storagePathToDelete);
+                } else {
+                     console.warn(`URL de Storage no reconocida: ${imagenAEliminar.storagePath}`);
                 }
             } catch (storageError) {
                 console.warn(`No se pudo eliminar de Storage (quizás ya estaba borrado): ${storageError.message}`);
             }
 
+            // 2. Eliminar de Firestore
             const nuevasImagenes = imagesComponente.filter(img => img.imageId !== imageId);
-            
             const updatePayload = {};
             updatePayload[`websiteData.images.${componentId}`] = nuevasImagenes;
             await propiedadRef.update(updatePayload);
@@ -314,7 +335,7 @@ module.exports = (db) => {
 
         } catch (error) {
             console.error(`Error DELETE /delete-image/${req.params.propiedadId}/${req.params.componentId}/${req.params.imageId}:`, error);
-            res.status(500).json({ error: 'Error al eliminar la imagen.' });
+            next(error); // Pasar error
         }
     });
 
