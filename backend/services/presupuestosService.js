@@ -1,131 +1,195 @@
 // backend/services/presupuestosService.js
+const { obtenerPropiedadPorId } = require('./propiedadesService');
+const { obtenerClientePorId } = require('./clientesService');
+const { obtenerTarifasParaRango } = require('./tarifasService');
+const { calcularPrecioDetallado } = require('../services/utils/calculoTarifaUtils');
+const { obtenerDolarObservado } = require('./dolarService'); // Importar
+const { format } = require('date-fns');
 
-const { calculatePrice } = require('./propuestasService');
-const { obtenerTiposPlantilla, obtenerPlantillasPorEmpresa } = require('./plantillasService');
-const { obtenerDetallesEmpresa } = require('./empresaService');
-const { obtenerValorDolarHoy } = require('./dolarService');
+// Función auxiliar para obtener la imagen principal de una propiedad
+function obtenerImagenPrincipal(propiedad) {
+    if (propiedad.websiteData && propiedad.websiteData.images) {
+        const imagenes = propiedad.websiteData.images;
+        // Priorizar categorías específicas
+        const portada = imagenes['portadaRecinto']?.[0] || imagenes['exteriorAlojamiento']?.[0];
+        if (portada) return portada.storagePath;
 
-const formatDate = (dateString) => {
-    return new Date(dateString + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' });
-};
-
-const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
-
-const generarTextoPresupuesto = async (db, empresaId, cliente, fechaLlegada, fechaSalida, propiedades, personas) => {
-    const [tipos, plantillas, empresaData, dolarHoy, canales] = await Promise.all([
-        obtenerTiposPlantilla(db, empresaId),
-        obtenerPlantillasPorEmpresa(db, empresaId),
-        obtenerDetallesEmpresa(db, empresaId),
-        obtenerValorDolarHoy(db, empresaId),
-        db.collection('empresas').doc(empresaId).collection('canales').get()
-    ]);
-
-    const tipoPresupuesto = tipos.find(t => t.nombre.toLowerCase().includes('presupuesto'));
-    if (!tipoPresupuesto) {
-        throw new Error('No se encontró un "Tipo de Plantilla" llamado "Presupuesto". Por favor, créalo en la sección de gestión de plantillas.');
+        // Fallback: tomar la primera imagen de cualquier componente
+        const allImages = Object.values(imagenes).flat();
+        if (allImages.length > 0) return allImages[0].storagePath;
     }
+    // Si no hay nada, placeholder
+    return 'https://via.placeholder.com/400x300.png?text=Imagen+no+disponible';
+}
 
-    const plantilla = plantillas.find(p => p.tipoId === tipoPresupuesto.id);
-    if (!plantilla) {
-        throw new Error('No se encontró ninguna plantilla de tipo "Presupuesto". Por favor, crea una.');
-    }
 
-    let texto = plantilla.texto;
+async function generarPresupuesto(db, empresaId, datos) {
+    const {
+        clienteId,
+        propiedadIds,
+        fechaLlegada,
+        fechaSalida,
+        adultos,
+        ninos,
+        noches,
+        serviciosAdicionales,
+        ajustePrecio,
+        tipoAjuste,
+        enviarEmail,
+        aplicarAjusteTotal,
+        comisionAgencia
+    } = datos;
 
-    const startDate = new Date(fechaLlegada + 'T00:00:00Z');
-    const endDate = new Date(fechaSalida + 'T00:00:00Z');
-    const noches = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
+    try {
+        // 1. Obtener cliente
+        const cliente = await obtenerClientePorId(db, empresaId, clienteId);
+        if (!cliente) throw new Error('Cliente no encontrado');
 
-    const allCanales = canales.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    const appCanal = allCanales.find(c => c.nombre.toLowerCase() === 'app');
-    if (!appCanal) {
-        throw new Error("No se encontró el canal 'App' necesario para los cálculos de precios del presupuesto.");
-    }
-    const appCanalId = appCanal.id;
-    const valorDolarDia = dolarHoy.valor;
+        // 2. Obtener valor del dólar
+        let valorDolar = 800; // Valor fallback
+        try {
+            const dolarData = await obtenerDolarObservado(db, empresaId);
+            valorDolar = dolarData.valor;
+        } catch (dolarError) {
+            console.warn(`No se pudo obtener valor del dólar para ${empresaId}, usando fallback ${valorDolar}. Error: ${dolarError.message}`);
+        }
 
-    const tarifasSnapshot = await db.collection('empresas').doc(empresaId).collection('tarifas').get();
-    const allTarifas = tarifasSnapshot.docs.map(doc => {
-        const data = doc.data();
-        const fechaInicio = data.fechaInicio && typeof data.fechaInicio.toDate === 'function' ? data.fechaInicio.toDate() : new Date(data.fechaInicio + 'T00:00:00Z');
-        const fechaTermino = data.fechaTermino && typeof data.fechaTermino.toDate === 'function' ? data.fechaTermino.toDate() : new Date(data.fechaTermino + 'T00:00:00Z');
-        return {
-            ...data,
-            fechaInicio,
-            fechaTermino
+
+        // 3. Procesar cada propiedad
+        let propiedadesInfo = [];
+        for (const propId of propiedadIds) {
+            const p = await obtenerPropiedadPorId(db, empresaId, propId);
+            if (!p) continue;
+
+            const tarifas = await obtenerTarifasParaRango(db, empresaId, propId, fechaLlegada, fechaSalida);
+            const calculo = calcularPrecioDetallado(tarifas, noches, comisionAgencia); // Pasar comisión
+
+            // *** INICIO DE LA CORRECCIÓN ***
+            // Usar la nueva función para obtener la imagen
+            const imagenUrl = obtenerImagenPrincipal(p);
+            // *** FIN DE LA CORRECCIÓN ***
+
+            propiedadesInfo.push({
+                id: p.id,
+                nombre: p.nombre,
+                // linkFotos: p.linkFotos, // Campo antiguo eliminado
+                linkFotos: imagenUrl, // Usar la nueva URL
+                capacidad: p.capacidad,
+                precioNocheCLP: calculo.precioPromedioNocheCLP,
+                precioTotalCLP: calculo.precioTotalCLP,
+                precioTotalUSD: (calculo.precioTotalCLP / valorDolar),
+                comisionCalculada: calculo.comisionTotalCLP // Añadir comisión
+            });
+        }
+
+        // 4. Calcular totales (lógica existente...)
+        let precioTotalConsolidadoCLP = propiedadesInfo.reduce((acc, p) => acc + p.precioTotalCLP, 0);
+        let precioTotalConsolidadoUSD = propiedadesInfo.reduce((acc, p) => acc + p.precioTotalUSD, 0);
+        let comisionTotalConsolidadaCLP = propiedadesInfo.reduce((acc, p) => acc + p.comisionCalculada, 0);
+
+        // 5. Aplicar servicios adicionales y ajustes (lógica existente...)
+        let totalAdicionalesCLP = 0;
+        if (serviciosAdicionales && serviciosAdicionales.length > 0) {
+            totalAdicionalesCLP = serviciosAdicionales.reduce((acc, s) => acc + s.monto, 0);
+        }
+
+        let montoAjusteCLP = 0;
+        if (ajustePrecio && tipoAjuste) {
+            if (tipoAjuste === 'porcentaje') {
+                montoAjusteCLP = (precioTotalConsolidadoCLP + totalAdicionalesCLP) * (ajustePrecio / 100);
+            } else { // 'monto'
+                montoAjusteCLP = ajustePrecio;
+            }
+        }
+
+        let precioFinalCLP;
+        if (aplicarAjusteTotal) {
+             precioFinalCLP = (precioTotalConsolidadoCLP + totalAdicionalesCLP) + montoAjusteCLP;
+        } else {
+            // El ajuste se aplica por propiedad (más complejo, asumamos que es sobre el total por ahora)
+             precioFinalCLP = (precioTotalConsolidadoCLP + totalAdicionalesCLP) + montoAjusteCLP;
+        }
+
+        const precioFinalUSD = precioFinalCLP / valorDolar;
+
+        // 6. Guardar en Firestore
+        const presupuestoRef = db.collection('empresas').doc(empresaId).collection('presupuestos').doc();
+        const nuevoPresupuesto = {
+            id: presupuestoRef.id,
+            clienteId: cliente.id,
+            clienteNombre: cliente.nombre,
+            clienteEmail: cliente.email,
+            fechaCreacion: new Date(),
+            fechaLlegada,
+            fechaSalida,
+            noches,
+            adultos,
+            ninos,
+            propiedades: propiedadesInfo,
+            serviciosAdicionales: serviciosAdicionales || [],
+            ajuste: {
+                monto: montoAjusteCLP,
+                tipo: tipoAjuste || null,
+                descripcion: datos.descripcionAjuste || '',
+                aplicadoAlTotal: aplicarAjusteTotal || false
+            },
+            comisionAgencia: comisionAgencia || 0,
+            comisionTotalCalculada: comisionTotalConsolidadaCLP,
+            subtotalCLP: precioTotalConsolidadoCLP,
+            adicionalesCLP: totalAdicionalesCLP,
+            totalFinalCLP: precioFinalCLP,
+            totalFinalUSD: precioFinalUSD,
+            estado: 'pendiente', // 'pendiente', 'aceptado', 'rechazado'
+            enviadoPorEmail: enviarEmail || false
         };
-    });
 
-    const pricing = await calculatePrice(db, empresaId, propiedades, startDate, endDate, allTarifas, appCanalId, valorDolarDia);
-    
-    let detalleCabañas = '';
-    for (const prop of propiedades) {
-        const precioDetalle = pricing.details.find(d => d.nombre === prop.nombre);
-        detalleCabañas += `🔹 Cabaña ${prop.nombre} (Capacidad: ${prop.capacidad} personas)\n`;
-        if (prop.camas) {
-            if (prop.camas.matrimoniales) detalleCabañas += `* ${prop.camas.matrimoniales} dormitorio(s) matrimoniales${prop.equipamiento?.piezaEnSuite ? ' (uno en suite)' : ''}.\n`;
-            if (prop.camas.plazaYMedia) detalleCabañas += `* ${prop.camas.plazaYMedia} cama(s) de 1.5 plazas.\n`;
-            if (prop.camas.camarotes) detalleCabañas += `* ${prop.camas.camarotes} camarote(s).\n`;
-        }
-        if (prop.numBanos) detalleCabañas += `* ${prop.numBanos} baño(s) completo(s).\n`;
-        
-        if (prop.descripcion) {
-            detalleCabañas += `* ${prop.descripcion}\n`;
+        await presupuestoRef.set(nuevoPresupuesto);
+
+        // 7. Enviar email (si aplica)
+        if (enviarEmail) {
+            // TODO: Implementar lógica de envío de email
+            console.log(`Simulando envío de email para presupuesto ${presupuestoRef.id} a ${cliente.email}`);
         }
 
-        if (prop.equipamiento) {
-            if (prop.equipamiento.terrazaTechada) detalleCabañas += `* Terraza techada.\n`;
-            if (prop.equipamiento.tinaja) detalleCabañas += `* Tinaja privada.\n`;
-            if (prop.equipamiento.parrilla) detalleCabañas += `* Parrilla.\n`;
-        }
+        return nuevoPresupuesto;
 
-        if (prop.linkFotos) detalleCabañas += `📷 Ver fotos: ${prop.linkFotos}\n`;
-        if (precioDetalle) {
-            const precioNocheCLP = appCanal.moneda === 'USD' 
-                ? Math.round(precioDetalle.precioPorNoche * valorDolarDia) 
-                : precioDetalle.precioPorNoche;
-            const precioTotalCLP = appCanal.moneda === 'USD' 
-                ? Math.round(precioDetalle.precioTotal * valorDolarDia) 
-                : precioDetalle.precioTotal;
-            
-            detalleCabañas += `💵 Valor por noche: ${formatCurrency(precioNocheCLP)}\n`;
-            detalleCabañas += `💵 Total por ${noches} noches: ${formatCurrency(precioTotalCLP)}\n`;
-        }
-        detalleCabañas += '\n';
+    } catch (error) {
+        console.error("Error al generar presupuesto:", error);
+        throw error;
     }
+}
 
-    const reemplazos = {
-        '[CLIENTE_NOMBRE]': cliente.nombre,
-        '[CLIENTE_EMPRESA]': cliente.empresa || '',
-        '[FECHA_EMISION]': new Date().toLocaleDateString('es-CL'),
-        '[FECHA_LLEGADA]': formatDate(fechaLlegada),
-        '[FECHA_SALIDA]': formatDate(fechaSalida),
-        '[TOTAL_DIAS]': noches + 1,
-        '[TOTAL_NOCHES]': noches,
-        '[GRUPO_SOLICITADO]': personas,
-        '[LISTA_DE_CABANAS]': detalleCabañas.trim(),
-        '[TOTAL_GENERAL]': formatCurrency(pricing.totalPriceCLP),
-        '[RESUMEN_CANTIDAD_CABANAS]': propiedades.length,
-        '[RESUMEN_CAPACIDAD_TOTAL]': propiedades.reduce((sum, p) => sum + p.capacidad, 0),
-        '[EMPRESA_NOMBRE]': empresaData.nombre || '',
-        '[EMPRESA_SLOGAN]': empresaData.slogan || '',
-        '[SERVICIOS_GENERALES]': empresaData.serviciosGenerales || '',
-        '[CONDICIONES_RESERVA]': empresaData.condicionesReserva || '',
-        '[EMPRESA_UBICACION_TEXTO]': empresaData.ubicacionTexto || '',
-        '[EMPRESA_GOOGLE_MAPS_LINK]': empresaData.googleMapsLink || '',
-        '[USUARIO_NOMBRE]': empresaData.contactoNombre || '',
-        '[USUARIO_EMAIL]': empresaData.contactoEmail || '',
-        '[USUARIO_TELEFONO]': empresaData.contactoTelefono || '',
-        '[EMPRESA_WEBSITE]': empresaData.website || '',
-    };
-    
-    for (const [etiqueta, valor] of Object.entries(reemplazos)) {
-        texto = texto.replace(new RegExp(etiqueta.replace(/\[/g, '\\[').replace(/\]/g, '\\]'), 'g'), valor);
-    }
+async function obtenerPresupuestos(db, empresaId) {
+    const snapshot = await db.collection('empresas').doc(empresaId).collection('presupuestos')
+        .orderBy('fechaCreacion', 'desc')
+        .limit(50) // Limitar a los últimos 50
+        .get();
 
-    return texto;
-};
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => doc.data());
+}
+
+async function obtenerPresupuestoPorId(db, empresaId, presupuestoId) {
+     const doc = await db.collection('empresas').doc(empresaId).collection('presupuestos').doc(presupuestoId).get();
+     if (!doc.exists) {
+         throw new Error('Presupuesto no encontrado');
+     }
+     return doc.data();
+}
+
+async function actualizarEstadoPresupuesto(db, empresaId, presupuestoId, estado) {
+     if (!['pendiente', 'aceptado', 'rechazado'].includes(estado)) {
+         throw new Error('Estado no válido');
+     }
+     const ref = db.collection('empresas').doc(empresaId).collection('presupuestos').doc(presupuestoId);
+     await ref.update({ estado: estado });
+     return { id: presupuestoId, estado: estado };
+}
+
 
 module.exports = {
-    generarTextoPresupuesto
+    generarPresupuesto,
+    obtenerPresupuestos,
+    obtenerPresupuestoPorId,
+    actualizarEstadoPresupuesto
 };

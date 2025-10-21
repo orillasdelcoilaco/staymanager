@@ -1,180 +1,252 @@
 // backend/services/mensajeService.js
+const { obtenerPlantillaPorId } = require('./plantillasService');
+const { obtenerPropiedadPorId } = require('./propiedadesService');
+const { obtenerClientePorId } = require('./clientesService');
+const { obtenerReservaPorId } = require('./reservasService');
+const { obtenerPropuestaPorId } = require('./propuestasService'); // Importar
+const { obtenerPresupuestoPorId } = require('./presupuestosService'); // Importar
+const { format } = require('date-fns');
+const es = require('date-fns/locale/es');
 
-const { obtenerPlantillasPorEmpresa, obtenerTiposPlantilla } = require('./plantillasService');
-const { obtenerDetallesEmpresa } = require('./empresaService');
-const { getActividadDiaria, getDisponibilidadPeriodo } = require('./reportesService');
+// Función auxiliar para obtener la imagen principal de una propiedad
+function obtenerImagenPrincipal(propiedad) {
+    if (propiedad.websiteData && propiedad.websiteData.images) {
+        const imagenes = propiedad.websiteData.images;
+        // Priorizar categorías específicas
+        const portada = imagenes['portadaRecinto']?.[0] || imagenes['exteriorAlojamiento']?.[0];
+        if (portada) return portada.storagePath;
 
-const prepararMensaje = async (db, empresaId, grupoReserva, tipoMensaje) => {
-    const [todasLasPlantillas, todosLosTipos] = await Promise.all([
-        obtenerPlantillasPorEmpresa(db, empresaId),
-        obtenerTiposPlantilla(db, empresaId)
-    ]);
+        // Fallback: tomar la primera imagen de cualquier componente
+        const allImages = Object.values(imagenes).flat();
+        if (allImages.length > 0) return allImages[0].storagePath;
+    }
+    // Si no hay nada, placeholder
+    return 'https://via.placeholder.com/400x300.png?text=Imagen+no+disponible';
+}
 
-    const tipo = todosLosTipos.find(t => t.nombre.toLowerCase().includes(tipoMensaje.toLowerCase()));
-    if (!tipo) {
-        if (tipoMensaje.toLowerCase() === 'salida') {
-            const tipoDespedida = todosLosTipos.find(t => t.nombre.toLowerCase().includes('despedida'));
-            if (tipoDespedida) {
-                const plantillasFiltradas = todasLasPlantillas.filter(p => p.tipoId === tipoDespedida.id);
-                return { plantillas: plantillasFiltradas, datosReserva: grupoReserva };
+
+// Función genérica para reemplazar placeholders
+function reemplazarPlaceholders(texto, datos) {
+    // Expresión regular para encontrar {{objeto.campo}}
+    const regex = /{{\s*([\w\.]+)\s*}}/g;
+
+    return texto.replace(regex, (match, placeholder) => {
+        // Dividir el placeholder (ej. "cliente.nombre")
+        const keys = placeholder.split('.');
+        let valor = datos;
+
+        // Navegar por el objeto
+        for (const key of keys) {
+            if (valor && typeof valor === 'object' && key in valor) {
+                valor = valor[key];
+            } else {
+                return match; // Dejar el placeholder si no se encuentra
             }
         }
-        throw new Error(`No se encontró un tipo de plantilla para '${tipoMensaje}'.`);
-    }
 
-    const plantillasFiltradas = todasLasPlantillas.filter(p => p.tipoId === tipo.id);
-    
-    return {
-        plantillas: plantillasFiltradas,
-        datosReserva: grupoReserva 
-    };
-};
-
-const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
-    const { cliente, propiedades, fechaLlegada, fechaSalida, personas, noches, precioFinal, idPropuesta, precioListaCLP, descuentoCLP, pricingDetails, moneda, valorDolarDia } = datosPropuesta;
-
-    const [plantillas, tipos, empresaData] = await Promise.all([
-        obtenerPlantillasPorEmpresa(db, empresaId),
-        obtenerTiposPlantilla(db, empresaId),
-        obtenerDetallesEmpresa(db, empresaId)
-    ]);
-
-    const tipoPropuesta = tipos.find(t => t.nombre.toLowerCase().includes('propuesta'));
-    if (!tipoPropuesta) throw new Error('No se encontró un "Tipo de Plantilla" llamado "Propuesta".');
-
-    const plantilla = plantillas.find(p => p.tipoId === tipoPropuesta.id);
-    if (!plantilla) throw new Error('No se encontró ninguna plantilla de tipo "Propuesta".');
-
-    let texto = plantilla.texto;
-
-    const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
-    const formatDate = (dateStr) => new Date(dateStr + 'T00:00:00Z').toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
-
-    let detallePropiedades = propiedades.map(prop => {
-        let detalle = `Cabaña ${prop.nombre}: `;
-        const detalles = [];
-        if (prop.camas?.matrimoniales) detalles.push(`* ${prop.camas.matrimoniales} dormitorio(s) matrimoniales${prop.equipamiento?.piezaEnSuite ? ' (uno en suite)' : ''}.`);
-        if (prop.camas?.camarotes) detalles.push(`* ${prop.camas.camarotes} camarote(s).`);
-        if (prop.numBanos) detalles.push(`* ${prop.numBanos} baño(s) completo(s).`);
-        if (prop.descripcion) detalles.push(`* ${prop.descripcion}`);
-        if (prop.equipamiento?.terrazaTechada) detalles.push(`* Terraza techada.`);
-        if (prop.equipamiento?.tinaja) detalles.push(`* Tinaja privada.`);
-        if (prop.equipamiento?.parrilla) detalles.push(`* Parrilla.`);
-        if (prop.linkFotos) detalles.push(`📸 Fotos y más información: ${prop.linkFotos}`);
-        return detalle + '\n' + detalles.join('\n');
-    }).join('\n\n');
-
-    let resumenValores = `📊 Detalle por Alojamiento (${noches} Noches)\n----------------------------------\n`;
-    resumenValores += propiedades.map(prop => {
-        const precioDetalle = pricingDetails.find(d => d.nombre === prop.nombre);
-        if (!precioDetalle) return `${prop.nombre}: $0`;
-        
-        const precioDetalleOriginal = precioDetalle.precioTotal;
-        const precioDetalleCLP = moneda === 'USD' ? Math.round(precioDetalleOriginal * valorDolarDia) : precioDetalleOriginal;
-        return `${prop.nombre}: ${formatCurrency(precioDetalleCLP)}`;
-    }).join('\n');
-    
-    resumenValores += `\n\n📈 Totales Generales\n----------------------------------\n`;
-    resumenValores += `Subtotal: ${formatCurrency(precioListaCLP)}\n`;
-    if (descuentoCLP > 0) {
-        resumenValores += `Descuento Aplicado: -${formatCurrency(descuentoCLP)}\n`;
-    }
-    resumenValores += `----------------------------------\n`;
-    resumenValores += `*TOTAL A PAGAR: ${formatCurrency(precioFinal)}* (IVA incluido)`;
-
-    const fechaVencimiento = new Date();
-    fechaVencimiento.setDate(fechaVencimiento.getDate() + 1);
-    const fechaVencimientoStr = fechaVencimiento.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' }) + " a las 23:59 hrs";
-    
-    const porcentajeAbono = 10;
-    const montoAbono = precioFinal * (porcentajeAbono / 100);
-
-    const reemplazos = {
-        '[PROPUESTA_ID]': `APP-${idPropuesta.substring(0, 15)}`,
-        '[FECHA_EMISION]': new Date().toLocaleDateString('es-CL'),
-        '[CLIENTE_NOMBRE]': cliente.nombre,
-        '[FECHAS_ESTADIA_TEXTO]': `${formatDate(fechaLlegada)} al ${formatDate(fechaSalida)}`,
-        '[TOTAL_NOCHES]': noches,
-        '[GRUPO_SOLICITADO]': personas,
-        '[DETALLE_PROPIEDADES_PROPUESTA]': detallePropiedades,
-        '[RESUMEN_VALORES_PROPUESTA]': resumenValores,
-        '[FECHA_VENCIMIENTO_PROPUESTA]': fechaVencimientoStr,
-        '[PORCENTAJE_ABONO]': `${porcentajeAbono}%`,
-        '[MONTO_ABONO]': formatCurrency(montoAbono),
-        '[USUARIO_NOMBRE]': empresaData.contactoNombre || '',
-        '[USUARIO_TELEFONO]': empresaData.contactoTelefono || '',
-        '[EMPRESA_WEBSITE]': empresaData.website || '',
-    };
-    
-    for (const [etiqueta, valor] of Object.entries(reemplazos)) {
-        texto = texto.replace(new RegExp(etiqueta.replace(/\[/g, '\\[').replace(/\]/g, '\\]'), 'g'), valor);
-    }
-
-    return texto;
-};
-
-const generarTextoReporte = async (db, empresaId, tipoReporte, datos) => {
-    const [plantillas, tipos] = await Promise.all([
-        obtenerPlantillasPorEmpresa(db, empresaId),
-        obtenerTiposPlantilla(db, empresaId)
-    ]);
-    
-    const tipo = tipos.find(t => t.nombre.toLowerCase().includes(tipoReporte.toLowerCase()));
-    if (!tipo) throw new Error(`No se encontró un tipo de plantilla para '${tipoReporte}'.`);
-
-    const plantilla = plantillas.find(p => p.tipoId === tipo.id);
-    if (!plantilla) throw new Error(`No se encontró ninguna plantilla de tipo '${tipoReporte}'.`);
-
-    let texto = plantilla.texto;
-    let reporteGenerado = '';
-    const formatDate = (dateStr) => new Date(dateStr + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' });
-    const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
-
-    if (tipoReporte === 'actividad_diaria') {
-        const dataReporte = await getActividadDiaria(db, empresaId, datos.fecha);
-        dataReporte.forEach(item => {
-            reporteGenerado += `🏡 Cabaña ${item.nombre}\n`;
-            if (item.salida) reporteGenerado += `👋 Se retira hoy: ${item.salida.cliente}\nFechas: ${item.salida.fechas}\nReserva: ${item.salida.reservaId}\n`;
-            if (item.llegada) reporteGenerado += `🧑‍🤝‍🧑 Llega hoy: ${item.llegada.cliente}\nFechas: ${item.llegada.fechas}\nReserva: ${item.llegada.reservaId}\nCanal: ${item.llegada.canal}\n`;
-            else if (item.estadia) reporteGenerado += `💤 En estadía: ${item.estadia.cliente}\nReserva: ${item.estadia.reservaId}\nFechas: ${item.estadia.fechas}\n`;
-            else if (item.proxima) reporteGenerado += `🔜 Próxima reserva: ${item.proxima.fecha}\n(Faltan ${item.proxima.diasFaltantes} días)\nLlega: ${item.proxima.cliente}\n`;
-            else if (!item.salida) reporteGenerado += `❌ Sin reserva hoy\n`;
-            reporteGenerado += `\n`;
-        });
-        texto = texto.replace(/\[FECHA_REPORTE\]/g, formatDate(datos.fecha));
-        texto = texto.replace(/\[REPORTE_ACTIVIDAD_DIARIA\]/g, reporteGenerado.trim());
-    }
-
-    if (tipoReporte === 'disponibilidad') {
-        const dataReporte = await getDisponibilidadPeriodo(db, empresaId, datos.fechaInicio, datos.fechaFin);
-        dataReporte.forEach(item => {
-            if (item.periodos.length > 0) {
-                reporteGenerado += `🏡 Cabaña ${item.nombre}:\n`;
-                if(item.link) reporteGenerado += `${item.link}\n`;
-                if(item.valor > 0) reporteGenerado += `Valor: ${formatCurrency(item.valor)}\n`;
-                if(item.capacidad > 0) reporteGenerado += `Capacidad: ${item.capacidad} personas\n`;
-
-                item.periodos.forEach(p => {
-                    const finDate = new Date(p.fin + 'T00:00:00Z');
-                    finDate.setUTCDate(finDate.getUTCDate() - 1);
-                    if(new Date(p.inicio) <= finDate) {
-                       reporteGenerado += `👍 Del ${formatDate(p.inicio)} al ${formatDate(finDate.toISOString().split('T')[0])}\n`;
-                    }
-                });
-                reporteGenerado += `\n`;
+        // Manejar fechas
+        if (valor instanceof Date) {
+            // Formato simple por defecto, se puede mejorar
+            try {
+                // Asumir que si es 'fechaLlegada' o 'fechaSalida' queremos formato específico
+                if (keys.includes('fechaLlegada') || keys.includes('fechaSalida')) {
+                    return format(valor, "EEEE dd 'de' MMMM yyyy", { locale: es });
+                }
+                return format(valor, 'dd/MM/yyyy HH:mm', { locale: es });
+            } catch (e) {
+                return valor.toString(); // Fallback si la fecha es inválida
             }
-        });
-        texto = texto.replace(/\[FECHA_INICIO_REPORTE\]/g, formatDate(datos.fechaInicio));
-        texto = texto.replace(/\[FECHA_FIN_REPORTE\]/g, formatDate(datos.fechaFin));
-        texto = texto.replace(/\[REPORTE_DISPONIBILIDAD\]/g, reporteGenerado.trim());
+        }
+
+        return (valor !== null && valor !== undefined) ? valor : match;
+    });
+}
+
+
+async function generarMensajePropuesta(db, empresaId, tipoMensaje, propuestaId, plantillaId) {
+    try {
+        // 1. Obtener datos
+        const propuesta = await obtenerPropuestaPorId(db, empresaId, propuestaId);
+        if (!propuesta) throw new Error('Propuesta no encontrada');
+
+        const cliente = await obtenerClientePorId(db, empresaId, propuesta.clienteId);
+        if (!cliente) throw new Error('Cliente no encontrado');
+
+        const plantilla = await obtenerPlantillaPorId(db, empresaId, plantillaId);
+        if (!plantilla) throw new Error('Plantilla no encontrada');
+
+        // 2. Preparar datos para reemplazo
+        let datos = {
+            cliente: { ...cliente },
+            propuesta: { ...propuesta },
+            empresa: {
+                // TODO: Obtener datos de la empresa (ej. nombre, contacto)
+                nombre: "Nombre de tu Empresa",
+                telefono: "+56912345678"
+            },
+            alojamientos: []
+        };
+
+        // Formatear fechas de la propuesta
+        datos.propuesta.fechaLlegada = new Date(propuesta.fechaLlegada);
+        datos.propuesta.fechaSalida = new Date(propuesta.fechaSalida);
+
+        // 3. Procesar alojamientos (para mensajes que listan propiedades)
+        for (const aloj of propuesta.alojamientos) {
+            const propiedad = await obtenerPropiedadPorId(db, empresaId, aloj.id);
+            if (propiedad) {
+                
+                // *** INICIO DE LA CORRECCIÓN ***
+                const imagenUrl = obtenerImagenPrincipal(propiedad);
+                // *** FIN DE LA CORRECCIÓN ***
+                
+                datos.alojamientos.push({
+                    nombre: propiedad.nombre,
+                    // linkFotos: propiedad.linkFotos, // Campo antiguo eliminado
+                    linkFotos: imagenUrl, // Usar la nueva URL
+                    descripcion: propiedad.descripcion
+                });
+            }
+        }
+
+        // 4. Generar texto
+        let textoMensaje = reemplazarPlaceholders(plantilla.contenido, datos);
+
+        // 5. Generar un resumen de alojamientos si se usa el placeholder específico
+        if (textoMensaje.includes('{{lista_alojamientos}}')) {
+            const listaTexto = datos.alojamientos.map(a =>
+                `*${a.nombre}*\n_${a.descripcion.substring(0, 50)}..._\n${a.linkFotos}\n`
+            ).join('\n');
+            textoMensaje = textoMensaje.replace('{{lista_alojamientos}}', listaTexto);
+        }
+
+        return {
+            telefonoCliente: cliente.telefono,
+            mensaje: textoMensaje
+        };
+
+    } catch (error) {
+        console.error("Error al generar mensaje para propuesta:", error);
+        throw error;
     }
-    
-    return texto;
-};
+}
+
+async function generarMensajeDocumento(db, empresaId, tipoMensaje, documentoId, plantillaId) {
+     try {
+        // 1. Obtener datos
+        const presupuesto = await obtenerPresupuestoPorId(db, empresaId, documentoId);
+        if (!presupuesto) throw new Error('Presupuesto no encontrado');
+
+        const cliente = await obtenerClientePorId(db, empresaId, presupuesto.clienteId);
+        if (!cliente) throw new Error('Cliente no encontrado');
+
+        const plantilla = await obtenerPlantillaPorId(db, empresaId, plantillaId);
+        if (!plantilla) throw new Error('Plantilla no encontrada');
+
+        // 2. Preparar datos
+        let datos = {
+            cliente: { ...cliente },
+            documento: { ...presupuesto },
+            empresa: { /*... (datos empresa) ...*/ },
+            alojamientos: []
+        };
+        datos.documento.fechaLlegada = new Date(presupuesto.fechaLlegada);
+        datos.documento.fechaSalida = new Date(presupuesto.fechaSalida);
+
+        // 3. Procesar alojamientos
+         for (const aloj of presupuesto.propiedades) {
+            const propiedad = await obtenerPropiedadPorId(db, empresaId, aloj.id);
+            if (propiedad) {
+                
+                // *** INICIO DE LA CORRECCIÓN ***
+                const imagenUrl = obtenerImagenPrincipal(propiedad);
+                // *** FIN DE LA CORRECCIÓN ***
+
+                datos.alojamientos.push({
+                    nombre: propiedad.nombre,
+                    // linkFotos: propiedad.linkFotos, // Campo antiguo eliminado
+                    linkFotos: imagenUrl, // Usar la nueva URL
+                    descripcion: propiedad.descripcion,
+                    precioTotalCLP: aloj.precioTotalCLP
+                });
+            }
+        }
+
+        // 4. Generar texto
+        let textoMensaje = reemplazarPlaceholders(plantilla.contenido, datos);
+
+        // 5. Generar resumen de alojamientos
+         if (textoMensaje.includes('{{lista_alojamientos_presupuesto}}')) {
+            const listaTexto = datos.alojamientos.map(a =>
+                `*${a.nombre}*\nPrecio Total: $${a.precioTotalCLP.toLocaleString('es-CL')}\n${a.linkFotos}\n`
+            ).join('\n');
+            textoMensaje = textoMensaje.replace('{{lista_alojamientos_presupuesto}}', listaTexto);
+        }
+
+        return {
+            telefonoCliente: cliente.telefono,
+            mensaje: textoMensaje
+        };
+
+     } catch (error) {
+         console.error("Error al generar mensaje para documento:", error);
+         throw error;
+     }
+}
+
+
+async function generarMensajeReserva(db, empresaId, tipoMensaje, reservaId, plantillaId) {
+    try {
+        // 1. Obtener datos
+        const reserva = await obtenerReservaPorId(db, empresaId, reservaId);
+        if (!reserva) throw new Error('Reserva no encontrada');
+
+        const cliente = await obtenerClientePorId(db, empresaId, reserva.clienteId);
+        if (!cliente) throw new Error('Cliente no encontrado');
+
+        const propiedad = await obtenerPropiedadPorId(db, empresaId, reserva.propiedadId);
+        if (!propiedad) throw new Error('Propiedad no encontrada');
+
+        const plantilla = await obtenerPlantillaPorId(db, empresaId, plantillaId);
+        if (!plantilla) throw new Error('Plantilla no encontrada');
+
+        // 2. Preparar datos para reemplazo
+        let datos = {
+            cliente: { ...cliente },
+            reserva: { ...reserva },
+            propiedad: { ...propiedad },
+            empresa: {
+                // TODO: Obtener datos de la empresa (ej. nombre, contacto)
+                nombre: "Nombre de tu Empresa",
+                telefono: "+56912345678",
+                email: "contacto@empresa.com"
+            }
+        };
+        
+        // 3. Formatear valores
+        datos.reserva.fechaLlegada = new Date(reserva.fechaLlegada);
+        datos.reserva.fechaSalida = new Date(reserva.fechaSalida);
+        datos.reserva.precioFinal = reserva.precioFinal?.toLocaleString('es-CL', { style: 'currency', currency: 'CLP' });
+        datos.reserva.abono = reserva.abono?.toLocaleString('es-CL', { style: 'currency', currency: 'CLP' });
+        datos.reserva.saldoPendiente = (reserva.precioFinal - reserva.abono)?.toLocaleString('es-CL', { style: 'currency', currency: 'CLP' });
+
+        // 4. Generar texto
+        const textoMensaje = reemplazarPlaceholders(plantilla.contenido, datos);
+
+        return {
+            telefonoCliente: cliente.telefono,
+            mensaje: textoMensaje
+        };
+
+    } catch (error) {
+        console.error("Error al generar mensaje para reserva:", error);
+        throw error;
+    }
+}
 
 
 module.exports = {
-    prepararMensaje,
-    generarTextoPropuesta,
-    generarTextoReporte
+    generarMensajePropuesta,
+    generarMensajeDocumento,
+    generarMensajeReserva
 };

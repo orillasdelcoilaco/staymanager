@@ -25,7 +25,8 @@
                 <%
                    const imagenes = propiedad.websiteData?.images || {};
                    const todasLasImagenes = Object.values(imagenes).flat();
-                   const imagenPrincipal = todasLasImagenes[0]; // Tomar la primera imagen subida como principal
+                   // Priorizar portada, luego exterior, luego la primera que encuentre
+                   const imagenPrincipal = imagenes['portadaRecinto']?.[0] || imagenes['exteriorAlojamiento']?.[0] || todasLasImagenes[0];
                 %>
                 <% if (imagenPrincipal) { %>
                     <picture>
@@ -81,15 +82,14 @@
                 <div class="bg-white p-6 rounded-lg shadow-lg sticky top-8">
                     <h3 class="text-xl font-bold text-gray-900 mb-4">Reserva tu Estadía</h3>
                     <form id="booking-form">
-                        <input type="hidden" name="propiedadId" value="<%= propiedad.id %>">
                         <div class="space-y-4">
                             <div>
                                 <label for="fechaLlegada" class="block text-sm font-medium text-gray-700">Llegada</label>
-                                <input type="date" name="fechaLlegada" id="fechaLlegada" class="form-input mt-1" required value="<%= prefill.fechaLlegada %>">
+                                <input type="date" name="fechaLlegada" id="fechaLlegada" class="form-input mt-1" required>
                             </div>
                             <div>
                                 <label for="fechaSalida" class="block text-sm font-medium text-gray-700">Salida</label>
-                                <input type="date" name="fechaSalida" id="fechaSalida" class="form-input mt-1" required value="<%= prefill.fechaSalida %>">
+                                <input type="date" name="fechaSalida" id="fechaSalida" class="form-input mt-1" required>
                             </div>
                             <div>
                                 <label for="personas" class="block text-sm font-medium text-gray-700">Huéspedes</label>
@@ -107,7 +107,9 @@
                                 <span id="price-total"></span>
                             </div>
                         </div>
-                        <div id="price-loader" class="mt-6 text-center hidden">Calculando...</div>
+                        <div id="price-loader" class="mt-6 text-center hidden">
+                            <p class="text-sm text-gray-500">Calculando precio...</p>
+                        </div>
                         <button type="submit" id="submit-button" class="btn w-full mt-6" disabled>
                             Continuar a la Reserva
                         </button>
@@ -119,6 +121,11 @@
 
     <%- include('partials/footer') %>
 
-    <script src="/public/js/booking.js" data-propiedad-id="<%= propiedad.id %>" data-prefill-llegada="<%= prefill.fechaLlegada %>" data-prefill-salida="<%= prefill.fechaSalida %>"></script>
+    <script src="/public/js/booking.js" 
+            data-propiedad-id="<%= propiedad.id %>" 
+            data-prefill-llegada="<%= prefill.fechaLlegada %>" 
+            data-prefill-salida="<%= prefill.fechaSalida %>"
+            defer>
+    </script>
 </body>
 </html>

@@ -3,31 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= title %></title>
+    <title>Reserva Confirmada | <%= empresa.nombre %></title>
+    <meta name="description" content="Tu reserva ha sido recibida." />
     <link rel="stylesheet" href="/public/css/website.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-50">
+
     <%- include('partials/header') %>
 
-    <main class="container py-12 text-center">
-        <div class="bg-white p-12 rounded-lg shadow-lg max-w-2xl mx-auto">
-            <h1 class="text-3xl font-bold text-green-600">¡Tu reserva está confirmada!</h1>
-            <p class="mt-4 text-gray-700">Hemos recibido tu solicitud de reserva. Pronto, uno de nuestros ejecutivos se pondrá en contacto contigo para coordinar los detalles del pago y la llegada.</p>
-            <div class="mt-8 text-left border-t pt-6 bg-gray-50 p-6 rounded-lg">
-                <h2 class="font-bold mb-4 text-lg">Detalles de tu reserva:</h2>
-                <div class="space-y-2">
-                    <p><strong>Número de Reserva:</strong> <%= reserva.idReservaCanal %></p>
-                    <p><strong>Alojamiento:</strong> <%= reserva.alojamientoNombre %></p>
-                    <p><strong>Cliente:</strong> <%= cliente.nombre %></p>
-                    <p><strong>Llegada:</strong> <%= reserva.fechaLlegada.toDate().toLocaleDateString('es-CL', { timeZone: 'UTC' }) %></p>
-                    <p><strong>Salida:</strong> <%= reserva.fechaSalida.toDate().toLocaleDateString('es-CL', { timeZone: 'UTC' }) %></p>
-                    <p><strong>Total a Pagar:</strong> <span class="font-bold text-lg">$<%= reserva.valores.valorHuesped.toLocaleString('es-CL') %></span></p>
+    <main class="container py-12 md:py-24">
+        <div class="max-w-2xl mx-auto bg-white p-8 md:p-12 rounded-lg shadow-lg text-center">
+            
+            <svg class="w-16 h-16 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+
+            <h1 class="text-3xl font-bold text-gray-900 mt-4">¡Reserva Recibida!</h1>
+            
+            <p class="text-lg text-gray-600 mt-4">
+                Hemos recibido tu solicitud de reserva. Nos pondremos en contacto contigo a la brevedad
+                para confirmar los detalles y coordinar el pago del abono.
+            </p>
+
+            <% if (reserva) { %>
+                <div class="mt-6 border-t pt-6 text-left space-y-2">
+                    <h3 class="text-lg font-semibold text-gray-800">Detalles de tu Solicitud:</h3>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">ID de Reserva:</span>
+                        <span class="font-medium font-mono text-sm"><%= reserva.id %></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Llegada:</span>
+                        <span class="font-medium"><%= new Date(reserva.fechaLlegada + 'T00:00:00-03:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'short' }) %></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Salida:</span>
+                        <span class="font-medium"><%= new Date(reserva.fechaSalida + 'T00:00:00-03:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'short' }) %></span>
+                    </div>
+                     <div class="flex justify-between">
+                        <span class="text-gray-600">Total:</span>
+                        <span class="font-medium">$<%= reserva.precioFinal.toLocaleString('es-CL') %></span>
+                    </div>
                 </div>
+            <% } %>
+
+            <div class="mt-8">
+                <a href="/" class="btn">Volver al Inicio</a>
             </div>
-            <a href="/" class="btn mt-8">Volver al Inicio</a>
+
         </div>
     </main>
 
