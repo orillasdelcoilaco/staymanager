@@ -1,76 +1,343 @@
 // frontend/src/views/configurarWebPublica.js
 import { fetchAPI } from '../api.js';
 
-let empresaConfig = {};
-let selectedPropiedadId = null; // Para saber qué propiedad estamos configurando
-let currentPropiedadWebsiteData = {}; // Almacena websiteData de la propiedad seleccionada
+let todasLasPropiedades = [];
+let empresaInfo = {}; // Para guardar los datos generales de la empresa
+let propiedadSeleccionada = null; // Guardará el objeto completo de la propiedad seleccionada
+let websiteDataPropiedad = { aiDescription: '', images: {} }; // Datos específicos de la propiedad
+let websiteSettingsEmpresa = { seo: {}, content: {}, theme: {}, general: {} }; // Datos generales de la web
 
-// Función para cargar la configuración web de la empresa
-async function loadEmpresaConfig() {
+// --- Funciones Auxiliares de Renderizado ---
+
+// Renderiza la sección de Textos SEO Generales (Página de Inicio)
+function renderizarSeccionTextosHome() {
+    const container = document.getElementById('seccion-textos-home');
+    if (!container || !empresaInfo) return;
+
+    const seo = websiteSettingsEmpresa.seo || {};
+    const content = websiteSettingsEmpresa.content || {};
+
+    container.innerHTML = `
+        <fieldset class="border p-4 rounded-md">
+            <legend class="px-2 font-semibold text-gray-700">Textos SEO y Contenido - Página de Inicio</legend>
+            <div class="mt-4 space-y-4">
+                <p class="text-xs text-gray-500">
+                    Información base usada por la IA (desde Configuración Empresa):<br>
+                    <strong>Ubicación:</strong> ${empresaInfo.ubicacionTexto || 'No definida'} |
+                    <strong>Tipo Aloj.:</strong> ${empresaInfo.tipoAlojamientoPrincipal || 'No definido'} |
+                    <strong>Enfoque:</strong> ${empresaInfo.enfoqueMarketing || 'No definido'} |
+                    <strong>Keywords:</strong> ${empresaInfo.palabrasClaveAdicionales || 'Ninguna'}
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <button id="btn-generar-home-seo" class="btn-secondary text-sm w-full">✨ Generar Meta Título y Descripción</button>
+                    </div>
+                    <div>
+                         <button id="btn-generar-home-content" class="btn-secondary text-sm w-full">✨ Generar Título H1 y Párrafo Intro</button>
+                    </div>
+                </div>
+                 <div id="ia-home-status" class="text-sm text-gray-500 text-center"></div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="seo-home-title" class="block text-sm font-medium text-gray-700">SEO Title (Título de la pestaña)</label>
+                        <input type="text" id="seo-home-title" class="form-input mt-1" value="${seo.homeTitle || ''}" placeholder="Ej: Cabañas en Pucón | Reserva Directa">
+                    </div>
+                    <div>
+                        <label for="home-h1" class="block text-sm font-medium text-gray-700">Título Principal (H1) del Home</label>
+                        <input type="text" id="home-h1" class="form-input mt-1" value="${content.homeH1 || ''}" placeholder="Ej: Cabañas con Tinaja en Pucón">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="seo-home-description" class="block text-sm font-medium text-gray-700">SEO Description (Para Google)</label>
+                        <textarea id="seo-home-description" rows="3" class="form-input mt-1" placeholder="Ej: Descubre las mejores cabañas...">${seo.homeDescription || ''}</textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="home-intro" class="block text-sm font-medium text-gray-700">Texto Introductorio del Home (Bajo el H1)</label>
+                        <textarea id="home-intro" rows="4" class="form-input mt-1" placeholder="Ej: Bienvenido a nuestro refugio...">${content.homeIntro || ''}</textarea>
+                    </div>
+                </div>
+            </div>
+        </fieldset>
+    `;
+}
+
+// Renderiza la sección de Imagen de Portada (Hero Image)
+function renderizarSeccionImagenPortada() {
+    const container = document.getElementById('seccion-imagen-portada');
+    if (!container || !empresaInfo) return;
+
+    const theme = websiteSettingsEmpresa.theme || {};
+    const heroImageUrl = theme.heroImageUrl || '';
+    const heroImageAlt = theme.heroImageAlt || '';
+    const heroImageTitle = theme.heroImageTitle || '';
+
+    container.innerHTML = `
+        <fieldset class="border p-4 rounded-md">
+            <legend class="px-2 font-semibold text-gray-700">Imagen de Portada (Página de Inicio)</legend>
+            <div class="mt-4 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                    <div>
+                        <label for="heroImageFile" class="block text-sm font-medium text-gray-700">Subir Nueva Imagen de Portada</label>
+                        <input type="file" id="heroImageFile" accept="image/*" class="form-input-file mt-1">
+                        <p class="text-xs text-gray-500 mt-1">La imagen se optimizará a 1920x1080px (WebP).</p>
+                        
+                        <label for="hero-image-alt" class="block text-sm font-medium text-gray-700 mt-2">Texto Alternativo (Alt)</label>
+                        <input type="text" id="hero-image-alt" class="form-input mt-1" value="${heroImageAlt}" placeholder="Descripción para SEO y accesibilidad">
+                        
+                        <label for="hero-image-title" class="block text-sm font-medium text-gray-700 mt-2">Texto de Título (Tooltip)</label>
+                        <input type="text" id="hero-image-title" class="form-input mt-1" value="${heroImageTitle}" placeholder="Texto corto al pasar el mouse">
+                        
+                        <button id="upload-hero-image-btn" class="btn-secondary text-sm mt-3 w-full">Subir y Guardar Imagen</button>
+                        <div id="hero-upload-status" class="text-xs mt-1"></div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Imagen Actual</label>
+                        ${heroImageUrl
+                            ? `<img id="hero-image-preview" src="${heroImageUrl}" alt="${heroImageAlt}" title="${heroImageTitle}" class="mt-1 w-full h-auto max-h-48 object-cover rounded border">`
+                            : '<p id="hero-image-preview" class="text-sm text-gray-500 mt-1">No hay imagen de portada.</p>'
+                        }
+                    </div>
+                </div>
+            </div>
+        </fieldset>
+    `;
+}
+
+// Renderiza la sección de Configuración General (Dominio, etc.)
+function renderizarConfigGeneral() {
+    const container = document.getElementById('seccion-config-general');
+    if (!container) return;
+
+    const general = websiteSettingsEmpresa.general || {};
+    const theme = websiteSettingsEmpresa.theme || {};
+    
+    container.innerHTML = `
+        <fieldset class="border p-4 rounded-md">
+            <legend class="px-2 font-semibold text-gray-700">Configuración General y Tema</legend>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                <div>
+                    <label for="subdomain-input" class="block text-sm font-medium text-gray-700">Subdominio (Ej: prueba1)</label>
+                    <input type="text" id="subdomain-input" class="form-input mt-1" value="${general.subdomain || ''}" placeholder="ej: miempresa">
+                </div>
+                <div>
+                    <label for="domain-input" class="block text-sm font-medium text-gray-700">Dominio Personalizado (Ej: miempresa.com)</label>
+                    <input type="text" id="domain-input" class="form-input mt-1" value="${general.domain || ''}" placeholder="ej: miempresa.com">
+                </div>
+                <div>
+                    <label for="logo-url-input" class="block text-sm font-medium text-gray-700">URL del Logo (opcional)</label>
+                    <input type="url" id="logo-url-input" class="form-input mt-1" value="${theme.logoUrl || ''}" placeholder="https://ejemplo.com/mi-logo.png">
+                </div>
+                 <div>
+                    <label for="theme-primary-color" class="block text-sm font-medium text-gray-700">Color Primario (Botones, Links)</label>
+                    <input type="color" id="theme-primary-color" value="${theme.primaryColor || '#4f46e5'}" class="form-input mt-1 h-10 w-full">
+                </div>
+                <div>
+                    <label for="theme-secondary-color" class="block text-sm font-medium text-gray-700">Color Secundario (Acentos)</label>
+                    <input type="color" id="theme-secondary-color" value="${theme.secondaryColor || '#f87171'}" class="form-input mt-1 h-10 w-full">
+                </div>
+            </div>
+        </fieldset>
+    `;
+}
+
+
+// Renderiza la sección de Texto SEO para la Propiedad Seleccionada
+function renderizarSeccionTextoPropiedad() {
+    const container = document.getElementById('seccion-texto-propiedad');
+    if (!container || !propiedadSeleccionada) return;
+
+    container.innerHTML = `
+        <fieldset class="border p-4 rounded-md">
+            <legend class="px-2 font-semibold text-gray-700">Descripción SEO - ${propiedadSeleccionada.nombre}</legend>
+            <div class="mt-4 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-500">Descripción Manual Base (desde Gestionar Alojamientos)</label>
+                    <p class="mt-1 text-sm text-gray-700 bg-gray-50 p-3 rounded-md border min-h-[60px]">
+                        ${propiedadSeleccionada.descripcion || 'No hay descripción base.'}
+                    </p>
+                </div>
+                <div>
+                    <button id="btn-generar-texto-propiedad" class="btn-secondary text-sm">✨ Generar/Regenerar Descripción Optimizada</button>
+                    <span id="ia-propiedad-status" class="ml-2 text-sm text-gray-500"></span>
+                </div>
+                <div id="propiedad-desc-input-container">
+                    <label for="aiDescriptionPropiedad" class="block text-sm font-medium text-gray-700">Descripción Optimizada (Editable)</label>
+                    <textarea id="aiDescriptionPropiedad" name="aiDescriptionPropiedad" rows="8" class="form-input mt-1">${websiteDataPropiedad.aiDescription || ''}</textarea>
+                     <div class="text-right mt-2">
+                        <button id="btn-guardar-texto-propiedad" class="btn-primary">Guardar Descripción</button>
+                    </div>
+                </div>
+            </div>
+        </fieldset>
+    `;
+
+    // Añadir listeners
+    document.getElementById('btn-generar-texto-propiedad')?.addEventListener('click', generarTextoDescripcionPropiedad);
+    document.getElementById('btn-guardar-texto-propiedad')?.addEventListener('click', guardarTextoDescripcionPropiedad);
+}
+
+
+// Renderiza la sección de Gestión de Imágenes (por componentes)
+function renderizarGestorImagenes() {
+    const container = document.getElementById('seccion-imagenes-propiedad');
+    if (!container || !propiedadSeleccionada || !propiedadSeleccionada.componentes || propiedadSeleccionada.componentes.length === 0) {
+        if(container) container.innerHTML = `<p class="text-sm text-gray-500 p-4 border rounded-md">Define los 'Componentes' de este alojamiento en 'Gestionar Alojamientos' para poder subir imágenes.</p>`;
+        return;
+    }
+
+    container.innerHTML = '<h3 class="text-lg font-semibold text-gray-800 mb-2">Imágenes por Componente</h3>' +
+        propiedadSeleccionada.componentes.map(componente => `
+        <fieldset class="border p-4 rounded-md mb-4">
+            <legend class="px-2 font-semibold text-gray-700">${componente.nombre} (Tipo: ${componente.tipo})</legend>
+            <div class="mt-4 space-y-3">
+                <div id="galeria-${componente.id}" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                    ${renderizarImagenesComponente(componente.id)}
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Subir Nuevas Imágenes para ${componente.nombre}</label>
+                    <input type="file" multiple accept="image/*" data-component-id="${componente.id}" class="subir-imagenes-input form-input-file mt-1">
+                    <div id="upload-status-${componente.id}" class="text-xs mt-1"></div>
+                </div>
+            </div>
+        </fieldset>
+    `).join('');
+
+    container.querySelectorAll('.subir-imagenes-input').forEach(input => {
+        input.addEventListener('change', (e) => handleSubirImagenesPropiedad(e.target.dataset.componentId, e.target.files));
+    });
+    container.querySelectorAll('.eliminar-imagen-btn').forEach(button => {
+        button.addEventListener('click', (e) => handleEliminarImagenPropiedad(e.currentTarget.dataset.componentId, e.currentTarget.dataset.imageId));
+    });
+}
+
+
+// Renderiza las imágenes de un componente específico (sin cambios)
+function renderizarImagenesComponente(componentId) {
+    const imagenes = websiteDataPropiedad.images?.[componentId] || [];
+    if (imagenes.length === 0) {
+        return '<p class="text-xs text-gray-500 col-span-full">No hay imágenes para este componente.</p>';
+    }
+    const getImageUrl = (storagePath) => storagePath || '';
+
+    return imagenes.map(img => `
+        <div class="relative border rounded-md overflow-hidden group">
+            <img src="${getImageUrl(img.storagePath)}" alt="${img.altText || 'Imagen de alojamiento'}" title="${img.title || ''}" class="w-full h-24 object-cover">
+             <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-opacity flex flex-col justify-between p-1 text-white text-[10px] opacity-0 group-hover:opacity-100">
+                <button data-component-id="${componentId}" data-image-id="${img.imageId}" class="eliminar-imagen-btn absolute top-1 right-1 bg-red-600 rounded-full w-4 h-4 flex items-center justify-center text-white font-bold leading-none p-0 cursor-pointer">&times;</button>
+                <div class="bg-black bg-opacity-50 p-0.5 rounded-sm overflow-hidden">
+                    <p class="truncate" title="Alt: ${img.altText || ''}">Alt: ${img.altText || '(no generado)'}</p>
+                    ${img.title ? `<p class="truncate" title="Title: ${img.title}">Title: ${img.title}</p>` : ''}
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+
+// --- Funciones de Lógica y API ---
+
+// Carga los datos web de la propiedad Y los datos generales de la empresa
+async function cargarDatosWebPropiedad(propiedadId) {
+    const configContainer = document.getElementById('config-container-propiedad');
+    const textoPropiedadContainer = document.getElementById('seccion-texto-propiedad');
+    const imagenesPropiedadContainer = document.getElementById('seccion-imagenes-propiedad');
+
+    if (!configContainer || !textoPropiedadContainer || !imagenesPropiedadContainer) return;
+
+    textoPropiedadContainer.innerHTML = '<p class="text-sm text-gray-500">Cargando datos de la propiedad...</p>';
+    imagenesPropiedadContainer.innerHTML = '';
+    configContainer.classList.remove('hidden');
+
     try {
-        empresaConfig = await fetchAPI('/website-config/configuracion-web');
-        document.getElementById('home-h1').value = empresaConfig.content?.homeH1 || '';
-        document.getElementById('home-intro').value = empresaConfig.content?.homeIntro || '';
-        document.getElementById('seo-home-title').value = empresaConfig.seo?.homeTitle || '';
-        document.getElementById('seo-home-description').value = empresaConfig.seo?.homeDescription || '';
-        document.getElementById('theme-primary-color').value = empresaConfig.theme?.primaryColor || '#4f46e5';
-        document.getElementById('theme-secondary-color').value = empresaConfig.theme?.secondaryColor || '#f87171';
-        document.getElementById('subdomain-input').value = empresaConfig.subdomain || '';
-        document.getElementById('domain-input').value = empresaConfig.domain || '';
-        document.getElementById('logo-url-input').value = empresaConfig.theme?.logoUrl || '';
+        propiedadSeleccionada = todasLasPropiedades.find(p => p.id === propiedadId);
+        if (!propiedadSeleccionada) throw new Error('Propiedad no encontrada localmente.');
 
-        // Mostrar imagen del Hero si existe
-        const heroImagePreview = document.getElementById('hero-image-preview');
-        const heroImageUrl = empresaConfig.theme?.heroImageUrl;
-        if (heroImageUrl) {
-            heroImagePreview.src = heroImageUrl;
-            heroImagePreview.classList.remove('hidden');
-        } else {
-            heroImagePreview.classList.add('hidden');
-        }
+        // Obtener los datos más frescos desde la API por si acaso
+        const websiteData = await fetchAPI(`/website-config/propiedad/${propiedadId}`);
+        websiteDataPropiedad = websiteData || { aiDescription: '', images: {} };
+        if (!websiteDataPropiedad.images) websiteDataPropiedad.images = {};
+        
+        // Actualizar la lista local
+        propiedadSeleccionada.websiteData = websiteDataPropiedad;
+
+        renderizarSeccionTextoPropiedad();
+        renderizarGestorImagenes();
 
     } catch (error) {
-        console.error("Error al cargar la configuración de la empresa:", error);
-        alert("Error al cargar la configuración de la empresa.");
+        console.error("Error al cargar datos web de la propiedad:", error);
+        textoPropiedadContainer.innerHTML = `<p class="text-red-500">Error al cargar datos: ${error.message}</p>`;
     }
 }
 
-async function guardarEmpresaConfig() {
+// *** RESTAURADO: Llama a la API para generar textos SEO para Home ***
+async function generarTextosHomeIA(tipo) { // tipo puede ser 'seo' o 'content'
+    const btnSeo = document.getElementById('btn-generar-home-seo');
+    const btnContent = document.getElementById('btn-generar-home-content');
+    const statusSpan = document.getElementById('ia-home-status');
+
+    btnSeo.disabled = true;
+    btnContent.disabled = true;
+    statusSpan.textContent = `Generando textos ${tipo}...`;
+
+    try {
+        const endpoint = tipo === 'seo' ? '/generate-ai-home-seo' : '/generate-ai-home-content';
+        const resultado = await fetchAPI(`/website-config${endpoint}`, { method: 'POST' });
+
+        if (tipo === 'seo') {
+            document.getElementById('seo-home-title').value = resultado.metaTitle;
+            document.getElementById('seo-home-description').value = resultado.metaDescription;
+        } else {
+            document.getElementById('home-h1').value = resultado.h1;
+            document.getElementById('home-intro').value = resultado.introParagraph;
+        }
+        statusSpan.textContent = `Textos ${tipo} generados. Revisa y guarda.`;
+
+    } catch (error) {
+        statusSpan.textContent = `Error: ${error.message}`;
+    } finally {
+        btnSeo.disabled = false;
+        btnContent.disabled = false;
+    }
+}
+
+// *** RESTAURADO: Guarda los textos SEO y de contenido para Home ***
+async function guardarTextosHome() {
     const btn = document.getElementById('save-empresa-config-btn');
     btn.disabled = true;
     btn.textContent = 'Guardando...';
 
-    const payload = {
-        general: {
-            subdomain: document.getElementById('subdomain-input').value.trim(),
-            domain: document.getElementById('domain-input').value.trim()
-        },
-        theme: {
-            logoUrl: document.getElementById('logo-url-input').value.trim(),
-            primaryColor: document.getElementById('theme-primary-color').value,
-            secondaryColor: document.getElementById('theme-secondary-color').value,
-            heroImageUrl: document.getElementById('hero-image-preview').src === 'about:blank' || document.getElementById('hero-image-preview').classList.contains('hidden') ? null : document.getElementById('hero-image-preview').src,
-            heroImageAlt: document.getElementById('hero-image-alt').value.trim(),
-            heroImageTitle: document.getElementById('hero-image-title').value.trim()
-        },
-        content: {
-            homeH1: document.getElementById('home-h1').value.trim(),
-            homeIntro: document.getElementById('home-intro').value.trim()
-        },
-        seo: {
-            homeTitle: document.getElementById('seo-home-title').value.trim(),
-            homeDescription: document.getElementById('seo-home-description').value.trim()
-        }
-    };
-
     try {
-        await fetchAPI('/website-config/configuracion-web', {
-            method: 'PUT',
-            body: payload
-        });
-        alert('Configuración de la empresa guardada con éxito.');
+        const payload = {
+            general: {
+                subdomain: document.getElementById('subdomain-input').value.trim(),
+                domain: document.getElementById('domain-input').value.trim()
+            },
+            theme: {
+                logoUrl: document.getElementById('logo-url-input').value.trim(),
+                primaryColor: document.getElementById('theme-primary-color').value,
+                secondaryColor: document.getElementById('theme-secondary-color').value
+            },
+            content: {
+                homeH1: document.getElementById('home-h1').value.trim(),
+                homeIntro: document.getElementById('home-intro').value.trim()
+            },
+            seo: {
+                homeTitle: document.getElementById('seo-home-title').value.trim(),
+                homeDescription: document.getElementById('seo-home-description').value.trim()
+            }
+        };
+
+        await fetchAPI('/website-config/home-settings', { method: 'PUT', body: payload });
+
+        // Actualizar estado local general
+        websiteSettingsEmpresa.general = payload.general;
+        websiteSettingsEmpresa.theme = { ...websiteSettingsEmpresa.theme, ...payload.theme };
+        websiteSettingsEmpresa.content = payload.content;
+        websiteSettingsEmpresa.seo = payload.seo;
+
+        alert('Configuración de la empresa guardada.');
     } catch (error) {
-        console.error("Error al guardar la configuración de la empresa:", error);
         alert(`Error al guardar: ${error.message}`);
     } finally {
         btn.disabled = false;
@@ -78,352 +345,277 @@ async function guardarEmpresaConfig() {
     }
 }
 
-async function handleHeroImageUpload(event) {
-    const file = event.target.files[0];
+// *** RESTAURADO: Sube la imagen de portada (Hero Image) ***
+async function handleSubirHeroImage() {
+    const fileInput = document.getElementById('heroImageFile');
+    const file = fileInput.files[0];
     if (!file) return;
+
+    const statusDiv = document.getElementById('hero-upload-status');
+    const btn = document.getElementById('upload-hero-image-btn');
+    statusDiv.textContent = 'Subiendo imagen...';
+    statusDiv.className = 'text-xs mt-1 text-blue-600';
+    btn.disabled = true;
 
     const formData = new FormData();
     formData.append('heroImage', file);
-
-    const uploadBtn = document.getElementById('upload-hero-image-btn');
-    uploadBtn.disabled = true;
-    uploadBtn.textContent = 'Subiendo...';
+    formData.append('altText', document.getElementById('hero-image-alt').value);
+    formData.append('titleText', document.getElementById('hero-image-title').value);
 
     try {
-        const response = await fetchAPI('/website-config/upload-hero-image', {
+        const resultado = await fetchAPI('/website-config/upload-hero-image', {
             method: 'POST',
-            body: formData,
-            headers: { 'Content-Type': 'multipart/form-data' } // Importante: Firebase Storage requiere esta cabecera
-        });
-        document.getElementById('hero-image-preview').src = response.imageUrl;
-        document.getElementById('hero-image-preview').classList.remove('hidden');
-        alert('Imagen de portada subida con éxito.');
-        // Actualizar la configuración para reflejar la nueva URL
-        empresaConfig.theme = empresaConfig.theme || {};
-        empresaConfig.theme.heroImageUrl = response.imageUrl;
-    } catch (error) {
-        console.error("Error al subir imagen del Hero:", error);
-        alert(`Error al subir imagen: ${error.message}`);
-    } finally {
-        uploadBtn.disabled = false;
-        uploadBtn.textContent = 'Subir Imagen del Hero';
-        event.target.value = ''; // Limpiar input para permitir subir la misma imagen de nuevo
-    }
-}
-
-
-// Función para cargar propiedades en el select
-async function loadPropiedadesForSelect() {
-    try {
-        const propiedades = await fetchAPI('/propiedades');
-        const select = document.getElementById('propiedad-select');
-        select.innerHTML = '<option value="">Selecciona una propiedad</option>' +
-            propiedades.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
-    } catch (error) {
-        console.error("Error al cargar propiedades:", error);
-    }
-}
-
-// Función para cargar la configuración web de una propiedad específica
-async function loadPropiedadWebsiteConfig(propiedadId) {
-    selectedPropiedadId = propiedadId;
-    document.getElementById('propiedad-config-section').classList.remove('hidden');
-
-    try {
-        const propiedad = await fetchAPI(`/propiedades/${propiedadId}`);
-        currentPropiedadWebsiteData = propiedad.websiteData || { aiDescription: '', images: {} };
-
-        document.getElementById('propiedad-ai-description').value = currentPropiedadWebsiteData.aiDescription || '';
-        renderPropiedadImages();
-
-    } catch (error) {
-        console.error("Error al cargar configuración de propiedad:", error);
-        alert("Error al cargar la configuración de la propiedad.");
-        document.getElementById('propiedad-config-section').classList.add('hidden');
-    }
-}
-
-// Renderiza las imágenes de la propiedad en el formulario
-function renderPropiedadImages() {
-    const imagesContainer = document.getElementById('propiedad-images-container');
-    imagesContainer.innerHTML = ''; // Limpiar
-
-    const tiposComponente = [
-        'Portada Recinto', 'Exterior Alojamiento', 'Dormitorio', 'Baño', 'Cocina',
-        'Living', 'Comedor', 'Terraza', 'Tina', 'Otro'
-    ];
-
-    tiposComponente.forEach(tipo => {
-        const key = tipo.toLowerCase().replace(/\s+/g, '');
-        const images = currentPropiedadWebsiteData.images?.[key] || [];
-
-        imagesContainer.innerHTML += `
-            <div class="mb-6 border p-4 rounded-md bg-gray-50">
-                <h4 class="font-semibold text-gray-700 mb-3">${tipo}</h4>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3" id="images-list-${key}">
-                    ${images.map(img => `
-                        <div class="relative group">
-                            <img src="${img.storagePath}" alt="${img.altText || ''}" class="w-full h-32 object-cover rounded-md">
-                            <button type="button" data-key="${key}" data-path="${img.storagePath}" class="remove-prop-image-btn absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-                                &times;
-                            </button>
-                        </div>
-                    `).join('')}
-                </div>
-                <input type="file" id="upload-image-${key}" data-key="${key}" class="prop-image-upload-input hidden" accept="image/*" multiple>
-                <label for="upload-image-${key}" class="btn-secondary cursor-pointer block text-center py-2 px-4 rounded-md text-sm">
-                    Subir Imágenes para ${tipo}
-                </label>
-            </div>
-        `;
-    });
-
-    // Añadir event listeners para los botones de eliminar
-    imagesContainer.querySelectorAll('.remove-prop-image-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            if (!confirm('¿Seguro que quieres eliminar esta imagen?')) return;
-            const key = e.target.dataset.key;
-            const pathToRemove = e.target.dataset.path;
-
-            // Eliminar del Storage y luego actualizar la propiedad
-            try {
-                await fetchAPI('/storage/delete-file', { method: 'POST', body: { filePath: pathToRemove } });
-                
-                // Eliminar del currentPropiedadWebsiteData
-                if (currentPropiedadWebsiteData.images && currentPropiedadWebsiteData.images[key]) {
-                    currentPropiedadWebsiteData.images[key] = currentPropiedadWebsiteData.images[key].filter(img => img.storagePath !== pathToRemove);
-                }
-                await savePropiedadWebsiteConfig(); // Guardar el estado actualizado de la propiedad
-                renderPropiedadImages(); // Volver a renderizar
-            } catch (error) {
-                console.error("Error al eliminar imagen:", error);
-                alert(`Error al eliminar imagen: ${error.message}`);
-            }
-        });
-    });
-
-    // Añadir event listeners para los inputs de tipo file
-    imagesContainer.querySelectorAll('.prop-image-upload-input').forEach(input => {
-        input.addEventListener('change', handlePropiedadImageUpload);
-    });
-}
-
-// Manejar la subida de imágenes de la propiedad
-async function handlePropiedadImageUpload(event) {
-    const files = event.target.files;
-    if (files.length === 0) return;
-
-    const key = event.target.dataset.key;
-    const formData = new FormData();
-    for (let i = 0; i < files.length; i++) {
-        formData.append('images', files[i]);
-    }
-    formData.append('entityType', 'propiedad');
-    formData.append('entityId', selectedPropiedadId);
-    formData.append('componentName', key);
-
-    event.target.disabled = true;
-    event.target.previousElementSibling.textContent = 'Subiendo...'; // Cambiar texto del label
-
-    try {
-        const response = await fetchAPI('/storage/upload-multiple', {
-            method: 'POST',
-            body: formData,
-            headers: { 'Content-Type': 'multipart/form-data' }
+            body: formData
         });
 
-        // Actualizar currentPropiedadWebsiteData con las nuevas URLs
-        currentPropiedadWebsiteData.images = currentPropiedadWebsiteData.images || {};
-        currentPropiedadWebsiteData.images[key] = [
-            ...(currentPropiedadWebsiteData.images[key] || []),
-            ...response.uploadedImages.map(img => ({ storagePath: img.url, altText: '', title: '' }))
-        ];
+        // Actualizar estado local general
+        if (!websiteSettingsEmpresa.theme) websiteSettingsEmpresa.theme = {};
+        websiteSettingsEmpresa.theme.heroImageUrl = resultado.imageUrl;
+        websiteSettingsEmpresa.theme.heroImageAlt = resultado.altText;
+        websiteSettingsEmpresa.theme.heroImageTitle = resultado.titleText;
 
-        await savePropiedadWebsiteConfig(); // Guardar el estado actualizado de la propiedad
-        renderPropiedadImages(); // Volver a renderizar
-        alert('Imágenes subidas con éxito.');
-    } catch (error) {
-        console.error("Error al subir imágenes de propiedad:", error);
-        alert(`Error al subir imágenes: ${error.message}`);
-    } finally {
-        event.target.disabled = false;
-        event.target.previousElementSibling.textContent = `Subir Imágenes para ${key.charAt(0).toUpperCase() + key.slice(1)}`;
-        event.target.value = ''; // Limpiar input
-    }
-}
-
-
-// Función para guardar la configuración web de la propiedad
-async function savePropiedadWebsiteConfig() {
-    if (!selectedPropiedadId) return;
-
-    const btn = document.getElementById('save-propiedad-config-btn');
-    btn.disabled = true;
-    btn.textContent = 'Guardando...';
-
-    const payload = {
-        websiteData: {
-            aiDescription: document.getElementById('propiedad-ai-description').value,
-            images: currentPropiedadWebsiteData.images // Se guardan las imágenes actuales
+        statusDiv.textContent = '¡Imagen de portada subida!';
+        statusDiv.className = 'text-xs mt-1 text-green-600';
+        
+        // Actualizar la UI
+        const preview = document.getElementById('hero-image-preview');
+        if (preview.tagName === 'P') { // Si era el placeholder
+            const newImg = document.createElement('img');
+            newImg.id = 'hero-image-preview';
+            newImg.src = resultado.imageUrl;
+            newImg.alt = resultado.altText;
+            newImg.title = resultado.titleText;
+            newImg.className = 'mt-1 w-full h-auto max-h-48 object-cover rounded border';
+            preview.replaceWith(newImg);
+        } else {
+            preview.src = resultado.imageUrl;
+            preview.alt = resultado.altText;
+            preview.title = resultado.titleText;
         }
-    };
+
+    } catch (error) {
+        statusDiv.textContent = `Error al subir: ${error.message}`;
+        statusDiv.className = 'text-xs mt-1 text-red-600';
+    } finally {
+        btn.disabled = false;
+        fileInput.value = '';
+    }
+}
+
+
+// Llama a la API para generar la descripción SEO de la PROPIEDAD
+async function generarTextoDescripcionPropiedad() {
+    if (!propiedadSeleccionada) return;
+
+    const btn = document.getElementById('btn-generar-texto-propiedad');
+    const statusSpan = document.getElementById('ia-propiedad-status');
+    btn.disabled = true;
+    statusSpan.textContent = 'Generando descripción...';
 
     try {
-        await fetchAPI(`/propiedades/${selectedPropiedadId}`, {
+        const resultado = await fetchAPI(`/website-config/propiedad/${propiedadSeleccionada.id}/generate-ai-text`, {
+            method: 'POST'
+        });
+        document.getElementById('aiDescriptionPropiedad').value = resultado.texto;
+        statusSpan.textContent = 'Descripción generada. Revisa y guarda.';
+    } catch (error) {
+        statusSpan.textContent = `Error: ${error.message}`;
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// Guarda la descripción SEO editada de la PROPIEDAD
+async function guardarTextoDescripcionPropiedad() {
+    if (!propiedadSeleccionada) return;
+
+    const btn = document.getElementById('btn-guardar-texto-propiedad');
+    const statusSpan = document.getElementById('ia-propiedad-status');
+    const texto = document.getElementById('aiDescriptionPropiedad').value;
+
+    btn.disabled = true;
+    statusSpan.textContent = 'Guardando descripción...';
+
+    try {
+        const payload = { aiDescription: texto };
+        await fetchAPI(`/website-config/propiedad/${propiedadSeleccionada.id}`, {
             method: 'PUT',
             body: payload
         });
-        // alert('Configuración de la propiedad guardada con éxito.'); // No mostrar aquí para no molestar tras cada imagen
+
+        websiteDataPropiedad.aiDescription = texto;
+        statusSpan.textContent = 'Descripción guardada con éxito.';
+
+        const index = todasLasPropiedades.findIndex(p => p.id === propiedadSeleccionada.id);
+        if (index !== -1) {
+            if (!todasLasPropiedades[index].websiteData) todasLasPropiedades[index].websiteData = { images: {} };
+            todasLasPropiedades[index].websiteData.aiDescription = texto;
+        }
+
     } catch (error) {
-        console.error("Error al guardar la configuración de la propiedad:", error);
-        alert(`Error al guardar la configuración de la propiedad: ${error.message}`);
+        statusSpan.textContent = `Error al guardar: ${error.message}`;
     } finally {
         btn.disabled = false;
-        btn.textContent = 'Guardar Configuración de la Propiedad';
     }
 }
 
-// Generar descripción IA
-async function generarAIDescription() {
-    if (!selectedPropiedadId) {
-        alert('Por favor, selecciona una propiedad primero.');
-        return;
-    }
-    const btn = document.getElementById('generate-ai-description-btn');
-    btn.disabled = true;
-    btn.textContent = 'Generando...';
+// Sube imágenes para un componente específico de la PROPIEDAD
+async function handleSubirImagenesPropiedad(componentId, files) {
+    if (!propiedadSeleccionada || files.length === 0) return;
+
+    const statusDiv = document.getElementById(`upload-status-${componentId}`);
+    statusDiv.textContent = `Subiendo ${files.length} imágen(es)...`;
+    statusDiv.className = 'text-xs mt-1 text-blue-600';
+
+    const formData = new FormData();
+    for (const file of files) formData.append('images', file);
 
     try {
-        const response = await fetchAPI(`/propiedades/${selectedPropiedadId}/generar-descripcion-ia`, {
-            method: 'POST'
+        const resultado = await fetchAPI(`/website-config/propiedad/${propiedadSeleccionada.id}/upload-image/${componentId}`, {
+            method: 'POST',
+            body: formData
         });
-        document.getElementById('propiedad-ai-description').value = response.description;
-        currentPropiedadWebsiteData.aiDescription = response.description; // Actualizar localmente
-        await savePropiedadWebsiteConfig(); // Guardar la descripción generada
-        alert('Descripción IA generada y guardada con éxito.');
+
+        if (!websiteDataPropiedad.images) websiteDataPropiedad.images = {};
+        if (!websiteDataPropiedad.images[componentId]) websiteDataPropiedad.images[componentId] = [];
+        websiteDataPropiedad.images[componentId].push(...resultado);
+
+        const index = todasLasPropiedades.findIndex(p => p.id === propiedadSeleccionada.id);
+         if (index !== -1) {
+            todasLasPropiedades[index].websiteData = websiteDataPropiedad;
+        }
+
+        statusDiv.textContent = `¡${files.length} imágen(es) subida(s)!`;
+        statusDiv.className = 'text-xs mt-1 text-green-600';
+        renderizarGestorImagenes();
     } catch (error) {
-        console.error("Error al generar descripción IA:", error);
-        alert(`Error al generar descripción IA: ${error.message}`);
+        statusDiv.textContent = `Error al subir: ${error.message}`;
+        statusDiv.className = 'text-xs mt-1 text-red-600';
     } finally {
-        btn.disabled = false;
-        btn.textContent = 'Generar Descripción con IA';
+        const inputFile = document.querySelector(`.subir-imagenes-input[data-component-id="${componentId}"]`);
+        if (inputFile) inputFile.value = '';
+    }
+}
+
+// Elimina una imagen específica de la PROPIEDAD
+async function handleEliminarImagenPropiedad(componentId, imageId) {
+    if (!propiedadSeleccionada || !confirm('¿Estás seguro de eliminar esta imagen?')) return;
+
+    const button = document.querySelector(`.eliminar-imagen-btn[data-image-id="${imageId}"]`);
+    if(button) button.disabled = true;
+
+    try {
+        await fetchAPI(`/website-config/propiedad/${propiedadSeleccionada.id}/delete-image/${componentId}/${imageId}`, {
+            method: 'DELETE'
+        });
+
+        if (websiteDataPropiedad.images && websiteDataPropiedad.images[componentId]) {
+            websiteDataPropiedad.images[componentId] = websiteDataPropiedad.images[componentId].filter(img => img.imageId !== imageId);
+        }
+
+         const index = todasLasPropiedades.findIndex(p => p.id === propiedadSeleccionada.id);
+         if (index !== -1) {
+            todasLasPropiedades[index].websiteData = websiteDataPropiedad;
+        }
+
+        renderizarGestorImagenes();
+    } catch (error) {
+        alert(`Error al eliminar imagen: ${error.message}`);
+         if(button) button.disabled = false;
     }
 }
 
 
-export function render() {
+// --- Renderizado Principal y Lógica de Eventos ---
+
+export async function render() {
     return `
-        <div class="bg-white p-8 rounded-lg shadow space-y-8">
-            <h2 class="text-2xl font-semibold text-gray-900 mb-6">Configurar Web Pública</h2>
-
-            <div class="p-4 border rounded-md bg-gray-50">
-                <h3 class="font-semibold text-gray-800 mb-4">1. Configuración de la Empresa (Home)</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label for="subdomain-input" class="block text-sm font-medium text-gray-700">Subdominio (Ej: prueba1)</label>
-                        <input type="text" id="subdomain-input" class="form-input mt-1" placeholder="ej: miempresa">
-                        <p class="text-xs text-gray-500 mt-1">Tu web será: https://[subdominio].onrender.com</p>
-                    </div>
-                     <div>
-                        <label for="domain-input" class="block text-sm font-medium text-gray-700">Dominio Personalizado (Ej: miempresa.com)</label>
-                        <input type="text" id="domain-input" class="form-input mt-1" placeholder="ej: miempresa.com">
-                        <p class="text-xs text-gray-500 mt-1">Requiere configuración de DNS externa.</p>
-                    </div>
-                    <div>
-                        <label for="home-h1" class="block text-sm font-medium text-gray-700">Título Principal (H1) del Home</label>
-                        <input type="text" id="home-h1" class="form-input mt-1" placeholder="Ej: Cabañas El Bosque">
-                    </div>
-                    <div>
-                        <label for="home-intro" class="block text-sm font-medium text-gray-700">Texto Introductorio del Home</label>
-                        <textarea id="home-intro" rows="3" class="form-input mt-1" placeholder="Ej: Relájate en la naturaleza con nuestras cómodas cabañas."></textarea>
-                    </div>
+        <div class="bg-white p-8 rounded-lg shadow space-y-6">
+            <h2 class="text-2xl font-semibold text-gray-900">Configurar Contenido Web Público</h2>
+            
+            <div id="seccion-config-general">
                 </div>
-
-                <div class="border-t pt-4 mt-6">
-                    <h4 class="font-semibold text-gray-700 mb-3">SEO y Apariencia del Home</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label for="seo-home-title" class="block text-sm font-medium text-gray-700">SEO Title (Título de la pestaña)</label>
-                            <input type="text" id="seo-home-title" class="form-input mt-1" placeholder="Ej: Cabañas El Bosque - Reserva Directa">
-                        </div>
-                        <div>
-                            <label for="seo-home-description" class="block text-sm font-medium text-gray-700">SEO Description (Descripción para buscadores)</label>
-                            <textarea id="seo-home-description" rows="3" class="form-input mt-1" placeholder="Ej: Alquiler de cabañas cómodas y seguras en la naturaleza."></textarea>
-                        </div>
-                         <div>
-                            <label for="theme-primary-color" class="block text-sm font-medium text-gray-700">Color Primario</label>
-                            <input type="color" id="theme-primary-color" class="form-input mt-1 h-10 w-full">
-                        </div>
-                        <div>
-                            <label for="theme-secondary-color" class="block text-sm font-medium text-gray-700">Color Secundario</label>
-                            <input type="color" id="theme-secondary-color" class="form-input mt-1 h-10 w-full">
-                        </div>
-                         <div>
-                            <label for="logo-url-input" class="block text-sm font-medium text-gray-700">URL del Logo (opcional)</label>
-                            <input type="url" id="logo-url-input" class="form-input mt-1" placeholder="https://ejemplo.com/mi-logo.png">
-                            <p class="text-xs text-gray-500 mt-1">Dejar vacío para usar el nombre de la empresa.</p>
-                        </div>
-                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Imagen de Portada (Hero)</label>
-                            <div class="mt-1 flex items-center space-x-3">
-                                <img id="hero-image-preview" src="about:blank" alt="Previsualización Hero" class="h-24 w-auto object-cover rounded-md border hidden">
-                                <input type="file" id="hero-image-upload" accept="image/*" class="hidden">
-                                <label for="hero-image-upload" id="upload-hero-image-btn" class="btn-secondary cursor-pointer">
-                                    Subir Imagen del Hero
-                                </label>
-                            </div>
-                            <input type="text" id="hero-image-alt" class="form-input mt-2" placeholder="Texto alternativo (alt) para la imagen">
-                            <input type="text" id="hero-image-title" class="form-input mt-2" placeholder="Título (tooltip) para la imagen">
-                        </div>
-                    </div>
+            <div id="seccion-textos-home">
                 </div>
-                <div class="flex justify-end pt-4 mt-6 border-t">
-                    <button id="save-empresa-config-btn" class="btn-primary">Guardar Configuración de la Empresa</button>
-                </div>
+            <div id="seccion-imagen-portada">
+                 </div>
+            <div class="text-right border-t pt-4">
+                <button id="save-empresa-config-btn" class="btn-primary btn-lg">Guardar Configuración General</button>
             </div>
-
-            <div class="p-4 border rounded-md bg-gray-50">
-                <h3 class="font-semibold text-gray-800 mb-4">2. Configuración por Alojamiento</h3>
-                <div class="mb-4">
-                    <label for="propiedad-select" class="block text-sm font-medium text-gray-700">Selecciona un Alojamiento</label>
-                    <select id="propiedad-select" class="form-select mt-1"></select>
+            <div class="border-t pt-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-2">Contenido por Alojamiento Específico</h3>
+                 <div>
+                    <label for="propiedad-select" class="block text-sm font-medium text-gray-700">Seleccionar Alojamiento</label>
+                    <select id="propiedad-select" class="form-select mt-1">
+                        <option value="">-- Elige un alojamiento --</option>
+                    </select>
                 </div>
 
-                <div id="propiedad-config-section" class="hidden border-t pt-4 mt-4">
-                    <h4 class="font-semibold text-gray-700 mb-3">Descripción e Imágenes del Alojamiento</h4>
-                    <div class="mb-4">
-                        <label for="propiedad-ai-description" class="block text-sm font-medium text-gray-700">Descripción para la Web (Generada por IA)</label>
-                        <textarea id="propiedad-ai-description" rows="6" class="form-input w-full mt-1"></textarea>
-                        <button id="generate-ai-description-btn" class="btn-secondary mt-2">Generar Descripción con IA</button>
-                    </div>
-
-                    <div id="propiedad-images-container" class="mt-6">
+                <div id="config-container-propiedad" class="hidden space-y-6 mt-4">
+                    <div id="seccion-texto-propiedad">
                         </div>
-
-                    <div class="flex justify-end pt-4 mt-6 border-t">
-                        <button id="save-propiedad-config-btn" class="btn-primary">Guardar Configuración de la Propiedad</button>
-                    </div>
+                    <div id="seccion-imagenes-propiedad">
+                        </div>
                 </div>
             </div>
         </div>
     `;
 }
 
-export function afterRender() {
-    loadEmpresaConfig();
-    loadPropiedadesForSelect();
+export async function afterRender() {
+    const propiedadSelect = document.getElementById('propiedad-select');
+    const configContainerPropiedad = document.getElementById('config-container-propiedad');
 
-    document.getElementById('save-empresa-config-btn').addEventListener('click', guardarEmpresaConfig);
-    document.getElementById('propiedad-select').addEventListener('change', (e) => {
-        if (e.target.value) {
-            loadPropiedadWebsiteConfig(e.target.value);
+    // Cargar datos iniciales (empresa y propiedades)
+    try {
+        [empresaInfo, todasLasPropiedades] = await Promise.all([
+            fetchAPI('/empresa'),
+            fetchAPI('/propiedades')
+        ]);
+
+        // Cargar datos de configuración web
+        const configWeb = await fetchAPI('/website-config/configuracion-web');
+        websiteSettingsEmpresa.general = {
+            subdomain: configWeb.subdomain || '',
+            domain: configWeb.domain || ''
+        };
+        websiteSettingsEmpresa.theme = configWeb.theme || {};
+        websiteSettingsEmpresa.content = configWeb.content || {};
+        websiteSettingsEmpresa.seo = configWeb.seo || {};
+
+        // Renderizar secciones de Home Page ahora que tenemos empresaInfo
+        renderizarConfigGeneral();
+        renderizarSeccionTextosHome();
+        renderizarSeccionImagenPortada();
+
+        // Poblar selector de propiedades
+        propiedadSelect.innerHTML = '<option value="">-- Elige un alojamiento --</option>' +
+            todasLasPropiedades.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+            
+        // *** RESTAURADO: Listeners para el Home ***
+        document.getElementById('btn-generar-home-seo').addEventListener('click', () => generarTextosHomeIA('seo'));
+        document.getElementById('btn-generar-home-content').addEventListener('click', () => generarTextosHomeIA('content'));
+        document.getElementById('save-empresa-config-btn').addEventListener('click', guardarTextosHome);
+        document.getElementById('upload-hero-image-btn').addEventListener('click', handleSubirHeroImage);
+        // *** FIN RESTAURADO ***
+
+    } catch (error) {
+        console.error("Error cargando datos iniciales:", error);
+        // Mostrar error en alguna parte de la UI si es necesario
+    }
+
+    // Listener para cuando se selecciona una propiedad
+    propiedadSelect.addEventListener('change', async (e) => {
+        const propiedadId = e.target.value;
+        if (propiedadId) {
+            configContainerPropiedad.classList.remove('hidden');
+            await cargarDatosWebPropiedad(propiedadId); // Carga datos específicos de la prop
         } else {
-            document.getElementById('propiedad-config-section').classList.add('hidden');
-            selectedPropiedadId = null;
+            propiedadSeleccionada = null;
+            websiteDataPropiedad = { aiDescription: '', images: {} };
+            configContainerPropiedad.classList.add('hidden');
+            document.getElementById('seccion-texto-propiedad').innerHTML = '';
+            document.getElementById('seccion-imagenes-propiedad').innerHTML = '';
         }
     });
-
-    document.getElementById('generate-ai-description-btn').addEventListener('click', generarAIDescription);
-    document.getElementById('save-propiedad-config-btn').addEventListener('click', savePropiedadWebsiteConfig);
-    document.getElementById('hero-image-upload').addEventListener('change', handleHeroImageUpload); // Evento para la subida
 }
