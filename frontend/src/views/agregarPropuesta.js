@@ -100,23 +100,33 @@ function renderSelectionUI() {
 
     if (!availabilityData.suggestion) return;
     
+    // Almacenar las propiedades seleccionadas (ya sea grupo o itinerario)
     selectedProperties = [...availabilityData.suggestion.propiedades];
 
     if (availabilityData.suggestion.isSegmented) {
+         // *** INICIO CORRECCIÓN: Renderizado de itinerario segmentado ***
          suggestionList.innerHTML = `
             <h4 class="font-medium text-gray-700">Propuesta de Itinerario</h4>
             <div class="space-y-2 p-3 bg-white rounded-md border">${
                 availabilityData.suggestion.itinerary.map((segment) => {
+                    // segment.endDate es el día de check-out, no la última noche
+                    // Para mostrar "al [fecha]", debemos usar la fecha de salida del segmento
+                    const fechaSalidaSegmento = new Date(segment.endDate); 
                     return `
                         <div class="grid grid-cols-5 gap-4 items-center text-sm">
                             <span class="font-semibold">${segment.propiedad.nombre}</span>
                             <span>${new Date(segment.startDate).toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
                             <span>al</span>
-                            <span>${new Date(segment.endDate).toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
+                            <span>${fechaSalidaSegmento.toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
+                            <span class="text-xs col-span-5 text-gray-500 pl-2">(${segment.propiedad.capacidad} pers. max)</span>
                         </div>`;
                 }).join('')
             }</div>`;
+         // No mostrar 'availableList' ni checkboxes en modo segmentado
+         availableList.innerHTML = '<p class="text-sm text-gray-500">Modo segmentado: no se pueden añadir otras cabañas.</p>';
+         // *** FIN CORRECCIÓN ***
     } else {
+        // Lógica normal
         const suggestedIds = new Set(availabilityData.suggestion.propiedades.map(p => p.id));
         suggestionList.innerHTML = `<h4 class="font-medium text-gray-700">Propiedades Sugeridas</h4>` + availabilityData.suggestion.propiedades.map(p => createPropertyCheckbox(p, true)).join('');
         availableList.innerHTML = availabilityData.availableProperties.filter(p => !suggestedIds.has(p.id)).map(p => createPropertyCheckbox(p, false)).join('');
@@ -127,6 +137,7 @@ function renderSelectionUI() {
 }
 
 async function handleSelectionChange() {
+    // Esta función solo se activa en modo normal (no segmentado)
     const selectedIds = new Set(Array.from(document.querySelectorAll('.propiedad-checkbox:checked')).map(cb => cb.dataset.id));
     selectedProperties = availabilityData.allProperties.filter(p => selectedIds.has(p.id));
 
@@ -239,6 +250,10 @@ export function render() {
                             <input type="number" id="personas" min="1" class="form-input mt-1">
                         </div>
                         <div class="flex items-center pt-6">
+                            <input id="sin-camarotes" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                            <label for="sin-camarotes" class="ml-2 block text-sm font-medium text-gray-700">Excluir Camarotes</label>
+                        </div>
+                        <div class="flex items-center pt-6">
                             <input id="permitir-cambios" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
                             <label for="permitir-cambios" class="ml-2 block text-sm font-medium text-gray-700">Permitir cambios de cabaña</label>
                         </div>
@@ -328,6 +343,7 @@ export async function afterRender() {
             fechaLlegada: fechaLlegada,
             fechaSalida: document.getElementById('fecha-salida').value,
             personas: document.getElementById('personas').value,
+            sinCamarotes: document.getElementById('sin-camarotes').checked, // *** CORRECCIÓN: Usar sin-camarotes ***
             permitirCambios: document.getElementById('permitir-cambios').checked,
             canalId: document.getElementById('canal-select').value
         };
@@ -411,24 +427,34 @@ export async function afterRender() {
              alert('Debes seleccionar o crear un cliente.'); return;
         }
         
+        // Si es segmentado, 'selectedProperties' ya está seteado por el backend
+        // Si no es segmentado, 'selectedProperties' se actualiza por handleSelectionChange
         if (selectedProperties.length === 0) {
-            alert('Debes seleccionar al menos una propiedad.'); return;
+            alert('No hay propiedades seleccionadas para esta propuesta.'); return;
         }
         
         const canalSelect = document.getElementById('canal-select');
         const canal = allCanales.find(c => c.id === canalSelect.value);
 
         const precioFinalCLP = parseFloat(document.getElementById('summary-precio-final').textContent.replace(/\$|\./g, '').replace(',','.')) || 0;
-        const valorOriginal = canal.moneda === 'USD' ? (precioFinalCLP / valorDolarDia) : precioFinalCLP;
+        
+        // El valor original (en moneda objetivo) ya está en currentPricing
+        const valorOriginal = currentPricing.totalPriceOriginal || 0;
+        const precioListaCLP = currentPricing.totalPriceCLP || 0; // Precio en CLP antes de descuentos manuales
 
         const idReservaCanal = document.getElementById('id-reserva-canal-input').value;
         const icalUid = document.getElementById('ical-uid-input').value;
 
+        // Si es segmentado, 'propiedades' es el array de TODAS las props únicas del itinerario
+        // 'items' (el itinerario) se pasa para el texto
+        const propiedadesParaTexto = availabilityData.suggestion.isSegmented ? availabilityData.suggestion.itinerary.map(s => s.propiedad) : selectedProperties;
+        
         const payloadGuardar = {
             cliente: clienteParaGuardar,
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
-            propiedades: selectedProperties,
+            // 'propiedades' debe ser el array de propiedades únicas
+            propiedades: selectedProperties, 
             personas: parseInt(document.getElementById('personas').value) || 0,
             precioFinal: precioFinalCLP,
             noches: currentPricing.nights,
@@ -440,13 +466,20 @@ export async function afterRender() {
             idReservaCanal: idReservaCanal,
             icalUid: icalUid,
             origen: origenReserva,
-            codigoCupon: cuponAplicado ? cuponAplicado.codigo : null
+            codigoCupon: cuponAplicado ? cuponAplicado.codigo : null,
+            // Datos para el generador de texto
+            isSegmented: availabilityData.suggestion.isSegmented,
+            itinerary: availabilityData.suggestion.itinerary, // El itinerario completo si es segmentado
+            precioListaCLP: precioListaCLP,
+            descuentoCLP: precioListaCLP - precioFinalCLP,
+            pricingDetails: currentPricing.details
         };
         
         btn.disabled = true;
         btn.textContent = editId ? 'Actualizando...' : 'Guardando...';
 
         try {
+            // 1. Guardar la propuesta (Crea las reservas en estado "Propuesta")
             const endpoint = `/gestion-propuestas/propuesta-tentativa/${editId || ''}`;
             const method = editId ? 'PUT' : 'POST';
             
@@ -458,12 +491,12 @@ export async function afterRender() {
                  return;
             }
 
+            // 2. Generar el texto para esa propuesta guardada
             const payloadTexto = {
                 ...payloadGuardar,
                 idPropuesta: resultadoGuardado.id,
-                precioListaCLP: currentPricing.totalPriceCLP,
-                descuentoCLP: currentPricing.totalPriceCLP - precioFinalCLP,
-                pricingDetails: currentPricing.details
+                // Usar las propiedades para el texto (puede ser el itinerario)
+                propiedades: propiedadesParaTexto,
             };
 
             const resultadoTexto = await fetchAPI('/propuestas/generar-texto', { method: 'POST', body: payloadTexto });
