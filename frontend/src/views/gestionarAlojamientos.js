@@ -22,12 +22,11 @@ function renderizarListaComponentes() {
         </div>
     `).join('');
 
-    // Añadir event listeners a los nuevos botones
     container.querySelectorAll('.eliminar-componente-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const index = parseInt(e.target.dataset.index, 10);
             componentesTemporales.splice(index, 1);
-            renderizarListaComponentes(); // Volver a renderizar la lista actualizada
+            renderizarListaComponentes();
         });
     });
 }
@@ -44,9 +43,9 @@ function agregarComponente() {
             nombre: nombre,
             tipo: tipo
         });
-        nombreInput.value = ''; // Limpiar input
+        nombreInput.value = '';
         tipoSelect.value = 'Dormitorio'; // Resetear select
-        renderizarListaComponentes(); // Actualizar la lista visual
+        renderizarListaComponentes();
     } else {
         alert('Por favor, ingresa un nombre y selecciona un tipo para el componente.');
     }
@@ -59,7 +58,6 @@ function abrirModal(propiedad = null) {
     const modalTitle = document.getElementById('modal-title');
     const icalContainer = document.getElementById('ical-fields-container');
 
-    // Generar campos de iCal dinámicamente
     icalContainer.innerHTML = canales
         .filter(canal => canal.nombre.toLowerCase() !== 'app')
         .map(canal => `
@@ -73,7 +71,6 @@ function abrirModal(propiedad = null) {
         editandoPropiedad = propiedad;
         modalTitle.textContent = `Editar Alojamiento: ${propiedad.nombre}`;
         form.nombre.value = propiedad.nombre || '';
-        // linkFotos: ELIMINADO
         form.numPiezas.value = propiedad.numPiezas || 0;
         form.numBanos.value = propiedad.numBanos || 0;
         form.descripcion.value = propiedad.descripcion || '';
@@ -88,10 +85,8 @@ function abrirModal(propiedad = null) {
         form.piezaEnSuite.checked = propiedad.equipamiento?.piezaEnSuite || false;
         form.dosPisos.checked = propiedad.equipamiento?.dosPisos || false;
 
-        // Cargar componentes existentes en la variable temporal
         componentesTemporales = Array.isArray(propiedad.componentes) ? [...propiedad.componentes] : [];
 
-        // Poblar los campos de iCal dinámicos
         icalContainer.querySelectorAll('.ical-input').forEach(input => {
             const canalKey = input.dataset.canalKey;
             if (propiedad.sincronizacionIcal && propiedad.sincronizacionIcal[canalKey]) {
@@ -101,31 +96,32 @@ function abrirModal(propiedad = null) {
             }
         });
 
-        // Cargar datos de Google Hotels
         form.googleHotelId.value = propiedad.googleHotelData?.hotelId || '';
         form.googleHotelIsListed.checked = propiedad.googleHotelData?.isListed || false;
         form.googleHotelStreet.value = propiedad.googleHotelData?.address?.street || '';
         form.googleHotelCity.value = propiedad.googleHotelData?.address?.city || '';
         form.googleHotelCountry.value = propiedad.googleHotelData?.address?.countryCode || 'CL';
 
+
     } else {
         editandoPropiedad = null;
         modalTitle.textContent = 'Nuevo Alojamiento';
         form.reset();
-        componentesTemporales = []; // Resetear componentes temporales
+        componentesTemporales = [];
         form.googleHotelCountry.value = 'CL';
         icalContainer.querySelectorAll('.ical-input').forEach(input => input.value = '');
     }
 
-    renderizarListaComponentes(); // Renderizar componentes al abrir
+    renderizarListaComponentes();
     modal.classList.remove('hidden');
 }
+
 
 function cerrarModal() {
     const modal = document.getElementById('propiedad-modal');
     modal.classList.add('hidden');
     editandoPropiedad = null;
-    componentesTemporales = []; // Limpiar al cerrar
+    componentesTemporales = [];
 }
 
 function renderTabla() {
@@ -153,6 +149,7 @@ function renderTabla() {
     `).join('');
 }
 
+
 export async function render() {
     try {
         [propiedades, canales] = await Promise.all([
@@ -164,9 +161,22 @@ export async function render() {
         return `<p class="text-red-500">Error al cargar los datos. Por favor, intente de nuevo.</p>`;
     }
 
+    // *** INICIO CORRECCIÓN P4 ***
     // Opciones para el tipo de componente
-    const tiposComponente = ['Dormitorio', 'Baño', 'Cocina', 'Living', 'Comedor', 'Terraza', 'Exterior', 'Tina', 'Otro'];
+    const tiposComponente = [
+        'Portada Recinto', 
+        'Exterior Alojamiento', 
+        'Dormitorio', 
+        'Baño', 
+        'Cocina', 
+        'Living', 
+        'Comedor', 
+        'Terraza', 
+        'Tina', 
+        'Otro'
+    ];
     const opcionesTipoComponente = tiposComponente.map(tipo => `<option value="${tipo}">${tipo}</option>`).join('');
+    // *** FIN CORRECCIÓN P4 ***
 
     return `
         <div class="bg-white p-8 rounded-lg shadow">
@@ -290,7 +300,7 @@ export async function render() {
                             <div>
                                 <label for="googleHotelIsListed" class="flex items-center pt-6 space-x-2 text-sm">
                                     <input type="checkbox" id="googleHotelIsListed" name="googleHotelIsListed" class="rounded border-gray-300">
-                                    <span>Listar esta propiedad en Google Hotels</span>
+                                    <span>Listar esta propiedad en Google Hotels y Web Pública</span>
                                 </label>
                             </div>
                             <div>
@@ -351,7 +361,6 @@ export function afterRender() {
         const datos = {
             nombre: form.nombre.value,
             capacidad: parseInt(form.capacidad.value),
-            // linkFotos: ELIMINADO
             numPiezas: parseInt(form.numPiezas.value) || 0,
             numBanos: parseInt(form.numBanos.value) || 0,
             descripcion: form.descripcion.value,
@@ -368,7 +377,7 @@ export function afterRender() {
                 piezaEnSuite: form.piezaEnSuite.checked,
                 dosPisos: form.dosPisos.checked,
             },
-            componentes: componentesTemporales, // Usar la lista temporal
+            componentes: componentesTemporales,
             sincronizacionIcal,
             googleHotelData: {
                 hotelId: form.googleHotelId.value.trim(),
@@ -379,15 +388,14 @@ export function afterRender() {
                     countryCode: form.googleHotelCountry.value.trim().toUpperCase()
                 }
             }
-            // No incluimos websiteData aquí, se gestiona en la otra vista
         };
 
         if (datos.googleHotelData.isListed && !datos.googleHotelData.hotelId) {
-            alert('El "ID del Hotel (Único)" es obligatorio si marcas "Listar esta propiedad en Google Hotels".');
+            alert('El "ID del Hotel (Único)" es obligatorio si marcas "Listar esta propiedad...".');
             return;
         }
          if (datos.googleHotelData.isListed && (!datos.googleHotelData.address.street || !datos.googleHotelData.address.city || !datos.googleHotelData.address.countryCode)) {
-            alert('La Dirección completa (Calle, Ciudad, País) es obligatoria si marcas "Listar esta propiedad en Google Hotels".');
+            alert('La Dirección completa (Calle, Ciudad, País) es obligatoria si marcas "Listar esta propiedad...".');
             return;
         }
 
@@ -395,11 +403,11 @@ export function afterRender() {
         try {
             const endpoint = editandoPropiedad ? `/propiedades/${editandoPropiedad.id}` : '/propiedades';
             const method = editandoPropiedad ? 'PUT' : 'POST';
-            await fetchAPI(endpoint, { method, body: datos });
+            await fetchAPI(endpoint, { method: 'PUT', body: datos }); // Usar PUT para asegurar que se use 'update'
 
-            propiedades = await fetchAPI('/propiedades'); // Recargar la lista
-            renderTabla(); // Actualizar la tabla
-            cerrarModal(); // Cerrar el modal
+            propiedades = await fetchAPI('/propiedades');
+            renderTabla();
+            cerrarModal();
         } catch (error) {
             alert(`Error al guardar: ${error.message}`);
         }
@@ -419,8 +427,8 @@ export function afterRender() {
             if (confirm('¿Estás seguro de que quieres eliminar este alojamiento?')) {
                 try {
                     await fetchAPI(`/propiedades/${id}`, { method: 'DELETE' });
-                    propiedades = await fetchAPI('/propiedades'); // Recargar la lista
-                    renderTabla(); // Actualizar la tabla
+                    propiedades = await fetchAPI('/propiedades');
+                    renderTabla();
                 } catch (error) {
                     alert(`Error al eliminar: ${error.message}`);
                 }

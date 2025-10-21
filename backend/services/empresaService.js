@@ -2,7 +2,6 @@
 const admin = require('firebase-admin');
 
 const obtenerDetallesEmpresa = async (db, empresaId) => {
-    // ... (código sin cambios)
     if (!empresaId) {
         throw new Error('El ID de la empresa es requerido.');
     }
@@ -18,45 +17,23 @@ const obtenerDetallesEmpresa = async (db, empresaId) => {
 };
 
 const actualizarDetallesEmpresa = async (db, empresaId, datos) => {
-    if (!empresaId) {
+     if (!empresaId) {
         throw new Error('El ID de la empresa es requerido.');
     }
     const empresaRef = db.collection('empresas').doc(empresaId);
-
-    // Asegurarse de que websiteSettings existe antes de intentar anidar
-    const datosParaActualizar = { ...datos };
-    if (!datosParaActualizar.websiteSettings) {
-        datosParaActualizar.websiteSettings = {};
-    }
-    if (!datosParaActualizar.websiteSettings.theme) {
-        datosParaActualizar.websiteSettings.theme = {};
-    }
-
-    // Mapear explícitamente los nuevos campos
-    datosParaActualizar.tipoAlojamientoPrincipal = datos.tipoAlojamientoPrincipal || '';
-    datosParaActualizar.palabrasClaveAdicionales = datos.palabrasClaveAdicionales || '';
-    datosParaActualizar.enfoqueMarketing = datos.enfoqueMarketing || '';
-
-    // Manejar logoUrl (temporalmente solo guarda URL, la subida se implementará después)
-    if (datos.logoUrl) {
-        // TODO: Implementar lógica de subida de archivo si se envía un archivo en lugar de una URL
-        datosParaActualizar.websiteSettings.theme.logoUrl = datos.logoUrl;
-    } else {
-        // Si no se envía logoUrl, asegurarse de eliminarlo si existe
-        datosParaActualizar['websiteSettings.theme.logoUrl'] = admin.firestore.FieldValue.delete();
-    }
-    // Eliminar logoUrl del objeto principal para no guardarlo fuera de theme
-    delete datosParaActualizar.logoUrl;
-
-
-    await empresaRef.set(datosParaActualizar, { merge: true }); // Usar set con merge para crear campos anidados si no existen
+    
+    // *** INICIO DE LA CORRECCIÓN P1 ***
+    // Usar .update() en lugar de .set() con merge.
+    // .update() maneja correctamente la fusión de campos anidados 
+    // (ej. 'websiteSettings.seo.homeTitle') sin borrar otros campos en 'websiteSettings'.
     await empresaRef.update({
+        ...datos, // Propaga todos los campos (incluyendo los de notación de puntos)
         fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
     });
+    // *** FIN DE LA CORRECCIÓN P1 ***
 };
 
 const obtenerProximoIdNumericoCarga = async (db, empresaId) => {
-    // ... (código sin cambios)
     const empresaRef = db.collection('empresas').doc(empresaId);
 
     return db.runTransaction(async (transaction) => {
@@ -75,7 +52,6 @@ const obtenerProximoIdNumericoCarga = async (db, empresaId) => {
 const obtenerEmpresaPorDominio = async (db, hostname) => {
     const empresasRef = db.collection('empresas');
 
-    // **MODIFICACIÓN CLAVE**: Añadir lógica para subdominios .onrender.com
     if (hostname.endsWith('.onrender.com')) {
         const subdomain = hostname.split('.')[0];
         console.log(`[TenantResolver] Buscando empresa por subdominio Render: ${subdomain}`);
@@ -89,7 +65,6 @@ const obtenerEmpresaPorDominio = async (db, hostname) => {
         console.log(`[TenantResolver] No se encontró empresa para el subdominio Render: ${subdomain}`);
     }
 
-    // Buscar por dominio principal (como antes)
     console.log(`[TenantResolver] Buscando empresa por dominio principal: ${hostname}`);
     const qDomain = empresasRef.where('websiteSettings.domain', '==', hostname).limit(1);
     const domainSnapshot = await qDomain.get();
@@ -101,9 +76,8 @@ const obtenerEmpresaPorDominio = async (db, hostname) => {
     }
 
     console.log(`[TenantResolver] No se encontró empresa para el hostname: ${hostname}`);
-    return null; // Si no se encuentra por ninguno de los métodos
+    return null;
 };
-
 
 module.exports = {
     obtenerDetallesEmpresa,

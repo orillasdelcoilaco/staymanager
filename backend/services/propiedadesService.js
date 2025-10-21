@@ -21,7 +21,7 @@ const crearPropiedad = async (db, empresaId, datosPropiedad) => {
         sincronizacionIcal: datosPropiedad.sincronizacionIcal || {},
         componentes: componentes,
         googleHotelData: datosPropiedad.googleHotelData || {},
-        websiteData: datosPropiedad.websiteData || { aiDescription: '', images: {} }, // Asegurar que exista
+        websiteData: datosPropiedad.websiteData || { aiDescription: '', images: {} },
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
     };
 
@@ -54,34 +54,31 @@ const obtenerPropiedadPorId = async (db, empresaId, propiedadId) => {
     return { id: doc.id, ...doc.data() };
 };
 
-// *** CORRECCIÓN P1 (Asegurar Merge) ***
 const actualizarPropiedad = async (db, empresaId, propiedadId, datosActualizados) => {
     const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
 
-    // Asegurarse de que componentes sea un array si se está actualizando
     if (datosActualizados.componentes && !Array.isArray(datosActualizados.componentes)) {
         datosActualizados.componentes = [];
     }
     
-    // Eliminar linkFotos si viene (limpieza)
     delete datosActualizados.linkFotos;
 
-    // Usar set con merge: true para actualizar campos anidados (como 'websiteData.aiDescription')
-    // sin sobrescribir el objeto 'websiteData' completo.
-    await propiedadRef.set(datosActualizados, { merge: true }); 
-
-    // Actualizar fecha y eliminar campo antiguo
+    // *** INICIO DE LA CORRECCIÓN P2 ***
+    // Usar 'update' para fusionar campos anidados (como 'websiteData.aiDescription')
+    // sin sobrescribir 'websiteData.images'.
     await propiedadRef.update({
+        ...datosActualizados, // Esto aplicará 'websiteData.aiDescription': '...' o 'googleHotelData.isListed': true
         fechaActualizacion: admin.firestore.FieldValue.serverTimestamp(),
         linkFotos: admin.firestore.FieldValue.delete()
     });
+    // *** FIN DE LA CORRECCIÓN P2 ***
 
     const docActualizado = await propiedadRef.get();
     return { id: propiedadId, ...docActualizado.data() };
 };
 
 const eliminarPropiedad = async (db, empresaId, propiedadId) => {
-    // TODO: Eliminar imágenes de Storage asociadas a esta propiedad
+    // TODO: Implementar borrado de imágenes en Storage asociadas a esta propiedad
     const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
     await propiedadRef.delete();
 };
