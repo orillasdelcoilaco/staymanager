@@ -6,6 +6,7 @@
     
     <title><%= empresa.websiteSettings?.seo?.homeTitle || empresa.nombre %></title>
     <meta name="description" content="<%= empresa.websiteSettings?.seo?.homeDescription || `Reservas en ${empresa.nombre}` %>">
+
     <link rel="stylesheet" href="/public/css/website.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +18,7 @@
 
     <main>
         <% if (empresa.websiteSettings?.theme?.heroImageUrl) { %>
-            <div classclass="relative bg-gray-900 h-64 md:h-96">
+            <div class="relative bg-gray-900 h-64 md:h-96">
                 <picture>
                     <source srcset="<%= empresa.websiteSettings.theme.heroImageUrl %>" type="image/webp">
                     <img src="<%= empresa.websiteSettings.theme.heroImageUrl %>" 
@@ -78,14 +79,14 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         <% propiedades.forEach(prop => { %>
                             <% 
-                               // Lógica para imagen de portada (ya estaba correcta)
+                               // Lógica para imagen de portada
                                const imagenPortadaArray = prop.websiteData?.images?.['portadaRecinto'] || prop.websiteData?.images?.['exteriorAlojamiento'];
                                const imagenPortada = imagenPortadaArray?.[0];
                                const imagenUrl = imagenPortada?.storagePath || 'https://via.placeholder.com/400x300.png?text=Imagen+no+disponible';
                                const altText = imagenPortada?.altText || `Imagen de ${prop.nombre}`;
                                const titleText = imagenPortada?.title || prop.nombre;
                                
-                               // Lógica para descripción (ya usaba aiDescription)
+                               // Lógica para descripción
                                const descripcion = prop.websiteData?.aiDescription || prop.descripcion || 'Descripción no disponible.';
                             %>
                             <div class="property-card">
