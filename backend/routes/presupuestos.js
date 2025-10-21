@@ -1,35 +1,41 @@
+// backend/routes/presupuestos.js
 const express = require('express');
 const router = express.Router();
 const jsonParser = express.json();
 
-// Se usan los nombres de archivo en plural, confirmados con la lista de tu proyecto.
-const { generarTextoPresupuesto } = require('../services/presupuestosService');
+// *** INICIO DE LA CORRECCIÓN ***
+// Importar la función desde el servicio correcto (mensajeService.js)
+const { generarTextoPresupuesto } = require('../services/mensajeService');
+// *** FIN DE LA CORRECCIÓN ***
+
 
 module.exports = (db) => {
 
-    // Esta es la ruta que tu frontend está llamando y que causaba el error 500.
-    // Ahora está implementada correctamente para la arquitectura multi-empresa.
+    // Ruta para generar el texto del presupuesto
     router.post('/generar-texto', jsonParser, async (req, res) => {
         try {
-            // Se obtiene el empresaId del usuario autenticado (esto era lo que faltaba).
+            // Se obtiene el empresaId del usuario autenticado
             const { empresaId } = req.user;
             const { cliente, fechaLlegada, fechaSalida, propiedades, personas } = req.body;
 
             if (!cliente || !fechaLlegada || !fechaSalida || !propiedades || !personas) {
                 return res.status(400).json({ error: 'Faltan datos para generar el texto del presupuesto.' });
             }
-            
-            // Se llama a la función del servicio con todos los parámetros necesarios, incluyendo el empresaId.
+
+            // Llamar a la función importada (ahora desde mensajeService)
             const texto = await generarTextoPresupuesto(db, empresaId, cliente, fechaLlegada, fechaSalida, propiedades, personas);
 
-            // Se devuelve el texto generado al frontend.
+            // Devolver el texto generado
             res.status(200).json({ texto });
 
         } catch (error) {
             console.error("Error al generar texto del presupuesto:", error);
-            res.status(500).json({ error: 'Error interno del servidor al generar el presupuesto.' });
+            // Devolver el mensaje de error específico si existe
+            res.status(500).json({ error: error.message || 'Error interno del servidor al generar el presupuesto.' });
         }
     });
+
+    // (Otras rutas relacionadas con presupuestos podrían ir aquí si las hubiera)
 
     return router;
 };
