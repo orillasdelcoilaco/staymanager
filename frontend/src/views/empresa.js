@@ -3,12 +3,49 @@ import { fetchAPI } from '../api.js';
 
 let empresaInfo = {};
 
+// Esta función se moverá dentro de afterRender para que tenga acceso a empresaInfo
+async function handleSubirLogo(file) {
+    const statusDiv = document.getElementById('logo-upload-status');
+    const previewImg = document.getElementById('logo-preview');
+    statusDiv.textContent = 'Subiendo logo...';
+    statusDiv.className = 'text-xs mt-1 text-blue-600';
+
+    const formData = new FormData();
+    // 'logoFile' debe coincidir con upload.single('logoFile') en el backend
+    formData.append('logoFile', file); 
+
+    try {
+        // Llamar al nuevo endpoint
+        const resultado = await fetchAPI('/empresa/upload-logo', {
+            method: 'POST',
+            body: formData 
+        });
+
+        // Actualizar el estado local
+        if (!empresaInfo.websiteSettings) empresaInfo.websiteSettings = { theme: {} };
+        if (!empresaInfo.websiteSettings.theme) empresaInfo.websiteSettings.theme = {};
+        empresaInfo.websiteSettings.theme.logoUrl = resultado.logoUrl;
+
+        // Actualizar la UI
+        previewImg.src = resultado.logoUrl;
+        statusDiv.textContent = '¡Logo actualizado!';
+        statusDiv.className = 'text-xs mt-1 text-green-600';
+
+    } catch (error) {
+        statusDiv.textContent = `Error al subir: ${error.message}`;
+        statusDiv.className = 'text-xs mt-1 text-red-600';
+    } finally {
+        // Limpiar el input de archivo
+        document.getElementById('logoFile').value = ''; 
+    }
+}
+
+
 function renderFormulario() {
     const formContainer = document.getElementById('form-container');
     if (!formContainer) return;
 
     // --- Lógica para el estado de Google Auth ---
-    // (Asegurarse de que googleRefreshToken se esté cargando correctamente)
     const authStatusHtml = empresaInfo.googleRefreshToken
         ? `<div class="p-4 bg-green-100 border border-green-300 rounded-md">
                <p class="font-semibold text-green-800">Estado: Activa</p>
@@ -58,7 +95,7 @@ function renderFormulario() {
             </fieldset>
 
             <fieldset class="border p-4 rounded-md">
-                <legend class="px-2 font-semibold text-gray-700">Información para IA y SEO (NUEVO)</legend>
+                <legend class="px-2 font-semibold text-gray-700">Información para IA y SEO</legend>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
                     <div>
                         <label for="tipoAlojamientoPrincipal" class="block text-sm font-medium text-gray-700">Tipo Principal Alojamiento</label>
@@ -97,14 +134,23 @@ function renderFormulario() {
                         <input type="url" id="website" name="website" value="${empresaInfo.website || ''}" class="mt-1 form-input">
                     </div>
                      <div>
-                        <label for="logoUrl" class="block text-sm font-medium text-gray-700">URL del Logo (Temporal)</label>
-                        <input type="url" id="logoUrl" name="logoUrl" value="${empresaInfo.websiteSettings?.theme?.logoUrl || ''}" class="mt-1 form-input">
-                        </div>
-                     <div>
                         <label for="googleMapsLink" class="block text-sm font-medium text-gray-700">Link a Google Maps</label>
                         <input type="url" id="googleMapsLink" name="googleMapsLink" value="${empresaInfo.googleMapsLink || ''}" class="mt-1 form-input">
                     </div>
-                </div>
+
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700">Logo de la Empresa</label>
+                        <div class="mt-2 flex flex-col sm:flex-row sm:items-center sm:space-x-4">
+                             <img id="logo-preview" 
+                                 src="${empresaInfo.websiteSettings?.theme?.logoUrl || 'https://via.placeholder.com/100x50.png?text=Sin+Logo'}" 
+                                 alt="Logo actual" 
+                                 class="h-12 w-auto max-w-[150px] object-contain bg-gray-100 rounded border p-1 mb-2 sm:mb-0">
+                             
+                             <input type="file" id="logoFile" accept="image/png, image/jpeg, image/webp" class="form-input-file text-sm max-w-xs">
+                        </div>
+                        <div id="logo-upload-status" class="text-xs mt-1"></div>
+                    </div>
+                    </div>
             </fieldset>
 
             <fieldset class="border p-4 rounded-md">
@@ -151,6 +197,16 @@ export async function afterRender() {
         empresaInfo = await fetchAPI('/empresa');
         renderFormulario();
 
+        // *** AÑADIR LISTENER PARA LA SUBIDA DEL LOGO ***
+        document.getElementById('logoFile').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                // Llamamos a la función definida fuera de renderFormulario
+                handleSubirLogo(file);
+            }
+        });
+
+        // --- Listener existente para el formulario principal (guardar datos de texto) ---
         const form = document.getElementById('empresa-form');
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -175,33 +231,47 @@ export async function afterRender() {
                 palabrasClaveAdicionales: form.palabrasClaveAdicionales.value,
                 enfoqueMarketing: form.enfoqueMarketing.value,
                 
-                // Campos de websiteSettings (el servicio se encargará de anidarlos)
+                // Campos de websiteSettings
                 websiteSettings: {
-                    domain: form.websiteDomain.value,
-                    subdomain: form.websiteSubdomain.value,
                     // Aseguramos mantener otros settings si existen
                     ...(empresaInfo.websiteSettings || {}),
-                    // Anidamos theme dentro de websiteSettings
+                    domain: form.websiteDomain.value,
+                    subdomain: form.websiteSubdomain.value,
+                    // El theme se actualiza, pero el logoUrl se maneja por separado
                     theme: {
                         ...(empresaInfo.websiteSettings?.theme || {}),
-                        logoUrl: form.logoUrl.value // Sobrescribimos logoUrl aquí
+                        // No enviamos logoUrl aquí
                     }
                 }
             };
-
-            // No es necesario borrar 'logoUrl' del nivel superior, 
-            // pero nos aseguramos que se guarde anidado en websiteSettings.theme
-            // El servicio 'empresaService' (backend) se actualizó para manejar esto.
             
+            // Limpiamos el logoUrl del theme para que este formulario no lo sobrescriba
+            delete datos.websiteSettings.theme.logoUrl;
+
             try {
-                // Enviamos el objeto 'datos' completo
                 await fetchAPI('/empresa', { method: 'PUT', body: datos });
                 
                 alert('¡Datos de la empresa actualizados con éxito!');
                 
-                // Recargamos los datos para reflejar los cambios guardados
-                empresaInfo = await fetchAPI('/empresa'); 
+                // Recargamos los datos (excepto el logo que ya está actualizado localmente)
+                const nuevosDatos = await fetchAPI('/empresa');
+                // Preservamos el logoUrl local por si la recarga es más lenta que la subida
+                const logoActual = empresaInfo.websiteSettings?.theme?.logoUrl;
+                empresaInfo = nuevosDatos;
+                if (logoActual && !empresaInfo.websiteSettings?.theme?.logoUrl) {
+                    if (!empresaInfo.websiteSettings) empresaInfo.websiteSettings = {};
+                    if (!empresaInfo.websiteSettings.theme) empresaInfo.websiteSettings.theme = {};
+                    empresaInfo.websiteSettings.theme.logoUrl = logoActual;
+                }
+
                 renderFormulario(); // Re-renderizar con los datos actualizados
+                
+                // Volver a añadir el listener de subida de logo después de re-renderizar
+                document.getElementById('logoFile').addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) handleSubirLogo(file);
+                });
+
             } catch (error) {
                 alert(`Error al guardar: ${error.message}`);
             } finally {
