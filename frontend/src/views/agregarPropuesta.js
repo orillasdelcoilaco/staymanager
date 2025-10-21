@@ -78,8 +78,12 @@ function selectClient(client) {
 function clearClientSelection() {
     selectedClient = null;
     document.getElementById('client-form-title').textContent = '... o añade un cliente nuevo';
-    ['new-client-name', 'new-client-phone', 'new-client-email'].forEach(id => document.getElementById(id).value = '');
+    ['new-client-name', 'new-client-phone', 'new-client-email'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
 }
+
 
 function createPropertyCheckbox(prop, isSuggested) {
     return `
@@ -101,16 +105,16 @@ function renderSelectionUI() {
     if (!availabilityData.suggestion) return;
     
     // Almacenar las propiedades seleccionadas (ya sea grupo o itinerario)
-    selectedProperties = [...availabilityData.suggestion.propiedades];
+    // En segmentado, 'propiedades' es un array de todas las props únicas en el itinerario
+    selectedProperties = availabilityData.suggestion.isSegmented
+        ? availabilityData.suggestion.itinerary.map(s => s.propiedad)
+        : [...availabilityData.suggestion.propiedades];
 
     if (availabilityData.suggestion.isSegmented) {
-         // *** INICIO CORRECCIÓN: Renderizado de itinerario segmentado ***
          suggestionList.innerHTML = `
             <h4 class="font-medium text-gray-700">Propuesta de Itinerario</h4>
             <div class="space-y-2 p-3 bg-white rounded-md border">${
                 availabilityData.suggestion.itinerary.map((segment) => {
-                    // segment.endDate es el día de check-out, no la última noche
-                    // Para mostrar "al [fecha]", debemos usar la fecha de salida del segmento
                     const fechaSalidaSegmento = new Date(segment.endDate); 
                     return `
                         <div class="grid grid-cols-5 gap-4 items-center text-sm">
@@ -122,11 +126,8 @@ function renderSelectionUI() {
                         </div>`;
                 }).join('')
             }</div>`;
-         // No mostrar 'availableList' ni checkboxes en modo segmentado
          availableList.innerHTML = '<p class="text-sm text-gray-500">Modo segmentado: no se pueden añadir otras cabañas.</p>';
-         // *** FIN CORRECCIÓN ***
     } else {
-        // Lógica normal
         const suggestedIds = new Set(availabilityData.suggestion.propiedades.map(p => p.id));
         suggestionList.innerHTML = `<h4 class="font-medium text-gray-700">Propiedades Sugeridas</h4>` + availabilityData.suggestion.propiedades.map(p => createPropertyCheckbox(p, true)).join('');
         availableList.innerHTML = availabilityData.availableProperties.filter(p => !suggestedIds.has(p.id)).map(p => createPropertyCheckbox(p, false)).join('');
@@ -223,7 +224,8 @@ function handleCanalChange() {
     document.getElementById('valor-dolar-container').classList.toggle('hidden', moneda !== 'USD');
     
     if (availabilityData.suggestion) {
-        handleSelectionChange();
+        // Recalcular precio si ya hay una sugerencia
+        handleSelectionChange(); 
     }
 }
 
@@ -274,7 +276,7 @@ export function render() {
                     <div id="cliente-section" class="p-4 border rounded-md bg-gray-50 mb-6">
                          <h3 class="font-semibold text-gray-800 mb-2">3. Cliente y Canal de Venta</h3>
                          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
+                            <div class="relative"> 
                                 <label id="client-form-title" class="block text-sm font-medium text-gray-700">Buscar o Crear Cliente</label>
                                 <input type="text" id="client-search" placeholder="Buscar por nombre o teléfono..." class="form-input mt-1">
                                 <div id="client-results-list" class="hidden mt-1 border rounded-md max-h-32 overflow-y-auto bg-white z-10 absolute w-full max-w-sm"></div>
@@ -343,7 +345,7 @@ export async function afterRender() {
             fechaLlegada: fechaLlegada,
             fechaSalida: document.getElementById('fecha-salida').value,
             personas: document.getElementById('personas').value,
-            sinCamarotes: document.getElementById('sin-camarotes').checked, // *** CORRECCIÓN: Usar sin-camarotes ***
+            sinCamarotes: document.getElementById('sin-camarotes').checked,
             permitirCambios: document.getElementById('permitir-cambios').checked,
             canalId: document.getElementById('canal-select').value
         };
@@ -427,34 +429,40 @@ export async function afterRender() {
              alert('Debes seleccionar o crear un cliente.'); return;
         }
         
-        // Si es segmentado, 'selectedProperties' ya está seteado por el backend
-        // Si no es segmentado, 'selectedProperties' se actualiza por handleSelectionChange
         if (selectedProperties.length === 0) {
             alert('No hay propiedades seleccionadas para esta propuesta.'); return;
         }
         
         const canalSelect = document.getElementById('canal-select');
+        // *** INICIO CORRECCIÓN ERROR: Validar Canal ***
         const canal = allCanales.find(c => c.id === canalSelect.value);
+        if (!canal) {
+            alert('Por favor, selecciona un canal de venta válido.');
+            return;
+        }
+        // *** FIN CORRECCIÓN ERROR ***
 
         const precioFinalCLP = parseFloat(document.getElementById('summary-precio-final').textContent.replace(/\$|\./g, '').replace(',','.')) || 0;
         
-        // El valor original (en moneda objetivo) ya está en currentPricing
         const valorOriginal = currentPricing.totalPriceOriginal || 0;
-        const precioListaCLP = currentPricing.totalPriceCLP || 0; // Precio en CLP antes de descuentos manuales
+        const precioListaCLP = currentPricing.totalPriceCLP || 0;
 
         const idReservaCanal = document.getElementById('id-reserva-canal-input').value;
         const icalUid = document.getElementById('ical-uid-input').value;
 
         // Si es segmentado, 'propiedades' es el array de TODAS las props únicas del itinerario
-        // 'items' (el itinerario) se pasa para el texto
         const propiedadesParaTexto = availabilityData.suggestion.isSegmented ? availabilityData.suggestion.itinerary.map(s => s.propiedad) : selectedProperties;
+        // Para guardar, necesitamos un array único de propiedades involucradas
+        const propiedadesUnicasParaGuardar = availabilityData.suggestion.isSegmented
+            ? Array.from(new Map(availabilityData.suggestion.itinerary.map(s => [s.propiedad.id, s.propiedad])).values())
+            : selectedProperties;
+
         
         const payloadGuardar = {
             cliente: clienteParaGuardar,
             fechaLlegada: document.getElementById('fecha-llegada').value,
             fechaSalida: document.getElementById('fecha-salida').value,
-            // 'propiedades' debe ser el array de propiedades únicas
-            propiedades: selectedProperties, 
+            propiedades: propiedadesUnicasParaGuardar, // Usar el array de propiedades únicas
             personas: parseInt(document.getElementById('personas').value) || 0,
             precioFinal: precioFinalCLP,
             noches: currentPricing.nights,
@@ -495,8 +503,7 @@ export async function afterRender() {
             const payloadTexto = {
                 ...payloadGuardar,
                 idPropuesta: resultadoGuardado.id,
-                // Usar las propiedades para el texto (puede ser el itinerario)
-                propiedades: propiedadesParaTexto,
+                propiedades: propiedadesParaTexto, // Usar las propiedades correctas para el texto
             };
 
             const resultadoTexto = await fetchAPI('/propuestas/generar-texto', { method: 'POST', body: payloadTexto });
@@ -532,5 +539,15 @@ export async function afterRender() {
 
     if (editId) {
         // ... (código para precargar datos en modo edición)
+        // Este código debería precargar los campos de fecha, personas, cliente, canal, etc.
+        // y luego llamar a runSearch() para popular la UI.
+        
+        // Ejemplo de precarga (simplificado):
+        // document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
+        // document.getElementById('fecha-salida').value = params.get('fechaSalida');
+        // document.getElementById('personas').value = params.get('personas');
+        // document.getElementById('canal-select').value = params.get('canalId');
+        // ... (lógica para precargar cliente) ...
+        // await runSearch();
     }
 }
