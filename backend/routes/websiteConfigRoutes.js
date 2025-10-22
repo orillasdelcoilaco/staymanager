@@ -7,7 +7,7 @@ const sharp = require('sharp');
 
 const { obtenerPropiedadPorId, actualizarPropiedad } = require('../services/propiedadesService');
 // Importar servicios de empresa
-const { obtenerDetallesEmpresa, actualizarDetallesEmpresa } = require('../services/empresaService'); 
+const { obtenerDetallesEmpresa, actualizarDetallesEmpresa } = require('../services/empresaService');
 // Importar TODAS las funciones de IA
 const { generarDescripcionAlojamiento, generarMetadataImagen, generarSeoHomePage, generarContenidoHomePage } = require('../services/aiContentService');
 const { uploadFile, deleteFileByPath } = require('../services/storageService');
@@ -30,10 +30,10 @@ module.exports = (db) => {
              next(error);
         }
     });
-    
+
     // --- RUTAS PARA PÁGINA DE INICIO (HOME) ---
 
-    // *** RESTAURADO: Generar textos SEO para Home (sin guardar) ***
+    // Generar textos SEO para Home (sin guardar)
     router.post('/generate-ai-home-seo', async (req, res) => {
         try {
             const { empresaId } = req.user;
@@ -46,7 +46,7 @@ module.exports = (db) => {
         }
     });
 
-    // *** RESTAURADO: Generar textos de contenido para Home (sin guardar) ***
+    // Generar textos de contenido para Home (sin guardar)
     router.post('/generate-ai-home-content', async (req, res) => {
         try {
             const { empresaId } = req.user;
@@ -59,7 +59,7 @@ module.exports = (db) => {
         }
     });
 
-    // *** CORREGIDO: Guardar textos SEO y de Contenido para Home ***
+    // Guardar textos SEO y de Contenido para Home, y config general
     router.put('/home-settings', async (req, res) => {
         try {
             const { empresaId } = req.user;
@@ -68,36 +68,42 @@ module.exports = (db) => {
 
             // Usar notación de puntos para actualizar solo los campos enviados
             const updatePayload = {};
-            
-            if (general?.subdomain) updatePayload['websiteSettings.subdomain'] = general.subdomain;
-            if (general?.domain) updatePayload['websiteSettings.domain'] = general.domain;
-            
-            if (theme?.logoUrl) updatePayload['websiteSettings.theme.logoUrl'] = theme.logoUrl;
-            if (theme?.primaryColor) updatePayload['websiteSettings.theme.primaryColor'] = theme.primaryColor;
-            if (theme?.secondaryColor) updatePayload['websiteSettings.theme.secondaryColor'] = theme.secondaryColor;
+
+            // CORRECCIÓN: Usar la clave correcta sin 'general'
+            if (general?.subdomain !== undefined) updatePayload['websiteSettings.subdomain'] = general.subdomain;
+            if (general?.domain !== undefined) updatePayload['websiteSettings.domain'] = general.domain;
+
+            // Mantener el resto como estaba
+            if (theme?.logoUrl !== undefined) updatePayload['websiteSettings.theme.logoUrl'] = theme.logoUrl;
+            if (theme?.primaryColor !== undefined) updatePayload['websiteSettings.theme.primaryColor'] = theme.primaryColor;
+            if (theme?.secondaryColor !== undefined) updatePayload['websiteSettings.theme.secondaryColor'] = theme.secondaryColor;
             // No guardar heroImageUrl aquí, se guarda en su propia ruta
 
-            if (content?.homeH1) updatePayload['websiteSettings.content.homeH1'] = content.homeH1;
-            if (content?.homeIntro) updatePayload['websiteSettings.content.homeIntro'] = content.homeIntro;
-            
-            if (seo?.homeTitle) updatePayload['websiteSettings.seo.homeTitle'] = seo.homeTitle;
-            if (seo?.homeDescription) updatePayload['websiteSettings.seo.homeDescription'] = seo.homeDescription;
+            if (content?.homeH1 !== undefined) updatePayload['websiteSettings.content.homeH1'] = content.homeH1;
+            if (content?.homeIntro !== undefined) updatePayload['websiteSettings.content.homeIntro'] = content.homeIntro;
+
+            if (seo?.homeTitle !== undefined) updatePayload['websiteSettings.seo.homeTitle'] = seo.homeTitle;
+            if (seo?.homeDescription !== undefined) updatePayload['websiteSettings.seo.homeDescription'] = seo.homeDescription;
 
             if (Object.keys(updatePayload).length === 0) {
                  return res.status(200).json({ message: 'No hay cambios que guardar.' });
             }
-            
-            // Usar 'actualizarDetallesEmpresa' que usa .update()
+
+            // Añadir logs para depuración
+            console.log(`[DEBUG] Guardando home-settings para ${empresaId}. Payload:`, JSON.stringify(updatePayload, null, 2));
+
             await actualizarDetallesEmpresa(db, empresaId, updatePayload);
+
+            console.log(`[DEBUG] home-settings guardado exitosamente para ${empresaId}.`);
             res.status(200).json({ message: 'Configuración de la página de inicio guardada.' });
 
         } catch (error) {
-            console.error(`Error PUT /home-settings (reemplazando /configuracion-web):`, error);
+            console.error(`Error PUT /home-settings:`, error);
             res.status(500).json({ error: 'Error al guardar la configuración de inicio.' });
         }
     });
 
-     // *** CORREGIDO: Subir imagen de portada (Hero Image) ***
+     // Subir imagen de portada (Hero Image)
     router.post('/upload-hero-image', upload.single('heroImage'), async (req, res) => {
         try {
             const { empresaId, nombreEmpresa } = req.user;
@@ -117,7 +123,7 @@ module.exports = (db) => {
                 .toBuffer();
 
             const publicUrl = await uploadFile(optimizedBuffer, storagePath, `image/${outputFormat}`);
-            
+
             // Usar notación de puntos para guardar
             const updatePayload = {
                 'websiteSettings.theme.heroImageUrl': publicUrl,
@@ -126,9 +132,9 @@ module.exports = (db) => {
             };
             await actualizarDetallesEmpresa(db, empresaId, updatePayload);
 
-            res.status(201).json({ 
-                imageUrl: publicUrl, 
-                altText: updatePayload['websiteSettings.theme.heroImageAlt'], 
+            res.status(201).json({
+                imageUrl: publicUrl,
+                altText: updatePayload['websiteSettings.theme.heroImageAlt'],
                 titleText: updatePayload['websiteSettings.theme.heroImageTitle']
             });
 
@@ -195,14 +201,19 @@ module.exports = (db) => {
                 return res.status(404).json({ error: 'Propiedad no encontrada.' });
             }
 
-            // Pasamos la ubicación de la propiedad (googleHotelData) a la IA
-            const ubicacionPropiedad = propiedad.googleHotelData?.address || {};
-            
+            // Pasamos la ubicación de la empresa a la IA
+            const ubicacionEmpresa = empresaData.ubicacionTexto || '';
+            const tipoAlojamiento = empresaData.tipoAlojamientoPrincipal || '';
+            const enfoqueMarketing = empresaData.enfoqueMarketing || '';
+
+
             const textoGenerado = await generarDescripcionAlojamiento(
-                propiedad.descripcion,
-                propiedad.nombre,
-                nombreEmpresa,
-                ubicacionPropiedad // Pasamos el objeto de ubicación
+                propiedad.descripcion, // Descripción manual base
+                propiedad.nombre,      // Nombre de la propiedad específica
+                nombreEmpresa,         // Nombre de la empresa
+                ubicacionEmpresa,      // Ubicación general del negocio
+                tipoAlojamiento,       // Tipo principal de alojamiento
+                enfoqueMarketing       // Enfoque general de marketing
              );
             res.status(200).json({ texto: textoGenerado });
 
@@ -211,6 +222,7 @@ module.exports = (db) => {
             next(error);
         }
     });
+
 
     // Subir imágenes para un componente (con IA asíncrona)
     router.post('/propiedad/:propiedadId/upload-image/:componentId', upload.array('images'), async (req, res, next) => {
@@ -258,14 +270,18 @@ module.exports = (db) => {
                 // --- Tarea Asíncrona ---
                 (async (pid, cid, imgId, url) => {
                     try {
+                        // Recargar la propiedad para obtener la descripción más reciente
+                        const propActualizada = await obtenerPropiedadPorId(db, empresaId, pid);
+                        const descPropiedad = propActualizada?.websiteData?.aiDescription || propActualizada?.descripcion || '';
+
                         const metadata = await generarMetadataImagen(
                             nombreEmpresa,
-                            propiedad.nombre,
-                            propiedad.websiteData?.aiDescription || propiedad.descripcion,
+                            propActualizada?.nombre || 'Propiedad',
+                            descPropiedad,
                             componente.nombre,
                             componente.tipo
                         );
-                        
+
                         const doc = await propiedadRef.get();
                         if (!doc.exists) return;
                         const currentData = doc.data();
@@ -275,7 +291,7 @@ module.exports = (db) => {
                         if (imageIndex > -1) {
                             images[imageIndex].altText = metadata.altText;
                             images[imageIndex].title = metadata.title;
-                            
+
                             const updateMetaPayload = {};
                             updateMetaPayload[`websiteData.images.${cid}`] = images;
                             await propiedadRef.update(updateMetaPayload);
@@ -293,6 +309,7 @@ module.exports = (db) => {
             next(error);
         }
     });
+
 
     // Eliminar una imagen específica
     router.delete('/propiedad/:propiedadId/delete-image/:componentId/:imageId', async (req, res, next) => {
@@ -314,19 +331,27 @@ module.exports = (db) => {
             const bucketName = admin.storage().bucket().name;
             let storagePathToDelete = '';
             try {
-                if (imagenAEliminar.storagePath.startsWith(`https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/`)) {
+                // CORRECCIÓN: Usar firebasestorage.googleapis.com
+                if (imagenAEliminar.storagePath && imagenAEliminar.storagePath.startsWith(`https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/`)) {
                     const encodedPath = imagenAEliminar.storagePath.split(`${bucketName}/o/`)[1].split('?')[0];
                     storagePathToDelete = decodeURIComponent(encodedPath);
                     await deleteFileByPath(storagePathToDelete);
+                } else {
+                     console.warn(`URL de Storage no reconocida o vacía para ${imageId}: ${imagenAEliminar.storagePath}`);
                 }
             } catch (storageError) {
                 console.warn(`No se pudo eliminar de Storage (quizás ya estaba borrado): ${storageError.message}`);
             }
 
             const nuevasImagenes = imagesComponente.filter(img => img.imageId !== imageId);
-            
+
             const updatePayload = {};
-            updatePayload[`websiteData.images.${componentId}`] = nuevasImagenes;
+            // Si no quedan imágenes para el componente, eliminar la clave del componente
+            if (nuevasImagenes.length > 0) {
+                 updatePayload[`websiteData.images.${componentId}`] = nuevasImagenes;
+            } else {
+                 updatePayload[`websiteData.images.${componentId}`] = admin.firestore.FieldValue.delete();
+            }
             await propiedadRef.update(updatePayload);
 
             res.status(200).json({ message: 'Imagen eliminada con éxito.' });
