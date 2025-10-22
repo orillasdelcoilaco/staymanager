@@ -1,4 +1,4 @@
-<% /* backend/views/propiedad.ejs */ %>
+<%- /* backend/views/propiedad.ejs */ %>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -123,12 +123,11 @@
                     </div>
                 </div>
 
-            </div>
-            <div class="lg:col-span-1">
+            </div> <div class="lg:col-span-1">
                 <div class="sticky top-8">
                     <div class="bg-white p-6 rounded-lg shadow-lg border">
                         <div id="price-display" class="mb-4 text-gray-900">
-                            <span class="text-2xl font-bold" id="price-total-display"><%= defaultPriceData.formattedTotalPrice %></span>
+                             <span class="text-2xl font-bold" id="price-total-display"><%= defaultPriceData.formattedTotalPrice %></span>
                             <span class="text-sm text-gray-600" id="price-label-display"><% if(defaultPriceData.nights > 0) { %> / por <%= defaultPriceData.nights %> noche<%= defaultPriceData.nights !== 1 ? 's' : '' %><% } %></span>
                         </div>
 
@@ -164,8 +163,7 @@
                         </form>
                     </div>
                 </div>
-            </div>
-        </div>
+            </div> </div>
     </main>
 
     <%- include('partials/footer') %>
@@ -173,7 +171,7 @@
     <script>
       window.initialBookingData = {
         propiedadId: "<%= propiedad.id %>",
-        defaultPrice: <%- JSON.stringify(defaultPriceData).replace(/</g, '\\u003c') %>
+        defaultPrice: <%- JSON.stringify(defaultPriceData) %>
       };
     </script>
     <script src="/public/js/booking.js" defer></script>

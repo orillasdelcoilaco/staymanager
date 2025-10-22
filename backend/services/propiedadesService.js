@@ -21,7 +21,8 @@ const crearPropiedad = async (db, empresaId, datosPropiedad) => {
         sincronizacionIcal: datosPropiedad.sincronizacionIcal || {},
         componentes: componentes,
         googleHotelData: datosPropiedad.googleHotelData || {},
-        websiteData: datosPropiedad.websiteData || { aiDescription: '', images: {} },
+        // Asegurarse de que websiteData se inicialice con la nueva estructura
+        websiteData: datosPropiedad.websiteData || { aiDescription: '', images: {}, cardImage: null },
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
     };
 
@@ -48,6 +49,7 @@ const obtenerPropiedadPorId = async (db, empresaId, propiedadId) => {
     const doc = await propiedadRef.get();
 
     if (!doc.exists) {
+        // Devolver null en lugar de lanzar error permite al controlador SSR manejarlo como 404
         return null;
     }
 
@@ -60,25 +62,19 @@ const actualizarPropiedad = async (db, empresaId, propiedadId, datosActualizados
     if (datosActualizados.componentes && !Array.isArray(datosActualizados.componentes)) {
         datosActualizados.componentes = [];
     }
-    
-    delete datosActualizados.linkFotos;
 
-    // *** INICIO DE LA CORRECCIÓN P2 ***
-    // Usar 'update' para fusionar campos anidados (como 'websiteData.aiDescription')
-    // sin sobrescribir 'websiteData.images'.
+    // Usar .update() para fusionar campos anidados (como websiteData.aiDescription)
     await propiedadRef.update({
-        ...datosActualizados, // Esto aplicará 'websiteData.aiDescription': '...' o 'googleHotelData.isListed': true
-        fechaActualizacion: admin.firestore.FieldValue.serverTimestamp(),
-        linkFotos: admin.firestore.FieldValue.delete()
+        ...datosActualizados,
+        fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
     });
-    // *** FIN DE LA CORRECCIÓN P2 ***
 
     const docActualizado = await propiedadRef.get();
     return { id: propiedadId, ...docActualizado.data() };
 };
 
 const eliminarPropiedad = async (db, empresaId, propiedadId) => {
-    // TODO: Implementar borrado de imágenes en Storage asociadas a esta propiedad
+    // TODO: Implementar borrado de imágenes en Storage
     const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
     await propiedadRef.delete();
 };
