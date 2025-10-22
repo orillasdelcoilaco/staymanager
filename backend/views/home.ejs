@@ -67,26 +67,23 @@
                     <% } %>
                 </h2>
 
-                <%# *** LÓGICA DE FILTRADO REVISADA *** %>
                 <%
                 const propiedadesParaMostrar = propiedades.filter(prop => {
-                    // Propiedad debe estar listada Y tener la imagen de tarjeta obligatoria
-                    return prop.googleHotelData?.isListed === true && 
-                           prop.websiteData?.cardImage && 
+                    return prop.googleHotelData?.isListed === true &&
+                           prop.websiteData?.cardImage &&
                            prop.websiteData.cardImage.storagePath;
                 });
                 %>
 
                 <% if (propiedadesParaMostrar.length > 0) { %>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        <%# Iterar sobre el array filtrado %>
                         <% propiedadesParaMostrar.forEach(prop => { %>
                             <%
-                                // *** LÓGICA DE IMAGEN REVISADA (ACCESO DIRECTO) ***
-                                const imagenTarjeta = prop.websiteData.cardImage; // Acceso directo
+                                const imagenTarjeta = prop.websiteData.cardImage;
                                 const imagenUrl = imagenTarjeta.storagePath;
                                 const altText = imagenTarjeta.altText || `Imagen de ${prop.nombre}`;
                                 const titleText = imagenTarjeta.title || prop.nombre;
+                                // *** CAMBIO: Priorizar descripción IA ***
                                 const descripcion = prop.websiteData?.aiDescription || prop.descripcion || 'Descripción no disponible.';
                             %>
                             <div class="property-card">
@@ -99,7 +96,8 @@
                                 <div class="property-card-content">
                                     <h3 class="property-card-title"><a href="/propiedad/<%= prop.id %>"><%= prop.nombre %></a></h3>
                                     <p class="property-card-details">Capacidad: hasta <%= prop.capacidad %> personas</p>
-                                    <p class="text-sm text-gray-600 mt-2 truncate"><%= descripcion.substring(0, 100) %>...</p>
+                                    <%# *** CAMBIO: Usar nueva clase CSS para truncar *** %>
+                                    <p class="card-description text-sm text-gray-600 mt-2"><%= descripcion %></p>
                                     <div class="text-right mt-4">
                                         <a href="/propiedad/<%= prop.id %>" class="btn-secondary text-sm">Ver Detalles</a>
                                     </div>
@@ -108,9 +106,9 @@
                         <% }) %>
                     </div>
                 <% } else { %>
+                    <%# Mensaje 'else' (sin cambios) %>
                     <div class="text-center py-12 px-4 border-2 border-dashed rounded-lg">
                         <h3 class="text-xl font-semibold text-gray-700">No se encontraron propiedades</h3>
-                        <%# Mensaje 'else' mejorado %>
                         <p class="mt-2 text-sm text-gray-500">
                             <% if (locals.isSearchResult) { %>
                                 No hay propiedades disponibles que cumplan los criterios. Intenta con otras fechas.
@@ -125,7 +123,6 @@
                     </div>
                 <% } %>
             </div>
-
         </div>
     </main>
 
