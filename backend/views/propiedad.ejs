@@ -17,59 +17,61 @@
 <body class="bg-gray-50">
     <%- include('partials/header') %>
 
-    <main class="container py-8 md:py-12"> {/* Reduced vertical padding slightly */}
+    <main class="container py-8 md:py-12">
 
-        {/* Property Title (Moved Up) */}
+        <%# Property Title (Moved Up) %>
         <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2"><%= propiedad.nombre %></h1>
         <p class="text-sm text-gray-600 mb-6">Capacidad: hasta <%= propiedad.capacidad %> personas</p>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12"> {/* Increased gap */}
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
 
             <%# --- Left Column: Images & Details --- %>
-            <div class="lg:col-span-2 space-y-8"> {/* Added space-y */}
+            <div class="lg:col-span-2 space-y-8">
 
                 <%# --- Image Section --- %>
                 <%
                    const imagenes = propiedad.websiteData?.images || {};
-                   // Use cardImage as the primary image if available
                    const imagenPrincipal = propiedad.websiteData?.cardImage || Object.values(imagenes).flat()[0];
-                   const galeriaImagenes = Object.values(imagenes).flat().filter(img => img.imageId !== imagenPrincipal?.imageId); // Exclude main image from gallery
+                   const galeriaImagenes = Object.values(imagenes).flat().filter(img => img.imageId !== imagenPrincipal?.imageId);
                 %>
                 <% if (imagenPrincipal && imagenPrincipal.storagePath) { %>
-                    <div class="rounded-lg overflow-hidden shadow-lg"> {/* Add shadow & rounded */}
+                    <div class="rounded-lg overflow-hidden shadow-lg"> <%# Add shadow & rounded %>
                         <picture>
                              <source srcset="<%= imagenPrincipal.storagePath %>" type="image/webp">
                              <img src="<%= imagenPrincipal.storagePath %>"
                                   alt="<%= imagenPrincipal.altText %>"
                                   title="<%= imagenPrincipal.title || '' %>"
-                                  class="w-full h-auto max-h-[60vh] object-cover" loading="eager"> {/* Adjusted height, keep object-cover */}
+                                  class="w-full h-auto max-h-[60vh] object-cover" loading="eager"> <%# Adjusted height, keep object-cover %>
                         </picture>
                     </div>
                 <% } else { %>
                      <div class="w-full h-96 bg-gray-200 flex items-center justify-center rounded-lg shadow-lg text-gray-500">Imagen Principal No Disponible</div>
                 <% } %>
 
-                <%# --- Gallery Thumbnails (Optional) --- %>
+                <%# --- Gallery Thumbnails --- %>
                 <% if (galeriaImagenes.length > 0) { %>
-                    <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                        <% galeriaImagenes.slice(0, 9).forEach(img => { %> {/* Limit thumbnails */}
-                            <picture>
-                                <source srcset="<%= img.storagePath %>" type="image/webp">
-                                <img src="<%= img.storagePath %>"
-                                     onerror="this.onerror=null; this.src='https://via.placeholder.com/100x60.png?text=Error';"
-                                     alt="<%= img.altText %>"
-                                     title="<%= img.title || '' %>"
-                                     class="w-full h-20 object-cover rounded cursor-pointer border hover:opacity-80 transition-opacity" loading="lazy"> {/* Added border, hover effect */}
-                            </picture>
-                        <% }) %>
-                         <% if (galeriaImagenes.length > 9) { %>
-                           <div class="w-full h-20 bg-gray-100 flex items-center justify-center rounded border text-xs text-gray-500 cursor-pointer hover:bg-gray-200">Ver más</div>
-                        <% } %>
+                    <div> <%# Wrapper div for gallery %>
+                        <h2 class="text-xl font-semibold mb-3">Galería de Imágenes</h2> <%# Added gallery title %>
+                        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                            <% galeriaImagenes.slice(0, 9).forEach(img => { %> <%# Limit thumbnails %>
+                                <picture>
+                                    <source srcset="<%= img.storagePath %>" type="image/webp">
+                                    <img src="<%= img.storagePath %>"
+                                         onerror="this.onerror=null; this.src='https://via.placeholder.com/100x60.png?text=Error';"
+                                         alt="<%= img.altText %>"
+                                         title="<%= img.title || '' %>"
+                                         class="w-full h-20 object-cover rounded cursor-pointer border hover:opacity-80 transition-opacity" loading="lazy"> <%# Added border, hover effect %>
+                                </picture>
+                            <% }) %>
+                             <% if (galeriaImagenes.length > 9) { %>
+                               <div class="w-full h-20 bg-gray-100 flex items-center justify-center rounded border text-xs text-gray-500 cursor-pointer hover:bg-gray-200">Ver más</div>
+                            <% } %>
+                        </div>
                     </div>
                 <% } %>
 
                 <%# --- Description Section --- %>
-                <div class="prose max-w-none pt-4 border-t"> {/* Use prose for nice text formatting */}
+                <div class="prose max-w-none pt-4 border-t">
                     <h2 class="text-xl font-semibold mb-2">Descripción</h2>
                     <p><%= propiedad.websiteData?.aiDescription || propiedad.descripcion || 'No hay descripción disponible.' %></p>
                 </div>
@@ -82,15 +84,19 @@
                         <div class="flex items-center"><i class="fa-solid fa-bed w-5 mr-2 text-indigo-600"></i> <%= propiedad.numPiezas || '?' %> Dormitorios</div>
                         <div class="flex items-center"><i class="fa-solid fa-bath w-5 mr-2 text-indigo-600"></i> <%= propiedad.numBanos || '?' %> Baños</div>
                         <div class="flex items-center"><i class="fa-solid fa-users w-5 mr-2 text-indigo-600"></i> Capacidad <%= propiedad.capacidad %></div>
-                        <%# Dynamic equipment - Add more icons as needed %>
+                        <%# Dynamic equipment %>
                         <% if (propiedad.equipamiento?.tinaja) { %><div class="flex items-center"><i class="fa-solid fa-hot-tub-person w-5 mr-2 text-indigo-600"></i> Tinaja Privada</div><% } %>
                         <% if (propiedad.equipamiento?.parrilla) { %><div class="flex items-center"><i class="fa-solid fa-burger w-5 mr-2 text-indigo-600"></i> Parrilla</div><% } %>
                         <% if (propiedad.equipamiento?.terrazaTechada) { %><div class="flex items-center"><i class="fa-solid fa-campground w-5 mr-2 text-indigo-600"></i> Terraza Techada</div><% } %>
-                        <%# Add other equipment checks here %>
+                        <% if (propiedad.equipamiento?.juegoDeTerraza) { %><div class="flex items-center"><i class="fa-solid fa-chair w-5 mr-2 text-indigo-600"></i> Juego de Terraza</div><% } %>
+                        <% if (propiedad.equipamiento?.piezaEnSuite) { %><div class="flex items-center"><i class="fa-solid fa-person-booth w-5 mr-2 text-indigo-600"></i> Pieza en Suite</div><% } %>
+                        <% if (propiedad.equipamiento?.dosPisos) { %><div class="flex items-center"><i class="fa-solid fa-building w-5 mr-2 text-indigo-600"></i> Dos Pisos</div><% } %>
                     </div>
                 </div>
 
-                 <%# --- Component Details (Optional Enhancement) --- %>
+                 <%# --- Component Details Section REMOVED --- %>
+                 <%# Removing this section to avoid redundancy %>
+                 <%#
                  <% if (propiedad.componentes && propiedad.componentes.length > 0) { %>
                     <div class="pt-4 border-t">
                         <h2 class="text-xl font-semibold mb-4">Detalles del Alojamiento</h2>
@@ -101,53 +107,55 @@
                         </ul>
                     </div>
                 <% } %>
+                 %>
 
-            </div>
+            </div> <%# --- End Left Column --- %>
 
             <%# --- Right Column: Booking Form --- %>
             <div class="lg:col-span-1">
-                <div class="bg-white p-6 rounded-lg shadow-lg sticky top-8"> {/* Sticky position */}
-                    <h3 class="text-xl font-bold text-gray-900 mb-4 border-b pb-2">Reserva tu Estadía</h3>
-                    <form id="booking-form" class="space-y-4">
-                        {/* Hidden fields remain the same */}
-                        <input type="hidden" name="propiedadId" value="<%= propiedad.id %>">
-                        {/* ... other hidden fields ... */}
+                <%# *** CAMBIO: Añadir div contenedor para sticky *** %>
+                <div class="sticky top-8">
+                    <div class="bg-white p-6 rounded-lg shadow-lg">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 border-b pb-2">Reserva tu Estadía</h3>
+                        <form id="booking-form" class="space-y-4">
+                            <%# Hidden fields remain the same %>
+                            <input type="hidden" name="propiedadId" value="<%= propiedad.id %>">
 
-                        <div>
-                            <label for="fechaLlegada" class="block text-sm font-medium text-gray-700">Llegada</label>
-                            <input type="date" name="fechaLlegada" id="fechaLlegada" class="form-input mt-1" required>
-                        </div>
-                        <div>
-                            <label for="fechaSalida" class="block text-sm font-medium text-gray-700">Salida</label>
-                            <input type="date" name="fechaSalida" id="fechaSalida" class="form-input mt-1" required>
-                        </div>
-                        <div>
-                            <label for="personas" class="block text-sm font-medium text-gray-700">Huéspedes</label>
-                            <input type="number" name="personas" id="personas" min="1" max="<%= propiedad.capacidad %>" class="form-input mt-1" required placeholder="Ej: 2" value="<%= prefill.personas %>">
-                        </div>
-
-                        {/* Price summary section (remains functionally the same) */}
-                        <div id="price-summary" class="mt-6 border-t pt-4 space-y-2 hidden">
-                             <div class="flex justify-between text-sm text-gray-600"> {/* Smaller text */}
-                                <span id="price-label">Calculando...</span>
-                                <span id="price-subtotal"></span>
-                             </div>
-                             {/* Maybe add taxes/fees breakdown here later */}
-                            <div class="flex justify-between text-xl font-bold text-gray-900">
-                                <span>Total</span>
-                                <span id="price-total"></span>
+                            <div>
+                                <label for="fechaLlegada" class="block text-sm font-medium text-gray-700">Llegada</label>
+                                <input type="date" name="fechaLlegada" id="fechaLlegada" class="form-input mt-1" required>
                             </div>
-                        </div>
-                        <div id="price-loader" class="mt-6 text-center hidden">
-                            <p class="text-sm text-gray-500">Calculando precio...</p>
-                        </div>
+                            <div>
+                                <label for="fechaSalida" class="block text-sm font-medium text-gray-700">Salida</label>
+                                <input type="date" name="fechaSalida" id="fechaSalida" class="form-input mt-1" required>
+                            </div>
+                            <div>
+                                <label for="personas" class="block text-sm font-medium text-gray-700">Huéspedes</label>
+                                <input type="number" name="personas" id="personas" min="1" max="<%= propiedad.capacidad %>" class="form-input mt-1" required placeholder="Ej: 2" value="<%= prefill.personas %>">
+                            </div>
 
-                        <button type="submit" id="submit-button" class="btn w-full mt-6" disabled>
-                            Continuar a la Reserva
-                        </button>
-                    </form>
-                </div>
-            </div>
+                            <%# Price summary section %>
+                            <div id="price-summary" class="mt-6 border-t pt-4 space-y-2 hidden">
+                                 <div class="flex justify-between text-sm text-gray-600">
+                                    <span id="price-label">Calculando...</span>
+                                    <span id="price-subtotal"></span>
+                                 </div>
+                                <div class="flex justify-between text-xl font-bold text-gray-900">
+                                    <span>Total</span>
+                                    <span id="price-total"></span>
+                                </div>
+                            </div>
+                            <div id="price-loader" class="mt-6 text-center hidden">
+                                <p class="text-sm text-gray-500">Calculando precio...</p>
+                            </div>
+
+                            <button type="submit" id="submit-button" class="btn w-full mt-6" disabled>
+                                Continuar a la Reserva
+                            </button>
+                        </form>
+                    </div>
+                </div> <%# *** FIN CAMBIO: Cierre div contenedor sticky *** %>
+            </div> <%# --- End Right Column --- %>
         </div>
     </main>
 

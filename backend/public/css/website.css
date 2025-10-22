@@ -562,8 +562,6 @@ body {
   color: rgb(31 41 55 / var(--tw-text-opacity, 1));
 }
 
-/* Basic prose styles if not using the plugin */
-
 .prose p {
   margin-bottom: 1rem;
   line-height: 1.625;
@@ -749,10 +747,6 @@ body {
   opacity: 0.5;
 }
 
-.btn {
-  /* Added disabled styles */
-}
-
 .btn-secondary {
   display: inline-block;
   border-radius: 0.375rem;
@@ -794,8 +788,6 @@ body {
   --tw-ring-color: rgb(156 163 175 / var(--tw-ring-opacity, 1));
   --tw-ring-offset-width: 2px;
 }
-
-/* Smaller button variant */
 
 .btn-sm {
   padding-left: 0.75rem;
@@ -874,10 +866,6 @@ body {
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
-.property-card {
-  /* Added flex */
-}
-
 .property-card img {
   height: 12rem;
   width: 100%;
@@ -891,7 +879,6 @@ body {
   flex-direction: column;
   justify-content: space-between;
   padding: 1rem;
-  /* Adjusted padding, added flex-grow */
 }
 
 .property-card-title {
@@ -901,7 +888,6 @@ body {
   font-weight: 700;
   --tw-text-opacity: 1;
   color: rgb(17 24 39 / var(--tw-text-opacity, 1));
-  /* Adjusted size/margin */
 }
 
 .property-card-details {
@@ -910,7 +896,6 @@ body {
   line-height: 1rem;
   --tw-text-opacity: 1;
   color: rgb(75 85 99 / var(--tw-text-opacity, 1));
-  /* Adjusted size/margin */
 }
 
 .card-description {
@@ -920,7 +905,6 @@ body {
   line-height: 1.25rem;
   --tw-text-opacity: 1;
   color: rgb(75 85 99 / var(--tw-text-opacity, 1));
-  /* Added flex-grow */
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -1034,14 +1018,11 @@ body {
   color: rgb(255 255 255 / var(--tw-text-opacity, 1));
 }
 
-/* Styles for amenity icons (using Font Awesome classes) */
-
 .fa-solid {
   margin-right: 0.5rem;
   width: 1.25rem;
   --tw-text-opacity: 1;
   color: rgb(79 70 229 / var(--tw-text-opacity, 1));
-  /* Default icon style */
 }
 
 .visible {
@@ -2286,6 +2267,14 @@ body {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
 }
+
+/* *** CAMBIO: Asegurarse que el main no tenga overflow hidden *** */
+
+main {
+  /* Eliminar cualquier @apply overflow-hidden que pudiera estar aquí */
+}
+
+/* *** FIN CAMBIO *** */
 
 .file\:mr-4::file-selector-button {
   margin-right: 1rem;
