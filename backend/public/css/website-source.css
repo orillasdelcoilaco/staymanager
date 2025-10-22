@@ -7,6 +7,11 @@
     body {
         @apply bg-gray-50 text-gray-800 font-sans;
     }
+    /* Basic prose styles if not using the plugin */
+    .prose p { @apply mb-4 text-gray-700 leading-relaxed; }
+    .prose h2 { @apply text-xl font-semibold mb-2 text-gray-800; }
+    .prose ul { @apply list-disc list-inside space-y-1 text-gray-700; }
+    .prose strong { @apply font-semibold; }
 }
 
 @layer components {
@@ -15,11 +20,14 @@
     }
 
     .btn {
-        @apply inline-block px-6 py-3 text-sm font-semibold text-center text-white uppercase transition bg-indigo-600 rounded-md shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500;
+        @apply inline-block px-6 py-3 text-sm font-semibold text-center text-white uppercase transition bg-indigo-600 rounded-md shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed; /* Added disabled styles */
     }
-    /* Estilos btn-secondary si no existen */
     .btn-secondary {
        @apply inline-block px-6 py-3 text-sm font-semibold text-center text-gray-700 uppercase transition bg-gray-200 rounded-md shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400;
+    }
+    /* Smaller button variant */
+    .btn-sm {
+        @apply px-3 py-1.5 text-xs;
     }
 
 
@@ -28,36 +36,33 @@
     }
 
     .property-card {
-        @apply bg-white rounded-lg shadow-md overflow-hidden transition-shadow duration-300 hover:shadow-xl;
+        @apply bg-white rounded-lg shadow-md overflow-hidden transition-shadow duration-300 hover:shadow-xl flex flex-col; /* Added flex */
     }
     .property-card img {
         @apply w-full h-48 object-cover;
     }
     .property-card-content {
-        @apply p-6;
+        @apply p-4 flex-grow flex flex-col justify-between; /* Adjusted padding, added flex-grow */
     }
     .property-card-title {
-        @apply text-xl font-bold text-gray-900 mb-2;
+        @apply text-lg font-bold text-gray-900 mb-1; /* Adjusted size/margin */
     }
     .property-card-details {
-        @apply text-sm text-gray-600;
+        @apply text-xs text-gray-600 mb-2; /* Adjusted size/margin */
     }
-/* *** NUEVA CLASE PARA TRUNCAR DESCRIPCIÓN *** */
     .card-description {
-        @apply text-sm text-gray-600 mt-2 overflow-hidden;
+        @apply text-sm text-gray-600 overflow-hidden flex-grow; /* Added flex-grow */
         display: -webkit-box;
-        -webkit-line-clamp: 3; /* Muestra hasta 3 líneas */
+        -webkit-line-clamp: 3;
         -webkit-box-orient: vertical;
-        /* Altura mínima opcional para evitar colapso si la descripción es muy corta */
-        min-height: calc(1.25rem * 3); /* Ajusta 1.25rem si tu line-height es diferente */
+        min-height: calc(1.25rem * 3);
     }
-    /* *** FIN NUEVA CLASE *** */
-    /* *** INICIO NUEVAS REGLAS HERO IMAGE *** */
+
     .hero-container {
-        @apply relative bg-gray-900 h-64 md:h-96 min-h-[250px] flex items-center justify-center overflow-hidden; /* Añadido overflow-hidden */
+        @apply relative bg-gray-900 h-64 md:h-96 min-h-[250px] flex items-center justify-center overflow-hidden;
     }
     .hero-image {
-        @apply absolute inset-0 w-full h-full object-cover z-0; /* object-cover para llenar */
+        @apply absolute inset-0 w-full h-full object-cover z-0;
     }
     .hero-overlay {
         @apply absolute inset-0 bg-black opacity-50 z-10;
@@ -65,5 +70,9 @@
     .hero-content {
         @apply relative z-20 container h-full flex flex-col justify-center items-center text-center text-white p-4;
     }
-     /* *** FIN NUEVAS REGLAS HERO IMAGE *** */
+
+    /* Styles for amenity icons (using Font Awesome classes) */
+    .fa-solid {
+        @apply w-5 mr-2 text-indigo-600; /* Default icon style */
+    }
 }

@@ -562,6 +562,44 @@ body {
   color: rgb(31 41 55 / var(--tw-text-opacity, 1));
 }
 
+/* Basic prose styles if not using the plugin */
+
+.prose p {
+  margin-bottom: 1rem;
+  line-height: 1.625;
+  --tw-text-opacity: 1;
+  color: rgb(55 65 81 / var(--tw-text-opacity, 1));
+}
+
+.prose h2 {
+  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+  --tw-text-opacity: 1;
+  color: rgb(31 41 55 / var(--tw-text-opacity, 1));
+}
+
+.prose ul {
+  list-style-position: inside;
+  list-style-type: disc;
+}
+
+.prose ul > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-y-reverse: 0;
+  margin-top: calc(0.25rem * calc(1 - var(--tw-space-y-reverse)));
+  margin-bottom: calc(0.25rem * var(--tw-space-y-reverse));
+}
+
+.prose ul {
+  --tw-text-opacity: 1;
+  color: rgb(55 65 81 / var(--tw-text-opacity, 1));
+}
+
+.prose strong {
+  font-weight: 600;
+}
+
 .\!container {
   width: 100% !important;
 }
@@ -706,7 +744,14 @@ body {
   --tw-ring-offset-width: 2px;
 }
 
-/* Estilos btn-secondary si no existen */
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.btn {
+  /* Added disabled styles */
+}
 
 .btn-secondary {
   display: inline-block;
@@ -748,6 +793,17 @@ body {
   --tw-ring-opacity: 1;
   --tw-ring-color: rgb(156 163 175 / var(--tw-ring-opacity, 1));
   --tw-ring-offset-width: 2px;
+}
+
+/* Smaller button variant */
+
+.btn-sm {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
 }
 
 .form-input {
@@ -798,6 +854,8 @@ body {
 }
 
 .property-card {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border-radius: 0.5rem;
   --tw-bg-opacity: 1;
@@ -816,6 +874,10 @@ body {
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
+.property-card {
+  /* Added flex */
+}
+
 .property-card img {
   height: 12rem;
   width: 100%;
@@ -824,46 +886,46 @@ body {
 }
 
 .property-card-content {
-  padding: 1.5rem;
+  display: flex;
+  flex-grow: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1rem;
+  /* Adjusted padding, added flex-grow */
 }
 
 .property-card-title {
-  margin-bottom: 0.5rem;
-  font-size: 1.25rem;
+  margin-bottom: 0.25rem;
+  font-size: 1.125rem;
   line-height: 1.75rem;
   font-weight: 700;
   --tw-text-opacity: 1;
   color: rgb(17 24 39 / var(--tw-text-opacity, 1));
+  /* Adjusted size/margin */
 }
 
 .property-card-details {
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
   --tw-text-opacity: 1;
   color: rgb(75 85 99 / var(--tw-text-opacity, 1));
+  /* Adjusted size/margin */
 }
 
-/* *** NUEVA CLASE PARA TRUNCAR DESCRIPCIÓN *** */
-
 .card-description {
-  margin-top: 0.5rem;
+  flex-grow: 1;
   overflow: hidden;
   font-size: 0.875rem;
   line-height: 1.25rem;
   --tw-text-opacity: 1;
   color: rgb(75 85 99 / var(--tw-text-opacity, 1));
+  /* Added flex-grow */
   display: -webkit-box;
   -webkit-line-clamp: 3;
-  /* Muestra hasta 3 líneas */
   -webkit-box-orient: vertical;
-  /* Altura mínima opcional para evitar colapso si la descripción es muy corta */
   min-height: calc(1.25rem * 3);
-  /* Ajusta 1.25rem si tu line-height es diferente */
 }
-
-/* *** FIN NUEVA CLASE *** */
-
-/* *** INICIO NUEVAS REGLAS HERO IMAGE *** */
 
 .hero-container {
   position: relative;
@@ -883,10 +945,6 @@ body {
   }
 }
 
-.hero-container {
-  /* Añadido overflow-hidden */
-}
-
 .hero-image {
   position: absolute;
   inset: 0px;
@@ -895,7 +953,6 @@ body {
   width: 100%;
   -o-object-fit: cover;
      object-fit: cover;
-  /* object-cover para llenar */
 }
 
 .hero-overlay {
@@ -977,7 +1034,15 @@ body {
   color: rgb(255 255 255 / var(--tw-text-opacity, 1));
 }
 
-/* *** FIN NUEVAS REGLAS HERO IMAGE *** */
+/* Styles for amenity icons (using Font Awesome classes) */
+
+.fa-solid {
+  margin-right: 0.5rem;
+  width: 1.25rem;
+  --tw-text-opacity: 1;
+  color: rgb(79 70 229 / var(--tw-text-opacity, 1));
+  /* Default icon style */
+}
 
 .visible {
   visibility: visible;
@@ -2283,6 +2348,11 @@ body {
   background-color: rgb(243 244 246 / var(--tw-bg-opacity, 1));
 }
 
+.hover\:bg-gray-200:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(229 231 235 / var(--tw-bg-opacity, 1));
+}
+
 .hover\:bg-gray-300:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(209 213 219 / var(--tw-bg-opacity, 1));
@@ -2350,6 +2420,10 @@ body {
 
 .hover\:underline:hover {
   text-decoration-line: underline;
+}
+
+.hover\:opacity-80:hover {
+  opacity: 0.8;
 }
 
 .hover\:file\:bg-indigo-100::file-selector-button:hover {
@@ -2529,6 +2603,10 @@ body {
     justify-content: space-between;
   }
 
+  .md\:gap-12 {
+    gap: 3rem;
+  }
+
   .md\:space-x-4 > :not([hidden]) ~ :not([hidden]) {
     --tw-space-x-reverse: 0;
     margin-right: calc(1rem * var(--tw-space-x-reverse));
@@ -2557,6 +2635,11 @@ body {
     padding: 3rem;
   }
 
+  .md\:py-12 {
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+  }
+
   .md\:py-24 {
     padding-top: 6rem;
     padding-bottom: 6rem;
@@ -2564,6 +2647,11 @@ body {
 
   .md\:pl-4 {
     padding-left: 1rem;
+  }
+
+  .md\:text-4xl {
+    font-size: 2.25rem;
+    line-height: 2.5rem;
   }
 
   .md\:text-5xl {
