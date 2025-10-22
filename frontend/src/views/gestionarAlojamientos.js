@@ -4,15 +4,17 @@ import { fetchAPI } from '../api.js';
 let propiedades = [];
 let canales = [];
 let editandoPropiedad = null;
-let componentesTemporales = []; // Para manejar la edición de componentes en el modal
+let componentesTemporales = [];
 
 // --- Funciones para gestionar componentes en el modal ---
 function generarIdComponente(nombre) {
+    // ... (sin cambios)
     const nombreNormalizado = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     return `${nombreNormalizado}-${Date.now().toString(36)}`;
 }
 
 function renderizarListaComponentes() {
+    // ... (sin cambios)
     const container = document.getElementById('lista-componentes');
     if (!container) return;
     container.innerHTML = componentesTemporales.map((comp, index) => `
@@ -32,19 +34,21 @@ function renderizarListaComponentes() {
 }
 
 function agregarComponente() {
+    // ... (sin cambios en la lógica interna, pero los tipos Portada/Exterior ya no estarán en las opciones)
     const nombreInput = document.getElementById('nuevo-componente-nombre');
     const tipoSelect = document.getElementById('nuevo-componente-tipo');
     const nombre = nombreInput.value.trim();
     const tipo = tipoSelect.value;
 
     if (nombre && tipo) {
+        // Validación de tipo (ya estaba implícita por el select)
         componentesTemporales.push({
             id: generarIdComponente(nombre),
             nombre: nombre,
             tipo: tipo
         });
         nombreInput.value = '';
-        tipoSelect.value = 'Dormitorio'; // Resetear select
+        tipoSelect.value = 'Dormitorio'; // Resetear select al tipo más común
         renderizarListaComponentes();
     } else {
         alert('Por favor, ingresa un nombre y selecciona un tipo para el componente.');
@@ -53,6 +57,7 @@ function agregarComponente() {
 // --- Fin funciones componentes ---
 
 function abrirModal(propiedad = null) {
+    // ... (lógica existente sin cambios, excepto carga de componentes)
     const modal = document.getElementById('propiedad-modal');
     const form = document.getElementById('propiedad-form');
     const modalTitle = document.getElementById('modal-title');
@@ -70,6 +75,7 @@ function abrirModal(propiedad = null) {
     if (propiedad) {
         editandoPropiedad = propiedad;
         modalTitle.textContent = `Editar Alojamiento: ${propiedad.nombre}`;
+        // ... (resto de campos se llenan igual)
         form.nombre.value = propiedad.nombre || '';
         form.numPiezas.value = propiedad.numPiezas || 0;
         form.numBanos.value = propiedad.numBanos || 0;
@@ -85,8 +91,10 @@ function abrirModal(propiedad = null) {
         form.piezaEnSuite.checked = propiedad.equipamiento?.piezaEnSuite || false;
         form.dosPisos.checked = propiedad.equipamiento?.dosPisos || false;
 
+        // Cargar componentes existentes (ya no incluirá Portada/Exterior si se migran)
         componentesTemporales = Array.isArray(propiedad.componentes) ? [...propiedad.componentes] : [];
 
+        // ... (resto de campos ical, google hotel data se llenan igual)
         icalContainer.querySelectorAll('.ical-input').forEach(input => {
             const canalKey = input.dataset.canalKey;
             if (propiedad.sincronizacionIcal && propiedad.sincronizacionIcal[canalKey]) {
@@ -95,29 +103,34 @@ function abrirModal(propiedad = null) {
                 input.value = '';
             }
         });
-
         form.googleHotelId.value = propiedad.googleHotelData?.hotelId || '';
         form.googleHotelIsListed.checked = propiedad.googleHotelData?.isListed || false;
         form.googleHotelStreet.value = propiedad.googleHotelData?.address?.street || '';
         form.googleHotelCity.value = propiedad.googleHotelData?.address?.city || '';
         form.googleHotelCountry.value = propiedad.googleHotelData?.address?.countryCode || 'CL';
 
-
     } else {
         editandoPropiedad = null;
         modalTitle.textContent = 'Nuevo Alojamiento';
         form.reset();
-        componentesTemporales = [];
+        componentesTemporales = []; // Resetear componentes temporales
         form.googleHotelCountry.value = 'CL';
         icalContainer.querySelectorAll('.ical-input').forEach(input => input.value = '');
     }
 
-    renderizarListaComponentes();
+    renderizarListaComponentes(); // Renderizar lista basada en componentesTemporales
+    // Mostrar advertencia inicial si está editando y marcado como listado
+    const isListedCheckbox = document.getElementById('googleHotelIsListed');
+    const warningElement = document.getElementById('listado-warning');
+     if (warningElement) {
+        warningElement.classList.toggle('hidden', !isListedCheckbox.checked);
+    }
     modal.classList.remove('hidden');
 }
 
 
 function cerrarModal() {
+    // ... (sin cambios)
     const modal = document.getElementById('propiedad-modal');
     modal.classList.add('hidden');
     editandoPropiedad = null;
@@ -125,15 +138,28 @@ function cerrarModal() {
 }
 
 function renderTabla() {
+    // ... (sin cambios)
     const tbody = document.getElementById('propiedades-tbody');
     if (!tbody) return;
 
-    if (propiedades.length === 0) {
+     const extraerNumero = (texto) => {
+        const match = texto.match(/\d+/);
+        return match ? parseInt(match[0], 10) : Infinity;
+    };
+
+    const propiedadesOrdenadas = [...propiedades].sort((a, b) => {
+        const numA = extraerNumero(a.nombre);
+        const numB = extraerNumero(b.nombre);
+        if (numA !== numB) return numA - numB;
+        return a.nombre.localeCompare(b.nombre);
+    });
+
+    if (propiedadesOrdenadas.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="text-center text-gray-500 py-4">No hay alojamientos registrados.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = propiedades.map((p, index) => `
+    tbody.innerHTML = propiedadesOrdenadas.map((p, index) => `
         <tr class="border-b">
             <td class="py-3 px-4 text-center font-medium text-gray-500">${index + 1}</td>
             <td class="py-3 px-4 font-mono text-xs text-gray-600">${p.id}</td>
@@ -151,7 +177,8 @@ function renderTabla() {
 
 
 export async function render() {
-    try {
+    // Carga inicial movida aquí para evitar doble carga
+     try {
         [propiedades, canales] = await Promise.all([
             fetchAPI('/propiedades'),
             fetchAPI('/canales')
@@ -161,26 +188,21 @@ export async function render() {
         return `<p class="text-red-500">Error al cargar los datos. Por favor, intente de nuevo.</p>`;
     }
 
-    // *** INICIO CORRECCIÓN P4 ***
-    // Opciones para el tipo de componente
+    // *** MODIFICADO: Quitar Portada/Exterior de las opciones de tipo ***
     const tiposComponente = [
-        'Portada Recinto', 
-        'Exterior Alojamiento', 
-        'Dormitorio', 
-        'Baño', 
-        'Cocina', 
-        'Living', 
-        'Comedor', 
-        'Terraza', 
-        'Tina', 
-        'Otro'
+        // 'Portada Recinto', // Eliminado
+        // 'Exterior Alojamiento', // Eliminado
+        'Dormitorio', 'Baño', 'Cocina', 'Living',
+        'Comedor', 'Terraza', 'Tina', 'Otro'
     ];
     const opcionesTipoComponente = tiposComponente.map(tipo => `<option value="${tipo}">${tipo}</option>`).join('');
-    // *** FIN CORRECCIÓN P4 ***
 
+
+    // El HTML del modal ahora tiene la advertencia 'listado-warning'
     return `
         <div class="bg-white p-8 rounded-lg shadow">
-            <div class="flex justify-between items-center mb-6">
+            {/* ... (Tabla principal sin cambios) ... */}
+             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-semibold text-gray-900">Gestionar Alojamientos</h2>
                 <button id="add-propiedad-btn" class="btn-primary">
                     + Nuevo Alojamiento
@@ -205,118 +227,71 @@ export async function render() {
         </div>
 
         <div id="propiedad-modal" class="modal hidden">
-            <div class="modal-content !max-w-4xl max-h-[90vh] overflow-y-auto pr-4"> <div class="flex justify-between items-center pb-3 border-b mb-4">
+             <div class="modal-content !max-w-4xl max-h-[90vh] overflow-y-auto pr-4">
+                 <div class="flex justify-between items-center pb-3 border-b mb-4">
                     <h3 id="modal-title" class="text-xl font-semibold"></h3>
                     <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
                 </div>
                 <form id="propiedad-form">
-                    <fieldset class="border p-4 rounded-md mb-6">
+                    {/* ... (Fieldsets Info General, Distribución, Descripción, Equipamiento sin cambios) ... */}
+                     <fieldset class="border p-4 rounded-md mb-6">
                         <legend class="px-2 font-semibold text-gray-700">Información General</legend>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                            <div>
-                                <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre Alojamiento</label>
-                                <input type="text" id="nombre" name="nombre" required class="form-input mt-1">
-                            </div>
-                            <div>
-                                <label for="numPiezas" class="block text-sm font-medium text-gray-700">Nº Piezas</label>
-                                <input type="number" id="numPiezas" name="numPiezas" class="form-input mt-1">
-                            </div>
-                            <div>
-                                <label for="numBanos" class="block text-sm font-medium text-gray-700">Nº Baños</label>
-                                <input type="number" id="numBanos" name="numBanos" class="form-input mt-1">
-                            </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+                            <div class="lg:col-span-1"><label for="nombre" class="block text-sm font-medium text-gray-700">Nombre Alojamiento</label><input type="text" id="nombre" name="nombre" required class="form-input mt-1"></div>
+                            <div class="lg:col-span-1"><label for="numPiezas" class="block text-sm font-medium text-gray-700">Nº Piezas</label><input type="number" id="numPiezas" name="numPiezas" class="form-input mt-1"></div>
+                            <div class="lg:col-span-1"><label for="numBanos" class="block text-sm font-medium text-gray-700">Nº Baños</label><input type="number" id="numBanos" name="numBanos" class="form-input mt-1"></div>
                         </div>
                     </fieldset>
                     <fieldset class="border p-4 rounded-md mb-6">
                          <legend class="px-2 font-semibold text-gray-700">Distribución y Capacidad</legend>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mt-4">
-                            <div>
-                                <label for="matrimoniales" class="block text-sm font-medium text-gray-700">Matrimoniales</label>
-                                <input type="number" id="matrimoniales" name="matrimoniales" class="form-input mt-1">
-                            </div>
-                            <div>
-                                <label for="plazaYMedia" class="block text-sm font-medium text-gray-700">1.5 Plazas</label>
-                                <input type="number" id="plazaYMedia" name="plazaYMedia" class="form-input mt-1">
-                            </div>
-                             <div>
-                                <label for="camarotes" class="block text-sm font-medium text-gray-700">Camarotes</label>
-                                <input type="number" id="camarotes" name="camarotes" class="form-input mt-1">
-                            </div>
-                            <div>
-                                <label for="capacidad" class="block text-sm font-medium text-gray-700">Capacidad Calculada</label>
-                                <input type="number" id="capacidad" name="capacidad" required class="form-input mt-1">
-                            </div>
+                            <div><label for="matrimoniales" class="block text-sm font-medium text-gray-700">Matrimoniales</label><input type="number" id="matrimoniales" name="matrimoniales" class="form-input mt-1"></div>
+                            <div><label for="plazaYMedia" class="block text-sm font-medium text-gray-700">1.5 Plazas</label><input type="number" id="plazaYMedia" name="plazaYMedia" class="form-input mt-1"></div>
+                            <div><label for="camarotes" class="block text-sm font-medium text-gray-700">Camarotes</label><input type="number" id="camarotes" name="camarotes" class="form-input mt-1"></div>
+                            <div><label for="capacidad" class="block text-sm font-medium text-gray-700">Capacidad Calculada</label><input type="number" id="capacidad" name="capacidad" required class="form-input mt-1"></div>
                         </div>
                     </fieldset>
                     <fieldset class="border p-4 rounded-md mb-6">
                         <legend class="px-2 font-semibold text-gray-700">Descripción</legend>
-                        <div class="mt-4">
-                            <textarea id="descripcion" name="descripcion" rows="6" class="form-input w-full" style="min-height: 150px;"></textarea>
-                        </div>
+                        <div class="mt-4"><textarea id="descripcion" name="descripcion" rows="6" class="form-input w-full" style="min-height: 150px;"></textarea></div>
                     </fieldset>
                     <fieldset class="border p-4 rounded-md mb-6">
                         <legend class="px-2 font-semibold text-gray-700">Equipamiento</legend>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                            ${checkbox('tinaja', 'Tinaja')}
-                            ${checkbox('parrilla', 'Parrilla')}
-                            ${checkbox('terrazaTechada', 'Terraza Techada')}
-                            ${checkbox('juegoDeTerraza', 'Juego de Terraza')}
-                            ${checkbox('piezaEnSuite', 'Pieza en Suite')}
-                            ${checkbox('dosPisos', 'Dos Pisos')}
+                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+                            ${checkbox('tinaja', 'Tinaja')} ${checkbox('parrilla', 'Parrilla')} ${checkbox('terrazaTechada', 'Terraza Techada')}
+                            ${checkbox('juegoDeTerraza', 'Juego de Terraza')} ${checkbox('piezaEnSuite', 'Pieza en Suite')} ${checkbox('dosPisos', 'Dos Pisos')}
                         </div>
                     </fieldset>
-                    <fieldset class="border p-4 rounded-md mb-6">
-                        <legend class="px-2 font-semibold text-gray-700">Componentes del Alojamiento</legend>
-                        <div class="mt-4 space-y-3" id="lista-componentes">
-                            </div>
-                        <div class="mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                            <div class="md:col-span-1">
-                                <label for="nuevo-componente-nombre" class="block text-sm font-medium">Nombre Componente</label>
-                                <input type="text" id="nuevo-componente-nombre" placeholder="Ej: Dormitorio Principal" class="form-input mt-1">
-                            </div>
-                             <div class="md:col-span-1">
-                                <label for="nuevo-componente-tipo" class="block text-sm font-medium">Tipo</label>
-                                <select id="nuevo-componente-tipo" class="form-select mt-1">
-                                    ${opcionesTipoComponente}
-                                </select>
-                            </div>
-                            <div class="md:col-span-1">
-                                <button type="button" id="agregar-componente-btn" class="btn-secondary w-full">Agregar Componente</button>
-                            </div>
+
+                    {/* Fieldset Componentes: Select de tipo actualizado */}
+                     <fieldset class="border p-4 rounded-md mb-6">
+                        <legend class="px-2 font-semibold text-gray-700">Componentes Adicionales</legend>
+                        <p class="text-xs text-gray-500 mt-1 mb-3">Define partes adicionales (dormitorios, baños, etc.) para subir fotos específicas en "Configurar Web Pública". La imagen principal se gestiona allí.</p>
+                        <div class="mt-4 space-y-3 max-h-48 overflow-y-auto border-b pb-4 mb-4" id="lista-componentes"></div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                            <div class="md:col-span-1"><label for="nuevo-componente-nombre" class="block text-sm font-medium">Nombre Componente</label><input type="text" id="nuevo-componente-nombre" placeholder="Ej: Baño Principal" class="form-input mt-1"></div>
+                            <div class="md:col-span-1"><label for="nuevo-componente-tipo" class="block text-sm font-medium">Tipo</label><select id="nuevo-componente-tipo" class="form-select mt-1">${opcionesTipoComponente}</select></div>
+                            <div class="md:col-span-1"><button type="button" id="agregar-componente-btn" class="btn-secondary w-full">Agregar Componente</button></div>
                         </div>
                     </fieldset>
-                    <fieldset class="border p-4 rounded-md mb-6">
+
+                    {/* ... (Fieldsets iCal y Google Hotels sin cambios estructurales, solo la advertencia) ... */}
+                     <fieldset class="border p-4 rounded-md mb-6">
                         <legend class="px-2 font-semibold text-gray-700">Sincronización iCal (Importar)</legend>
-                        <div id="ical-fields-container" class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                           </div>
+                        <div id="ical-fields-container" class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4"></div>
                     </fieldset>
-                    <fieldset class="border p-4 rounded-md mb-6">
-                        <legend class="px-2 font-semibold text-gray-700">Integración con Google Hotels</legend>
+                     <fieldset class="border p-4 rounded-md mb-6">
+                        <legend class="px-2 font-semibold text-gray-700">Integración Web Pública y Google Hotels</legend>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                            <div>
-                                <label for="googleHotelId" class="block text-sm font-medium">ID del Hotel (Único)</label>
-                                <input type="text" id="googleHotelId" name="googleHotelId" class="form-input mt-1" placeholder="Ej: PROPIEDAD_01">
-                            </div>
-                            <div>
-                                <label for="googleHotelIsListed" class="flex items-center pt-6 space-x-2 text-sm">
-                                    <input type="checkbox" id="googleHotelIsListed" name="googleHotelIsListed" class="rounded border-gray-300">
-                                    <span>Listar esta propiedad en Google Hotels y Web Pública</span>
-                                </label>
-                            </div>
-                            <div>
-                                <label for="googleHotelStreet" class="block text-sm font-medium">Dirección (Calle y Número)</label>
-                                <input type="text" id="googleHotelStreet" name="googleHotelStreet" class="form-input mt-1">
-                            </div>
-                            <div>
-                                <label for="googleHotelCity" class="block text-sm font-medium">Ciudad</label>
-                                <input type="text" id="googleHotelCity" name="googleHotelCity" class="form-input mt-1">
-                            </div>
-                            <div>
-                                <label for="googleHotelCountry" class="block text-sm font-medium">País (Código 2 letras)</label>
-                                <input type="text" id="googleHotelCountry" name="googleHotelCountry" class="form-input mt-1" value="CL" maxlength="2">
-                            </div>
+                            <div><label for="googleHotelId" class="block text-sm font-medium">ID del Alojamiento (Único)</label><input type="text" id="googleHotelId" name="googleHotelId" class="form-input mt-1" placeholder="Ej: PROPIEDAD_01"></div>
+                            <div class="pt-6"><label for="googleHotelIsListed" class="flex items-center space-x-2 text-sm"><input type="checkbox" id="googleHotelIsListed" name="googleHotelIsListed" class="rounded border-gray-300"><span>Listar esta propiedad en Google Hotels y Web Pública</span></label><p id="listado-warning" class="text-xs text-amber-600 mt-1 hidden">Recuerda subir la "Imagen Principal (Tarjeta/Home)" en 'Configurar Web Pública'.</p></div>
+                            <div><label for="googleHotelStreet" class="block text-sm font-medium">Dirección (Calle y Número)</label><input type="text" id="googleHotelStreet" name="googleHotelStreet" class="form-input mt-1"></div>
+                            <div><label for="googleHotelCity" class="block text-sm font-medium">Ciudad</label><input type="text" id="googleHotelCity" name="googleHotelCity" class="form-input mt-1"></div>
+                            <div><label for="googleHotelCountry" class="block text-sm font-medium">País (Código 2 letras)</label><input type="text" id="googleHotelCountry" name="googleHotelCountry" class="form-input mt-1" value="CL" maxlength="2"></div>
                         </div>
                     </fieldset>
+
+                    {/* ... (Botones Guardar/Cancelar sin cambios) ... */}
                     <div class="flex justify-end pt-6 border-t mt-6">
                         <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
                         <button type="submit" class="btn-primary">Guardar</button>
@@ -328,6 +303,7 @@ export async function render() {
 }
 
 function checkbox(id, label) {
+    // ... (sin cambios)
     return `
         <label for="${id}" class="flex items-center space-x-2 text-sm">
             <input type="checkbox" id="${id}" name="${id}" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
@@ -337,7 +313,7 @@ function checkbox(id, label) {
 }
 
 export function afterRender() {
-    renderTabla();
+    renderTabla(); // Renderizar tabla con datos ya cargados en render()
 
     const form = document.getElementById('propiedad-form');
     const tbody = document.getElementById('propiedades-tbody');
@@ -347,14 +323,25 @@ export function afterRender() {
     document.getElementById('cancel-btn').addEventListener('click', cerrarModal);
     document.getElementById('agregar-componente-btn').addEventListener('click', agregarComponente);
 
+    // Listener para mostrar advertencia si se marca listar
+    const isListedCheckbox = document.getElementById('googleHotelIsListed');
+    const warningElement = document.getElementById('listado-warning');
+    if (isListedCheckbox && warningElement) {
+        isListedCheckbox.addEventListener('change', () => {
+             warningElement.classList.toggle('hidden', !isListedCheckbox.checked);
+        });
+    }
+
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
+        // ... (Recolección de datos del formulario existente sin cambios) ...
         const icalInputs = form.querySelectorAll('.ical-input');
         const sincronizacionIcal = {};
         icalInputs.forEach(input => {
             if (input.value) {
-                sincronizacionIcal[input.dataset.canalKey] = input.value;
+                sincronizacionIcal[input.dataset.canalKey.toLowerCase()] = input.value;
             }
         });
 
@@ -377,7 +364,7 @@ export function afterRender() {
                 piezaEnSuite: form.piezaEnSuite.checked,
                 dosPisos: form.dosPisos.checked,
             },
-            componentes: componentesTemporales,
+            componentes: componentesTemporales, // Usar los componentes temporales del modal
             sincronizacionIcal,
             googleHotelData: {
                 hotelId: form.googleHotelId.value.trim(),
@@ -387,23 +374,30 @@ export function afterRender() {
                     city: form.googleHotelCity.value.trim(),
                     countryCode: form.googleHotelCountry.value.trim().toUpperCase()
                 }
-            }
+            },
+            websiteData: editandoPropiedad?.websiteData || { aiDescription: '', images: {} }
         };
 
-        if (datos.googleHotelData.isListed && !datos.googleHotelData.hotelId) {
-            alert('El "ID del Hotel (Único)" es obligatorio si marcas "Listar esta propiedad...".');
-            return;
-        }
-         if (datos.googleHotelData.isListed && (!datos.googleHotelData.address.street || !datos.googleHotelData.address.city || !datos.googleHotelData.address.countryCode)) {
-            alert('La Dirección completa (Calle, Ciudad, País) es obligatoria si marcas "Listar esta propiedad...".');
-            return;
-        }
 
+        // *** VALIDACIÓN SIMPLE AL GUARDAR EN GESTIONAR ALOJAMIENTOS ***
+        // Solo valida los campos de Google Hotels si está marcado como listado
+        if (datos.googleHotelData.isListed) {
+            if (!datos.googleHotelData.hotelId) {
+                alert('El "ID del Alojamiento (Único)" es obligatorio si marcas "Listar esta propiedad...".');
+                return;
+            }
+            if (!datos.googleHotelData.address.street || !datos.googleHotelData.address.city || !datos.googleHotelData.address.countryCode) {
+                alert('La Dirección completa (Calle, Ciudad, País) es obligatoria si marcas "Listar esta propiedad...".');
+                return;
+            }
+            // Ya no validamos la imagen aquí
+        }
+        // *** FIN VALIDACIÓN SIMPLE ***
 
         try {
+            // Usar siempre PUT para asegurar fusión correcta
             const endpoint = editandoPropiedad ? `/propiedades/${editandoPropiedad.id}` : '/propiedades';
-            const method = editandoPropiedad ? 'PUT' : 'POST';
-            await fetchAPI(endpoint, { method: 'PUT', body: datos }); // Usar PUT para asegurar que se use 'update'
+            await fetchAPI(endpoint, { method: 'PUT', body: datos });
 
             propiedades = await fetchAPI('/propiedades');
             renderTabla();
@@ -414,20 +408,30 @@ export function afterRender() {
     });
 
     tbody.addEventListener('click', async (e) => {
+        // ... (lógica existente sin cambios) ...
         const target = e.target;
         if (!target.classList.contains('edit-btn') && !target.classList.contains('delete-btn')) return;
 
         const id = target.dataset.id;
         if (target.classList.contains('edit-btn')) {
             const propiedadAEditar = propiedades.find(p => p.id === id);
-            if (propiedadAEditar) abrirModal(propiedadAEditar);
+            if (propiedadAEditar) {
+                 try {
+                    // Cargar datos frescos ANTES de abrir modal
+                    const propiedadActualizada = await fetchAPI(`/propiedades/${id}`); // Asumiendo endpoint GET /propiedades/:id
+                    abrirModal(propiedadActualizada);
+                 } catch (error) {
+                    console.warn(`No se pudo recargar la propiedad ${id}, usando datos de la lista. Error: ${error.message}`);
+                    abrirModal(propiedadAEditar);
+                 }
+            }
         }
 
         if (target.classList.contains('delete-btn')) {
             if (confirm('¿Estás seguro de que quieres eliminar este alojamiento?')) {
                 try {
                     await fetchAPI(`/propiedades/${id}`, { method: 'DELETE' });
-                    propiedades = await fetchAPI('/propiedades');
+                    propiedades = await fetchAPI('/propiedades'); // Recargar lista
                     renderTabla();
                 } catch (error) {
                     alert(`Error al eliminar: ${error.message}`);

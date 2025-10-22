@@ -4,10 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title><%= empresa.websiteSettings?.seo?.homeTitle || empresa.nombre %></title>
     <meta name="description" content="<%= empresa.websiteSettings?.seo?.homeDescription || `Reservas en ${empresa.nombre}` %>">
-
     <link rel="stylesheet" href="/public/css/website.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,39 +16,30 @@
     <%- include('partials/header') %>
 
     <main class="overflow-hidden">
+        <%# Sección Hero (sin cambios) %>
         <% if (empresa.websiteSettings?.theme?.heroImageUrl) { %>
             <div class="hero-container">
                 <picture>
                     <source srcset="<%= empresa.websiteSettings.theme.heroImageUrl %>" type="image/webp">
-                    <img src="<%= empresa.websiteSettings.theme.heroImageUrl %>"
-                         alt="<%= empresa.websiteSettings.theme.heroImageAlt || 'Imagen de portada' %>"
-                         title="<%= empresa.websiteSettings.theme.heroImageTitle || empresa.nombre %>"
-                         class="hero-image">
+                    <img src="<%= empresa.websiteSettings.theme.heroImageUrl %>" alt="<%= empresa.websiteSettings.theme.heroImageAlt || 'Imagen de portada' %>" title="<%= empresa.websiteSettings.theme.heroImageTitle || empresa.nombre %>" class="hero-image">
                 </picture>
                 <div class="hero-overlay"></div>
                 <div class="hero-content">
-                    <h1 class="text-4xl md:text-5xl font-bold">
-                        <%= empresa.websiteSettings?.content?.homeH1 || empresa.nombre %>
-                    </h1>
-                    <p class="mt-4 text-lg md:text-xl max-w-2xl">
-                        <%= empresa.websiteSettings?.content?.homeIntro || empresa.slogan || 'Tu mejor opción para descansar.' %>
-                    </p>
+                    <h1 class="text-4xl md:text-5xl font-bold"><%= empresa.websiteSettings?.content?.homeH1 || empresa.nombre %></h1>
+                    <p class="mt-4 text-lg md:text-xl max-w-2xl"><%= empresa.websiteSettings?.content?.homeIntro || empresa.slogan || 'Tu mejor opción para descansar.' %></p>
                 </div>
             </div>
         <% } else { %>
             <div class="bg-indigo-700 text-white py-12 px-4 text-center h-64 md:h-80 flex items-center justify-center">
                  <div>
-                    <h1 class="text-4xl md:text-5xl font-bold">
-                        <%= empresa.websiteSettings?.content?.homeH1 || empresa.nombre %>
-                    </h1>
-                    <p class="mt-4 text-lg md:text-xl max-w-2xl">
-                        <%= empresa.websiteSettings?.content?.homeIntro || empresa.slogan || 'Tu mejor opción para descansar.' %>
-                    </p>
+                    <h1 class="text-4xl md:text-5xl font-bold"><%= empresa.websiteSettings?.content?.homeH1 || empresa.nombre %></h1>
+                    <p class="mt-4 text-lg md:text-xl max-w-2xl"><%= empresa.websiteSettings?.content?.homeIntro || empresa.slogan || 'Tu mejor opción para descansar.' %></p>
                  </div>
             </div>
         <% } %>
 
         <div class="container py-12">
+            <%# Buscador (sin cambios) %>
             <div class="bg-white p-6 rounded-lg shadow-lg mb-12">
                 <form action="/" method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                     <div>
@@ -78,42 +67,32 @@
                     <% } %>
                 </h2>
 
-                <% if (propiedades.length > 0) { %>
+                <%# *** LÓGICA DE FILTRADO REVISADA *** %>
+                <%
+                const propiedadesParaMostrar = propiedades.filter(prop => {
+                    // Propiedad debe estar listada Y tener la imagen de tarjeta obligatoria
+                    return prop.googleHotelData?.isListed === true && 
+                           prop.websiteData?.cardImage && 
+                           prop.websiteData.cardImage.storagePath;
+                });
+                %>
+
+                <% if (propiedadesParaMostrar.length > 0) { %>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        <% propiedades.forEach(prop => { %>
+                        <%# Iterar sobre el array filtrado %>
+                        <% propiedadesParaMostrar.forEach(prop => { %>
                             <%
-                                // *** INICIO CORRECCIÓN LÓGICA IMAGEN TARJETA ***
-                                let imagenTarjeta = null;
-                                const imagesData = prop.websiteData?.images;
-
-                                if (imagesData) {
-                                    // 1. Buscar en Portada o Exterior
-                                    const portadaArray = imagesData['portadaRecinto'] || imagesData['exteriorAlojamiento'];
-                                    imagenTarjeta = portadaArray?.[0];
-
-                                    // 2. Si no hay, buscar la primera imagen de cualquier componente
-                                    if (!imagenTarjeta) {
-                                        for (const componentId in imagesData) {
-                                            if (imagesData[componentId] && imagesData[componentId].length > 0) {
-                                                imagenTarjeta = imagesData[componentId][0];
-                                                break; // Salir al encontrar la primera
-                                            }
-                                        }
-                                    }
-                                }
-
-                                const imagenUrl = imagenTarjeta?.storagePath || 'https://via.placeholder.com/400x300.png?text=Imagen+no+disponible';
-                                const altText = imagenTarjeta?.altText || `Imagen de ${prop.nombre}`;
-                                const titleText = imagenTarjeta?.title || prop.nombre;
-                                // *** FIN CORRECCIÓN LÓGICA IMAGEN TARJETA ***
-
+                                // *** LÓGICA DE IMAGEN REVISADA (ACCESO DIRECTO) ***
+                                const imagenTarjeta = prop.websiteData.cardImage; // Acceso directo
+                                const imagenUrl = imagenTarjeta.storagePath;
+                                const altText = imagenTarjeta.altText || `Imagen de ${prop.nombre}`;
+                                const titleText = imagenTarjeta.title || prop.nombre;
                                 const descripcion = prop.websiteData?.aiDescription || prop.descripcion || 'Descripción no disponible.';
                             %>
                             <div class="property-card">
                                 <a href="/propiedad/<%= prop.id %>">
                                     <picture>
                                         <source srcset="<%= imagenUrl %>" type="image/webp">
-                                        <%# Se usa la clase 'property-card img' definida en el CSS %>
                                         <img src="<%= imagenUrl %>" alt="<%= altText %>" title="<%= titleText %>" loading="lazy">
                                     </picture>
                                 </a>
@@ -131,11 +110,16 @@
                 <% } else { %>
                     <div class="text-center py-12 px-4 border-2 border-dashed rounded-lg">
                         <h3 class="text-xl font-semibold text-gray-700">No se encontraron propiedades</h3>
+                        <%# Mensaje 'else' mejorado %>
                         <p class="mt-2 text-sm text-gray-500">
                             <% if (locals.isSearchResult) { %>
-                                No hay propiedades disponibles para las fechas o cantidad de huéspedes seleccionada. Intenta con otras fechas.
+                                No hay propiedades disponibles que cumplan los criterios. Intenta con otras fechas.
                             <% } else { %>
-                                Actualmente no tenemos propiedades para mostrar.
+                                <% if (propiedades.some(p => p.googleHotelData?.isListed)) { %>
+                                    No hay propiedades configuradas con "Imagen Principal (Tarjeta/Home)" para mostrar. Revisa "Configurar Web Pública".
+                                <% } else { %>
+                                    Actualmente no hay propiedades marcadas para mostrarse en la web pública. Revisa "Gestionar Alojamientos".
+                                <% } %>
                             <% } %>
                         </p>
                     </div>
