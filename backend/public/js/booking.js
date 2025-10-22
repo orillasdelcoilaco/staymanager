@@ -1,11 +1,22 @@
 // backend/public/js/booking.js
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Leer datos iniciales pasados desde EJS
-    const propiedadId = window.initialBookingData.propiedadId;
-    const defaultPriceData = window.initialBookingData.defaultPrice;
+    // *** CORRECCIÓN: Leer datos desde data-* attributes ***
+    const scriptTag = document.getElementById('booking-script'); // Seleccionar por ID
+    const propiedadId = scriptTag.dataset.propiedadId;
+    let defaultPriceData = null;
+    try {
+        // Decodificar el JSON string
+        const decodedPriceString = scriptTag.dataset.defaultPrice.replace(/&quot;/g, '"');
+        defaultPriceData = JSON.parse(decodedPriceString);
+    } catch (e) {
+        console.error("Error parsing default price data:", e);
+        defaultPriceData = { totalPriceCLP: 0, nights: 0, formattedTotalPrice: 'Error' }; // Fallback
+    }
+    // *** FIN CORRECCIÓN ***
 
-    // Obtener elementos del DOM
+
+    // Obtener elementos del DOM (sin cambios)
     const fechaLlegadaInput = document.getElementById('fechaLlegada');
     const fechaSalidaInput = document.getElementById('fechaSalida');
     const personasInput = document.getElementById('personas');
@@ -16,18 +27,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const priceLoader = document.getElementById('price-loader');
     const bookingForm = document.getElementById('booking-form');
 
-    let currentPriceCLP = defaultPriceData.totalPriceCLP || null; // Almacenar el último precio calculado en CLP
-    let currentNights = defaultPriceData.nights || 0;
+    let currentPriceCLP = defaultPriceData?.totalPriceCLP || null; // Usar optional chaining
+    let currentNights = defaultPriceData?.nights || 0;
 
-    // Función para formatear CLP
+    // Función para formatear CLP (sin cambios)
     const formatCLP = (value) => `$${(Math.round(value || 0)).toLocaleString('es-CL')} CLP`;
 
-    // Función para actualizar la UI del precio
+    // Función para actualizar la UI del precio (sin cambios)
     const updatePriceDisplay = (priceData) => {
         if (priceData && priceData.totalPrice !== undefined && priceData.numNoches !== undefined) {
             currentPriceCLP = priceData.totalPrice;
             currentNights = priceData.numNoches;
-            priceTotalDisplay.textContent = priceData.formattedTotalPrice; // Usar el string formateado de la API
+            priceTotalDisplay.textContent = priceData.formattedTotalPrice;
             priceLabelDisplay.textContent = ` / por ${currentNights} noche${currentNights !== 1 ? 's' : ''}`;
             priceDisplay.classList.remove('hidden');
             submitButton.disabled = false;
@@ -36,57 +47,48 @@ document.addEventListener('DOMContentLoaded', () => {
             currentNights = 0;
             priceTotalDisplay.textContent = 'No disponible';
             priceLabelDisplay.textContent = '';
-            priceDisplay.classList.remove('hidden'); // Mostrar "No disponible"
+            priceDisplay.classList.remove('hidden');
             submitButton.disabled = true;
         }
-        priceLoader.classList.add('hidden'); // Siempre ocultar loader al final
+        priceLoader.classList.add('hidden');
     };
 
-    // Función Principal: Calcular Precio (AJAX)
+    // Función Principal: Calcular Precio (AJAX) (sin cambios)
     const calculatePriceAJAX = async () => {
         const fechaLlegada = fechaLlegadaInput.value;
         const fechaSalida = fechaSalidaInput.value;
 
-        // Validaciones básicas
         const today = new Date().toISOString().split('T')[0];
         if (!fechaLlegada || !fechaSalida || fechaSalida <= fechaLlegada) {
-            updatePriceDisplay(null); // Borrar precio si las fechas son inválidas
-            if (fechaLlegada && fechaLlegada < today) fechaLlegadaInput.value = today; // Corregir si la fecha es pasada
-            if (fechaSalida && fechaSalida <= fechaLlegada) fechaSalidaInput.value = ''; // Limpiar salida si es inválida
+             updatePriceDisplay(null);
+             if (fechaLlegada && fechaLlegada < today) fechaLlegadaInput.value = today;
+             if (fechaSalida && fechaSalida <= fechaLlegada) fechaSalidaInput.value = '';
             return;
         }
 
-        // Actualizar mínima fecha de salida
         const nextDay = new Date(new Date(fechaLlegada).getTime() + 86400000).toISOString().split('T')[0];
         if (fechaSalidaInput.min !== nextDay) {
             fechaSalidaInput.min = nextDay;
         }
         if (fechaSalidaInput.value <= fechaLlegadaInput.value) {
-            fechaSalidaInput.value = nextDay; // Auto-seleccionar el día siguiente si es necesario
+            fechaSalidaInput.value = nextDay;
         }
 
-        // Mostrar loader y deshabilitar botón mientras se calcula
         priceLoader.classList.remove('hidden');
-        priceDisplay.classList.add('hidden'); // Ocultar precio anterior
+        priceDisplay.classList.add('hidden');
         submitButton.disabled = true;
 
         try {
-            // Llamar a la API interna
             const response = await fetch(`/api/propiedad/${propiedadId}/calcular-precio`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fechaLlegada, fechaSalida }) // Enviar solo fechas
+                body: JSON.stringify({ fechaLlegada, fechaSalida })
             });
-
             const data = await response.json();
-
             if (!response.ok) {
                 throw new Error(data.error || 'No se pudo calcular el precio.');
             }
-
-            // Usar la respuesta formateada de la API
             updatePriceDisplay(data);
-
         } catch (error) {
             console.error('Error calculando precio AJAX:', error);
             updatePriceDisplay(null);
@@ -95,24 +97,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Event Listeners para cambios en las fechas
+    // Event Listeners (sin cambios)
     fechaLlegadaInput.addEventListener('change', calculatePriceAJAX);
     fechaSalidaInput.addEventListener('change', calculatePriceAJAX);
-    
-    // Validar fecha mínima de llegada al cargar
-    fechaLlegadaInput.min = new Date().toISOString().split('T')[0];
 
-    // Inicialización: Mostrar precio por defecto del finde (ya está en el HTML)
-    // y habilitar el botón si el precio es válido
-    if (defaultPriceData.totalPriceCLP > 0) {
+    // Inicialización (sin cambios)
+    fechaLlegadaInput.min = new Date().toISOString().split('T')[0];
+    if (defaultPriceData && defaultPriceData.totalPriceCLP > 0) {
+        // El precio ya está mostrado por EJS, solo habilitar botón
         submitButton.disabled = false;
     } else if (fechaLlegadaInput.value && fechaSalidaInput.value && personasInput.value) {
-        // Si no hubo precio default pero las fechas están pre-llenadas (ej. deep link), calcular
         calculatePriceAJAX();
     }
 
-
-    // Handle form submission
+    // Handle form submission (sin cambios)
     bookingForm.addEventListener('submit', (e) => {
         e.preventDefault();
 
@@ -135,7 +133,6 @@ document.addEventListener('DOMContentLoaded', () => {
         submitButton.disabled = true;
         submitButton.textContent = 'Procesando...';
 
-        // Construir la URL para la página /reservar
         const params = new URLSearchParams({
             propiedadId: propiedadId,
             fechaLlegada: fechaLlegadaInput.value,

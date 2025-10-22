@@ -168,15 +168,11 @@
 
     <%- include('partials/footer') %>
 
-    <script>
-      // *** CORRECCIÓN: Inyectar JSON en una variable separada ***
-      const initialDefaultPriceData = <%- JSON.stringify(defaultPriceData || null) %>; // Añadir fallback a null
-
-      window.initialBookingData = {
-        propiedadId: "<%= propiedad.id %>",
-        defaultPrice: initialDefaultPriceData // Usar la variable
-      };
+    <script src="/public/js/booking.js"
+            id="booking-script" <%# Añadir ID para fácil selección %>
+            data-propiedad-id="<%= propiedad.id %>"
+            data-default-price="<%= JSON.stringify(defaultPriceData || null).replace(/"/g, '&quot;') %>" <%# Pasar JSON como string codificado %>
+            defer>
     </script>
-    <script src="/public/js/booking.js" defer></script>
 </body>
 </html>
