@@ -21,7 +21,6 @@ const crearPropiedad = async (db, empresaId, datosPropiedad) => {
         sincronizacionIcal: datosPropiedad.sincronizacionIcal || {},
         componentes: componentes,
         googleHotelData: datosPropiedad.googleHotelData || {},
-        // Asegurarse de que websiteData se inicialice con la nueva estructura
         websiteData: datosPropiedad.websiteData || { aiDescription: '', images: {}, cardImage: null },
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
     };
@@ -45,11 +44,16 @@ const obtenerPropiedadesPorEmpresa = async (db, empresaId) => {
 };
 
 const obtenerPropiedadPorId = async (db, empresaId, propiedadId) => {
+    // Validar que propiedadId sea una cadena no vacía
+    if (!propiedadId || typeof propiedadId !== 'string' || propiedadId.trim() === '') {
+        console.error(`[propiedadesService] Error: Se llamó a obtenerPropiedadPorId con un ID inválido: '${propiedadId}'`);
+        return null; // Devolver null si el ID es inválido
+    }
+
     const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
     const doc = await propiedadRef.get();
 
     if (!doc.exists) {
-        // Devolver null en lugar de lanzar error permite al controlador SSR manejarlo como 404
         return null;
     }
 
@@ -63,7 +67,6 @@ const actualizarPropiedad = async (db, empresaId, propiedadId, datosActualizados
         datosActualizados.componentes = [];
     }
 
-    // Usar .update() para fusionar campos anidados (como websiteData.aiDescription)
     await propiedadRef.update({
         ...datosActualizados,
         fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
