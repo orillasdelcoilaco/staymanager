@@ -15,17 +15,18 @@ if (!API_KEY) {
 
 // Inicializar el cliente (solo si hay API Key)
 const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
-const model = genAI ? genAI.getGenerativeModel({ model: "models/gemini-2.5-flash" }) : null; // Mantener el modelo que funciona
+const model = genAI ? genAI.getGenerativeModel({ model: "models/gemini-2.5-flash" }) : null;
 
-// --- Función Placeholder (Mantenida por si falla la API) ---
+// --- Función Placeholder (Sin cambios) ---
 async function llamarIASimulada(prompt) {
     console.log("--- Llamando a IA (Simulado por falta de API Key o error) ---");
+    // ... (código existente simulado sin cambios)
     if (prompt.includes("generar una descripción SEO para la propiedad")) {
-        const propiedadMatch = prompt.match(/Alojamiento: "(.*?)"/);
-        const ubicacionMatch = prompt.match(/Ubicación: (.*?),/);
+        const propiedadMatch = prompt.match(/Alojamiento Específico: "(.*?)"/); // Corregido para prompt real
+        const ubicacionMatch = prompt.match(/Ubicación General del Negocio: "(.*?)"/); // Corregido para prompt real
         const nombreAlojamiento = propiedadMatch ? propiedadMatch[1] : 'el alojamiento';
         const ubicacionTexto = ubicacionMatch ? ` en ${ubicacionMatch[1]}` : '';
-        return `(SIMULADO) Descubre ${nombreAlojamiento}${ubicacionTexto}, tu escapada ideal. Confort, naturaleza y tinaja privada. Perfecto para familias. ¡Reserva ahora!`;
+        return `(SIMULADO) Descubre tu escapada ideal${ubicacionTexto}. Confort, naturaleza y tinaja privada. Perfecto para ${prompt.includes('familiar') ? 'familias' : 'parejas'}. ¡Reserva ahora en ${prompt.match(/Empresa: "(.*?)"/)[1]}!`; // No empezar con el nombre
     } else if (prompt.includes("generar metadatos (alt text y title)")) {
         const altText = `(SIMULADO) Detalle interior de la propiedad.`;
         const titleText = `(SIMULADO) Detalle Alojamiento`;
@@ -44,23 +45,25 @@ async function llamarIASimulada(prompt) {
 // --- Fin Placeholder ---
 
 async function llamarGeminiAPI(prompt) {
+    // ... (sin cambios)
     if (!model) {
         console.warn("Llamando a IA Simulada (Falta API Key o inicialización falló)");
         return llamarIASimulada(prompt);
     }
     try {
         console.log(`[AI Service] Enviando prompt al modelo ${model.model}...`);
+        // console.log("Prompt:", prompt); // Descomentar para depurar el prompt exacto
         const result = await model.generateContent(prompt);
         const response = await result.response;
-        // Intenta obtener texto, maneja posible error si la respuesta no es texto
         let text = '';
         try {
             text = response.text();
         } catch (textError) {
              console.warn("[AI Service] La respuesta de Gemini API no contenía texto directo. Usando respuesta simulada.");
-             return llamarIASimulada(prompt); // Fallback si no hay texto
+             return llamarIASimulada(prompt);
         }
         console.log("[AI Service] Respuesta de Gemini API recibida.");
+        // console.log("Respuesta:", text); // Descomentar para ver respuesta cruda
         return text;
     } catch (error) {
         console.error("Error detallado al llamar a Gemini API:", error);
@@ -69,8 +72,9 @@ async function llamarGeminiAPI(prompt) {
     }
 }
 
-// Genera Meta Título y Meta Descripción para la Página de Inicio
+// --- Funciones Home Page (Sin cambios) ---
 const generarSeoHomePage = async (empresaData) => {
+    // ... (código existente sin cambios)
     const prompt = `
         Eres un experto SEO para sitios web de turismo, especializado en reservas directas.
         Genera metadatos SEO OPTIMIZADOS para la PÁGINA DE INICIO de un negocio de arriendos turísticos.
@@ -94,22 +98,19 @@ const generarSeoHomePage = async (empresaData) => {
         if (!jsonMatch) throw new Error("Respuesta IA no contenía JSON.");
         const metadata = JSON.parse(jsonMatch[0]);
         if (!metadata.metaTitle || !metadata.metaDescription) throw new Error("JSON incompleto.");
-        // Asegurar límites
         metadata.metaTitle = metadata.metaTitle.substring(0, 60);
         metadata.metaDescription = metadata.metaDescription.substring(0, 155);
         return metadata;
     } catch (error) {
         console.error("Error generando SEO Home Page:", error, "Respuesta IA:", respuestaIA);
-        // Fallback robusto
         return {
             metaTitle: `${empresaData.tipoAlojamientoPrincipal || 'Alojamientos'} en ${empresaData.ubicacionTexto || 'Destino'} | ${empresaData.nombre}`,
             metaDescription: `Reserva ${empresaData.tipoAlojamientoPrincipal || 'alojamientos'} directamente en ${empresaData.ubicacionTexto || 'nuestro destino'}. Ideal para ${empresaData.enfoqueMarketing || 'tus vacaciones'}. ¡Consulta disponibilidad!`
         };
     }
 };
-
-// Genera H1 y Párrafo Introductorio para la Página de Inicio
 const generarContenidoHomePage = async (empresaData) => {
+    // ... (código existente sin cambios)
     const prompt = `
         Eres un copywriter experto en turismo, creando contenido atractivo y optimizado para SEO para la PÁGINA DE INICIO de un sitio de reservas directas.
 
@@ -136,7 +137,6 @@ const generarContenidoHomePage = async (empresaData) => {
         return content;
     } catch (error) {
         console.error("Error generando Contenido Home Page:", error, "Respuesta IA:", respuestaIA);
-        // Fallback robusto
         return {
             h1: `${empresaData.tipoAlojamientoPrincipal || 'Alojamientos'} en ${empresaData.ubicacionTexto || 'Nuestro Destino'}`,
             introParagraph: `Bienvenido a ${empresaData.nombre}. Descubre nuestros ${empresaData.tipoAlojamientoPrincipal || 'alojamientos'} en ${empresaData.ubicacionTexto || 'un lugar especial'}, ideales para ${empresaData.enfoqueMarketing || 'escapadas'}. ¡Encuentra tu opción perfecta y reserva!`
@@ -144,36 +144,46 @@ const generarContenidoHomePage = async (empresaData) => {
     }
 };
 
-// Genera Descripción Optimizada para una Propiedad Específica
+// Genera Descripción Optimizada para una Propiedad Específica (PROMPT MODIFICADO)
 const generarDescripcionAlojamiento = async (descripcionManual, nombreAlojamiento, nombreEmpresa, ubicacionEmpresa, tipoAlojamientoEmpresa, enfoqueMarketingEmpresa) => {
+    // *** INICIO PROMPT MODIFICADO ***
     const prompt = `
-        Eres un experto en SEO copywriting para la industria del turismo. Tu objetivo es generar una descripción ALTAMENTE OPTIMIZADA y atractiva para una propiedad específica dentro de un sitio de reservas directas. Usa la descripción manual como base si existe, pero prioriza el SEO y la persuasión.
+        Eres un experto en SEO copywriting para la industria del turismo. Tu objetivo es generar una descripción ALTAMENTE OPTIMIZADA, natural y atractiva para una propiedad específica llamada "${nombreAlojamiento}", que pertenece a la empresa "${nombreEmpresa}".
 
-        Contexto:
-        - Alojamiento Específico: "${nombreAlojamiento}"
-        - Empresa: "${nombreEmpresa}"
-        - Ubicación General del Negocio: "${ubicacionEmpresa || '(Ubicación no proporcionada)'}"
-        - Tipo Principal de Alojamientos de la Empresa: "${tipoAlojamientoEmpresa || 'alojamientos'}"
-        - Enfoque General de Marketing: "${enfoqueMarketingEmpresa || ''}"
+        Contexto General (Empresa):
+        - Ubicación General del Negocio: "${ubicacionEmpresa || '(Ubicación no especificada)'}" (Ej: Pucón, Araucanía, Chile)
+        - Tipo Principal de Alojamientos: "${tipoAlojamientoEmpresa || 'alojamientos'}"
+        - Enfoque General de Marketing: "${enfoqueMarketingEmpresa || 'vacaciones'}"
+
+        Contexto Específico (Propiedad):
+        - Nombre del Alojamiento: "${nombreAlojamiento}"
         - Descripción base manual (si la hay): "${descripcionManual || '(No proporcionada)'}"
 
         Instrucciones Clave:
-        1.  **Enfoque en la Propiedad:** Describe ESTA propiedad específica, sus características únicas y beneficios.
-        2.  **SEO Local:** Integra natural y prominentemente la UBICACIÓN GENERAL del negocio (ej. "disfruta Pucón desde nuestra cabaña", "alojamiento en la Araucanía").
-        3.  **Keywords Relevantes:** Incluye keywords principales como: ${tipoAlojamientoEmpresa || 'alojamiento'}, arriendo, vacaciones, escapada, ${ubicacionEmpresa ? ubicacionEmpresa.split(',')[0] : ''}. Adapta según el tipo real de propiedad (cabaña, departamento, etc.).
-        4.  **Beneficios Claros:** Destaca QUÉ GANA el huésped al elegir ESTA propiedad (relax, vistas, comodidad, privacidad, cercanía a X).
-        5.  **Llamada a la Acción (Sutil):** Anima a la reserva directa (ej: "ideal para tu próxima visita a [Ubicación]", "reserva tu estancia con nosotros").
-        6.  **Estilo:** Persuasivo, conciso (máximo 2 párrafos cortos), fácil de leer.
-        7.  **Formato:** SOLO texto plano. SIN markdown (*, #), SIN títulos o encabezados.
+        1.  **NO Repetir Nombre:** NO comiences la descripción repitiendo "${nombreAlojamiento}". El título ya lo indica. Empieza directamente describiendo la experiencia o beneficio principal.
+        2.  **Enfoque en la Propiedad:** Describe ESTA propiedad específica, sus características únicas y beneficios. Usa la descripción manual como inspiración si existe, pero reescríbela para que sea más fluida y persuasiva.
+        3.  **Ubicación Natural:** Menciona la UBICACIÓN GENERAL del negocio (ej: "disfruta Pucón", "tu base en la Araucanía") UNA SOLA VEZ y de forma natural, integrada en la descripción. NO uses frases como "en Ubicación [Nombre Ubicación]". Usa el nombre de la ciudad o zona principal proporcionada.
+        4.  **Keywords Relevantes:** Integra sutilmente keywords como: ${tipoAlojamientoEmpresa || 'alojamiento'}, arriendo, vacaciones, escapada, ${ubicacionEmpresa ? ubicacionEmpresa.split(',')[0].trim() : ''}. Adapta al tipo real (cabaña, departamento).
+        5.  **Beneficios Claros:** Destaca QUÉ GANA el huésped (relax, vistas, comodidad, tinaja, parrilla, cercanía a atracciones). Evita simplemente listar características.
+        6.  **Llamada a la Acción (Sutil):** Anima a la reserva directa (ej: "ideal para tu próxima visita a [Ubicación]", "reserva tu estancia con nosotros en ${nombreEmpresa}").
+        7.  **Estilo:** Tono cálido, acogedor y persuasivo. Usa frases cortas y párrafos breves (máximo 2-3 párrafos en total). Evita la repetición excesiva de la ubicación regional.
+        8.  **Formato:** SOLO texto plano. SIN markdown (*, #), SIN títulos o encabezados.
 
-        Genera la descripción optimizada para "${nombreAlojamiento}". Asegúrate que la ubicación y los beneficios específicos sean centrales.
+        Genera la descripción optimizada para "${nombreAlojamiento}".
     `;
+    // *** FIN PROMPT MODIFICADO ***
     const respuestaIA = await llamarGeminiAPI(prompt);
-    return respuestaIA.replace(/^[\*#\s]+|[\*#\s]+$/g, '').trim();
+    // Limpieza adicional por si acaso
+    return respuestaIA
+        .replace(/^[\*#\s]+|[\*#\s]+$/g, '') // Quita markdown al inicio/fin
+        .replace(/^.*?\bes\b\s*/i, '') // Intenta quitar frases iniciales como "Cabaña 9 es..."
+        .trim();
 };
 
-// Genera Alt Text y Title para una Imagen
+
+// Genera Alt Text y Title para una Imagen (sin cambios)
 const generarMetadataImagen = async (nombreEmpresa, nombrePropiedad, descripcionPropiedad, nombreComponente, tipoComponente) => {
+    // ... (código existente sin cambios)
     const prompt = `
         Eres un experto en SEO de imágenes (SuiteManager Helper). Genera metadatos JSON para una imagen.
         Contexto:
@@ -188,20 +198,19 @@ const generarMetadataImagen = async (nombreEmpresa, nombrePropiedad, descripcion
 
         Respuesta: SOLO un objeto JSON válido {"altText": "...", "title": "..."} sin saltos de línea, markdown o texto explicativo adicional. Asegúrate de escapar comillas dobles dentro de los strings si es necesario y de cumplir los límites de caracteres.
     `;
+    let respuestaIA = ''; // Definir fuera del try para el catch
     try {
-        const respuestaIA = await llamarGeminiAPI(prompt);
+        respuestaIA = await llamarGeminiAPI(prompt);
         const jsonMatch = respuestaIA.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error("Respuesta IA no contenía JSON.");
         let metadata = JSON.parse(jsonMatch[0]);
         if (!metadata.altText || !metadata.title) throw new Error("JSON incompleto.");
-        // Asegurar límites estrictos
         metadata.altText = metadata.altText.substring(0, 120).trim();
         metadata.title = metadata.title.substring(0, 80).trim();
         console.log("[AI Service] Metadata generada:", metadata);
         return metadata;
     } catch (error) {
         console.error("Error al generar/parsear metadata de imagen con IA:", error, "Respuesta IA:", respuestaIA);
-        // Fallback robusto
         return {
             altText: `Imagen de ${nombreComponente} en ${nombrePropiedad}, ${nombreEmpresa}`.substring(0, 120),
             title: `${nombreComponente} - ${nombrePropiedad}`.substring(0, 80)
@@ -212,6 +221,6 @@ const generarMetadataImagen = async (nombreEmpresa, nombrePropiedad, descripcion
 module.exports = {
     generarDescripcionAlojamiento,
     generarMetadataImagen,
-    generarSeoHomePage, // Nueva función
-    generarContenidoHomePage // Nueva función
+    generarSeoHomePage,
+    generarContenidoHomePage
 };
