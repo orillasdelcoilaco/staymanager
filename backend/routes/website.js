@@ -3,12 +3,14 @@ const express = require('express');
 const { getAvailabilityData, calculatePrice } = require('../services/propuestasService');
 const { obtenerPropiedadesPorEmpresa, obtenerPropiedadPorId } = require('../services/propiedadesService');
 const { crearReservaPublica } = require('../services/reservasService');
-const { obtenerEmpresaPorDominio, obtenerDetallesEmpresa } = require('../services/empresaService'); // Importar
-const { obtenerReservaPorId } = require('../services/reservasService'); // Importar
+// *** CAMBIO: Asegurarse de importar obtenerDetallesEmpresa ***
+const { obtenerEmpresaPorDominio, obtenerDetallesEmpresa } = require('../services/empresaService');
+const { obtenerReservaPorId } = require('../services/reservasService');
 const admin = require('firebase-admin');
 
-// Función auxiliar para formatear fechas
+// Función auxiliar para formatear fechas (sin cambios)
 const formatDateForInput = (date) => {
+    // ... (código existente sin cambios)
     if (!date) return '';
     const d = (date instanceof Date) ? date : new Date(date);
     if (isNaN(d.getTime())) return '';
@@ -21,92 +23,86 @@ const formatDateForInput = (date) => {
 module.exports = (db) => {
     const router = express.Router();
 
-    // Middleware para asegurar que req.empresa existe y añadirlo a locals
+    // Middleware para asegurar que req.empresa existe (sin cambios)
     router.use((req, res, next) => {
         if (!req.empresa) {
+            // Si el tenantResolver no encontró empresa, no continuamos en este router.
+            // El flujo debería pasar al siguiente middleware/ruta (que sirve la SPA).
             return next('router');
         }
-        res.locals.empresa = req.empresa;
+        // No adjuntamos a locals aquí, lo hacemos en la ruta específica tras cargar detalles.
         next();
     });
 
     // Ruta principal (Home)
     router.get('/', async (req, res) => {
         try {
-            const { empresa } = req;
-            const empresaId = empresa.id;
+            // *** CAMBIO: Obtener detalles completos de la empresa ***
+            const empresaId = req.empresa.id; // Obtenido por el tenantResolver
+            const empresaCompleta = await obtenerDetallesEmpresa(db, empresaId); // Carga TODO, incluyendo websiteSettings
+            // *** FIN CAMBIO ***
+
             const { fechaLlegada, fechaSalida, personas } = req.query;
 
             let propiedadesAMostrar = [];
             let isSearchResult = false;
 
             if (fechaLlegada && fechaSalida && personas) {
+                // ... (lógica de búsqueda existente sin cambios)
                 isSearchResult = true;
                 const startDate = new Date(fechaLlegada + 'T00:00:00Z');
                 const endDate = new Date(fechaSalida + 'T00:00:00Z');
-                
-                // getAvailabilityData ya filtra por propiedades con tarifa
                 const { availableProperties } = await getAvailabilityData(db, empresaId, startDate, endDate);
-                
-                // *** INICIO CORRECCIÓN P3 ***
-                // Filtrar solo las que están listadas Y cumplen capacidad
                 propiedadesAMostrar = availableProperties
                     .filter(p => p.googleHotelData && p.googleHotelData.isListed === true)
                     .filter(p => p.capacidad >= parseInt(personas));
-                // *** FIN CORRECCIÓN P3 ***
-
             } else {
-                // Obtener todas las propiedades
+                // ... (lógica para mostrar todas las listadas existente sin cambios)
                 const todasLasPropiedades = await obtenerPropiedadesPorEmpresa(db, empresaId);
-                
-                // *** INICIO CORRECCIÓN P3 ***
-                // Filtrar solo las que están marcadas para listarse
                 propiedadesAMostrar = todasLasPropiedades.filter(p => p.googleHotelData && p.googleHotelData.isListed === true);
-                // *** FIN CORRECCIÓN P3 ***
             }
 
+            // *** CAMBIO: Pasar la empresaCompleta a la plantilla ***
             res.render('home', {
-                title: empresa.websiteSettings?.seo?.homeTitle || empresa.nombre,
-                description: empresa.websiteSettings?.seo?.homeDescription || `Reservas en ${empresa.nombre}`,
-                empresa: empresa,
+                title: empresaCompleta.websiteSettings?.seo?.homeTitle || empresaCompleta.nombre,
+                description: empresaCompleta.websiteSettings?.seo?.homeDescription || `Reservas en ${empresaCompleta.nombre}`,
+                empresa: empresaCompleta, // Usar el objeto completo
                 propiedades: propiedadesAMostrar,
                 isSearchResult: isSearchResult,
                 query: req.query
             });
+            // *** FIN CAMBIO ***
         } catch (error) {
-            console.error(`Error al renderizar el home para ${req.empresa.id}:`, error);
-            res.status(500).render('404', { 
-                title: 'Error', 
-                empresa: req.empresa || { nombre: "Error" } 
+            console.error(`Error al renderizar el home para ${req.empresa?.id || 'ID Desconocido'}:`, error);
+            // *** CAMBIO: Usar req.empresa como fallback si empresaCompleta falla antes ***
+            res.status(500).render('404', {
+                title: 'Error',
+                empresa: req.empresa || { nombre: "Error Interno" }
             });
+            // *** FIN CAMBIO ***
         }
     });
 
-    // Ruta de detalle de propiedad
+    // Ruta de detalle de propiedad (Asegurarse de cargar empresa completa también)
     router.get('/propiedad/:id', async (req, res) => {
         try {
-            const { empresa } = req;
-            const empresaId = empresa.id;
+            // *** CAMBIO: Obtener detalles completos de la empresa ***
+            const empresaId = req.empresa.id;
+            const empresaCompleta = await obtenerDetallesEmpresa(db, empresaId);
+            // *** FIN CAMBIO ***
+
             const propiedadId = req.params.id;
             const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
 
-            if (!propiedad) {
-                return res.status(404).render('404', { 
-                    title: 'Propiedad No Encontrada', 
-                    empresa 
+            if (!propiedad || !propiedad.googleHotelData || !propiedad.googleHotelData.isListed) {
+                return res.status(404).render('404', {
+                    title: 'Propiedad No Encontrada',
+                    // *** CAMBIO: Pasar empresaCompleta ***
+                    empresa: empresaCompleta
                 });
             }
 
-            // *** INICIO CORRECCIÓN P3 ***
-            // Opcional: Redirigir si la propiedad no está listada
-            if (!propiedad.googleHotelData || !propiedad.googleHotelData.isListed) {
-                 return res.status(404).render('404', { 
-                    title: 'Propiedad No Disponible', 
-                    empresa 
-                });
-            }
-            // *** FIN CORRECCIÓN P3 ***
-
+            // ... (lógica de prefill existente sin cambios) ...
             let checkinDate = null;
             let checkoutDate = null;
             let numAdults = req.query.personas || '';
@@ -127,28 +123,34 @@ module.exports = (db) => {
                 checkoutDate = new Date(req.query.fechaSalida + 'T00:00:00Z');
             }
 
+
+            // *** CAMBIO: Pasar empresaCompleta ***
             res.render('propiedad', {
-                title: `${propiedad.nombre} | ${empresa.nombre}`,
+                title: `${propiedad.nombre} | ${empresaCompleta.nombre}`,
                 description: (propiedad.websiteData?.aiDescription || propiedad.descripcion || `Descubre ${propiedad.nombre}`).substring(0, 155),
                 propiedad: propiedad,
-                empresa: empresa,
+                empresa: empresaCompleta,
                 prefill: {
                     fechaLlegada: checkinDate ? formatDateForInput(checkinDate) : '',
                     fechaSalida: checkoutDate ? formatDateForInput(checkoutDate) : '',
                     personas: numAdults
                 }
             });
+            // *** FIN CAMBIO ***
         } catch (error) {
-            console.error(`Error al renderizar la propiedad ${req.params.id} para ${req.empresa.id}:`, error);
-            res.status(500).render('404', { 
-                title: 'Error', 
-                empresa: req.empresa || { nombre: "Error" } 
+            console.error(`Error al renderizar la propiedad ${req.params.id} para ${req.empresa?.id || 'ID Desconocido'}:`, error);
+             // *** CAMBIO: Usar req.empresa como fallback ***
+            res.status(500).render('404', {
+                title: 'Error',
+                empresa: req.empresa || { nombre: "Error Interno" }
             });
+             // *** FIN CAMBIO ***
         }
     });
 
-    // Ruta API interna para calcular precio
+    // Ruta API interna para calcular precio (Sin cambios necesarios aquí)
     router.post('/propiedad/:id/calcular-precio', express.json(), async (req, res) => {
+        // ... (código existente sin cambios) ...
          try {
             const empresaId = req.empresa.id;
             const propiedadId = req.params.id;
@@ -183,36 +185,48 @@ module.exports = (db) => {
         }
     });
 
-    // Ruta que muestra el formulario de checkout
+    // Ruta que muestra el formulario de checkout (Asegurarse de cargar empresa completa también)
     router.get('/reservar', async (req, res) => {
         try {
+            // *** CAMBIO: Obtener detalles completos de la empresa ***
             const empresaId = req.empresa.id;
+            const empresaCompleta = await obtenerDetallesEmpresa(db, empresaId);
+             // *** FIN CAMBIO ***
+
             const { propiedadId } = req.query;
             const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
             if (!propiedad) {
-                return res.status(404).render('404', { 
+                return res.status(404).render('404', {
                     title: 'Propiedad No Encontrada',
-                    empresa: req.empresa
+                    // *** CAMBIO: Pasar empresaCompleta ***
+                    empresa: empresaCompleta
                 });
             }
 
+            // *** CAMBIO: Pasar empresaCompleta ***
             res.render('reservar', {
-                title: `Completar Reserva | ${req.empresa.nombre}`,
+                title: `Completar Reserva | ${empresaCompleta.nombre}`,
                 propiedad,
                 query: req.query,
-                empresa: req.empresa
+                empresa: empresaCompleta
             });
+             // *** FIN CAMBIO ***
         } catch (error) {
-            console.error(`Error al mostrar página de reserva para empresa ${req.empresa.id}:`, error);
-            res.status(500).render('404', { 
-                title: 'Error', 
-                empresa: req.empresa || { nombre: "Error" } 
+            console.error(`Error al mostrar página de reserva para empresa ${req.empresa?.id}:`, error);
+             // *** CAMBIO: Usar req.empresa como fallback ***
+            res.status(500).render('404', {
+                title: 'Error',
+                empresa: req.empresa || { nombre: "Error Interno" }
             });
+            // *** FIN CAMBIO ***
         }
     });
 
-    // Ruta de acción para crear la reserva
+    // Ruta de acción para crear la reserva (Sin cambios necesarios aquí respecto a datos de empresa)
     router.post('/reservar', express.urlencoded({ extended: true }), async (req, res) => {
+        // ... (código existente sin cambios) ...
+        // Ya usa obtenerEmpresaPorDominio, lo cual está bien para identificar la empresa
+        // y crearReservaPublica internamente obtendrá lo que necesite.
          try {
             // Identificar empresa por hostname
             const hostname = req.hostname;
@@ -220,72 +234,106 @@ module.exports = (db) => {
             if (!empresa) {
                 throw new Error('Empresa no identificada para la reserva.');
             }
-            
+
             const reserva = await crearReservaPublica(db, empresa.id, req.body);
             // Redirigir a la página de confirmación
             // Usamos el idReservaCanal para la URL de cara al cliente
-            res.redirect(`/confirmacion?reservaId=${reserva.idReservaCanal}`); 
+            res.redirect(`/confirmacion?reservaId=${reserva.idReservaCanal}`);
         } catch (error) {
             console.error(`Error al crear reserva:`, error);
-            res.status(500).render('404', { 
-                title: 'Error de Reserva', 
-                empresa: req.empresa || { nombre: "Error" } 
+            // Intentamos obtener req.empresa si existe para el renderizado del error
+            const empresaFallback = req.empresa || await obtenerEmpresaPorDominio(db, req.hostname) || { nombre: "Error Interno" };
+            res.status(500).render('404', {
+                title: 'Error de Reserva',
+                empresa: empresaFallback
             });
         }
     });
 
-    // Página de confirmación
+    // Página de confirmación (Asegurarse de cargar empresa completa también)
     router.get('/confirmacion', async (req, res) => {
         try {
+            // *** CAMBIO: Obtener detalles completos de la empresa ***
             const empresaId = req.empresa.id;
+            const empresaCompleta = await obtenerDetallesEmpresa(db, empresaId);
+             // *** FIN CAMBIO ***
+
             const reservaIdOriginal = req.query.reservaId; // Este es el idReservaCanal
 
             if (!reservaIdOriginal) {
-                 return res.status(404).render('404', { title: 'Reserva No Encontrada', empresa: req.empresa});
+                 return res.status(404).render('404', { title: 'Reserva No Encontrada', empresa: empresaCompleta});
             }
-            
-            // Buscar la reserva usando el idReservaCanal
+
+            // ... (resto de la lógica existente sin cambios) ...
             const reservaSnap = await db.collection('empresas').doc(empresaId).collection('reservas')
                                       .where('idReservaCanal', '==', reservaIdOriginal)
                                       .limit(1)
                                       .get();
-            
+
             if (reservaSnap.empty) {
-                 return res.status(404).render('404', { title: 'Reserva No Encontrada', empresa: req.empresa});
+                 return res.status(404).render('404', { title: 'Reserva No Encontrada', empresa: empresaCompleta});
             }
-            
+
             const reservaData = reservaSnap.docs[0].data();
-            
-            // Cargar cliente (usando el servicio que ya existe)
             const cliente = await db.collection('empresas').doc(empresaId).collection('clientes').doc(reservaData.clienteId).get();
 
+             // *** CAMBIO: Pasar empresaCompleta ***
             res.render('confirmacion', {
-                title: `Reserva Confirmada | ${req.empresa.nombre}`,
+                title: `Reserva Confirmada | ${empresaCompleta.nombre}`,
                 reserva: reservaData,
-                cliente: cliente.exists ? cliente.data() : { nombre: "Cliente" }
+                cliente: cliente.exists ? cliente.data() : { nombre: "Cliente" },
+                empresa: empresaCompleta // Añadir empresa aquí
             });
+             // *** FIN CAMBIO ***
         } catch (error) {
             console.error(`Error mostrando confirmación ${req.query.reservaId}:`, error);
-            res.status(500).render('404', { 
-                title: 'Error', 
-                empresa: req.empresa || { nombre: "Error" } 
+             // *** CAMBIO: Usar req.empresa como fallback ***
+            res.status(500).render('404', {
+                title: 'Error',
+                empresa: req.empresa || { nombre: "Error Interno" }
             });
+            // *** FIN CAMBIO ***
         }
     });
 
 
-    // Ruta de Contacto (Ejemplo simple, asume una plantilla contacto.ejs)
-    router.get('/contacto', (req, res) => {
-        res.render('contacto', {
-             title: `Contacto | ${req.empresa.nombre}`
-        });
+    // Ruta de Contacto (Asegurarse de cargar empresa completa también)
+    router.get('/contacto', async (req, res) => { // Convertir a async
+        try {
+            // *** CAMBIO: Obtener detalles completos de la empresa ***
+            const empresaId = req.empresa.id;
+            const empresaCompleta = await obtenerDetallesEmpresa(db, empresaId);
+             // *** FIN CAMBIO ***
+
+            res.render('contacto', {
+                 title: `Contacto | ${empresaCompleta.nombre}`,
+                 // *** CAMBIO: Pasar empresaCompleta ***
+                 empresa: empresaCompleta
+            });
+        } catch (error) {
+            console.error(`Error al renderizar contacto para ${req.empresa?.id}:`, error);
+            // *** CAMBIO: Usar req.empresa como fallback ***
+            res.status(500).render('404', {
+                title: 'Error',
+                empresa: req.empresa || { nombre: "Error Interno" }
+            });
+             // *** FIN CAMBIO ***
+        }
     });
 
 
-    // Manejador de 404 específico para este router (si ninguna ruta anterior coincide)
-    router.use((req, res) => {
+    // Manejador de 404 (Asegurarse de cargar empresa completa también)
+    router.use(async (req, res) => { // Convertir a async
+        let empresaData = req.empresa;
+        if (!empresaData) {
+            // Intentar cargarla de nuevo si no se adjuntó por alguna razón
+            try {
+                empresaData = await obtenerEmpresaPorDominio(db, req.hostname);
+            } catch (e) { /* Ignorar error y usar fallback */ }
+        }
         res.status(404).render('404', {
-            title: 'Página no encontrada'
+            title: 'Página no encontrada',
+            empresa: empresaData || { nombre: "Página no encontrada" }
         });
     });
 

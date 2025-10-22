@@ -17,11 +17,16 @@
     .btn {
         @apply inline-block px-6 py-3 text-sm font-semibold text-center text-white uppercase transition bg-indigo-600 rounded-md shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500;
     }
+    /* Estilos btn-secondary si no existen */
+    .btn-secondary {
+       @apply inline-block px-6 py-3 text-sm font-semibold text-center text-gray-700 uppercase transition bg-gray-200 rounded-md shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400;
+    }
+
 
     .form-input {
         @apply block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm;
     }
-    
+
     .property-card {
         @apply bg-white rounded-lg shadow-md overflow-hidden transition-shadow duration-300 hover:shadow-xl;
     }
@@ -37,4 +42,19 @@
     .property-card-details {
         @apply text-sm text-gray-600;
     }
+
+    /* *** INICIO NUEVAS REGLAS HERO IMAGE *** */
+    .hero-container {
+        @apply relative bg-gray-900 h-64 md:h-96 min-h-[250px] flex items-center justify-center overflow-hidden; /* Añadido overflow-hidden */
+    }
+    .hero-image {
+        @apply absolute inset-0 w-full h-full object-cover z-0; /* object-cover para llenar */
+    }
+    .hero-overlay {
+        @apply absolute inset-0 bg-black opacity-50 z-10;
+    }
+    .hero-content {
+        @apply relative z-20 container h-full flex flex-col justify-center items-center text-center text-white p-4;
+    }
+     /* *** FIN NUEVAS REGLAS HERO IMAGE *** */
 }

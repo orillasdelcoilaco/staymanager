@@ -1,9 +1,10 @@
+<%- /* backend/views/home.ejs */ %>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
+
     <title><%= empresa.websiteSettings?.seo?.homeTitle || empresa.nombre %></title>
     <meta name="description" content="<%= empresa.websiteSettings?.seo?.homeDescription || `Reservas en ${empresa.nombre}` %>">
 
@@ -16,17 +17,19 @@
 
     <%- include('partials/header') %>
 
-    <main class="overflow-hidden"> <% if (empresa.websiteSettings?.theme?.heroImageUrl) { %>
-            <div class="relative bg-gray-900 h-64 md:h-96 min-h-[250px] flex items-center justify-center"> <picture>
+    <main class="overflow-hidden">
+        <%# *** INICIO CAMBIO HERO IMAGE *** %>
+        <% if (empresa.websiteSettings?.theme?.heroImageUrl) { %>
+            <div class="hero-container"> <%# Usar nueva clase contenedora %>
+                <picture>
                     <source srcset="<%= empresa.websiteSettings.theme.heroImageUrl %>" type="image/webp">
-                    <img src="<%= empresa.websiteSettings.theme.heroImageUrl %>" 
-                         alt="<%= empresa.websiteSettings.theme.heroImageAlt || 'Imagen de portada' %>" 
-                         title="<%= empresa.websiteSettings.theme.heroImageTitle || empresa.nombre %>" 
-                         class="absolute inset-0 w-full h-full object-cover z-0">
+                    <img src="<%= empresa.websiteSettings.theme.heroImageUrl %>"
+                         alt="<%= empresa.websiteSettings.theme.heroImageAlt || 'Imagen de portada' %>"
+                         title="<%= empresa.websiteSettings.theme.heroImageTitle || empresa.nombre %>"
+                         class="hero-image"> <%# Usar nueva clase para imagen %>
                 </picture>
-                <div class="absolute inset-0 bg-black opacity-50 z-10"></div>
-                
-                <div class="relative z-20 container h-full flex flex-col justify-center items-center text-center text-white p-4">
+                <div class="hero-overlay"></div> <%# Usar nueva clase para overlay %>
+                <div class="hero-content"> <%# Usar nueva clase para contenido %>
                     <h1 class="text-4xl md:text-5xl font-bold">
                         <%= empresa.websiteSettings?.content?.homeH1 || empresa.nombre %>
                     </h1>
@@ -36,9 +39,10 @@
                 </div>
             </div>
         <% } else { %>
+            <%# Fallback sin imagen (sin cambios) %>
             <div class="bg-indigo-700 text-white py-12 px-4 text-center h-64 md:h-80 flex items-center justify-center">
                  <div>
-                     <h1 class="text-4xl md:text-5xl font-bold">
+                    <h1 class="text-4xl md:text-5xl font-bold">
                         <%= empresa.websiteSettings?.content?.homeH1 || empresa.nombre %>
                     </h1>
                     <p class="mt-4 text-lg md:text-xl max-w-2xl">
@@ -47,6 +51,8 @@
                  </div>
             </div>
         <% } %>
+        <%# *** FIN CAMBIO HERO IMAGE *** %>
+
         <div class="container py-12">
             <div class="bg-white p-6 rounded-lg shadow-lg mb-12">
                 <form action="/" method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
@@ -74,26 +80,23 @@
                         Nuestras Propiedades
                     <% } %>
                 </h2>
-                
+
                 <% if (propiedades.length > 0) { %>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         <% propiedades.forEach(prop => { %>
-                            <% 
-                               // Lógica para imagen de portada
+                            <%
                                const imagenPortadaArray = prop.websiteData?.images?.['portadaRecinto'] || prop.websiteData?.images?.['exteriorAlojamiento'];
                                const imagenPortada = imagenPortadaArray?.[0];
                                const imagenUrl = imagenPortada?.storagePath || 'https://via.placeholder.com/400x300.png?text=Imagen+no+disponible';
                                const altText = imagenPortada?.altText || `Imagen de ${prop.nombre}`;
                                const titleText = imagenPortada?.title || prop.nombre;
-                               
-                               // Lógica para descripción
                                const descripcion = prop.websiteData?.aiDescription || prop.descripcion || 'Descripción no disponible.';
                             %>
                             <div class="property-card">
                                 <a href="/propiedad/<%= prop.id %>">
                                     <picture>
                                         <source srcset="<%= imagenUrl %>" type="image/webp">
-                                        <img src="<%= imagenUrl %>" alt="<%= altText %>" title="<%= titleText %>" loading="lazy" class="w-full h-48 object-cover">
+                                        <img src="<%= imagenUrl %>" alt="<%= altText %>" title="<%= titleText %>" loading="lazy"> <%# Clase w-full h-48 object-cover ya está en property-card img %>
                                     </picture>
                                 </a>
                                 <div class="property-card-content">
@@ -101,7 +104,7 @@
                                     <p class="property-card-details">Capacidad: hasta <%= prop.capacidad %> personas</p>
                                     <p class="text-sm text-gray-600 mt-2 truncate"><%= descripcion.substring(0, 100) %>...</p>
                                     <div class="text-right mt-4">
-                                         <a href="/propiedad/<%= prop.id %>" class="btn-secondary text-sm">Ver Detalles</a>
+                                        <a href="/propiedad/<%= prop.id %>" class="btn-secondary text-sm">Ver Detalles</a>
                                     </div>
                                 </div>
                             </div>
