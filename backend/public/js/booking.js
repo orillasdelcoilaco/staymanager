@@ -11,15 +11,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const propiedadId = scriptTag.dataset.propiedadId;
     let defaultPriceData = null;
     try {
-        // JSON.parse ahora funciona porque EJS inyectó un string JSON válido
-        defaultPriceData = JSON.parse(scriptTag.dataset.defaultPrice);
+        // Decodificar el string JSON que viene escapado para HTML (ej: &quot; -> ")
+        // (Aunque los navegadores modernos suelen hacerlo automáticamente al leer dataset)
+        const priceString = scriptTag.dataset.defaultPrice;
+        defaultPriceData = JSON.parse(priceString); // JSON.parse maneja el string JSON
     } catch (e) {
         console.error("Error parsing default price data:", scriptTag.dataset.defaultPrice, e);
         defaultPriceData = { totalPriceCLP: 0, nights: 0, formattedTotalPrice: 'Error' }; // Fallback
     }
     // *** FIN CORRECCIÓN ***
 
-    // Obtener elementos del DOM (sin cambios)
+    // Obtener elementos del DOM
     const fechaLlegadaInput = document.getElementById('fechaLlegada');
     const fechaSalidaInput = document.getElementById('fechaSalida');
     const personasInput = document.getElementById('personas');
@@ -33,10 +35,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPriceCLP = defaultPriceData?.totalPriceCLP || null;
     let currentNights = defaultPriceData?.nights || 0;
 
-    // Función para formatear CLP (sin cambios)
+    // Función para formatear CLP
     const formatCLP = (value) => `$${(Math.round(value || 0)).toLocaleString('es-CL')} CLP`;
 
-    // Función para actualizar la UI del precio (sin cambios)
+    // Función para actualizar la UI del precio
     const updatePriceDisplay = (priceData) => {
         if (priceData && priceData.totalPrice !== undefined && priceData.numNoches !== undefined) {
             currentPriceCLP = priceData.totalPrice;
@@ -56,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
         priceLoader.classList.add('hidden');
     };
 
-    // Función Principal: Calcular Precio (AJAX) (sin cambios)
+    // Función Principal: Calcular Precio (AJAX)
     const calculatePriceAJAX = async () => {
         const fechaLlegada = fechaLlegadaInput.value;
         const fechaSalida = fechaSalidaInput.value;
@@ -71,15 +73,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (fechaLlegada < today) {
             fechaLlegadaInput.value = today;
-            // No hacer return aquí, permitir que el cálculo continúe con la fecha corregida
         }
 
-        const nextDay = new Date(new Date(fechaLlegada).getTime() + 86400000).toISOString().split('T')[0];
+        const nextDay = new Date(new Date(fechaLlegadaInput.value).getTime() + 86400000).toISOString().split('T')[0];
         if (fechaSalidaInput.min !== nextDay) {
             fechaSalidaInput.min = nextDay;
         }
         if (fechaSalidaInput.value <= fechaLlegadaInput.value) {
-            fechaSalidaInput.value = nextDay; // Auto-seleccionar el día siguiente si es necesario
+            fechaSalidaInput.value = nextDay;
         }
 
         priceLoader.classList.remove('hidden');
@@ -87,12 +88,13 @@ document.addEventListener('DOMContentLoaded', () => {
         submitButton.disabled = true;
 
         try {
-            // Usar la fecha actualizada del input para el body
-            const response = await fetch(`/api/propiedad/${propiedadId}/calcular-precio`, {
+            // *** CAMBIO: Llamar a la URL pública (sin /api/) ***
+            const response = await fetch(`/propiedad/${propiedadId}/calcular-precio`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ fechaLlegada: fechaLlegadaInput.value, fechaSalida: fechaSalidaInput.value })
             });
+            // *** FIN CAMBIO ***
 
             const data = await response.json();
             if (!response.ok) {
@@ -107,21 +109,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Event Listeners (sin cambios)
+    // Event Listeners
     fechaLlegadaInput.addEventListener('change', calculatePriceAJAX);
     fechaSalidaInput.addEventListener('change', calculatePriceAJAX);
 
-    // Inicialización (sin cambios)
+    // Inicialización
     fechaLlegadaInput.min = new Date().toISOString().split('T')[0];
     if (defaultPriceData && defaultPriceData.totalPriceCLP > 0) {
         submitButton.disabled = false;
     } else if (fechaLlegadaInput.value && fechaSalidaInput.value && personasInput.value) {
-        // Si no hubo precio default pero las fechas están pre-llenadas (ej. deep link), calcular
         calculatePriceAJAX();
     }
 
 
-    // Handle form submission (sin cambios)
+    // Handle form submission
     bookingForm.addEventListener('submit', (e) => {
         e.preventDefault();
 
