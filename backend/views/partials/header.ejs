@@ -3,7 +3,7 @@
     <div class="container py-3 flex items-center justify-between">
         <a href="/" class="flex items-center space-x-3">
             <% if (empresa.websiteSettings?.theme?.logoUrl) { %>
-                <img src="<%= empresa.websiteSettings.theme.logoUrl %>" alt="<%= empresa.nombre %> Logo" class="h-8 md:h-10 max-w-[150px] object-contain">
+                <img src="<%= empresa.websiteSettings.theme.logoUrl %>" alt="<%= empresa.nombre %> Logo" class="h-9 max-w-[150px] object-contain">
             <% } %>
             <span class="text-xl md:text-2xl font-bold text-gray-900 truncate">
                 <%= empresa.nombre %>
@@ -11,6 +11,6 @@
         </a>
         <nav class="hidden sm:block">
             <a href="/#propiedades" class="text-gray-600 hover:text-indigo-600 font-semibold transition text-sm">Ver Propiedades</a>
-        </nav>
+            </nav>
     </div>
 </header>

@@ -28,49 +28,41 @@ const getNextWeekend = () => {
 module.exports = (db) => {
     const router = express.Router();
 
-    // *** Middleware Simplificado ***
-    // Solo verifica que req.empresa (del tenantResolver) exista y tenga un ID válido
+    // Middleware Simplificado
     router.use(async (req, res, next) => {
         if (!req.empresa || !req.empresa.id || typeof req.empresa.id !== 'string' || req.empresa.id.trim() === '') {
             console.error("[website.js middleware] Error: req.empresa.id inválido o no definido después del tenantResolver.");
-            // Si no hay empresa identificada, no continuamos con las rutas SSR públicas
-            return next('router'); // Pasar al siguiente router (que sirve la SPA o un 404 general)
+            return next('router');
         }
-        // El ID es válido, continuamos a las rutas de este router
         console.log(`[DEBUG website.js middleware] Empresa ID ${req.empresa.id} identificada.`);
         next();
     });
 
     // Ruta principal (Home)
     router.get('/', async (req, res) => {
-        const empresaId = req.empresa.id; // Tomar ID directamente de req.empresa
+        const empresaId = req.empresa.id;
         console.log(`[DEBUG / handler] Procesando home para empresaId: '${empresaId}'`);
 
-        let empresaCompleta; // Variable para cargar detalles si todo va bien
+        let empresaCompleta;
         try {
-            // Cargar detalles completos de la empresa AHORA
             empresaCompleta = await obtenerDetallesEmpresa(db, empresaId);
             if (!empresaCompleta) {
-                 // Si no se pueden cargar detalles, usar un objeto básico con el ID
                  console.warn(`[WARN / handler] No se pudieron cargar detalles para ${empresaId}, usando datos básicos.`);
-                 empresaCompleta = { id: empresaId, nombre: req.empresa.nombre || "Empresa" }; // Usar nombre si está en req.empresa
+                 empresaCompleta = { id: empresaId, nombre: req.empresa.nombre || "Empresa" };
             }
-             // Asegurar ID en empresaCompleta por si acaso obtenerDetallesEmpresa no lo incluye
              empresaCompleta.id = empresaId;
-             res.locals.empresa = empresaCompleta; // Hacer disponible en EJS
+             res.locals.empresa = empresaCompleta;
 
             const { fechaLlegada, fechaSalida, personas } = req.query;
             let propiedadesAMostrar = [];
             let isSearchResult = false;
 
-            // Obtener propiedades (ahora empresaId SÍ debería ser válido)
             const todasLasPropiedades = await obtenerPropiedadesPorEmpresa(db, empresaId);
 
             if (fechaLlegada && fechaSalida && personas) {
                 isSearchResult = true;
                 const startDate = new Date(fechaLlegada + 'T00:00:00Z');
                 const endDate = new Date(fechaSalida + 'T00:00:00Z');
-                // Simular disponibilidad para esta prueba
                 const availableProperties = todasLasPropiedades;
                 propiedadesAMostrar = availableProperties
                     .filter(p => p.googleHotelData?.isListed === true && p.websiteData?.cardImage?.storagePath)
@@ -86,15 +78,12 @@ module.exports = (db) => {
                 propiedades: propiedadesAMostrar,
                 isSearchResult: isSearchResult,
                 query: req.query
-                // 'empresa' ya está en res.locals
             });
 
         } catch (error) {
-            // Capturar error de obtenerPropiedadesPorEmpresa o obtenerDetallesEmpresa
             console.error(`Error al renderizar el home para ${empresaId}:`, error);
             res.status(500).render('404', {
                 title: 'Error Interno del Servidor',
-                // Intentar pasar un objeto empresa básico si es posible
                 empresa: empresaCompleta || req.empresa || { id: empresaId || '?', nombre: "Error Crítico" }
             });
         }
@@ -102,12 +91,12 @@ module.exports = (db) => {
 
     // Ruta de detalle de propiedad
     router.get('/propiedad/:id', async (req, res) => {
-        const empresaId = req.empresa.id; // Usar ID directo
+        const empresaId = req.empresa.id;
         const propiedadId = req.params.id;
         let empresaCompleta;
 
         try {
-            // Cargar detalles completos de la empresa y la propiedad
+             let propiedad;
              [empresaCompleta, propiedad] = await Promise.all([
                  obtenerDetallesEmpresa(db, empresaId),
                  obtenerPropiedadPorId(db, empresaId, propiedadId)
@@ -117,17 +106,15 @@ module.exports = (db) => {
                  console.warn(`[WARN /propiedad handler] No se pudieron cargar detalles para ${empresaId}, usando datos básicos.`);
                  empresaCompleta = { id: empresaId, nombre: req.empresa.nombre || "Empresa" };
              }
-             empresaCompleta.id = empresaId; // Asegurar ID
-             res.locals.empresa = empresaCompleta; // Pasar a EJS
+             empresaCompleta.id = empresaId;
+             res.locals.empresa = empresaCompleta;
 
             if (!propiedad || !propiedad.googleHotelData?.isListed) {
                 return res.status(404).render('404', {
                     title: 'Propiedad No Encontrada',
-                    // 'empresa' está en res.locals
                 });
             }
 
-            // --- Lógica de cálculo de precio/fechas/anfitrión (igual que antes) ---
             const weekendDates = getNextWeekend();
             const defaultCheckin = weekendDates.llegada;
             const defaultCheckout = weekendDates.salida;
@@ -187,7 +174,6 @@ module.exports = (db) => {
                 if (monthsHosting > 0) durationParts.push(`${monthsHosting} mes${monthsHosting !== 1 ? 'es' : ''}`);
                 if (durationParts.length > 0) hostingDuration = durationParts.join(' y ');
             }
-            // --- Fin Lógica ---
 
             res.render('propiedad', {
                 title: `${propiedad.nombre} | ${empresaCompleta.nombre}`,
@@ -200,7 +186,6 @@ module.exports = (db) => {
                 },
                 defaultPriceData: defaultPriceData,
                 hostingDuration: hostingDuration
-                // 'empresa' ya está en res.locals
             });
         } catch (error) {
             console.error(`Error al renderizar la propiedad ${propiedadId} para ${empresaId}:`, error);
@@ -214,8 +199,8 @@ module.exports = (db) => {
     // API interna para calcular precio (AJAX)
     router.post('/api/propiedad/:id/calcular-precio', express.json(), async (req, res) => {
          try {
-             const empresaId = req.empresa.id; // Usar ID directo
-             if (!empresaId) throw new Error("ID de empresa no encontrado en la solicitud API."); // Validación extra
+             const empresaId = req.empresa.id;
+             if (!empresaId) throw new Error("ID de empresa no encontrado en la solicitud API.");
 
             const propiedadId = req.params.id;
             const { fechaLlegada, fechaSalida } = req.body;
@@ -259,7 +244,7 @@ module.exports = (db) => {
 
     // Ruta /reservar (GET)
     router.get('/reservar', async (req, res) => {
-        const empresaId = req.empresa.id; // Usar ID directo
+        const empresaId = req.empresa.id;
         let empresaCompleta;
         try {
              empresaCompleta = await obtenerDetallesEmpresa(db, empresaId);
@@ -291,7 +276,7 @@ module.exports = (db) => {
     // Ruta /reservar (POST)
     router.post('/reservar', express.urlencoded({ extended: true }), async (req, res) => {
          try {
-            const empresaId = req.empresa.id; // Usar ID directo
+            const empresaId = req.empresa.id;
             if (!empresaId) throw new Error('ID de empresa no identificado para la reserva.');
 
             const reserva = await crearReservaPublica(db, empresaId, req.body);
@@ -308,7 +293,7 @@ module.exports = (db) => {
 
     // Ruta /confirmacion
     router.get('/confirmacion', async (req, res) => {
-        const empresaId = req.empresa.id; // Usar ID directo
+        const empresaId = req.empresa.id;
         let empresaCompleta;
         try {
             empresaCompleta = await obtenerDetallesEmpresa(db, empresaId);
@@ -347,7 +332,7 @@ module.exports = (db) => {
 
     // Ruta /contacto
     router.get('/contacto', async (req, res) => {
-        const empresaId = req.empresa.id; // Usar ID directo
+        const empresaId = req.empresa.id;
         let empresaCompleta;
         try {
              empresaCompleta = await obtenerDetallesEmpresa(db, empresaId);
@@ -368,26 +353,25 @@ module.exports = (db) => {
     });
 
     // Manejador 404 para este router
-    router.use(async (req, res) => { // Hacer async para cargar detalles si es posible
+    router.use(async (req, res) => {
         const empresaId = req.empresa?.id;
-        let empresaData = res.locals.empresa; // Intentar usar la que ya cargó el middleware
+        let empresaData = res.locals.empresa;
         if (!empresaData && empresaId) {
-             try { // Intentar cargarla si no se pudo antes
+             try {
                  empresaData = await obtenerDetallesEmpresa(db, empresaId);
                  if (!empresaData) empresaData = { id: empresaId, nombre: req.empresa.nombre || "Empresa" };
                  empresaData.id = empresaId;
-                 res.locals.empresa = empresaData; // Asegurar que esté en locals para el render
+                 res.locals.empresa = empresaData;
              } catch (e) {
                  console.warn("Error cargando detalles de empresa en 404:", e.message);
                  res.locals.empresa = req.empresa || { id: empresaId || '?', nombre: "Empresa (Error 404)"};
              }
         } else if (!empresaData) {
-             res.locals.empresa = { nombre: "Página no encontrada" }; // Fallback si no hay ID
+             res.locals.empresa = { nombre: "Página no encontrada" };
         }
 
         res.status(404).render('404', {
             title: 'Página no encontrada'
-            // 'empresa' ya está en res.locals
         });
     });
 

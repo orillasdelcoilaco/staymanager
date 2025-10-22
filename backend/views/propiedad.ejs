@@ -71,15 +71,11 @@
 
                 <div class="pt-4 border-t">
                     <div class="flex items-center mb-4">
-                        <% if (empresa.websiteSettings?.theme?.ownerPhotoUrl) { %>
-                            <img src="<%= empresa.websiteSettings.theme.ownerPhotoUrl %>" alt="Foto Anfitrión" class="h-12 w-12 rounded-full mr-4 object-cover">
-                        <% } else { %>
-                            <div class="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center mr-4 text-gray-500 text-lg">
-                                <i class="fa-solid fa-user-circle"></i>
-                            </div>
-                        <% } %>
+                        <div class="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center mr-4 text-gray-500 text-lg">
+                            <i class="fa-solid fa-user-circle"></i>
+                        </div>
                         <div>
-                            <h2 class="text-lg font-semibold text-gray-900">Anfitrión: <%= empresa.websiteSettings?.content?.ownerName || empresa.nombre %></h2>
+                            <h2 class="text-lg font-semibold text-gray-900">Anfitrión: <%= empresa.contactoNombre || empresa.nombre %></h2>
                             <p class="text-sm text-gray-600"><%= hostingDuration %> como anfitrión</p>
                         </div>
                     </div>
@@ -168,10 +164,10 @@
 
     <%- include('partials/footer') %>
 
-    <script src="/public/js/booking.js"
-            id="booking-script" <%# Añadir ID para fácil selección %>
+    <script id="booking-script"
+            src="/public/js/booking.js"
             data-propiedad-id="<%= propiedad.id %>"
-            data-default-price="<%= JSON.stringify(defaultPriceData || null).replace(/"/g, '&quot;') %>" <%# Pasar JSON como string codificado %>
+            data-default-price="<%- JSON.stringify(defaultPriceData || null) %>"
             defer>
     </script>
 </body>
