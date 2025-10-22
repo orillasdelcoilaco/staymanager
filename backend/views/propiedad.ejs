@@ -17,51 +17,39 @@
 <body class="bg-gray-50">
     <%- include('partials/header') %>
 
-    <main class="container py-8 md:py-12">
-
-        <%# Property Title (Moved Up) %>
-        <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2"><%= propiedad.nombre %></h1>
+    <main class="container py-8 md:py-12"> <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2"><%= propiedad.nombre %></h1>
         <p class="text-sm text-gray-600 mb-6">Capacidad: hasta <%= propiedad.capacidad %> personas</p>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
 
-            <%# --- Left Column: Images & Details --- %>
             <div class="lg:col-span-2 space-y-8">
 
-                <%# --- Image Section --- %>
                 <%
                    const imagenes = propiedad.websiteData?.images || {};
-                   const imagenPrincipal = propiedad.websiteData?.cardImage || Object.values(imagenes).flat()[0];
-                   const galeriaImagenes = Object.values(imagenes).flat().filter(img => img.imageId !== imagenPrincipal?.imageId);
+                   const imagenPrincipal = propiedad.websiteData?.cardImage || Object.values(imagenes).flat()[0]; // Usar cardImage primero
+                   const galeriaImagenes = Object.values(imagenes).flat().filter(img => img?.imageId !== imagenPrincipal?.imageId); // Excluir principal si existe
                 %>
                 <% if (imagenPrincipal && imagenPrincipal.storagePath) { %>
-                    <div class="rounded-lg overflow-hidden shadow-lg"> <%# Add shadow & rounded %>
-                        <picture>
+                    <div class="rounded-lg overflow-hidden shadow-lg"> <picture>
                              <source srcset="<%= imagenPrincipal.storagePath %>" type="image/webp">
                              <img src="<%= imagenPrincipal.storagePath %>"
                                   alt="<%= imagenPrincipal.altText %>"
                                   title="<%= imagenPrincipal.title || '' %>"
-                                  class="w-full h-auto max-h-[60vh] object-cover" loading="eager"> <%# Adjusted height, keep object-cover %>
-                        </picture>
+                                  class="w-full h-auto max-h-[60vh] object-cover" loading="eager"> </picture>
                     </div>
                 <% } else { %>
                      <div class="w-full h-96 bg-gray-200 flex items-center justify-center rounded-lg shadow-lg text-gray-500">Imagen Principal No Disponible</div>
                 <% } %>
 
-                <%# --- Gallery Thumbnails --- %>
                 <% if (galeriaImagenes.length > 0) { %>
-                    <div> <%# Wrapper div for gallery %>
-                        <h2 class="text-xl font-semibold mb-3">Galería de Imágenes</h2> <%# Added gallery title %>
-                        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                            <% galeriaImagenes.slice(0, 9).forEach(img => { %> <%# Limit thumbnails %>
-                                <picture>
+                    <div> <h2 class="text-xl font-semibold mb-3">Galería de Imágenes</h2> <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                            <% galeriaImagenes.slice(0, 9).forEach(img => { %> <picture>
                                     <source srcset="<%= img.storagePath %>" type="image/webp">
                                     <img src="<%= img.storagePath %>"
                                          onerror="this.onerror=null; this.src='https://via.placeholder.com/100x60.png?text=Error';"
                                          alt="<%= img.altText %>"
                                          title="<%= img.title || '' %>"
-                                         class="w-full h-20 object-cover rounded cursor-pointer border hover:opacity-80 transition-opacity" loading="lazy"> <%# Added border, hover effect %>
-                                </picture>
+                                         class="w-full h-20 object-cover rounded cursor-pointer border hover:opacity-80 transition-opacity" loading="lazy"> </picture>
                             <% }) %>
                              <% if (galeriaImagenes.length > 9) { %>
                                <div class="w-full h-20 bg-gray-100 flex items-center justify-center rounded border text-xs text-gray-500 cursor-pointer hover:bg-gray-200">Ver más</div>
@@ -70,21 +58,16 @@
                     </div>
                 <% } %>
 
-                <%# --- Description Section --- %>
-                <div class="prose max-w-none pt-4 border-t">
-                    <h2 class="text-xl font-semibold mb-2">Descripción</h2>
+                <div class="prose max-w-none pt-4 border-t"> <h2 class="text-xl font-semibold mb-2">Descripción</h2>
                     <p><%= propiedad.websiteData?.aiDescription || propiedad.descripcion || 'No hay descripción disponible.' %></p>
                 </div>
 
-                <%# --- Features/Amenities Section --- %>
                 <div class="pt-4 border-t">
                     <h2 class="text-xl font-semibold mb-4">Comodidades</h2>
                     <div class="grid grid-cols-2 gap-4 text-sm">
-                        <%# Static features %>
                         <div class="flex items-center"><i class="fa-solid fa-bed w-5 mr-2 text-indigo-600"></i> <%= propiedad.numPiezas || '?' %> Dormitorios</div>
                         <div class="flex items-center"><i class="fa-solid fa-bath w-5 mr-2 text-indigo-600"></i> <%= propiedad.numBanos || '?' %> Baños</div>
                         <div class="flex items-center"><i class="fa-solid fa-users w-5 mr-2 text-indigo-600"></i> Capacidad <%= propiedad.capacidad %></div>
-                        <%# Dynamic equipment %>
                         <% if (propiedad.equipamiento?.tinaja) { %><div class="flex items-center"><i class="fa-solid fa-hot-tub-person w-5 mr-2 text-indigo-600"></i> Tinaja Privada</div><% } %>
                         <% if (propiedad.equipamiento?.parrilla) { %><div class="flex items-center"><i class="fa-solid fa-burger w-5 mr-2 text-indigo-600"></i> Parrilla</div><% } %>
                         <% if (propiedad.equipamiento?.terrazaTechada) { %><div class="flex items-center"><i class="fa-solid fa-campground w-5 mr-2 text-indigo-600"></i> Terraza Techada</div><% } %>
@@ -94,33 +77,12 @@
                     </div>
                 </div>
 
-                 <%# --- Component Details Section REMOVED --- %>
-                 <%# Removing this section to avoid redundancy %>
-                 <%#
-                 <% if (propiedad.componentes && propiedad.componentes.length > 0) { %>
-                    <div class="pt-4 border-t">
-                        <h2 class="text-xl font-semibold mb-4">Detalles del Alojamiento</h2>
-                         <ul class="list-disc list-inside space-y-1 text-sm text-gray-700">
-                             <% propiedad.componentes.forEach(componente => { %>
-                                <li><strong><%= componente.nombre %></strong> (Tipo: <%= componente.tipo %>)</li>
-                            <% }) %>
-                        </ul>
-                    </div>
-                <% } %>
-                 %>
-
-            </div> <%# --- End Left Column --- %>
-
-            <%# --- Right Column: Booking Form --- %>
-            <div class="lg:col-span-1">
-                <%# *** CAMBIO: Añadir div contenedor para sticky *** %>
-                <div class="sticky top-8">
+                </div> <div class="lg:col-span-1">
+                 <div class="sticky top-8">
                     <div class="bg-white p-6 rounded-lg shadow-lg">
                         <h3 class="text-xl font-bold text-gray-900 mb-4 border-b pb-2">Reserva tu Estadía</h3>
                         <form id="booking-form" class="space-y-4">
-                            <%# Hidden fields remain the same %>
                             <input type="hidden" name="propiedadId" value="<%= propiedad.id %>">
-
                             <div>
                                 <label for="fechaLlegada" class="block text-sm font-medium text-gray-700">Llegada</label>
                                 <input type="date" name="fechaLlegada" id="fechaLlegada" class="form-input mt-1" required>
@@ -134,7 +96,6 @@
                                 <input type="number" name="personas" id="personas" min="1" max="<%= propiedad.capacidad %>" class="form-input mt-1" required placeholder="Ej: 2" value="<%= prefill.personas %>">
                             </div>
 
-                            <%# Price summary section %>
                             <div id="price-summary" class="mt-6 border-t pt-4 space-y-2 hidden">
                                  <div class="flex justify-between text-sm text-gray-600">
                                     <span id="price-label">Calculando...</span>
@@ -154,9 +115,7 @@
                             </button>
                         </form>
                     </div>
-                </div> <%# *** FIN CAMBIO: Cierre div contenedor sticky *** %>
-            </div> <%# --- End Right Column --- %>
-        </div>
+                </div> </div> </div>
     </main>
 
     <%- include('partials/footer') %>
