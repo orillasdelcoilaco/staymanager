@@ -1,15 +1,16 @@
-<header class="bg-white shadow-md sticky top-0 z-50">
-    <nav class="container flex items-center justify-between h-16">
-        <a href="/" class="flex items-center space-x-2">
+<%- /* backend/views/partials/header.ejs */ %>
+<header class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="container py-3 flex items-center justify-between">
+        <a href="/" class="flex items-center space-x-3">
             <% if (empresa.websiteSettings?.theme?.logoUrl) { %>
-                <img src="<%= empresa.websiteSettings.theme.logoUrl %>" alt="Logo de <%= empresa.nombre %>" class="h-10 w-auto max-w-[150px] object-contain">
-            <% } else { %>
-                <span class="text-xl font-bold"><%= empresa.nombre %></span>
+                <img src="<%= empresa.websiteSettings.theme.logoUrl %>" alt="<%= empresa.nombre %> Logo" class="h-8 md:h-10 max-w-[150px] object-contain">
             <% } %>
+            <span class="text-xl md:text-2xl font-bold text-gray-900 truncate">
+                <%= empresa.nombre %>
+            </span>
         </a>
-        
-        <div class="flex items-center space-x-4">
-            <a href="#propiedades" class="btn-secondary hidden sm:inline-block">Ver Propiedades</a>
-        </div>
-    </nav>
+        <nav class="hidden sm:block">
+            <a href="/#propiedades" class="text-gray-600 hover:text-indigo-600 font-semibold transition text-sm">Ver Propiedades</a>
+        </nav>
+    </div>
 </header>

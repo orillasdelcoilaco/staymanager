@@ -1,4 +1,4 @@
-<%- /* backend/views/propiedad.ejs */ %>
+<% /* backend/views/propiedad.ejs */ %>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -17,7 +17,9 @@
 <body class="bg-gray-50">
     <%- include('partials/header') %>
 
-    <main class="container py-8 md:py-12"> <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2"><%= propiedad.nombre %></h1>
+    <main class="container py-8 md:py-12">
+
+        <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2"><%= propiedad.nombre %></h1>
         <p class="text-sm text-gray-600 mb-6">Capacidad: hasta <%= propiedad.capacidad %> personas</p>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
@@ -26,40 +28,84 @@
 
                 <%
                    const imagenes = propiedad.websiteData?.images || {};
-                   const imagenPrincipal = propiedad.websiteData?.cardImage || Object.values(imagenes).flat()[0]; // Usar cardImage primero
-                   const galeriaImagenes = Object.values(imagenes).flat().filter(img => img?.imageId !== imagenPrincipal?.imageId); // Excluir principal si existe
+                   const todasLasImagenesRaw = Object.values(imagenes).flat();
+                   const todasLasImagenes = todasLasImagenesRaw.filter(img => img && img.storagePath); // Filtrar solo imágenes válidas
+                   const imagenPrincipalMosaic = propiedad.websiteData?.cardImage && propiedad.websiteData.cardImage.storagePath ? propiedad.websiteData.cardImage : todasLasImagenes[0];
+                   const imagenesDerechaMosaic = todasLasImagenes.filter(img => img?.imageId !== imagenPrincipalMosaic?.imageId).slice(0, 4); // Siguientes 4 distintas
+                   const restoImagenesGaleria = todasLasImagenes.slice(imagenesDerechaMosaic.length + (imagenPrincipalMosaic ? 1 : 0)); // El resto
                 %>
-                <% if (imagenPrincipal && imagenPrincipal.storagePath) { %>
-                    <div class="rounded-lg overflow-hidden shadow-lg"> <picture>
-                             <source srcset="<%= imagenPrincipal.storagePath %>" type="image/webp">
-                             <img src="<%= imagenPrincipal.storagePath %>"
-                                  alt="<%= imagenPrincipal.altText %>"
-                                  title="<%= imagenPrincipal.title || '' %>"
-                                  class="w-full h-auto max-h-[60vh] object-cover" loading="eager"> </picture>
+                <% if (imagenPrincipalMosaic) { %>
+                    <div class="grid grid-cols-2 grid-rows-2 gap-2 rounded-lg overflow-hidden shadow-lg h-[60vh] md:h-[70vh]">
+                        <div class="col-span-1 row-span-2">
+                            <picture>
+                                <source srcset="<%= imagenPrincipalMosaic.storagePath %>" type="image/webp">
+                                <img src="<%= imagenPrincipalMosaic.storagePath %>" alt="<%= imagenPrincipalMosaic.altText %>" title="<%= imagenPrincipalMosaic.title || '' %>" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity">
+                            </picture>
+                        </div>
+                        <% imagenesDerechaMosaic.forEach((img, index) => { %>
+                            <div class="col-span-1 row-span-1 relative">
+                                <picture>
+                                    <source srcset="<%= img.storagePath %>" type="image/webp">
+                                    <img src="<%= img.storagePath %>" alt="<%= img.altText %>" title="<%= img.title || '' %>" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity">
+                                </picture>
+                                <% if (index === 3 && restoImagenesGaleria.length > 0) { %>
+                                    <button class="absolute inset-0 bg-black bg-opacity-50 text-white flex items-center justify-center text-sm font-semibold hover:bg-opacity-70 transition-opacity">
+                                        +<%= restoImagenesGaleria.length %> fotos
+                                    </button>
+                                <% } %>
+                            </div>
+                        <% }) %>
+                        <% if (imagenesDerechaMosaic.length < 4) { %>
+                            <% for(let i = 0; i < (4 - imagenesDerechaMosaic.length); i++) { %>
+                                <div class="col-span-1 row-span-1 bg-gray-200"></div>
+                            <% } %>
+                        <% } %>
                     </div>
                 <% } else { %>
-                     <div class="w-full h-96 bg-gray-200 flex items-center justify-center rounded-lg shadow-lg text-gray-500">Imagen Principal No Disponible</div>
+                    <div class="w-full h-96 bg-gray-200 flex items-center justify-center rounded-lg shadow-lg text-gray-500">Imágenes No Disponibles</div>
                 <% } %>
+                <div class="prose max-w-none pt-4 border-t">
+                    <h2 class="text-xl font-semibold mb-2">Descripción</h2>
+                    <p><%= propiedad.websiteData?.aiDescription || propiedad.descripcion || 'No hay descripción disponible.' %></p>
+                </div>
 
-                <% if (galeriaImagenes.length > 0) { %>
-                    <div> <h2 class="text-xl font-semibold mb-3">Galería de Imágenes</h2> <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                            <% galeriaImagenes.slice(0, 9).forEach(img => { %> <picture>
-                                    <source srcset="<%= img.storagePath %>" type="image/webp">
-                                    <img src="<%= img.storagePath %>"
-                                         onerror="this.onerror=null; this.src='https://via.placeholder.com/100x60.png?text=Error';"
-                                         alt="<%= img.altText %>"
-                                         title="<%= img.title || '' %>"
-                                         class="w-full h-20 object-cover rounded cursor-pointer border hover:opacity-80 transition-opacity" loading="lazy"> </picture>
-                            <% }) %>
-                             <% if (galeriaImagenes.length > 9) { %>
-                               <div class="w-full h-20 bg-gray-100 flex items-center justify-center rounded border text-xs text-gray-500 cursor-pointer hover:bg-gray-200">Ver más</div>
-                            <% } %>
+                <div class="pt-4 border-t">
+                    <div class="flex items-center mb-4">
+                        <% if (empresa.websiteSettings?.theme?.ownerPhotoUrl) { %>
+                            <img src="<%= empresa.websiteSettings.theme.ownerPhotoUrl %>" alt="Foto Anfitrión" class="h-12 w-12 rounded-full mr-4 object-cover">
+                        <% } else { %>
+                            <div class="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center mr-4 text-gray-500 text-lg">
+                                <i class="fa-solid fa-user-circle"></i>
+                            </div>
+                        <% } %>
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-900">Anfitrión: <%= empresa.websiteSettings?.content?.ownerName || empresa.nombre %></h2>
+                            <p class="text-sm text-gray-600"><%= hostingDuration %> como anfitrión</p>
                         </div>
                     </div>
-                <% } %>
-
-                <div class="prose max-w-none pt-4 border-t"> <h2 class="text-xl font-semibold mb-2">Descripción</h2>
-                    <p><%= propiedad.websiteData?.aiDescription || propiedad.descripcion || 'No hay descripción disponible.' %></p>
+                    <div class="space-y-4">
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-star text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Experiencia Destacada</h3>
+                                <p class="text-sm text-gray-600">Nuestros huéspedes aman la atención y el entorno.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                             <i class="fa-solid fa-house-chimney-medical text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Ambientes Acogedores</h3>
+                                <p class="text-sm text-gray-600">Disfruta de espacios amplios y bien equipados.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-calendar-check text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Cancelación Flexible</h3>
+                                <p class="text-sm text-gray-600">Cancela gratis hasta 3 días antes del check-in para un reembolso total.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="pt-4 border-t">
@@ -67,7 +113,7 @@
                     <div class="grid grid-cols-2 gap-4 text-sm">
                         <div class="flex items-center"><i class="fa-solid fa-bed w-5 mr-2 text-indigo-600"></i> <%= propiedad.numPiezas || '?' %> Dormitorios</div>
                         <div class="flex items-center"><i class="fa-solid fa-bath w-5 mr-2 text-indigo-600"></i> <%= propiedad.numBanos || '?' %> Baños</div>
-                        <div class="flex items-center"><i class="fa-solid fa-users w-5 mr-2 text-indigo-600"></i> Capacidad <%= propiedad.capacidad %></div>
+                        <div class="flex items-center"><i class="fa-solid fa-users w-5 mr-2 text-indigo-600"></i> Capacidad <%= propiedad.capacidad %> personas</div>
                         <% if (propiedad.equipamiento?.tinaja) { %><div class="flex items-center"><i class="fa-solid fa-hot-tub-person w-5 mr-2 text-indigo-600"></i> Tinaja Privada</div><% } %>
                         <% if (propiedad.equipamiento?.parrilla) { %><div class="flex items-center"><i class="fa-solid fa-burger w-5 mr-2 text-indigo-600"></i> Parrilla</div><% } %>
                         <% if (propiedad.equipamiento?.terrazaTechada) { %><div class="flex items-center"><i class="fa-solid fa-campground w-5 mr-2 text-indigo-600"></i> Terraza Techada</div><% } %>
@@ -77,54 +123,59 @@
                     </div>
                 </div>
 
-                </div> <div class="lg:col-span-1">
-                 <div class="sticky top-8">
-                    <div class="bg-white p-6 rounded-lg shadow-lg">
-                        <h3 class="text-xl font-bold text-gray-900 mb-4 border-b pb-2">Reserva tu Estadía</h3>
+            </div>
+            <div class="lg:col-span-1">
+                <div class="sticky top-8">
+                    <div class="bg-white p-6 rounded-lg shadow-lg border">
+                        <div id="price-display" class="mb-4 text-gray-900">
+                            <span class="text-2xl font-bold" id="price-total-display"><%= defaultPriceData.formattedTotalPrice %></span>
+                            <span class="text-sm text-gray-600" id="price-label-display"><% if(defaultPriceData.nights > 0) { %> / por <%= defaultPriceData.nights %> noche<%= defaultPriceData.nights !== 1 ? 's' : '' %><% } %></span>
+                        </div>
+
                         <form id="booking-form" class="space-y-4">
                             <input type="hidden" name="propiedadId" value="<%= propiedad.id %>">
-                            <div>
-                                <label for="fechaLlegada" class="block text-sm font-medium text-gray-700">Llegada</label>
-                                <input type="date" name="fechaLlegada" id="fechaLlegada" class="form-input mt-1" required>
-                            </div>
-                            <div>
-                                <label for="fechaSalida" class="block text-sm font-medium text-gray-700">Salida</label>
-                                <input type="date" name="fechaSalida" id="fechaSalida" class="form-input mt-1" required>
-                            </div>
-                            <div>
-                                <label for="personas" class="block text-sm font-medium text-gray-700">Huéspedes</label>
-                                <input type="number" name="personas" id="personas" min="1" max="<%= propiedad.capacidad %>" class="form-input mt-1" required placeholder="Ej: 2" value="<%= prefill.personas %>">
-                            </div>
 
-                            <div id="price-summary" class="mt-6 border-t pt-4 space-y-2 hidden">
-                                 <div class="flex justify-between text-sm text-gray-600">
-                                    <span id="price-label">Calculando...</span>
-                                    <span id="price-subtotal"></span>
-                                 </div>
-                                <div class="flex justify-between text-xl font-bold text-gray-900">
-                                    <span>Total</span>
-                                    <span id="price-total"></span>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label for="fechaLlegada" class="block text-xs font-medium text-gray-700 uppercase">Llegada</label>
+                                    <input type="date" name="fechaLlegada" id="fechaLlegada" class="form-input mt-1 text-sm" required value="<%= prefill.fechaLlegada %>">
+                                </div>
+                                <div>
+                                    <label for="fechaSalida" class="block text-xs font-medium text-gray-700 uppercase">Salida</label>
+                                    <input type="date" name="fechaSalida" id="fechaSalida" class="form-input mt-1 text-sm" required value="<%= prefill.fechaSalida %>">
                                 </div>
                             </div>
-                            <div id="price-loader" class="mt-6 text-center hidden">
-                                <p class="text-sm text-gray-500">Calculando precio...</p>
+                            <div>
+                                <label for="personas" class="block text-xs font-medium text-gray-700 uppercase">Huéspedes</label>
+                                <input type="number" name="personas" id="personas" min="1" max="<%= propiedad.capacidad %>" class="form-input mt-1 text-sm" required value="<%= prefill.personas %>">
                             </div>
 
-                            <button type="submit" id="submit-button" class="btn w-full mt-6" disabled>
-                                Continuar a la Reserva
+                            <div id="price-loader" class="text-center py-2 hidden">
+                                <p class="text-sm text-gray-500">Actualizando precio...</p>
+                            </div>
+
+                            <button type="submit" id="submit-button" class="btn w-full bg-pink-600 hover:bg-pink-700 text-white rounded-lg py-3 text-base font-semibold mt-4" disabled>
+                                Reserva
                             </button>
+
+                            <p class="text-xs text-gray-500 text-center mt-2">
+                                No se hará ningún cargo por el momento
+                            </p>
                         </form>
                     </div>
-                </div> </div> </div>
+                </div>
+            </div>
+        </div>
     </main>
 
     <%- include('partials/footer') %>
 
-    <script src="/public/js/booking.js"
-            data-propiedad-id="<%= propiedad.id %>"
-            data-prefill-llegada="<%= prefill.fechaLlegada %>"
-            data-prefill-salida="<%= prefill.fechaSalida %>"
-            defer>
+    <script>
+      window.initialBookingData = {
+        propiedadId: "<%= propiedad.id %>",
+        defaultPrice: <%- JSON.stringify(defaultPriceData).replace(/</g, '\\u003c') %>
+      };
     </script>
+    <script src="/public/js/booking.js" defer></script>
 </body>
 </html>

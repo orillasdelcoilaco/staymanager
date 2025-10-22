@@ -1,146 +1,150 @@
 // backend/public/js/booking.js
 
-// Esperar a que el contenido del DOM esté cargado
 document.addEventListener('DOMContentLoaded', () => {
-    
-    // Encontrar el script actual para leer los atributos data-*
-    const scriptTag = document.querySelector('script[src="/public/js/booking.js"]');
-    if (!scriptTag) {
-        console.error("No se pudo encontrar el script tag de booking.js");
-        return;
-    }
-
-    // Obtener datos pasados desde EJS
-    const PROPIEDAD_ID = scriptTag.dataset.propiedadId;
-    const PREFILL_LLEGADA = scriptTag.dataset.prefillLlegada;
-    const PREFILL_SALIDA = scriptTag.dataset.prefillSalida;
+    // Leer datos iniciales pasados desde EJS
+    const propiedadId = window.initialBookingData.propiedadId;
+    const defaultPriceData = window.initialBookingData.defaultPrice;
 
     // Obtener elementos del DOM
-    const form = document.getElementById('booking-form');
-    const fechaLlegadaEl = document.getElementById('fechaLlegada');
-    const fechaSalidaEl = document.getElementById('fechaSalida');
-    const personasEl = document.getElementById('personas');
-    const priceSummaryEl = document.getElementById('price-summary');
-    const priceLoaderEl = document.getElementById('price-loader');
+    const fechaLlegadaInput = document.getElementById('fechaLlegada');
+    const fechaSalidaInput = document.getElementById('fechaSalida');
+    const personasInput = document.getElementById('personas');
     const submitButton = document.getElementById('submit-button');
-    
-    // Elementos del resumen de precio
-    const priceLabelEl = document.getElementById('price-label');
-    const priceSubtotalEl = document.getElementById('price-subtotal');
-    const priceTotalEl = document.getElementById('price-total');
-    
-    let currentPriceData = null; // Almacena el resultado del cálculo
+    const priceDisplay = document.getElementById('price-display');
+    const priceTotalDisplay = document.getElementById('price-total-display');
+    const priceLabelDisplay = document.getElementById('price-label-display');
+    const priceLoader = document.getElementById('price-loader');
+    const bookingForm = document.getElementById('booking-form');
 
-    if (!form || !fechaLlegadaEl || !fechaSalidaEl || !personasEl || !priceSummaryEl || !priceLoaderEl || !submitButton) {
-        console.error("Error: Faltan elementos clave del DOM para el formulario de reserva.");
-        return;
-    }
+    let currentPriceCLP = defaultPriceData.totalPriceCLP || null; // Almacenar el último precio calculado en CLP
+    let currentNights = defaultPriceData.nights || 0;
 
-    // --- Función Principal: Calcular Precio ---
-    async function calcularPrecio() {
-        const fechaLlegada = fechaLlegadaEl.value;
-        const fechaSalida = fechaSalidaEl.value;
-        currentPriceData = null; // Resetear precio actual
+    // Función para formatear CLP
+    const formatCLP = (value) => `$${(Math.round(value || 0)).toLocaleString('es-CL')} CLP`;
 
-        // Validaciones básicas de fecha
-        const today = new Date().toISOString().split('T')[0];
-        if (!fechaLlegada || !fechaSalida || fechaSalida <= fechaLlegada || fechaLlegada < today) {
-            priceSummaryEl.classList.add('hidden');
+    // Función para actualizar la UI del precio
+    const updatePriceDisplay = (priceData) => {
+        if (priceData && priceData.totalPrice !== undefined && priceData.numNoches !== undefined) {
+            currentPriceCLP = priceData.totalPrice;
+            currentNights = priceData.numNoches;
+            priceTotalDisplay.textContent = priceData.formattedTotalPrice; // Usar el string formateado de la API
+            priceLabelDisplay.textContent = ` / por ${currentNights} noche${currentNights !== 1 ? 's' : ''}`;
+            priceDisplay.classList.remove('hidden');
+            submitButton.disabled = false;
+        } else {
+            currentPriceCLP = null;
+            currentNights = 0;
+            priceTotalDisplay.textContent = 'No disponible';
+            priceLabelDisplay.textContent = '';
+            priceDisplay.classList.remove('hidden'); // Mostrar "No disponible"
             submitButton.disabled = true;
-            if (fechaLlegada && fechaLlegada < today) fechaLlegadaEl.value = today;
-            if (fechaSalida && fechaSalida <= fechaLlegada) fechaSalidaEl.value = '';
+        }
+        priceLoader.classList.add('hidden'); // Siempre ocultar loader al final
+    };
+
+    // Función Principal: Calcular Precio (AJAX)
+    const calculatePriceAJAX = async () => {
+        const fechaLlegada = fechaLlegadaInput.value;
+        const fechaSalida = fechaSalidaInput.value;
+
+        // Validaciones básicas
+        const today = new Date().toISOString().split('T')[0];
+        if (!fechaLlegada || !fechaSalida || fechaSalida <= fechaLlegada) {
+            updatePriceDisplay(null); // Borrar precio si las fechas son inválidas
+            if (fechaLlegada && fechaLlegada < today) fechaLlegadaInput.value = today; // Corregir si la fecha es pasada
+            if (fechaSalida && fechaSalida <= fechaLlegada) fechaSalidaInput.value = ''; // Limpiar salida si es inválida
             return;
         }
 
-        // Actualizar min de fechaSalida
-        fechaSalidaEl.min = new Date(new Date(fechaLlegada).getTime() + 86400000).toISOString().split('T')[0];
-        
-        priceLoaderEl.classList.remove('hidden');
-        priceSummaryEl.classList.add('hidden');
+        // Actualizar mínima fecha de salida
+        const nextDay = new Date(new Date(fechaLlegada).getTime() + 86400000).toISOString().split('T')[0];
+        if (fechaSalidaInput.min !== nextDay) {
+            fechaSalidaInput.min = nextDay;
+        }
+        if (fechaSalidaInput.value <= fechaLlegadaInput.value) {
+            fechaSalidaInput.value = nextDay; // Auto-seleccionar el día siguiente si es necesario
+        }
+
+        // Mostrar loader y deshabilitar botón mientras se calcula
+        priceLoader.classList.remove('hidden');
+        priceDisplay.classList.add('hidden'); // Ocultar precio anterior
         submitButton.disabled = true;
 
         try {
-            // Usar la ruta API interna que creamos en website.js
-            const response = await fetch(`/propiedad/${PROPIEDAD_ID}/calcular-precio`, { 
+            // Llamar a la API interna
+            const response = await fetch(`/api/propiedad/${propiedadId}/calcular-precio`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fechaLlegada, fechaSalida })
+                body: JSON.stringify({ fechaLlegada, fechaSalida }) // Enviar solo fechas
             });
-            
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'No se pudo calcular el precio. Puede que no haya tarifas o disponibilidad.');
-            }
 
             const data = await response.json();
-            currentPriceData = data; // Guardar datos para el submit
 
-            // Formatear moneda localmente
-            const formatCLP = (value) => `$${Math.round(value || 0).toLocaleString('es-CL')}`;
+            if (!response.ok) {
+                throw new Error(data.error || 'No se pudo calcular el precio.');
+            }
 
-            // Actualizar el DOM
-            priceLabelEl.textContent = `${formatCLP(data.totalPriceCLP / data.nights)} x ${data.nights} noche(s)`;
-            priceSubtotalEl.textContent = formatCLP(data.totalPriceCLP);
-            priceTotalEl.textContent = formatCLP(data.totalPriceCLP);
-
-            priceSummaryEl.classList.remove('hidden');
-            submitButton.disabled = false; // Habilitar botón de reserva
+            // Usar la respuesta formateada de la API
+            updatePriceDisplay(data);
 
         } catch (error) {
-            console.error(error);
-            alert(error.message);
-            priceSummaryEl.classList.add('hidden');
-            submitButton.disabled = true;
-        } finally {
-            priceLoaderEl.classList.add('hidden');
+            console.error('Error calculando precio AJAX:', error);
+            updatePriceDisplay(null);
+            priceTotalDisplay.textContent = 'Error';
+            priceDisplay.classList.remove('hidden');
         }
+    };
+
+    // Event Listeners para cambios en las fechas
+    fechaLlegadaInput.addEventListener('change', calculatePriceAJAX);
+    fechaSalidaInput.addEventListener('change', calculatePriceAJAX);
+    
+    // Validar fecha mínima de llegada al cargar
+    fechaLlegadaInput.min = new Date().toISOString().split('T')[0];
+
+    // Inicialización: Mostrar precio por defecto del finde (ya está en el HTML)
+    // y habilitar el botón si el precio es válido
+    if (defaultPriceData.totalPriceCLP > 0) {
+        submitButton.disabled = false;
+    } else if (fechaLlegadaInput.value && fechaSalidaInput.value && personasInput.value) {
+        // Si no hubo precio default pero las fechas están pre-llenadas (ej. deep link), calcular
+        calculatePriceAJAX();
     }
 
-    // --- Event Listener para el Submit del Formulario ---
-    form.addEventListener('submit', (e) => {
+
+    // Handle form submission
+    bookingForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        if (!currentPriceData || !personasEl.value) {
-            alert('Por favor, selecciona fechas válidas y el número de huéspedes.');
+
+        const personas = parseInt(personasInput.value, 10);
+        const capacidadMax = parseInt(personasInput.max, 10);
+
+        if (currentPriceCLP === null || currentNights <= 0) {
+            alert('Por favor, selecciona fechas válidas para calcular el precio antes de reservar.');
             return;
         }
-        if (parseInt(personasEl.value, 10) > parseInt(personasEl.max, 10)) {
-             alert(`El número de huéspedes (${personasEl.value}) excede la capacidad máxima (${personasEl.max}).`);
+        if (isNaN(personas) || personas <= 0) {
+            alert('Por favor, indica cuántos huéspedes serán.');
             return;
         }
+         if (personas > capacidadMax) {
+             alert(`El número de huéspedes (${personas}) excede la capacidad máxima (${capacidadMax}).`);
+            return;
+        }
+
+        submitButton.disabled = true;
+        submitButton.textContent = 'Procesando...';
 
         // Construir la URL para la página /reservar
         const params = new URLSearchParams({
-            propiedadId: PROPIEDAD_ID,
-            fechaLlegada: fechaLlegadaEl.value,
-            fechaSalida: fechaSalidaEl.value,
-            personas: personasEl.value,
-            noches: currentPriceData.nights,
-            precioFinal: currentPriceData.totalPriceCLP
+            propiedadId: propiedadId,
+            fechaLlegada: fechaLlegadaInput.value,
+            fechaSalida: fechaSalidaInput.value,
+            personas: personas,
+            noches: currentNights,
+            precioFinal: currentPriceCLP
         });
 
-        // Redirigir al checkout
         window.location.href = `/reservar?${params.toString()}`;
     });
-
-    // --- Listeners para cambios en las fechas ---
-    fechaLlegadaEl.addEventListener('change', calcularPrecio);
-    fechaSalidaEl.addEventListener('change', calcularPrecio);
-
-    // --- Inicialización ---
-    // Calcular precio al cargar si las fechas ya están (viene de prefill o búsqueda)
-    if (PREFILL_LLEGADA && PREFILL_SALIDA) {
-        fechaLlegadaEl.value = PREFILL_LLEGADA;
-        fechaSalidaEl.value = PREFILL_SALIDA;
-        
-        const today = new Date().toISOString().split('T')[0];
-        if (fechaLlegadaEl.value < today) fechaLlegadaEl.value = today;
-        if (fechaSalidaEl.value <= fechaLlegadaEl.value) {
-             const nextDay = new Date(new Date(fechaLlegadaEl.value).getTime() + 86400000).toISOString().split('T')[0];
-             fechaSalidaEl.value = nextDay;
-        }
-        calcularPrecio();
-    } else {
-         // Si no hay prefill, poner fecha de llegada mínima hoy
-         fechaLlegadaEl.min = new Date().toISOString().split('T')[0];
-    }
 });
