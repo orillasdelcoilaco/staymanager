@@ -170,7 +170,7 @@
 
     <script>
       // *** CORRECCIÓN: Inyectar JSON en una variable separada ***
-      const initialDefaultPriceData = <%- JSON.stringify(defaultPriceData) %>;
+      const initialDefaultPriceData = <%- JSON.stringify(defaultPriceData || null) %>; // Añadir fallback a null
 
       window.initialBookingData = {
         propiedadId: "<%= propiedad.id %>",
