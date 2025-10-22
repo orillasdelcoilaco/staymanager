@@ -169,9 +169,12 @@
     <%- include('partials/footer') %>
 
     <script>
+      // *** CORRECCIÓN: Inyectar JSON en una variable separada ***
+      const initialDefaultPriceData = <%- JSON.stringify(defaultPriceData) %>;
+
       window.initialBookingData = {
         propiedadId: "<%= propiedad.id %>",
-        defaultPrice: <%- JSON.stringify(defaultPriceData) %>
+        defaultPrice: initialDefaultPriceData // Usar la variable
       };
     </script>
     <script src="/public/js/booking.js" defer></script>
