@@ -18,18 +18,17 @@
     <%- include('partials/header') %>
 
     <main class="overflow-hidden">
-        <%# *** INICIO CAMBIO HERO IMAGE *** %>
         <% if (empresa.websiteSettings?.theme?.heroImageUrl) { %>
-            <div class="hero-container"> <%# Usar nueva clase contenedora %>
+            <div class="hero-container">
                 <picture>
                     <source srcset="<%= empresa.websiteSettings.theme.heroImageUrl %>" type="image/webp">
                     <img src="<%= empresa.websiteSettings.theme.heroImageUrl %>"
                          alt="<%= empresa.websiteSettings.theme.heroImageAlt || 'Imagen de portada' %>"
                          title="<%= empresa.websiteSettings.theme.heroImageTitle || empresa.nombre %>"
-                         class="hero-image"> <%# Usar nueva clase para imagen %>
+                         class="hero-image">
                 </picture>
-                <div class="hero-overlay"></div> <%# Usar nueva clase para overlay %>
-                <div class="hero-content"> <%# Usar nueva clase para contenido %>
+                <div class="hero-overlay"></div>
+                <div class="hero-content">
                     <h1 class="text-4xl md:text-5xl font-bold">
                         <%= empresa.websiteSettings?.content?.homeH1 || empresa.nombre %>
                     </h1>
@@ -39,7 +38,6 @@
                 </div>
             </div>
         <% } else { %>
-            <%# Fallback sin imagen (sin cambios) %>
             <div class="bg-indigo-700 text-white py-12 px-4 text-center h-64 md:h-80 flex items-center justify-center">
                  <div>
                     <h1 class="text-4xl md:text-5xl font-bold">
@@ -51,7 +49,6 @@
                  </div>
             </div>
         <% } %>
-        <%# *** FIN CAMBIO HERO IMAGE *** %>
 
         <div class="container py-12">
             <div class="bg-white p-6 rounded-lg shadow-lg mb-12">
@@ -85,18 +82,39 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         <% propiedades.forEach(prop => { %>
                             <%
-                               const imagenPortadaArray = prop.websiteData?.images?.['portadaRecinto'] || prop.websiteData?.images?.['exteriorAlojamiento'];
-                               const imagenPortada = imagenPortadaArray?.[0];
-                               const imagenUrl = imagenPortada?.storagePath || 'https://via.placeholder.com/400x300.png?text=Imagen+no+disponible';
-                               const altText = imagenPortada?.altText || `Imagen de ${prop.nombre}`;
-                               const titleText = imagenPortada?.title || prop.nombre;
-                               const descripcion = prop.websiteData?.aiDescription || prop.descripcion || 'Descripción no disponible.';
+                                // *** INICIO CORRECCIÓN LÓGICA IMAGEN TARJETA ***
+                                let imagenTarjeta = null;
+                                const imagesData = prop.websiteData?.images;
+
+                                if (imagesData) {
+                                    // 1. Buscar en Portada o Exterior
+                                    const portadaArray = imagesData['portadaRecinto'] || imagesData['exteriorAlojamiento'];
+                                    imagenTarjeta = portadaArray?.[0];
+
+                                    // 2. Si no hay, buscar la primera imagen de cualquier componente
+                                    if (!imagenTarjeta) {
+                                        for (const componentId in imagesData) {
+                                            if (imagesData[componentId] && imagesData[componentId].length > 0) {
+                                                imagenTarjeta = imagesData[componentId][0];
+                                                break; // Salir al encontrar la primera
+                                            }
+                                        }
+                                    }
+                                }
+
+                                const imagenUrl = imagenTarjeta?.storagePath || 'https://via.placeholder.com/400x300.png?text=Imagen+no+disponible';
+                                const altText = imagenTarjeta?.altText || `Imagen de ${prop.nombre}`;
+                                const titleText = imagenTarjeta?.title || prop.nombre;
+                                // *** FIN CORRECCIÓN LÓGICA IMAGEN TARJETA ***
+
+                                const descripcion = prop.websiteData?.aiDescription || prop.descripcion || 'Descripción no disponible.';
                             %>
                             <div class="property-card">
                                 <a href="/propiedad/<%= prop.id %>">
                                     <picture>
                                         <source srcset="<%= imagenUrl %>" type="image/webp">
-                                        <img src="<%= imagenUrl %>" alt="<%= altText %>" title="<%= titleText %>" loading="lazy"> <%# Clase w-full h-48 object-cover ya está en property-card img %>
+                                        <%# Se usa la clase 'property-card img' definida en el CSS %>
+                                        <img src="<%= imagenUrl %>" alt="<%= altText %>" title="<%= titleText %>" loading="lazy">
                                     </picture>
                                 </a>
                                 <div class="property-card-content">
