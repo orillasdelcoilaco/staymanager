@@ -1,5 +1,4 @@
 <%- /* backend/views/propiedad.ejs */ %>
-<%# Definir variable para ocultar el botón de WSP del header %>
 <% locals.paginaPropiedad = true; %>
 
 <!DOCTYPE html>
@@ -15,7 +14,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body class="bg-gray-50">
@@ -29,20 +27,16 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
 
             <div class="lg:col-span-2 space-y-8">
-
                 <%
                    const imagenes = propiedad.websiteData?.images || {};
                    const todasLasImagenesRaw = Object.values(imagenes).flat();
                    const todasLasImagenes = todasLasImagenesRaw.filter(img => img && img.storagePath);
                    const cardImage = (propiedad.websiteData?.cardImage && propiedad.websiteData.cardImage.storagePath) ? propiedad.websiteData.cardImage : null;
-                   
                    let imagenesParaGaleria = todasLasImagenes;
-                   // Poner la cardImage al principio si existe y no está ya en la lista
                    if (cardImage) {
                        imagenesParaGaleria = todasLasImagenes.filter(img => img?.imageId !== cardImage.imageId);
                        imagenesParaGaleria.unshift(cardImage);
                    }
-
                    const imagenPrincipalMosaic = imagenesParaGaleria[0];
                    const imagenesDerechaMosaic = imagenesParaGaleria.slice(1, 5);
                    const restoImagenesGaleria = imagenesParaGaleria.slice(5);
@@ -81,7 +75,6 @@
                     <h2 class="text-xl font-semibold mb-2">Descripción</h2>
                     <p><%= propiedad.websiteData?.aiDescription || propiedad.descripcion || 'No hay descripción disponible.' %></p>
                 </div>
-
                 <div class="pt-4 border-t">
                     <div class="flex items-center mb-4">
                         <div class="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center mr-4 text-gray-500 text-lg">
@@ -92,7 +85,6 @@
                             <p class="text-sm text-gray-600"><%= hostingDuration %> como anfitrión</p>
                         </div>
                     </div>
-                    
                     <% if (empresa.contactoTelefono && empresa.contactoNombre) { %>
                         <% 
                             const telefonoLimpio = empresa.contactoTelefono.replace(/\D/g, '');
@@ -105,9 +97,8 @@
                             ¿Necesitas ayuda? Hablemos
                         </a>
                     <% } %>
-
                     <div class="space-y-4 mt-6">
-                        <div class="flex items-center">
+                         <div class="flex items-center">
                             <i class="fa-solid fa-star text-indigo-600 text-xl w-6 text-center mr-3"></i>
                             <div>
                                 <h3 class="font-semibold text-gray-900">Experiencia Destacada</h3>
@@ -130,11 +121,10 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="pt-4 border-t">
                     <h2 class="text-xl font-semibold mb-4">Comodidades</h2>
                     <div class="grid grid-cols-2 gap-4 text-sm">
-                        <div class="flex items-center"><i class="fa-solid fa-bed w-5 mr-2 text-indigo-600"></i> <%= propiedad.numPiezas || '?' %> Dormitorios</div>
+                         <div class="flex items-center"><i class="fa-solid fa-bed w-5 mr-2 text-indigo-600"></i> <%= propiedad.numPiezas || '?' %> Dormitorios</div>
                         <div class="flex items-center"><i class="fa-solid fa-bath w-5 mr-2 text-indigo-600"></i> <%= propiedad.numBanos || '?' %> Baños</div>
                         <div class="flex items-center"><i class="fa-solid fa-users w-5 mr-2 text-indigo-600"></i> Capacidad <%= propiedad.capacidad %> personas</div>
                         <% if (propiedad.equipamiento?.tinaja) { %><div class="flex items-center"><i class="fa-solid fa-hot-tub-person w-5 mr-2 text-indigo-600"></i> Tinaja Privada</div><% } %>
@@ -150,13 +140,11 @@
                 <div class="sticky top-8">
                     <div class="bg-white p-6 rounded-lg shadow-lg border">
                         <div id="price-display" class="mb-4 text-gray-900">
-                             <span class="text-2xl font-bold" id="price-total-display"><%= defaultPriceData.formattedTotalPrice %></span>
+                            <span class="text-2xl font-bold" id="price-total-display"><%= defaultPriceData.formattedTotalPrice %></span>
                             <span class="text-sm text-gray-600" id="price-label-display"><% if(defaultPriceData.nights > 0) { %> / por <%= defaultPriceData.nights %> noche<%= defaultPriceData.nights !== 1 ? 's' : '' %><% } %></span>
                         </div>
-
                         <form id="booking-form" class="space-y-4">
                             <input type="hidden" name="propiedadId" value="<%= propiedad.id %>">
-
                             <div class="grid grid-cols-2 gap-2">
                                 <div>
                                     <label for="fechaLlegada" class="block text-xs font-medium text-gray-700 uppercase">Llegada</label>
@@ -171,18 +159,16 @@
                                 <label for="personas" class="block text-xs font-medium text-gray-700 uppercase">Huéspedes</label>
                                 <input type="number" name="personas" id="personas" min="1" max="<%= propiedad.capacidad %>" class="form-input mt-1 text-sm" required value="<%= prefill.personas %>">
                             </div>
-
                             <div id="price-loader" class="text-center py-2 hidden">
                                 <p class="text-sm text-gray-500">Actualizando precio...</p>
                             </div>
-
+                            
                             <button type="submit" id="submit-button" class="btn w-full bg-pink-600 hover:bg-pink-700 text-white rounded-lg py-3 text-base font-semibold mt-4" disabled>
                                 Reserva
                             </button>
 
-                            <p class="text-xs text-gray-500 text-center mt-2">
-                                No se hará ningún cargo por el momento
-                            </p>
+                            <div id="deposit-info" class="text-sm text-gray-700 text-center mt-2">
+                                </div>
                         </form>
                     </div>
                 </div>
@@ -202,8 +188,8 @@
             <div id="lightbox-caption" class="lightbox-caption"></div>
         </div>
     </div>
+
     <script>
-      // Inyectar JSON de forma segura en variables globales
       window.allPropertyImages = <%- JSON.stringify(imagenesParaGaleria || []) %>;
       window.initialBookingData = {
         propiedadId: "<%= propiedad.id %>",

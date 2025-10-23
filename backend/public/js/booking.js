@@ -1,14 +1,20 @@
 // backend/public/js/booking.js
 
 document.addEventListener('DOMContentLoaded', () => {
-    // *** CORRECCIÓN: Leer datos desde la variable global window ***
+    // *** CAMBIO: Usar 10% de abono ***
+    const DEPOSIT_PERCENTAGE = 0.10;
+
     if (!window.initialBookingData) {
         console.error("Error: No se encontraron los datos iniciales de booking (initialBookingData).");
+        const priceDisplay = document.getElementById('price-display');
+        if (priceDisplay) {
+            priceDisplay.innerHTML = '<span class="text-red-500 font-bold">Error al cargar (B01)</span>';
+        }
         return;
     }
+    
     const { propiedadId, defaultPrice } = window.initialBookingData;
     let defaultPriceData = defaultPrice || { totalPriceCLP: 0, nights: 0, formattedTotalPrice: 'Error' };
-    // *** FIN CORRECCIÓN ***
 
     // Obtener elementos del DOM
     const fechaLlegadaInput = document.getElementById('fechaLlegada');
@@ -20,22 +26,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const priceLabelDisplay = document.getElementById('price-label-display');
     const priceLoader = document.getElementById('price-loader');
     const bookingForm = document.getElementById('booking-form');
+    const depositInfoEl = document.getElementById('deposit-info'); // Obtener div de abono
+
+    if (!fechaLlegadaInput || !fechaSalidaInput || !personasInput || !submitButton || !priceTotalDisplay || !priceLabelDisplay || !priceLoader || !bookingForm || !depositInfoEl) {
+        console.error("Error: Faltan elementos clave del DOM en el formulario de reserva (B02).");
+        if (priceDisplay) priceDisplay.innerHTML = '<span class="text-red-500 font-bold">Error (B02)</span>';
+        return;
+    }
 
     let currentPriceCLP = defaultPriceData?.totalPriceCLP || null;
     let currentNights = defaultPriceData?.nights || 0;
 
-    // Función para formatear CLP
-    const formatCLP = (value) => `$${(Math.round(value || 0)).toLocaleString('es-CL')} CLP`;
+    const formatCLP = (value) => `$${(Math.round(value || 0)).toLocaleString('es-CL')}`;
 
     // Función para actualizar la UI del precio
     const updatePriceDisplay = (priceData) => {
-        if (priceData && priceData.totalPrice !== undefined && priceData.numNoches !== undefined) {
+        if (priceData && priceData.totalPrice !== undefined && priceData.numNoches !== undefined && priceData.totalPrice > 0) {
             currentPriceCLP = priceData.totalPrice;
             currentNights = priceData.numNoches;
             priceTotalDisplay.textContent = priceData.formattedTotalPrice;
             priceLabelDisplay.textContent = ` / por ${currentNights} noche${currentNights !== 1 ? 's' : ''}`;
             priceDisplay.classList.remove('hidden');
             submitButton.disabled = false;
+
+            // *** CAMBIO: Actualizar texto de abono (10%) ***
+            const abono = currentPriceCLP * DEPOSIT_PERCENTAGE;
+            depositInfoEl.innerHTML = `Reserva abonando solo <strong class="text-indigo-600">${formatCLP(abono)}</strong>`;
+            // *** FIN CAMBIO ***
+
         } else {
             currentPriceCLP = null;
             currentNights = 0;
@@ -43,6 +61,14 @@ document.addEventListener('DOMContentLoaded', () => {
             priceLabelDisplay.textContent = '';
             priceDisplay.classList.remove('hidden');
             submitButton.disabled = true;
+
+            // *** CAMBIO: Actualizar texto de abono (Error/Default) ***
+             if (priceData && priceData.totalPrice === 0) {
+                 depositInfoEl.innerHTML = 'Estadía no disponible para estas fechas.';
+             } else {
+                 depositInfoEl.innerHTML = 'Ingresa tus fechas para ver el abono.';
+             }
+            // *** FIN CAMBIO ***
         }
         priceLoader.classList.add('hidden');
     };
@@ -75,6 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
         priceLoader.classList.remove('hidden');
         priceDisplay.classList.add('hidden');
         submitButton.disabled = true;
+        depositInfoEl.textContent = 'Calculando abono...';
 
         try {
             const response = await fetch(`/propiedad/${propiedadId}/calcular-precio`, {
@@ -92,7 +119,9 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Error calculando precio AJAX:', error);
             updatePriceDisplay(null);
             priceTotalDisplay.textContent = 'Error';
+            priceLabelDisplay.textContent = `: ${error.message}`;
             priceDisplay.classList.remove('hidden');
+            depositInfoEl.textContent = 'Error al calcular el precio.';
         }
     };
 
@@ -100,17 +129,20 @@ document.addEventListener('DOMContentLoaded', () => {
     fechaLlegadaInput.addEventListener('change', calculatePriceAJAX);
     fechaSalidaInput.addEventListener('change', calculatePriceAJAX);
 
-    // Inicialización
+    // Inicialización: Mostrar abono inicial si hay precio default
     fechaLlegadaInput.min = new Date().toISOString().split('T')[0];
     if (defaultPriceData && defaultPriceData.totalPriceCLP > 0) {
-        submitButton.disabled = false;
+        updatePriceDisplay({ // Llamar a updatePriceDisplay para calcular y mostrar abono inicial
+            totalPrice: defaultPriceData.totalPriceCLP,
+            numNoches: defaultPriceData.nights,
+            formattedTotalPrice: defaultPriceData.formattedTotalPrice
+        });
     } else if (fechaLlegadaInput.value && fechaSalidaInput.value && personasInput.value) {
         calculatePriceAJAX();
     } else {
-        // Si no hay precio default, deshabilitar el botón hasta que se calcul
         submitButton.disabled = true;
+        depositInfoEl.innerHTML = 'Ingresa tus fechas para ver el abono.'; // Mensaje inicial
     }
-
 
     // Handle form submission
     bookingForm.addEventListener('submit', (e) => {
