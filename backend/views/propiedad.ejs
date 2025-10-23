@@ -199,16 +199,14 @@
         </div>
     </div>
 
-    <script id="booking-script"
-            src="/public/js/booking.js"
-            data-propiedad-id="<%= propiedad.id %>"
-            data-default-price='<%= JSON.stringify(defaultPriceData || null) %>'
-            defer>
+    <script>
+      window.allPropertyImages = <%- JSON.stringify(imagenesParaGaleria || []) %>;
+      window.initialBookingData = {
+        propiedadId: "<%= propiedad.id %>",
+        defaultPrice: <%- JSON.stringify(defaultPriceData || null) %>
+      };
     </script>
-    <script id="gallery-script"
-            data-images='<%= JSON.stringify(imagenesParaGaleria || []) %>'
-            src="/public/js/gallery.js"
-            defer>
-    </script>
+    <script src="/public/js/booking.js" defer></script>
+    <script src="/public/js/gallery.js" defer></script>
 </body>
 </html>

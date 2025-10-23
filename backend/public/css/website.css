@@ -1027,11 +1027,7 @@ body {
   /* El color se aplica directamente en el HTML (ej: text-indigo-600) */
 }
 
-/* *** BLOQUE ELIMINADO ***
-    .fa-solid.text-indigo-600, .fa-brands.text-indigo-600 {
-        @apply text-indigo-600;
-    }
-    */
+/* *** BLOQUE ELIMINADO *** */
 
 .btn-whatsapp {
   display: inline-flex;
