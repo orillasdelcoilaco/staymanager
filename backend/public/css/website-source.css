@@ -3,6 +3,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Added explicit layer definitions for clarity, although often implicit */
 @layer base {
     body {
         @apply bg-gray-50 text-gray-800 font-sans;
@@ -33,7 +34,7 @@ main {
     }
 
     .form-input {
-        @apply block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm;
+        @apply block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm; /* Adjusted focus ring */
     }
 
     .property-card {
@@ -56,7 +57,7 @@ main {
         display: -webkit-box;
         -webkit-line-clamp: 3;
         -webkit-box-orient: vertical;
-        min-height: calc(1.25rem * 3);
+        min-height: calc(1.25rem * 3); /* Adjust line-height based value if needed */
     }
 
     .hero-container {
@@ -76,7 +77,6 @@ main {
         @apply w-5 mr-2; /* Estilo base para iconos */
         /* Color se aplica en HTML con text-* */
     }
-    /* Bloque redundante eliminado */
 
     .btn-whatsapp {
         @apply inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white transition bg-green-500 rounded-md shadow-sm hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500;
@@ -84,7 +84,6 @@ main {
     .fa-brands.fa-whatsapp {
          @apply w-5 h-5 text-white m-0;
     }
-
 
     /* --- REGLAS LIGHTBOX --- */
     .lightbox-modal {

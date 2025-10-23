@@ -76,23 +76,26 @@
                         Nuestras Propiedades
                     <% } %>
                 </h2>
-                
+
                 <%# *** CORRECCIÓN: Sintaxis y nombre de variable en formatCurrency *** %>
                 <% const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`; %>
 
-                <% if (propiedadesParaMostrar.length > 0) { %>
+                <%# *** CORRECCIÓN: Usar la variable 'propiedades' en lugar de 'propiedadesParaMostrar' *** %>
+                <% if (propiedades.length > 0) { %>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        <% propiedadesParaMostrar.forEach(prop => { %>
+                        <%# *** CORRECCIÓN: Usar la variable 'propiedades' en lugar de 'propiedadesParaMostrar' *** %>
+                        <% propiedades.forEach(prop => { %>
                             <%
-                                const imagenTarjeta = prop.websiteData.cardImage;
-                                const imagenUrl = imagenTarjeta.storagePath;
-                                const altText = imagenTarjeta.altText || `Imagen de ${prop.nombre}`;
-                                const titleText = imagenTarjeta.title || prop.nombre;
+                                // Verifica si existe cardImage y tiene storagePath antes de intentar acceder a sus propiedades
+                                const imagenTarjeta = prop.websiteData?.cardImage;
+                                const imagenUrl = imagenTarjeta?.storagePath || 'https://via.placeholder.com/400x300.png?text=Imagen+principal+no+disponible'; // Placeholder si no hay imagen
+                                const altText = imagenTarjeta?.altText || `Imagen de ${prop.nombre}`;
+                                const titleText = imagenTarjeta?.title || prop.nombre;
                                 const descripcion = prop.websiteData?.aiDescription || prop.descripcion || 'Descripción no disponible.';
-                                
+
                                 let abono = 0;
                                 if (isSearchResult && prop.pricing && prop.pricing.totalPriceCLP > 0) {
-                                    abono = prop.pricing.totalPriceCLP * 0.10;
+                                    abono = prop.pricing.totalPriceCLP * 0.10; // Asumiendo 10% de abono
                                 }
                             %>
                             <div class="property-card">
@@ -106,12 +109,14 @@
                                     <div>
                                         <h3 class="property-card-title"><a href="/propiedad/<%= prop.id %>?fechaLlegada=<%= query.fechaLlegada || '' %>&fechaSalida=<%= query.fechaSalida || '' %>&personas=<%= query.personas || '' %>"><%= prop.nombre %></a></h3>
                                         <p class="property-card-details">Hasta <%= prop.capacidad %> personas</p>
-                                        
+
                                         <% if (isSearchResult && prop.pricing && prop.pricing.totalPriceCLP > 0) { %>
                                             <div class="mt-2 text-sm border-t pt-2">
                                                 <p class="text-gray-600">Total por <%= prop.pricing.nights %> noche(s):</p>
                                                 <p class="text-lg font-bold text-gray-900"><%= formatCurrency(prop.pricing.totalPriceCLP) %></p>
-                                                <p class="text-indigo-600 font-semibold">Reserva ahora abonando solo <%= formatCurrency(abono) %></p>
+                                                <% if (abono > 0) { %>
+                                                     <p class="text-indigo-600 font-semibold">Reserva ahora abonando solo <%= formatCurrency(abono) %></p>
+                                                <% } %>
                                             </div>
                                         <% } %>
                                         <p class="card-description mt-2"><%= descripcion %></p>
@@ -131,10 +136,17 @@
                             <% if (isSearchResult) { %>
                                 No hay propiedades disponibles que cumplan los criterios. Intenta con otras fechas.
                             <% } else { %>
-                                <% if (propiedades.some(p => p.googleHotelData?.isListed)) { %>
+                                <%
+                                // Determinar si alguna propiedad está listada y tiene imagen de tarjeta
+                                const propiedadesListadasConImagen = propiedades.some(p => p.googleHotelData?.isListed && p.websiteData?.cardImage?.storagePath);
+                                const algunaPropiedadListada = propiedades.some(p => p.googleHotelData?.isListed);
+                                %>
+                                <% if (algunaPropiedadListada && !propiedadesListadasConImagen) { %>
                                     No hay propiedades configuradas con "Imagen Principal (Tarjeta/Home)" para mostrar. Revisa "Configurar Web Pública".
-                                <% } else { %>
+                                <% } else if (!algunaPropiedadListada) { %>
                                     Actualmente no hay propiedades marcadas para mostrarse en la web pública. Revisa "Gestionar Alojamientos".
+                                <% } else { %>
+                                    Parece que no hay propiedades configuradas para mostrar.
                                 <% } %>
                             <% } %>
                         </p>
