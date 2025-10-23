@@ -40,20 +40,20 @@
                 %>
                 <% if (imagenPrincipalMosaic) { %>
                     <div class="grid grid-cols-2 grid-rows-2 gap-2 rounded-lg overflow-hidden shadow-lg h-[60vh] md:h-[70vh]">
-                        <div class="col-span-1 row-span-2">
+                        <div class="col-span-1 row-span-2 gallery-image-trigger" data-index="0">
                             <picture>
                                 <source srcset="<%= imagenPrincipalMosaic.storagePath %>" type="image/webp">
                                 <img src="<%= imagenPrincipalMosaic.storagePath %>" alt="<%= imagenPrincipalMosaic.altText %>" title="<%= imagenPrincipalMosaic.title || '' %>" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity">
                             </picture>
                         </div>
                         <% imagenesDerechaMosaic.forEach((img, index) => { %>
-                            <div class="col-span-1 row-span-1 relative">
+                            <div class="col-span-1 row-span-1 relative gallery-image-trigger" data-index="<%= index + 1 %>">
                                 <picture>
                                     <source srcset="<%= img.storagePath %>" type="image/webp">
                                     <img src="<%= img.storagePath %>" alt="<%= img.altText %>" title="<%= img.title || '' %>" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity">
                                 </picture>
                                 <% if (index === 3 && restoImagenesGaleria.length > 0) { %>
-                                    <button class="absolute inset-0 bg-black bg-opacity-50 text-white flex items-center justify-center text-sm font-semibold hover:bg-opacity-70 transition-opacity">
+                                    <button class="gallery-image-trigger absolute inset-0 bg-black bg-opacity-50 text-white flex items-center justify-center text-sm font-semibold hover:bg-opacity-70 transition-opacity" data-index="<%= index + 1 %>">
                                         +<%= restoImagenesGaleria.length %> fotos
                                     </button>
                                 <% } %>
@@ -84,7 +84,6 @@
                         </div>
                     </div>
                     
-                    <%# --- BOTÓN WHATSAPP PROPIEDAD --- %>
                     <% if (empresa.contactoTelefono && empresa.contactoNombre) { %>
                         <% 
                             const telefonoLimpio = empresa.contactoTelefono.replace(/\D/g, '');
@@ -97,7 +96,6 @@
                             ¿Necesitas ayuda? Hablemos
                         </a>
                     <% } %>
-                    <%# --- FIN BOTÓN WHATSAPP PROPIEDAD --- %>
 
                     <div class="space-y-4 mt-6">
                         <div class="flex items-center">
@@ -184,10 +182,26 @@
 
     <%- include('partials/footer') %>
 
+    <div id="lightbox-modal" class="lightbox-modal hidden">
+        <div class="lightbox-overlay"></div>
+        <button class="lightbox-close">&times;</button>
+        <button class="lightbox-prev">&#10094;</button>
+        <button class="lightbox-next">&#10095;</button>
+        <div class="lightbox-content">
+            <img id="lightbox-image" src="" alt="Imagen de galería">
+            <div id="lightbox-caption" class="lightbox-caption"></div>
+        </div>
+    </div>
     <script id="booking-script"
             data-propiedad-id="<%= propiedad.id %>"
             data-default-price='<%- JSON.stringify(defaultPriceData || null) %>'
             defer src="/public/js/booking.js">
     </script>
-</body>
+    
+    <script>
+        // Pasar todas las imágenes al script de la galería
+        window.allPropertyImages = <%- JSON.stringify(todasLasImagenes || []) %>;
+    </script>
+    <script src="/public/js/gallery.js" defer></script>
+    </body>
 </html>

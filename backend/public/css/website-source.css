@@ -79,4 +79,40 @@ main {
     .btn-whatsapp {
         @apply inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white transition bg-green-500 rounded-md shadow-sm hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500;
     }
+    /* *** INICIO NUEVAS REGLAS LIGHTBOX *** */
+    .lightbox-modal {
+        @apply fixed inset-0 z-[100] flex items-center justify-center p-4;
+    }
+    .lightbox-modal.hidden {
+        @apply hidden;
+    }
+    .lightbox-overlay {
+        @apply absolute inset-0 bg-black bg-opacity-80 cursor-pointer;
+    }
+    .lightbox-content {
+        @apply relative z-10 max-w-[90vw] max-h-[90vh] flex flex-col items-center justify-center;
+    }
+    .lightbox-image {
+        @apply block max-w-full max-h-[85vh] object-contain rounded-lg shadow-lg;
+    }
+    .lightbox-caption {
+        @apply text-white text-center text-sm mt-2;
+    }
+    .lightbox-close, .lightbox-prev, .lightbox-next {
+        @apply absolute z-20 text-white text-4xl font-bold bg-black bg-opacity-30 rounded-full flex items-center justify-center cursor-pointer transition-opacity hover:bg-opacity-60;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+    .lightbox-close {
+        @apply top-4 right-4 w-12 h-12 text-3xl;
+    }
+    .lightbox-prev, .lightbox-next {
+        @apply top-1/2 -translate-y-1/2 w-12 h-12;
+    }
+    .lightbox-prev {
+        @apply left-4;
+    }
+    .lightbox-next {
+        @apply right-4;
+    }
+    /* *** FIN NUEVAS REGLAS LIGHTBOX *** */
 }
