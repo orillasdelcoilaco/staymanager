@@ -1,18 +1,17 @@
 // backend/routes/website.js
 const express = require('express');
-// *** NECESARIO: Importar findNormalCombination ***
 const { getAvailabilityData, calculatePrice, findNormalCombination } = require('../services/propuestasService');
 const { obtenerPropiedadesPorEmpresa, obtenerPropiedadPorId } = require('../services/propiedadesService');
 const { crearReservaPublica } = require('../services/reservasService');
 const { obtenerEmpresaPorDominio, obtenerDetallesEmpresa } = require('../services/empresaService');
 const admin = require('firebase-admin');
-const { format, addDays, nextFriday, nextSunday, differenceInYears, differenceInMonths } = require('date-fns');
+const { format, addDays, nextFriday, nextSunday, differenceInYears, differenceInMonths, parseISO, isValid } = require('date-fns'); // Añadir parseISO y isValid
 
 // Función auxiliar para formatear fechas para input type="date"
 const formatDateForInput = (date) => {
-    if (!date || isNaN(new Date(date).getTime())) return '';
-    const d = new Date(date.toISOString().slice(0, 10) + 'T00:00:00Z');
-    return format(d, 'yyyy-MM-dd', { timeZone: 'UTC' });
+    if (!date || !isValid(date)) return ''; // Usar isValid de date-fns
+    // Formatear directamente a yyyy-MM-dd
+    return format(date, 'yyyy-MM-dd');
 };
 
 // Función para obtener el próximo fin de semana (Vie-Dom, 2 noches)
@@ -57,13 +56,18 @@ module.exports = (db) => {
 
     // Ruta principal (Home)
     router.get('/', async (req, res) => {
+        // **NUEVO: Añadir cabeceras para intentar evitar caché del navegador**
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate'); // HTTP 1.1.
+        res.setHeader('Pragma', 'no-cache'); // HTTP 1.0.
+        res.setHeader('Expires', '0'); // Proxies.
+
         const empresaId = req.empresa.id;
         console.log(`[DEBUG / handler] Procesando home para empresaId: '${empresaId}'`);
         let empresaCompleta = req.empresaCompleta;
 
         try {
             const { fechaLlegada, fechaSalida, personas } = req.query;
-            let resultadosParaMostrar = []; // Cambiado de propiedadesAMostrar
+            let resultadosParaMostrar = [];
             let isSearchResult = false;
 
             const [todasLasPropiedades, tarifasSnapshot, canalesSnapshot] = await Promise.all([
@@ -77,23 +81,33 @@ module.exports = (db) => {
 
             const allTarifas = tarifasSnapshot.docs.map(doc => {
                  const data = doc.data();
-                 const inicio = data.fechaInicio?.toDate ? data.fechaInicio.toDate() : new Date(data.fechaInicio + 'T00:00:00Z');
-                 const termino = data.fechaTermino?.toDate ? data.fechaTermino.toDate() : new Date(data.fechaTermino + 'T00:00:00Z');
-                 if (isNaN(inicio.getTime()) || isNaN(termino.getTime())) {
-                     console.warn(`[WARN] Tarifa ${doc.id} tiene fechas inválidas, será ignorada.`);
-                     return null;
+                 // Corrección robusta de fechas
+                 let inicio = null;
+                 let termino = null;
+                 try {
+                    inicio = data.fechaInicio?.toDate ? data.fechaInicio.toDate() : (data.fechaInicio ? parseISO(data.fechaInicio + 'T00:00:00Z') : null);
+                    termino = data.fechaTermino?.toDate ? data.fechaTermino.toDate() : (data.fechaTermino ? parseISO(data.fechaTermino + 'T00:00:00Z') : null);
+                    if (!isValid(inicio) || !isValid(termino)) throw new Error('Fecha inválida');
+                 } catch(e) {
+                      console.warn(`[WARN] Tarifa ${doc.id} tiene fechas inválidas, será ignorada.`, data.fechaInicio, data.fechaTermino);
+                      return null;
                  }
                  return { ...data, id: doc.id, fechaInicio: inicio, fechaTermino: termino };
             }).filter(Boolean);
 
             const canalPorDefectoId = !canalesSnapshot.empty ? canalesSnapshot.docs[0].id : null;
 
-            if (fechaLlegada && fechaSalida && personas && new Date(fechaSalida) > new Date(fechaLlegada)) {
-                isSearchResult = true;
-                const startDate = new Date(fechaLlegada + 'T00:00:00Z');
-                const endDate = new Date(fechaSalida + 'T00:00:00Z');
-                const numPersonas = parseInt(personas);
+            // **MODIFICADO: Ejecutar búsqueda solo si los parámetros son válidos**
+            const llegadaDate = fechaLlegada ? parseISO(fechaLlegada + 'T00:00:00Z') : null;
+            const salidaDate = fechaSalida ? parseISO(fechaSalida + 'T00:00:00Z') : null;
+            const numPersonas = personas ? parseInt(personas) : 0;
 
+            if (llegadaDate && salidaDate && isValid(llegadaDate) && isValid(salidaDate) && salidaDate > llegadaDate && numPersonas > 0) {
+                isSearchResult = true; // Marcar que SÍ se hizo una búsqueda válida
+                const startDate = llegadaDate;
+                const endDate = salidaDate;
+
+                // Obtener disponibilidad para el rango
                 const { availableProperties } = await getAvailabilityData(db, empresaId, startDate, endDate);
                 const availableIds = new Set(availableProperties.map(p => p.id));
 
@@ -101,54 +115,51 @@ module.exports = (db) => {
                 const propiedadesDisponiblesListadas = propiedadesListadas.filter(p => availableIds.has(p.id));
 
                 if (propiedadesDisponiblesListadas.length > 0 && canalPorDefectoId) {
-                    // *** NUEVO: Intentar encontrar combinación para grupos grandes ***
+                    // Intentar encontrar combinación usando findNormalCombination
                     const { combination, capacity } = findNormalCombination(propiedadesDisponiblesListadas, numPersonas);
 
                     if (combination.length > 0 && capacity >= numPersonas) {
-                        // Si encontramos una combinación válida (puede ser 1 o más propiedades)
                         try {
                             const pricingResult = await calculatePrice(db, empresaId, combination, startDate, endDate, allTarifas, canalPorDefectoId);
                             if (combination.length > 1) {
-                                // Es un grupo, crear objeto especial
+                                // Grupo encontrado
                                 resultadosParaMostrar = [{
                                     isGroup: true,
-                                    properties: combination, // Array de propiedades en el grupo
+                                    properties: combination,
                                     combinedCapacity: capacity,
-                                    combinedPricing: pricingResult // Precio total del grupo
+                                    combinedPricing: pricingResult
                                 }];
                             } else {
-                                // Es una sola propiedad, añadir precio a esa propiedad
+                                // Solución individual encontrada
                                 resultadosParaMostrar = [{ ...combination[0], pricing: pricingResult }];
                             }
                         } catch (priceError) {
-                            console.warn(`No se pudo calcular el precio para la combinación encontrada: ${priceError.message}`);
-                            // Si falla el precio, no mostramos nada para esta búsqueda
-                            resultadosParaMostrar = [];
+                            console.warn(`No se pudo calcular el precio para la combinación ${combination.map(p=>p.id).join(',')}: ${priceError.message}`);
+                            resultadosParaMostrar = []; // Mostrar "No encontrado" si falla el precio
                         }
                     } else {
-                        // No se encontró combinación que cumpla la capacidad
                         console.log(`No se encontró combinación para ${numPersonas} personas.`);
-                        resultadosParaMostrar = []; // Mostrar mensaje "No encontrado" en EJS
+                        resultadosParaMostrar = []; // Mostrar "No encontrado"
                     }
                 } else if (!canalPorDefectoId) {
                     console.warn(`[WARN] Empresa ${empresaId} no tiene canal por defecto. No se calcularán precios.`);
-                    // Aún mostrar propiedades disponibles si no hay canal, pero sin precio
                     resultadosParaMostrar = propiedadesDisponiblesListadas.filter(p => p.capacidad >= numPersonas)
                                                 .map(prop => ({ ...prop, pricing: null }));
                 }
-                // Si propiedadesDisponiblesListadas está vacío, resultadosParaMostrar se queda vacío []
+                // Si no hay propiedades disponibles listadas, resultadosParaMostrar queda []
 
             } else {
-                 // Si no hay búsqueda, mostrar todas las propiedades listadas sin precio
+                 // Si NO hay búsqueda válida (o parámetros incompletos), mostrar todas las listadas sin precio
                  resultadosParaMostrar = propiedadesListadas.map(prop => ({ ...prop, pricing: null }));
+                 isSearchResult = false; // Asegurar que no se muestre como resultado de búsqueda
             }
 
             res.render('home', {
                 title: empresaCompleta?.websiteSettings?.seo?.homeTitle || empresaCompleta.nombre,
                 description: empresaCompleta?.websiteSettings?.seo?.homeDescription || `Reservas en ${empresaCompleta.nombre}`,
-                resultados: resultadosParaMostrar, // *** Cambiado a 'resultados' ***
-                isSearchResult: isSearchResult,
-                query: req.query
+                resultados: resultadosParaMostrar,
+                isSearchResult: isSearchResult, // Indicar si los resultados son de una búsqueda
+                query: req.query // Pasar query para pre-rellenar formulario
             });
 
         } catch (error) {
@@ -187,9 +198,12 @@ module.exports = (db) => {
             ]);
             const allTarifas = tarifasSnapshot.docs.map(doc => {
                  const data = doc.data();
-                 const inicio = data.fechaInicio?.toDate ? data.fechaInicio.toDate() : new Date(data.fechaInicio + 'T00:00:00Z');
-                 const termino = data.fechaTermino?.toDate ? data.fechaTermino.toDate() : new Date(data.fechaTermino + 'T00:00:00Z');
-                  if (isNaN(inicio.getTime()) || isNaN(termino.getTime())) return null;
+                 let inicio = null, termino = null;
+                 try {
+                     inicio = data.fechaInicio?.toDate ? data.fechaInicio.toDate() : (data.fechaInicio ? parseISO(data.fechaInicio + 'T00:00:00Z') : null);
+                     termino = data.fechaTermino?.toDate ? data.fechaTermino.toDate() : (data.fechaTermino ? parseISO(data.fechaTermino + 'T00:00:00Z') : null);
+                     if (!isValid(inicio) || !isValid(termino)) throw new Error('Fecha inválida');
+                 } catch(e){ return null; }
                  return { ...data, id: doc.id, fechaInicio: inicio, fechaTermino: termino };
             }).filter(Boolean);
 
@@ -217,16 +231,23 @@ module.exports = (db) => {
 
             let checkinDate = defaultCheckin;
             let checkoutDate = defaultCheckout;
+             const queryLlegada = req.query.fechaLlegada ? parseISO(req.query.fechaLlegada + 'T00:00:00Z') : null;
+             const querySalida = req.query.fechaSalida ? parseISO(req.query.fechaSalida + 'T00:00:00Z') : null;
+             const queryCheckin = req.query.checkin ? parseISO(req.query.checkin + 'T00:00:00Z') : null;
 
-            if (req.query.fechaLlegada && req.query.fechaSalida && new Date(req.query.fechaSalida) > new Date(req.query.fechaLlegada)) {
-                 checkinDate = new Date(req.query.fechaLlegada + 'T00:00:00Z');
-                 checkoutDate = new Date(req.query.fechaSalida + 'T00:00:00Z');
-            } else if (req.query.checkin && req.query.nights) {
-                 checkinDate = new Date(req.query.checkin + 'T00:00:00Z');
-                 checkoutDate = addDays(checkinDate, parseInt(req.query.nights));
+            if (queryLlegada && querySalida && isValid(queryLlegada) && isValid(querySalida) && querySalida > queryLlegada) {
+                 checkinDate = queryLlegada;
+                 checkoutDate = querySalida;
+            } else if (queryCheckin && isValid(queryCheckin) && req.query.nights) {
+                 checkinDate = queryCheckin;
+                 const nightsNum = parseInt(req.query.nights);
+                 if (!isNaN(nightsNum) && nightsNum > 0) {
+                    checkoutDate = addDays(checkinDate, nightsNum);
+                 }
             }
-             if (isNaN(checkinDate.getTime())) checkinDate = defaultCheckin;
-             if (isNaN(checkoutDate.getTime())) checkoutDate = defaultCheckout;
+             if (!isValid(checkinDate)) checkinDate = defaultCheckin;
+             if (!isValid(checkoutDate) || checkoutDate <= checkinDate) checkoutDate = addDays(checkinDate, 1);
+
 
             let personas = parseInt(req.query.personas || req.query.adults);
             if (!personas || isNaN(personas) || personas <= 0) {
@@ -277,7 +298,7 @@ module.exports = (db) => {
          try {
              const empresaId = req.empresa.id;
              if (!empresaId) throw new Error("ID de empresa no encontrado en la solicitud.");
-
+             //... (resto del código sin cambios) ...
             const propiedadId = req.params.id;
             const { fechaLlegada, fechaSalida } = req.body;
 
@@ -288,8 +309,10 @@ module.exports = (db) => {
             const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
             if (!propiedad) return res.status(404).json({ error: 'Propiedad no encontrada' });
 
-            const startDate = new Date(fechaLlegada + 'T00:00:00Z');
-            const endDate = new Date(fechaSalida + 'T00:00:00Z');
+            const startDate = parseISO(fechaLlegada + 'T00:00:00Z');
+            const endDate = parseISO(fechaSalida + 'T00:00:00Z');
+             if(!isValid(startDate) || !isValid(endDate)) return res.status(400).json({ error: 'Fechas inválidas.' });
+
 
             const [tarifasSnapshot, canalesSnapshot] = await Promise.all([
                  db.collection('empresas').doc(empresaId).collection('tarifas').get(),
@@ -297,9 +320,12 @@ module.exports = (db) => {
             ]);
             const allTarifas = tarifasSnapshot.docs.map(doc => {
                  const data = doc.data();
-                 const inicio = data.fechaInicio?.toDate ? data.fechaInicio.toDate() : new Date(data.fechaInicio + 'T00:00:00Z');
-                 const termino = data.fechaTermino?.toDate ? data.fechaTermino.toDate() : new Date(data.fechaTermino + 'T00:00:00Z');
-                 if (isNaN(inicio.getTime()) || isNaN(termino.getTime())) return null;
+                 let inicio = null, termino = null;
+                 try {
+                     inicio = data.fechaInicio?.toDate ? data.fechaInicio.toDate() : (data.fechaInicio ? parseISO(data.fechaInicio + 'T00:00:00Z') : null);
+                     termino = data.fechaTermino?.toDate ? data.fechaTermino.toDate() : (data.fechaTermino ? parseISO(data.fechaTermino + 'T00:00:00Z') : null);
+                     if (!isValid(inicio) || !isValid(termino)) throw new Error('Fecha inválida');
+                 } catch(e){ return null; }
                  return { ...data, id: doc.id, fechaInicio: inicio, fechaTermino: termino };
             }).filter(Boolean);
             if (canalesSnapshot.empty) throw new Error(`No hay canal por defecto configurado.`);
@@ -319,30 +345,46 @@ module.exports = (db) => {
         }
     });
 
-    // Ruta /reservar (GET) - Sin cambios
+    // Ruta /reservar (GET) - *** MODIFICADA PARA ACEPTAR GRUPOS ***
     router.get('/reservar', async (req, res) => {
         const empresaId = req.empresa.id;
         let empresaCompleta = req.empresaCompleta;
         try {
-            const { propiedadId } = req.query;
-            if (!propiedadId || !req.query.fechaLlegada || !req.query.fechaSalida || !req.query.noches || !req.query.precioFinal || !req.query.personas) {
-                 console.error(`[GET /reservar] Faltan parámetros en la query para ${empresaId}:`, req.query);
+            // Aceptar múltiples IDs separados por coma o uno solo
+            const propiedadIdsQuery = req.query.propiedadId || '';
+            const propiedadIds = propiedadIdsQuery.split(',').map(id => id.trim()).filter(Boolean);
+
+            // Validar parámetros esenciales
+            if (propiedadIds.length === 0 || !req.query.fechaLlegada || !req.query.fechaSalida || !req.query.noches || !req.query.precioFinal || !req.query.personas) {
+                 console.error(`[GET /reservar] Faltan parámetros para ${empresaId}:`, req.query);
                  return res.status(400).render('404', {
                     title: 'Faltan Datos para Reservar',
                     empresa: empresaCompleta
                  });
             }
-            const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
-            if (!propiedad) {
-                return res.status(404).render('404', {
-                    title: 'Propiedad No Encontrada',
+
+            // Cargar datos de todas las propiedades solicitadas
+            const propiedadesPromises = propiedadIds.map(id => obtenerPropiedadPorId(db, empresaId, id));
+            const propiedadesResult = await Promise.all(propiedadesPromises);
+            const propiedades = propiedadesResult.filter(Boolean); // Filtrar si alguna no se encontró
+
+            if (propiedades.length !== propiedadIds.length) {
+                console.warn(`[GET /reservar] No se encontraron todas las propiedades solicitadas: ${propiedadIds.join(',')}`);
+                 return res.status(404).render('404', {
+                    title: 'Una o más propiedades no encontradas',
                     empresa: empresaCompleta
                 });
             }
+
+            // Determinar si es grupo o individual
+            const isGroupReservation = propiedades.length > 1;
+            const dataToRender = isGroupReservation ? propiedades : propiedades[0]; // Pasar array si es grupo, objeto si es individual
+
             res.render('reservar', {
                 title: `Completar Reserva | ${empresaCompleta.nombre}`,
-                propiedad,
-                query: req.query,
+                propiedad: dataToRender, // Puede ser objeto o array
+                isGroup: isGroupReservation, // Flag para la plantilla
+                query: req.query, // Pasar todos los query params
             });
         } catch (error) {
             console.error(`Error al mostrar página de reserva para empresa ${empresaId}:`, error);
@@ -353,7 +395,8 @@ module.exports = (db) => {
         }
     });
 
-    // Endpoint Público para Crear Reserva (POST /crear-reserva-publica) - Sin cambios
+    // Endpoint Público para Crear Reserva (POST /crear-reserva-publica)
+    // *** NECESITA MODIFICACIÓN EN EL SERVICIO para manejar grupos ***
     router.post('/crear-reserva-publica', express.json(), async (req, res) => {
          try {
             const empresaId = req.empresa.id;
@@ -362,16 +405,23 @@ module.exports = (db) => {
                 throw new Error('No se pudo identificar la empresa para la reserva.');
             }
             console.log(`[POST /crear-reserva-publica] Recibido para empresa ${empresaId}:`, req.body);
+
+            // *** LLAMAR AL SERVICIO (que necesita ser adaptado para grupos) ***
             const reserva = await crearReservaPublica(db, empresaId, req.body);
+
+            // Devolver solo el ID de la reserva creada (o el ID del grupo si son varias)
             res.status(201).json({ reservaId: reserva.idReservaCanal });
+
         } catch (error) {
             console.error(`[POST /crear-reserva-publica] Error al crear reserva:`, error);
             res.status(500).json({ error: error.message || 'Error interno al procesar la reserva.' });
         }
     });
 
+
     // Ruta /confirmacion (GET) - Sin cambios
     router.get('/confirmacion', async (req, res) => {
+        // ... (código existente sin cambios) ...
         const empresaId = req.empresa.id;
         let empresaCompleta = req.empresaCompleta;
         try {
@@ -381,19 +431,20 @@ module.exports = (db) => {
             }
             const reservaSnap = await db.collection('empresas').doc(empresaId).collection('reservas')
                                       .where('idReservaCanal', '==', reservaIdOriginal)
-                                      .limit(1)
+                                      // .limit(1) // Quitamos limit para potentially obtener grupo en futuro
                                       .get();
             if (reservaSnap.empty) {
                  console.warn(`[GET /confirmacion] No se encontró reserva con idReservaCanal=${reservaIdOriginal} para empresa ${empresaId}`);
                  return res.status(404).render('404', { title: 'Reserva No Encontrada', empresa: empresaCompleta});
             }
+            // Por ahora, tomamos la primera reserva encontrada para mostrar datos básicos
             const reservaData = reservaSnap.docs[0].data();
             const reservaParaVista = {
                 ...reservaData,
                 id: reservaIdOriginal,
                 fechaLlegada: reservaData.fechaLlegada.toDate().toISOString().split('T')[0],
                 fechaSalida: reservaData.fechaSalida.toDate().toISOString().split('T')[0],
-                precioFinal: reservaData.valores?.valorHuesped || 0
+                precioFinal: reservaData.valores?.valorHuesped || 0 // Ajustar si es grupo en el futuro
             };
             const cliente = reservaData.clienteId
                  ? await db.collection('empresas').doc(empresaId).collection('clientes').doc(reservaData.clienteId).get()
@@ -414,6 +465,7 @@ module.exports = (db) => {
 
     // Ruta /contacto - Sin cambios
     router.get('/contacto', async (req, res) => {
+        // ... (código existente sin cambios) ...
         const empresaCompleta = req.empresaCompleta;
         try {
             res.render('contacto', {
@@ -430,6 +482,7 @@ module.exports = (db) => {
 
     // Manejador 404 - Sin cambios
     router.use(async (req, res) => {
+        // ... (código existente sin cambios) ...
         const empresaData = res.locals.empresa || req.empresa || { nombre: "Página no encontrada" };
         res.status(404).render('404', {
             title: 'Página no encontrada',
@@ -439,4 +492,3 @@ module.exports = (db) => {
 
     return router;
 };
-

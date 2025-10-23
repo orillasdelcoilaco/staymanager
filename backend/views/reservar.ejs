@@ -1,112 +1,164 @@
+<%- /* backend/views/reservar.ejs */ %>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Completar Reserva | <%= empresa.nombre %></title>
-    <meta name="description" content="Completa los datos para tu reserva en <%= propiedad.nombre %>." />
+    <title><%= title %></title>
+    <meta name="description" content="Completa tu reserva en <%= empresa.nombre %>">
     <link rel="stylesheet" href="/public/css/website.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body class="bg-gray-50">
-
+<body class="bg-gray-100">
     <%- include('partials/header') %>
 
-    <main class="container py-12">
-        <h1 class="text-3xl font-bold text-gray-900 mb-8">Completa tu Reserva</h1>
+    <% const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`; %>
+    <% const precioTotal = parseFloat(query.precioFinal) || 0; %>
+    <% const abonoRequerido = precioTotal * 0.10; %>
+    <% const saldoPendiente = precioTotal - abonoRequerido; %>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-12">
+    <main class="container py-8 md:py-12">
+        <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-8">Completa tu Reserva</h1>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
             
-            <div class="lg:col-span-2 bg-white p-8 rounded-lg shadow-lg">
-                <h2 class="text-2xl font-semibold text-gray-800 mb-6">Ingresa tus Datos</h2>
+            <%# Columna Izquierda: Formulario de Datos %>
+            <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-6">Tus Datos</h2>
                 
                 <form id="checkout-form" class="space-y-4">
-                    <input type="hidden" name="propiedadId" value="<%= propiedad.id %>">
+                    <%# --- Campos ocultos con los datos de la reserva --- %>
+                    <% if (isGroup) { %>
+                        <%# Si es grupo, pasar todos los IDs %>
+                        <input type="hidden" name="propiedadId" value="<%= propiedad.map(p => p.id).join(',') %>">
+                    <% } else { %>
+                        <%# Si es individual, pasar un solo ID %>
+                        <input type="hidden" name="propiedadId" value="<%= propiedad.id %>">
+                    <% } %>
                     <input type="hidden" name="fechaLlegada" value="<%= query.fechaLlegada %>">
                     <input type="hidden" name="fechaSalida" value="<%= query.fechaSalida %>">
                     <input type="hidden" name="noches" value="<%= query.noches %>">
-                    <input type="hidden" name="precioFinal" value="<%= query.precioFinal %>">
                     <input type="hidden" name="personas" value="<%= query.personas %>">
+                    <input type="hidden" name="precioFinal" value="<%= precioTotal %>">
+                    <%# --- Fin campos ocultos --- %>
 
                     <div>
-                        <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre Completo</label>
-                        <input type="text" id="nombre" name="nombre" class="form-input mt-1" required>
+                        <label for="nombreCliente" class="block text-sm font-medium text-gray-700">Nombre Completo</label>
+                        <input type="text" name="nombreCliente" id="nombreCliente" class="form-input mt-1" required placeholder="Ej: Juan Pérez">
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="emailCliente" class="block text-sm font-medium text-gray-700">Email</label>
+                            <input type="email" name="emailCliente" id="emailCliente" class="form-input mt-1" required placeholder="juan.perez@dominio.com">
+                        </div>
+                        <div>
+                            <label for="telefonoCliente" class="block text-sm font-medium text-gray-700">Teléfono (WhatsApp)</label>
+                            <input type="tel" name="telefonoCliente" id="telefonoCliente" class="form-input mt-1" placeholder="+56 9 1234 5678">
+                        </div>
                     </div>
                     
-                    <div>
-                        <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-                        <input type="email" id="email" name="email" class="form-input mt-1" required>
-                    </div>
-                    
-                    <div>
-                        <label for="telefono" class="block text-sm font-medium text-gray-700">Teléfono (Ej: +569...)</label>
-                        <input type="tel" id="telefono" name="telefono" class="form-input mt-1" required>
-                    </div>
-                    
-                    <div>
-                        <label for="comentarios" class="block text-sm font-medium text-gray-700">Comentarios Adicionales (Opcional)</label>
-                        <textarea id="comentarios" name="comentarios" rows="3" class="form-input mt-1"></textarea>
-                    </div>
-
-                    <div class="pt-6 border-t">
-                        <button type="submit" class="btn w-full text-lg">
-                            Confirmar Reserva
+                    <div class="pt-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">Política de Abono</h3>
+                        <p class="text-sm text-gray-600 mb-4">
+                            Para confirmar esta reserva, se requiere un abono del 10% (<%= formatCurrency(abonoRequerido) %>).
+                            Serás redirigido a la página de confirmación donde encontrarás las instrucciones para realizar el pago.
+                        </p>
+                        <button type="submit" id="submit-reserva" class="btn w-full text-lg">
+                            Confirmar y Continuar al Pago
                         </button>
-                        <div id="status-message" class="text-sm text-center mt-4"></div>
                     </div>
                 </form>
+                <div id="form-error" class="mt-4 text-center text-red-600 text-sm hidden"></div>
+                <div id="form-loader" class="mt-4 text-center text-indigo-600 text-sm hidden">Procesando tu reserva...</div>
+
             </div>
 
+            <%# Columna Derecha: Resumen de Estadía %>
             <div class="lg:col-span-1">
-                <div class="bg-white p-6 rounded-lg shadow-lg sticky top-8">
-                    <h3 class="text-xl font-bold text-gray-900 mb-4">Resumen de tu Estadía</h3>
-                    
-                    <% 
-                        // Obtener imagen principal (usando la misma lógica de 'propiedad.ejs')
-                        const imagenes = propiedad.websiteData?.images || {};
-                        const todasLasImagenes = Object.values(imagenes).flat();
-                        const imagenPrincipal = imagenes['portadaRecinto']?.[0] || imagenes['exteriorAlojamiento']?.[0] || todasLasImagenes[0];
-                        const imagenUrl = imagenPrincipal?.storagePath || 'https://via.placeholder.com/400x300.png?text=Imagen+no+disponible';
-                        const altText = imagenPrincipal?.altText || `Imagen de ${propiedad.nombre}`;
-                    %>
-                    
-                    <img src="<%= imagenUrl %>" alt="<%= altText %>" class="w-full h-40 object-cover rounded-lg mb-4">
-                    
-                    <h4 class="text-lg font-semibold"><%= propiedad.nombre %></h4>
-                    
-                    <div class="mt-4 space-y-2 border-t pt-4">
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">Llegada:</span>
-                            <span class="font-medium"><%= new Date(query.fechaLlegada + 'T00:00:00-03:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }) %></span>
+                <div class="sticky top-8">
+                    <div class="bg-white p-6 rounded-lg shadow-lg border">
+                        <h2 class="text-2xl font-semibold text-gray-800 mb-4 border-b pb-3">Resumen de Estadía</h2>
+
+                        <%# --- Resumen General (Fechas, Personas) --- %>
+                        <div class="space-y-2 text-sm text-gray-700 mb-4">
+                            <div class="flex justify-between">
+                                <span class="font-semibold">Llegada:</span>
+                                <span><%= new Date(query.fechaLlegada + 'T00:00:00Z').toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' }) %></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="font-semibold">Salida:</span>
+                                <span><%= new Date(query.fechaSalida + 'T00:00:00Z').toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' }) %></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="font-semibold">Total Noches:</span>
+                                <span><%= query.noches %></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="font-semibold">Huéspedes:</span>
+                                <span><%= query.personas %></span>
+                            </div>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">Salida:</span>
-                            <span class="font-medium"><%= new Date(query.fechaSalida + 'T00:00:00-03:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }) %></span>
+
+                        <%# --- Desglose de Propiedades --- %>
+                        <div class="border-t pt-4">
+                            <% if (isGroup) { %>
+                                <h3 class="text-lg font-semibold text-gray-800 mb-3">Propiedades Incluidas (<%= propiedad.length %>)</h3>
+                                <div class="space-y-4">
+                                    <% propiedad.forEach(prop => { %>
+                                        <% const imgUrl = prop.websiteData?.cardImage?.storagePath || 'https://via.placeholder.com/150x100.png?text=Sin+Imagen'; %>
+                                        <div class="flex items-center space-x-3">
+                                            <img src="<%= imgUrl %>" alt="<%= prop.nombre %>" class="w-24 h-16 object-cover rounded-md flex-shrink-0">
+                                            <div>
+                                                <h4 class="font-semibold text-sm"><%= prop.nombre %></h4>
+                                                <p class="text-xs text-gray-600">Capacidad: <%= prop.capacidad %> personas</p>
+                                                <%# NOTA: El precio individual por cabaña no lo tenemos aquí, solo el total %>
+                                            </div>
+                                        </div>
+                                    <% }) %>
+                                </div>
+                            <% } else { %>
+                                <%# --- Vista Individual (como antes) --- %>
+                                <h3 class="text-lg font-semibold text-gray-800 mb-3">Propiedad</h3>
+                                <% const imgUrl = propiedad.websiteData?.cardImage?.storagePath || 'https://via.placeholder.com/150x100.png?text=Sin+Imagen'; %>
+                                <div class="flex items-center space-x-3">
+                                    <img src="<%= imgUrl %>" alt="<%= propiedad.nombre %>" class="w-24 h-16 object-cover rounded-md flex-shrink-0">
+                                    <div>
+                                        <h4 class="font-semibold text-sm"><%= propiedad.nombre %></h4>
+                                        <p class="text-xs text-gray-600">Capacidad: <%= propiedad.capacidad %> personas</p>
+                                    </div>
+                                </div>
+                            <% } %>
                         </div>
-                         <div class="flex justify-between">
-                            <span class="text-gray-600">Noches:</span>
-                            <span class="font-medium"><%= query.noches %></span>
+
+                        <%# --- Resumen de Pago --- %>
+                        <div class="border-t pt-4 mt-4 space-y-2">
+                             <div class="flex justify-between text-lg font-semibold text-gray-800">
+                                <span>Total Estadía:</span>
+                                <span><%= formatCurrency(precioTotal) %></span>
+                            </div>
+                             <div class="flex justify-between text-sm text-gray-600">
+                                <span>Abono (10%):</span>
+                                <span><%= formatCurrency(abonoRequerido) %></span>
+                            </div>
+                            <div class="flex justify-between text-sm font-semibold text-gray-800 pt-2 border-t mt-2">
+                                <span>Saldo Pendiente (al llegar):</span>
+                                <span><%= formatCurrency(saldoPendiente) %></span>
+                            </div>
                         </div>
-                         <div class="flex justify-between">
-                            <span class="text-gray-600">Huéspedes:</span>
-                            <span class="font-medium"><%= query.personas %></span>
-                        </div>
-                        
-                        <div class="flex justify-between text-2xl font-bold text-gray-900 border-t pt-4 mt-4">
-                            <span>Total</span>
-                            <span>$<%= parseInt(query.precioFinal).toLocaleString('es-CL') %></span>
-                        </div>
-                        <p class="text-xs text-gray-500 text-center">(CLP)</p>
+
                     </div>
                 </div>
             </div>
+
         </div>
     </main>
 
     <%- include('partials/footer') %>
-    
+
+    <%# Cargar el script de JS para manejar el formulario de checkout %>
     <script src="/public/js/checkout.js" defer></script>
 </body>
 </html>
