@@ -1,7 +1,7 @@
 // backend/services/propuestasService.js
 
 const admin = require('firebase-admin');
-// *** CORRECCIÓN: Añadir la importación que faltaba ***
+// *** VERIFICACIÓN CRÍTICA: Asegurarse que esta línea esté presente y correcta ***
 const { obtenerValorDolar } = require('./dolarService');
 const { parseISO, isValid, differenceInDays, addDays, format } = require('date-fns');
 
@@ -109,7 +109,8 @@ function findNormalCombination(availableProperties, requiredCapacity) {
     return { combination: [], capacity: 0 };
 }
 
-// --- Función findSegmentedCombination (Versión restaurada) ---
+
+// --- Función findSegmentedCombination (Versión restaurada para SPA) ---
 function findSegmentedCombination(allProperties, allTarifas, availabilityMap, requiredCapacity, startDate, endDate) {
     // ... (Código completo de findSegmentedCombination restaurado) ...
     const dailyOptions = []; // Array de { date: Date, option: Prop | Prop[] }
@@ -131,7 +132,7 @@ function findSegmentedCombination(allProperties, allTarifas, availabilityMap, re
 
         if (dailyAvailable.length === 0) {
             console.log(`[findSegmented] No hay propiedades disponibles para ${format(currentDate, 'yyyy-MM-dd')}`);
-            return { combination: [], capacity: 0, dailyOptions: [] };
+            return { combination: [], capacity: 0, dailyOptions: [] }; // Falla si un día no hay nada disponible
         }
 
         let bestOption = dailyAvailable
@@ -168,7 +169,7 @@ function findSegmentedCombination(allProperties, allTarifas, availabilityMap, re
 }
 
 
-// --- Función calculatePrice (Sin cambios, pero ahora la importación de obtenerValorDolar funcionará) ---
+// --- Función calculatePrice (Sin cambios, verifica la llamada a obtenerValorDolar) ---
 async function calculatePrice(db, empresaId, items, startDate, endDate, allTarifas, canalObjetivoId, valorDolarDiaOverride = null, isSegmented = false) {
     const canalesRef = db.collection('empresas').doc(empresaId).collection('canales');
     const [canalDefectoSnapshot, canalObjetivoDoc] = await Promise.all([
@@ -183,12 +184,13 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
     const canalObjetivo = { id: canalObjetivoDoc.id, ...canalObjetivoDoc.data() };
 
     // *** LLAMADA A obtenerValorDolar ***
+    // Asegurarse de que la función importada esté disponible aquí
     const valorDolarDia = valorDolarDiaOverride ??
                           ((canalPorDefecto.moneda === 'USD' || canalObjetivo.moneda === 'USD')
-                              ? await obtenerValorDolar(db, empresaId, startDate) // <--- Aquí se usa
+                              ? await obtenerValorDolar(db, empresaId, startDate) // <--- PUNTO CRÍTICO
                               : null);
 
-    let totalPrecioOriginal = 0; // Moneda del canal objetivo
+    let totalPrecioOriginal = 0;
     const priceDetails = [];
     let totalNights = differenceInDays(endDate, startDate);
     if (totalNights <= 0 && !isSegmented) return { totalPriceCLP: 0, totalPriceOriginal: 0, currencyOriginal: canalObjetivo.moneda, valorDolarDia, nights: 0, details: [] };
@@ -197,10 +199,10 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
     if (isSegmented) {
         totalNights = 0;
         for (const dailyOption of items) {
-             const currentDate = dailyOption.date;
-             const option = dailyOption.option;
-             const propertiesForDay = Array.isArray(option) ? option : [option];
-             totalNights++;
+            const currentDate = dailyOption.date;
+            const option = dailyOption.option;
+            const propertiesForDay = Array.isArray(option) ? option : [option];
+            totalNights++;
 
             let dailyRateBase = 0;
             for (const prop of propertiesForDay) {
@@ -214,7 +216,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
                     const precioBaseObj = tarifa.precios?.[canalPorDefecto.id];
                     dailyRateBase += (typeof precioBaseObj === 'number' ? precioBaseObj : 0);
                 } else {
-                     console.warn(`[WARN] No se encontró tarifa base para ${prop.nombre} en fecha ${format(currentDate, 'yyyy-MM-dd')} (segmentado)`);
+                    console.warn(`[WARN] No se encontró tarifa base para ${prop.nombre} en fecha ${format(currentDate, 'yyyy-MM-dd')} (segmentado)`);
                 }
             }
 
