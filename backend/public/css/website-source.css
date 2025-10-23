@@ -72,19 +72,25 @@ main {
         @apply relative z-20 container h-full flex flex-col justify-center items-center text-center text-white p-4;
     }
 
-    .fa-solid {
-        @apply w-5 mr-2 text-indigo-600;
+    .fa-solid, .fa-brands {
+        @apply w-5 mr-2;
     }
     
     .btn-whatsapp {
         @apply inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white transition bg-green-500 rounded-md shadow-sm hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500;
     }
-    /* *** INICIO NUEVAS REGLAS LIGHTBOX *** */
+    
+    .fa-brands.fa-whatsapp {
+        @apply w-5 h-5 text-white; /* Asegurar que el ícono de WSP sea blanco */
+    }
+
+    /* --- REGLAS LIGHTBOX (Actualizadas) --- */
     .lightbox-modal {
         @apply fixed inset-0 z-[100] flex items-center justify-center p-4;
     }
+    /* *** CORRECCIÓN CSS: Reemplazar @apply hidden *** */
     .lightbox-modal.hidden {
-        @apply hidden;
+        display: none;
     }
     .lightbox-overlay {
         @apply absolute inset-0 bg-black bg-opacity-80 cursor-pointer;
@@ -114,5 +120,22 @@ main {
     .lightbox-next {
         @apply right-4;
     }
-    /* *** FIN NUEVAS REGLAS LIGHTBOX *** */
+
+    /* *** CORRECCIÓN CSS: Reemplazar @apply hidden *** */
+    .lightbox-prev.hidden,
+    .lightbox-next.hidden {
+        display: none;
+    }
+
+    /* *** LOADER *** */
+    .lightbox-loader {
+        @apply w-16 h-16 border-4 border-gray-400 border-t-white rounded-full animate-spin;
+    }
+    /* *** CORRECCIÓN CSS: Reemplazar @apply hidden *** */
+    .lightbox-loader.hidden {
+        display: none;
+    }
+    .lightbox-image.hidden {
+        display: none;
+    }
 }

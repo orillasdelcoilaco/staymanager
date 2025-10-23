@@ -1,24 +1,13 @@
 // backend/public/js/booking.js
 
 document.addEventListener('DOMContentLoaded', () => {
-    // *** CORRECCIÓN: Leer datos desde data-* attributes ***
-    const scriptTag = document.getElementById('booking-script');
-    if (!scriptTag) {
-        console.error("Error: No se encontró el tag <script id='booking-script'>.");
+    // *** CORRECCIÓN: Leer datos desde la variable global window ***
+    if (!window.initialBookingData) {
+        console.error("Error: No se encontraron los datos iniciales de booking (initialBookingData).");
         return;
     }
-    
-    const propiedadId = scriptTag.dataset.propiedadId;
-    let defaultPriceData = null;
-    try {
-        // Decodificar el string JSON que viene escapado para HTML (ej: &quot; -> ")
-        // (Aunque los navegadores modernos suelen hacerlo automáticamente al leer dataset)
-        const priceString = scriptTag.dataset.defaultPrice;
-        defaultPriceData = JSON.parse(priceString); // JSON.parse maneja el string JSON
-    } catch (e) {
-        console.error("Error parsing default price data:", scriptTag.dataset.defaultPrice, e);
-        defaultPriceData = { totalPriceCLP: 0, nights: 0, formattedTotalPrice: 'Error' }; // Fallback
-    }
+    const { propiedadId, defaultPrice } = window.initialBookingData;
+    let defaultPriceData = defaultPrice || { totalPriceCLP: 0, nights: 0, formattedTotalPrice: 'Error' };
     // *** FIN CORRECCIÓN ***
 
     // Obtener elementos del DOM
@@ -88,13 +77,11 @@ document.addEventListener('DOMContentLoaded', () => {
         submitButton.disabled = true;
 
         try {
-            // *** CAMBIO: Llamar a la URL pública (sin /api/) ***
             const response = await fetch(`/propiedad/${propiedadId}/calcular-precio`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ fechaLlegada: fechaLlegadaInput.value, fechaSalida: fechaSalidaInput.value })
             });
-            // *** FIN CAMBIO ***
 
             const data = await response.json();
             if (!response.ok) {
@@ -119,6 +106,9 @@ document.addEventListener('DOMContentLoaded', () => {
         submitButton.disabled = false;
     } else if (fechaLlegadaInput.value && fechaSalidaInput.value && personasInput.value) {
         calculatePriceAJAX();
+    } else {
+        // Si no hay precio default, deshabilitar el botón hasta que se calcul
+        submitButton.disabled = true;
     }
 
 

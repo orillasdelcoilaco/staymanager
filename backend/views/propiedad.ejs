@@ -34,9 +34,18 @@
                    const imagenes = propiedad.websiteData?.images || {};
                    const todasLasImagenesRaw = Object.values(imagenes).flat();
                    const todasLasImagenes = todasLasImagenesRaw.filter(img => img && img.storagePath);
-                   const imagenPrincipalMosaic = propiedad.websiteData?.cardImage && propiedad.websiteData.cardImage.storagePath ? propiedad.websiteData.cardImage : todasLasImagenes[0];
-                   const imagenesDerechaMosaic = todasLasImagenes.filter(img => img?.imageId !== imagenPrincipalMosaic?.imageId).slice(0, 4);
-                   const restoImagenesGaleria = todasLasImagenes.slice(imagenesDerechaMosaic.length + (imagenPrincipalMosaic ? 1 : 0));
+                   const cardImage = (propiedad.websiteData?.cardImage && propiedad.websiteData.cardImage.storagePath) ? propiedad.websiteData.cardImage : null;
+                   
+                   let imagenesParaGaleria = todasLasImagenes;
+                   // Poner la cardImage al principio si existe y no está ya en la lista
+                   if (cardImage) {
+                       imagenesParaGaleria = todasLasImagenes.filter(img => img?.imageId !== cardImage.imageId);
+                       imagenesParaGaleria.unshift(cardImage);
+                   }
+
+                   const imagenPrincipalMosaic = imagenesParaGaleria[0];
+                   const imagenesDerechaMosaic = imagenesParaGaleria.slice(1, 5);
+                   const restoImagenesGaleria = imagenesParaGaleria.slice(5);
                 %>
                 <% if (imagenPrincipalMosaic) { %>
                     <div class="grid grid-cols-2 grid-rows-2 gap-2 rounded-lg overflow-hidden shadow-lg h-[60vh] md:h-[70vh]">
@@ -188,19 +197,20 @@
         <button id="lightbox-prev" class="lightbox-prev">&#10094;</button>
         <button id="lightbox-next" class="lightbox-next">&#10095;</button>
         <div class="lightbox-content">
-            <img id="lightbox-image" src="" alt="Imagen de galería">
+            <div id="lightbox-loader" class="lightbox-loader hidden"></div>
+            <img id="lightbox-image" src="" alt="Imagen de galería" class="lightbox-image">
             <div id="lightbox-caption" class="lightbox-caption"></div>
         </div>
     </div>
-    <script id="booking-script"
-            data-propiedad-id="<%= propiedad.id %>"
-            data-default-price='<%- JSON.stringify(defaultPriceData || null) %>'
-            defer src="/public/js/booking.js">
-    </script>
-    
     <script>
-        window.allPropertyImages = <%- JSON.stringify(todasLasImagenes || []) %>;
+      // Inyectar JSON de forma segura en variables globales
+      window.allPropertyImages = <%- JSON.stringify(imagenesParaGaleria || []) %>;
+      window.initialBookingData = {
+        propiedadId: "<%= propiedad.id %>",
+        defaultPrice: <%- JSON.stringify(defaultPriceData || null) %>
+      };
     </script>
+    <script src="/public/js/booking.js" defer></script>
     <script src="/public/js/gallery.js" defer></script>
 </body>
 </html>
