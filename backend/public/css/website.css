@@ -1024,10 +1024,10 @@ body {
   margin-right: 0.5rem;
   width: 1.25rem;
   /* Estilo base para iconos */
-  /* El color se aplica directamente en el HTML (ej: text-indigo-600) */
+  /* Color se aplica en HTML con text-* */
 }
 
-/* *** BLOQUE ELIMINADO *** */
+/* Bloque redundante eliminado */
 
 .btn-whatsapp {
   display: inline-flex;

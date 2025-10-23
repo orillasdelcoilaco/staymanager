@@ -200,6 +200,7 @@
     </div>
 
     <script>
+      // Inyectar JSON de forma segura en variables globales
       window.allPropertyImages = <%- JSON.stringify(imagenesParaGaleria || []) %>;
       window.initialBookingData = {
         propiedadId: "<%= propiedad.id %>",
