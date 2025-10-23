@@ -30,6 +30,13 @@ Plan de Desarrollo: SuiteManager
 SuiteManager es una aplicación web de software como servicio (SaaS) diseñada para la gestión integral de propiedades de arriendo a corto plazo (cabañas, apartamentos, etc.). El objetivo es transformar una herramienta interna en un producto comercial robusto, seguro y escalable, capaz de dar servicio a múltiples empresas (arquitectura multi-inquilino o multi-tenant).
 
 El sistema está construido con una arquitectura moderna que separa el backend (Node.js/Express) del frontend (JavaScript puro en formato SPA), garantizando un mantenimiento sencillo y una experiencia de usuario fluida.
+Nota Arquitectónica Clave: Separación de Lógicas (Octubre 2025)
+
+Para garantizar la estabilidad y mantenibilidad, se ha decidido separar estrictamente la lógica de negocio utilizada por el Panel de Administración (SPA) de aquella utilizada por el Sitio Web Público (SSR), especialmente en funcionalidades compartidas como la búsqueda de disponibilidad y cálculo de precios.
+
+Lógica del Panel de Administración (SPA): Residirá principalmente en los archivos dentro de backend/services/ (ej: propuestasService.js, reservasService.js) y será consumida por las rutas bajo /api/. Esta lógica se considera estable y no debe modificarse sin pruebas exhaustivas para evitar regresiones en el panel.
+
+Lógica del Sitio Web Público (SSR): Se migrará o duplicará (y adaptará) a nuevos archivos dedicados (ej: backend/services/publicWebsiteService.js) y será consumida exclusivamente por las rutas del sitio público (backend/routes/website.js). Esto permite evolucionar la experiencia pública (ej: manejo de grupos, promociones web) sin riesgo de afectar las operaciones del panel de administración.
 
 2. Estado Actual del Proyecto: ¡Base Funcional Establecida!
 Tras un reinicio estratégico ("Plan Renacer"), hemos superado con éxito la fase de configuración y depuración de la infraestructura. El proyecto se encuentra ahora en un estado estable y funcional.

@@ -66,8 +66,10 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
         }
     });
 
+    // availableProperties son aquellas CON TARIFA y SIN reservas que se solapen en NINGÚN DÍA del rango
     const availableProperties = propiedadesConTarifa.filter(prop => {
         const reservations = availabilityMap.get(prop.id) || [];
+        // Comprobar si *alguna* reserva existente choca con el rango [startDate, endDate)
         return !reservations.some(res => startDate < res.end && endDate > res.start);
     });
 
@@ -109,48 +111,72 @@ function findNormalCombination(availableProperties, requiredCapacity) {
 }
 
 
-// *** FUNCIÓN findSegmentedCombination SIMPLIFICADA ***
-// Busca la MEJOR PROPIEDAD INDIVIDUAL disponible cada día. NO intenta combinar por día.
+// *** FUNCIÓN findSegmentedCombination RESTAURADA (Versión que funcionaba con agregarPropuesta) ***
+// Intenta encontrar la mejor opción (individual o combinada) para CADA DÍA.
 function findSegmentedCombination(allProperties, allTarifas, availabilityMap, requiredCapacity, startDate, endDate) {
-    const dailyOptions = []; // Array de { date: Date, option: Prop }
+    const dailyOptions = []; // Array de { date: Date, option: Prop | Prop[] }
 
     for (let d = new Date(startDate); d < endDate; d = addDays(d, 1)) {
         const currentDate = new Date(d); // Usar copia
 
-        // Filtrar propiedades disponibles ESE DÍA con capacidad >= requerida
-        const dailyAvailableSingle = allProperties.filter(prop => {
-            // Capacidad suficiente
-            if (prop.capacidad < requiredCapacity) return false;
-
-            // Tarifa definida para el día
+        // Propiedades disponibles ESE DÍA (con tarifa y sin ocupación)
+        const dailyAvailable = allProperties.filter(prop => {
             const hasTarifa = allTarifas.some(t =>
                 t.alojamientoId === prop.id && t.fechaInicio <= currentDate && t.fechaTermino >= currentDate
             );
             if (!hasTarifa) return false;
 
-            // No ocupada ese día
             const isOccupied = (availabilityMap.get(prop.id) || []).some(res =>
                 currentDate >= res.start && currentDate < res.end
             );
             return !isOccupied;
         });
 
-        if (dailyAvailableSingle.length === 0) {
-            console.log(`[findSegmented SIMPLIFICADO] No hay opción INDIVIDUAL disponible para ${format(currentDate, 'yyyy-MM-dd')} con capacidad >= ${requiredCapacity}`);
-            return { combination: [], capacity: 0, dailyOptions: [] }; // Si un día falla, la segmentación no es posible
+        if (dailyAvailable.length === 0) {
+            console.log(`[findSegmented] No hay propiedades disponibles para ${format(currentDate, 'yyyy-MM-dd')}`);
+            return { combination: [], capacity: 0, dailyOptions: [] }; // Falla si un día no hay nada disponible
         }
 
-        // Elegir la MEJOR opción individual (la de menor capacidad que aún cumple, o la mayor si solo hay grandes)
-        const bestOption = dailyAvailableSingle.sort((a, b) => a.capacidad - b.capacidad)[0];
-        dailyOptions.push({ date: currentDate, option: bestOption }); // Guardar solo la propiedad individual
+        // 1. Buscar la mejor opción INDIVIDUAL (menor capacidad >= requerida)
+        let bestOption = dailyAvailable
+            .filter(p => p.capacidad >= requiredCapacity)
+            .sort((a, b) => a.capacidad - b.capacidad)[0];
+
+        // 2. Si no hay individual, intentar COMBINAR (greedy)
+        if (!bestOption) {
+            const sortedAvailable = dailyAvailable.sort((a, b) => b.capacidad - a.capacidad);
+            let currentCombination = [];
+            let currentCapacity = 0;
+            for (const prop of sortedAvailable) {
+                currentCombination.push(prop);
+                currentCapacity += prop.capacidad;
+                if (currentCapacity >= requiredCapacity) break; // Detener al cumplir
+            }
+            // Solo es válida la combinación si se alcanzó la capacidad
+            if (currentCapacity >= requiredCapacity) {
+                bestOption = currentCombination; // bestOption es ahora un array
+            }
+        }
+
+        // 3. Si se encontró opción (individual o combinada), guardarla
+        if (bestOption) {
+            dailyOptions.push({
+                date: currentDate,
+                option: bestOption // Puede ser objeto (individual) o array (combinación)
+            });
+        } else {
+            // Si ni individual ni combinada funcionan para este día, la segmentación falla
+            console.log(`[findSegmented] No se encontró opción (individual ni combinada) para ${format(currentDate, 'yyyy-MM-dd')} con capacidad ${requiredCapacity}`);
+            return { combination: [], capacity: 0, dailyOptions: [] };
+        }
     }
 
-    // Si llegamos aquí, se encontró una opción individual para cada día
-    // 'combination' es la lista de opciones diarias encontradas.
-    console.log(`[findSegmented SIMPLIFICADO] Opciones diarias encontradas: ${dailyOptions.length}`);
+    // Si llegamos aquí, se encontró una opción para cada día
+    console.log(`[findSegmented] Opciones diarias encontradas: ${dailyOptions.length}`);
+    // 'combination' es la lista de opciones diarias. El frontend la procesará para armar el itinerario.
     return { combination: dailyOptions, capacity: requiredCapacity, dailyOptions: dailyOptions };
 }
-// *** FIN FUNCIÓN SIMPLIFICADA ***
+// *** FIN FUNCIÓN RESTAURADA ***
 
 
 // --- Función calculatePrice (Sin cambios recientes) ---
@@ -173,40 +199,45 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
                               ? await obtenerValorDolar(db, empresaId, startDate)
                               : null);
 
-    let totalPrecioOriginal = 0;
+    let totalPrecioOriginal = 0; // Moneda del canal objetivo
     const priceDetails = [];
     let totalNights = differenceInDays(endDate, startDate);
+    // Permitir 0 noches si es segmentado, ya que se calcula por día
     if (totalNights <= 0 && !isSegmented) return { totalPriceCLP: 0, totalPriceOriginal: 0, currencyOriginal: canalObjetivo.moneda, valorDolarDia, nights: 0, details: [] };
 
 
     if (isSegmented) {
-        // items = dailyOptions = [{ date: Date, option: Prop }, ...]
-        totalNights = 0; // Reiniciar
+        // items = dailyOptions = [{ date: Date, option: Prop | Prop[] }, ...]
+        totalNights = 0; // Reiniciar y sumar por día/segmento encontrado
         for (const dailyOption of items) {
             const currentDate = dailyOption.date;
-            const prop = dailyOption.option; // Ahora siempre es una propiedad individual
-            totalNights++; // Cada item es un día
+            const option = dailyOption.option; // Prop o Prop[]
+            const propertiesForDay = Array.isArray(option) ? option : [option];
+            totalNights++; // Cada item en dailyOptions representa una noche
 
-            let dailyRateBase = 0;
-            const tarifasDelDia = allTarifas.filter(t =>
-                t.alojamientoId === prop.id &&
-                t.fechaInicio <= currentDate &&
-                t.fechaTermino >= currentDate
-            );
-            if (tarifasDelDia.length > 0) {
-                const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
-                const precioBaseObj = tarifa.precios?.[canalPorDefecto.id];
-                dailyRateBase = (typeof precioBaseObj === 'number' ? precioBaseObj : 0);
-            } else {
-                 console.warn(`[WARN] No se encontró tarifa base para ${prop.nombre} en fecha ${format(currentDate, 'yyyy-MM-dd')} (segmentado)`);
+            let dailyRateBase = 0; // Tarifa base SUMADA para todas las props de ESE día (moneda default)
+            for (const prop of propertiesForDay) {
+                const tarifasDelDia = allTarifas.filter(t =>
+                    t.alojamientoId === prop.id &&
+                    t.fechaInicio <= currentDate &&
+                    t.fechaTermino >= currentDate
+                );
+                if (tarifasDelDia.length > 0) {
+                    const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
+                    const precioBaseObj = tarifa.precios?.[canalPorDefecto.id];
+                    dailyRateBase += (typeof precioBaseObj === 'number' ? precioBaseObj : 0);
+                } else {
+                     console.warn(`[WARN] No se encontró tarifa base para ${prop.nombre} en fecha ${format(currentDate, 'yyyy-MM-dd')} (segmentado)`);
+                }
             }
 
-            let dailyRateModified = dailyRateBase;
+            let dailyRateModified = dailyRateBase; // En moneda default
             if (canalObjetivo.id !== canalPorDefecto.id && canalObjetivo.modificadorValor) {
                 if (canalObjetivo.modificadorTipo === 'porcentaje') {
                     dailyRateModified *= (1 + (canalObjetivo.modificadorValor / 100));
                 } else if (canalObjetivo.modificadorTipo === 'fijo') {
-                    dailyRateModified += canalObjetivo.modificadorValor; // Se suma por día
+                    // El fijo se aplica por NOCHE, sumamos directo al rate diario
+                    dailyRateModified += canalObjetivo.modificadorValor;
                 }
             }
 
@@ -221,17 +252,17 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
 
             totalPrecioOriginal += dailyRateInTargetCurrency;
 
-            // Guardar detalle diario (opcional, podría quitarse si no se usa)
+             // Guardar detalle diario (útil para frontend)
              priceDetails.push({
                  date: format(currentDate, 'yyyy-MM-dd'),
-                 properties: prop.nombre, // Ahora es solo una
-                 dailyRate: dailyRateInTargetCurrency
+                 properties: propertiesForDay.map(p => ({id: p.id, nombre: p.nombre})), // Guardar IDs y nombres
+                 dailyRate: dailyRateInTargetCurrency // Rate diario en moneda objetivo
              });
         }
 
     } else { // Cálculo NO segmentado
         for (const prop of items) {
-            let propPrecioBaseTotal = 0;
+            let propPrecioBaseTotal = 0; // Moneda default
             for (let d = new Date(startDate); d < endDate; d = addDays(d, 1)) {
                 const currentDate = new Date(d);
                 const tarifasDelDia = allTarifas.filter(t =>
@@ -248,7 +279,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
                 }
             }
 
-            let precioPropModificado = propPrecioBaseTotal;
+            let precioPropModificado = propPrecioBaseTotal; // Moneda default
             if (canalObjetivo.id !== canalPorDefecto.id && canalObjetivo.modificadorValor) {
                 if (canalObjetivo.modificadorTipo === 'porcentaje') {
                     precioPropModificado *= (1 + (canalObjetivo.modificadorValor / 100));
@@ -270,6 +301,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
 
             priceDetails.push({
                 nombre: prop.nombre,
+                id: prop.id, // Añadir ID para referencia
                 precioTotal: precioPropEnMonedaObjetivo,
                 precioPorNoche: totalNights > 0 ? precioPropEnMonedaObjetivo / totalNights : 0,
             });
@@ -288,13 +320,14 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
         currencyOriginal: canalObjetivo.moneda,
         valorDolarDia: valorDolarDia,
         nights: totalNights,
-        details: priceDetails
+        details: priceDetails // Importante para construir el itinerario en el frontend
     };
 }
+
 
 module.exports = {
     getAvailabilityData,
     findNormalCombination,
-    findSegmentedCombination, // Simplificada
+    findSegmentedCombination, // Restaurada a versión compatible con panel
     calculatePrice
 };
