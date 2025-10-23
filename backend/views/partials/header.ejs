@@ -13,7 +13,8 @@
             <a href="/#propiedades" class="text-gray-600 hover:text-indigo-600 font-semibold transition text-sm">Ver Propiedades</a>
             
             <%# --- INICIO BOTÓN WHATSAPP HEADER --- %>
-            <% if (empresa.contactoTelefono && empresa.contactoNombre) { %>
+            <%# Ocultar si estamos en la página de una propiedad (paginaPropiedad se define en propiedad.ejs) %>
+            <% if (empresa.contactoTelefono && empresa.contactoNombre && !locals.paginaPropiedad) { %>
                 <% 
                     const telefonoLimpio = empresa.contactoTelefono.replace(/\D/g, '');
                     const nombreAnfitrion = empresa.contactoNombre.split(' ')[0];
@@ -21,16 +22,16 @@
                     const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeGenerico)}`;
                 %>
                 <a href="<%= whatsappUrl %>" target="_blank" class="btn-whatsapp">
-                    <i class="fa-solid fa-brands fa-whatsapp w-5 h-5 mr-2 text-white"></i>
+                    <i class="fa-brands fa-whatsapp w-5 h-5 mr-2 text-white"></i>
                     Hola, soy <%= nombreAnfitrion %>, ¿te ayudo?
                 </a>
             <% } %>
             <%# --- FIN BOTÓN WHATSAPP HEADER --- %>
         </nav>
         
-        <%# --- Botón Móvil (si es necesario) --- %>
+        <%# --- Botón Móvil --- %>
         <div class="sm:hidden">
-             <% if (empresa.contactoTelefono) { %>
+             <% if (empresa.contactoTelefono && !locals.paginaPropiedad) { %>
                 <% 
                     const telefonoLimpio = empresa.contactoTelefono.replace(/\D/g, '');
                     const nombreAnfitrion = (empresa.contactoNombre || 'Anfitrión').split(' ')[0];
@@ -38,7 +39,7 @@
                     const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeGenerico)}`;
                 %>
                 <a href="<%= whatsappUrl %>" target="_blank" class="btn-whatsapp p-2">
-                    <i class="fa-solid fa-brands fa-whatsapp w-5 h-5 text-white m-0"></i>
+                    <i class="fa-brands fa-whatsapp w-5 h-5 text-white m-0"></i>
                 </a>
              <% } %>
         </div>

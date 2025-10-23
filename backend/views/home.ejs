@@ -10,36 +10,47 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body class="bg-gray-50">
 
     <%- include('partials/header') %>
 
     <main class="overflow-hidden">
-        <%# Sección Hero (sin cambios) %>
         <% if (empresa.websiteSettings?.theme?.heroImageUrl) { %>
             <div class="hero-container">
                 <picture>
                     <source srcset="<%= empresa.websiteSettings.theme.heroImageUrl %>" type="image/webp">
-                    <img src="<%= empresa.websiteSettings.theme.heroImageUrl %>" alt="<%= empresa.websiteSettings.theme.heroImageAlt || 'Imagen de portada' %>" title="<%= empresa.websiteSettings.theme.heroImageTitle || empresa.nombre %>" class="hero-image">
+                    <img src="<%= empresa.websiteSettings.theme.heroImageUrl %>"
+                         alt="<%= empresa.websiteSettings.theme.heroImageAlt || 'Imagen de portada' %>"
+                         title="<%= empresa.websiteSettings.theme.heroImageTitle || empresa.nombre %>"
+                         class="hero-image">
                 </picture>
                 <div class="hero-overlay"></div>
                 <div class="hero-content">
-                    <h1 class="text-4xl md:text-5xl font-bold"><%= empresa.websiteSettings?.content?.homeH1 || empresa.nombre %></h1>
-                    <p class="mt-4 text-lg md:text-xl max-w-2xl"><%= empresa.websiteSettings?.content?.homeIntro || empresa.slogan || 'Tu mejor opción para descansar.' %></p>
+                    <h1 class="text-4xl md:text-5xl font-bold">
+                        <%= empresa.websiteSettings?.content?.homeH1 || empresa.nombre %>
+                    </h1>
+                    <p class="mt-4 text-lg md:text-xl max-w-2xl">
+                        <%= empresa.websiteSettings?.content?.homeIntro || empresa.slogan || 'Tu mejor opción para descansar.' %>
+                    </p>
                 </div>
             </div>
         <% } else { %>
             <div class="bg-indigo-700 text-white py-12 px-4 text-center h-64 md:h-80 flex items-center justify-center">
                  <div>
-                    <h1 class="text-4xl md:text-5xl font-bold"><%= empresa.websiteSettings?.content?.homeH1 || empresa.nombre %></h1>
-                    <p class="mt-4 text-lg md:text-xl max-w-2xl"><%= empresa.websiteSettings?.content?.homeIntro || empresa.slogan || 'Tu mejor opción para descansar.' %></p>
+                    <h1 class="text-4xl md:text-5xl font-bold">
+                        <%= empresa.websiteSettings?.content?.homeH1 || empresa.nombre %>
+                    </h1>
+                    <p class="mt-4 text-lg md:text-xl max-w-2xl">
+                        <%= empresa.websiteSettings?.content?.homeIntro || empresa.slogan || 'Tu mejor opción para descansar.' %>
+                    </p>
                  </div>
             </div>
         <% } %>
 
         <div class="container py-12">
-            <%# Buscador (sin cambios) %>
             <div class="bg-white p-6 rounded-lg shadow-lg mb-12">
                 <form action="/" method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                     <div>
@@ -69,8 +80,8 @@
 
                 <%
                 const propiedadesParaMostrar = propiedades.filter(prop => {
-                    return prop.googleHotelData?.isListed === true &&
-                           prop.websiteData?.cardImage &&
+                    return prop.googleHotelData?.isListed === true && 
+                           prop.websiteData?.cardImage && 
                            prop.websiteData.cardImage.storagePath;
                 });
                 %>
@@ -83,39 +94,33 @@
                                 const imagenUrl = imagenTarjeta.storagePath;
                                 const altText = imagenTarjeta.altText || `Imagen de ${prop.nombre}`;
                                 const titleText = imagenTarjeta.title || prop.nombre;
-                                // *** CAMBIO: Priorizar descripción IA ***
                                 const descripcion = prop.websiteData?.aiDescription || prop.descripcion || 'Descripción no disponible.';
                             %>
-<%# ... dentro del bucle propiedadesParaMostrar.forEach(prop => { ... %>
-<div class="property-card"> <%# Added flex flex-col %>
-    <a href="/propiedad/<%= prop.id %>">
-        <picture>
-            <source srcset="<%= imagenUrl %>" type="image/webp">
-            <img src="<%= imagenUrl %>" alt="<%= altText %>" title="<%= titleText %>" loading="lazy">
-        </picture>
-    </a>
-    <div class="property-card-content"> <%# Added flex-grow etc. via CSS %>
-        <div> <%# Wrapper for title/details/description %>
-            <h3 class="property-card-title"><a href="/propiedad/<%= prop.id %>"><%= prop.nombre %></a></h3>
-            <p class="property-card-details">Hasta <%= prop.capacidad %> personas</p>
-            <%# Optional: Add key feature icons here %>
-            <div class="flex space-x-2 text-xs text-indigo-600 mt-1 mb-2">
-                <% if (prop.equipamiento?.tinaja) { %><span title="Tinaja"><i class="fa-solid fa-hot-tub-person"></i></span><% } %>
-                <% if (prop.equipamiento?.parrilla) { %><span title="Parrilla"><i class="fa-solid fa-burger"></i></span><% } %>
-                <%# Add more icons based on important features %>
-            </div>
-            <p class="card-description"><%= descripcion %></p>
-        </div>
-        <div class="text-right mt-4">
-            <a href="/propiedad/<%= prop.id %>" class="btn-secondary btn-sm">Ver Detalles</a> <%# Use btn-sm %>
-        </div>
-    </div>
-</div>
-<%# ... fin del bucle ... %>
-                            <% }) %>
+                            <div class="property-card">
+                                <a href="/propiedad/<%= prop.id %>">
+                                    <picture>
+                                        <source srcset="<%= imagenUrl %>" type="image/webp">
+                                        <img src="<%= imagenUrl %>" alt="<%= altText %>" title="<%= titleText %>" loading="lazy">
+                                    </picture>
+                                </a>
+                                <div class="property-card-content">
+                                    <div>
+                                        <h3 class="property-card-title"><a href="/propiedad/<%= prop.id %>"><%= prop.nombre %></a></h3>
+                                        <p class="property-card-details">Hasta <%= prop.capacidad %> personas</p>
+                                        <div class="flex space-x-2 text-xs text-indigo-600 mt-1 mb-2">
+                                            <% if (prop.equipamiento?.tinaja) { %><span title="Tinaja"><i class="fa-solid fa-hot-tub-person"></i></span><% } %>
+                                            <% if (prop.equipamiento?.parrilla) { %><span title="Parrilla"><i class="fa-solid fa-burger"></i></span><% } %>
+                                        </div>
+                                        <p class="card-description"><%= descripcion %></p>
+                                    </div>
+                                    <div class="text-right mt-4">
+                                        <a href="/propiedad/<%= prop.id %>" class="btn-secondary btn-sm">Ver Detalles</a>
+                                    </div>
+                                </div>
+                            </div>
+                        <% }) %>
                     </div>
                 <% } else { %>
-                    <%# Mensaje 'else' (sin cambios) %>
                     <div class="text-center py-12 px-4 border-2 border-dashed rounded-lg">
                         <h3 class="text-xl font-semibold text-gray-700">No se encontraron propiedades</h3>
                         <p class="mt-2 text-sm text-gray-500">
@@ -132,6 +137,7 @@
                     </div>
                 <% } %>
             </div>
+
         </div>
     </main>
 
