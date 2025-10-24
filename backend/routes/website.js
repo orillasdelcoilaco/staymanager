@@ -124,25 +124,31 @@ module.exports = (db) => {
 
             // --- INICIO: Preparar datos para JSON-LD (Home) ---
 
-            // Filtrar las ofertas individuales
             const offers = resultadosParaMostrar.filter(item => !item.isGroup);
             
-            // Calcular priceRange (MODIFICADO)
+            // --- INICIO CÁLCULO priceRange (CORREGIDO) ---
+            // Usar los precios base de 'allTarifas' en lugar de los precios de búsqueda
             let priceRange = "";
-            const prices = offers
-                .map(prop => prop.pricing?.totalPriceCLP)
-                .filter(price => price > 0); // Filtrar nulos o 0
-            
-            if (prices.length > 0) {
-                const minPrice = Math.min(...prices);
-                const maxPrice = Math.max(...prices);
-                // Usar formato 150000-250000 CLP (o solo 150000 CLP si min y max son iguales)
-                if (minPrice === maxPrice) {
-                    priceRange = `${minPrice.toFixed(0)} CLP`;
-                } else {
-                    priceRange = `${minPrice.toFixed(0)} - ${maxPrice.toFixed(0)} CLP`;
+            if (canalPorDefectoId && allTarifas.length > 0) {
+                // Obtener todos los precios base definidos para el canal por defecto
+                const basePrices = allTarifas
+                    .map(tarifa => tarifa.precios?.[canalPorDefectoId])
+                    .filter(precio => typeof precio === 'number' && precio > 0); // Filtrar nulos, 0, o undefined
+
+                if (basePrices.length > 0) {
+                    const minPrice = Math.min(...basePrices);
+                    const maxPrice = Math.max(...basePrices);
+                    
+                    if (minPrice === maxPrice) {
+                        // Si todos los precios base son iguales
+                        priceRange = `${minPrice.toFixed(0)} CLP`;
+                    } else {
+                        // Crear el rango
+                        priceRange = `${minPrice.toFixed(0)} - ${maxPrice.toFixed(0)} CLP`;
+                    }
                 }
             }
+            // --- FIN CÁLCULO priceRange ---
 
             const schemaData = {
                 "@context": "https://schema.org",
@@ -151,23 +157,20 @@ module.exports = (db) => {
                 "description": empresaCompleta.websiteSettings?.seo?.homeDescription || empresaCompleta.slogan || `Reserva directa en ${empresaCompleta.nombre}`,
                 "url": req.baseUrl || '#',
                 "logo": empresaCompleta.websiteSettings?.theme?.logoUrl || '',
+                "image": empresaCompleta.websiteSettings?.theme?.heroImageUrl || '',
+                "telephone": empresaCompleta.contactoTelefono || '',
                 
-                // --- INICIO CAMPOS AÑADIDOS ---
-                "image": empresaCompleta.websiteSettings?.theme?.heroImageUrl || '', // (NUEVO)
-                "telephone": empresaCompleta.contactoTelefono || '', // (NUEVO)
-                ...(priceRange && { "priceRange": priceRange }), // (NUEVO)
-                // --- FIN CAMPOS AÑADIDOS ---
-
-                // --- CORRECCIÓN DE DIRECCIÓN ---
+                // (CORREGIDO) Añadir el priceRange si se calculó
+                ...(priceRange && { "priceRange": priceRange }),
+                
                 ...(empresaCompleta.ubicacionTexto && {
                     "address": {
                         "@type": "PostalAddress",
-                        "addressLocality": empresaCompleta.ubicacionTexto, // Usar el texto completo aquí
-                        "addressCountry": "CL" // Asumir Chile, más seguro que parsear
+                        "addressLocality": empresaCompleta.ubicacionTexto,
+                        "addressCountry": "CL"
                     }
                 }),
                 
-                // Usar la variable 'offers' que definimos antes
                 ...(offers.length > 0 && {
                     "makesOffer": offers.map(prop => ({
                          "@type": "Offer",
@@ -176,6 +179,7 @@ module.exports = (db) => {
                              "name": prop.nombre,
                              "url": `${req.baseUrl}/propiedad/${prop.id}`
                          },
+                         // Esto está bien, los precios de búsqueda solo aparecen si se buscó
                          ...(prop.pricing && prop.pricing.totalPriceCLP > 0 && {
                               "priceSpecification": {
                                    "@type": "PriceSpecification",
@@ -234,18 +238,36 @@ module.exports = (db) => {
             let hostingDuration='Anfitrión'; if(empresaCompleta.fechaCreacion&&empresaCompleta.fechaCreacion.toDate){ const c=empresaCompleta.fechaCreacion.toDate();const n=new Date();const y=differenceInYears(n,c);const m=differenceInMonths(n,c)%12;let d=[];if(y>0)d.push(`${y} año${y!==1?'s':''}`);if(m>0)d.push(`${m} mes${m!==1?'es':''}`);if(d.length>0)hostingDuration=`${d.join(' y ')} como anfitrión`;else hostingDuration='Recién comenzando';}
 
             // --- INICIO: Preparar datos para JSON-LD (Propiedad) ---
+            
+            // (NUEVO) Calcular priceRange para la propiedad individual
+            let propertyPriceRange = "";
+            if (canalPorDefectoId && allTarifas.length > 0) {
+                 const basePrices = allTarifas
+                    .filter(t => t.alojamientoId === propiedad.id) // Solo tarifas de esta propiedad
+                    .map(tarifa => tarifa.precios?.[canalPorDefectoId])
+                    .filter(precio => typeof precio === 'number' && precio > 0);
+                if (basePrices.length > 0) {
+                     const minPrice = Math.min(...basePrices);
+                     const maxPrice = Math.max(...basePrices);
+                     if (minPrice === maxPrice) {
+                         propertyPriceRange = `${minPrice.toFixed(0)} CLP`;
+                     } else {
+                         propertyPriceRange = `${minPrice.toFixed(0)} - ${maxPrice.toFixed(0)} CLP`;
+                     }
+                }
+            }
+            
             const propertySchemaData = {
                 "@context": "https://schema.org",
                 "@type": "LodgingBusiness",
                 "name": empresaCompleta.nombre || "Alojamiento",
                 "url": req.baseUrl || '#',
-                
-                // --- AÑADIDOS TAMBIÉN AQUÍ ---
-                "image": empresaCompleta.websiteSettings?.theme?.heroImageUrl || (propiedad.websiteData?.cardImage?.storagePath || ''), // Usar hero o imagen de prop
+                "image": empresaCompleta.websiteSettings?.theme?.heroImageUrl || (propiedad.websiteData?.cardImage?.storagePath || ''),
                 "telephone": empresaCompleta.contactoTelefono || '',
-                ...(defaultPriceData.totalPriceCLP > 0 && { "priceRange": `${defaultPriceData.totalPriceCLP.toFixed(0)} CLP` }), // Usar precio del finde como rango
                 
-                // --- CORRECCIÓN DE DIRECCIÓN ---
+                // (CORREGIDO) Usar el priceRange de la propiedad si se calculó
+                ...(propertyPriceRange && { "priceRange": propertyPriceRange }),
+                
                 ...(empresaCompleta.ubicacionTexto && {
                     "address": {
                         "@type": "PostalAddress",
@@ -267,6 +289,7 @@ module.exports = (db) => {
                          },
                          "url": `${req.baseUrl}/propiedad/${propiedad.id}`
                     },
+                     // Usar el precio del finde (si se buscó) como precio específico
                      ...(defaultPriceData.totalPriceCLP > 0 && {
                          "priceSpecification": {
                               "@type": "PriceSpecification",
@@ -391,7 +414,7 @@ module.exports = (db) => {
     // --- (Manejador 404 sin cambios) ---
     router.use(async (req, res) => {
         const empresaData = res.locals.empresa || req.empresa || { nombre: "Página no encontrada" };
-        res.status(44).render('404', { title: 'Página no encontrada', empresa: empresaData });
+        res.status(404).render('404', { title: 'Página no encontrada', empresa: empresaData });
     });
 
     return router;
