@@ -67,7 +67,7 @@ module.exports = (db) => {
 
         try {
             const { fechaLlegada, fechaSalida, personas } = req.query;
-            let resultadosParaMostrar = [];
+            let resultadosParaMostrar = []; // <--- MODIFICADO: Inicializar array
             let isSearchResult = false;
 
             const [todasLasPropiedades, tarifasSnapshot, canalesSnapshot] = await Promise.all([
@@ -115,7 +115,29 @@ module.exports = (db) => {
                 const propiedadesDisponiblesListadas = propiedadesListadas.filter(p => availableIds.has(p.id));
 
                 if (propiedadesDisponiblesListadas.length > 0 && canalPorDefectoId) {
-                    // --- INICIO NUEVA LÓGICA DE FILTRADO Y PRECIOS INDIVIDUALES ---
+                    
+                    // --- INICIO LÓGICA DE GRUPO (REACTIVADA) ---
+                    try {
+                        const combinacionGrupo = await findNormalCombination(
+                            db, 
+                            empresaId, 
+                            propiedadesDisponiblesListadas, // Usar solo las disponibles y listadas
+                            numPersonas, 
+                            startDate, 
+                            endDate, 
+                            allTarifas, 
+                            canalPorDefectoId
+                        );
+                        
+                        if (combinacionGrupo) {
+                            resultadosParaMostrar.push(combinacionGrupo); // Añadir el grupo primero
+                        }
+                    } catch (groupError) {
+                        console.error("Error al buscar combinación de grupo:", groupError);
+                    }
+                    // --- FIN LÓGICA DE GRUPO ---
+
+                    // --- INICIO LÓGICA INDIVIDUAL (MANTENIDA) ---
                     const propiedadesFiltradasPorCapacidad = propiedadesDisponiblesListadas.filter(p => p.capacidad >= numPersonas);
 
                     if (propiedadesFiltradasPorCapacidad.length > 0) {
@@ -123,25 +145,23 @@ module.exports = (db) => {
                         const pricePromises = propiedadesFiltradasPorCapacidad.map(async (prop) => {
                             try {
                                 const pricingResult = await calculatePrice(db, empresaId, [prop], startDate, endDate, allTarifas, canalPorDefectoId);
+                                // No añadir si es parte del grupo ya mostrado (opcional, pero buena idea)
+                                if (resultadosParaMostrar.length > 0 && resultadosParaMostrar[0].isGroup && resultadosParaMostrar[0].properties.some(pGroup => pGroup.id === prop.id)) {
+                                    return null; // Ya está en el grupo
+                                }
                                 return { ...prop, pricing: pricingResult };
                             } catch (priceError) {
                                 console.warn(`No se pudo calcular el precio para la propiedad ${prop.id}: ${priceError.message}`);
-                                return { ...prop, pricing: null }; // O marcar error: { error: true, message: priceError.message }
+                                return { ...prop, pricing: null }; 
                             }
                         });
-                        resultadosParaMostrar = await Promise.all(pricePromises);
-                    } else {
-                        console.log(`No se encontraron propiedades disponibles con capacidad para ${numPersonas} personas.`);
-                        resultadosParaMostrar = []; // Mostrar "No encontrado"
+                        const resultadosIndividuales = (await Promise.all(pricePromises)).filter(Boolean); // filter(Boolean) elimina los null
+                        resultadosParaMostrar.push(...resultadosIndividuales); // Añadir individuales después del grupo
                     }
-                    // --- FIN NUEVA LÓGICA ---
+                    // --- FIN LÓGICA INDIVIDUAL ---
 
                 } else if (!canalPorDefectoId) {
                     console.warn(`[WARN] Empresa ${empresaId} no tiene canal por defecto. No se calcularán precios.`);
-                    // Mostrar propiedades disponibles sin precio si no hay canal por defecto
-                    resultadosParaMostrar = propiedadesDisponiblesListadas
-                                                .filter(p => p.capacidad >= numPersonas)
-                                                .map(prop => ({ ...prop, pricing: null }));
                 }
                 // Si no hay propiedades disponibles listadas, resultadosParaMostrar queda []
 
@@ -342,6 +362,8 @@ module.exports = (db) => {
     });
 
     // Ruta /reservar (GET) - (sin cambios)
+    // NOTA: Esta ruta ya está preparada para manejar grupos (isGroup) y pasa
+    // todos los 'query' params a la vista, lo cual es necesario para 'reservar.ejs'
     router.get('/reservar', async (req, res) => {
         const empresaId = req.empresa.id;
         let empresaCompleta = req.empresaCompleta;

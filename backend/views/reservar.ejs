@@ -5,160 +5,202 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= title %></title>
-    <meta name="description" content="Completa tu reserva en <%= empresa.nombre %>">
     <link rel="stylesheet" href="/public/css/website.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <%# Funciones auxiliares para formato %>
+    <%
+        const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
+        const formatDateDisplay = (dateString) => {
+            if (!dateString) return 'N/A';
+            try {
+                const date = new Date(dateString + 'T00:00:00Z'); // Asumir UTC para parsear yyyy-MM-dd
+                return date.toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+            } catch (e) {
+                return dateString;
+            }
+        };
+        const precioFinalNum = parseFloat(query.precioFinal) || 0;
+        const abonoNum = precioFinalNum * 0.10; // 10%
+    %>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-50">
+
     <%- include('partials/header') %>
 
-    <% const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`; %>
-    <% const precioTotal = parseFloat(query.precioFinal) || 0; %>
-    <% const abonoRequerido = precioTotal * 0.10; %>
-    <% const saldoPendiente = precioTotal - abonoRequerido; %>
-
-    <main class="container py-8 md:py-12">
-        <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-8">Completa tu Reserva</h1>
-        
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
+    <main class="container py-12">
+        <div class="max-w-6xl mx-auto">
             
-            <%# Columna Izquierda: Formulario de Datos %>
-            <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-lg">
-                <h2 class="text-2xl font-semibold text-gray-800 mb-6">Tus Datos</h2>
-                
-                <form id="checkout-form" class="space-y-4">
-                    <%# --- Campos ocultos con los datos de la reserva --- %>
+            <h1 class="text-3xl font-bold text-gray-900 mb-8">Completa tu Reserva</h1>
+
+            <%# --- MODIFICADO: Layout de 2 columnas para Resumen y Formulario --- %>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+
+                <%# --- COLUMNA IZQUIERDA: Resumen y Mosaico --- %>
+                <div class="space-y-8">
                     <% if (isGroup) { %>
-                        <%# Si es grupo, pasar todos los IDs %>
-                        <input type="hidden" name="propiedadId" value="<%= propiedad.map(p => p.id).join(',') %>">
-                    <% } else { %>
-                        <%# Si es individual, pasar un solo ID %>
-                        <input type="hidden" name="propiedadId" value="<%= propiedad.id %>">
-                    <% } %>
-                    <input type="hidden" name="fechaLlegada" value="<%= query.fechaLlegada %>">
-                    <input type="hidden" name="fechaSalida" value="<%= query.fechaSalida %>">
-                    <input type="hidden" name="noches" value="<%= query.noches %>">
-                    <input type="hidden" name="personas" value="<%= query.personas %>">
-                    <input type="hidden" name="precioFinal" value="<%= precioTotal %>">
-                    <%# --- Fin campos ocultos --- %>
-
-                    <div>
-                        <label for="nombreCliente" class="block text-sm font-medium text-gray-700">Nombre Completo</label>
-                        <input type="text" name="nombreCliente" id="nombreCliente" class="form-input mt-1" required placeholder="Ej: Juan Pérez">
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <%# --- LÓGICA PARA GRUPO --- %>
                         <div>
-                            <label for="emailCliente" class="block text-sm font-medium text-gray-700">Email</label>
-                            <input type="email" name="emailCliente" id="emailCliente" class="form-input mt-1" required placeholder="juan.perez@dominio.com">
-                        </div>
-                        <div>
-                            <label for="telefonoCliente" class="block text-sm font-medium text-gray-700">Teléfono (WhatsApp)</label>
-                            <input type="tel" name="telefonoCliente" id="telefonoCliente" class="form-input mt-1" placeholder="+56 9 1234 5678">
-                        </div>
-                    </div>
-                    
-                    <div class="pt-6">
-                        <h3 class="text-xl font-semibold text-gray-800 mb-4">Política de Abono</h3>
-                        <p class="text-sm text-gray-600 mb-4">
-                            Para confirmar esta reserva, se requiere un abono del 10% (<%= formatCurrency(abonoRequerido) %>).
-                            Serás redirigido a la página de confirmación donde encontrarás las instrucciones para realizar el pago.
-                        </p>
-                        <button type="submit" id="submit-reserva" class="btn w-full text-lg">
-                            Confirmar y Continuar al Pago
-                        </button>
-                    </div>
-                </form>
-                <div id="form-error" class="mt-4 text-center text-red-600 text-sm hidden"></div>
-                <div id="form-loader" class="mt-4 text-center text-indigo-600 text-sm hidden">Procesando tu reserva...</div>
-
-            </div>
-
-            <%# Columna Derecha: Resumen de Estadía %>
-            <div class="lg:col-span-1">
-                <div class="sticky top-8">
-                    <div class="bg-white p-6 rounded-lg shadow-lg border">
-                        <h2 class="text-2xl font-semibold text-gray-800 mb-4 border-b pb-3">Resumen de Estadía</h2>
-
-                        <%# --- Resumen General (Fechas, Personas) --- %>
-                        <div class="space-y-2 text-sm text-gray-700 mb-4">
-                            <div class="flex justify-between">
-                                <span class="font-semibold">Llegada:</span>
-                                <span><%= new Date(query.fechaLlegada + 'T00:00:00Z').toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' }) %></span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="font-semibold">Salida:</span>
-                                <span><%= new Date(query.fechaSalida + 'T00:00:00Z').toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' }) %></span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="font-semibold">Total Noches:</span>
-                                <span><%= query.noches %></span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="font-semibold">Huéspedes:</span>
-                                <span><%= query.personas %></span>
-                            </div>
-                        </div>
-
-                        <%# --- Desglose de Propiedades --- %>
-                        <div class="border-t pt-4">
-                            <% if (isGroup) { %>
-                                <h3 class="text-lg font-semibold text-gray-800 mb-3">Propiedades Incluidas (<%= propiedad.length %>)</h3>
-                                <div class="space-y-4">
-                                    <% propiedad.forEach(prop => { %>
-                                        <% const imgUrl = prop.websiteData?.cardImage?.storagePath || 'https://via.placeholder.com/150x100.png?text=Sin+Imagen'; %>
-                                        <div class="flex items-center space-x-3">
-                                            <img src="<%= imgUrl %>" alt="<%= prop.nombre %>" class="w-24 h-16 object-cover rounded-md flex-shrink-0">
-                                            <div>
-                                                <h4 class="font-semibold text-sm"><%= prop.nombre %></h4>
-                                                <p class="text-xs text-gray-600">Capacidad: <%= prop.capacidad %> personas</p>
-                                                <%# NOTA: El precio individual por cabaña no lo tenemos aquí, solo el total %>
-                                            </div>
+                            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Resumen de tu Grupo</h2>
+                            
+                            <div class="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
+                                <div class="space-y-3">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-600">Fechas:</span>
+                                        <span class="font-semibold text-gray-900"><%= formatDateDisplay(query.fechaLlegada) %> - <%= formatDateDisplay(query.fechaSalida) %></span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-600">Noches:</span>
+                                        <span class="font-semibold text-gray-900"><%= query.noches %></span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-600">Huéspedes:</span>
+                                        <span class="font-semibold text-gray-900"><%= query.personas %></span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-600">Propiedades:</span>
+                                        <span class="font-semibold text-gray-900"><%= propiedad.length %></span>
+                                    </div>
+                                    
+                                    <div class="border-t pt-4 mt-4">
+                                        <div class="flex justify-between items-center text-xl font-bold">
+                                            <span>Total Estadía:</span>
+                                            <span><%= formatCurrency(precioFinalNum) %></span>
                                         </div>
-                                    <% }) %>
-                                </div>
-                            <% } else { %>
-                                <%# --- Vista Individual (como antes) --- %>
-                                <h3 class="text-lg font-semibold text-gray-800 mb-3">Propiedad</h3>
-                                <% const imgUrl = propiedad.websiteData?.cardImage?.storagePath || 'https://via.placeholder.com/150x100.png?text=Sin+Imagen'; %>
-                                <div class="flex items-center space-x-3">
-                                    <img src="<%= imgUrl %>" alt="<%= propiedad.nombre %>" class="w-24 h-16 object-cover rounded-md flex-shrink-0">
-                                    <div>
-                                        <h4 class="font-semibold text-sm"><%= propiedad.nombre %></h4>
-                                        <p class="text-xs text-gray-600">Capacidad: <%= propiedad.capacidad %> personas</p>
+                                        <div class="flex justify-between items-center text-base font-semibold text-indigo-600 mt-1">
+                                            <span>Abono para reservar (10%):</span>
+                                            <span><%= formatCurrency(abonoNum) %></span>
+                                        </div>
                                     </div>
                                 </div>
-                            <% } %>
-                        </div>
-
-                        <%# --- Resumen de Pago --- %>
-                        <div class="border-t pt-4 mt-4 space-y-2">
-                             <div class="flex justify-between text-lg font-semibold text-gray-800">
-                                <span>Total Estadía:</span>
-                                <span><%= formatCurrency(precioTotal) %></span>
-                            </div>
-                             <div class="flex justify-between text-sm text-gray-600">
-                                <span>Abono (10%):</span>
-                                <span><%= formatCurrency(abonoRequerido) %></span>
-                            </div>
-                            <div class="flex justify-between text-sm font-semibold text-gray-800 pt-2 border-t mt-2">
-                                <span>Saldo Pendiente (al llegar):</span>
-                                <span><%= formatCurrency(saldoPendiente) %></span>
                             </div>
                         </div>
 
-                    </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-800 mb-3">Propiedades Incluidas</h3>
+                            <%# Mosaico de Imágenes %>
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                <% propiedad.forEach(p => { %>
+                                    <% const imgUrl = p.websiteData?.cardImage?.storagePath || 'https://via.placeholder.com/150x100.png?text=Sin+Imagen'; %>
+                                    <div class="relative rounded-lg overflow-hidden aspect-w-1 aspect-h-1 bg-gray-100">
+                                        <img src="<%= imgUrl %>" alt="<%= p.nombre %>" class="w-full h-full object-cover">
+                                        <div class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent">
+                                            <p class="text-white text-xs font-semibold truncate"><%= p.nombre %></p>
+                                        </div>
+                                    </div>
+                                <% }) %>
+                            </div>
+                        </div>
+
+                    <% } else { %>
+                        <%# --- LÓGICA PARA PROPIEDAD INDIVIDUAL (EXISTENTE) --- %>
+                        <%
+                            const imgUrl = propiedad.websiteData?.cardImage?.storagePath || 'https://via.placeholder.com/400x300.png?text=Sin+Imagen';
+                        %>
+                        <div>
+                            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Tu Estadía en: <%= propiedad.nombre %></h2>
+                            
+                            <div class="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
+                                <img src="<%= imgUrl %>" alt="<%= propiedad.nombre %>" class="w-full h-48 object-cover">
+                                <div class="p-6">
+                                    <div class="space-y-3">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-gray-600">Fechas:</span>
+                                            <span class="font-semibold text-gray-900"><%= formatDateDisplay(query.fechaLlegada) %> - <%= formatDateDisplay(query.fechaSalida) %></span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-gray-600">Noches:</span>
+                                            <span class="font-semibold text-gray-900"><%= query.noches %></span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-gray-600">Huéspedes:</span>
+                                            <span class="font-semibold text-gray-900"><%= query.personas %></span>
+                                        </div>
+                                        
+                                        <div class="border-t pt-4 mt-4">
+                                            <div class="flex justify-between items-center text-xl font-bold">
+                                                <span>Total Estadía:</span>
+                                                <span><%= formatCurrency(precioFinalNum) %></span>
+                                            </div>
+                                            <div class="flex justify-between items-center text-base font-semibold text-indigo-600 mt-1">
+                                                <span>Abono para reservar (10%):</span>
+                                                <span><%= formatCurrency(abonoNum) %></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    <% } %>
                 </div>
-            </div>
 
+                <%# --- COLUMNA DERECHA: Formulario --- %>
+                <div class="bg-white p-6 md:p-8 rounded-lg shadow-lg border border-gray-200">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-6">Datos del Huésped Principal</h2>
+                    
+                    <form id="checkout-form" class="space-y-4">
+                        <div>
+                            <label for="nombre" class="form-label">Nombre Completo</label>
+                            <input type="text" id="nombre" name="nombre" class="form-input" required>
+                        </div>
+                        <div>
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" id="email" name="email" class="form-input" required>
+                        </div>
+                        <div>
+                            <label for="telefono" class="form-label">Teléfono (Ej: 912345678)</label>
+                            <div class="flex items-center">
+                                <span class="form-input-prefix">+56</span>
+                                <input type="tel" id="telefono" name="telefono" class="form-input-addon" placeholder="912345678" required>
+                            </div>
+                        </div>
+                         <div>
+                            <label for="rut" class="form-label">RUT (Sin puntos, con guión. Ej: 12345678-9)</label>
+                            <input type="text" id="rut" name="rut" class="form-input" placeholder="12345678-9">
+                        </div>
+                        <div>
+                            <label for="comentarios" class="form-label">Comentarios (Opcional)</label>
+                            <textarea id="comentarios" name="comentarios" rows="3" class="form-input" placeholder="¿Necesitas algo especial? ¿Hora de llegada?"></textarea>
+                        </div>
+                        
+                        <div class="pt-4">
+                            <button type="submit" id="submit-button" class="btn w-full text-lg">
+                                <span>
+                                    Confirmar y Pagar Abono (<%= formatCurrency(abonoNum) %>)
+                                </span>
+                                <span id="loading-spinner" class="hidden">
+                                    <i class="fas fa-spinner fa-spin"></i> Procesando...
+                                </span>
+                            </button>
+                        </div>
+                    </form>
+                    <div id="error-message" class="mt-4 text-center text-red-600 font-medium hidden"></div>
+                </div>
+
+            </div>
         </div>
     </main>
 
     <%- include('partials/footer') %>
 
-    <%# Cargar el script de JS para manejar el formulario de checkout %>
-    <script src="/public/js/checkout.js" defer></script>
+    <script>
+        // Pasar datos de EJS a JavaScript para el checkout
+        window.checkoutData = {
+            // Convertir 'propiedad' (que es un array si isGroup, o un objeto si no)
+            // al formato que espera checkout.js (un string de IDs separados por coma)
+            propiedadId: '<%= isGroup ? propiedad.map(p => p.id).join(',') : propiedad.id %>',
+            fechaLlegada: '<%= query.fechaLlegada %>',
+            fechaSalida: '<%= query.fechaSalida %>',
+            noches: parseInt('<%= query.noches %>') || 0,
+            precioFinal: parseFloat('<%= query.precioFinal %>') || 0,
+            personas: parseInt('<%= query.personas %>') || 0,
+            abono: parseFloat('<%= abonoNum %>') || 0
+        };
+    </script>
+    <script src="/public/js/checkout.js"></script>
+
 </body>
 </html>
