@@ -10,6 +10,15 @@
     <% const pageDescription = (propiedad.websiteData?.aiDescription || propiedad.descripcion || `Descubre ${propiedad.nombre}`).substring(0, 155); %>
     <title><%= pageTitle %></title>
     <meta name="description" content="<%= pageDescription %>">
+
+    <%# --- INICIO: Script JSON-LD (Propiedad) --- %>
+    <% if (locals.schemaData) { %>
+    <script type="application/ld+json">
+        <%- JSON.stringify(schemaData, null, 2) %>
+    </script>
+    <% } %>
+    <%# --- FIN: Script JSON-LD (Propiedad) --- %>
+
     <link rel="stylesheet" href="/public/css/website.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,7 +33,8 @@
         <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2"><%= propiedad.nombre %></h1>
         <p class="text-sm text-gray-600 mb-6">Capacidad: hasta <%= propiedad.capacidad %> personas</p>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
+        <div class="grid 
+ grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
 
             <div class="lg:col-span-2 space-y-8">
 
@@ -37,119 +47,148 @@
                    let imagenesParaGaleria = todasLasImagenesValidas;
                    if (cardImage) {
                        imagenesParaGaleria = imagenesParaGaleria.filter(img => img?.imageId !== cardImage.imageId);
-                       imagenesParaGaleria.unshift(cardImage);
+  imagenesParaGaleria.unshift(cardImage);
                    }
 
                    const imagenPrincipalMosaic = imagenesParaGaleria[0];
-                   const imagenesDerechaMosaic = imagenesParaGaleria.slice(1, 5);
+  const imagenesDerechaMosaic = imagenesParaGaleria.slice(1, 5);
                    const restoImagenesGaleria = imagenesParaGaleria.slice(5);
                 %>
                 <% if (imagenPrincipalMosaic) { %>
                     <div class="grid grid-cols-2 grid-rows-2 gap-2 rounded-lg overflow-hidden shadow-lg h-[60vh] md:h-[70vh]">
                         <div class="col-span-1 row-span-2 gallery-image-trigger" data-index="0">
-                            <picture>
+              
+               <picture>
                                 <source srcset="<%= imagenPrincipalMosaic.storagePath %>" type="image/webp">
                                 <img src="<%= imagenPrincipalMosaic.storagePath %>" alt="<%= imagenPrincipalMosaic.altText %>" title="<%= imagenPrincipalMosaic.title || '' %>" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity">
+ 
                             </picture>
                         </div>
                         <% imagenesDerechaMosaic.forEach((img, index) => { %>
-                            <div class="col-span-1 row-span-1 relative gallery-image-trigger" data-index="<%= index + 1 %>">
+                    
+         <div class="col-span-1 row-span-1 relative gallery-image-trigger" data-index="<%= index + 1 %>">
                                 <picture>
                                     <source srcset="<%= img.storagePath %>" type="image/webp">
-                                    <img src="<%= img.storagePath %>" alt="<%= img.altText %>" title="<%= img.title || '' %>" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity">
+           
+          <img src="<%= img.storagePath %>" alt="<%= img.altText %>" title="<%= img.title ||
+ '' %>" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity">
                                 </picture>
                                 <% if (index === 3 && restoImagenesGaleria.length > 0) { %>
-                                    <button class="gallery-image-trigger absolute inset-0 bg-black bg-opacity-50 text-white flex items-center justify-center text-sm font-semibold hover:bg-opacity-70 transition-opacity" data-index="<%= index + 1 %>">
+                   
+                   <button class="gallery-image-trigger absolute inset-0 bg-black bg-opacity-50 text-white flex items-center justify-center text-sm font-semibold hover:bg-opacity-70 transition-opacity" data-index="<%= index + 1 %>">
                                         +<%= restoImagenesGaleria.length %> fotos
-                                    </button>
+                      
+                </button>
                                 <% } %>
                             </div>
-                        <% }) %>
+                        
+ <% }) %>
                         <% if (imagenesDerechaMosaic.length < 4) { %>
                             <% for(let i = 0; i < (4 - imagenesDerechaMosaic.length); i++) { %>
-                                <div class="col-span-1 row-span-1 bg-gray-200"></div>
+                            
+     <div class="col-span-1 row-span-1 bg-gray-200"></div>
                             <% } %>
                         <% } %>
                     </div>
-                <% } else { %>
+                <% 
+ } else { %>
                     <div class="w-full h-96 bg-gray-200 flex items-center justify-center rounded-lg shadow-lg text-gray-500">Imágenes No Disponibles</div>
                 <% } %>
                 <div class="prose max-w-none pt-4 border-t">
                     <h2 class="text-xl font-semibold mb-2">Descripción</h2>
-                    <p><%= propiedad.websiteData?.aiDescription || propiedad.descripcion || 'No hay descripción disponible.' %></p>
+     
+                <p><%= propiedad.websiteData?.aiDescription || propiedad.descripcion ||
+ 'No hay descripción disponible.' %></p>
                 </div>
 
                 <div class="pt-4 border-t">
                     <div class="flex items-center mb-4">
                         <div class="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center mr-4 text-gray-500 text-lg">
-                            <i class="fa-solid fa-user-circle"></i>
+     
+                        <i class="fa-solid fa-user-circle"></i>
                         </div>
                         <div>
-                            <h2 class="text-lg font-semibold text-gray-900">Anfitrión: <%= empresa.contactoNombre || empresa.nombre %></h2>
+                           
+  <h2 class="text-lg font-semibold text-gray-900">Anfitrión: <%= empresa.contactoNombre || empresa.nombre %></h2>
                             <%# *** CORRECCIÓN: Usar la variable 'hostingDuration' calculada en la ruta *** %>
                             <p class="text-sm text-gray-600"><%= locals.hostingDuration %></p>
-                        </div>
+                   
+      </div>
                     </div>
 
                     <% if (empresa.contactoTelefono && empresa.contactoNombre) { %>
                         <%
-                            const telefonoLimpio = empresa.contactoTelefono.replace(/\D/g, '');
+                         
+    const telefonoLimpio = empresa.contactoTelefono.replace(/\D/g, '');
                             const nombreAnfitrion = empresa.contactoNombre.split(' ')[0];
-                            const mensajeEspecifico = `Hola ${nombreAnfitrion}, necesito ayuda para reservar el alojamiento "${propiedad.nombre}".`;
+ const mensajeEspecifico = `Hola ${nombreAnfitrion}, necesito ayuda para reservar el alojamiento "${propiedad.nombre}".`;
                             const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeEspecifico)}`;
-                        %>
+ %>
                         <a href="<%= whatsappUrl %>" target="_blank" class="btn-whatsapp w-full">
                             <i class="fa-brands fa-whatsapp w-5 h-5 mr-2 text-white"></i>
-                            ¿Necesitas ayuda? Hablemos
+                            ¿Necesitas ayuda?
+ Hablemos
                         </a>
                     <% } %>
 
                     <div class="space-y-4 mt-6">
                         <div class="flex items-center">
-                            <i class="fa-solid fa-star text-indigo-600 text-xl w-6 text-center mr-3"></i>
+      
+                       <i class="fa-solid fa-star text-indigo-600 text-xl w-6 text-center mr-3"></i>
                             <div>
                                 <h3 class="font-semibold text-gray-900">Experiencia Destacada</h3>
-                                <p class="text-sm text-gray-600">Nuestros huéspedes aman la atención y el entorno.</p>
+        
+                         <p class="text-sm text-gray-600">Nuestros huéspedes aman la atención y el entorno.</p>
                             </div>
                         </div>
-                        <div class="flex items-center">
+               
+          <div class="flex items-center">
                              <i class="fa-solid fa-house-chimney-medical text-indigo-600 text-xl w-6 text-center mr-3"></i>
                             <div>
-                                <h3 class="font-semibold text-gray-900">Ambientes Acogedores</h3>
+                         
+        <h3 class="font-semibold text-gray-900">Ambientes Acogedores</h3>
                                 <p class="text-sm text-gray-600">Disfruta de espacios amplios y bien equipados.</p>
                             </div>
-                        </div>
+                      
+   </div>
                         <div class="flex items-center">
                             <i class="fa-solid fa-calendar-check text-indigo-600 text-xl w-6 text-center mr-3"></i>
                             <div>
-                                <h3 class="font-semibold text-gray-900">Cancelación Flexible</h3>
+         
+                        <h3 class="font-semibold text-gray-900">Cancelación Flexible</h3>
                                 <p class="text-sm text-gray-600">Cancela gratis hasta 3 días antes del check-in para un reembolso total.</p>
                             </div>
+ 
                         </div>
                     </div>
                 </div>
 
                 <div class="pt-4 border-t">
-                    <h2 class="text-xl font-semibold mb-4">Comodidades</h2>
+                    <h2 class="text-xl font-semibold 
+ mb-4">Comodidades</h2>
                     <div class="grid grid-cols-2 gap-4 text-sm">
                         <div class="flex items-center"><i class="fa-solid fa-bed w-5 mr-2 text-indigo-600"></i> <%= propiedad.numPiezas || '?' %> Dormitorios</div>
                         <div class="flex items-center"><i class="fa-solid fa-bath w-5 mr-2 text-indigo-600"></i> <%= propiedad.numBanos || '?' %> Baños</div>
                         <div class="flex items-center"><i class="fa-solid fa-users w-5 mr-2 text-indigo-600"></i> Capacidad <%= propiedad.capacidad %> personas</div>
                         <% if (propiedad.equipamiento?.tinaja) { %><div class="flex items-center"><i class="fa-solid fa-hot-tub-person w-5 mr-2 text-indigo-600"></i> Tinaja Privada</div><% } %>
-                        <% if (propiedad.equipamiento?.parrilla) { %><div class="flex items-center"><i class="fa-solid fa-burger w-5 mr-2 text-indigo-600"></i> Parrilla</div><% } %>
+                       
+  <% if (propiedad.equipamiento?.parrilla) { %><div class="flex items-center"><i class="fa-solid fa-burger w-5 mr-2 text-indigo-600"></i> Parrilla</div><% } %>
                         <% if (propiedad.equipamiento?.terrazaTechada) { %><div class="flex items-center"><i class="fa-solid fa-campground w-5 mr-2 text-indigo-600"></i> Terraza Techada</div><% } %>
                         <% if (propiedad.equipamiento?.juegoDeTerraza) { %><div class="flex items-center"><i class="fa-solid fa-chair w-5 mr-2 text-indigo-600"></i> Juego de Terraza</div><% } %>
-                        <% if (propiedad.equipamiento?.piezaEnSuite) { %><div class="flex items-center"><i class="fa-solid fa-person-booth w-5 mr-2 text-indigo-600"></i> Pieza en Suite</div><% } %>
+      
+                   <% if (propiedad.equipamiento?.piezaEnSuite) { %><div class="flex items-center"><i class="fa-solid fa-person-booth w-5 mr-2 text-indigo-600"></i> Pieza en Suite</div><% } %>
                         <% if (propiedad.equipamiento?.dosPisos) { %><div class="flex items-center"><i class="fa-solid fa-building w-5 mr-2 text-indigo-600"></i> Dos Pisos</div><% } %>
                     </div>
-                </div>
+       
+          </div>
 
             </div> <%# Fin columna izquierda %>
 
             <div class="lg:col-span-1">
                 <div class="sticky top-8">
                     <div class="bg-white p-6 rounded-lg shadow-lg border">
-                        <div id="price-display" class="mb-4 text-gray-900">
+                  
+       <div id="price-display" class="mb-4 text-gray-900">
                              <span class="text-2xl font-bold" id="price-total-display"><%= defaultPriceData.formattedTotalPrice %></span>
                             <span class="text-sm text-gray-600" id="price-label-display"><% if(defaultPriceData.nights > 0) { %> / por <%= defaultPriceData.nights %> noche<%= defaultPriceData.nights !== 1 ? 's' : '' %><% } %></span>
                         </div>
@@ -157,34 +196,43 @@
                         <form id="booking-form" class="space-y-4">
                             <input type="hidden" name="propiedadId" value="<%= propiedad.id %>">
 
-                            <div class="grid grid-cols-2 gap-2">
+            
+                 <div class="grid grid-cols-2 gap-2">
                                 <div>
                                     <label for="fechaLlegada" class="block text-xs font-medium text-gray-700 uppercase">Llegada</label>
-                                    <input type="date" name="fechaLlegada" id="fechaLlegada" class="form-input mt-1 text-sm" required value="<%= prefill.fechaLlegada %>">
+       
+                              <input type="date" name="fechaLlegada" id="fechaLlegada" class="form-input mt-1 text-sm" required value="<%= prefill.fechaLlegada %>">
                                 </div>
-                                <div>
+                             
+    <div>
                                     <label for="fechaSalida" class="block text-xs font-medium text-gray-700 uppercase">Salida</label>
                                     <input type="date" name="fechaSalida" id="fechaSalida" class="form-input mt-1 text-sm" required value="<%= prefill.fechaSalida %>">
-                                </div>
+         
+                        </div>
                             </div>
                             <div>
-                                <label for="personas" class="block text-xs font-medium text-gray-700 uppercase">Huéspedes</label>
+                     
+            <label for="personas" class="block text-xs font-medium text-gray-700 uppercase">Huéspedes</label>
                                 <input type="number" name="personas" id="personas" min="1" max="<%= propiedad.capacidad %>" class="form-input mt-1 text-sm" required value="<%= prefill.personas %>">
                             </div>
 
-                            <div id="price-loader" class="text-center py-2 hidden">
+         
+                    <div id="price-loader" class="text-center py-2 hidden">
                                 <p class="text-sm text-gray-500">Actualizando precio...</p>
                             </div>
 
-                            <button type="submit" id="submit-button" class="btn w-full bg-pink-600 hover:bg-pink-700 text-white rounded-lg py-3 text-base font-semibold mt-4" disabled>
+              
+               <button type="submit" id="submit-button" class="btn w-full bg-pink-600 hover:bg-pink-700 text-white rounded-lg py-3 text-base font-semibold mt-4" disabled>
                                 Reserva
                             </button>
 
-                            <div id="deposit-info" class="text-sm text-gray-700 text-center mt-2">
+             
+                <div id="deposit-info" class="text-sm text-gray-700 text-center mt-2">
                             </div>
                         </form>
                     </div>
-                </div>
+        
+         </div>
             </div> <%# Fin columna derecha %>
         </div> <%# Fin grid principal %>
     </main>
@@ -196,7 +244,8 @@
         <button id="lightbox-close" class="lightbox-close">&times;</button>
         <button id="lightbox-prev" class="lightbox-prev">&#10094;</button>
         <button id="lightbox-next" class="lightbox-next">&#10095;</button>
-        <div class="lightbox-content">
+      
+   <div class="lightbox-content">
             <div id="lightbox-loader" class="lightbox-loader hidden"></div>
             <img id="lightbox-image" src="" alt="Imagen de galería" class="lightbox-image">
             <div id="lightbox-caption" class="lightbox-caption"></div>
@@ -210,7 +259,7 @@
         propiedadId: "<%= propiedad.id %>",
         defaultPrice: <%- JSON.stringify(defaultPriceData || null) %>
       };
-    </script>
+ </script>
     <script src="/public/js/booking.js" defer></script>
     <script src="/public/js/gallery.js" defer></script>
 </body>
