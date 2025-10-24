@@ -30,35 +30,30 @@ module.exports = (db) => {
 
     // --- (Middleware de carga de empresa - sin cambios, ya define req.baseUrl) ---
     router.use(async (req, res, next) => {
-        // Validación de req.empresa.id
         if (!req.empresa || !req.empresa.id || typeof req.empresa.id !== 'string' || req.empresa.id.trim() === '') {
             console.error("[website.js middleware] Error: req.empresa.id inválido o no definido después del tenantResolver.");
-            // Si la ruta es el sitemap, podríamos querer un 404, pero por ahora seguimos el flujo
-            // de no encontrar empresa, aunque el tenantResolver ya debería haberlo hecho.
-             if (req.path === '/sitemap.xml') {
-                 res.status(404).send('Sitemap no encontrado: Empresa no válida.');
+             if (req.path === '/sitemap.xml' || req.path === '/robots.txt') { // Aplicar a ambas
+                 res.status(404).send('Archivo no encontrado: Empresa no válida.');
                  return;
              }
-            return next('router'); // Salta al manejador 404 principal del router
+            return next('router');
         }
         
         console.log(`[DEBUG website.js middleware] Empresa ID ${req.empresa.id} identificada.`);
         
         try {
-            // Cargar datos completos
             req.empresaCompleta = await obtenerDetallesEmpresa(db, req.empresa.id);
             if (req.empresaCompleta) {
                 req.empresaCompleta.id = req.empresa.id;
-                // Determinar la URL base
                 const protocol = req.protocol;
                 const host = req.get('host');
                 req.baseUrl = `${protocol}://${host}`;
                 console.log(`[DEBUG middleware] Base URL determinada: ${req.baseUrl}`);
             } else {
                  req.empresaCompleta = { id: req.empresa.id, nombre: req.empresa.nombre || "Empresa (Detalles no cargados)" };
-                 req.baseUrl = ''; // No se pudo determinar
+                 req.baseUrl = '';
             }
-            res.locals.empresa = req.empresaCompleta; // Para EJS
+            res.locals.empresa = req.empresaCompleta;
             next();
         } catch (error) {
             console.error(`Error cargando detalles completos para ${req.empresa.id}:`, error);
@@ -298,34 +293,54 @@ module.exports = (db) => {
     });
 
 
-    // --- INICIO: NUEVA RUTA SITEMAP.XML ---
-    router.get('/sitemap.xml', async (req, res) => {
+    // --- INICIO: NUEVA RUTA ROBOTS.TXT ---
+    router.get('/robots.txt', (req, res) => {
         try {
-            const empresaId = req.empresa.id;
             const baseUrl = req.baseUrl; // Obtenido del middleware
-
             if (!baseUrl) {
                 throw new Error("No se pudo determinar la URL base de la empresa.");
             }
+            
+            // Construir el contenido del robots.txt
+            const robotsTxtContent = `User-agent: *
+Disallow: /api/
+Disallow: /admin-assets/
+Allow: /
 
-            // 1. Obtener todas las propiedades
+Sitemap: ${baseUrl}/sitemap.xml
+`;
+            
+            // Enviar la respuesta como texto plano
+            res.setHeader('Content-Type', 'text/plain');
+            res.send(robotsTxtContent);
+
+        } catch (error) {
+            console.error(`Error al generar robots.txt para ${req.empresa?.id}:`, error);
+            res.status(500).send('Error al generar robots.txt');
+        }
+    });
+    // --- FIN: NUEVA RUTA ROBOTS.TXT ---
+
+
+    // --- INICIO: RUTA SITEMAP.XML (Existente) ---
+    router.get('/sitemap.xml', async (req, res) => {
+        try {
+            const empresaId = req.empresa.id;
+            const baseUrl = req.baseUrl;
+            if (!baseUrl) { throw new Error("No se pudo determinar la URL base de la empresa."); }
+
             const todasLasPropiedades = await obtenerPropiedadesPorEmpresa(db, empresaId);
-
-            // 2. Filtrar solo las listadas públicamente
             const propiedadesListadas = todasLasPropiedades.filter(p => p.googleHotelData?.isListed === true);
 
-            // 3. Construir el XML
             let xmlString = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
 
-            // Añadir la URL de la página principal (Home)
             xmlString += `
     <url>
         <loc>${baseUrl}/</loc>
         <priority>1.0</priority>
     </url>`;
 
-            // Añadir cada propiedad listada
             for (const prop of propiedadesListadas) {
                 xmlString += `
     <url>
@@ -334,11 +349,9 @@ module.exports = (db) => {
     </url>`;
             }
 
-            // Cerrar el XML
             xmlString += `
 </urlset>`;
 
-            // 4. Enviar la respuesta
             res.setHeader('Content-Type', 'application/xml');
             res.send(xmlString);
 
@@ -347,11 +360,10 @@ module.exports = (db) => {
             res.status(500).send('<error>Error al generar el sitemap.</error>');
         }
     });
-    // --- FIN: NUEVA RUTA SITEMAP.XML ---
+    // --- FIN: RUTA SITEMAP.XML ---
 
 
     // --- (Manejador 404 - sin cambios) ---
-    // Esta debe ser LA ÚLTIMA ruta
     router.use(async (req, res) => {
         const empresaData = res.locals.empresa || req.empresa || { nombre: "Página no encontrada" };
         res.status(404).render('404', {
