@@ -1,6 +1,5 @@
 // backend/routes/website.js
 const express = require('express');
-// Aseguramos que findNormalCombination está importado
 const { getAvailabilityData, calculatePrice, findNormalCombination } = require('../services/propuestasService');
 const { obtenerPropiedadesPorEmpresa, obtenerPropiedadPorId } = require('../services/propiedadesService');
 const { crearReservaPublica } = require('../services/reservasService');
@@ -68,6 +67,7 @@ module.exports = (db) => {
             const { fechaLlegada, fechaSalida, personas } = req.query;
             let resultadosParaMostrar = [];
             let isSearchResult = false;
+            let grupoMostradoIds = new Set(); // <--- NUEVO: Para rastrear IDs del grupo
 
             // --- (Obtención de propiedades, tarifas y canal por defecto sin cambios) ---
             const [todasLasPropiedades, tarifasSnapshot, canalesSnapshot] = await Promise.all([
@@ -110,59 +110,48 @@ module.exports = (db) => {
                     
                     // --- INICIO LÓGICA DE GRUPO (CORREGIDA) ---
                     try {
-                        // 1. Llamar a findNormalCombination SINCÓNICAMENTE y con los DOS argumentos correctos.
                         const { combination, capacity } = findNormalCombination(
-                            propiedadesDisponiblesListadas, // Argumento 1: El array de propiedades
-                            numPersonas                       // Argumento 2: La capacidad requerida
+                            propiedadesDisponiblesListadas,
+                            numPersonas
                         );
                         
-                        // 2. Verificar si se encontró una combinación
-                        if (combination && combination.length > 0) {
-                            
-                            // 3. Si se encontró, AHORA calculamos el precio (asíncrono)
+                        // *** MODIFICADO: Solo tratar como grupo si hay MÁS de 1 propiedad ***
+                        if (combination && combination.length > 1) {
                             const pricingResult = await calculatePrice(
-                                db,
-                                empresaId,
-                                combination, // El array de propiedades del grupo
-                                startDate,
-                                endDate,
-                                allTarifas,
-                                canalPorDefectoId
+                                db, empresaId, combination, startDate, endDate, allTarifas, canalPorDefectoId
                             );
 
-                            // 4. Construir el objeto que espera el EJS
                             const combinacionGrupo = {
-                                isGroup: true,
+                                isGroup: true, // Marcar como grupo
                                 properties: combination,
                                 combinedCapacity: capacity,
-                                combinedPricing: pricingResult // El resultado de calculatePrice
+                                combinedPricing: pricingResult
                             };
-
-                            // 5. Añadir el grupo al inicio de los resultados
                             resultadosParaMostrar.push(combinacionGrupo);
+                            // Guardar los IDs del grupo para no mostrarlos como individuales
+                            combination.forEach(p => grupoMostradoIds.add(p.id));
                         }
                     } catch (groupError) {
-                        // Capturar error de findNormalCombination o calculatePrice
                         console.error("Error al buscar/preciar combinación de grupo:", groupError);
                     }
                     // --- FIN LÓGICA DE GRUPO ---
 
-                    // --- INICIO LÓGICA INDIVIDUAL (Sin cambios) ---
+                    // --- INICIO LÓGICA INDIVIDUAL (CORREGIDA PARA EVITAR DUPLICADOS) ---
                     const propiedadesFiltradasPorCapacidad = propiedadesDisponiblesListadas.filter(p => p.capacidad >= numPersonas);
 
                     if (propiedadesFiltradasPorCapacidad.length > 0) {
                         const pricePromises = propiedadesFiltradasPorCapacidad.map(async (prop) => {
+                            // *** MODIFICADO: Saltar si esta propiedad ya se mostró en el grupo ***
+                            if (grupoMostradoIds.has(prop.id)) {
+                                return null;
+                            }
+                            
                             try {
-                                // Evitar mostrar individualmente si ya es parte del grupo
-                                if (resultadosParaMostrar.length > 0 && resultadosParaMostrar[0].isGroup && resultadosParaMostrar[0].properties.some(pGroup => pGroup.id === prop.id)) {
-                                    return null; // Ya está en el grupo
-                                }
-                                
                                 const pricingResult = await calculatePrice(db, empresaId, [prop], startDate, endDate, allTarifas, canalPorDefectoId);
-                                return { ...prop, pricing: pricingResult };
+                                return { ...prop, pricing: pricingResult }; // Implícitamente isGroup: false
                             } catch (priceError) {
                                 console.warn(`No se pudo calcular el precio para la propiedad ${prop.id}: ${priceError.message}`);
-                                return { ...prop, pricing: null }; 
+                                return { ...prop, pricing: null };
                             }
                         });
                         const resultadosIndividuales = (await Promise.all(pricePromises)).filter(Boolean);
@@ -452,7 +441,7 @@ module.exports = (db) => {
                                       .get();
             if (reservaSnap.empty) {
                  console.warn(`[GET /confirmacion] No se encontró reserva con idReservaCanal=${reservaIdOriginal} para empresa ${empresaId}`);
-                 return res.status(44).render('404', { title: 'Reserva No Encontrada', empresa: empresaCompleta});
+                 return res.status(404).render('404', { title: 'Reserva No Encontrada', empresa: empresaCompleta});
             }
             const reservaData = reservaSnap.docs[0].data();
             const reservaParaVista = {
