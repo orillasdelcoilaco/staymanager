@@ -111,39 +111,36 @@ module.exports = (db) => {
                 const { availableProperties } = await getAvailabilityData(db, empresaId, startDate, endDate);
                 const availableIds = new Set(availableProperties.map(p => p.id));
 
-                // Filtrar propiedades listadas que están disponibles (capacidad se chequea después)
+                // Filtrar propiedades listadas que están disponibles
                 const propiedadesDisponiblesListadas = propiedadesListadas.filter(p => availableIds.has(p.id));
 
                 if (propiedadesDisponiblesListadas.length > 0 && canalPorDefectoId) {
-                    // Intentar encontrar combinación usando findNormalCombination
-                    const { combination, capacity } = findNormalCombination(propiedadesDisponiblesListadas, numPersonas);
+                    // --- INICIO NUEVA LÓGICA DE FILTRADO Y PRECIOS INDIVIDUALES ---
+                    const propiedadesFiltradasPorCapacidad = propiedadesDisponiblesListadas.filter(p => p.capacidad >= numPersonas);
 
-                    if (combination.length > 0 && capacity >= numPersonas) {
-                        try {
-                            const pricingResult = await calculatePrice(db, empresaId, combination, startDate, endDate, allTarifas, canalPorDefectoId);
-                            if (combination.length > 1) {
-                                // Grupo encontrado
-                                resultadosParaMostrar = [{
-                                    isGroup: true,
-                                    properties: combination,
-                                    combinedCapacity: capacity,
-                                    combinedPricing: pricingResult
-                                }];
-                            } else {
-                                // Solución individual encontrada
-                                resultadosParaMostrar = [{ ...combination[0], pricing: pricingResult }];
+                    if (propiedadesFiltradasPorCapacidad.length > 0) {
+                        // Calcular precio para cada propiedad individualmente
+                        const pricePromises = propiedadesFiltradasPorCapacidad.map(async (prop) => {
+                            try {
+                                const pricingResult = await calculatePrice(db, empresaId, [prop], startDate, endDate, allTarifas, canalPorDefectoId);
+                                return { ...prop, pricing: pricingResult };
+                            } catch (priceError) {
+                                console.warn(`No se pudo calcular el precio para la propiedad ${prop.id}: ${priceError.message}`);
+                                return { ...prop, pricing: null }; // O marcar error: { error: true, message: priceError.message }
                             }
-                        } catch (priceError) {
-                            console.warn(`No se pudo calcular el precio para la combinación ${combination.map(p=>p.id).join(',')}: ${priceError.message}`);
-                            resultadosParaMostrar = []; // Mostrar "No encontrado" si falla el precio
-                        }
+                        });
+                        resultadosParaMostrar = await Promise.all(pricePromises);
                     } else {
-                        console.log(`No se encontró combinación para ${numPersonas} personas.`);
+                        console.log(`No se encontraron propiedades disponibles con capacidad para ${numPersonas} personas.`);
                         resultadosParaMostrar = []; // Mostrar "No encontrado"
                     }
+                    // --- FIN NUEVA LÓGICA ---
+
                 } else if (!canalPorDefectoId) {
                     console.warn(`[WARN] Empresa ${empresaId} no tiene canal por defecto. No se calcularán precios.`);
-                    resultadosParaMostrar = propiedadesDisponiblesListadas.filter(p => p.capacidad >= numPersonas)
+                    // Mostrar propiedades disponibles sin precio si no hay canal por defecto
+                    resultadosParaMostrar = propiedadesDisponiblesListadas
+                                                .filter(p => p.capacidad >= numPersonas)
                                                 .map(prop => ({ ...prop, pricing: null }));
                 }
                 // Si no hay propiedades disponibles listadas, resultadosParaMostrar queda []
@@ -298,7 +295,6 @@ module.exports = (db) => {
          try {
              const empresaId = req.empresa.id;
              if (!empresaId) throw new Error("ID de empresa no encontrado en la solicitud.");
-             //... (resto del código sin cambios) ...
             const propiedadId = req.params.id;
             const { fechaLlegada, fechaSalida } = req.body;
 
@@ -345,16 +341,14 @@ module.exports = (db) => {
         }
     });
 
-    // Ruta /reservar (GET) - *** MODIFICADA PARA ACEPTAR GRUPOS ***
+    // Ruta /reservar (GET) - (sin cambios)
     router.get('/reservar', async (req, res) => {
         const empresaId = req.empresa.id;
         let empresaCompleta = req.empresaCompleta;
         try {
-            // Aceptar múltiples IDs separados por coma o uno solo
             const propiedadIdsQuery = req.query.propiedadId || '';
             const propiedadIds = propiedadIdsQuery.split(',').map(id => id.trim()).filter(Boolean);
 
-            // Validar parámetros esenciales
             if (propiedadIds.length === 0 || !req.query.fechaLlegada || !req.query.fechaSalida || !req.query.noches || !req.query.precioFinal || !req.query.personas) {
                  console.error(`[GET /reservar] Faltan parámetros para ${empresaId}:`, req.query);
                  return res.status(400).render('404', {
@@ -363,10 +357,9 @@ module.exports = (db) => {
                  });
             }
 
-            // Cargar datos de todas las propiedades solicitadas
             const propiedadesPromises = propiedadIds.map(id => obtenerPropiedadPorId(db, empresaId, id));
             const propiedadesResult = await Promise.all(propiedadesPromises);
-            const propiedades = propiedadesResult.filter(Boolean); // Filtrar si alguna no se encontró
+            const propiedades = propiedadesResult.filter(Boolean);
 
             if (propiedades.length !== propiedadIds.length) {
                 console.warn(`[GET /reservar] No se encontraron todas las propiedades solicitadas: ${propiedadIds.join(',')}`);
@@ -376,15 +369,14 @@ module.exports = (db) => {
                 });
             }
 
-            // Determinar si es grupo o individual
             const isGroupReservation = propiedades.length > 1;
-            const dataToRender = isGroupReservation ? propiedades : propiedades[0]; // Pasar array si es grupo, objeto si es individual
+            const dataToRender = isGroupReservation ? propiedades : propiedades[0];
 
             res.render('reservar', {
                 title: `Completar Reserva | ${empresaCompleta.nombre}`,
-                propiedad: dataToRender, // Puede ser objeto o array
-                isGroup: isGroupReservation, // Flag para la plantilla
-                query: req.query, // Pasar todos los query params
+                propiedad: dataToRender,
+                isGroup: isGroupReservation,
+                query: req.query,
             });
         } catch (error) {
             console.error(`Error al mostrar página de reserva para empresa ${empresaId}:`, error);
@@ -395,8 +387,7 @@ module.exports = (db) => {
         }
     });
 
-    // Endpoint Público para Crear Reserva (POST /crear-reserva-publica)
-    // *** NECESITA MODIFICACIÓN EN EL SERVICIO para manejar grupos ***
+    // Endpoint Público para Crear Reserva (POST /crear-reserva-publica) - (sin cambios)
     router.post('/crear-reserva-publica', express.json(), async (req, res) => {
          try {
             const empresaId = req.empresa.id;
@@ -406,10 +397,8 @@ module.exports = (db) => {
             }
             console.log(`[POST /crear-reserva-publica] Recibido para empresa ${empresaId}:`, req.body);
 
-            // *** LLAMAR AL SERVICIO (que necesita ser adaptado para grupos) ***
             const reserva = await crearReservaPublica(db, empresaId, req.body);
 
-            // Devolver solo el ID de la reserva creada (o el ID del grupo si son varias)
             res.status(201).json({ reservaId: reserva.idReservaCanal });
 
         } catch (error) {
@@ -421,7 +410,6 @@ module.exports = (db) => {
 
     // Ruta /confirmacion (GET) - Sin cambios
     router.get('/confirmacion', async (req, res) => {
-        // ... (código existente sin cambios) ...
         const empresaId = req.empresa.id;
         let empresaCompleta = req.empresaCompleta;
         try {
@@ -431,20 +419,18 @@ module.exports = (db) => {
             }
             const reservaSnap = await db.collection('empresas').doc(empresaId).collection('reservas')
                                       .where('idReservaCanal', '==', reservaIdOriginal)
-                                      // .limit(1) // Quitamos limit para potentially obtener grupo en futuro
                                       .get();
             if (reservaSnap.empty) {
                  console.warn(`[GET /confirmacion] No se encontró reserva con idReservaCanal=${reservaIdOriginal} para empresa ${empresaId}`);
                  return res.status(404).render('404', { title: 'Reserva No Encontrada', empresa: empresaCompleta});
             }
-            // Por ahora, tomamos la primera reserva encontrada para mostrar datos básicos
             const reservaData = reservaSnap.docs[0].data();
             const reservaParaVista = {
                 ...reservaData,
                 id: reservaIdOriginal,
                 fechaLlegada: reservaData.fechaLlegada.toDate().toISOString().split('T')[0],
                 fechaSalida: reservaData.fechaSalida.toDate().toISOString().split('T')[0],
-                precioFinal: reservaData.valores?.valorHuesped || 0 // Ajustar si es grupo en el futuro
+                precioFinal: reservaData.valores?.valorHuesped || 0
             };
             const cliente = reservaData.clienteId
                  ? await db.collection('empresas').doc(empresaId).collection('clientes').doc(reservaData.clienteId).get()
@@ -465,7 +451,6 @@ module.exports = (db) => {
 
     // Ruta /contacto - Sin cambios
     router.get('/contacto', async (req, res) => {
-        // ... (código existente sin cambios) ...
         const empresaCompleta = req.empresaCompleta;
         try {
             res.render('contacto', {
@@ -482,7 +467,6 @@ module.exports = (db) => {
 
     // Manejador 404 - Sin cambios
     router.use(async (req, res) => {
-        // ... (código existente sin cambios) ...
         const empresaData = res.locals.empresa || req.empresa || { nombre: "Página no encontrada" };
         res.status(404).render('404', {
             title: 'Página no encontrada',
