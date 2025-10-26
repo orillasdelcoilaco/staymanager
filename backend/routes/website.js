@@ -170,7 +170,7 @@ module.exports = (db) => {
         }
     });
 
-    // --- (Ruta /propiedad/:id - CON CORRECCIÓN) ---
+    // --- (Ruta /propiedad/:id - CON AMBAS CORRECCIONES) ---
     router.get('/propiedad/:id', async (req, res) => {
         const empresaCompleta = req.empresaCompleta;
         const empresaId = empresaCompleta.id;
@@ -178,35 +178,82 @@ module.exports = (db) => {
         try {
             const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
             if (!propiedad || !propiedad.googleHotelData?.isListed) { return res.status(404).render('404', { title: 'Propiedad No Encontrada', empresa: empresaCompleta }); }
-            const weekendDates = getNextWeekend(); const defaultCheckin = weekendDates.llegada; const defaultCheckout = weekendDates.salida;
-            let defaultPriceData = { totalPriceCLP: 0, nights: 0, formattedTotalPrice: 'Consulta fechas' };
+            
+            // --- OBTENER TARIFAS Y CANAL POR DEFECTO ---
             const [tarifasSnapshot, canalesSnapshot] = await Promise.all([ db.collection('empresas').doc(empresaId).collection('tarifas').get(), db.collection('empresas').doc(empresaId).collection('canales').where('esCanalPorDefecto', '==', true).limit(1).get() ]);
             const allTarifas = tarifasSnapshot.docs.map(doc => { const data=doc.data(); let i=null,t=null; try{i=data.fechaInicio?.toDate?data.fechaInicio.toDate():(data.fechaInicio?parseISO(data.fechaInicio+'T00:00:00Z'):null);t=data.fechaTermino?.toDate?data.fechaTermino.toDate():(data.fechaTermino?parseISO(data.fechaTermino+'T00:00:00Z'):null);if(!isValid(i)||!isValid(t))throw new Error('');}catch(e){return null;} return {...data,id:doc.id,fechaInicio:i,fechaTermino:t}; }).filter(Boolean);
             
-            // --- INICIO DE LA CORRECCIÓN ---
-            // 1. Declarar la variable en el ámbito de la ruta
+            // (FIX 1: Declarar canalPorDefectoId fuera del if)
             let canalPorDefectoId = null;
-
             if(!canalesSnapshot.empty){ 
-                // 2. Asignar el valor (sin 'const')
                 canalPorDefectoId = canalesSnapshot.docs[0].id; 
-                try { 
-                    const p=await calculatePrice(db,empresaId,[propiedad],defaultCheckin,defaultCheckout,allTarifas,canalPorDefectoId); 
-                    if(p&&p.totalPriceCLP>0){defaultPriceData={totalPriceCLP:p.totalPriceCLP,nights:p.nights,formattedTotalPrice:`$${(p.totalPriceCLP||0).toLocaleString('es-CL')} CLP`};} 
-                    else {defaultPriceData.formattedTotalPrice='No disponible';}
-                } catch(e){
-                    defaultPriceData.formattedTotalPrice='Error';
-                }
             }
-            // --- FIN DE LA CORRECCIÓN ---
 
-            let checkinDate=defaultCheckin; let checkoutDate=defaultCheckout; const qL=req.query.fechaLlegada?parseISO(req.query.fechaLlegada+'T00:00:00Z'):null; const qS=req.query.fechaSalida?parseISO(req.query.fechaSalida+'T00:00:00Z'):null; const qC=req.query.checkin?parseISO(req.query.checkin+'T00:00:00Z'):null; if(qL&&qS&&isValid(qL)&&isValid(qS)&&qS>qL){checkinDate=qL;checkoutDate=qS;}else if(qC&&isValid(qC)&&req.query.nights){checkinDate=qC;const n=parseInt(req.query.nights);if(!isNaN(n)&&n>0)checkoutDate=addDays(checkinDate,n);} if(!isValid(checkinDate))checkinDate=defaultCheckin; if(!isValid(checkoutDate)||checkoutDate<=checkinDate)checkoutDate=addDays(checkinDate,1);
-            let personas=parseInt(req.query.personas||req.query.adults); if(!personas||isNaN(personas)||personas<=0)personas=Math.min(2,propiedad.capacidad||1); else personas=Math.min(personas,propiedad.capacidad);
-            let hostingDuration='Anfitrión'; if(empresaCompleta.fechaCreacion&&empresaCompleta.fechaCreacion.toDate){ const c=empresaCompleta.fechaCreacion.toDate();const n=new Date();const y=differenceInYears(n,c);const m=differenceInMonths(n,c)%12;let d=[];if(y>0)d.push(`${y} año${y!==1?'s':''}`);if(m>0)d.push(`${m} mes${m!==1?'es':''}`);if(d.length>0)hostingDuration=`${d.join(' y ')} como anfitrión`;else hostingDuration='Recién comenzando';}
+            // --- INICIO DE LA CORRECCIÓN 2: CALCULAR PRECIO CON FECHAS DE URL ---
+
+            // 1. Determinar las fechas y personas correctas
+            let checkinDate, checkoutDate;
+            const weekendDates = getNextWeekend();
+            const defaultCheckin = weekendDates.llegada;
+            const defaultCheckout = weekendDates.salida;
+
+            const qL=req.query.fechaLlegada?parseISO(req.query.fechaLlegada+'T00:00:00Z'):null;
+            const qS=req.query.fechaSalida?parseISO(req.query.fechaSalida+'T00:00:00Z'):null;
+            const qC=req.query.checkin?parseISO(req.query.checkin+'T00:00:00Z'):null;
             
-            // (JSON-LD Schema para propiedad - sin cambios)
+            if(qL&&qS&&isValid(qL)&&isValid(qS)&&qS>qL){
+                checkinDate=qL;
+                checkoutDate=qS;
+            } else if(qC&&isValid(qC)&&req.query.nights) {
+                checkinDate=qC;
+                const n=parseInt(req.query.nights);
+                if(!isNaN(n)&&n>0) checkoutDate=addDays(checkinDate,n);
+                else checkoutDate=addDays(checkinDate, 1); // Fallback
+            } else {
+                 checkinDate = defaultCheckin;
+                 checkoutDate = defaultCheckout;
+            }
+
+            if(!isValid(checkinDate)) checkinDate = defaultCheckin;
+            if(!isValid(checkoutDate) || checkoutDate <= checkinDate) checkoutDate = addDays(checkinDate, 1);
+
+            let personas=parseInt(req.query.personas||req.query.adults);
+            if(!personas||isNaN(personas)||personas<=0) personas=Math.min(2,propiedad.capacidad||1);
+            else personas=Math.min(personas,propiedad.capacidad);
+
+            // 2. Calcular el precio CON las fechas determinadas
+            let priceData = { totalPriceCLP: 0, nights: 0, formattedTotalPrice: 'Consulta fechas' }; 
+            
+            if (canalPorDefectoId) {
+                try {
+                    const p = await calculatePrice(db, empresaId, [propiedad], checkinDate, checkoutDate, allTarifas, canalPorDefectoId);
+                    if (p && p.totalPriceCLP > 0) {
+                        priceData = {
+                            totalPriceCLP: p.totalPriceCLP,
+                            nights: p.nights,
+                            formattedTotalPrice: `$${(p.totalPriceCLP || 0).toLocaleString('es-CL')} CLP`
+                        };
+                    } else {
+                        priceData.formattedTotalPrice = 'No disponible';
+                        priceData.nights = p?.nights || 0; // Guardar noches aunque no haya precio
+                    }
+                } catch(e) {
+                    console.error(`Error calculando precio para ${propiedad.id} [${formatDateForInput(checkinDate)} - ${formatDateForInput(checkoutDate)}]:`, e);
+                    priceData.formattedTotalPrice = 'Error al calcular';
+                }
+            } else {
+                 priceData.formattedTotalPrice = 'Config. requerida';
+            }
+            
+            // --- FIN DE LA CORRECCIÓN 2 ---
+
+
+            // --- (Cálculo de hostingDuration - sin cambios) ---
+            let hostingDuration='Anfitrión'; 
+            if(empresaCompleta.fechaCreacion&&empresaCompleta.fechaCreacion.toDate){ const c=empresaCompleta.fechaCreacion.toDate();const n=new Date();const y=differenceInYears(n,c);const m=differenceInMonths(n,c)%12;let d=[];if(y>0)d.push(`${y} año${y!==1?'s':''}`);if(m>0)d.push(`${m} mes${m!==1?'es':''}`);if(d.length>0)hostingDuration=`${d.join(' y ')} como anfitrión`;else hostingDuration='Recién comenzando';}
+            
+            // --- (JSON-LD Schema - actualizado para usar priceData) ---
             let propertyPriceRange = ""; 
-            // Ahora 'canalPorDefectoId' está definida (sea null o un ID), por lo que esta línea es segura.
             if (canalPorDefectoId && allTarifas.length > 0) { 
                 const basePrices = allTarifas.filter(t => t.alojamientoId === propiedad.id).map(tarifa => tarifa.precios?.[canalPorDefectoId]).filter(precio => typeof precio === 'number' && precio > 0); 
                 if (basePrices.length > 0) { 
@@ -214,14 +261,36 @@ module.exports = (db) => {
                     if (minPrice === maxPrice) { propertyPriceRange = `${minPrice.toFixed(0)} CLP`; } else { propertyPriceRange = `${minPrice.toFixed(0)} - ${maxPrice.toFixed(0)} CLP`; } 
                 } 
             }
-            const propertySchemaData = { "@context": "https://schema.org", "@type": "LodgingBusiness", "name": empresaCompleta.nombre || "Alojamiento", "url": req.baseUrl || '#', "image": empresaCompleta.websiteSettings?.theme?.heroImageUrl || (propiedad.websiteData?.cardImage?.storagePath || ''), "telephone": empresaCompleta.contactoTelefono || '', ...(propertyPriceRange && { "priceRange": propertyPriceRange }), ...(empresaCompleta.ubicacionTexto && { "address": { "@type": "PostalAddress", "addressLocality": empresaCompleta.ubicacionTexto, "addressCountry": "CL" } }), "makesOffer": { "@type": "Offer", "itemOffered": { "@type": "HotelRoom", "name": propiedad.nombre, "description": propiedad.websiteData?.aiDescription || propiedad.descripcion || '', "image": propiedad.websiteData?.cardImage?.storagePath || '', "occupancy": { "@type": "QuantitativeValue", "maxValue": propiedad.capacidad || 1 }, "url": `${req.baseUrl}/propiedad/${propiedad.id}` }, ...(defaultPriceData.totalPriceCLP > 0 && { "priceSpecification": { "@type": "PriceSpecification", "price": defaultPriceData.totalPriceCLP.toFixed(2), "priceCurrency": "CLP" } }) } };
+            const propertySchemaData = { 
+                "@context": "https://schema.org", 
+                "@type": "LodgingBusiness", 
+                "name": empresaCompleta.nombre || "Alojamiento", 
+                "url": req.baseUrl || '#', 
+                "image": empresaCompleta.websiteSettings?.theme?.heroImageUrl || (propiedad.websiteData?.cardImage?.storagePath || ''), 
+                "telephone": empresaCompleta.contactoTelefono || '', 
+                ...(propertyPriceRange && { "priceRange": propertyPriceRange }), 
+                ...(empresaCompleta.ubicacionTexto && { "address": { "@type": "PostalAddress", "addressLocality": empresaCompleta.ubicacionTexto, "addressCountry": "CL" } }), 
+                "makesOffer": { 
+                    "@type": "Offer", 
+                    "itemOffered": { 
+                        "@type": "HotelRoom", 
+                        "name": propiedad.nombre, 
+                        "description": propiedad.websiteData?.aiDescription || propiedad.descripcion || '', 
+                        "image": propiedad.websiteData?.cardImage?.storagePath || '', 
+                        "occupancy": { "@type": "QuantitativeValue", "maxValue": propiedad.capacidad || 1 }, 
+                        "url": `${req.baseUrl}/propiedad/${propiedad.id}` 
+                    }, 
+                    ...(priceData.totalPriceCLP > 0 && { "priceSpecification": { "@type": "PriceSpecification", "price": priceData.totalPriceCLP.toFixed(2), "priceCurrency": "CLP" } }) 
+                } 
+            };
 
+            // --- (Renderizado de vista - actualizado para pasar priceData) ---
             res.render('propiedad', {
                 title: `${propiedad.nombre} | ${empresaCompleta.nombre}`,
                 description: (propiedad.websiteData?.aiDescription || propiedad.descripcion || `Descubre ${propiedad.nombre}`).substring(0, 155),
                 propiedad: propiedad,
                 prefill: { fechaLlegada: formatDateForInput(checkinDate), fechaSalida: formatDateForInput(checkoutDate), personas: personas },
-                defaultPriceData: defaultPriceData,
+                defaultPriceData: priceData, // <-- Usar el precio calculado
                 hostingDuration: hostingDuration,
                 schemaData: propertySchemaData
             });
@@ -299,7 +368,7 @@ module.exports = (db) => {
         let empresaCompleta = req.empresaCompleta;
         try {
             const reservaIdOriginal = req.query.reservaId;
-            if (!reservaIdOriginal) { return res.status(4404).render('404', { title: 'Reserva No Encontrada', empresa: empresaCompleta}); }
+            if (!reservaIdOriginal) { return res.status(404).render('404', { title: 'Reserva No Encontrada', empresa: empresaCompleta}); }
             const reservaSnap = await db.collection('empresas').doc(empresaId).collection('reservas').where('idReservaCanal', '==', reservaIdOriginal).get();
             if (reservaSnap.empty) { return res.status(404).render('404', { title: 'Reserva No Encontrada', empresa: empresaCompleta}); }
             const reservaData = reservaSnap.docs[0].data();
@@ -381,7 +450,7 @@ Sitemap: ${baseUrl}/sitemap.xml
 
         } catch (error) {
             console.error(`Error al generar sitemap.xml para ${req.empresa?.id}:`, error);
-            res.status(500).send('<error>Error al generar el sitemap.</error>');
+            res.status(5L00).send('<error>Error al generar el sitemap.</error>');
         }
     });
 
