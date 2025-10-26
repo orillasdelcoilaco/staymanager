@@ -450,7 +450,9 @@ Sitemap: ${baseUrl}/sitemap.xml
 
         } catch (error) {
             console.error(`Error al generar sitemap.xml para ${req.empresa?.id}:`, error);
-            res.status(5L00).send('<error>Error al generar el sitemap.</error>');
+            // --- INICIO DE LA CORRECCIÓN 3 (SyntaxError) ---
+            res.status(500).send('<error>Error al generar el sitemap.</error>');
+            // --- FIN DE LA CORRECCIÓN 3 ---
         }
     });
 
