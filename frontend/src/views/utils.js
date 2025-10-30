@@ -298,7 +298,56 @@ export async function handleCuponChange() {
 }
 
 export async function handleGuardarPropuesta() {
-  // Implementación completa en el próximo mensaje
+  if (!availabilityData.suggestion) {
+    alert('Primero realiza una búsqueda de disponibilidad.');
+    return;
+  }
+
+  const cliente = await obtenerOcrearCliente();
+  if (!cliente) return;
+
+  const propuesta = {
+    fechaLlegada: document.getElementById('fecha-llegada').value,
+    fechaSalida: document.getElementById('fecha-salida').value,
+    personas: parseInt(document.getElementById('personas').value),
+    canalId: document.getElementById('canal-select').value,
+    clienteId: cliente.id,
+    propiedades: selectedProperties,
+    pricing: currentPricing,
+    codigoCupon: cuponAplicado?.codigo || null,
+    idReservaCanal: document.getElementById('id-reserva-canal-input').value || null,
+    icalUid: document.getElementById('ical-uid-input').value || null,
+    origen: origenReserva
+  };
+
+  try {
+    const guardarBtn = document.getElementById('guardar-propuesta-btn');
+    guardarBtn.disabled = true;
+    guardarBtn.textContent = editId ? 'Actualizando...' : 'Guardando...';
+
+    let propuestaGuardada;
+    if (editId) {
+      propuestaGuardada = await fetchAPI(`/gestion-propuestas/propuesta-tentativa/${editId}`, {
+        method: 'PUT',
+        body: propuesta
+      });
+    } else {
+      propuestaGuardada = await fetchAPI('/gestion-propuestas/propuesta-tentativa', {
+        method: 'POST',
+        body: propuesta
+      });
+    }
+
+    const textoWhatsApp = generarTextoWhatsApp(propuestaGuardada, cliente);
+    document.getElementById('propuesta-texto').value = textoWhatsApp;
+    document.getElementById('propuesta-guardada-modal').classList.remove('hidden');
+  } catch (error) {
+    alert(`Error al guardar: ${error.message}`);
+  } finally {
+    const guardarBtn = document.getElementById('guardar-propuesta-btn');
+    guardarBtn.disabled = false;
+    guardarBtn.textContent = editId ? 'Actualizar Propuesta' : 'Crear Reserva Tentativa';
+  }
 }
 
 export function handleCopyPropuesta() {
@@ -379,4 +428,68 @@ export async function handleCargarPropuesta(editId) {
     alert(`Error al cargar la propuesta: ${error.message}`);
     handleNavigation('/gestionar-propuestas');
   }
+}
+async function obtenerOcrearCliente() {
+  const nombre = document.getElementById('new-client-name').value.trim();
+  const telefono = document.getElementById('new-client-phone').value.trim();
+  const email = document.getElementById('new-client-email').value.trim();
+
+  if (!nombre || !telefono) {
+    alert('Nombre y teléfono son obligatorios.');
+    return null;
+  }
+
+  if (selectedClient && selectedClient.id) {
+    // Actualizar cliente existente si hay cambios
+    const clienteActualizado = {
+      id: selectedClient.id,
+      nombre,
+      telefono,
+      email: email || null
+    };
+    return await fetchAPI(`/clientes/${selectedClient.id}`, {
+      method: 'PUT',
+      body: clienteActualizado
+    });
+  } else {
+    // Crear nuevo cliente
+    return await fetchAPI('/clientes', {
+      method: 'POST',
+      body: { nombre, telefono, email: email || null }
+    });
+  }
+}
+
+function generarTextoWhatsApp(propuesta, cliente) {
+  const canal = allCanales.find(c => c.id === propuesta.canalId);
+  const moneda = canal?.moneda || 'CLP';
+  const simbolo = moneda === 'USD' ? 'USD' : 'CLP';
+
+  const noches = currentPricing.nights;
+  const precioFinal = moneda === 'USD' 
+    ? currentPricing.totalPriceOriginal - (currentPricing.totalPriceOriginal * (cuponAplicado?.porcentajeDescuento || 0) / 100)
+    : currentPricing.totalPriceCLP - (currentPricing.totalPriceCLP - Math.round((currentPricing.totalPriceOriginal - (currentPricing.totalPriceOriginal * (cuponAplicado?.porcentajeDescuento || 0) / 100)) * valorDolarDia));
+
+  const propiedadesTexto = propuesta.propiedades.map(p => p.nombre).join(', ');
+
+  return `
+¡Hola ${cliente.nombre}! 👋
+
+Gracias por tu interés en *Suite Manager*. Aquí tienes tu **propuesta personalizada**:
+
+Check-in: *${new Date(propuesta.fechaLlegada).toLocaleDateString('es-CL')}*  
+Check-out: *${new Date(propuesta.fechaSalida).toLocaleDateString('es-CL')}*  
+Noches: *${noches}*  
+Huéspedes: *${propuesta.personas}*  
+Alojamiento: *${propiedadesTexto}*
+
+**Total a pagar: ${formatCurrency(precioFinal, moneda)}**
+
+${cuponAplicado ? `Cupón aplicado: *${cuponAplicado.codigo}* (-${cuponAplicado.porcentajeDescuento}%)` : ''}
+
+¿Te gustaría reservar? Responde *SÍ* y coordinamos el pago.
+
+¡Quedan pocas fechas disponibles!  
+Suite Manager
+  `.trim();
 }
