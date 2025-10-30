@@ -13,12 +13,6 @@ let valorDolarDia = 0;
 let origenReserva = 'manual';
 let cuponAplicado = null;
 
-export {
-  allClients, allProperties, allCanales,
-  selectedClient, availabilityData, selectedProperties,
-  currentPricing, editId, valorDolarDia, origenReserva, cuponAplicado
-};
-
 export function formatCurrency(value, currency = 'CLP') {
   if (currency === 'USD') {
     return `$${(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -74,7 +68,6 @@ export function selectClient(client) {
   selectedClient = client;
   document.getElementById('client-form-title').textContent = '... o actualiza los datos del cliente seleccionado';
   document.getElementById('client-search').value = client.nombre;
-  document.getElementById('client-results-list').value = client.nombre;
   document.getElementById('client-results-list').classList.add('hidden');
   document.getElementById('new-client-name').value = client.nombre || '';
   document.getElementById('new-client-phone').value = client.telefono || '';
@@ -226,73 +219,5 @@ export function handleCanalChange() {
 
   if (availabilityData.suggestion) {
     handleSelectionChange();
-  }
-}
-
-export async function handleEditMode() {
-  const params = new URLSearchParams(window.location.search);
-  editId = params.get('edit');
-  origenReserva = params.get('origen') || 'manual';
-
-  if (editId) {
-    handleCargarPropuesta(editId);
-  }
-}
-
-export async function handleCargarPropuesta(editId) {
-  try {
-    const propuesta = await fetchAPI(`/gestion-propuestas/propuesta-tentativa/${editId}`);
-    if (!propuesta) {
-      alert('Propuesta no encontrada');
-      handleNavigation('/gestionar-propuestas');
-      return;
-    }
-
-    document.getElementById('fecha-llegada').value = propuesta.fechaLlegada;
-    document.getElementById('fecha-salida').value = propuesta.fechaSalida;
-    document.getElementById('personas').value = propuesta.personas;
-    document.getElementById('canal-select').value = propuesta.canalId;
-
-    if (propuesta.cliente) {
-      if (propuesta.cliente.id) {
-        selectedClient = propuesta.cliente;
-        document.getElementById('client-search').value = propuesta.cliente.nombre;
-        document.getElementById('client-form-title').textContent = '... o actualiza los datos del cliente seleccionado';
-      }
-      document.getElementById('new-client-name').value = propuesta.cliente.nombre || '';
-      document.getElementById('new-client-phone').value = propuesta.cliente.telefono || '';
-      document.getElementById('new-client-email').value = propuesta.cliente.email || '';
-    }
-
-    document.getElementById('id-reserva-canal-input').value = propuesta.idReservaCanal || '';
-    if (propuesta.icalUid) {
-      document.getElementById('ical-uid-input').value = propuesta.icalUid;
-      document.getElementById('ical-uid-container').classList.remove('hidden');
-    }
-
-    document.getElementById('guardar-propuesta-btn').textContent = 'Actualizar Propuesta';
-
-    await runSearch();
-
-    const selectedIds = new Set(propuesta.propiedades.map(p => p.id));
-    document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
-      cb.checked = selectedIds.has(cb.dataset.id);
-    });
-
-    currentPricing = propuesta.pricing || availabilityData.suggestion.pricing;
-    updateSummary(currentPricing);
-
-    if (propuesta.codigoCupon) {
-      document.getElementById('cupon-input').value = propuesta.codigoCupon;
-      cuponAplicado = { codigo: propuesta.codigoCupon, porcentajeDescuento: propuesta.porcentajeDescuentoCupon || 0 };
-      document.getElementById('cupon-status').textContent = `Cupón aplicado: ${cuponAplicado.porcentajeDescuento}%`;
-      document.getElementById('cupon-status').className = 'text-xs mt-1 text-green-600';
-      updateSummary(currentPricing);
-    }
-
-  } catch (error) {
-    console.error('Error al cargar la propuesta:', error);
-    alert(`Error al cargar la propuesta: ${error.message}`);
-    handleNavigation('/gestionar-propuestas');
   }
 }
