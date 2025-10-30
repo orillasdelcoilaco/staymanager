@@ -14,3 +14,6 @@ export function initPropuestaGuardadaModal() {
   `;
   document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
+export function afterRender() {
+  initPropuestaGuardadaModal();
+}
