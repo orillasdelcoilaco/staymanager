@@ -304,7 +304,11 @@ export async function handleGuardarPropuesta() {
   }
 
   const cliente = await obtenerOcrearCliente();
-  if (!cliente) return;
+  if (!cliente || !cliente.id) {
+    console.error('Cliente no válido:', cliente);
+    alert('No se pudo procesar el cliente. Verifica los datos.');
+    return;
+  }
 
   const propuesta = {
     fechaLlegada: document.getElementById('fecha-llegada').value,
@@ -312,7 +316,7 @@ export async function handleGuardarPropuesta() {
     personas: parseInt(document.getElementById('personas').value),
     canalId: document.getElementById('canal-select').value,
     clienteId: cliente.id,
-    propiedades: selectedProperties,
+    propiedades: selectedProperties.map(p => p.id), // ← ENVÍA SOLO IDS
     pricing: currentPricing,
     codigoCupon: cuponAplicado?.codigo || null,
     idReservaCanal: document.getElementById('id-reserva-canal-input').value || null,
@@ -338,10 +342,13 @@ export async function handleGuardarPropuesta() {
       });
     }
 
+    console.log('Propuesta guardada:', propuestaGuardada);
+
     const textoWhatsApp = generarTextoWhatsApp(propuestaGuardada, cliente);
     document.getElementById('propuesta-texto').value = textoWhatsApp;
     document.getElementById('propuesta-guardada-modal').classList.remove('hidden');
   } catch (error) {
+    console.error('Error al guardar propuesta:', error);
     alert(`Error al guardar: ${error.message}`);
   } finally {
     const guardarBtn = document.getElementById('guardar-propuesta-btn');
@@ -439,24 +446,37 @@ async function obtenerOcrearCliente() {
     return null;
   }
 
-  if (selectedClient && selectedClient.id) {
-    // Actualizar cliente existente si hay cambios
-    const clienteActualizado = {
-      id: selectedClient.id,
-      nombre,
-      telefono,
-      email: email || null
-    };
-    return await fetchAPI(`/clientes/${selectedClient.id}`, {
-      method: 'PUT',
-      body: clienteActualizado
-    });
-  } else {
-    // Crear nuevo cliente
-    return await fetchAPI('/clientes', {
-      method: 'POST',
-      body: { nombre, telefono, email: email || null }
-    });
+  try {
+    if (selectedClient && selectedClient.id) {
+      // Actualizar cliente existente
+      const clienteActualizado = {
+        id: selectedClient.id,
+        nombre,
+        telefono,
+        email: email || null
+      };
+      console.log('Actualizando cliente existente:', clienteActualizado);
+      const response = await fetchAPI(`/clientes/${selectedClient.id}`, {
+        method: 'PUT',
+        body: clienteActualizado
+      });
+      console.log('Cliente actualizado:', response);
+      return response; // Debe tener .id
+    } else {
+      // Crear nuevo cliente
+      const nuevoCliente = { nombre, telefono, email: email || null };
+      console.log('Creando nuevo cliente:', nuevoCliente);
+      const response = await fetchAPI('/clientes', {
+        method: 'POST',
+        body: nuevoCliente
+      });
+      console.log('Cliente creado:', response);
+      return response; // Debe tener .id
+    }
+  } catch (error) {
+    console.error('Error al procesar cliente:', error);
+    alert(`Error con el cliente: ${error.message}`);
+    return null;
   }
 }
 
