@@ -298,7 +298,7 @@ export async function handleCuponChange() {
 }
 
 export async function handleGuardarPropuesta() {
-  // Pendiente: te lo doy cuando funcione todo
+  // Implementación completa en el próximo mensaje
 }
 
 export function handleCopyPropuesta() {
@@ -341,4 +341,42 @@ export async function handleCargarPropuesta(editId) {
     if (propuesta.cliente) {
       if (propuesta.cliente.id) {
         selectedClient = propuesta.cliente;
-        document.getElementById('client-search').value = propuesta.cliente.nombre
+        document.getElementById('client-search').value = propuesta.cliente.nombre;
+        document.getElementById('client-form-title').textContent = '... o actualiza los datos del cliente seleccionado';
+      }
+      document.getElementById('new-client-name').value = propuesta.cliente.nombre || '';
+      document.getElementById('new-client-phone').value = propuesta.cliente.telefono || '';
+      document.getElementById('new-client-email').value = propuesta.cliente.email || '';
+    }
+
+    document.getElementById('id-reserva-canal-input').value = propuesta.idReservaCanal || '';
+    if (propuesta.icalUid) {
+      document.getElementById('ical-uid-input').value = propuesta.icalUid;
+      document.getElementById('ical-uid-container').classList.remove('hidden');
+    }
+
+    document.getElementById('guardar-propuesta-btn').textContent = 'Actualizar Propuesta';
+
+    await runSearch();
+
+    const selectedIds = new Set(propuesta.propiedades.map(p => p.id));
+    document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
+      cb.checked = selectedIds.has(cb.dataset.id);
+    });
+
+    currentPricing = propuesta.pricing || availabilityData.suggestion.pricing;
+    updateSummary(currentPricing);
+
+    if (propuesta.codigoCupon) {
+      document.getElementById('cupon-input').value = propuesta.codigoCupon;
+      cuponAplicado = { codigo: propuesta.codigoCupon, porcentajeDescuento: propuesta.porcentajeDescuentoCupon || 0 };
+      document.getElementById('cupon-status').textContent = `Cupón aplicado: ${cuponAplicado.porcentajeDescuento}%`;
+      document.getElementById('cupon-status').className = 'text-xs mt-1 text-green-600';
+      updateSummary(currentPricing);
+    }
+  } catch (error) {
+    console.error('Error al cargar la propuesta:', error);
+    alert(`Error al cargar la propuesta: ${error.message}`);
+    handleNavigation('/gestionar-propuestas');
+  }
+}
