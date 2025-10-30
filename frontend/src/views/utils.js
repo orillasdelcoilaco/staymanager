@@ -13,6 +13,13 @@ let valorDolarDia = 0;
 let origenReserva = 'manual';
 let cuponAplicado = null;
 
+// Exporta variables de estado
+export {
+  allClients, allProperties, allCanales,
+  selectedClient, availabilityData, selectedProperties,
+  currentPricing, editId, valorDolarDia, origenReserva, cuponAplicado
+};
+
 export function formatCurrency(value, currency = 'CLP') {
   if (currency === 'USD') {
     return `$${(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -221,3 +228,15 @@ export function handleCanalChange() {
     handleSelectionChange();
   }
 }
+
+export function formatCurrency(value, currency = 'CLP') { /* ... */ }
+export async function loadInitialData() { /* ... */ }
+export function filterClients(e) { /* ... */ }
+export async function runSearch() { /* ... */ }
+export function handleCanalChange() { /* ... */ }
+export async function handleCuponChange() { /* ... */ }
+export async function handleGuardarPropuesta() { /* ... */ }
+export function handleCopyPropuesta() { /* ... */ }
+export function handleCerrarModal() { /* ... */ }
+export function handleEditMode() { /* ... */ }
+export function updateSummary(pricing) { /* ... */ }

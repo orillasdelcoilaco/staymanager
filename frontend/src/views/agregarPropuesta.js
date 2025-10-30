@@ -1,16 +1,20 @@
 import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
-import { 
+
+// IMPORTA TODAS LAS FUNCIONES QUE USAS
+import {
   formatCurrency,
   loadInitialData,
   filterClients,
-  selectClient,
-  clearClientSelection,
-  createPropertyCheckbox,
-  renderSelectionUI,
-  handleSelectionChange,
+  runSearch,
+  handleCanalChange,
+  handleCuponChange,
+  handleGuardarPropuesta,
+  handleCopyPropuesta,
+  handleCerrarModal,
+  handleEditMode,
   updateSummary,
-  handleCanalChange
+  currentPricing
 } from './utils.js';
 
 export function render() {
@@ -120,15 +124,19 @@ export function render() {
 export async function afterRender() {
   await loadInitialData();
 
-  document.getElementById('buscar-btn').addEventListener('click', runSearch);
-  document.getElementById('client-search').addEventListener('input', filterClients);
-  document.getElementById('canal-select').addEventListener('change', handleCanalChange);
-  document.getElementById('cupon-input').addEventListener('change', handleCuponChange);
-  document.getElementById('guardar-propuesta-btn').addEventListener('click', handleGuardarPropuesta);
-  document.getElementById('copiar-propuesta-btn').addEventListener('click', handleCopyPropuesta);
-  document.getElementById('cerrar-propuesta-modal-btn').addEventListener('click', handleCerrarModal);
+  // Eventos
+  document.getElementById('buscar-btn')?.addEventListener('click', runSearch);
+  document.getElementById('client-search')?.addEventListener('input', filterClients);
+  document.getElementById('canal-select')?.addEventListener('change', handleCanalChange);
+  document.getElementById('cupon-input')?.addEventListener('change', handleCuponChange);
+  document.getElementById('guardar-propuesta-btn')?.addEventListener('click', handleGuardarPropuesta);
+  document.getElementById('copiar-propuesta-btn')?.addEventListener('click', handleCopyPropuesta);
+  document.getElementById('cerrar-propuesta-modal-btn')?.addEventListener('click', handleCerrarModal);
 
-  document.querySelectorAll('.discount-input').forEach(input => input.addEventListener('input', () => updateSummary(currentPricing)));
+  // Descuentos manuales
+  document.querySelectorAll('.discount-input').forEach(input => {
+    input.addEventListener('input', () => updateSummary(currentPricing));
+  });
 
   handleEditMode();
 }
