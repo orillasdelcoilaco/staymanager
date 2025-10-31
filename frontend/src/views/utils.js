@@ -316,7 +316,7 @@ export async function handleGuardarPropuesta() {
     personas: parseInt(document.getElementById('personas').value),
     canalId: document.getElementById('canal-select').value,
     clienteId: cliente.id,
-    propiedades: selectedProperties.map(p => p.id), // ← ENVÍA SOLO IDS
+    propiedades: selectedProperties, // ← OBJ juvenil
     pricing: currentPricing,
     codigoCupon: cuponAplicado?.codigo || null,
     idReservaCanal: document.getElementById('id-reserva-canal-input').value || null,
