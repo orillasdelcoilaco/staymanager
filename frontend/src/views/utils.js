@@ -107,36 +107,33 @@ export function renderSelectionUI() {
 
   if (!availabilityData.suggestion) return;
 
-  const isSegmented = availabilityData.suggestion.isSegmented;
-  const suggestedProps = isSegmented
+  const sourceSuggested = availabilityData.suggestion.isSegmented
     ? availabilityData.suggestion.itinerary.map(s => s.propiedad)
     : availabilityData.suggestion.propiedades;
 
-  selectedProperties = [...suggestedProps];
+  selectedProperties = [...sourceSuggested]; // ← Fuente con .id
 
-  if (isSegmented) {
+  if (availabilityData.suggestion.isSegmented) {
     suggestionList.innerHTML = `
       <h4 class="font-medium text-gray-700">Propuesta de Itinerario</h4>
-      <div class="space-y-2 p-3 bg-white rounded-md border">
-        ${availabilityData.suggestion.itinerary.map(segment => {
-          const salida = new Date(segment.endDate);
+      <div class="space-y-2 p-3 bg-white rounded-md border">${
+        availabilityData.suggestion.itinerary.map((segment) => {
+          const fechaSalidaSegmento = new Date(segment.endDate); 
           return `
             <div class="grid grid-cols-5 gap-4 items-center text-sm">
               <span class="font-semibold">${segment.propiedad.nombre}</span>
               <span>${new Date(segment.startDate).toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
               <span>al</span>
-              <span>${salida.toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
+              <span>${fechaSalidaSegmento.toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
               <span class="text-xs col-span-5 text-gray-500 pl-2">(${segment.propiedad.capacidad} pers. max)</span>
             </div>`;
-        }).join('')}
-      </div>`;
+        }).join('')
+      }</div>`;
     availableList.innerHTML = '<p class="text-sm text-gray-500">Modo segmentado: no se pueden añadir otras cabañas.</p>';
   } else {
-    const suggestedIds = new Set(suggestedProps.map(p => p.id));
-    suggestionList.innerHTML = `
-      <h4 class="font-medium text-gray-700">Propiedades Sugeridas</h4>
-      ${suggestedProps.map(p => createPropertyCheckbox(p, true)).join('')}
-    `;
+    const suggestedIds = new Set(sourceSuggested.map(p => p.id));
+    suggestionList.innerHTML = `<h4 class="font-medium text-gray-700">Propiedades Sugeridas</h4>` + 
+      sourceSuggested.map(p => createPropertyCheckbox(p, true)).join('');
 
     const availableWithId = availabilityData.availableProperties || [];
     availableList.innerHTML = availableWithId
@@ -144,7 +141,7 @@ export function renderSelectionUI() {
       .map(p => createPropertyCheckbox(p, false))
       .join('');
   }
-
+  
   document.querySelectorAll('.propiedad-checkbox').forEach(cb => cb.addEventListener('change', handleSelectionChange));
   updateSummary(availabilityData.suggestion.pricing);
 }
