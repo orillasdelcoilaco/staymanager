@@ -1,4 +1,3 @@
-// frontend/src/views/utils.js
 import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
 
@@ -57,11 +56,10 @@ export function filterClients(e) {
     clearClientSelection();
     return;
   }
-  const filtered = allClients.filter(c => 
-    c.nombre.toLowerCase().includes(searchTerm) || 
-    (c.telefono && c.telefono.includes(searchTerm))
-  );
-  if (filtered.length > 0) resultsList.classList.remove('hidden');
+  const filtered = allClients.filter(c => c.nombre.toLowerCase().includes(searchTerm) || (c.telefono && c.telefono.includes(searchTerm)));
+  if (filtered.length > 0) {
+    resultsList.classList.remove('hidden');
+  }
   filtered.slice(0, 5).forEach(client => {
     const div = document.createElement('div');
     div.className = 'p-2 cursor-pointer hover:bg-gray-100';
@@ -116,13 +114,28 @@ export function renderSelectionUI() {
   selectedProperties = [...sourceSuggested]; // ← Fuente con .id
 
   if (availabilityData.suggestion.isSegmented) {
-    // ... (mismo código)
+    suggestionList.innerHTML = `
+      <h4 class="font-medium text-gray-700">Propuesta de Itinerario</h4>
+      <div class="space-y-2 p-3 bg-white rounded-md border">${
+        availabilityData.suggestion.itinerary.map((segment) => {
+          const fechaSalidaSegmento = new Date(segment.endDate); 
+          return `
+            <div class="grid grid-cols-5 gap-4 items-center text-sm">
+              <span class="font-semibold">${segment.propiedad.nombre}</span>
+              <span>${new Date(segment.startDate).toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
+              <span>al</span>
+              <span>${fechaSalidaSegmento.toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
+              <span class="text-xs col-span-5 text-gray-500 pl-2">(${segment.propiedad.capacidad} pers. max)</span>
+            </div>`;
+        }).join('')
+      }</div>`;
+    availableList.innerHTML = '<p class="text-sm text-gray-500">Modo segmentado: no se pueden añadir otras cabañas.</p>';
   } else {
     const suggestedIds = new Set(sourceSuggested.map(p => p.id));
     suggestionList.innerHTML = `<h4 class="font-medium text-gray-700">Propiedades Sugeridas</h4>` + 
       sourceSuggested.map(p => createPropertyCheckbox(p, true)).join('');
-    
-   const availableWithId = availabilityData.allPropertiesWithId || [];
+
+    const availableWithId = availabilityData.availableProperties || [];
     availableList.innerHTML = availableWithId
       .filter(p => !suggestedIds.has(p.id))
       .map(p => createPropertyCheckbox(p, false))
@@ -135,9 +148,7 @@ export function renderSelectionUI() {
 
 export async function handleSelectionChange() {
   const selectedIds = new Set(Array.from(document.querySelectorAll('.propiedad-checkbox:checked')).map(cb => cb.dataset.id));
-  
-  const allWithId = availabilityData.allPropertiesWithId || [];
-  selectedProperties = allWithId.filter(p => selectedIds.has(p.id));
+  selectedProperties = (availabilityData.allProperties || []).filter(p => selectedIds.has(p.id));
 
   if (selectedProperties.length === 0) {
     updateSummary({ totalPriceOriginal: 0, nights: currentPricing.nights, details: [] });
@@ -443,80 +454,155 @@ export async function handleCargarPropuesta(editId) {
     handleNavigation('/gestionar-propuestas');
   }
 }
-async function obtenerOcrearCliente() {
-  const nombre = document.getElementById('new-client-name').value.trim();
-  const telefono = document.getElementById('new-client-phone').value.trim();
-  const email = document.getElementById('new-client-email').value.trim();
 
-  if (!nombre || !telefono) {
-    alert('Nombre y teléfono son obligatorios.');
-    return null;
-  }
+export function handleCanalChange() {
+  const canalSelect = document.getElementById('canal-select');
+  if (!canalSelect) return;
+  const canalId = canalSelect.value;
+  const canal = allCanales.find(c => c.id === canalId);
+  if (!canal) return;
 
-  try {
-    if (selectedClient && selectedClient.id) {
-      // Actualizar cliente existente
-      const clienteActualizado = {
-        id: selectedClient.id,
-        nombre,
-        telefono,
-        email: email || null
-      };
-      console.log('Actualizando cliente existente:', clienteActualizado);
-      const response = await fetchAPI(`/clientes/${selectedClient.id}`, {
-        method: 'PUT',
-        body: clienteActualizado
-      });
-      console.log('Cliente actualizado:', response);
-      return response; // Debe tener .id
-    } else {
-      // Crear nuevo cliente
-      const nuevoCliente = { nombre, telefono, email: email || null };
-      console.log('Creando nuevo cliente:', nuevoCliente);
-      const response = await fetchAPI('/clientes', {
-        method: 'POST',
-        body: nuevoCliente
-      });
-      console.log('Cliente creado:', response);
-      return response; // Debe tener .id
-    }
-  } catch (error) {
-    console.error('Error al procesar cliente:', error);
-    alert(`Error con el cliente: ${error.message}`);
-    return null;
+  const moneda = canal.moneda;
+  document.getElementById('descuento-fijo-label').textContent = `Descuento Fijo Manual (${moneda})`;
+  document.getElementById('valor-dolar-container').classList.toggle('hidden', moneda !== 'USD');
+
+  if (availabilityData.suggestion) {
+    handleSelectionChange();
   }
 }
 
-function generarTextoWhatsApp(propuesta, cliente) {
-  const canal = allCanales.find(c => c.id === propuesta.canalId);
-  const moneda = canal?.moneda || 'CLP';
-  const simbolo = moneda === 'USD' ? 'USD' : 'CLP';
+export async function runSearch() {
+  const payload = {
+    fechaLlegada: document.getElementById('fecha-llegada').value,
+    fechaSalida: document.getElementById('fecha-salida').value,
+    personas: document.getElementById('personas').value,
+    sinCamarotes: document.getElementById('sin-camarotes').checked,
+    permitirCambios: document.getElementById('permitir-cambios').checked,
+    canalId: document.getElementById('canal-select').value
+  };
+  if (!payload.fechaLlegada || !payload.fechaSalida || !payload.personas) {
+    alert('Por favor, completa las fechas y la cantidad de personas.');
+    return;
+  }
 
-  const noches = currentPricing.nights;
-  const precioFinal = moneda === 'USD' 
-    ? currentPricing.totalPriceOriginal - (currentPricing.totalPriceOriginal * (cuponAplicado?.porcentajeDescuento || 0) / 100)
-    : currentPricing.totalPriceCLP - (currentPricing.totalPriceCLP - Math.round((currentPricing.totalPriceOriginal - (currentPricing.totalPriceOriginal * (cuponAplicado?.porcentajeDescuento || 0) / 100)) * valorDolarDia));
+  const statusContainer = document.getElementById('status-container');
+  const buscarBtn = document.getElementById('buscar-btn');
+  buscarBtn.disabled = true;
+  buscarBtn.textContent = 'Buscando...';
+  statusContainer.textContent = 'Buscando disponibilidad y sugerencias...';
+  statusContainer.classList.remove('hidden');
+  document.getElementById('results-container').classList.add('hidden');
 
-  const propiedadesTexto = propuesta.propiedades.map(p => p.nombre).join(', ');
+  try {
+    const dolar = await fetchAPI(`/dolar/valor/${payload.fechaLlegada}`);
+    valorDolarDia = dolar.valor;
+    document.getElementById('valor-dolar-info').textContent = `Valor Dólar para el Check-in: ${formatCurrency(valorDolarDia)}`;
 
-  return `
-¡Hola ${cliente.nombre}! 👋
+    availabilityData = await fetchAPI('/propuestas/generar', { method: 'POST', body: payload });
+    
+    // UNIFICAR FUENTE CON .id
+    const allPropsWithId = [
+      ...(availabilityData.suggestion?.propiedades || []),
+      ...(availabilityData.availableProperties || [])
+    ].filter(p => p && p.id); // Asegurar .id
 
-Gracias por tu interés en *Suite Manager*. Aquí tienes tu **propuesta personalizada**:
+    availabilityData.allPropertiesWithId = allPropsWithId;
 
-Check-in: *${new Date(propuesta.fechaLlegada).toLocaleDateString('es-CL')}*  
-Check-out: *${new Date(propuesta.fechaSalida).toLocaleDateString('es-CL')}*  
-Noches: *${noches}*  
-Huéspedes: *${propuesta.personas}*  
-Alojamiento: *${propiedadesTexto}*
+    if (availabilityData.suggestion) {
+      statusContainer.classList.add('hidden');
+      document.getElementById('results-container').classList.remove('hidden');
+      renderSelectionUI();
+    } else {
+      statusContainer.textContent = availabilityData.message || 'No se encontró disponibilidad.';
+    }
+  } catch (error) {
+    statusContainer.textContent = `Error: ${error.message}`;
+  } finally {
+    buscarBtn.disabled = false;
+    buscarBtn.textContent = 'Buscar Disponibilidad';
+  }
+}
 
-**Total a pagar: ${formatCurrency(precioFinal, moneda)}**
+export async function handleCuponChange() {
+  const codigo = document.getElementById('cupon-input').value.trim();
+  const statusEl = document.getElementById('cupon-status');
+  if (!codigo) {
+    cuponAplicado = null;
+    statusEl.textContent = '';
+    updateSummary(currentPricing);
+    return;
+  }
 
-${cuponAplicado ? `Cupón aplicado: *${cuponAplicado.codigo}* (-${cuponAplicado.porcentajeDescuento}%)` : ''}
+  try {
+    statusEl.textContent = 'Validando...';
+    cuponAplicado = await fetchAPI(`/crm/cupones/validar/${codigo}`);
+    statusEl.textContent = `Cupón válido: ${cuponAplicado.porcentajeDescuento}% de descuento.`;
+    statusEl.className = 'text-xs mt-1 text-green-600';
+    updateSummary(currentPricing);
+  } catch (error) {
+    cuponAplicado = null;
+    statusEl.textContent = `${error.message}`;
+    statusEl.className = 'text-xs mt-1 text-red-600';
+    updateSummary(currentPricing);
+  }
+}
 
-¿Te gustaría reservar? Responde *SÍ* y coordinamos el pago.
+export async function handleGuardarPropuesta() {
+  if (!availabilityData.suggestion) {
+    alert('Primero realiza una búsqueda de disponibilidad.');
+    return;
+  }
 
-¡Quedan pocas fechas disponibles!  
-Suite Manager
-  `.trim();
+  const cliente = await obtenerOcrearCliente();
+  if (!cliente || !cliente.id) {
+    console.error('Cliente no válido:', cliente);
+    alert('No se pudo procesar el cliente. Verifica los datos.');
+    return;
+  }
+
+  const propuesta = {
+    fechaLlegada: document.getElementById('fecha-llegada').value,
+    fechaSalida: document.getElementById('fecha-salida').value,
+    personas: parseInt(document.getElementById('personas').value),
+    canalId: document.getElementById('canal-select').value,
+    clienteId: cliente.id,
+    propiedades: selectedProperties.map(p => ({ id: p.id, nombre: p.nombre, capacidad: p.capacidad })), // ← ENVÍA OBJETOS MÍNIMOS CON .id
+    pricing: currentPricing,
+    codigoCupon: cuponAplicado?.codigo || null,
+    idReservaCanal: document.getElementById('id-reserva-canal-input').value || null,
+    icalUid: document.getElementById('ical-uid-input').value || null,
+    origen: origenReserva
+  };
+
+  try {
+    const guardarBtn = document.getElementById('guardar-propuesta-btn');
+    guardarBtn.disabled = true;
+    guardarBtn.textContent = editId ? 'Actualizando...' : 'Guardando...';
+
+    let propuestaGuardada;
+    if (editId) {
+      propuestaGuardada = await fetchAPI(`/gestion-propuestas/propuesta-tentativa/${editId}`, {
+        method: 'PUT',
+        body: propuesta
+      });
+    } else {
+      propuestaGuardada = await fetchAPI('/gestion-propuestas/propuesta-tentativa', {
+        method: 'POST',
+        body: propuesta
+      });
+    }
+
+    console.log('Propuesta guardada:', propuestaGuardada);
+
+    const textoWhatsApp = generarTextoWhatsApp(propuestaGuardada, cliente);
+    document.getElementById('propuesta-texto').value = textoWhatsApp;
+    document.getElementById('propuesta-guardada-modal').classList.remove('hidden');
+  } catch (error) {
+    console.error('Error al guardar propuesta:', error);
+    alert(`Error al guardar: ${error.message}`);
+  } finally {
+    const guardarBtn = document.getElementById('guardar-propuesta-btn');
+    guardarBtn.disabled = false;
+    guardarBtn.textContent = editId ? 'Actualizar Propuesta' : 'Crear Reserva Tentativa';
+  }
 }
