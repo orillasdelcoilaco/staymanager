@@ -314,13 +314,16 @@ export async function handleGuardarPropuesta() {
     return;
   }
 
+  // ENVÍA SOLO LOS IDs
+  const propiedadesIds = selectedProperties.map(p => p.id);
+
   const propuesta = {
     fechaLlegada: document.getElementById('fecha-llegada').value,
     fechaSalida: document.getElementById('fecha-salida').value,
     personas: parseInt(document.getElementById('personas').value),
     canalId: document.getElementById('canal-select').value,
     clienteId: cliente.id,
-    propiedades: selectedProperties, // ← OBJ juvenil
+    propiedadesIds: propiedadesIds, // ← SOLO IDs
     pricing: currentPricing,
     codigoCupon: cuponAplicado?.codigo || null,
     idReservaCanal: document.getElementById('id-reserva-canal-input').value || null,
