@@ -4,7 +4,7 @@ import { handleNavigation } from '../router.js';
 let allClients = [];
 let allProperties = [];
 let allCanales = [];
-let allPlantillas = [];
+let allPlantillas = []; // AÑADIDO: para usar plantillas en memoria
 let selectedClient = null;
 let availabilityData = {};
 let selectedProperties = [];
@@ -16,7 +16,7 @@ let cuponAplicado = null;
 
 // Exporta variables de estado
 export {
-  allClients, allProperties, allCanales,
+  allClients, allProperties, allCanales, allPlantillas, // AÑADIDO allPlantillas
   selectedClient, availabilityData, selectedProperties,
   currentPricing, editId, valorDolarDia, origenReserva, cuponAplicado
 };
@@ -34,21 +34,25 @@ export async function loadInitialData() {
       fetchAPI('/clientes'),
       fetchAPI('/propiedades'),
       fetchAPI('/canales'),
-      fetchAPI('/plantillas') // Asume endpoint que devuelve plantillas, filtra por tipo si es necesario
+      fetchAPI('/plantillas') // AÑADIDO: carga todas las plantillas
     ]);
+
     const canalSelect = document.getElementById('canal-select');
     if (canalSelect) {
       canalSelect.innerHTML = allCanales.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
       const appChannel = allCanales.find(c => c.nombre.toLowerCase() === 'app');
       if (appChannel) canalSelect.value = appChannel.id;
     }
+
     const plantillaSelect = document.getElementById('plantilla-select');
     if (plantillaSelect) {
-      plantillaSelect.innerHTML = allPlantillas.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
-      // Opcional: Selecciona una por defecto si existe
+      plantillaSelect.innerHTML = allPlantillas
+        .map(p => `<option value="${p.id}">${p.nombre}</option>`)
+        .join('');
       const defaultPlantilla = allPlantillas.find(p => p.nombre.toLowerCase().includes('propuesta'));
       if (defaultPlantilla) plantillaSelect.value = defaultPlantilla.id;
     }
+
     handleCanalChange();
   } catch (error) {
     console.error("No se pudieron cargar los datos iniciales:", error);
@@ -120,7 +124,7 @@ export function renderSelectionUI() {
     ? availabilityData.suggestion.itinerary.map(s => s.propiedad)
     : availabilityData.suggestion.propiedades;
 
-  selectedProperties = [...sourceSuggested]; // ← Fuente con .id
+  selectedProperties = [...sourceSuggested];
 
   if (availabilityData.suggestion.isSegmented) {
     suggestionList.innerHTML = `
@@ -256,7 +260,7 @@ export async function runSearch() {
   };
   if (!payload.fechaLlegada || !payload.fechaSalida || !payload.personas) {
     alert('Por favor, completa las fechas y la cantidad de personas.');
-    return false; // <-- DEVOLVER FALSE
+    return false;
   }
 
   const statusContainer = document.getElementById('status-container');
@@ -274,11 +278,10 @@ export async function runSearch() {
 
     availabilityData = await fetchAPI('/propuestas/generar', { method: 'POST', body: payload });
     
-    // UNIFICAR FUENTE CON .id
     const allPropsWithId = [
       ...(availabilityData.suggestion?.propiedades || []),
       ...(availabilityData.availableProperties || [])
-    ].filter(p => p && p.id); // Asegurar .id
+    ].filter(p => p && p.id);
 
     availabilityData.allPropertiesWithId = allPropsWithId;
 
@@ -286,14 +289,14 @@ export async function runSearch() {
       statusContainer.classList.add('hidden');
       document.getElementById('results-container').classList.remove('hidden');
       renderSelectionUI();
-      return true; // <-- DEVOLVER TRUE
+      return true;
     } else {
       statusContainer.textContent = availabilityData.message || 'No se encontró disponibilidad.';
-      return false; // <-- DEVOLVER FALSE
+      return false;
     }
   } catch (error) {
     statusContainer.textContent = `Error: ${error.message}`;
-    return false; // <-- DEVOLVER FALSE
+    return false;
   } finally {
     buscarBtn.disabled = false;
     buscarBtn.textContent = 'Buscar Disponibilidad';
@@ -337,26 +340,20 @@ export async function handleGuardarPropuesta() {
     return;
   }
 
-  // --- INICIO DE LA CORRECCIÓN ---
-  // El backend espera el objeto cliente completo y un array de objetos de propiedades
   const propuesta = {
     fechaLlegada: document.getElementById('fecha-llegada').value,
     fechaSalida: document.getElementById('fecha-salida').value,
     personas: parseInt(document.getElementById('personas').value),
     canalId: document.getElementById('canal-select').value,
     canalNombre: allCanales.find(c => c.id === document.getElementById('canal-select').value)?.nombre || 'Desconocido',
-    
-    cliente: cliente, // <-- CORRECCIÓN 1: Enviar el objeto cliente completo
-    
-    propiedades: selectedProperties, // <-- CORRECCIÓN 2: Enviar el array de objetos de propiedades
-    
+    cliente: cliente,
+    propiedades: selectedProperties,
     precioFinal: parseFloat(document.getElementById('summary-precio-final')?.textContent.replace(/[$.]/g, '')) || 0,
     noches: parseInt(document.getElementById('summary-noches')?.textContent) || 0,
     moneda: currentPricing.currencyOriginal,
     valorDolarDia: valorDolarDia,
     valorOriginal: currentPricing.totalPriceOriginal,
-    
-    pricing: currentPricing, // Enviar el desglose de precios
+    pricing: currentPricing,
     codigoCupon: cuponAplicado?.codigo || null,
     idReservaCanal: document.getElementById('id-reserva-canal-input').value || null,
     icalUid: document.getElementById('ical-uid-input').value || null,
@@ -367,7 +364,6 @@ export async function handleGuardarPropuesta() {
     descuentoFijo: parseFloat(document.getElementById('descuento-fijo-total').value) || 0,
     plantillaId: document.getElementById('plantilla-select').value || null
   };
-  // --- FIN DE LA CORRECCIÓN ---
 
   try {
     const guardarBtn = document.getElementById('guardar-propuesta-btn');
@@ -387,9 +383,7 @@ export async function handleGuardarPropuesta() {
       });
     }
 
-    console.log('Propuesta guardada:', propuestaGuardada);
-
-    // Pasamos el objeto 'propuesta' que acabamos de enviar, ya que tiene los datos necesarios
+    // CORREGIDO: await + usar allPlantillas
     const textoWhatsApp = await generarTextoWhatsApp(propuesta, cliente);
     document.getElementById('propuesta-texto').value = textoWhatsApp;
     document.getElementById('propuesta-guardada-modal').classList.remove('hidden');
@@ -459,7 +453,6 @@ export async function handleCargarPropuesta(editId) {
 
     document.getElementById('guardar-propuesta-btn').textContent = 'Actualizar Propuesta';
 
-    // Setear checkboxes y descuentos manuales antes de buscar
     document.getElementById('sin-camarotes').checked = propuesta.sinCamarotes || false;
     document.getElementById('permitir-cambios').checked = propuesta.permitirCambios || false;
     document.getElementById('descuento-pct').value = propuesta.descuentoPct || '';
@@ -476,7 +469,6 @@ export async function handleCargarPropuesta(editId) {
           cb.checked = selectedIds.has(cb.dataset.id);
         });
 
-        // Verificar propiedades faltantes y agregarlas manualmente al UI
         const missingIds = [...selectedIds].filter(id => !document.querySelector(`#cb-${id}`));
         if (missingIds.length > 0) {
           const missingProperties = allProperties.filter(p => missingIds.includes(p.id));
@@ -484,16 +476,13 @@ export async function handleCargarPropuesta(editId) {
           missingProperties.forEach(p => {
             const checkboxHtml = createPropertyCheckbox(p, true);
             const wrapper = document.createElement('div');
-            wrapper.innerHTML = `${checkboxHtml} <span class="text-red-500 ml-2 text-sm">(Reservado para esta propuesta - Verificar disponibilidad)</span>`;
+            wrapper.innerHTML = `${checkboxHtml} <span class="text-red-500 ml-2 text-sm">(Reservado para esta propuesta)</span>`;
             availableList.appendChild(wrapper);
           });
-          // Agregar listeners a los nuevos checkboxes
           availableList.querySelectorAll('.propiedad-checkbox').forEach(cb => cb.addEventListener('change', handleSelectionChange));
         }
 
-        // Asegurarse de que selectedProperties (objetos) esté poblado
         selectedProperties = allProperties.filter(p => selectedIds.has(p.id));
-
         currentPricing = propuesta.pricing || availabilityData.suggestion.pricing;
         updateSummary(currentPricing);
 
@@ -523,39 +512,23 @@ async function obtenerOcrearCliente() {
   }
 
   try {
-    // Si el cliente fue seleccionado de la lista (o cargado en modo edición)
     if (selectedClient && selectedClient.id) {
-      const datosCargados = {
-         nombre: selectedClient.nombre,
-         telefono: selectedClient.telefono,
-         email: selectedClient.email
-      };
+      const datosCargados = { nombre: selectedClient.nombre, telefono: selectedClient.telefono, email: selectedClient.email };
       const datosFormulario = { nombre, telefono, email };
-
-      // Comprobar si hubo cambios en el formulario
       const hayCambios = JSON.stringify(datosCargados) !== JSON.stringify(datosFormulario);
 
       if (hayCambios) {
-        // Si hay cambios, actualizar el cliente
         const clienteActualizado = { id: selectedClient.id, nombre, telefono, email: email || null };
-        const response = await fetchAPI(`/clientes/${selectedClient.id}`, {
-          method: 'PUT',
-          body: clienteActualizado
-        });
-        selectedClient = response; // Actualizar el cliente seleccionado localmente
+        const response = await fetchAPI(`/clientes/${selectedClient.id}`, { method: 'PUT', body: clienteActualizado });
+        selectedClient = response;
         return response;
       } else {
-        // Si no hay cambios, devolver el cliente seleccionado tal cual
         return selectedClient;
       }
     } else {
-      // Si no había cliente seleccionado, crear uno nuevo
       const nuevoCliente = { nombre, telefono, email: email || null };
-      const response = await fetchAPI('/clientes', {
-        method: 'POST',
-        body: nuevoCliente
-      });
-      selectedClient = response.cliente; // Guardar el nuevo cliente
+      const response = await fetchAPI('/clientes', { method: 'POST', body: nuevoCliente });
+      selectedClient = response.cliente;
       return response.cliente;
     }
   } catch (error) {
@@ -565,34 +538,47 @@ async function obtenerOcrearCliente() {
   }
 }
 
+// CORREGIDO: Usa allPlantillas en memoria
 export async function generarTextoWhatsApp(propuesta, cliente) {
   const plantillaId = propuesta.plantillaId;
-  if (!plantillaId) {
-    return 'No se seleccionó una plantilla. Usa una predeterminada o configura en Gestionar Plantillas.';
-  }
 
-  try {
-    const plantilla = await fetchAPI(`/plantillas/${plantillaId}`);
-    if (!plantilla || !plantilla.contenido) {
-      return 'Error al cargar la plantilla. Usa el formato predeterminado.';
-    }
+  const defaultTemplate = `
+¡Hola [NOMBRE_CLIENTE]!
 
-    let texto = plantilla.contenido;
+Gracias por tu interés. Aquí tienes tu **propuesta personalizada**:
 
-    // Reemplazos comunes basados en placeholders
-    texto = texto.replace('[NOMBRE_CLIENTE]', cliente.nombre || 'Cliente');
-    texto = texto.replace('[FECHA_LLEGADA]', new Date(propuesta.fechaLlegada + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' }));
-    texto = texto.replace('[FECHA_SALIDA]', new Date(propuesta.fechaSalida + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' }));
-    texto = texto.replace('[NOCHES]', currentPricing.nights || 0);
-    texto = texto.replace('[PERSONAS]', propuesta.personas || 0);
-    texto = texto.replace('[PROPIEDADES]', propuesta.propiedades.map(p => p.nombre).join(', ') || 'No especificado');
-    texto = texto.replace('[PRECIO_FINAL]', formatCurrency(propuesta.precioFinal, propuesta.moneda));
-    texto = texto.replace('[CUPON]', cuponAplicado ? `${cuponAplicado.codigo} (-${cuponAplicado.porcentajeDescuento}%)` : '');
-    texto = texto.replace('[CANAL]', propuesta.canalNombre || 'Directo');
+Check-in: *[FECHA_LLEGADA]*
+Check-out: *[FECHA_SALIDA]*
+Noches: *[NOCHES]*
+Huéspedes: *[PERSONAS]*
+Alojamiento: *[PROPIEDADES]*
 
-    return texto.trim();
-  } catch (error) {
-    console.error('Error al generar texto con plantilla:', error);
-    return 'Error al generar el mensaje. Por favor, verifica la plantilla.';
-  }
+**Total a pagar: [PRECIO_FINAL]**
+
+[CUPON]
+
+¿Te gustaría reservar? Responde *SÍ* y coordinamos el pago.
+
+¡Quedan pocas fechas disponibles!
+Suite Manager
+  `.trim();
+
+  const plantilla = allPlantillas.find(p => p.id === plantillaId);
+  const texto = plantilla?.texto || plantilla?.contenido || defaultTemplate;
+
+  return replacePlaceholders(texto, propuesta, cliente);
+}
+
+// Helper para reemplazar placeholders
+function replacePlaceholders(texto, propuesta, cliente) {
+  return texto
+    .replace(/\[NOMBRE_CLIENTE\]/g, cliente.nombre || 'Cliente')
+    .replace(/\[FECHA_LLEGADA\]/g, new Date(propuesta.fechaLlegada).toLocaleDateString('es-CL'))
+    .replace(/\[FECHA_SALIDA\]/g, new Date(propuesta.fechaSalida).toLocaleDateString('es-CL'))
+    .replace(/\[NOCHES\]/g, currentPricing.nights || 0)
+    .replace(/\[PERSONAS\]/g, propuesta.personas || 0)
+    .replace(/\[PROPIEDADES\]/g, propuesta.propiedades.map(p => p.nombre).join(', ') || 'No especificado')
+    .replace(/\[PRECIO_FINAL\]/g, formatCurrency(propuesta.precioFinal, propuesta.moneda))
+    .replace(/\[CUPON\]/g, cuponAplicado ? `Cupón: *${cuponAplicado.codigo}* (-${cuponAplicado.porcentajeDescuento}%)` : '')
+    .trim();
 }
