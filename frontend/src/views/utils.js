@@ -277,11 +277,14 @@ export async function runSearch() {
       statusContainer.classList.add('hidden');
       document.getElementById('results-container').classList.remove('hidden');
       renderSelectionUI();
+      return true; // <-- DEVOLVER TRUE
     } else {
       statusContainer.textContent = availabilityData.message || 'No se encontró disponibilidad.';
+      return false; // <-- DEVOLVER FALSE
     }
   } catch (error) {
     statusContainer.textContent = `Error: ${error.message}`;
+    return false; // <-- DEVOLVER FALSE
   } finally {
     buscarBtn.disabled = false;
     buscarBtn.textContent = 'Buscar Disponibilidad';
@@ -431,22 +434,24 @@ export async function handleCargarPropuesta(editId) {
 
     document.getElementById('guardar-propuesta-btn').textContent = 'Actualizar Propuesta';
 
-    await runSearch();
+    const searchSuccess = await runSearch();
+    
+    if (searchSuccess) {
+        const selectedIds = new Set(propuesta.propiedades.map(p => p.id));
+        document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
+          cb.checked = selectedIds.has(cb.dataset.id);
+        });
 
-    const selectedIds = new Set(propuesta.propiedades.map(p => p.id));
-    document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
-      cb.checked = selectedIds.has(cb.dataset.id);
-    });
+        currentPricing = propuesta.pricing || availabilityData.suggestion.pricing;
+        updateSummary(currentPricing);
 
-    currentPricing = propuesta.pricing || availabilityData.suggestion.pricing;
-    updateSummary(currentPricing);
-
-    if (propuesta.codigoCupon) {
-      document.getElementById('cupon-input').value = propuesta.codigoCupon;
-      cuponAplicado = { codigo: propuesta.codigoCupon, porcentajeDescuento: propuesta.porcentajeDescuentoCupon || 0 };
-      document.getElementById('cupon-status').textContent = `Cupón aplicado: ${cuponAplicado.porcentajeDescuento}%`;
-      document.getElementById('cupon-status').className = 'text-xs mt-1 text-green-600';
-      updateSummary(currentPricing);
+        if (propuesta.codigoCupon) {
+          document.getElementById('cupon-input').value = propuesta.codigoCupon;
+          cuponAplicado = { codigo: propuesta.codigoCupon, porcentajeDescuento: propuesta.porcentajeDescuentoCupon || 0 };
+          document.getElementById('cupon-status').textContent = `Cupón aplicado: ${cuponAplicado.porcentajeDescuento}%`;
+          document.getElementById('cupon-status').className = 'text-xs mt-1 text-green-600';
+          updateSummary(currentPricing);
+        }
     }
   } catch (error) {
     console.error('Error al cargar la propuesta:', error);
@@ -514,11 +519,7 @@ function generarTextoWhatsApp(propuesta, cliente) {
 
 Gracias por tu interés en *Suite Manager*. Aquí tienes tu **propuesta personalizada**:
 
-Check-in: *${new Date(propuesta.fechaLlegada).toLocaleDateString('es-CL')}*  
-Check-out: *${new Date(propuesta.fechaSalida).toLocaleDateString('es-CL')}*  
-Noches: *${noches}*  
-Huéspedes: *${propuesta.personas}*  
-Alojamiento: *${propiedadesTexto}*
+Check-in: *${new Date(propuesta.fechaLlegada).toLocaleDateString('es-CL')}* Check-out: *${new Date(propuesta.fechaSalida).toLocaleDateString('es-CL')}* Noches: *${noches}* Huéspedes: *${propuesta.personas}* Alojamiento: *${propiedadesTexto}*
 
 **Total a pagar: ${formatCurrency(precioFinal, moneda)}**
 
