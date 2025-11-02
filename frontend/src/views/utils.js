@@ -247,7 +247,7 @@ export async function runSearch() {
   };
   if (!payload.fechaLlegada || !payload.fechaSalida || !payload.personas) {
     alert('Por favor, completa las fechas y la cantidad de personas.');
-    return;
+    return false; // <-- DEVOLVER FALSE
   }
 
   const statusContainer = document.getElementById('status-container');
@@ -328,22 +328,32 @@ export async function handleGuardarPropuesta() {
     return;
   }
 
-  // ENVÍA SOLO LOS IDs
-  const propiedadesIds = selectedProperties.map(p => p.id);
-
+  // --- INICIO DE LA CORRECCIÓN ---
+  // El backend espera el objeto cliente completo y un array de objetos de propiedades
   const propuesta = {
     fechaLlegada: document.getElementById('fecha-llegada').value,
     fechaSalida: document.getElementById('fecha-salida').value,
     personas: parseInt(document.getElementById('personas').value),
     canalId: document.getElementById('canal-select').value,
-    clienteId: cliente.id,
-    propiedadesIds: propiedadesIds, // ← SOLO IDs
-    pricing: currentPricing,
+    canalNombre: allCanales.find(c => c.id === document.getElementById('canal-select').value)?.nombre || 'Desconocido',
+    
+    cliente: cliente, // <-- CORRECCIÓN 1: Enviar el objeto cliente completo
+    
+    propiedades: selectedProperties, // <-- CORRECCIÓN 2: Enviar el array de objetos de propiedades
+    
+    precioFinal: parseFloat(document.getElementById('summary-precio-final')?.textContent.replace(/[$.]/g, '')) || 0,
+    noches: parseInt(document.getElementById('summary-noches')?.textContent) || 0,
+    moneda: currentPricing.currencyOriginal,
+    valorDolarDia: valorDolarDia,
+    valorOriginal: currentPricing.totalPriceOriginal,
+    
+    pricing: currentPricing, // Enviar el desglose de precios
     codigoCupon: cuponAplicado?.codigo || null,
     idReservaCanal: document.getElementById('id-reserva-canal-input').value || null,
     icalUid: document.getElementById('ical-uid-input').value || null,
     origen: origenReserva
   };
+  // --- FIN DE LA CORRECCIÓN ---
 
   try {
     const guardarBtn = document.getElementById('guardar-propuesta-btn');
@@ -365,7 +375,8 @@ export async function handleGuardarPropuesta() {
 
     console.log('Propuesta guardada:', propuestaGuardada);
 
-    const textoWhatsApp = generarTextoWhatsApp(propuestaGuardada, cliente);
+    // Pasamos el objeto 'propuesta' que acabamos de enviar, ya que tiene los datos necesarios
+    const textoWhatsApp = generarTextoWhatsApp(propuesta, cliente);
     document.getElementById('propuesta-texto').value = textoWhatsApp;
     document.getElementById('propuesta-guardada-modal').classList.remove('hidden');
   } catch (error) {
@@ -442,6 +453,9 @@ export async function handleCargarPropuesta(editId) {
           cb.checked = selectedIds.has(cb.dataset.id);
         });
 
+        // Asegurarse de que selectedProperties (objetos) esté poblado
+        selectedProperties = allProperties.filter(p => selectedIds.has(p.id));
+
         currentPricing = propuesta.pricing || availabilityData.suggestion.pricing;
         updateSummary(currentPricing);
 
@@ -471,29 +485,40 @@ async function obtenerOcrearCliente() {
   }
 
   try {
+    // Si el cliente fue seleccionado de la lista (o cargado en modo edición)
     if (selectedClient && selectedClient.id) {
-      const clienteActualizado = {
-        id: selectedClient.id,
-        nombre,
-        telefono,
-        email: email || null
+      const datosCargados = {
+         nombre: selectedClient.nombre,
+         telefono: selectedClient.telefono,
+         email: selectedClient.email
       };
-      console.log('Actualizando cliente existente:', clienteActualizado);
-      const response = await fetchAPI(`/clientes/${selectedClient.id}`, {
-        method: 'PUT',
-        body: clienteActualizado
-      });
-      console.log('Cliente actualizado:', response);
-      return response;
+      const datosFormulario = { nombre, telefono, email };
+
+      // Comprobar si hubo cambios en el formulario
+      const hayCambios = JSON.stringify(datosCargados) !== JSON.stringify(datosFormulario);
+
+      if (hayCambios) {
+        // Si hay cambios, actualizar el cliente
+        const clienteActualizado = { id: selectedClient.id, nombre, telefono, email: email || null };
+        const response = await fetchAPI(`/clientes/${selectedClient.id}`, {
+          method: 'PUT',
+          body: clienteActualizado
+        });
+        selectedClient = response; // Actualizar el cliente seleccionado localmente
+        return response;
+      } else {
+        // Si no hay cambios, devolver el cliente seleccionado tal cual
+        return selectedClient;
+      }
     } else {
+      // Si no había cliente seleccionado, crear uno nuevo
       const nuevoCliente = { nombre, telefono, email: email || null };
-      console.log('Creando nuevo cliente:', nuevoCliente);
       const response = await fetchAPI('/clientes', {
         method: 'POST',
         body: nuevoCliente
       });
-      console.log('Cliente creado:', response);
-      return response;
+      selectedClient = response.cliente; // Guardar el nuevo cliente
+      return response.cliente;
     }
   } catch (error) {
     console.error('Error al procesar cliente:', error);
@@ -508,9 +533,8 @@ function generarTextoWhatsApp(propuesta, cliente) {
   const simbolo = moneda === 'USD' ? 'USD' : 'CLP';
 
   const noches = currentPricing.nights;
-  const precioFinal = moneda === 'USD' 
-    ? currentPricing.totalPriceOriginal - (currentPricing.totalPriceOriginal * (cuponAplicado?.porcentajeDescuento || 0) / 100)
-    : currentPricing.totalPriceCLP - (currentPricing.totalPriceCLP - Math.round((currentPricing.totalPriceOriginal - (currentPricing.totalPriceOriginal * (cuponAplicado?.porcentajeDescuento || 0) / 100)) * valorDolarDia));
+  // Usar el precioFinal calculado en el payload, ya que tiene los descuentos
+  const precioFinal = propuesta.precioFinal; 
 
   const propiedadesTexto = propuesta.propiedades.map(p => p.nombre).join(', ');
 
@@ -519,7 +543,11 @@ function generarTextoWhatsApp(propuesta, cliente) {
 
 Gracias por tu interés en *Suite Manager*. Aquí tienes tu **propuesta personalizada**:
 
-Check-in: *${new Date(propuesta.fechaLlegada).toLocaleDateString('es-CL')}* Check-out: *${new Date(propuesta.fechaSalida).toLocaleDateString('es-CL')}* Noches: *${noches}* Huéspedes: *${propuesta.personas}* Alojamiento: *${propiedadesTexto}*
+Check-in: *${new Date(propuesta.fechaLlegada + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' })}*
+Check-out: *${new Date(propuesta.fechaSalida + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' })}*
+Noches: *${noches}*
+Huéspedes: *${propuesta.personas}*
+Alojamiento: *${propiedadesTexto}*
 
 **Total a pagar: ${formatCurrency(precioFinal, moneda)}**
 
@@ -527,7 +555,7 @@ ${cuponAplicado ? `Cupón aplicado: *${cuponAplicado.codigo}* (-${cuponAplicado.
 
 ¿Te gustaría reservar? Responde *SÍ* y coordinamos el pago.
 
-¡Quedan pocas fechas disponibles!  
+¡Quedan pocas fechas disponibles!
 Suite Manager
   `.trim();
 }
