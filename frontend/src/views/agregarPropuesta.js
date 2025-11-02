@@ -82,6 +82,10 @@ export function render() {
                   <label for="ical-uid-input" class="block text-sm font-medium text-gray-500">iCal UID (Referencia)</label>
                   <input type="text" id="ical-uid-input" class="form-input mt-1 bg-gray-100" readonly>
                 </div>
+                <div class="mt-2">
+                  <label for="plantilla-select" class="block text-sm font-medium text-gray-700">Plantilla de Mensaje</label>
+                  <select id="plantilla-select" class="form-select mt-1"></select>
+                </div>
               </div>
             </div>
           </div>

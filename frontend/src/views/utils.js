@@ -4,6 +4,7 @@ import { handleNavigation } from '../router.js';
 let allClients = [];
 let allProperties = [];
 let allCanales = [];
+let allPlantillas = [];
 let selectedClient = null;
 let availabilityData = {};
 let selectedProperties = [];
@@ -29,16 +30,24 @@ export function formatCurrency(value, currency = 'CLP') {
 
 export async function loadInitialData() {
   try {
-    [allClients, allProperties, allCanales] = await Promise.all([
+    [allClients, allProperties, allCanales, allPlantillas] = await Promise.all([
       fetchAPI('/clientes'),
       fetchAPI('/propiedades'),
-      fetchAPI('/canales')
+      fetchAPI('/canales'),
+      fetchAPI('/plantillas') // Asume endpoint que devuelve plantillas, filtra por tipo si es necesario
     ]);
     const canalSelect = document.getElementById('canal-select');
     if (canalSelect) {
       canalSelect.innerHTML = allCanales.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
       const appChannel = allCanales.find(c => c.nombre.toLowerCase() === 'app');
       if (appChannel) canalSelect.value = appChannel.id;
+    }
+    const plantillaSelect = document.getElementById('plantilla-select');
+    if (plantillaSelect) {
+      plantillaSelect.innerHTML = allPlantillas.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+      // Opcional: Selecciona una por defecto si existe
+      const defaultPlantilla = allPlantillas.find(p => p.nombre.toLowerCase().includes('propuesta'));
+      if (defaultPlantilla) plantillaSelect.value = defaultPlantilla.id;
     }
     handleCanalChange();
   } catch (error) {
@@ -351,7 +360,12 @@ export async function handleGuardarPropuesta() {
     codigoCupon: cuponAplicado?.codigo || null,
     idReservaCanal: document.getElementById('id-reserva-canal-input').value || null,
     icalUid: document.getElementById('ical-uid-input').value || null,
-    origen: origenReserva
+    origen: origenReserva,
+    sinCamarotes: document.getElementById('sin-camarotes').checked,
+    permitirCambios: document.getElementById('permitir-cambios').checked,
+    descuentoPct: parseFloat(document.getElementById('descuento-pct').value) || 0,
+    descuentoFijo: parseFloat(document.getElementById('descuento-fijo-total').value) || 0,
+    plantillaId: document.getElementById('plantilla-select').value || null
   };
   // --- FIN DE LA CORRECCIÓN ---
 
@@ -376,7 +390,7 @@ export async function handleGuardarPropuesta() {
     console.log('Propuesta guardada:', propuestaGuardada);
 
     // Pasamos el objeto 'propuesta' que acabamos de enviar, ya que tiene los datos necesarios
-    const textoWhatsApp = generarTextoWhatsApp(propuesta, cliente);
+    const textoWhatsApp = await generarTextoWhatsApp(propuesta, cliente);
     document.getElementById('propuesta-texto').value = textoWhatsApp;
     document.getElementById('propuesta-guardada-modal').classList.remove('hidden');
   } catch (error) {
@@ -445,6 +459,15 @@ export async function handleCargarPropuesta(editId) {
 
     document.getElementById('guardar-propuesta-btn').textContent = 'Actualizar Propuesta';
 
+    // Setear checkboxes y descuentos manuales antes de buscar
+    document.getElementById('sin-camarotes').checked = propuesta.sinCamarotes || false;
+    document.getElementById('permitir-cambios').checked = propuesta.permitirCambios || false;
+    document.getElementById('descuento-pct').value = propuesta.descuentoPct || '';
+    document.getElementById('descuento-fijo-total').value = propuesta.descuentoFijo || '';
+    if (propuesta.plantillaId) {
+      document.getElementById('plantilla-select').value = propuesta.plantillaId;
+    }
+
     const searchSuccess = await runSearch();
     
     if (searchSuccess) {
@@ -452,6 +475,21 @@ export async function handleCargarPropuesta(editId) {
         document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
           cb.checked = selectedIds.has(cb.dataset.id);
         });
+
+        // Verificar propiedades faltantes y agregarlas manualmente al UI
+        const missingIds = [...selectedIds].filter(id => !document.querySelector(`#cb-${id}`));
+        if (missingIds.length > 0) {
+          const missingProperties = allProperties.filter(p => missingIds.includes(p.id));
+          const availableList = document.getElementById('available-list');
+          missingProperties.forEach(p => {
+            const checkboxHtml = createPropertyCheckbox(p, true);
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = `${checkboxHtml} <span class="text-red-500 ml-2 text-sm">(Reservado para esta propuesta - Verificar disponibilidad)</span>`;
+            availableList.appendChild(wrapper);
+          });
+          // Agregar listeners a los nuevos checkboxes
+          availableList.querySelectorAll('.propiedad-checkbox').forEach(cb => cb.addEventListener('change', handleSelectionChange));
+        }
 
         // Asegurarse de que selectedProperties (objetos) esté poblado
         selectedProperties = allProperties.filter(p => selectedIds.has(p.id));
@@ -527,35 +565,34 @@ async function obtenerOcrearCliente() {
   }
 }
 
-function generarTextoWhatsApp(propuesta, cliente) {
-  const canal = allCanales.find(c => c.id === propuesta.canalId);
-  const moneda = canal?.moneda || 'CLP';
-  const simbolo = moneda === 'USD' ? 'USD' : 'CLP';
+export async function generarTextoWhatsApp(propuesta, cliente) {
+  const plantillaId = propuesta.plantillaId;
+  if (!plantillaId) {
+    return 'No se seleccionó una plantilla. Usa una predeterminada o configura en Gestionar Plantillas.';
+  }
 
-  const noches = currentPricing.nights;
-  // Usar el precioFinal calculado en el payload, ya que tiene los descuentos
-  const precioFinal = propuesta.precioFinal; 
+  try {
+    const plantilla = await fetchAPI(`/plantillas/${plantillaId}`);
+    if (!plantilla || !plantilla.contenido) {
+      return 'Error al cargar la plantilla. Usa el formato predeterminado.';
+    }
 
-  const propiedadesTexto = propuesta.propiedades.map(p => p.nombre).join(', ');
+    let texto = plantilla.contenido;
 
-  return `
-¡Hola ${cliente.nombre}! 👋
+    // Reemplazos comunes basados en placeholders
+    texto = texto.replace('[NOMBRE_CLIENTE]', cliente.nombre || 'Cliente');
+    texto = texto.replace('[FECHA_LLEGADA]', new Date(propuesta.fechaLlegada + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' }));
+    texto = texto.replace('[FECHA_SALIDA]', new Date(propuesta.fechaSalida + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' }));
+    texto = texto.replace('[NOCHES]', currentPricing.nights || 0);
+    texto = texto.replace('[PERSONAS]', propuesta.personas || 0);
+    texto = texto.replace('[PROPIEDADES]', propuesta.propiedades.map(p => p.nombre).join(', ') || 'No especificado');
+    texto = texto.replace('[PRECIO_FINAL]', formatCurrency(propuesta.precioFinal, propuesta.moneda));
+    texto = texto.replace('[CUPON]', cuponAplicado ? `${cuponAplicado.codigo} (-${cuponAplicado.porcentajeDescuento}%)` : '');
+    texto = texto.replace('[CANAL]', propuesta.canalNombre || 'Directo');
 
-Gracias por tu interés en *Suite Manager*. Aquí tienes tu **propuesta personalizada**:
-
-Check-in: *${new Date(propuesta.fechaLlegada + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' })}*
-Check-out: *${new Date(propuesta.fechaSalida + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' })}*
-Noches: *${noches}*
-Huéspedes: *${propuesta.personas}*
-Alojamiento: *${propiedadesTexto}*
-
-**Total a pagar: ${formatCurrency(precioFinal, moneda)}**
-
-${cuponAplicado ? `Cupón aplicado: *${cuponAplicado.codigo}* (-${cuponAplicado.porcentajeDescuento}%)` : ''}
-
-¿Te gustaría reservar? Responde *SÍ* y coordinamos el pago.
-
-¡Quedan pocas fechas disponibles!
-Suite Manager
-  `.trim();
+    return texto.trim();
+  } catch (error) {
+    console.error('Error al generar texto con plantilla:', error);
+    return 'Error al generar el mensaje. Por favor, verifica la plantilla.';
+  }
 }
