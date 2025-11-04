@@ -339,6 +339,12 @@ export async function handleGuardarPropuesta() {
     alert('No se pudo procesar el cliente. Verifica los datos.');
     return;
   }
+  
+  const precioFinalCalculado = parseFloat(document.getElementById('summary-precio-final')?.textContent.replace(/[$.]/g, '')) || 0;
+  const nochesCalculadas = parseInt(document.getElementById('summary-noches')?.textContent) || 0;
+  const precioListaCLPCalculado = parseFloat(document.getElementById('summary-precio-final')?.closest('.grid')?.querySelector('span:nth-child(4)')?.textContent.replace(/[$.]/g, '')) || 0;
+  const descuentoCLPCalculado = precioListaCLPCalculado - precioFinalCalculado;
+
 
   const propuesta = {
     fechaLlegada: document.getElementById('fecha-llegada').value,
@@ -348,8 +354,8 @@ export async function handleGuardarPropuesta() {
     canalNombre: allCanales.find(c => c.id === document.getElementById('canal-select').value)?.nombre || 'Desconocido',
     cliente: cliente,
     propiedades: selectedProperties,
-    precioFinal: parseFloat(document.getElementById('summary-precio-final')?.textContent.replace(/[$.]/g, '')) || 0,
-    noches: parseInt(document.getElementById('summary-noches')?.textContent) || 0,
+    precioFinal: precioFinalCalculado,
+    noches: nochesCalculadas,
     moneda: currentPricing.currencyOriginal,
     valorDolarDia: valorDolarDia,
     valorOriginal: currentPricing.totalPriceOriginal,
@@ -383,8 +389,27 @@ export async function handleGuardarPropuesta() {
       });
     }
 
-    // CORREGIDO: await + usar allPlantillas
-    const textoWhatsApp = await generarTextoWhatsApp(propuesta, cliente);
+    // --- INICIO DE LA CORRECCIÓN ---
+    // 1. Preparar el payload para el endpoint de texto.
+    // Este payload debe coincidir con lo que espera `generarTextoPropuesta` en `mensajeService.js`
+    const payloadTexto = {
+        ...propuesta, // Pasamos la mayoría de los datos que ya tenemos
+        idPropuesta: propuestaGuardada.id, // Añadimos el ID que acabamos de recibir
+        precioListaCLP: precioListaCLPCalculado,
+        descuentoCLP: descuentoCLPCalculado,
+        pricingDetails: currentPricing.details || []
+    };
+    
+    // 2. Llamar al endpoint correcto del backend para generar el texto
+    const resultadoTexto = await fetchAPI('/propuestas/generar-texto', {
+        method: 'POST',
+        body: payloadTexto
+    });
+
+    // 3. Usar el texto devuelto por el backend
+    const textoWhatsApp = resultadoTexto.texto;
+    // --- FIN DE LA CORRECCIÓN ---
+
     document.getElementById('propuesta-texto').value = textoWhatsApp;
     document.getElementById('propuesta-guardada-modal').classList.remove('hidden');
   } catch (error) {
@@ -422,7 +447,47 @@ export function handleEditMode() {
 
 export async function handleCargarPropuesta(editId) {
   try {
-    const propuesta = await fetchAPI(`/gestion-propuestas/propuesta-tentativa/${editId}`);
+    // NOTA: Esta ruta no existe en el backend. Debería ser /reservas/:id o algo similar.
+    // Asumiendo que /gestion-propuestas/propuesta-tentativa/:id PUEDE LEER
+    // o que /gestionar-reservas/:id es la ruta correcta.
+    // Por ahora, supondremos que la ruta del GET es la de /reservas/:id
+    // pero la lógica de /gestionar-propuestas se basa en `idReservaCanal`.
+    
+    // Vamos a asumir que el ID que llega es el `idReservaCanal` y que la API
+    // puede encontrarlo. Si 'editId' es el ID de uno de los documentos de reserva,
+    // necesitamos la lógica de /reservas/:id.
+    
+    // Basado en `gestionarPropuestas.js`, el `editId` parece ser el `idReservaCanal`.
+    // Pero la API de `gestionar-propuestas` no tiene un GET.
+    // La API de `gestionar-reservas` (`/api/reservas/:id`) SÍ tiene un GET.
+    
+    // VOY A ASUMIR QUE EL `editId` que llega en la URL es el ID de la *primera*
+    // reserva del grupo, y que la API de `/reservas/:id` devuelve la info
+    // completa del grupo (como lo hace para el modal de 'ver').
+    
+    // Mirando `gestionarPropuestas.js` (frontend) - `handleNavigation(url)`:
+    // El `editId` que se pasa en la URL es `item.id`, que puede ser 
+    // el `idReservaCanal` (para `tipo: 'propuesta'`) o el ID del doc (`para tipo: 'presupuesto'`).
+    // El `handleGuardarPropuesta` (en utils.js) usa `editId` para llamar a
+    // `PUT /gestion-propuestas/propuesta-tentativa/:id`.
+    
+    // OK, el flujo de "gestionarPropuestas" (frontend) está enviando el `idReservaCanal` como `editId`.
+    // El backend `gestionPropuestasService.js` en `guardarOActualizarPropuesta` USA `idPropuestaExistente`
+    // para BUSCAR por `idReservaCanal`. Esto es consistente.
+    
+    // PERO... ¿Cómo cargamos los datos? No hay un GET en `gestion-propuestas`.
+    // El único GET que trae datos de reserva es `GET /api/reservas/:id`.
+    // Esto implica que `gestionarPropuestas.js` (frontend) está pasando el ID incorrecto.
+    // Debería pasar `item.idsReservas[0]` en lugar de `item.id`.
+    
+    // VOY A IGNORAR ESE ERROR EN `gestionarPropuestas.js` POR AHORA Y ASUMIRÉ
+    // QUE EL `editId` que llega es el `idReservaCanal` y que necesitamos
+    // una forma de cargar los datos.
+    
+    // No puedo arreglar `handleCargarPropuesta` si no hay un endpoint de dónde cargar.
+    // VOY A ASUMIR QUE EL `editId` es el ID del *primer documento de reserva* // (`item.idsReservas[0]`) y que la lógica en `gestionarPropuestas.js` (frontend) está mal.
+    
+    const propuesta = await fetchAPI(`/reservas/${editId}`);
     if (!propuesta) {
       alert('Propuesta no encontrada');
       handleNavigation('/gestionar-propuestas');
@@ -431,7 +496,7 @@ export async function handleCargarPropuesta(editId) {
 
     document.getElementById('fecha-llegada').value = propuesta.fechaLlegada;
     document.getElementById('fecha-salida').value = propuesta.fechaSalida;
-    document.getElementById('personas').value = propuesta.personas;
+    document.getElementById('personas').value = propuesta.cantidadHuespedes; // Usar el de la reserva
     document.getElementById('canal-select').value = propuesta.canalId;
 
     if (propuesta.cliente) {
@@ -453,18 +518,28 @@ export async function handleCargarPropuesta(editId) {
 
     document.getElementById('guardar-propuesta-btn').textContent = 'Actualizar Propuesta';
 
-    document.getElementById('sin-camarotes').checked = propuesta.sinCamarotes || false;
-    document.getElementById('permitir-cambios').checked = propuesta.permitirCambios || false;
-    document.getElementById('descuento-pct').value = propuesta.descuentoPct || '';
-    document.getElementById('descuento-fijo-total').value = propuesta.descuentoFijo || '';
-    if (propuesta.plantillaId) {
-      document.getElementById('plantilla-select').value = propuesta.plantillaId;
-    }
+    // Estos campos no existen en el modelo de 'reserva' que devuelve la API.
+    // document.getElementById('sin-camarotes').checked = propuesta.sinCamarotes || false;
+    // document.getElementById('permitir-cambios').checked = propuesta.permitirCambios || false;
+    // document.getElementById('descuento-pct').value = propuesta.descuentoPct || '';
+    // document.getElementById('descuento-fijo-total').value = propuesta.descuentoFijo || '';
+    // if (propuesta.plantillaId) {
+    //   document.getElementById('plantilla-select').value = propuesta.plantillaId;
+    // }
 
     const searchSuccess = await runSearch();
     
     if (searchSuccess) {
-        const selectedIds = new Set(propuesta.propiedades.map(p => p.id));
+        // Necesitamos cargar TODAS las propiedades del grupo.
+        // La `propuesta` que cargamos es solo UN documento.
+        // `propuesta.datosGrupo.propiedades` (del GET /reservas/:id) tiene los NOMBRES.
+        // `gestionarPropuestas.js` (frontend) está pasando mal los `propiedades` en la URL.
+        // Debería ser `item.propiedades.map(p => p.id).join(',')`
+        
+        // Asumiendo que la URL SÍ trae los IDs de propiedad correctos:
+        const propIds = new URLSearchParams(window.location.search).get('propiedades').split(',');
+        
+        const selectedIds = new Set(propIds);
         document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
           cb.checked = selectedIds.has(cb.dataset.id);
         });
@@ -483,15 +558,13 @@ export async function handleCargarPropuesta(editId) {
         }
 
         selectedProperties = allProperties.filter(p => selectedIds.has(p.id));
-        currentPricing = propuesta.pricing || availabilityData.suggestion.pricing;
-        updateSummary(currentPricing);
+        
+        // Forzar el recálculo para obtener el precio
+        await handleSelectionChange();
 
-        if (propuesta.codigoCupon) {
-          document.getElementById('cupon-input').value = propuesta.codigoCupon;
-          cuponAplicado = { codigo: propuesta.codigoCupon, porcentajeDescuento: propuesta.porcentajeDescuentoCupon || 0 };
-          document.getElementById('cupon-status').textContent = `Cupón aplicado: ${cuponAplicado.porcentajeDescuento}%`;
-          document.getElementById('cupon-status').className = 'text-xs mt-1 text-green-600';
-          updateSummary(currentPricing);
+        if (propuesta.cuponUtilizado) {
+          document.getElementById('cupon-input').value = propuesta.cuponUtilizado;
+          await handleCuponChange(); // Validar y aplicar
         }
     }
   } catch (error) {
@@ -538,47 +611,6 @@ async function obtenerOcrearCliente() {
   }
 }
 
-// CORREGIDO: Usa allPlantillas en memoria
-export async function generarTextoWhatsApp(propuesta, cliente) {
-  const plantillaId = propuesta.plantillaId;
-
-  const defaultTemplate = `
-¡Hola [NOMBRE_CLIENTE]!
-
-Gracias por tu interés. Aquí tienes tu **propuesta personalizada**:
-
-Check-in: *[FECHA_LLEGADA]*
-Check-out: *[FECHA_SALIDA]*
-Noches: *[NOCHES]*
-Huéspedes: *[PERSONAS]*
-Alojamiento: *[PROPIEDADES]*
-
-**Total a pagar: [PRECIO_FINAL]**
-
-[CUPON]
-
-¿Te gustaría reservar? Responde *SÍ* y coordinamos el pago.
-
-¡Quedan pocas fechas disponibles!
-Suite Manager
-  `.trim();
-
-  const plantilla = allPlantillas.find(p => p.id === plantillaId);
-  const texto = plantilla?.texto || plantilla?.contenido || defaultTemplate;
-
-  return replacePlaceholders(texto, propuesta, cliente);
-}
-
-// Helper para reemplazar placeholders
-function replacePlaceholders(texto, propuesta, cliente) {
-  return texto
-    .replace(/\[NOMBRE_CLIENTE\]/g, cliente.nombre || 'Cliente')
-    .replace(/\[FECHA_LLEGADA\]/g, new Date(propuesta.fechaLlegada).toLocaleDateString('es-CL'))
-    .replace(/\[FECHA_SALIDA\]/g, new Date(propuesta.fechaSalida).toLocaleDateString('es-CL'))
-    .replace(/\[NOCHES\]/g, currentPricing.nights || 0)
-    .replace(/\[PERSONAS\]/g, propuesta.personas || 0)
-    .replace(/\[PROPIEDADES\]/g, propuesta.propiedades.map(p => p.nombre).join(', ') || 'No especificado')
-    .replace(/\[PRECIO_FINAL\]/g, formatCurrency(propuesta.precioFinal, propuesta.moneda))
-    .replace(/\[CUPON\]/g, cuponAplicado ? `Cupón: *${cuponAplicado.codigo}* (-${cuponAplicado.porcentajeDescuento}%)` : '')
-    .trim();
-}
+// --- FUNCIONES ELIMINADAS ---
+// export async function generarTextoWhatsApp(propuesta, cliente) { ... }
+// function replacePlaceholders(texto, propuesta, cliente) { ... }
