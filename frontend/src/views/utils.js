@@ -162,11 +162,17 @@ export function renderSelectionUI() {
 export async function handleSelectionChange() {
   const selectedIds = new Set(Array.from(document.querySelectorAll('.propiedad-checkbox:checked')).map(cb => cb.dataset.id));
   
-  // --- CORRECCIÓN ---
-  // Usar la lista maestra global `allProperties` (cargada por loadInitialData)
-  // en lugar de la lista temporal `availabilityData.allPropertiesWithId`.
-  selectedProperties = allProperties.filter(p => selectedIds.has(p.id));
-  // --- FIN CORRECCIÓN ---
+  // --- INICIO DE LA CORRECCIÓN ---
+  // Usar la lista 'allValidProperties' que creamos en 'runSearch'.
+  // Esta lista SÍ está filtrada y es la fuente de verdad para la selección actual.
+  if (availabilityData.allValidProperties) {
+      selectedProperties = availabilityData.allValidProperties.filter(p => selectedIds.has(p.id));
+  } else {
+      // Fallback de seguridad, aunque no debería ocurrir si runSearch es exitoso.
+      selectedProperties = allProperties.filter(p => selectedIds.has(p.id));
+      console.warn("availabilityData.allValidProperties no estaba definida durante handleSelectionChange");
+  }
+  // --- FIN DE LA CORRECCIÓN ---
 
   if (selectedProperties.length === 0) {
     // Si no hay nada seleccionado, limpiar el resumen de precios.
@@ -175,7 +181,7 @@ export async function handleSelectionChange() {
       totalPriceCLP: 0, 
       nights: currentPricing.nights, 
       details: [], 
-      currencyOriginal: currentPricing.currencyOriginal 
+      currencyOriginal: currentPricing.currencyOriginal || 'CLP'
     });
     return;
   }
@@ -184,9 +190,10 @@ export async function handleSelectionChange() {
     const payload = {
       fechaLlegada: document.getElementById('fecha-llegada').value,
       fechaSalida: document.getElementById('fecha-salida').value,
-      propiedades: selectedProperties,
+      propiedades: selectedProperties, // Enviar la lista limpia
       canalId: document.getElementById('canal-select').value
     };
+    // Pedir al backend que recalcule el precio solo para esta selección
     const newPricing = await fetchAPI('/propuestas/recalcular', { method: 'POST', body: payload });
     updateSummary(newPricing);
   } catch (error) {
@@ -284,8 +291,7 @@ export async function runSearch() {
   document.getElementById('results-container').classList.add('hidden');
 
   // --- INICIO DE LA CORRECCIÓN ---
-  // Limpiar descuentos y cupones residuales del DOM y del estado
-  // antes de llamar a updateSummary con los nuevos precios.
+  // Limpieza total del estado anterior antes de una nueva búsqueda.
   try {
     document.getElementById('descuento-pct').value = '';
     document.getElementById('descuento-fijo-total').value = '';
@@ -296,8 +302,10 @@ export async function runSearch() {
       cuponStatus.className = 'text-xs mt-1';
     }
     cuponAplicado = null;
+    selectedProperties = []; // Limpiar el estado de propiedades seleccionadas
+    availabilityData = {}; // Limpiar todos los datos de disponibilidad
   } catch (e) {
-    console.warn("Error al limpiar campos de descuento:", e);
+    console.warn("Error al limpiar campos:", e);
   }
   // --- FIN DE LA CORRECCIÓN ---
 
@@ -308,9 +316,21 @@ export async function runSearch() {
 
     availabilityData = await fetchAPI('/propuestas/generar', { method: 'POST', body: payload });
     
-    // Poblar la lista de propiedades maestras para esta búsqueda (usada por handleSelectionChange)
-    // Usamos `allProperties` del backend, que es la lista completa.
-    availabilityData.allPropertiesWithId = availabilityData.allProperties || [];
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Crear la lista maestra de propiedades *seleccionables* para esta búsqueda.
+    // Esta lista SÍ está filtrada por el backend (ej. 'sinCamarotes').
+    // Es la unión de las sugeridas y las disponibles.
+    const suggested = availabilityData.suggestion?.propiedades || [];
+    const available = availabilityData.availableProperties || [];
+    
+    const suggestedIds = new Set(suggested.map(p => p.id));
+    
+    // Usamos 'allValidProperties' para que la use 'handleSelectionChange'
+    availabilityData.allValidProperties = [
+      ...suggested,
+      ...available.filter(p => !suggestedIds.has(p.id))
+    ];
+    // --- FIN DE LA CORRECCIÓN ---
 
     if (availabilityData.suggestion) {
       statusContainer.classList.add('hidden');
