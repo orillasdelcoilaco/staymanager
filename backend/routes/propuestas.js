@@ -8,46 +8,63 @@ const { obtenerValorDolar, obtenerValorDolarHoy } = require('../services/dolarSe
 const { parseISO, isValid, addDays, format } = require('date-fns');
 
 // --- Helper buildItineraryFromDailyOptions (Sin cambios) ---
+// backend/routes/propuestas.js
+
+// --- Helper buildItineraryFromDailyOptions (Corregido) ---
 function buildItineraryFromDailyOptions(dailyOptions) {
-    // ... (Código del helper) ...
     if (!dailyOptions || dailyOptions.length === 0) return [];
+    
     let itinerary = [];
     const getOptionId = (option) => Array.isArray(option) ? option.map(p => p.id).sort().join('-') : option.id;
+    
+    // Función helper para obtener el array de propiedades
+    const getPropertiesArray = (option) => Array.isArray(option) ? option : [option];
+
     let currentSegment = {
         option: dailyOptions[0].option,
-        propiedad: Array.isArray(dailyOptions[0].option) ? dailyOptions[0].option[0] : dailyOptions[0].option,
+        // CORREGIDO: Usar 'propiedades' (plural) y guardar el array
+        propiedades: getPropertiesArray(dailyOptions[0].option), 
         startDate: dailyOptions[0].date,
         endDate: addDays(dailyOptions[0].date, 1),
         segmentId: getOptionId(dailyOptions[0].option)
     };
+
     for (let i = 1; i < dailyOptions.length; i++) {
         const day = dailyOptions[i];
         const dayOptionId = getOptionId(day.option);
+
         if (dayOptionId === currentSegment.segmentId) {
             currentSegment.endDate = addDays(day.date, 1);
         } else {
+            // Guardar el segmento anterior
             itinerary.push({
-                propiedad: currentSegment.propiedad,
+                // CORREGIDO: Usar 'propiedades' (plural)
+                propiedades: currentSegment.propiedades,
                 startDate: format(currentSegment.startDate, 'yyyy-MM-dd'),
                 endDate: format(currentSegment.endDate, 'yyyy-MM-dd'),
             });
+            // Empezar nuevo segmento
             currentSegment = {
                 option: day.option,
-                propiedad: Array.isArray(day.option) ? day.option[0] : day.option,
+                // CORREGIDO: Usar 'propiedades' (plural)
+                propiedades: getPropertiesArray(day.option),
                 startDate: day.date,
                 endDate: addDays(day.date, 1),
                 segmentId: dayOptionId
             };
         }
     }
+
+    // Guardar el último segmento
     itinerary.push({
-        propiedad: currentSegment.propiedad,
+        // CORREGIDO: Usar 'propiedades' (plural)
+        propiedades: currentSegment.propiedades,
         startDate: format(currentSegment.startDate, 'yyyy-MM-dd'),
         endDate: format(currentSegment.endDate, 'yyyy-MM-dd'),
     });
+    
     return itinerary;
 }
-
 
 module.exports = (db) => {
     const router = express.Router();

@@ -112,6 +112,8 @@ export function createPropertyCheckbox(prop, isSuggested) {
     </div>`;
 }
 
+// frontend/src/views/utils.js
+
 export function renderSelectionUI() {
   const suggestionList = document.getElementById('suggestion-list');
   const availableList = document.getElementById('available-list');
@@ -120,42 +122,66 @@ export function renderSelectionUI() {
 
   if (!availabilityData.suggestion) return;
 
-  const sourceSuggested = availabilityData.suggestion.isSegmented
-    ? availabilityData.suggestion.itinerary.map(s => s.propiedad)
-    : availabilityData.suggestion.propiedades;
-
-  selectedProperties = [...sourceSuggested];
-
+  // --- INICIO DE LA CORRECCIÓN ---
+  // Determinar propiedades seleccionadas (puede ser un itinerario o una selección normal)
   if (availabilityData.suggestion.isSegmented) {
+    // En modo segmentado, las propiedades seleccionadas son todas las que aparecen en el itinerario
+    const propMap = new Map();
+    availabilityData.suggestion.itinerary.forEach(segment => {
+        segment.propiedades.forEach(prop => propMap.set(prop.id, prop));
+    });
+    selectedProperties = Array.from(propMap.values());
+  } else {
+    // En modo normal, son las propiedades sugeridas
+    selectedProperties = [...availabilityData.suggestion.propiedades];
+  }
+
+  // Renderizar la UI
+  if (availabilityData.suggestion.isSegmented) {
+    // UI para MODO ITINERARIO (Segmentado)
     suggestionList.innerHTML = `
       <h4 class="font-medium text-gray-700">Propuesta de Itinerario</h4>
-      <div class="space-y-2 p-3 bg-white rounded-md border">${
+      <div class="space-y-3 p-3 bg-white rounded-md border">${
         availabilityData.suggestion.itinerary.map((segment) => {
           const fechaSalidaSegmento = new Date(segment.endDate); 
-          return `
+          
+          // Iterar sobre el array segment.propiedades (plural)
+          const propertiesHtml = segment.propiedades.map(prop => `
             <div class="grid grid-cols-5 gap-4 items-center text-sm">
-              <span class="font-semibold">${segment.propiedad.nombre}</span>
-              <span>${new Date(segment.startDate).toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
-              <span>al</span>
-              <span>${fechaSalidaSegmento.toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
-              <span class="text-xs col-span-5 text-gray-500 pl-2">(${segment.propiedad.capacidad} pers. max)</span>
+              <span class="font-semibold col-span-2">${prop.nombre}</span>
+              <span class="col-span-3 text-xs text-gray-500">(Cap: ${prop.capacidad} pers.)</span>
+            </div>
+          `).join('');
+
+          return `
+            <div class="border-b pb-2 last:border-b-0">
+              <div class="grid grid-cols-5 gap-4 items-center text-sm font-medium mb-1">
+                <span class="col-span-2">Fechas:</span>
+                <span class="col-span-3">${new Date(segment.startDate).toLocaleDateString('es-CL', {timeZone: 'UTC'})} al ${fechaSalidaSegmento.toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
+              </div>
+              ${propertiesHtml}
             </div>`;
         }).join('')
       }</div>`;
-    availableList.innerHTML = '<p class="text-sm text-gray-500">Modo segmentado: no se pueden añadir otras cabañas.</p>';
+    availableList.innerHTML = '<p class="text-sm text-gray-500">Modo itinerario: no se pueden añadir otras cabañas.</p>';
+  
   } else {
-    const suggestedIds = new Set(sourceSuggested.map(p => p.id));
+    // UI para MODO NORMAL (Checkboxes)
+    const suggestedIds = new Set(selectedProperties.map(p => p.id));
     suggestionList.innerHTML = `<h4 class="font-medium text-gray-700">Propiedades Sugeridas</h4>` + 
-      sourceSuggested.map(p => createPropertyCheckbox(p, true)).join('');
+      selectedProperties.map(p => createPropertyCheckbox(p, true)).join('');
 
-    const availableWithId = availabilityData.availableProperties || [];
+    const availableWithId = availabilityData.allValidProperties || [];
     availableList.innerHTML = availableWithId
       .filter(p => !suggestedIds.has(p.id))
       .map(p => createPropertyCheckbox(p, false))
       .join('');
   }
+  // --- FIN DE LA CORRECCIÓN ---
   
+  // Adjuntar listeners (solo para modo normal)
   document.querySelectorAll('.propiedad-checkbox').forEach(cb => cb.addEventListener('change', handleSelectionChange));
+  // Mostrar el precio que vino del backend
   updateSummary(availabilityData.suggestion.pricing);
 }
 
