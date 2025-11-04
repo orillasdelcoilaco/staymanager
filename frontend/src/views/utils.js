@@ -269,6 +269,7 @@ export function handleCanalChange() {
 }
 
 export async function runSearch() {
+  // 1. OBTENER EL PAYLOAD DE BÚSQUEDA DEL DOM
   const payload = {
     fechaLlegada: document.getElementById('fecha-llegada').value,
     fechaSalida: document.getElementById('fecha-salida').value,
@@ -277,11 +278,14 @@ export async function runSearch() {
     permitirCambios: document.getElementById('permitir-cambios').checked,
     canalId: document.getElementById('canal-select').value
   };
+
+  // 2. VALIDACIÓN TEMPRANA
   if (!payload.fechaLlegada || !payload.fechaSalida || !payload.personas) {
     alert('Por favor, completa las fechas y la cantidad de personas.');
     return false;
   }
 
+  // 3. ACTUALIZAR ESTADO DE LA UI A "CARGANDO"
   const statusContainer = document.getElementById('status-container');
   const buscarBtn = document.getElementById('buscar-btn');
   buscarBtn.disabled = true;
@@ -289,53 +293,64 @@ export async function runSearch() {
   statusContainer.textContent = 'Buscando disponibilidad y sugerencias...';
   statusContainer.classList.remove('hidden');
   document.getElementById('results-container').classList.add('hidden');
+  document.getElementById('suggestion-list').innerHTML = ''; // Limpiar DOM
+  document.getElementById('available-list').innerHTML = ''; // Limpiar DOM
 
   // --- INICIO DE LA CORRECCIÓN ---
-  // Limpieza total del estado anterior antes de una nueva búsqueda.
+  // 4. LIMPIEZA AGRESIVA DEL ESTADO (COMO SOLICITASTE)
+  // Borramos todas las variables involucradas en el cálculo anterior.
   try {
+    availabilityData = {};     // Borrar datos de disponibilidad antiguos
+    selectedProperties = [];   // Borrar propiedades seleccionadas antiguas
+    currentPricing = {};       // Borrar el precio "pegado" anterior
+
+    // Limpiar campos de descuento del DOM
     document.getElementById('descuento-pct').value = '';
     document.getElementById('descuento-fijo-total').value = '';
     document.getElementById('cupon-input').value = '';
+    
+    // Limpiar estado de cupón en memoria y DOM
     const cuponStatus = document.getElementById('cupon-status');
     if (cuponStatus) {
       cuponStatus.textContent = '';
       cuponStatus.className = 'text-xs mt-1';
     }
     cuponAplicado = null;
-    selectedProperties = []; // Limpiar el estado de propiedades seleccionadas
-    availabilityData = {}; // Limpiar todos los datos de disponibilidad
   } catch (e) {
-    console.warn("Error al limpiar campos:", e);
+    console.warn("Error al limpiar estado:", e);
   }
   // --- FIN DE LA CORRECCIÓN ---
 
+  // 5. EJECUTAR EL NUEVO FLUJO DE BÚSQUEDA
   try {
+    // 5a. Obtener Dólar (estado nuevo)
     const dolar = await fetchAPI(`/dolar/valor/${payload.fechaLlegada}`);
     valorDolarDia = dolar.valor;
     document.getElementById('valor-dolar-info').textContent = `Valor Dólar para el Check-in: ${formatCurrency(valorDolarDia)}`;
 
+    // 5b. Llamar al Backend con el payload limpio
+    // El backend decidirá si usar `findSegmentedCombination` o `findNormalCombination`
     availabilityData = await fetchAPI('/propuestas/generar', { method: 'POST', body: payload });
     
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Crear la lista maestra de propiedades *seleccionables* para esta búsqueda.
-    // Esta lista SÍ está filtrada por el backend (ej. 'sinCamarotes').
-    // Es la unión de las sugeridas y las disponibles.
+    // 5c. Crear la lista de propiedades válidas *solo* para esta búsqueda
     const suggested = availabilityData.suggestion?.propiedades || [];
     const available = availabilityData.availableProperties || [];
-    
     const suggestedIds = new Set(suggested.map(p => p.id));
     
-    // Usamos 'allValidProperties' para que la use 'handleSelectionChange'
+    // Esta lista (`allValidProperties`) la usará `handleSelectionChange` si el usuario
+    // (en modo normal) desmarca una cabaña.
     availabilityData.allValidProperties = [
       ...suggested,
       ...available.filter(p => !suggestedIds.has(p.id))
     ];
-    // --- FIN DE LA CORRECCIÓN ---
 
+    // 6. PROCESAR EL RESULTADO
     if (availabilityData.suggestion) {
       statusContainer.classList.add('hidden');
       document.getElementById('results-container').classList.remove('hidden');
-      renderSelectionUI(); // Esto llamará a updateSummary con el precio limpio
+      // Renderizar la UI (itinerario o checkboxes) y mostrar el precio
+      // que vino *directamente* del backend.
+      renderSelectionUI(); 
       return true;
     } else {
       statusContainer.textContent = availabilityData.message || 'No se encontró disponibilidad.';
@@ -345,6 +360,7 @@ export async function runSearch() {
     statusContainer.textContent = `Error: ${error.message}`;
     return false;
   } finally {
+    // 7. RESTAURAR UI
     buscarBtn.disabled = false;
     buscarBtn.textContent = 'Buscar Disponibilidad';
   }
