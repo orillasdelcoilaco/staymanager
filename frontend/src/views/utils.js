@@ -161,10 +161,22 @@ export function renderSelectionUI() {
 
 export async function handleSelectionChange() {
   const selectedIds = new Set(Array.from(document.querySelectorAll('.propiedad-checkbox:checked')).map(cb => cb.dataset.id));
-  selectedProperties = (availabilityData.allPropertiesWithId || []).filter(p => selectedIds.has(p.id));
+  
+  // --- CORRECCIÓN ---
+  // Usar la lista maestra global `allProperties` (cargada por loadInitialData)
+  // en lugar de la lista temporal `availabilityData.allPropertiesWithId`.
+  selectedProperties = allProperties.filter(p => selectedIds.has(p.id));
+  // --- FIN CORRECCIÓN ---
 
   if (selectedProperties.length === 0) {
-    updateSummary({ totalPriceOriginal: 0, nights: currentPricing.nights, details: [] });
+    // Si no hay nada seleccionado, limpiar el resumen de precios.
+    updateSummary({ 
+      totalPriceOriginal: 0, 
+      totalPriceCLP: 0, 
+      nights: currentPricing.nights, 
+      details: [], 
+      currencyOriginal: currentPricing.currencyOriginal 
+    });
     return;
   }
 
@@ -271,6 +283,24 @@ export async function runSearch() {
   statusContainer.classList.remove('hidden');
   document.getElementById('results-container').classList.add('hidden');
 
+  // --- INICIO DE LA CORRECCIÓN ---
+  // Limpiar descuentos y cupones residuales del DOM y del estado
+  // antes de llamar a updateSummary con los nuevos precios.
+  try {
+    document.getElementById('descuento-pct').value = '';
+    document.getElementById('descuento-fijo-total').value = '';
+    document.getElementById('cupon-input').value = '';
+    const cuponStatus = document.getElementById('cupon-status');
+    if (cuponStatus) {
+      cuponStatus.textContent = '';
+      cuponStatus.className = 'text-xs mt-1';
+    }
+    cuponAplicado = null;
+  } catch (e) {
+    console.warn("Error al limpiar campos de descuento:", e);
+  }
+  // --- FIN DE LA CORRECCIÓN ---
+
   try {
     const dolar = await fetchAPI(`/dolar/valor/${payload.fechaLlegada}`);
     valorDolarDia = dolar.valor;
@@ -278,17 +308,14 @@ export async function runSearch() {
 
     availabilityData = await fetchAPI('/propuestas/generar', { method: 'POST', body: payload });
     
-    const allPropsWithId = [
-      ...(availabilityData.suggestion?.propiedades || []),
-      ...(availabilityData.availableProperties || [])
-    ].filter(p => p && p.id);
-
-    availabilityData.allPropertiesWithId = allPropsWithId;
+    // Poblar la lista de propiedades maestras para esta búsqueda (usada por handleSelectionChange)
+    // Usamos `allProperties` del backend, que es la lista completa.
+    availabilityData.allPropertiesWithId = availabilityData.allProperties || [];
 
     if (availabilityData.suggestion) {
       statusContainer.classList.add('hidden');
       document.getElementById('results-container').classList.remove('hidden');
-      renderSelectionUI();
+      renderSelectionUI(); // Esto llamará a updateSummary con el precio limpio
       return true;
     } else {
       statusContainer.textContent = availabilityData.message || 'No se encontró disponibilidad.';
