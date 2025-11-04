@@ -6,8 +6,9 @@ const { getActividadDiaria, getDisponibilidadPeriodo } = require('./reportesServ
 const { obtenerPropiedadPorId } = require('./propiedadesService'); // Necesario para obtenerImagenPrincipal
 const { calculatePrice } = require('./propuestasService'); // Necesario para generarTextoPresupuesto
 const { obtenerValorDolarHoy } = require('./dolarService'); // Necesario para generarTextoPresupuesto
-const { format } = require('date-fns');
+const { format, addDays } = require('date-fns');
 const es = require('date-fns/locale/es');
+const { formatCurrency } = require('./utils/calculoTarifaUtils');
 
 // Función auxiliar para obtener la imagen principal (se mantiene igual, útil para reporte de disponibilidad)
 function obtenerImagenPrincipal(propiedad) {
@@ -48,7 +49,8 @@ const prepararMensaje = async (db, empresaId, grupoReserva, tipoMensaje) => {
 };
 
 const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
-    const { cliente, propiedades, fechaLlegada, fechaSalida, personas, noches, precioFinal, idPropuesta, precioListaCLP, descuentoCLP, pricingDetails, moneda, valorDolarDia } = datosPropuesta;
+    // Añadimos 'permitirCambios' a la destructuración
+    const { cliente, propiedades, fechaLlegada, fechaSalida, personas, noches, precioFinal, idPropuesta, precioListaCLP, descuentoCLP, pricingDetails, moneda, valorDolarDia, permitirCambios } = datosPropuesta;
 
     const [plantillas, tipos, empresaData] = await Promise.all([
         obtenerPlantillasPorEmpresa(db, empresaId),
@@ -64,11 +66,12 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
 
     let texto = plantilla.texto;
 
-    const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
+    // (La función 'formatCurrency' ya está importada desde utils, así que esta línea local no es necesaria)
+    // const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
     const formatDate = (dateStr) => new Date(dateStr + 'T00:00:00Z').toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 
     // *** INICIO CORRECCIÓN LINK PÁGINA PÚBLICA ***
-    // Determinar el dominio base de la empresa
+    // (Esta sección se mantiene 100% original)
     const baseUrl = empresaData.websiteSettings?.domain
         ? `https://${empresaData.websiteSettings.domain}`
         : (empresaData.websiteSettings?.subdomain
@@ -78,6 +81,7 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
 
 
     let detallePropiedades = propiedades.map(prop => {
+        // (Esta sección se mantiene 100% original)
         let detalle = `Cabaña ${prop.nombre}: `;
         const detalles = [];
         if (prop.camas?.matrimoniales) detalles.push(`* ${prop.camas.matrimoniales} dormitorio(s) matrimoniales${prop.equipamiento?.piezaEnSuite ? ' (uno en suite)' : ''}.`);
@@ -92,29 +96,87 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
         if (prop.equipamiento?.tinaja) detalles.push(`* Tinaja privada.`);
         if (prop.equipamiento?.parrilla) detalles.push(`* Parrilla.`);
 
-        // *** INICIO CORRECCIÓN LINK PÁGINA PÚBLICA ***
-        // Construir el link a la página de la propiedad
         const linkPaginaPropiedad = `${baseUrl}/propiedad/${prop.id}`;
         detalles.push(`📸 Ver detalles: ${linkPaginaPropiedad}`);
-        // *** FIN CORRECCIÓN LINK PÁGINA PÚBLICA ***
 
         return detalle + '\n' + detalles.join('\n');
     }).join('\n\n');
 
 
-    let resumenValores = `📊 Detalle por Alojamiento (${noches} Noches)\n----------------------------------\n`;
-    resumenValores += propiedades.map(prop => {
-        const precioDetalle = pricingDetails.find(d => d.nombre === prop.nombre);
-        if (!precioDetalle) return `${prop.nombre}: $0`;
-
-        const precioTotalPropEnMonedaObjetivo = precioDetalle.precioTotal;
-        const precioTotalPropEnCLP = moneda === 'USD'
-            ? Math.round(precioTotalPropEnMonedaObjetivo * valorDolarDia)
-            : precioTotalPropEnMonedaObjetivo;
-
-        return `${prop.nombre}: ${formatCurrency(precioTotalPropEnCLP)}`;
-    }).join('\n');
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Esta es la única sección modificada.
     
+    let resumenValores = "";
+
+    // VERIFICACIÓN 1: MODO ITINERARIO (permitirCambios = true)
+    // Y el array 'pricingDetails' tiene el formato de itinerario (contiene 'dailyRate')
+    if (permitirCambios === true && pricingDetails && pricingDetails.length > 0 && 'dailyRate' in pricingDetails[0]) {
+        
+        resumenValores = `📊 Detalle del Itinerario (${noches} Noches)\n----------------------------------\n`;
+        
+        let segmentos = [];
+        let currentSegment = {
+            properties: pricingDetails[0].properties.map(p => p.nombre).join(' + '),
+            startDate: new Date(pricingDetails[0].date + 'T00:00:00Z'),
+            endDate: new Date(pricingDetails[0].date + 'T00:00:00Z'),
+            totalRate: pricingDetails[0].dailyRate
+        };
+
+        for (let i = 1; i < pricingDetails.length; i++) {
+            const day = pricingDetails[i];
+            const dayProperties = day.properties.map(p => p.nombre).join(' + ');
+            const dayDate = new Date(day.date + 'T00:00:00Z');
+
+            if (dayProperties === currentSegment.properties && addDays(currentSegment.endDate, 1).getTime() === dayDate.getTime()) {
+                currentSegment.endDate = dayDate; // Extender segmento
+                currentSegment.totalRate += day.dailyRate;
+            } else {
+                segmentos.push(currentSegment); // Guardar segmento anterior
+                currentSegment = { // Empezar nuevo segmento
+                    properties: dayProperties,
+                    startDate: dayDate,
+                    endDate: dayDate,
+                    totalRate: day.dailyRate
+                };
+            }
+        }
+        segmentos.push(currentSegment); // Guardar el último segmento
+
+        // Formatear los segmentos para el texto
+        segmentos.forEach(seg => {
+            const fLlegada = seg.startDate.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+            const fSalida = seg.endDate.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+            const dateLabel = fLlegada === fSalida ? fLlegada : `(${fLlegada} al ${fSalida})`;
+            
+            resumenValores += `${seg.properties} ${dateLabel}: ${formatCurrency(seg.totalRate)}\n`;
+        });
+
+    } 
+    // VERIFICACIÓN 2: MODO NORMAL
+    // Y el array 'pricingDetails' tiene el formato normal (contiene 'precioTotal')
+    else if (pricingDetails && pricingDetails.length > 0 && 'precioTotal' in pricingDetails[0]) {
+        
+        // Esta es la lógica original que proporcionaste (que funciona para el modo normal)
+        resumenValores = `📊 Detalle por Alojamiento (${noches} Noches)\n----------------------------------\n`;
+        resumenValores += propiedades.map(prop => {
+            const precioDetalle = pricingDetails.find(d => d.nombre === prop.nombre);
+            // Pequeña corrección: Si no encuentra detalle (aunque no debería pasar), mostrar un aviso.
+            if (!precioDetalle) return `${prop.nombre}: (Error al calcular detalle)`;
+
+            const precioTotalPropEnMonedaObjetivo = precioDetalle.precioTotal;
+            const precioTotalPropEnCLP = moneda === 'USD'
+                ? Math.round(precioTotalPropEnMonedaObjetivo * valorDolarDia)
+                : precioTotalPropEnMonedaObjetivo;
+
+            return `${prop.nombre}: ${formatCurrency(precioTotalPropEnCLP)}`;
+        }).join('\n');
+    }
+    // VERIFICACIÓN 3: Fallback por si 'pricingDetails' está vacío o tiene formato inesperado
+    else {
+        resumenValores = `📊 Detalle no disponible.\n`;
+    }
+    
+    // Bloque de Totales Generales (común a ambos modos)
     resumenValores += `\n\n📈 Totales Generales\n----------------------------------\n`;
     resumenValores += `Subtotal: ${formatCurrency(precioListaCLP)}\n`;
     if (descuentoCLP > 0) {
@@ -123,11 +185,15 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
     resumenValores += `----------------------------------\n`;
     resumenValores += `*TOTAL A PAGAR: ${formatCurrency(precioFinal)}* (IVA incluido)`;
 
+    // --- FIN DE LA CORRECCIÓN ---
+
+
     const fechaVencimiento = new Date();
     fechaVencimiento.setDate(fechaVencimiento.getDate() + 1);
+    // (Lógica original de reemplazos)
     const fechaVencimientoStr = fechaVencimiento.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' }) + " a las 23:59 hrs";
     
-    const porcentajeAbono = 10;
+    const porcentajeAbono = empresaData.configuracion?.porcentajeAbono || 10;
     const montoAbono = precioFinal * (porcentajeAbono / 100);
 
     const reemplazos = {
@@ -138,13 +204,13 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
         '[TOTAL_NOCHES]': noches,
         '[GRUPO_SOLICITADO]': personas,
         '[DETALLE_PROPIEDADES_PROPUESTA]': detallePropiedades,
-        '[RESUMEN_VALORES_PROPUESTA]': resumenValores,
+        '[RESUMEN_VALORES_PROPUESTA]': resumenValores, // Aquí se inserta el bloque corregido
         '[FECHA_VENCIMIENTO_PROPUESTA]': fechaVencimientoStr,
         '[PORCENTAJE_ABONO]': `${porcentajeAbono}%`,
         '[MONTO_ABONO]': formatCurrency(montoAbono),
         '[USUARIO_NOMBRE]': empresaData.contactoNombre || '',
         '[USUARIO_TELEFONO]': empresaData.contactoTelefono || '',
-        '[EMPRESA_WEBSITE]': empresaData.website || '',
+        '[EMPRESA_WEBSITE]': empresaData.website || '', // Usar el campo genérico
         '[EMPRESA_NOMBRE]': empresaData.nombre || '',
         '[CONDICIONES_RESERVA]': empresaData.condicionesReserva || '',
     };
@@ -155,7 +221,6 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
 
     return texto;
 };
-
 
 const generarTextoPresupuesto = async (db, empresaId, cliente, fechaLlegada, fechaSalida, propiedades, personas) => {
     const [tipos, plantillas, empresaData, dolarHoy, canalesSnapshot] = await Promise.all([
