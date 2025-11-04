@@ -138,20 +138,17 @@ export async function afterRender() {
   document.getElementById('cerrar-propuesta-modal-btn')?.addEventListener('click', handleCerrarModal);
 
   // --- INICIO DE LA CORRECCIÓN ---
-  // Agregar los listeners faltantes para los checkboxes de búsqueda.
-  // Si los resultados ya están visibles (availabilityData.suggestion existe),
-  // disparamos una nueva búsqueda (runSearch) para recalcular todo.
-
+  // Se eliminó la condición `if (availabilityData.suggestion)` que estaba rota
+  // porque `availabilityData` no está en el scope de este archivo.
+  // Ahora, cualquier cambio en estos checkboxes disparará la búsqueda,
+  // que es el comportamiento esperado.
+  
   document.getElementById('sin-camarotes')?.addEventListener('change', () => {
-    if (availabilityData.suggestion) {
-      runSearch();
-    }
+    runSearch();
   });
   
   document.getElementById('permitir-cambios')?.addEventListener('change', () => {
-    if (availabilityData.suggestion) {
-      runSearch();
-    }
+    runSearch();
   });
   // --- FIN DE LA CORRECCIÓN ---
 
