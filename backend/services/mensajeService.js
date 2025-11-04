@@ -8,7 +8,6 @@ const { calculatePrice } = require('./propuestasService'); // Necesario para gen
 const { obtenerValorDolarHoy } = require('./dolarService'); // Necesario para generarTextoPresupuesto
 const { format, addDays } = require('date-fns');
 const es = require('date-fns/locale/es');
-const { formatCurrency } = require('./utils/calculoTarifaUtils');
 
 // Función auxiliar para obtener la imagen principal (se mantiene igual, útil para reporte de disponibilidad)
 function obtenerImagenPrincipal(propiedad) {
@@ -66,19 +65,19 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
 
     let texto = plantilla.texto;
 
-    // (La función 'formatCurrency' ya está importada desde utils, así que esta línea local no es necesaria)
-    // const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Restaurar la definición local de formatCurrency
+    const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
+    // --- FIN DE LA CORRECCIÓN ---
+
     const formatDate = (dateStr) => new Date(dateStr + 'T00:00:00Z').toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 
-    // *** INICIO CORRECCIÓN LINK PÁGINA PÚBLICA ***
     // (Esta sección se mantiene 100% original)
     const baseUrl = empresaData.websiteSettings?.domain
         ? `https://${empresaData.websiteSettings.domain}`
         : (empresaData.websiteSettings?.subdomain
             ? `https://${empresaData.websiteSettings.subdomain}.onrender.com`
             : (empresaData.website || '#'));
-    // *** FIN CORRECCIÓN LINK PÁGINA PÚBLICA ***
-
 
     let detallePropiedades = propiedades.map(prop => {
         // (Esta sección se mantiene 100% original)
@@ -103,13 +102,10 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
     }).join('\n\n');
 
 
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Esta es la única sección modificada.
-    
+    // (Lógica de [RESUMEN_VALORES_PROPUESTA] que corregimos en el paso anterior)
     let resumenValores = "";
 
-    // VERIFICACIÓN 1: MODO ITINERARIO (permitirCambios = true)
-    // Y el array 'pricingDetails' tiene el formato de itinerario (contiene 'dailyRate')
+    // VERIFICACIÓN 1: MODO ITINERARIO
     if (permitirCambios === true && pricingDetails && pricingDetails.length > 0 && 'dailyRate' in pricingDetails[0]) {
         
         resumenValores = `📊 Detalle del Itinerario (${noches} Noches)\n----------------------------------\n`;
@@ -153,17 +149,15 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
 
     } 
     // VERIFICACIÓN 2: MODO NORMAL
-    // Y el array 'pricingDetails' tiene el formato normal (contiene 'precioTotal')
     else if (pricingDetails && pricingDetails.length > 0 && 'precioTotal' in pricingDetails[0]) {
         
-        // Esta es la lógica original que proporcionaste (que funciona para el modo normal)
         resumenValores = `📊 Detalle por Alojamiento (${noches} Noches)\n----------------------------------\n`;
         resumenValores += propiedades.map(prop => {
             const precioDetalle = pricingDetails.find(d => d.nombre === prop.nombre);
-            // Pequeña corrección: Si no encuentra detalle (aunque no debería pasar), mostrar un aviso.
             if (!precioDetalle) return `${prop.nombre}: (Error al calcular detalle)`;
 
             const precioTotalPropEnMonedaObjetivo = precioDetalle.precioTotal;
+            // IMPORTANTE: El 'moneda' y 'valorDolarDia' son del *canal objetivo*
             const precioTotalPropEnCLP = moneda === 'USD'
                 ? Math.round(precioTotalPropEnMonedaObjetivo * valorDolarDia)
                 : precioTotalPropEnMonedaObjetivo;
@@ -171,7 +165,7 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
             return `${prop.nombre}: ${formatCurrency(precioTotalPropEnCLP)}`;
         }).join('\n');
     }
-    // VERIFICACIÓN 3: Fallback por si 'pricingDetails' está vacío o tiene formato inesperado
+    // VERIFICACIÓN 3: Fallback
     else {
         resumenValores = `📊 Detalle no disponible.\n`;
     }
@@ -185,12 +179,10 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
     resumenValores += `----------------------------------\n`;
     resumenValores += `*TOTAL A PAGAR: ${formatCurrency(precioFinal)}* (IVA incluido)`;
 
-    // --- FIN DE LA CORRECCIÓN ---
 
-
+    // (Lógica original de reemplazos)
     const fechaVencimiento = new Date();
     fechaVencimiento.setDate(fechaVencimiento.getDate() + 1);
-    // (Lógica original de reemplazos)
     const fechaVencimientoStr = fechaVencimiento.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' }) + " a las 23:59 hrs";
     
     const porcentajeAbono = empresaData.configuracion?.porcentajeAbono || 10;
@@ -204,13 +196,13 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
         '[TOTAL_NOCHES]': noches,
         '[GRUPO_SOLICITADO]': personas,
         '[DETALLE_PROPIEDADES_PROPUESTA]': detallePropiedades,
-        '[RESUMEN_VALORES_PROPUESTA]': resumenValores, // Aquí se inserta el bloque corregido
+        '[RESUMEN_VALORES_PROPUESTA]': resumenValores, 
         '[FECHA_VENCIMIENTO_PROPUESTA]': fechaVencimientoStr,
         '[PORCENTAJE_ABONO]': `${porcentajeAbono}%`,
         '[MONTO_ABONO]': formatCurrency(montoAbono),
         '[USUARIO_NOMBRE]': empresaData.contactoNombre || '',
         '[USUARIO_TELEFONO]': empresaData.contactoTelefono || '',
-        '[EMPRESA_WEBSITE]': empresaData.website || '', // Usar el campo genérico
+        '[EMPRESA_WEBSITE]': empresaData.website || '', 
         '[EMPRESA_NOMBRE]': empresaData.nombre || '',
         '[CONDICIONES_RESERVA]': empresaData.condicionesReserva || '',
     };
