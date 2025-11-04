@@ -328,6 +328,7 @@ export async function handleCuponChange() {
 }
 
 export async function handleGuardarPropuesta() {
+  // 1. Validaciones y obtención de cliente
   if (!availabilityData.suggestion) {
     alert('Primero realiza una búsqueda de disponibilidad.');
     return;
@@ -339,27 +340,33 @@ export async function handleGuardarPropuesta() {
     alert('No se pudo procesar el cliente. Verifica los datos.');
     return;
   }
-  
+
+  // 2. Obtener precios calculados desde la UI/estado
   const precioFinalCalculado = parseFloat(document.getElementById('summary-precio-final')?.textContent.replace(/[$.]/g, '')) || 0;
   const nochesCalculadas = parseInt(document.getElementById('summary-noches')?.textContent) || 0;
-  const precioListaCLPCalculado = parseFloat(document.getElementById('summary-precio-final')?.closest('.grid')?.querySelector('span:nth-child(4)')?.textContent.replace(/[$.]/g, '')) || 0;
+  
+  // --- INICIO DE LA CORRECCIÓN ---
+  // Leer el precio de lista (Subtotal) directamente del estado, no del DOM.
+  // currentPricing.totalPriceCLP es el valor *antes* de descuentos manuales/cupones.
+  const precioListaCLPCalculado = currentPricing.totalPriceCLP || 0;
+  // --- FIN DE LA CORRECCIÓN ---
+  
   const descuentoCLPCalculado = precioListaCLPCalculado - precioFinalCalculado;
 
-
-  const propuesta = {
+  // 3. Construir el payload para *guardar* la propuesta (para gestionPropuestasService)
+  const propuestaPayloadGuardar = {
     fechaLlegada: document.getElementById('fecha-llegada').value,
     fechaSalida: document.getElementById('fecha-salida').value,
     personas: parseInt(document.getElementById('personas').value),
     canalId: document.getElementById('canal-select').value,
     canalNombre: allCanales.find(c => c.id === document.getElementById('canal-select').value)?.nombre || 'Desconocido',
-    cliente: cliente,
+    cliente: cliente, // Pasa el objeto cliente completo
     propiedades: selectedProperties,
-    precioFinal: precioFinalCalculado,
+    precioFinal: precioFinalCalculado, // El precio final con descuentos
     noches: nochesCalculadas,
     moneda: currentPricing.currencyOriginal,
     valorDolarDia: valorDolarDia,
-    valorOriginal: currentPricing.totalPriceOriginal,
-    pricing: currentPricing,
+    valorOriginal: currentPricing.totalPriceOriginal, // El precio de lista en moneda original
     codigoCupon: cuponAplicado?.codigo || null,
     idReservaCanal: document.getElementById('id-reserva-canal-input').value || null,
     icalUid: document.getElementById('ical-uid-input').value || null,
@@ -371,52 +378,55 @@ export async function handleGuardarPropuesta() {
     plantillaId: document.getElementById('plantilla-select').value || null
   };
 
+  // 4. Iniciar el proceso de guardado
+  const guardarBtn = document.getElementById('guardar-propuesta-btn');
   try {
-    const guardarBtn = document.getElementById('guardar-propuesta-btn');
     guardarBtn.disabled = true;
     guardarBtn.textContent = editId ? 'Actualizando...' : 'Guardando...';
 
+    // 5. LLAMADA A LA API DE GUARDADO
     let propuestaGuardada;
     if (editId) {
+      // Al editar, el payload se envía al endpoint de actualización
       propuestaGuardada = await fetchAPI(`/gestion-propuestas/propuesta-tentativa/${editId}`, {
         method: 'PUT',
-        body: propuesta
+        body: propuestaPayloadGuardar
       });
+      // Aseguramos que el ID de la propuesta sea el `editId` para el generador de texto
+      propuestaGuardada.id = editId;
     } else {
+      // Al crear, se envía al endpoint de creación
       propuestaGuardada = await fetchAPI('/gestion-propuestas/propuesta-tentativa', {
         method: 'POST',
-        body: propuesta
+        body: propuestaPayloadGuardar
       });
     }
 
-    // --- INICIO DE LA CORRECCIÓN ---
-    // 1. Preparar el payload para el endpoint de texto.
-    // Este payload debe coincidir con lo que espera `generarTextoPropuesta` en `mensajeService.js`
+    // 6. Construir el payload para *generar el texto* (para mensajeService)
+    // Este payload SÍ necesita los detalles de precios.
     const payloadTexto = {
-        ...propuesta, // Pasamos la mayoría de los datos que ya tenemos
-        idPropuesta: propuestaGuardada.id, // Añadimos el ID que acabamos de recibir
-        precioListaCLP: precioListaCLPCalculado,
-        descuentoCLP: descuentoCLPCalculado,
-        pricingDetails: currentPricing.details || []
+      ...propuestaPayloadGuardar, // Reutiliza la mayoría de los datos
+      idPropuesta: propuestaGuardada.id, // El ID devuelto/usado al guardar
+      precioListaCLP: precioListaCLPCalculado, // <-- Este valor ahora será correcto
+      descuentoCLP: descuentoCLPCalculado,
+      pricingDetails: currentPricing.details || [] // Los detalles del desglose de precios
     };
-    
-    // 2. Llamar al endpoint correcto del backend para generar el texto
+
+    // 7. LLAMADA A LA API DE GENERACIÓN DE TEXTO
     const resultadoTexto = await fetchAPI('/propuestas/generar-texto', {
         method: 'POST',
         body: payloadTexto
     });
 
-    // 3. Usar el texto devuelto por el backend
-    const textoWhatsApp = resultadoTexto.texto;
-    // --- FIN DE LA CORRECCIÓN ---
-
-    document.getElementById('propuesta-texto').value = textoWhatsApp;
+    // 8. Mostrar el resultado
+    document.getElementById('propuesta-texto').value = resultadoTexto.texto;
     document.getElementById('propuesta-guardada-modal').classList.remove('hidden');
+
   } catch (error) {
     console.error('Error al guardar propuesta:', error);
     alert(`Error al guardar: ${error.message}`);
   } finally {
-    const guardarBtn = document.getElementById('guardar-propuesta-btn');
+    // 9. Resetear el botón
     guardarBtn.disabled = false;
     guardarBtn.textContent = editId ? 'Actualizar Propuesta' : 'Crear Reserva Tentativa';
   }
