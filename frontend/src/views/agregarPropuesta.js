@@ -137,6 +137,24 @@ export async function afterRender() {
   document.getElementById('copiar-propuesta-btn')?.addEventListener('click', handleCopyPropuesta);
   document.getElementById('cerrar-propuesta-modal-btn')?.addEventListener('click', handleCerrarModal);
 
+  // --- INICIO DE LA CORRECCIÓN ---
+  // Agregar los listeners faltantes para los checkboxes de búsqueda.
+  // Si los resultados ya están visibles (availabilityData.suggestion existe),
+  // disparamos una nueva búsqueda (runSearch) para recalcular todo.
+
+  document.getElementById('sin-camarotes')?.addEventListener('change', () => {
+    if (availabilityData.suggestion) {
+      runSearch();
+    }
+  });
+  
+  document.getElementById('permitir-cambios')?.addEventListener('change', () => {
+    if (availabilityData.suggestion) {
+      runSearch();
+    }
+  });
+  // --- FIN DE LA CORRECCIÓN ---
+
   // Descuentos manuales
   document.querySelectorAll('.discount-input').forEach(input => {
     input.addEventListener('input', () => updateSummary(currentPricing));
