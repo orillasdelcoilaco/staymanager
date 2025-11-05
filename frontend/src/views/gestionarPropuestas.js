@@ -94,17 +94,17 @@ export async function afterRender() {
             
             // 3. Construir los parámetros de URL correctos
             const params = new URLSearchParams({
-                edit: id,   // El ID de Grupo (para Guardar/PUT)
-                load: loadDocId, // El ID de Documento (para Cargar/GET)
+                edit: id,   // El ID de Grupo (para Guardar/PUT) ej: "Miryan Sanchez (4274)"
+                load: loadDocId, // El ID de Documento (para Cargar/GET) ej: "aB3xYqZ..."
                 props: item.propiedades.map(p => p.id).join(','), // 'props' para coincidir con utils.js
                 
-                // Datos para rellenar (aunque utils.js los cargará de nuevo)
+                // (Estos son para rellenar, aunque utils.js los cargará de nuevo)
                 clienteId: item.clienteId || '',
                 fechaLlegada: item.fechaLlegada,
                 fechaSalida: item.fechaSalida,
                 personas: personas,
                 idReservaCanal: item.idReservaCanal || '',
-                canalId: item.canalId || '',
+                canalId: item.canalId || '',
                 origen: item.origen || 'manual',
                 icalUid: item.icalUid || ''
             });
@@ -118,7 +118,7 @@ export async function afterRender() {
             console.log(url);
             
             handleNavigation(url);
-        }
+       }
         
         if (target.classList.contains('approve-btn')) {
             if (!confirm(`¿Estás seguro de que quieres aprobar est${tipo === 'propuesta' ? 'a propuesta' : 'e presupuesto'}? Se verificará la disponibilidad antes de confirmar.`)) return;
@@ -209,100 +209,3 @@ export async function render() {
     `;
 }
 
-export async function afterRender() {
-    await fetchAndRender();
-
-    document.getElementById('canal-filter').addEventListener('change', renderTabla);
-    document.getElementById('fecha-inicio-filter').addEventListener('input', renderTabla);
-    document.getElementById('fecha-fin-filter').addEventListener('input', renderTabla);
-
-    const tbody = document.getElementById('propuestas-tbody');
-    tbody.addEventListener('click', async (e) => {
-        const target = e.target;
-        const id = target.dataset.id;
-        const tipo = target.dataset.tipo;
-        if (!id || !tipo) return;
-
-        if (target.classList.contains('edit-btn')) {
-            const item = todasLasPropuestas.find(p => p.id === id);
-            if (!item) {
-                alert('Error: No se pudo encontrar la propuesta para editar.');
-                return;
-            }
-            
-            console.log("--- DEBUG: Datos de la propuesta seleccionada ---");
-            console.log(item);
-
-            const personas = item.propiedades.reduce((sum, p) => sum + (p.capacidad || 1), 0);
-            
-            const params = new URLSearchParams({
-                edit: id,
-                clienteId: item.clienteId || '',
-                fechaLlegada: item.fechaLlegada,
-                fechaSalida: item.fechaSalida,
-                propiedades: item.propiedades.map(p => p.id).join(','),
-                personas: personas,
-                idReservaCanal: item.idReservaCanal || '',
-                canalId: item.canalId || '',
-                origen: item.origen || 'manual',
-                icalUid: item.icalUid || ''
-            });
-
-            const route = tipo === 'propuesta' ? '/agregar-propuesta' : '/generar-presupuesto';
-            const url = `${route}?${params.toString()}`;
-            
-            console.log("--- DEBUG: URL de navegación generada ---");
-            console.log(url);
-            
-            handleNavigation(url);
-        }
-        
-        if (target.classList.contains('approve-btn')) {
-            if (!confirm(`¿Estás seguro de que quieres aprobar est${tipo === 'propuesta' ? 'a propuesta' : 'e presupuesto'}? Se verificará la disponibilidad antes de confirmar.`)) return;
-            
-            target.disabled = true;
-            target.textContent = 'Verificando...';
-
-            try {
-                let result;
-                if (tipo === 'propuesta') {
-                    const idsReservas = target.dataset.idsReservas.split(',');
-                    result = await fetchAPI(`/gestion-propuestas/propuesta/${id}/aprobar`, { method: 'POST', body: { idsReservas } });
-                } else {
-                    result = await fetchAPI(`/gestion-propuestas/presupuesto/${id}/aprobar`, { method: 'POST' });
-                }
-                alert(result.message);
-                await fetchAndRender();
-            } catch (error) {
-                alert(`Error al aprobar: ${error.message}`);
-            } finally {
-                target.disabled = false;
-                target.textContent = 'Aprobar';
-            }
-        }
-        
-        if (target.classList.contains('reject-btn')) {
-             if (!confirm(`¿Estás seguro de que quieres rechazar est${tipo === 'propuesta' ? 'a propuesta' : 'e presupuesto'}?`)) return;
-             
-             target.disabled = true;
-             target.textContent = 'Rechazando...';
-             
-             try {
-                let result;
-                if (tipo === 'propuesta') {
-                    const idsReservas = target.dataset.idsReservas.split(',');
-                    result = await fetchAPI(`/gestion-propuestas/propuesta/${id}/rechazar`, { method: 'POST', body: { idsReservas } });
-                } else {
-                    result = await fetchAPI(`/gestion-propuestas/presupuesto/${id}/rechazar`, { method: 'POST' });
-                }
-                alert('Propuesta rechazada y eliminada.');
-                await fetchAndRender();
-             } catch(error) {
-                alert(`Error: ${error.message}`);
-             } finally {
-                target.disabled = false;
-                target.textContent = 'Rechazar';
-             }
-        }
-    });
-}
