@@ -6,14 +6,19 @@ const { obtenerValorDolar } = require('./dolarService');
 const { parseISO, isValid, differenceInDays, addDays, format } = require('date-fns');
 
 // --- Función getAvailabilityData (Sin cambios) ---
-async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarotes = false) {
-    // ... (Código completo de getAvailabilityData) ...
+// backend/services/propuestasService.js
+
+// --- INICIO DE LA CORRECCIÓN ---
+// Añadir 'idGrupoAExcluir' a la firma de la función
+async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarotes = false, idGrupoAExcluir = null) {
+// --- FIN DE LA CORRECCIÓN ---
+
      const [propiedadesSnapshot, tarifasSnapshot, reservasSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('propiedades').get(),
         db.collection('empresas').doc(empresaId).collection('tarifas').get(),
         db.collection('empresas').doc(empresaId).collection('reservas')
             .where('fechaLlegada', '<', admin.firestore.Timestamp.fromDate(endDate))
-            .where('estado', 'in', ['Confirmada', 'Propuesta'])
+            .where('estado', 'in', ['Confirmada', 'Propuesta']) // Asegurarse de que el query es correcto
             .get()
     ]);
 
@@ -49,7 +54,17 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
     const overlappingReservations = [];
     reservasSnapshot.forEach(doc => {
         const reserva = doc.data();
+        
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Si esta reserva pertenece al grupo que estamos editando,
+        // no la contamos como "ocupada".
+        if (idGrupoAExcluir && reserva.idReservaCanal === idGrupoAExcluir) {
+            return; 
+        }
+        // --- FIN DE LA CORRECCIÓN ---
+
         const fechaSalidaReserva = reserva.fechaSalida?.toDate ? reserva.fechaSalida.toDate() : (reserva.fechaSalida ? parseISO(reserva.fechaSalida + 'T00:00:00Z') : null);
+        // Solo añadir si la fecha de salida es *después* del inicio de nuestra búsqueda
         if (fechaSalidaReserva && isValid(fechaSalidaReserva) && fechaSalidaReserva > startDate) {
             overlappingReservations.push(reserva);
         }
@@ -57,6 +72,8 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
 
     const availabilityMap = new Map();
     allProperties.forEach(prop => availabilityMap.set(prop.id, []));
+    
+    // Poblar el mapa de disponibilidad con las reservas filtradas
     overlappingReservations.forEach(reserva => {
         if (availabilityMap.has(reserva.alojamientoId)) {
             const start = reserva.fechaLlegada?.toDate ? reserva.fechaLlegada.toDate() : (reserva.fechaLlegada ? parseISO(reserva.fechaLlegada + 'T00:00:00Z') : null);
@@ -67,8 +84,10 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
         }
     });
 
+    // Calcular las propiedades disponibles
     const availableProperties = propiedadesConTarifa.filter(prop => {
         const reservations = availabilityMap.get(prop.id) || [];
+        // (Lógica de 'some' sin cambios)
         return !reservations.some(res => startDate < res.end && endDate > res.start);
     });
 
@@ -170,6 +189,8 @@ function findSegmentedCombination(allProperties, allTarifas, availabilityMap, re
 
 
 // --- Función calculatePrice (Sin cambios, verifica la llamada a obtenerValorDolar) ---
+// backend/services/propuestasService.js
+
 async function calculatePrice(db, empresaId, items, startDate, endDate, allTarifas, canalObjetivoId, valorDolarDiaOverride = null, isSegmented = false) {
     const canalesRef = db.collection('empresas').doc(empresaId).collection('canales');
     const [canalDefectoSnapshot, canalObjetivoDoc] = await Promise.all([
@@ -183,27 +204,26 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
     const canalPorDefecto = { id: canalDefectoSnapshot.docs[0].id, ...canalDefectoSnapshot.docs[0].data() };
     const canalObjetivo = { id: canalObjetivoDoc.id, ...canalObjetivoDoc.data() };
 
-    // *** LLAMADA A obtenerValorDolar ***
-    // Asegurarse de que la función importada esté disponible aquí
     const valorDolarDia = valorDolarDiaOverride ??
                           ((canalPorDefecto.moneda === 'USD' || canalObjetivo.moneda === 'USD')
                               ? await obtenerValorDolar(db, empresaId, startDate) // <--- PUNTO CRÍTICO
                               : null);
 
     let totalPrecioOriginal = 0;
-    const priceDetails = [];
-    let totalNights = differenceInDays(endDate, startDate);
-    if (totalNights <= 0 && !isSegmented) return { totalPriceCLP: 0, totalPriceOriginal: 0, currencyOriginal: canalObjetivo.moneda, valorDolarDia, nights: 0, details: [] };
-
+    const priceDetails = []; // Este es el array 'details' que se enviará
+    let totalNights = 0;
 
     if (isSegmented) {
-        totalNights = 0;
+        // --- MODO ITINERARIO (SEGMENTADO) ---
+        // Devuelve un desglose por DÍA
+        const daySet = new Set(); 
+        
         for (const dailyOption of items) {
             const currentDate = dailyOption.date;
+            daySet.add(format(currentDate, 'yyyy-MM-dd'));
             const option = dailyOption.option;
             const propertiesForDay = Array.isArray(option) ? option : [option];
-            totalNights++;
-
+            
             let dailyRateBase = 0;
             for (const prop of propertiesForDay) {
                 const tarifasDelDia = allTarifas.filter(t =>
@@ -240,14 +260,23 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
 
             totalPrecioOriginal += dailyRateInTargetCurrency;
 
+            // Añadir el desglose DIARIO al array 'details'
              priceDetails.push({
                  date: format(currentDate, 'yyyy-MM-dd'),
                  properties: propertiesForDay.map(p => ({id: p.id, nombre: p.nombre})),
-                 dailyRate: dailyRateInTargetCurrency
+                 dailyRate: dailyRateInTargetCurrency // Este es el formato del log
              });
         }
+        totalNights = daySet.size;
 
-    } else { // Cálculo NO segmentado
+    } else {
+        // --- MODO NORMAL (NO SEGMENTADO) ---
+        // Devuelve un desglose por PROPIEDAD
+        totalNights = differenceInDays(endDate, startDate);
+        if (totalNights <= 0) {
+            return { totalPriceCLP: 0, totalPriceOriginal: 0, currencyOriginal: canalObjetivo.moneda, valorDolarDia, nights: 0, details: [] };
+        }
+
         for (const prop of items) {
             let propPrecioBaseTotal = 0;
             for (let d = new Date(startDate); d < endDate; d = addDays(d, 1)) {
@@ -286,6 +315,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
 
             totalPrecioOriginal += precioPropEnMonedaObjetivo;
 
+            // Añadir el desglose por PROPIEDAD al array 'details'
             priceDetails.push({
                 nombre: prop.nombre,
                 id: prop.id,
@@ -307,7 +337,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
         currencyOriginal: canalObjetivo.moneda,
         valorDolarDia: valorDolarDia,
         nights: totalNights,
-        details: priceDetails
+        details: priceDetails // Devuelve el array 'details' en el formato correcto según el modo
     };
 }
 

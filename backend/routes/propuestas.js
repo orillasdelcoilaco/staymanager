@@ -73,7 +73,7 @@ module.exports = (db) => {
     router.post('/generar', async (req, res) => {
         // ... (Código completo de la ruta /generar) ...
         const { empresaId } = req.user;
-        const { fechaLlegada, fechaSalida, personas, permitirCambios, sinCamarotes, canalId } = req.body;
+        const { fechaLlegada, fechaSalida, personas, permitirCambios, sinCamarotes, canalId, editId } = req.body;
         if (!fechaLlegada || !fechaSalida || !personas || !canalId) return res.status(400).json({ error: 'Se requieren fechas, cantidad de personas y canal.' });
         const startDate = parseISO(fechaLlegada + 'T00:00:00Z');
         const endDate = parseISO(fechaSalida + 'T00:00:00Z');
@@ -81,7 +81,7 @@ module.exports = (db) => {
 
         try {
             const [availability, dolar] = await Promise.all([
-                getAvailabilityData(db, empresaId, startDate, endDate, sinCamarotes),
+                getAvailabilityData(db, empresaId, startDate, endDate, sinCamarotes, editId),
                 obtenerValorDolarHoy(db, empresaId)
             ]);
             const { availableProperties, allProperties, allTarifas, availabilityMap } = availability;
