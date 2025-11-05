@@ -133,85 +133,119 @@ const obtenerReservasPorEmpresa = async (db, empresaId) => {
 };
 
 const obtenerReservaPorId = async (db, empresaId, reservaId) => {
-    const reservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(reservaId);
-    const doc = await reservaRef.get();
-    if (!doc.exists) {
-        throw new Error('Reserva no encontrada');
+    const reservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(reservaId);
+    const doc = await reservaRef.get();
+    if (!doc.exists) {
+        throw new Error('Reserva no encontrada');
+    }
+    const reservaData = doc.data();
+    
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Bloque 'if' ELIMINADO. Ya no lanzamos un error para iCal.
+    /*
+    if (!reservaData.clienteId && reservaData.origen === 'ical') {
+        throw new Error("Esta es una reserva provisional de iCal. ...");
+    }
+    */
+    // --- FIN DE LA CORRECCIÓN ---
+    
+    const idReservaOriginal = reservaData.idReservaCanal;
+
+    // --- INICIO CORRECCIÓN 2 ---
+    // Si es iCal, no tiene cliente y (posiblemente) no tiene idReservaCanal,
+    // devolvemos los datos parciales para el formulario de edición.
+    if (!idReservaOriginal) {
+       if (reservaData.origen === 'ical' && !reservaData.clienteId) {
+            console.warn(`Reserva iCal ${reservaId} no tiene idReservaCanal. Devolviendo datos parciales.`);
+            return {
+                ...reservaData,
+                fechaLlegada: reservaData.fechaLlegada?.toDate().toISOString().split('T')[0] || null,
+                fechaSalida: reservaData.fechaSalida?.toDate().toISOString().split('T')[0] || null,
+                fechaReserva: reservaData.fechaReserva?.toDate().toISOString().split('T')[0] || null,
+                cliente: {},
+                notas: [],
+                transacciones: [],
+                datosIndividuales: { valorTotalHuesped: 0, costoCanal: 0, payoutFinalReal: 0, valorPotencial: 0, descuentoPotencialPct: 0, abonoProporcional: 0, saldo: 0, ajusteCobro: 0, valorHuespedOriginal: 0 },
+                datosGrupo: { propiedades: [reservaData.alojamientoNombre], valorTotal: 0, payoutTotal: 0, abonoTotal: 0, saldo: 0 }
+            };
+       }
+       // Si no es iCal y no tiene ID, es un error.
+         throw new Error('La reserva no tiene un identificador de grupo (idReservaCanal).');
+    }
+    // --- FIN CORRECCIÓN 2 ---
+
+    const grupoSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
+        .where('idReservaCanal', '==', idReservaOriginal)
+        .get();
+    
+    const reservasDelGrupo = grupoSnapshot.docs.map(d => d.data());
+
+    // --- INICIO CORRECCIÓN 3 ---
+    // Hacer que la carga del cliente sea condicional
+    let clientePromise;
+    if (reservaData.clienteId) {
+        clientePromise = db.collection('empresas').doc(empresaId).collection('clientes').doc(reservaData.clienteId).get();
+    } else {
+        clientePromise = Promise.resolve({ exists: false }); // Devolver cliente vacío
     }
-    const reservaData = doc.data();
-    
-    if (!reservaData.clienteId && reservaData.origen === 'ical') {
-        throw new Error("Esta es una reserva provisional de iCal. Debe completarla y asignarle un cliente desde 'Gestionar Propuestas' antes de poder ver sus detalles.");
-    }
-    
-    const idReservaOriginal = reservaData.idReservaCanal;
-    if (!idReservaOriginal) {
-         throw new Error('La reserva no tiene un identificador de grupo (idReservaCanal).');
-    }
+    // --- FIN CORRECCIÓN 3 ---
 
-    const grupoSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
-        .where('idReservaCanal', '==', idReservaOriginal)
-        .get();
-    
-    const reservasDelGrupo = grupoSnapshot.docs.map(d => d.data());
+    const [clienteDoc, notasSnapshot, transaccionesSnapshot] = await Promise.all([
+        clientePromise,
+        db.collection('empresas').doc(empresaId).collection('gestionNotas').where('reservaIdOriginal', '==', idReservaOriginal).orderBy('fecha', 'desc').get(),
+        db.collection('empresas').doc(empresaId).collection('transacciones').where('reservaIdOriginal', '==', idReservaOriginal).orderBy('fecha', 'desc').get()
+    ]);
 
-    const [clienteDoc, notasSnapshot, transaccionesSnapshot] = await Promise.all([
-        db.collection('empresas').doc(empresaId).collection('clientes').doc(reservaData.clienteId).get(),
-        db.collection('empresas').doc(empresaId).collection('gestionNotas').where('reservaIdOriginal', '==', idReservaOriginal).orderBy('fecha', 'desc').get(),
-        db.collection('empresas').doc(empresaId).collection('transacciones').where('reservaIdOriginal', '==', idReservaOriginal).orderBy('fecha', 'desc').get()
-    ]);
+    const cliente = clienteDoc.exists ? clienteDoc.data() : {};
+    const notas = notasSnapshot.docs.map(d => ({...d.data(), fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
+    const transacciones = transaccionesSnapshot.docs.map(d => ({...d.data(), id: d.id, fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
 
-    const cliente = clienteDoc.exists ? clienteDoc.data() : {};
-    const notas = notasSnapshot.docs.map(d => ({...d.data(), fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
-    const transacciones = transaccionesSnapshot.docs.map(d => ({...d.data(), id: d.id, fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
+    const datosGrupo = {
+        propiedades: reservasDelGrupo.map(r => r.alojamientoNombre),
+        valorTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0),
+        payoutTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorTotal || 0), 0),
+        abonoTotal: transacciones.reduce((sum, t) => sum + (t.monto || 0), 0),
+    };
+    datosGrupo.saldo = datosGrupo.valorTotal - datosGrupo.abonoTotal;
 
-    const datosGrupo = {
-        propiedades: reservasDelGrupo.map(r => r.alojamientoNombre),
-        valorTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0),
-        payoutTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorTotal || 0), 0),
-        abonoTotal: transacciones.reduce((sum, t) => sum + (t.monto || 0), 0),
-    };
-    datosGrupo.saldo = datosGrupo.valorTotal - datosGrupo.abonoTotal;
+    const valorHuespedIndividual = reservaData.valores?.valorHuesped || 0;
+    const abonoProporcional = (datosGrupo.valorTotal > 0)
+        ? (valorHuespedIndividual / datosGrupo.valorTotal) * datosGrupo.abonoTotal
+        : 0;
+    
+    const valorPotencial = reservaData.valores?.valorPotencial || 0;
+    const descuentoPotencialPct = (valorPotencial > 0 && valorPotencial > valorHuespedIndividual)
+        ? (1 - (valorHuespedIndividual / valorPotencial)) * 100
+        : 0;
 
-    const valorHuespedIndividual = reservaData.valores?.valorHuesped || 0;
-    const abonoProporcional = (datosGrupo.valorTotal > 0)
-        ? (valorHuespedIndividual / datosGrupo.valorTotal) * datosGrupo.abonoTotal
-        : 0;
-    
-    const valorPotencial = reservaData.valores?.valorPotencial || 0;
-    const descuentoPotencialPct = (valorPotencial > 0 && valorPotencial > valorHuespedIndividual)
-        ? (1 - (valorHuespedIndividual / valorPotencial)) * 100
-        : 0;
-
-    const valorHuespedOriginal = reservaData.valores?.valorHuespedOriginal || 0;
-    const ajusteCobro = (valorHuespedOriginal > 0 && valorHuespedOriginal !== valorHuespedIndividual)
-        ? valorHuespedIndividual - valorHuespedOriginal
-        : 0;
+    const valorHuespedOriginal = reservaData.valores?.valorHuespedOriginal || 0;
+    const ajusteCobro = (valorHuespedOriginal > 0 && valorHuespedOriginal !== valorHuespedIndividual)
+        ? valorHuespedIndividual - valorHuespedOriginal
+        : 0;
 
 
-    return {
-        ...reservaData,
-        fechaLlegada: reservaData.fechaLlegada?.toDate().toISOString().split('T')[0] || null,
-        fechaSalida: reservaData.fechaSalida?.toDate().toISOString().split('T')[0] || null,
-        fechaReserva: reservaData.fechaReserva?.toDate().toISOString().split('T')[0] || null,
-        cliente,
-        notas,
-        transacciones,
-        datosIndividuales: {
-            valorTotalHuesped: valorHuespedIndividual,
-            costoCanal: reservaData.valores?.comision || reservaData.valores?.costoCanal || 0,
-            payoutFinalReal: valorHuespedIndividual - (reservaData.valores?.comision || reservaData.valores?.costoCanal || 0),
-            valorPotencial,
-            descuentoPotencialPct,
-            abonoProporcional,
-            saldo: valorHuespedIndividual - abonoProporcional,
-            ajusteCobro,
-            valorHuespedOriginal,
-        },
-        datosGrupo
-    };
+    return {
+        ...reservaData,
+        fechaLlegada: reservaData.fechaLlegada?.toDate().toISOString().split('T')[0] || null,
+        fechaSalida: reservaData.fechaSalida?.toDate().toISOString().split('T')[0] || null,
+        fechaReserva: reservaData.fechaReserva?.toDate().toISOString().split('T')[0] || null,
+        cliente,
+        notas,
+        transacciones,
+        datosIndividuales: {
+            valorTotalHuesped: valorHuespedIndividual,
+            costoCanal: reservaData.valores?.comision || reservaData.valores?.costoCanal || 0,
+            payoutFinalReal: valorHuespedIndividual - (reservaData.valores?.comision || reservaData.valores?.costoCanal || 0),
+            valorPotencial,
+            descuentoPotencialPct,
+            abonoProporcional,
+            saldo: valorHuespedIndividual - abonoProporcional,
+            ajusteCobro,
+            valorHuespedOriginal,
+        },
+        datosGrupo
+    };
 };
-
 const eliminarReserva = async (db, empresaId, reservaId) => {
     const reservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(reservaId);
     await reservaRef.delete();
