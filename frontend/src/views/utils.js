@@ -537,65 +537,38 @@ export function handleCerrarModal() {
 
 export function handleEditMode() {
   const params = new URLSearchParams(window.location.search);
-  editId = params.get('edit');
+  
+  // 1. Obtener el ID de GRUPO (para el PUT de guardado)
+  editId = params.get('edit'); // ej: "Miryan Sanchez (4274)"
+  
+  // 2. Obtener el ID del DOCUMENTO (para el GET de carga)
+  const loadDocId = params.get('load'); // ej: "aB3xYqZ..."
+  
+  // 3. Obtener los IDs de Propiedad (para marcar checkboxes)
+  const propIds = params.get('props'); // ej: "id1,id2"
+  
   origenReserva = params.get('origen') || 'manual';
-  if (editId) {
-    handleCargarPropuesta(editId);
+
+  if (editId && loadDocId) {
+    // Pasar ambos IDs a la función de carga
+    handleCargarPropuesta(loadDocId, editId, propIds);
   }
 }
 
-export async function handleCargarPropuesta(editId) {
+export async function handleCargarPropuesta(loadDocId, editIdGrupo, propIdsQuery) {
   try {
-    // NOTA: Esta ruta no existe en el backend. Debería ser /reservas/:id o algo similar.
-    // Asumiendo que /gestion-propuestas/propuesta-tentativa/:id PUEDE LEER
-    // o que /gestionar-reservas/:id es la ruta correcta.
-    // Por ahora, supondremos que la ruta del GET es la de /reservas/:id
-    // pero la lógica de /gestionar-propuestas se basa en `idReservaCanal`.
-    
-    // Vamos a asumir que el ID que llega es el `idReservaCanal` y que la API
-    // puede encontrarlo. Si 'editId' es el ID de uno de los documentos de reserva,
-    // necesitamos la lógica de /reservas/:id.
-    
-    // Basado en `gestionarPropuestas.js`, el `editId` parece ser el `idReservaCanal`.
-    // Pero la API de `gestionar-propuestas` no tiene un GET.
-    // La API de `gestionar-reservas` (`/api/reservas/:id`) SÍ tiene un GET.
-    
-    // VOY A ASUMIR QUE EL `editId` que llega en la URL es el ID de la *primera*
-    // reserva del grupo, y que la API de `/reservas/:id` devuelve la info
-    // completa del grupo (como lo hace para el modal de 'ver').
-    
-    // Mirando `gestionarPropuestas.js` (frontend) - `handleNavigation(url)`:
-    // El `editId` que se pasa en la URL es `item.id`, que puede ser 
-    // el `idReservaCanal` (para `tipo: 'propuesta'`) o el ID del doc (`para tipo: 'presupuesto'`).
-    // El `handleGuardarPropuesta` (en utils.js) usa `editId` para llamar a
-    // `PUT /gestion-propuestas/propuesta-tentativa/:id`.
-    
-    // OK, el flujo de "gestionarPropuestas" (frontend) está enviando el `idReservaCanal` como `editId`.
-    // El backend `gestionPropuestasService.js` en `guardarOActualizarPropuesta` USA `idPropuestaExistente`
-    // para BUSCAR por `idReservaCanal`. Esto es consistente.
-    
-    // PERO... ¿Cómo cargamos los datos? No hay un GET en `gestion-propuestas`.
-    // El único GET que trae datos de reserva es `GET /api/reservas/:id`.
-    // Esto implica que `gestionarPropuestas.js` (frontend) está pasando el ID incorrecto.
-    // Debería pasar `item.idsReservas[0]` en lugar de `item.id`.
-    
-    // VOY A IGNORAR ESE ERROR EN `gestionarPropuestas.js` POR AHORA Y ASUMIRÉ
-    // QUE EL `editId` que llega es el `idReservaCanal` y que necesitamos
-    // una forma de cargar los datos.
-    
-    // No puedo arreglar `handleCargarPropuesta` si no hay un endpoint de dónde cargar.
-    // VOY A ASUMIR QUE EL `editId` es el ID del *primer documento de reserva* // (`item.idsReservas[0]`) y que la lógica en `gestionarPropuestas.js` (frontend) está mal.
-    
-    const propuesta = await fetchAPI(`/reservas/${editId}`);
+    // 1. Cargar datos usando el ID de DOCUMENTO (esto funcionará)
+    const propuesta = await fetchAPI(`/reservas/${loadDocId}`);
     if (!propuesta) {
       alert('Propuesta no encontrada');
       handleNavigation('/gestionar-propuestas');
       return;
     }
 
+    // 2. Llenar el formulario con los datos cargados
     document.getElementById('fecha-llegada').value = propuesta.fechaLlegada;
     document.getElementById('fecha-salida').value = propuesta.fechaSalida;
-    document.getElementById('personas').value = propuesta.cantidadHuespedes; // Usar el de la reserva
+    document.getElementById('personas').value = propuesta.cantidadHuespedes;
     document.getElementById('canal-select').value = propuesta.canalId;
 
     if (propuesta.cliente) {
@@ -609,7 +582,8 @@ export async function handleCargarPropuesta(editId) {
       document.getElementById('new-client-email').value = propuesta.cliente.email || '';
     }
 
-    document.getElementById('id-reserva-canal-input').value = propuesta.idReservaCanal || '';
+    // 3. Usar el ID de GRUPO para el input (y para el guardado)
+    document.getElementById('id-reserva-canal-input').value = propuesta.idReservaCanal || editIdGrupo;
     if (propuesta.icalUid) {
       document.getElementById('ical-uid-input').value = propuesta.icalUid;
       document.getElementById('ical-uid-container').classList.remove('hidden');
@@ -617,54 +591,42 @@ export async function handleCargarPropuesta(editId) {
 
     document.getElementById('guardar-propuesta-btn').textContent = 'Actualizar Propuesta';
 
-    // Estos campos no existen en el modelo de 'reserva' que devuelve la API.
-    // document.getElementById('sin-camarotes').checked = propuesta.sinCamarotes || false;
-    // document.getElementById('permitir-cambios').checked = propuesta.permitirCambios || false;
-    // document.getElementById('descuento-pct').value = propuesta.descuentoPct || '';
-    // document.getElementById('descuento-fijo-total').value = propuesta.descuentoFijo || '';
-    // if (propuesta.plantillaId) {
-    //   document.getElementById('plantilla-select').value = propuesta.plantillaId;
-    // }
+    // 4. Llenar campos de la lógica de propuesta (si existen en el doc de reserva)
+    document.getElementById('sin-camarotes').checked = propuesta.sinCamarotes || false;
+    document.getElementById('permitir-cambios').checked = propuesta.permitirCambios || false;
+    document.getElementById('descuento-pct').value = propuesta.valores?.descuentoPct || '';
+    document.getElementById('descuento-fijo-total').value = propuesta.valores?.descuentoFijo || '';
+    if (propuesta.plantillaId) {
+      document.getElementById('plantilla-select').value = propuesta.plantillaId;
+    }
 
+    // 5. Ejecutar la búsqueda para poblar la UI (listas de cabañas, etc.)
     const searchSuccess = await runSearch();
     
-    if (searchSuccess) {
-        // Necesitamos cargar TODAS las propiedades del grupo.
-        // La `propuesta` que cargamos es solo UN documento.
-        // `propuesta.datosGrupo.propiedades` (del GET /reservas/:id) tiene los NOMBRES.
-        // `gestionarPropuestas.js` (frontend) está pasando mal los `propiedades` en la URL.
-        // Debería ser `item.propiedades.map(p => p.id).join(',')`
+    // 6. Marcar los checkboxes de las propiedades de esta propuesta
+    if (searchSuccess && propIdsQuery) {
+        const selectedIds = new Set(propIdsQuery.split(','));
         
-        // Asumiendo que la URL SÍ trae los IDs de propiedad correctos:
-        const propIds = new URLSearchParams(window.location.search).get('propiedades').split(',');
-        
-        const selectedIds = new Set(propIds);
         document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
           cb.checked = selectedIds.has(cb.dataset.id);
         });
 
-        const missingIds = [...selectedIds].filter(id => !document.querySelector(`#cb-${id}`));
-        if (missingIds.length > 0) {
-          const missingProperties = allProperties.filter(p => missingIds.includes(p.id));
-          const availableList = document.getElementById('available-list');
-          missingProperties.forEach(p => {
-            const checkboxHtml = createPropertyCheckbox(p, true);
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = `${checkboxHtml} <span class="text-red-500 ml-2 text-sm">(Reservado para esta propuesta)</span>`;
-            availableList.appendChild(wrapper);
-          });
-          availableList.querySelectorAll('.propiedad-checkbox').forEach(cb => cb.addEventListener('change', handleSelectionChange));
-        }
-
-        selectedProperties = allProperties.filter(p => selectedIds.has(p.id));
+        // Asegurarse de que `selectedProperties` (en memoria) esté correcto
+        selectedProperties = (availabilityData.allValidProperties || allProperties).filter(p => selectedIds.has(p.id));
         
-        // Forzar el recálculo para obtener el precio
+        // 7. Forzar el recálculo para obtener el precio
         await handleSelectionChange();
 
-        if (propuesta.cuponUtilizado) {
-          document.getElementById('cupon-input').value = propuesta.cuponUtilizado;
+        // 8. Aplicar descuentos/cupones guardados
+        if (propuesta.valores?.codigoCupon) {
+          document.getElementById('cupon-input').value = propuesta.valores.codigoCupon;
           await handleCuponChange(); // Validar y aplicar
         }
+        
+        // Re-aplicar descuentos manuales (si updateSummary los borró)
+        document.getElementById('descuento-pct').value = propuesta.valores?.descuentoPct || '';
+        document.getElementById('descuento-fijo-total').value = propuesta.valores?.descuentoFijo || '';
+        updateSummary(currentPricing); // Actualizar resumen final con descuentos
     }
   } catch (error) {
     console.error('Error al cargar la propuesta:', error);
