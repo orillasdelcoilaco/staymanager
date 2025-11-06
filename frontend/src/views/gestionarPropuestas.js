@@ -133,7 +133,7 @@ export async function render() {
 // frontend/src/views/gestionarPropuestas.js
 
 export async function afterRender() {
-    await fetchAndRender();
+await fetchAndRender();
 
     document.getElementById('canal-filter').addEventListener('change', renderTabla);
     document.getElementById('fecha-inicio-filter').addEventListener('input', renderTabla);
@@ -146,7 +146,6 @@ export async function afterRender() {
         const tipo = target.dataset.tipo;
         if (!id || !tipo) return;
 
-        // --- INICIO DE LA CORRECCIÓN ---
         if (target.classList.contains('edit-btn')) {
             const item = todasLasPropuestas.find(p => p.id === id);
             if (!item) {
@@ -157,21 +156,23 @@ export async function afterRender() {
             console.log("--- DEBUG: Datos del ítem seleccionado ---");
             console.log(item);
 
+            // --- INICIO DE LA CORRECCIÓN ---
+            // Unificar la lógica. Tanto 'propuesta' como 'presupuesto'
+            // enviarán todos los datos que 'generadorPresupuestos'
+            // y 'agregarPropuesta' esperan en la URL.
+            
+            const personas = item.personas || 1;
             let params;
             let route;
 
             if (item.tipo === 'propuesta') {
-                // --- LÓGICA PARA EDITAR "PROPUESTAS" ---
                 const loadDocId = item.idsReservas && item.idsReservas.length > 0 ? item.idsReservas[0] : null;
 
                 if (!loadDocId) {
-                    // Esta es la alerta que viste
                     alert(`Error: Esta propuesta (ID: ${id}) no tiene un ID de reserva válido para cargar. No se puede editar.`);
                     return;
                 }
 
-                const personas = item.personas || 1;
-                
                 params = new URLSearchParams({
                     edit: id,
                     load: loadDocId,
@@ -188,20 +189,26 @@ export async function afterRender() {
                 
                 route = '/agregar-propuesta';
 
-            } else if (item.tipo === 'presupuesto') {
-                // --- LÓGICA PARA EDITAR "PRESUPUESTOS" ---
-                // Un presupuesto se edita en 'generar-presupuesto'
-                // y su 'item.id' ES el ID del documento a cargar.
+            } else { // item.tipo === 'presupuesto'
+                
+                // Los presupuestos se editan en 'generar-presupuesto'
+                // y SÍ necesitan todos los datos en la URL.
                 params = new URLSearchParams({
-                    edit: item.id 
+                    edit: item.id,
+                    clienteId: item.clienteId || '',
+                    fechaLlegada: item.fechaLlegada,
+                    fechaSalida: item.fechaSalida,
+                    // 'item.personas' para presupuestos es la suma de capacidad
+                    personas: item.personas || 1, 
+                    propiedades: item.propiedades.map(p => p.id).join(','),
+                    // (Los presupuestos no tienen estos campos, pero los pasamos vacíos)
+                    canalId: item.canalId || '',
+                    origen: item.origen || 'manual'
                 });
                 
                 route = '/generar-presupuesto';
-
-            } else {
-                alert(`Error: Tipo de ítem desconocido ('${item.tipo}'). No se puede editar.`);
-                return;
             }
+            // --- FIN DE LA CORRECCIÓN ---
 
             const url = `${route}?${params.toString()}`;
             

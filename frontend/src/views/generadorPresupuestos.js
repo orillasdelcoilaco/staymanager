@@ -246,127 +246,144 @@ export function render() {
     `;
 }
 
+// frontend/src/views/generadorPresupuestos.js
+
 export async function afterRender() {
-    await loadInitialData();
-    const generarBtn = document.getElementById('generar-propuesta-btn');
-    
-    const runSearch = async () => {
-        const payload = {
-            fechaLlegada: document.getElementById('fecha-llegada').value,
-            fechaSalida: document.getElementById('fecha-salida').value,
-            personas: document.getElementById('personas').value,
-            sinCamarotes: document.getElementById('sin-camarotes').checked,
-            canalId: appCanalId
-        };
-        if (!payload.fechaLlegada || !payload.fechaSalida || !payload.personas) {
-            alert('Por favor, completa las fechas y la cantidad de personas.'); return null;
-        }
+    await loadInitialData();
+    const generarBtn = document.getElementById('generar-propuesta-btn');
+    
+    // --- Mover runSearch aquí dentro para que 'afterRender' pueda llamarlo ---
+    const runSearch = async () => {
+        const payload = {
+            fechaLlegada: document.getElementById('fecha-llegada').value,
+            fechaSalida: document.getElementById('fecha-salida').value,
+            personas: document.getElementById('personas').value,
+            sinCamarotes: document.getElementById('sin-camarotes').checked,
+            canalId: appCanalId // Presupuestos siempre usa el canal 'App'
+        };
+        if (!payload.fechaLlegada || !payload.fechaSalida || !payload.personas) {
+            alert('Por favor, completa las fechas y la cantidad de personas.'); return null;
+        }
 
-        const statusContainer = document.getElementById('status-container');
-        generarBtn.disabled = true;
-        generarBtn.textContent = 'Generando...';
-        statusContainer.textContent = 'Buscando disponibilidad y sugerencias...';
-        statusContainer.classList.remove('hidden');
-        document.getElementById('results-container').classList.add('hidden');
+        const statusContainer = document.getElementById('status-container');
+        generarBtn.disabled = true;
+        generarBtn.textContent = 'Generando...';
+        statusContainer.textContent = 'Buscando disponibilidad y sugerencias...';
+        statusContainer.classList.remove('hidden');
+        document.getElementById('results-container').classList.add('hidden');
 
-        try {
-            availabilityData = await fetchAPI('/propuestas/generar', { method: 'POST', body: payload });
-            allProperties = availabilityData.allProperties;
-            if (availabilityData.suggestion) {
-                statusContainer.classList.add('hidden');
-                document.getElementById('results-container').classList.remove('hidden');
-                await renderSelectionUI();
-                return true;
-            } else {
-                statusContainer.textContent = availabilityData.message || 'No se encontró disponibilidad.';
-                return false;
-            }
-        } catch (error) {
-            statusContainer.textContent = `Error: ${error.message}`;
-            return false;
-        } finally {
-            generarBtn.disabled = false;
-            generarBtn.textContent = 'Generar Propuesta';
-        }
-    };
-    
-    document.getElementById('client-search').addEventListener('input', filterClients);
-    generarBtn.addEventListener('click', runSearch);
-    
-    document.getElementById('copy-btn').addEventListener('click', () => {
-        const textarea = document.getElementById('presupuesto-preview');
-        textarea.select();
-        document.execCommand('copy');
-        alert('Presupuesto copiado al portapapeles.');
-    });
+        try {
+            availabilityData = await fetchAPI('/propuestas/generar', { method: 'POST', body: payload });
+            // Guardar la lista de todas las propiedades disponibles
+            allProperties = availabilityData.allProperties;
+            if (availabilityData.suggestion) {
+                statusContainer.classList.add('hidden');
+                document.getElementById('results-container').classList.remove('hidden');
+                await renderSelectionUI();
+                return true;
+            } else {
+                statusContainer.textContent = availabilityData.message || 'No se encontró disponibilidad.';
+                return false;
+            }
+        } catch (error) {
+            statusContainer.textContent = `Error: ${error.message}`;
+            return false;
+        } finally {
+            generarBtn.disabled = false;
+            generarBtn.textContent = 'Generar Propuesta';
+        }
+    };
+    // --- Fin de runSearch ---
+    
+    document.getElementById('client-search').addEventListener('input', filterClients);
+    generarBtn.addEventListener('click', runSearch);
+    
+    document.getElementById('copy-btn').addEventListener('click', () => {
+        const textarea = document.getElementById('presupuesto-preview');
+        textarea.select();
+        document.execCommand('copy');
+        alert('Presupuesto copiado al portapapeles.');
+    });
 
-    document.getElementById('guardar-presupuesto-btn').addEventListener('click', async () => {
-        const btn = document.getElementById('guardar-presupuesto-btn');
-        const clienteParaGuardar = {
-            id: allClients.find(c => c.nombre === document.getElementById('new-client-name').value)?.id,
-            nombre: document.getElementById('new-client-name').value,
-            telefono: document.getElementById('new-client-phone').value,
-            email: document.getElementById('new-client-email').value,
-        };
+    document.getElementById('guardar-presupuesto-btn').addEventListener('click', async () => {
+        // ... (lógica de guardar sin cambios) ...
+        const btn = document.getElementById('guardar-presupuesto-btn');
+        const clienteParaGuardar = {
+            id: allClients.find(c => c.nombre === document.getElementById('new-client-name').value)?.id,
+            nombre: document.getElementById('new-client-name').value,
+            telefono: document.getElementById('new-client-phone').value,
+            email: document.getElementById('new-client-email').value,
+        };
+        
+        if (!clienteParaGuardar.nombre) {
+            alert('Debes ingresar al menos el nombre del cliente para guardar un presupuesto.');
+            return;
+        }
+        
+        const payload = {
+            id: editId,
+            cliente: clienteParaGuardar,
+            fechaLlegada: document.getElementById('fecha-llegada').value,
+            fechaSalida: document.getElementById('fecha-salida').value,
+            personas: document.getElementById('personas').value, // <-- AÑADIR PERSONAS AL GUARDAR
+            propiedades: selectedProperties,
+            precioFinal: currentPricing.totalPriceCLP || 0,
+            noches: currentPricing.nights || 0,
+            texto: document.getElementById('presupuesto-preview').value
+        };
+
+        btn.disabled = true;
+        btn.textContent = editId ? 'Actualizando...' : 'Guardando...';
+
+        try {
+            const endpoint = editId ? `/gestion-propuestas/presupuesto/${editId}` : '/gestion-propuestas/presupuesto';
+            const method = editId ? 'PUT' : 'POST';
+            
+            await fetchAPI(endpoint, { method, body: payload });
+            alert(`Presupuesto ${editId ? 'actualizado' : 'guardado'} con éxito. Puedes gestionarlo en "Gestionar Propuestas".`);
+            handleNavigation('/gestionar-propuestas');
+        } catch (error) {
+            alert(`Error al guardar el presupuesto: ${error.message}`);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = editId ? 'Actualizar Borrador' : 'Guardar Borrador';
+        }
+    });
+
+    
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Mover la lógica de "Modo Edición" para que se ejecute
+     // y rellene el formulario ANTES de cualquier búsqueda.
+    const params = new URLSearchParams(window.location.search);
+    editId = params.get('edit');
+
+    if (editId) {
+        console.log("Modo Edición de Presupuesto detectado. Cargando datos...");
         
-        if (!clienteParaGuardar.nombre) {
-            alert('Debes ingresar al menos el nombre del cliente para guardar un presupuesto.');
-            return;
-        }
-        
-        const payload = {
-            id: editId,
-            cliente: clienteParaGuardar,
-            fechaLlegada: document.getElementById('fecha-llegada').value,
-            fechaSalida: document.getElementById('fecha-salida').value,
-            propiedades: selectedProperties,
-            precioFinal: currentPricing.totalPriceCLP || 0,
-            noches: currentPricing.nights || 0,
-            texto: document.getElementById('presupuesto-preview').value
-        };
+        // 1. Rellenar formulario desde los parámetros de la URL
+        document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
+        document.getElementById('fecha-salida').value = params.get('fechaSalida');
+        document.getElementById('personas').value = params.get('personas');
+        
+        const clienteId = params.get('clienteId');
+       const client = allClients.find(c => c.id === clienteId);
+        if (client) {
+            selectClient(client);
+        }
 
-        btn.disabled = true;
-        btn.textContent = editId ? 'Actualizando...' : 'Guardando...';
-
-        try {
-            const endpoint = editId ? `/gestion-propuestas/presupuesto/${editId}` : '/gestion-propuestas/presupuesto';
-            const method = editId ? 'PUT' : 'POST';
-            
-            await fetchAPI(endpoint, { method, body: payload });
-            alert(`Presupuesto ${editId ? 'actualizado' : 'guardado'} con éxito. Puedes gestionarlo en "Gestionar Propuestas".`);
-            handleNavigation('/gestionar-propuestas');
-        } catch (error) {
-            alert(`Error al guardar el presupuesto: ${error.message}`);
-        } finally {
-            btn.disabled = false;
-            btn.textContent = editId ? 'Actualizar Borrador' : 'Guardar Borrador';
-        }
-    });
-
-    
-    const params = new URLSearchParams(window.location.search);
-    editId = params.get('edit');
-
-    if (editId) {
-        document.getElementById('fecha-llegada').value = params.get('fechaLlegada');
-        document.getElementById('fecha-salida').value = params.get('fechaSalida');
-        document.getElementById('personas').value = params.get('personas');
-        
-        const clienteId = params.get('clienteId');
-        const client = allClients.find(c => c.id === clienteId);
-        if (client) {
-            selectClient(client);
-        }
-
-        const searchSuccess = await runSearch();
-        
-        if (searchSuccess) {
-            const propIds = params.get('propiedades').split(',');
-            document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
-                cb.checked = propIds.includes(cb.dataset.id);
-            });
-            await handleSelectionChange();
-        }
-        document.getElementById('guardar-presupuesto-btn').textContent = 'Actualizar Borrador';
-    }
+        // 2. Ejecutar la búsqueda con los datos rellenados
+        const searchSuccess = await runSearch();
+        
+        if (searchSuccess) {
+            // 3. Marcar las propiedades de la URL
+            const propIds = params.get('propiedades').split(',');
+            document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
+                cb.checked = propIds.includes(cb.dataset.id);
+            });
+            // 4. Forzar el recálculo de precio y texto
+            await handleSelectionChange();
+        }
+        document.getElementById('guardar-presupuesto-btn').textContent = 'Actualizar Borrador';
+    }
+    // --- FIN DE LA CORRECCIÓN ---
 }
