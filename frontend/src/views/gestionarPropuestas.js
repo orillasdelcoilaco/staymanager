@@ -130,6 +130,8 @@ export async function render() {
     `;
 }
 
+// frontend/src/views/gestionarPropuestas.js
+
 export async function afterRender() {
     await fetchAndRender();
 
@@ -144,47 +146,63 @@ export async function afterRender() {
         const tipo = target.dataset.tipo;
         if (!id || !tipo) return;
 
+        // --- INICIO DE LA CORRECCIÓN ---
         if (target.classList.contains('edit-btn')) {
             const item = todasLasPropuestas.find(p => p.id === id);
             if (!item) {
-                alert('Error: No se pudo encontrar la propuesta para editar.');
+                alert('Error: No se pudo encontrar el ítem para editar.');
                 return;
             }
             
-            console.log("--- DEBUG: Datos de la propuesta seleccionada ---");
+            console.log("--- DEBUG: Datos del ítem seleccionado ---");
             console.log(item);
 
-            // --- INICIO DE LA CORRECCIÓN ---
+            let params;
+            let route;
 
-            const loadDocId = item.idsReservas && item.idsReservas.length > 0 ? item.idsReservas[0] : null;
+            if (item.tipo === 'propuesta') {
+                // --- LÓGICA PARA EDITAR "PROPUESTAS" ---
+                const loadDocId = item.idsReservas && item.idsReservas.length > 0 ? item.idsReservas[0] : null;
 
-            if (!loadDocId) {
-                alert(`Error: Esta propuesta (ID: ${id}) no tiene un ID de reserva válido para cargar. No se puede editar.`);
+                if (!loadDocId) {
+                    // Esta es la alerta que viste
+                    alert(`Error: Esta propuesta (ID: ${id}) no tiene un ID de reserva válido para cargar. No se puede editar.`);
+                    return;
+                }
+
+                const personas = item.personas || 1;
+                
+                params = new URLSearchParams({
+                    edit: id,
+                    load: loadDocId,
+                    props: item.propiedades.map(p => p.id).join(','),
+                    clienteId: item.clienteId || '',
+                    fechaLlegada: item.fechaLlegada,
+                    fechaSalida: item.fechaSalida,
+                    personas: personas,
+                    idReservaCanal: item.idReservaCanal || '',
+                    canalId: item.canalId || '',
+                    origen: item.origen || 'manual',
+                    icalUid: item.icalUid || ''
+                });
+                
+                route = '/agregar-propuesta';
+
+            } else if (item.tipo === 'presupuesto') {
+                // --- LÓGICA PARA EDITAR "PRESUPUESTOS" ---
+                // Un presupuesto se edita en 'generar-presupuesto'
+                // y su 'item.id' ES el ID del documento a cargar.
+                params = new URLSearchParams({
+                    edit: item.id 
+                });
+                
+                route = '/generar-presupuesto';
+
+            } else {
+                alert(`Error: Tipo de ítem desconocido ('${item.tipo}'). No se puede editar.`);
                 return;
             }
 
-            // Corregido: Usar 'item.personas' (las personas reales de la reserva)
-            // que ahora SÍ vienen del backend.
-            const personas = item.personas || 1; // Fallback a 1 si es 0
-            
-            const params = new URLSearchParams({
-                edit: id,
-                load: loadDocId,
-                props: item.propiedades.map(p => p.id).join(','),
-                
-                clienteId: item.clienteId || '',
-                fechaLlegada: item.fechaLlegada,
-                fechaSalida: item.fechaSalida,
-                personas: personas, // <-- AHORA ES CORRECTO
-                idReservaCanal: item.idReservaCanal || '',
-                canalId: item.canalId || '',
-                origen: item.origen || 'manual',
-                icalUid: item.icalUid || ''
-            });
-            
-            // --- FIN DE LA CORRECCIÓN ---
-
-            const route = tipo === 'propuesta' ? '/agregar-propuesta' : '/generar-presupuesto';
             const url = `${route}?${params.toString()}`;
             
             console.log("--- DEBUG: URL de navegación generada ---");
@@ -192,6 +210,7 @@ export async function afterRender() {
             
             handleNavigation(url);
         }
+        // --- FIN DE LA CORRECCIÓN ---
         
         if (target.classList.contains('approve-btn')) {
             if (!confirm(`¿Estás seguro de que quieres aprobar est${tipo === 'propuesta' ? 'a propuesta' : 'e presupuesto'}? Se verificará la disponibilidad antes de confirmar.`)) return;
