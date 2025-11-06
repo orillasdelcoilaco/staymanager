@@ -4,15 +4,19 @@ const { getAvailabilityData } = require('./propuestasService');
 const { crearOActualizarCliente } = require('./clientesService');
 const { marcarCuponComoUtilizado } = require('./cuponesService');
 
+// backend/services/gestionPropuestasService.js
+
 const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExistente = null) => {
-    const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, canalId, canalNombre, moneda, valorDolarDia, valorOriginal, origen, icalUid, idReservaCanal, codigoCupon } = datos;
+    // --- INICIO CORRECCIÓN 1: Añadir 'personas' a la destructuración ---
+    const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, canalId, canalNombre, moneda, valorDolarDia, valorOriginal, origen, icalUid, idReservaCanal, codigoCupon, personas } = datos;
+    // --- FIN CORRECCIÓN 1 ---
     
     const idGrupo = idReservaCanal || idPropuestaExistente || db.collection('empresas').doc().id;
 
     let clienteId;
     if (cliente.id) {
         clienteId = cliente.id;
-    } else {
+    } else if (cliente.nombre && cliente.telefono) {
         const resultadoCliente = await crearOActualizarCliente(db, empresaId, {
             nombre: cliente.nombre,
             telefono: cliente.telefono,
@@ -21,6 +25,8 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
             idReservaCanal: idGrupo
         });
         clienteId = resultadoCliente.cliente.id;
+    } else {
+        clienteId = null; 
     }
     
     await db.runTransaction(async (transaction) => {
@@ -39,11 +45,27 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
             snapshotExistentes.forEach(doc => transaction.delete(doc.ref));
         }
 
+        // --- INICIO CORRECCIÓN 2: Lógica de Personas ---
+        // Si hay varias cabañas (ej: 2) y 5 personas,
+        // guardamos el total (5) en la primera, y 0 en las siguientes.
+        // 'obtenerPropuestas' debe sumar 'cantidadHuespedes'.
+        let personasAsignadas = false;
+        // --- FIN CORRECCIÓN 2 ---
+
         for (const prop of propiedades) {
             const nuevaReservaRef = reservasRef.doc();
             const idUnicoReserva = `${idGrupo}-${prop.id}`;
             const precioFinalPorPropiedad = (propiedades.length > 0) ? Math.round(precioFinal / propiedades.length) : 0;
             const valorOriginalPorPropiedad = (propiedades.length > 0 && moneda === 'USD') ? (valorOriginal / propiedades.length) : precioFinalPorPropiedad;
+
+            // --- INICIO CORRECCIÓN 3: Asignación de Personas ---
+            let huespedesParaEstaReserva = 0;
+            if (!personasAsignadas) {
+                // Asignar el total de personas (del formulario) a la primera reserva
+                huespedesParaEstaReserva = personas || 0;
+                personasAsignadas = true;
+            }
+            // --- FIN CORRECCIÓN 3 ---
 
             const datosReserva = {
                 id: nuevaReservaRef.id,
@@ -59,8 +81,12 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
                 fechaLlegada: admin.firestore.Timestamp.fromDate(new Date(fechaLlegada + 'T00:00:00Z')),
                 fechaSalida: admin.firestore.Timestamp.fromDate(new Date(fechaSalida + 'T00:00:00Z')),
                 totalNoches: noches,
-                cantidadHuespedes: prop.capacidad || datos.personas || 0,
-                estado: 'Propuesta',
+                
+                // --- INICIO CORRECCIÓN 4: Usar la variable calculada ---
+                cantidadHuespedes: huespedesParaEstaReserva,
+                // --- FIN CORRECCIÓN 4 ---
+                
+                estado: 'Propuesta', // <-- GUARDADO COMO PROPUESTA
                 origen: origen || 'manual',
                 moneda,
                 valorDolarDia,
@@ -123,84 +149,122 @@ const guardarPresupuesto = async (db, empresaId, datos) => {
 // (Función completa para reemplazar)
 // backend/services/gestionPropuestasService.js
 
+// backend/services/gestionPropuestasService.js
+
 const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
-    // 1. Obtener todas las reservas en estado 'Propuesta' y 'Presupuesto'
-    const reservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
-        .where('estado', 'in', ['Propuesta', 'Presupuesto'])
-        .orderBy('fechaCreacion', 'desc')
-        .get();
+    const [propuestasSnapshot, presupuestosSnapshot] = await Promise.all([
+        db.collection('empresas').doc(empresaId).collection('reservas').where('estado', '==', 'Propuesta').orderBy('fechaCreacion', 'desc').get(),
+        db.collection('empresas').doc(empresaId).collection('presupuestos').where('estado', 'in', ['Borrador', 'Enviado']).orderBy('fechaCreacion', 'desc').get()
+    ]);
 
-    if (reservasSnapshot.empty) {
-        return [];
-    }
+    const allItems = [];
+    propuestasSnapshot.forEach(doc => allItems.push({ doc, type: 'propuesta' }));
+    presupuestosSnapshot.forEach(doc => allItems.push({ doc, type: 'presupuesto' }));
 
-    // 2. Obtener todos los clientes para mapeo
-    const clientesSnapshot = await db.collection('empresas').doc(empresaId).collection('clientes').get();
-    const clientesMap = new Map(clientesSnapshot.docs.map(doc => [doc.id, doc.data()]));
+    if (allItems.length === 0) return [];
 
-    // 3. Agrupar reservas por 'idReservaCanal'
-    const grupos = new Map();
-    reservasSnapshot.forEach(doc => {
-        const reserva = doc.data();
-        // Usar idReservaCanal como ID de grupo, o el ID del documento si es un presupuesto sin grupo
-        const grupoId = reserva.idReservaCanal || doc.id; 
+    const neededClientIds = new Set(allItems.map(item => item.doc.data().clienteId).filter(Boolean));
+    const allPropiedadesIds = new Set();
+    allItems.forEach(item => {
+        const data = item.doc.data();
+        if (data.propiedades) { // Para presupuestos
+            data.propiedades.forEach(p => allPropiedadesIds.add(p.id));
+        }
+        if (data.alojamientoId) { // Para propuestas
+            allPropiedadesIds.add(data.alojamientoId);
+        }
+    });
+    
+    const fetchInBatches = async (collection, ids) => {
+        const results = new Map();
+        const idBatches = [];
+        for (let i = 0; i < ids.length; i += 30) {
+            idBatches.push(ids.slice(i, i + 30));
+        }
+        for (const batch of idBatches) {
+            if (batch.length > 0) {
+                const snapshot = await db.collection('empresas').doc(empresaId).collection(collection).where(admin.firestore.FieldPath.documentId(), 'in', batch).get();
+                snapshot.forEach(doc => results.set(doc.id, doc.data()));
+            }
+        }
+        return results;
+    };
+    
+    const [clientesMap, propiedadesMap] = await Promise.all([
+        fetchInBatches('clientes', Array.from(neededClientIds)),
+        fetchInBatches('propiedades', Array.from(allPropiedadesIds)),
+    ]);
+    
+    const propuestasAgrupadas = new Map();
+    allItems.filter(item => item.type === 'propuesta').forEach(item => {
+        const data = item.doc.data();
+        const id = data.idReservaCanal;
+        if (!id) return; // Ignorar si no tiene ID de grupo
 
-        if (!grupos.has(grupoId)) {
-            grupos.set(grupoId, {
-                id: grupoId,
-                idsReservas: [],
-                propiedades: [],
-                tipo: reserva.estado, // 'Propuesta' o 'Presupuesto'
-                clienteId: reserva.clienteId,
-                canalId: reserva.canalId,
-                canalNombre: reserva.canalNombre,
-                fechaLlegada: reserva.fechaLlegada?.toDate ? reserva.fechaLlegada.toDate().toISOString().split('T')[0] : reserva.fechaLlegada,
-                fechaSalida: reserva.fechaSalida?.toDate ? reserva.fechaSalida.toDate().toISOString().split('T')[0] : reserva.fechaSalida,
-                fechaCreacion: reserva.fechaCreacion?.toDate ? reserva.fechaCreacion.toDate().toISOString() : new Date().toISOString(),
-                origen: reserva.origen,
-                icalUid: reserva.icalUid,
-                idReservaCanal: reserva.idReservaCanal,
+        if (!propuestasAgrupadas.has(id)) {
+            propuestasAgrupadas.set(id, {
+                id: id,
+                tipo: 'propuesta', // <-- TIPO CORRECTO
+                origen: data.origen || 'manual',
+                clienteId: data.clienteId,
+                clienteNombre: data.clienteNombre,
+                canalId: data.canalId,
+                canalNombre: data.canalNombre,
+                idReservaCanal: data.idReservaCanal,
+                icalUid: data.icalUid || null,
+                fechaLlegada: data.fechaLlegada.toDate().toISOString().split('T')[0],
+                fechaSalida: data.fechaSalida.toDate().toISOString().split('T')[0],
                 monto: 0,
-                reservas: [], // Almacenará las reservas completas para sumar personas
+                propiedades: [],
+                idsReservas: [],
+                personas: 0 // <-- INICIO CORRECCIÓN (Inicializar personas)
             });
         }
-
-        const grupo = grupos.get(grupoId);
-        grupo.idsReservas.push(doc.id);
-        grupo.propiedades.push({ id: reserva.alojamientoId, nombre: reserva.alojamientoNombre });
-        grupo.monto += (reserva.valores?.valorHuesped || 0);
-        grupo.reservas.push(reserva); // <-- Añadir la reserva completa
+        const grupo = propuestasAgrupadas.get(id);
+        grupo.monto += data.valores?.valorHuesped || 0;
+        const propiedad = propiedadesMap.get(data.alojamientoId) || { nombre: data.alojamientoNombre, capacidad: 0 };
+        grupo.propiedades.push({ id: data.alojamientoId, nombre: propiedad.nombre, capacidad: propiedad.capacidad });
+        grupo.idsReservas.push(data.id);
+        
+        // --- INICIO CORRECCIÓN: Sumar 'cantidadHuespedes' (que guardamos) ---
+        grupo.personas += data.cantidadHuespedes || 0;
+        // --- FIN CORRECCIÓN ---
     });
 
-    // 4. Procesar los grupos para el frontend
-    return Array.from(grupos.values()).map(grupo => {
-        const cliente = grupo.clienteId ? clientesMap.get(grupo.clienteId) : null;
+    const presupuestos = allItems.filter(item => item.type === 'presupuesto').map(item => {
+        const data = item.doc.data();
+        const propiedadesConCapacidad = data.propiedades.map(p => {
+            const propiedad = propiedadesMap.get(p.id);
+            return { ...p, capacidad: propiedad ? propiedad.capacidad : 0 };
+        });
+        const cliente = clientesMap.get(data.clienteId);
         
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Sumar 'cantidadHuespedes' de todas las reservas en el grupo
-        const totalPersonas = grupo.reservas.reduce((sum, res) => sum + (res.cantidadHuespedes || 0), 0);
-        // --- FIN DE LA CORRECCIÓN ---
+        // --- INICIO CORRECCIÓN: Sumar capacidad para presupuestos ---
+        const totalPersonas = propiedadesConCapacidad.reduce((sum, p) => sum + (p.capacidad || 0), 0);
+        // --- FIN CORRECCIÓN ---
 
-        return {
-            id: grupo.id,
-            tipo: grupo.tipo,
-            idsReservas: grupo.idsReservas,
-            clienteId: grupo.clienteId,
-            clienteNombre: cliente ? cliente.nombre : (grupo.origen === 'ical' ? (grupo.idReservaCanal || 'Reserva iCal') : 'Cliente no asignado'),
-            canalId: grupo.canalId,
-            canalNombre: grupo.canalNombre,
-            fechaLlegada: grupo.fechaLlegada,
-            fechaSalida: grupo.fechaSalida,
-            fechaCreacion: grupo.fechaCreacion,
-            propiedades: grupo.propiedades,
-            propiedadesNombres: grupo.propiedades.map(p => p.nombre).join(', '),
-            monto: grupo.monto,
-            origen: grupo.origen,
-            icalUid: grupo.icalUid,
-            idReservaCanal: grupo.idReservaCanal,
-            personas: totalPersonas // <-- DATO AÑADIDO
+        return { 
+            id: item.doc.id, 
+            tipo: 'presupuesto', // <-- TIPO CORRECTO
+            ...data, 
+            propiedades: propiedadesConCapacidad, 
+            clienteNombre: cliente?.nombre || data.clienteNombre,
+            personas: totalPersonas // <-- Dato añadido
         };
     });
+
+    const resultado = [...propuestasAgrupadas.values(), ...presupuestos];
+    
+    resultado.forEach(item => {
+        if(item.clienteId && clientesMap.has(item.clienteId)) {
+            item.clienteNombre = clientesMap.get(item.clienteId).nombre;
+        }
+        item.propiedadesNombres = item.propiedades.map(p => p.nombre).join(', ');
+        
+        // (La lógica de 'personas' ahora está dentro de los bucles de mapeo)
+    });
+
+    return resultado;
 };
 
 
