@@ -127,55 +127,52 @@ export async function afterRender() {
         if (!id || !tipo) return;
 
         if (target.classList.contains('edit-btn')) {
-            const item = todasLasPropuestas.find(p => p.id === id);
-            if (!item) {
-                alert('Error: No se pudo encontrar la propuesta para editar.');
-                return;
-            }
-            
-            console.log("--- DEBUG: Datos de la propuesta seleccionada ---");
-            console.log(item);
+            const item = todasLasPropuestas.find(p => p.id === id);
+            if (!item) {
+                alert('Error: No se pudo encontrar la propuesta para editar.');
+                return;
+            }
+            
+            console.log("--- DEBUG: Datos de la propuesta seleccionada ---");
+            console.log(item);
 
-            // --- INICIO DE LA CORRECCIÓN ---
+            // --- INICIO DE LA CORRECCIÓN ---
 
-            // 1. Obtener el ID de DOCUMENTO para Cargar (GET)
-            const loadDocId = item.idsReservas && item.idsReservas.length > 0 ? item.idsReservas[0] : null;
+            const loadDocId = item.idsReservas && item.idsReservas.length > 0 ? item.idsReservas[0] : null;
 
-            if (!loadDocId) {
-                alert(`Error: Esta propuesta (ID: ${id}) no tiene un ID de reserva válido para cargar. No se puede editar.`);
-                return;
-            }
+            if (!loadDocId) {
+                alert(`Error: Esta propuesta (ID: ${id}) no tiene un ID de reserva válido para cargar. No se puede editar.`);
+                return;
+            }
 
-            // 2. Obtener el resto de los datos
-            const personas = item.propiedades.reduce((sum, p) => sum + (p.capacidad || 1), 0);
-            
-            // 3. Construir los parámetros de URL correctos
-            const params = new URLSearchParams({
-                edit: id,  // El ID de Grupo (para Guardar/PUT)
-                load: loadDocId, // El ID de Documento (para Cargar/GET)
-                props: item.propiedades.map(p => p.id).join(','), // 'props' para coincidir con utils.js
-                
-                // (Estos son para rellenar, aunque utils.js los cargará de nuevo)
-                clienteId: item.clienteId || '',
-                fechaLlegada: item.fechaLlegada,
-                fechaSalida: item.fechaSalida,
-                personas: personas,
-                idReservaCanal: item.idReservaCanal || '',
-                canalId: item.canalId || '',
-                origen: item.origen || 'manual',
-                icalUid: item.icalUid || ''
-            });
-            
-            // --- FIN DE LA CORRECCIÓN ---
+            // Corregido: Usar 'item.personas' (las personas reales de la reserva)
+            // Si es iCal y no tiene personas, 'item.personas' será 0, y 'utils.js' lo manejará.
+            const personas = item.personas || 1; // Usar 1 como fallback si es 0 o nulo
+            
+            const params = new URLSearchParams({
+                edit: id,
+                load: loadDocId,
+                props: item.propiedades.map(p => p.id).join(','),
+                clienteId: item.clienteId || '',
+                fechaLlegada: item.fechaLlegada,
+                fechaSalida: item.fechaSalida,
+                personas: personas, // <-- AHORA ES CORRECTO
+                idReservaCanal: item.idReservaCanal || '',
+                canalId: item.canalId || '',
+                origen: item.origen || 'manual',
+                icalUid: item.icalUid || ''
+            });
+            
+            // --- FIN DE LA CORRECCIÓN ---
 
-            const route = tipo === 'propuesta' ? '/agregar-propuesta' : '/generar-presupuesto';
-            const url = `${route}?${params.toString()}`;
-            
-            console.log("--- DEBUG: URL de navegación generada ---");
-            console.log(url);
-            
-            handleNavigation(url);
-        }
+            const route = tipo === 'propuesta' ? '/agregar-propuesta' : '/generar-presupuesto';
+            const url = `${route}?${params.toString()}`;
+            
+            console.log("--- DEBUG: URL de navegación generada ---");
+            console.log(url);
+            
+            handleNavigation(url);
+        }
         
         if (target.classList.contains('approve-btn')) {
             if (!confirm(`¿Estás seguro de que quieres aprobar est${tipo === 'propuesta' ? 'a propuesta' : 'e presupuesto'}? Se verificará la disponibilidad antes de confirmar.`)) return;

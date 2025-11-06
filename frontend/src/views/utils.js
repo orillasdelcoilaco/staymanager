@@ -294,24 +294,25 @@ export function handleCanalChange() {
   }
 }
 
+// frontend/src/views/utils.js
+
 export async function runSearch() {
-  // 1. OBTENER EL PAYLOAD DE BÚSQUEDA DEL DOM
   const payload = {
     fechaLlegada: document.getElementById('fecha-llegada').value,
     fechaSalida: document.getElementById('fecha-salida').value,
     personas: document.getElementById('personas').value,
     sinCamarotes: document.getElementById('sin-camarotes').checked,
     permitirCambios: document.getElementById('permitir-cambios').checked,
-    canalId: document.getElementById('canal-select').value
+    canalId: document.getElementById('canal-select').value,
+    editId: editId // <-- INICIO DE LA CORRECCIÓN (Pasar el ID de edición al backend)
   };
+  // --- FIN DE LA CORRECCIÓN ---
 
-  // 2. VALIDACIÓN TEMPRANA
   if (!payload.fechaLlegada || !payload.fechaSalida || !payload.personas) {
     alert('Por favor, completa las fechas y la cantidad de personas.');
     return false;
   }
 
-  // 3. ACTUALIZAR ESTADO DE LA UI A "CARGANDO"
   const statusContainer = document.getElementById('status-container');
   const buscarBtn = document.getElementById('buscar-btn');
   buscarBtn.disabled = true;
@@ -319,23 +320,16 @@ export async function runSearch() {
   statusContainer.textContent = 'Buscando disponibilidad y sugerencias...';
   statusContainer.classList.remove('hidden');
   document.getElementById('results-container').classList.add('hidden');
-  document.getElementById('suggestion-list').innerHTML = ''; // Limpiar DOM
-  document.getElementById('available-list').innerHTML = ''; // Limpiar DOM
+  document.getElementById('suggestion-list').innerHTML = '';
+  document.getElementById('available-list').innerHTML = '';
 
-  // --- INICIO DE LA CORRECCIÓN ---
-  // 4. LIMPIEZA AGRESIVA DEL ESTADO (COMO SOLICITASTE)
-  // Borramos todas las variables involucradas en el cálculo anterior.
   try {
-    availabilityData = {};     // Borrar datos de disponibilidad antiguos
-    selectedProperties = [];   // Borrar propiedades seleccionadas antiguas
-    currentPricing = {};       // Borrar el precio "pegado" anterior
-
-    // Limpiar campos de descuento del DOM
+    availabilityData = {};
+    selectedProperties = [];
+    currentPricing = {};
     document.getElementById('descuento-pct').value = '';
     document.getElementById('descuento-fijo-total').value = '';
     document.getElementById('cupon-input').value = '';
-    
-    // Limpiar estado de cupón en memoria y DOM
     const cuponStatus = document.getElementById('cupon-status');
     if (cuponStatus) {
       cuponStatus.textContent = '';
@@ -345,37 +339,26 @@ export async function runSearch() {
   } catch (e) {
     console.warn("Error al limpiar estado:", e);
   }
-  // --- FIN DE LA CORRECCIÓN ---
 
-  // 5. EJECUTAR EL NUEVO FLUJO DE BÚSQUEDA
   try {
-    // 5a. Obtener Dólar (estado nuevo)
     const dolar = await fetchAPI(`/dolar/valor/${payload.fechaLlegada}`);
     valorDolarDia = dolar.valor;
     document.getElementById('valor-dolar-info').textContent = `Valor Dólar para el Check-in: ${formatCurrency(valorDolarDia)}`;
 
-    // 5b. Llamar al Backend con el payload limpio
-    // El backend decidirá si usar `findSegmentedCombination` o `findNormalCombination`
     availabilityData = await fetchAPI('/propuestas/generar', { method: 'POST', body: payload });
     
-    // 5c. Crear la lista de propiedades válidas *solo* para esta búsqueda
     const suggested = availabilityData.suggestion?.propiedades || [];
     const available = availabilityData.availableProperties || [];
     const suggestedIds = new Set(suggested.map(p => p.id));
     
-    // Esta lista (`allValidProperties`) la usará `handleSelectionChange` si el usuario
-    // (en modo normal) desmarca una cabaña.
     availabilityData.allValidProperties = [
       ...suggested,
       ...available.filter(p => !suggestedIds.has(p.id))
     ];
 
-    // 6. PROCESAR EL RESULTADO
     if (availabilityData.suggestion) {
       statusContainer.classList.add('hidden');
       document.getElementById('results-container').classList.remove('hidden');
-      // Renderizar la UI (itinerario o checkboxes) y mostrar el precio
-      // que vino *directamente* del backend.
       renderSelectionUI(); 
       return true;
     } else {
@@ -386,7 +369,6 @@ export async function runSearch() {
     statusContainer.textContent = `Error: ${error.message}`;
     return false;
   } finally {
-    // 7. RESTAURAR UI
     buscarBtn.disabled = false;
     buscarBtn.textContent = 'Buscar Disponibilidad';
   }
@@ -555,84 +537,92 @@ export function handleEditMode() {
   }
 }
 
+// frontend/src/views/utils.js
+
 export async function handleCargarPropuesta(loadDocId, editIdGrupo, propIdsQuery) {
-  try {
-    // 1. Cargar datos usando el ID de DOCUMENTO (esto funcionará)
-    const propuesta = await fetchAPI(`/reservas/${loadDocId}`);
-    if (!propuesta) {
-      alert('Propuesta no encontrada');
-      handleNavigation('/gestionar-propuestas');
-      return;
-    }
+    const params = new URLSearchParams(window.location.search);
 
-    // 2. Llenar el formulario con los datos cargados
-    document.getElementById('fecha-llegada').value = propuesta.fechaLlegada;
-    document.getElementById('fecha-salida').value = propuesta.fechaSalida;
-    document.getElementById('personas').value = propuesta.cantidadHuespedes;
-    document.getElementById('canal-select').value = propuesta.canalId;
-
-    if (propuesta.cliente) {
-      if (propuesta.cliente.id) {
-        selectedClient = propuesta.cliente;
-        document.getElementById('client-search').value = propuesta.cliente.nombre;
-        document.getElementById('client-form-title').textContent = '... o actualiza los datos del cliente seleccionado';
-      }
-      document.getElementById('new-client-name').value = propuesta.cliente.nombre || '';
-      document.getElementById('new-client-phone').value = propuesta.cliente.telefono || '';
-      document.getElementById('new-client-email').value = propuesta.cliente.email || '';
-    }
-
-    // 3. Usar el ID de GRUPO para el input (y para el guardado)
-    document.getElementById('id-reserva-canal-input').value = propuesta.idReservaCanal || editIdGrupo;
-    if (propuesta.icalUid) {
-      document.getElementById('ical-uid-input').value = propuesta.icalUid;
-      document.getElementById('ical-uid-container').classList.remove('hidden');
-    }
-
-    document.getElementById('guardar-propuesta-btn').textContent = 'Actualizar Propuesta';
-
-    // 4. Llenar campos de la lógica de propuesta (si existen en el doc de reserva)
-    document.getElementById('sin-camarotes').checked = propuesta.sinCamarotes || false;
-    document.getElementById('permitir-cambios').checked = propuesta.permitirCambios || false;
-    document.getElementById('descuento-pct').value = propuesta.valores?.descuentoPct || '';
-    document.getElementById('descuento-fijo-total').value = propuesta.valores?.descuentoFijo || '';
-    if (propuesta.plantillaId) {
-      document.getElementById('plantilla-select').value = propuesta.plantillaId;
-    }
-
-    // 5. Ejecutar la búsqueda para poblar la UI (listas de cabañas, etc.)
-    const searchSuccess = await runSearch();
-    
-    // 6. Marcar los checkboxes de las propiedades de esta propuesta
-    if (searchSuccess && propIdsQuery) {
-        const selectedIds = new Set(propIdsQuery.split(','));
+    try {
+        // --- INICIO DE LA CORRECCIÓN ---
+        // 1. LEER DATOS DE LA URL
+        // La URL (de gestionarPropuestas) es la fuente de verdad para la BÚSQUEDA.
+        const fechaLlegada = params.get('fechaLlegada');
+        const fechaSalida = params.get('fechaSalida');
+        const personas = params.get('personas');
+        const canalId = params.get('canalId');
         
-        document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
-          cb.checked = selectedIds.has(cb.dataset.id);
-        });
-
-        // Asegurarse de que `selectedProperties` (en memoria) esté correcto
-        selectedProperties = (availabilityData.allValidProperties || allProperties).filter(p => selectedIds.has(p.id));
-        
-        // 7. Forzar el recálculo para obtener el precio
-        await handleSelectionChange();
-
-        // 8. Aplicar descuentos/cupones guardados
-        if (propuesta.valores?.codigoCupon) {
-          document.getElementById('cupon-input').value = propuesta.valores.codigoCupon;
-          await handleCuponChange(); // Validar y aplicar
+        // 2. RELLENAR EL FORMULARIO *ANTES* DE BUSCAR
+        // Esto soluciona el error "Personas: 0"
+        document.getElementById('fecha-llegada').value = fechaLlegada || '';
+        document.getElementById('fecha-salida').value = fechaSalida || '';
+        document.getElementById('personas').value = personas || '1';
+        if (canalId) {
+            document.getElementById('canal-select').value = canalId;
         }
-        
-        // Re-aplicar descuentos manuales (si updateSummary los borró)
-        document.getElementById('descuento-pct').value = propuesta.valores?.descuentoPct || '';
-        document.getElementById('descuento-fijo-total').value = propuesta.valores?.descuentoFijo || '';
-        updateSummary(currentPricing); // Actualizar resumen final con descuentos
+
+        // 3. EJECUTAR BÚSQUEDA
+        // runSearch() ahora leerá "personas" del formulario (ej: 6)
+        // y pasará el 'editId' al backend para excluir esta reserva de la ocupación.
+        const searchSuccess = await runSearch();
+        // --- FIN DE LA CORRECCIÓN ---
+
+        // 4. Cargar el resto de los datos de la reserva (cliente, descuentos, etc.)
+        const propuesta = await fetchAPI(`/reservas/${loadDocId}`);
+        if (!propuesta) {
+            alert('Reserva no encontrada');
+            handleNavigation('/gestionar-propuestas');
+            return;
+        }
+
+        // 5. Rellenar campos restantes (Cliente, ID Canal, etc.)
+        if (propuesta.cliente) {
+            if (propuesta.cliente.id) {
+                selectedClient = propuesta.cliente;
+                document.getElementById('client-search').value = propuesta.cliente.nombre;
+                document.getElementById('client-form-title').textContent = '... o actualiza los datos del cliente seleccionado';
+            }
+            document.getElementById('new-client-name').value = propuesta.cliente.nombre || '';
+            document.getElementById('new-client-phone').value = propuesta.cliente.telefono || '';
+            document.getElementById('new-client-email').value = propuesta.cliente.email || '';
+        }
+
+        document.getElementById('id-reserva-canal-input').value = propuesta.idReservaCanal || editIdGrupo;
+        if (propuesta.icalUid) {
+            document.getElementById('ical-uid-input').value = propuesta.icalUid;
+            document.getElementById('ical-uid-container').classList.remove('hidden');
+        }
+
+        document.getElementById('guardar-propuesta-btn').textContent = 'Actualizar Propuesta';
+
+        // Rellenar checkboxes y descuentos
+        if (searchSuccess && propIdsQuery) {
+            const selectedIds = new Set(propIdsQuery.split(','));
+            
+            document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
+              cb.checked = selectedIds.has(cb.dataset.id);
+            });
+
+            // Forzar que 'selectedProperties' en memoria sea correcto
+            selectedProperties = (availabilityData.allValidProperties || allProperties).filter(p => selectedIds.has(p.id));
+            
+            // Forzar recálculo (si `runSearch` no lo hizo) y aplicar descuentos
+            await handleSelectionChange();
+
+            // Aplicar descuentos/cupones guardados
+            if (propuesta.valores?.codigoCupon) {
+              document.getElementById('cupon-input').value = propuesta.valores.codigoCupon;
+              await handleCuponChange(); // Validar y aplicar
+            }
+            
+            document.getElementById('descuento-pct').value = propuesta.valores?.descuentoPct || '';
+            document.getElementById('descuento-fijo-total').value = propuesta.valores?.descuentoFijo || '';
+            updateSummary(currentPricing); // Actualizar resumen final con descuentos
+        }
+    } catch (error) {
+        console.error('Error al cargar la propuesta:', error);
+        alert(`Error al cargar la propuesta: ${error.message}`);
+        handleNavigation('/gestionar-propuestas');
     }
-  } catch (error) {
-    console.error('Error al cargar la propuesta:', error);
-    alert(`Error al cargar la propuesta: ${error.message}`);
-    handleNavigation('/gestionar-propuestas');
-  }
 }
 
 async function obtenerOcrearCliente() {
