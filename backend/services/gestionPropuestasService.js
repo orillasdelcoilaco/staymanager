@@ -121,6 +121,8 @@ const guardarPresupuesto = async (db, empresaId, datos) => {
 // backend/services/gestionPropuestasService.js
 
 // (Función completa para reemplazar)
+// backend/services/gestionPropuestasService.js
+
 const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
     // 1. Obtener todas las reservas en estado 'Propuesta' y 'Presupuesto'
     const reservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
@@ -159,7 +161,7 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
                 icalUid: reserva.icalUid,
                 idReservaCanal: reserva.idReservaCanal,
                 monto: 0,
-                reservas: [],
+                reservas: [], // Almacenará las reservas completas para sumar personas
             });
         }
 
@@ -167,7 +169,7 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
         grupo.idsReservas.push(doc.id);
         grupo.propiedades.push({ id: reserva.alojamientoId, nombre: reserva.alojamientoNombre });
         grupo.monto += (reserva.valores?.valorHuesped || 0);
-        grupo.reservas.push(reserva);
+        grupo.reservas.push(reserva); // <-- Añadir la reserva completa
     });
 
     // 4. Procesar los grupos para el frontend
@@ -196,7 +198,7 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
             origen: grupo.origen,
             icalUid: grupo.icalUid,
             idReservaCanal: grupo.idReservaCanal,
-            personas: totalPersonas // <-- Dato añadido
+            personas: totalPersonas // <-- DATO AÑADIDO
         };
     });
 };
