@@ -2,13 +2,191 @@
 // Lógica específica para la búsqueda y precios del sitio web público SSR.
 
 const admin = require('firebase-admin');
-const { obtenerValorDolar } = require('./dolarService'); // Necesario para precios
+const { obtenerValorDolar } = require('./dolarService'); // Dependencia de utilidad compartida
 const { parseISO, isValid, differenceInDays, addDays, format } = require('date-fns');
 
-// --- Copia de getAvailabilityData (adaptada si es necesario para web pública) ---
+// --- INICIO DE FUNCIONES MOVIDAS/NUEVAS ---
+
+// --- Funciones de Utilidad (de clientesService) ---
+
+const normalizarTelefono = (telefono) => {
+    if (!telefono) return null;
+    let fono = telefono.toString().replace(/\D/g, '');
+    if (fono.startsWith('569') && fono.length === 11) return fono;
+    return fono;
+};
+
+const normalizarNombre = (nombre) => {
+    if (!nombre) return '';
+    return nombre
+        .toString()
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, ' ') 
+        .split(' ')
+        .map(palabra => palabra.charAt(0).toUpperCase() + palabra.slice(1))
+        .join(' ');
+};
+
+/**
+ * Versión simplificada de crearOActualizarCliente solo para el sitio web público.
+ * No sincroniza con Google, no calcula RFM.
+ */
+const crearOActualizarClientePublico = async (db, empresaId, datosCliente) => {
+    const clientesRef = db.collection('empresas').doc(empresaId).collection('clientes');
+    
+    const telefonoNormalizado = normalizarTelefono(datosCliente.telefono);
+    const nombreNormalizado = normalizarNombre(datosCliente.nombre);
+
+    // Buscar por teléfono
+    if (telefonoNormalizado) {
+        const q = clientesRef.where('telefonoNormalizado', '==', telefonoNormalizado);
+        const snapshot = await q.get();
+        if (!snapshot.empty) {
+            const clienteDoc = snapshot.docs[0];
+            const clienteExistente = clienteDoc.data();
+            // Actualizar el nombre si es diferente (ej. cliente guardó "Juan" y ahora pone "Juan Perez")
+            if (clienteExistente.nombre !== nombreNormalizado) {
+                await clienteDoc.ref.update({ nombre: nombreNormalizado });
+                clienteExistente.nombre = nombreNormalizado;
+            }
+            return { cliente: clienteExistente, status: 'encontrado' };
+        }
+    }
+
+    // Crear nuevo cliente
+    const nuevoClienteRef = clientesRef.doc();
+    const nuevoCliente = {
+        id: nuevoClienteRef.id,
+        nombre: nombreNormalizado || 'Cliente Web',
+        email: datosCliente.email || '',
+        telefono: datosCliente.telefono || '',
+        telefonoNormalizado: telefonoNormalizado,
+        fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
+        origen: 'website', // Origen claro
+        googleContactSynced: false,
+        tipoCliente: 'Cliente Nuevo',
+        numeroDeReservas: 0,
+        totalGastado: 0
+    };
+    await nuevoClienteRef.set(nuevoCliente);
+
+    return { cliente: nuevoCliente, status: 'creado' };
+};
+
+
+// --- Funciones de Reservas (de reservasService) ---
+
+const crearReservaPublica = async (db, empresaId, datosFormulario) => {
+    const { propiedadId, fechaLlegada, fechaSalida, personas, precioFinal, noches, nombre, email, telefono } = datosFormulario;
+
+    // 1. Crear o encontrar al cliente (Usando la versión PÚBLICA)
+    const resultadoCliente = await crearOActualizarClientePublico(db, empresaId, { nombre, email, telefono });
+    const clienteId = resultadoCliente.cliente.id;
+
+    // 2. Obtener datos del canal por defecto
+    const canalesSnapshot = await db.collection('empresas').doc(empresaId).collection('canales').where('esCanalPorDefecto', '==', true).limit(1).get();
+    if (canalesSnapshot.empty) throw new Error('No se encontró un canal por defecto para asignar la reserva.');
+    const canalPorDefecto = canalesSnapshot.docs[0].data();
+    const canalId = canalesSnapshot.docs[0].id;
+    
+    // 3. Obtener datos de la propiedad
+    // (Usamos la función local que también moveremos a este archivo)
+    const propiedadData = await obtenerPropiedadPorId(db, empresaId, propiedadId);
+    if (!propiedadData) throw new Error('La propiedad seleccionada ya no existe.');
+
+    // 4. Crear la reserva
+    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
+    const nuevaReservaRef = reservasRef.doc();
+    const idReservaCanal = `WEB-${nuevaReservaRef.id.substring(0, 8).toUpperCase()}`;
+
+    const nuevaReserva = {
+        id: nuevaReservaRef.id,
+        idUnicoReserva: `${idReservaCanal}-${propiedadId}`,
+        idReservaCanal: idReservaCanal,
+        canalId: canalId,
+        canalNombre: canalPorDefecto.nombre,
+        clienteId: clienteId,
+        alojamientoId: propiedadId,
+        alojamientoNombre: propiedadData.nombre,
+        fechaLlegada: admin.firestore.Timestamp.fromDate(new Date(fechaLlegada + 'T00:00:00Z')),
+        fechaSalida: admin.firestore.Timestamp.fromDate(new Date(fechaSalida + 'T00:00:00Z')),
+        totalNoches: parseInt(noches),
+        cantidadHuespedes: parseInt(personas),
+        estado: 'Confirmada',
+        estadoGestion: 'Pendiente Bienvenida',
+        origen: 'website',
+        moneda: 'CLP',
+        valores: {
+            valorHuesped: parseFloat(precioFinal)
+        },
+        fechaReserva: admin.firestore.FieldValue.serverTimestamp(),
+        fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    await nuevaReservaRef.set(nuevaReserva);
+    return nuevaReserva;
+};
+
+
+// --- Funciones de Propiedades (de propiedadesService) ---
+
+const obtenerPropiedadesPorEmpresa = async (db, empresaId) => {
+    // *** INICIO DEPURACIÓN ***
+    console.log(`[DEBUG] obtenerPropiedadesPorEmpresa (SSR) - Intentando obtener doc para empresaId: '${empresaId}' (Tipo: ${typeof empresaId})`);
+    if (!empresaId || typeof empresaId !== 'string' || empresaId.trim() === '') {
+        console.error(`[ERROR] obtenerPropiedadesPorEmpresa (SSR) - empresaId es INVÁLIDO. No se puede continuar.`);
+        throw new Error(`Se intentó obtener propiedades con un empresaId inválido: '${empresaId}'`);
+    }
+    // *** FIN DEPURACIÓN ***
+
+    const propiedadesSnapshot = await db.collection('empresas').doc(empresaId).collection('propiedades').orderBy('fechaCreacion', 'desc').get();
+
+    if (propiedadesSnapshot.empty) {
+        return [];
+    }
+
+    return propiedadesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    }));
+};
+
+const obtenerPropiedadPorId = async (db, empresaId, propiedadId) => {
+    if (!propiedadId || typeof propiedadId !== 'string' || propiedadId.trim() === '') {
+        console.error(`[publicWebsiteService] Error: Se llamó a obtenerPropiedadPorId con un ID inválido: '${propiedadId}'`);
+        return null;
+    }
+    const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
+    const doc = await propiedadRef.get();
+    if (!doc.exists) {
+        return null;
+    }
+    return { id: doc.id, ...doc.data() };
+};
+
+
+// --- Funciones de Empresa (de empresaService) ---
+
+const obtenerDetallesEmpresa = async (db, empresaId) => {
+    if (!empresaId) {
+        throw new Error('El ID de la empresa es requerido.');
+    }
+    const empresaRef = db.collection('empresas').doc(empresaId);
+    const doc = await empresaRef.get();
+    if (!doc.exists) {
+        throw new Error('La empresa no fue encontrada.');
+    }
+    return doc.data();
+};
+
+// --- FIN DE FUNCIONES MOVIDAS/NUEVAS ---
+
+
+// --- Funciones de Disponibilidad y Precios (del Paso 1) ---
+
 async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarotes = false) {
-    // Copiar aquí la lógica completa y funcional de getAvailabilityData
-    // (Asegúrate de que es la versión que considera 'Confirmada' y 'Propuesta' como ocupadas)
+    // (Esta función ya estaba correctamente simplificada en tu archivo, la mantenemos)
     const [propiedadesSnapshot, tarifasSnapshot, reservasSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('propiedades').get(),
         db.collection('empresas').doc(empresaId).collection('tarifas').get(),
@@ -20,9 +198,8 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
 
     let allProperties = propiedadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    if (sinCamarotes) { // Lógica para excluir camarotes (si aplica a la web pública)
+    if (sinCamarotes) { 
         allProperties = allProperties.map(prop => {
-            // ... (lógica sin camarotes) ...
             if (prop.camas && prop.camas.camarotes > 0) {
                 const capacidadReducida = prop.capacidad - (prop.camas.camarotes * 2);
                 return { ...prop, capacidad: Math.max(0, capacidadReducida) };
@@ -32,7 +209,6 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
     }
 
     const allTarifas = tarifasSnapshot.docs.map(doc => {
-        // ... (lógica para parsear fechas de tarifas) ...
         const data = doc.data();
         let fechaInicio, fechaTermino;
          try {
@@ -52,7 +228,6 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
 
     const overlappingReservations = [];
     reservasSnapshot.forEach(doc => {
-        // ... (lógica para encontrar reservas solapadas) ...
         const reserva = doc.data();
         const fechaSalidaReserva = reserva.fechaSalida?.toDate ? reserva.fechaSalida.toDate() : (reserva.fechaSalida ? parseISO(reserva.fechaSalida + 'T00:00:00Z') : null);
         if (fechaSalidaReserva && isValid(fechaSalidaReserva) && fechaSalidaReserva > startDate) {
@@ -63,7 +238,6 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
     const availabilityMap = new Map();
     allProperties.forEach(prop => availabilityMap.set(prop.id, []));
     overlappingReservations.forEach(reserva => {
-        // ... (lógica para llenar el mapa de disponibilidad) ...
         if (availabilityMap.has(reserva.alojamientoId)) {
             const start = reserva.fechaLlegada?.toDate ? reserva.fechaLlegada.toDate() : (reserva.fechaLlegada ? parseISO(reserva.fechaLlegada + 'T00:00:00Z') : null);
             const end = reserva.fechaSalida?.toDate ? reserva.fechaSalida.toDate() : (reserva.fechaSalida ? parseISO(reserva.fechaSalida + 'T00:00:00Z') : null);
@@ -73,7 +247,6 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
         }
     });
 
-    // Propiedades disponibles (con tarifa y sin solapamiento en el rango)
     const availableProperties = propiedadesConTarifa.filter(prop => {
         const reservations = availabilityMap.get(prop.id) || [];
         return !reservations.some(res => startDate < res.end && endDate > res.start);
@@ -82,9 +255,8 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
     return { availableProperties, allProperties, allTarifas, availabilityMap };
 }
 
-// --- Copia de findNormalCombination (la versión que funciona para grupos en la web pública) ---
 function findNormalCombination(availableProperties, requiredCapacity) {
-    // Copiar aquí la lógica completa y funcional de findNormalCombination (la última versión)
+    // (Se mantiene, es lógica genérica)
     const sortedCabanas = availableProperties.sort((a, b) => b.capacidad - a.capacidad);
 
     for (const prop of sortedCabanas) {
@@ -113,42 +285,31 @@ function findNormalCombination(availableProperties, requiredCapacity) {
     return { combination: [], capacity: 0 };
 }
 
-// --- Copia de calculatePrice (adaptada si es necesario para web pública) ---
-async function calculatePrice(db, empresaId, items, startDate, endDate, allTarifas, canalObjetivoId, valorDolarDiaOverride = null, isSegmented = false) { // isSegmented probablemente siempre false aquí
-    // Copiar aquí la lógica completa y funcional de calculatePrice
-    // (Asegúrate de que maneje correctamente la moneda y los modificadores del canalPorDefecto)
+async function calculatePrice(db, empresaId, items, startDate, endDate, allTarifas, valorDolarDiaOverride = null) {
+    // (Función simplificada en el paso anterior, se mantiene)
     const canalesRef = db.collection('empresas').doc(empresaId).collection('canales');
-    // Para la web pública, SIEMPRE calculamos contra el canal por defecto
     const canalDefectoSnapshot = await canalesRef.where('esCanalPorDefecto', '==', true).limit(1).get();
-
-    // Usar canalObjetivoId solo si se pasa explícitamente (poco probable para web pública)
-    // De lo contrario, usar el canal por defecto.
-    const targetCanalId = canalObjetivoId || (!canalDefectoSnapshot.empty ? canalDefectoSnapshot.docs[0].id : null);
-    if (!targetCanalId) throw new Error("No se encontró canal por defecto o canal objetivo para calcular el precio.");
-
-    const canalObjetivoDoc = await canalesRef.doc(targetCanalId).get();
-    if (!canalObjetivoDoc.exists) throw new Error("El canal para calcular el precio no es válido.");
-
-    const canalPorDefecto = !canalDefectoSnapshot.empty ? { id: canalDefectoSnapshot.docs[0].id, ...canalDefectoSnapshot.docs[0].data() } : null;
-    const canalObjetivo = { id: canalObjetivoDoc.id, ...canalObjetivoDoc.data() }; // Este será usualmente el canal por defecto
-
-    // Si el canal objetivo es el mismo que el por defecto, no necesitamos canalPorDefecto (simplifica)
-    const effectiveCanalDefecto = canalPorDefecto && canalPorDefecto.id === canalObjetivo.id ? null : canalPorDefecto;
+    
+    if (canalDefectoSnapshot.empty) {
+        throw new Error("No se ha configurado un canal por defecto para calcular el precio público.");
+    }
+    const canalPorDefecto = { id: canalDefectoSnapshot.docs[0].id, ...canalDefectoSnapshot.docs[0].data() };
 
     const valorDolarDia = valorDolarDiaOverride ??
-                          ((canalObjetivo.moneda === 'USD' || effectiveCanalDefecto?.moneda === 'USD')
+                          (canalPorDefecto.moneda === 'USD'
                               ? await obtenerValorDolar(db, empresaId, startDate)
                               : null);
 
-    let totalPrecioOriginal = 0; // Moneda del canal OBJETIVO (usualmente el default)
+    let totalPrecioEnMonedaDefecto = 0;
     const priceDetails = [];
     let totalNights = differenceInDays(endDate, startDate);
-    if (totalNights <= 0) return { totalPriceCLP: 0, totalPriceOriginal: 0, currencyOriginal: canalObjetivo.moneda, valorDolarDia, nights: 0, details: [] };
+    
+    if (totalNights <= 0) {
+        return { totalPriceCLP: 0, totalPriceOriginal: 0, currencyOriginal: canalPorDefecto.moneda, valorDolarDia, nights: 0, details: [] };
+    }
 
-    // La web pública no usa segmentado complejo, así que simplificamos
-    for (const prop of items) { // items es [Prop1, Prop2...]
-        let propPrecioBaseTotal = 0; // Moneda del canal POR DEFECTO
-
+    for (const prop of items) { 
+        let propPrecioBaseTotal = 0; 
         for (let d = new Date(startDate); d < endDate; d = addDays(d, 1)) {
             const currentDate = new Date(d);
             const tarifasDelDia = allTarifas.filter(t =>
@@ -156,70 +317,58 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
                 t.fechaInicio <= currentDate &&
                 t.fechaTermino >= currentDate
             );
+            
             if (tarifasDelDia.length > 0) {
                 const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
-                // *** IMPORTANTE: Leer el precio del canal POR DEFECTO ***
-                const precioBaseObj = tarifa.precios?.[canalPorDefecto.id]; // Usar ID del canal por defecto
+                const precioBaseObj = tarifa.precios?.[canalPorDefecto.id]; 
                 propPrecioBaseTotal += (typeof precioBaseObj === 'number' ? precioBaseObj : 0);
             } else {
                  console.warn(`[WARN Public] No se encontró tarifa base para ${prop.nombre} en ${format(currentDate, 'yyyy-MM-dd')}`);
             }
         }
-
-        // Aplicar modificador SOLO si el canal objetivo es DIFERENTE al por defecto
-        let precioPropModificado = propPrecioBaseTotal; // Moneda default
-        if (effectiveCanalDefecto && canalObjetivo.modificadorValor) { // effectiveCanalDefecto es null si objetivo == default
-            if (canalObjetivo.modificadorTipo === 'porcentaje') {
-                precioPropModificado *= (1 + (canalObjetivo.modificadorValor / 100));
-            } else if (canalObjetivo.modificadorTipo === 'fijo') {
-                precioPropModificado += (canalObjetivo.modificadorValor * totalNights);
-            }
-        }
-
-        // Convertir moneda si es necesario (entre default y objetivo)
-        let precioPropEnMonedaObjetivo = precioPropModificado;
-        if (effectiveCanalDefecto) { // Solo si hay conversión necesaria
-            if (canalPorDefecto.moneda === 'USD' && canalObjetivo.moneda === 'CLP') {
-                 if (valorDolarDia === null) throw new Error("Se necesita valor del dólar (USD->CLP).");
-                 precioPropEnMonedaObjetivo = precioPropModificado * valorDolarDia;
-            } else if (canalPorDefecto.moneda === 'CLP' && canalObjetivo.moneda === 'USD') {
-                 if (valorDolarDia === null) throw new Error("Se necesita valor del dólar (CLP->USD).");
-                 precioPropEnMonedaObjetivo = valorDolarDia > 0 ? (precioPropModificado / valorDolarDia) : 0;
-            }
-        }
-
-
-        totalPrecioOriginal += precioPropEnMonedaObjetivo;
+        
+        totalPrecioEnMonedaDefecto += propPrecioBaseTotal;
 
         priceDetails.push({
             nombre: prop.nombre,
             id: prop.id,
-            precioTotal: precioPropEnMonedaObjetivo, // En moneda objetivo
-            precioPorNoche: totalNights > 0 ? precioPropEnMonedaObjetivo / totalNights : 0,
+            precioTotal: propPrecioBaseTotal, 
+            precioPorNoche: totalNights > 0 ? propPrecioBaseTotal / totalNights : 0,
         });
     }
 
-    // Calcular el total final en CLP
-    let totalPriceCLP = totalPrecioOriginal;
-    if (canalObjetivo.moneda === 'USD') {
-         if (valorDolarDia === null) throw new Error("Se necesita valor del dólar para total CLP desde USD.");
-        totalPriceCLP = totalPrecioOriginal * valorDolarDia;
+    let totalPriceCLP = totalPrecioEnMonedaDefecto;
+    if (canalPorDefecto.moneda === 'USD') {
+         if (valorDolarDia === null || valorDolarDia <= 0) {
+             console.error(`Error crítico: Se necesita valor del dólar (USD->CLP) pero no se obtuvo o es inválido.`);
+             return { totalPriceCLP: 0, totalPriceOriginal: totalPrecioEnMonedaDefecto, currencyOriginal: canalPorDefecto.moneda, valorDolarDia, nights: totalNights, details: priceDetails, error: "Missing dollar value" };
+         }
+        totalPriceCLP = totalPrecioEnMonedaDefecto * valorDolarDia;
     }
 
     return {
         totalPriceCLP: Math.round(totalPriceCLP),
-        totalPriceOriginal: totalPrecioOriginal, // En moneda objetivo
-        currencyOriginal: canalObjetivo.moneda, // Moneda objetivo
+        totalPriceOriginal: totalPrecioEnMonedaDefecto,
+        currencyOriginal: canalPorDefecto.moneda,
         valorDolarDia: valorDolarDia,
         nights: totalNights,
         details: priceDetails
     };
 }
 
-
 module.exports = {
+    // Funciones de Disponibilidad y Precios
     getAvailabilityData,
     findNormalCombination,
-    calculatePrice
-    // No necesitamos findSegmentedCombination para la web pública por ahora
+    calculatePrice,
+    
+    // Funciones de Propiedades
+    obtenerPropiedadesPorEmpresa,
+    obtenerPropiedadPorId,
+
+    // Funciones de Reservas
+    crearReservaPublica,
+
+    // Funciones de Empresa
+    obtenerDetallesEmpresa
 };

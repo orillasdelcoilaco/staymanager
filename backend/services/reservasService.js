@@ -1,7 +1,6 @@
 // backend/services/reservasService.js
 
 const admin = require('firebase-admin');
-const { crearOActualizarCliente } = require('./clientesService');
 
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
@@ -251,56 +250,6 @@ const eliminarReserva = async (db, empresaId, reservaId) => {
     await reservaRef.delete();
 };
 
-const crearReservaPublica = async (db, empresaId, datosFormulario) => {
-    const { propiedadId, fechaLlegada, fechaSalida, personas, precioFinal, noches, nombre, email, telefono } = datosFormulario;
-
-    // 1. Crear o encontrar al cliente
-    const resultadoCliente = await crearOActualizarCliente(db, empresaId, { nombre, email, telefono });
-    const clienteId = resultadoCliente.cliente.id;
-
-    // 2. Obtener datos del canal por defecto
-    const canalesSnapshot = await db.collection('empresas').doc(empresaId).collection('canales').where('esCanalPorDefecto', '==', true).limit(1).get();
-    if (canalesSnapshot.empty) throw new Error('No se encontró un canal por defecto para asignar la reserva.');
-    const canalPorDefecto = canalesSnapshot.docs[0].data();
-    const canalId = canalesSnapshot.docs[0].id;
-    
-    // 3. Obtener datos de la propiedad
-    const propiedadDoc = await db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId).get();
-    if (!propiedadDoc.exists) throw new Error('La propiedad seleccionada ya no existe.');
-    const propiedadData = propiedadDoc.data();
-
-    // 4. Crear la reserva
-    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
-    const nuevaReservaRef = reservasRef.doc();
-    const idReservaCanal = `WEB-${nuevaReservaRef.id.substring(0, 8).toUpperCase()}`;
-
-    const nuevaReserva = {
-        id: nuevaReservaRef.id,
-        idUnicoReserva: `${idReservaCanal}-${propiedadId}`,
-        idReservaCanal: idReservaCanal,
-        canalId: canalId,
-        canalNombre: canalPorDefecto.nombre,
-        clienteId: clienteId,
-        alojamientoId: propiedadId,
-        alojamientoNombre: propiedadData.nombre,
-        fechaLlegada: admin.firestore.Timestamp.fromDate(new Date(fechaLlegada + 'T00:00:00Z')),
-        fechaSalida: admin.firestore.Timestamp.fromDate(new Date(fechaSalida + 'T00:00:00Z')),
-        totalNoches: parseInt(noches),
-        cantidadHuespedes: parseInt(personas),
-        estado: 'Confirmada',
-        estadoGestion: 'Pendiente Bienvenida',
-        origen: 'website',
-        moneda: 'CLP',
-        valores: {
-            valorHuesped: parseFloat(precioFinal)
-        },
-        fechaReserva: admin.firestore.FieldValue.serverTimestamp(),
-        fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
-    };
-
-    await nuevaReservaRef.set(nuevaReserva);
-    return nuevaReserva;
-};
 
 module.exports = {
     crearOActualizarReserva,
@@ -308,5 +257,4 @@ module.exports = {
     obtenerReservaPorId,
     actualizarReservaManualmente,
     eliminarReserva,
-    crearReservaPublica
 };
