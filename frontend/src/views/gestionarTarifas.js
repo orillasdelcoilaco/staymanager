@@ -1,3 +1,5 @@
+// frontend/src/views/gestionarTarifas.js
+
 import { renderTabla } from './components/gestionarTarifas/cards.js';
 import { initModals, abrirModalEditar, cerrarModalEditar } from './components/gestionarTarifas/modals.js';
 import { 
@@ -24,6 +26,15 @@ export async function render() {
       fetchAPI('/canales')
     ]);
     canalPorDefecto = canales.find(c => c.esCanalPorDefecto);
+
+    // --- INICIO DE LA CORRECCIÓN 1 ---
+    // Asignamos las variables a 'window' para que los utils (limpiarFormulario, etc.)
+    // puedan acceder a ellas, como esperan.
+    window.alojamientos = alojamientos;
+    window.canales = canales;
+    window.canalPorDefecto = canalPorDefecto;
+    // --- FIN DE LA CORRECCIÓN 1 ---
+
     if (!canalPorDefecto) {
       return `<div class="bg-red-100 p-4 rounded-md text-red-800"><b>Error de configuración:</b> No se ha definido un "Canal por Defecto". Por favor, ve a la sección de "Gestionar Canales" y marca uno con la estrella.</div>`;
     }
@@ -110,7 +121,12 @@ export async function render() {
 export function afterRender() {
   if (!canalPorDefecto) return;
 
-  poblarSelectAlojamientos();
+  // --- INICIO DE LA CORRECCIÓN 2 ---
+  // Pasamos la variable 'alojamientos' (que SÍ existe en este scope)
+  // a la función, que la espera como primer argumento.
+  poblarSelectAlojamientos(alojamientos);
+  // --- FIN DE LA CORRECCIÓN 2 ---
+  
   renderTabla(tarifas, canales, canalPorDefecto);
 
   initModals();
