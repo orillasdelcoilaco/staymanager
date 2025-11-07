@@ -14,6 +14,7 @@ const views = {
     '/gestionar-alojamientos': () => import('./views/gestionarAlojamientos.js'),
     '/gestionar-canales': () => import('./views/gestionarCanales.js'),
     '/gestionar-tarifas': () => import('./views/gestionarTarifas.js'),
+    '/gestionar-comentarios': () => import('./views/gestionarComentarios.js'),
     '/conversion-alojamientos': () => import('./views/conversionAlojamientos.js'),
     '/mapeo-reportes': () => import('./views/mapeoReportes.js'),
     '/procesar-y-consolidar': () => import('./views/procesarYConsolidar.js'),
@@ -56,6 +57,7 @@ const menuConfig = [
         name: '🛠️ Herramientas',
         id: 'herramientas',
         children: [
+            { name: '⭐ Gestionar Comentarios', path: '/gestionar-comentarios', id: 'gestionar-comentarios' },
             { name: '⚙️ Procesar y Consolidar', path: '/procesar-y-consolidar', id: 'procesar-consolidar' },
             { name: '🗂️ Historial de Cargas', path: '/historial-cargas', id: 'historial-cargas' },
             { name: '👥 Gestionar Clientes', path: '/clientes', id: 'clientes' },
