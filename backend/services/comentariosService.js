@@ -1,14 +1,18 @@
 // backend/services/comentariosService.js
 const admin = require('firebase-admin');
-const { uploadFileToStorage, deleteFileFromStorage } = require('./storageService'); // Asumimos que este servicio existe
+// --- INICIO DE LA MODIFICACIÓN ---
+// Importamos los nombres de funciones correctos de tu storageService
+const { uploadFile, deleteFileByUrl } = require('./storageService');
+const { v4: uuidv4 } = require('uuid'); // Necesitamos uuid para nombres de archivo únicos
+// --- FIN DE LA MODIFICACIÓN ---
 
 /**
  * Busca reservas que coincidan con un canal y un término de búsqueda.
  */
 const buscarReservaParaComentario = async (db, empresaId, canalId, termino) => {
+    // ... (Esta función no cambia y sigue siendo correcta)
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
     
-    // Buscamos por ID de reserva del canal (ej. "12345678" de Booking)
     const q = reservasRef
         .where('canalId', '==', canalId)
         .where('idReservaCanal', '>=', termino)
@@ -18,7 +22,6 @@ const buscarReservaParaComentario = async (db, empresaId, canalId, termino) => {
     const snapshot = await q.get();
     if (snapshot.empty) return [];
 
-    // Mapear resultados y añadir info del cliente
     const reservasPromises = snapshot.docs.map(async (doc) => {
         const reserva = doc.data();
         let clienteNombre = 'Cliente no encontrado';
@@ -29,7 +32,7 @@ const buscarReservaParaComentario = async (db, empresaId, canalId, termino) => {
             }
         }
         return {
-            id: doc.id, // ID de la reserva en Firestore
+            id: doc.id,
             idReservaCanal: reserva.idReservaCanal,
             alojamientoNombre: reserva.alojamientoNombre,
             fechaLlegada: reserva.fechaLlegada.toDate().toISOString().split('T')[0],
@@ -51,17 +54,22 @@ const crearComentario = async (db, empresaId, comentarioData, files) => {
         throw new Error("Faltan datos requeridos (reserva, cliente, fecha, comentario, nota).");
     }
 
-    // 1. Subir fotos si existen
+    // --- INICIO DE LA MODIFICACIÓN (Lógica de subida) ---
     let foto1Url = null;
     let foto2Url = null;
     const path = `empresas/${empresaId}/comentarios`;
 
     if (files.foto1 && files.foto1[0]) {
-        foto1Url = await uploadFileToStorage(files.foto1[0], path);
+        const file = files.foto1[0];
+        const destinationPath = `${path}/${uuidv4()}_${file.originalname}`;
+        foto1Url = await uploadFile(file.buffer, destinationPath, file.mimetype);
     }
     if (files.foto2 && files.foto2[0]) {
-        foto2Url = await uploadFileToStorage(files.foto2[0], path);
+        const file = files.foto2[0];
+        const destinationPath = `${path}/${uuidv4()}_${file.originalname}`;
+        foto2Url = await uploadFile(file.buffer, destinationPath, file.mimetype);
     }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     // 2. Crear el objeto para guardar
     const comentarioRef = db.collection('empresas').doc(empresaId).collection('comentarios').doc();
@@ -75,10 +83,10 @@ const crearComentario = async (db, empresaId, comentarioData, files) => {
         idReservaCanal,
         fecha: admin.firestore.Timestamp.fromDate(new Date(fecha + 'T00:00:00Z')),
         comentario,
-        nota: parseFloat(nota), // Guardamos la nota unificada (1-5)
+        nota: parseFloat(nota),
         foto1Url,
         foto2Url,
-        visibleEnWeb: false, // Por defecto, no visible
+        visibleEnWeb: false,
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
     };
 
@@ -91,6 +99,7 @@ const crearComentario = async (db, empresaId, comentarioData, files) => {
  * Obtiene todos los comentarios de la empresa.
  */
 const obtenerComentarios = async (db, empresaId) => {
+    // ... (Esta función no cambia y sigue siendo correcta)
     const snapshot = await db.collection('empresas').doc(empresaId).collection('comentarios')
         .orderBy('fecha', 'desc')
         .get();
@@ -116,13 +125,15 @@ const eliminarComentario = async (db, empresaId, comentarioId) => {
 
     const data = doc.data();
 
-    // Eliminar fotos de Storage (asumiendo que deleteFileFromStorage usa la URL)
+    // --- INICIO DE LA MODIFICACIÓN (Lógica de borrado) ---
+    // Usar la función correcta de tu servicio
     if (data.foto1Url) {
-        await deleteFileFromStorage(data.foto1Url).catch(e => console.error("Error al borrar foto1:", e.message));
+        await deleteFileByUrl(data.foto1Url).catch(e => console.error("Error al borrar foto1:", e.message));
     }
     if (data.foto2Url) {
-        await deleteFileFromStorage(data.foto2Url).catch(e => console.error("Error al borrar foto2:", e.message));
+        await deleteFileByUrl(data.foto2Url).catch(e => console.error("Error al borrar foto2:", e.message));
     }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     // Eliminar documento de Firestore
     await comentarioRef.delete();
