@@ -47,6 +47,8 @@ async function getICalForProperty(db, empresaId, propiedadId) {
     return icalContent.join('\r\n');
 }
 
+// backend/services/icalService.js
+
 async function sincronizarCalendarios(db, empresaId, usuarioEmail, filtros = {}) {
     const { canalFiltroId, fechaInicio, fechaFin } = filtros;
     
@@ -73,14 +75,18 @@ async function sincronizarCalendarios(db, empresaId, usuarioEmail, filtros = {})
     let nuevasReservasCreadas = 0;
     const errores = [];
 
+    // --- INICIO CORRECCIÓN 1: Convertir filtros de fecha (String) a objetos Date (Timestamp) ---
+    // (Tu sospecha era correcta, los 'fechaInicio' y 'fechaFin' son strings)
     const filtroStartDate = fechaInicio ? new Date(fechaInicio + 'T00:00:00Z') : null;
-    const filtroEndDate = fechaFin ? new Date(fechaFin + 'T23:59:59Z') : null;
+    const filtroEndDate = fechaFin ? new Date(fechaFin + 'T23:59:59Z') : null; // Usamos el fin del día
+    // --- FIN CORRECCIÓN 1 ---
 
     for (const prop of propiedadesConIcal) {
         for (const [canalKey, url] of Object.entries(prop.sincronizacionIcal)) {
             if (!url) continue;
             
             const canalEncontrado = todosLosCanales.find(c => c.nombre.toLowerCase() === canalKey.toLowerCase());
+            // Filtro de canal (sin cambios)
             if (canalFiltroId && canalEncontrado?.id !== canalFiltroId) {
                 continue;
             }
@@ -92,12 +98,23 @@ async function sincronizarCalendarios(db, empresaId, usuarioEmail, filtros = {})
                         continue;
                     }
 
-                    const startDate = new Date(event.start);
-                    if (filtroStartDate && startDate < filtroStartDate) continue;
-                    if (filtroEndDate && startDate > filtroEndDate) continue;
+                    // --- INICIO CORRECCIÓN 2: Lógica de filtro de fecha (Traslape) ---
+                    const eventStartDate = new Date(event.start);
+                    const eventEndDate = new Date(event.end); // Mover esta línea aquí arriba
+
+                    // Lógica de TRASLAPE:
+                    // Si el filtro de *fin* existe Y el evento comienza *después* (o justo cuando) el filtro termina, lo saltamos.
+                    if (filtroEndDate && eventStartDate >= filtroEndDate) {
+                        continue;
+                    }
+                    // Si el filtro de *inicio* existe Y el evento termina *antes* (o justo cuando) el filtro comienza, lo saltamos.
+                    if (filtroStartDate && eventEndDate <= filtroStartDate) {
+                        continue;
+                    }
+                    // Si no se saltó, significa que hay un traslape (o no hay filtros).
+                    // --- FIN CORRECCIÓN 2 ---
                     
-                    const endDate = new Date(event.end);
-                    const noches = Math.max(1, Math.round((endDate - startDate) / (1000 * 60 * 60 * 24)));
+                    const noches = Math.max(1, Math.round((eventEndDate - eventStartDate) / (1000 * 60 * 60 * 24)));
 
                     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
                     const nuevaReservaRef = reservasRef.doc();
@@ -114,11 +131,11 @@ async function sincronizarCalendarios(db, empresaId, usuarioEmail, filtros = {})
                         alojamientoNombre: prop.nombre,
                         canalId: canalEncontrado ? canalEncontrado.id : null,
                         canalNombre: canalEncontrado ? canalEncontrado.nombre : canalKey,
-                        fechaLlegada: admin.firestore.Timestamp.fromDate(startDate),
-                        fechaSalida: admin.firestore.Timestamp.fromDate(endDate),
+                        fechaLlegada: admin.firestore.Timestamp.fromDate(eventStartDate),
+                        fechaSalida: admin.firestore.Timestamp.fromDate(eventEndDate),
                         totalNoches: noches,
-                        cantidadHuespedes: 0,
-                        estado: 'Propuesta',
+                        cantidadHuespedes: 0, // iCal no trae este dato
+                        estado: 'Propuesta', // Se crea como Propuesta para completar
                         origen: 'ical',
                         moneda: canalEncontrado ? canalEncontrado.moneda : 'CLP',
                         valores: { valorHuesped: 0 },
