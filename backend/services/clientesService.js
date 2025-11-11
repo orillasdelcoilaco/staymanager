@@ -3,6 +3,7 @@
 const admin = require('firebase-admin');
 const { createGoogleContact, findContactByName, updateGoogleContact } = require('./googleContactsService');
 const { segmentarClienteRFM } = require('./crmService');
+const { obtenerValorDolarHoy } = require('./dolarService');
 
 const normalizarTelefono = (telefono) => {
     if (!telefono) return null;
@@ -219,61 +220,83 @@ const sincronizarClienteGoogle = async (db, empresaId, clienteId, overrideData =
 };
 
 const recalcularEstadisticasClientes = async (db, empresaId) => {
-    const clientesRef = db.collection('empresas').doc(empresaId).collection('clientes');
-    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
+    const clientesRef = db.collection('empresas').doc(empresaId).collection('clientes');
+    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
 
-    const [clientesSnapshot, reservasSnapshot] = await Promise.all([
-        clientesRef.get(),
-        reservasRef.where('estado', '==', 'Confirmada').get()
-    ]);
+    // --- INICIO DE LA MODIFICACIÓN 1: Obtener Dólar Hoy ---
+    const dolarHoyData = await obtenerValorDolarHoy(db, empresaId);
+    const valorDolarHoy = dolarHoyData ? dolarHoyData.valor : 950; // Fallback
+    // --- FIN DE LA MODIFICACIÓN 1 ---
 
-    if (clientesSnapshot.empty) {
-        return { actualizados: 0, total: 0 };
-    }
+    const [clientesSnapshot, reservasSnapshot] = await Promise.all([
+        clientesRef.get(),
+        reservasRef.where('estado', '==', 'Confirmada').get()
+    ]);
 
-    const reservasPorCliente = new Map();
-    reservasSnapshot.forEach(doc => {
-        const reserva = doc.data();
-        if (!reservasPorCliente.has(reserva.clienteId)) {
-            reservasPorCliente.set(reserva.clienteId, []);
-        }
-        reservasPorCliente.get(reserva.clienteId).push(reserva);
-    });
+    if (clientesSnapshot.empty) {
+        return { actualizados: 0, total: 0 };
+    }
 
-    const batch = db.batch();
-    let clientesActualizados = 0;
+    const reservasPorCliente = new Map();
+    reservasSnapshot.forEach(doc => {
+        const reserva = doc.data();
+        if (!reservasPorCliente.has(reserva.clienteId)) {
+            reservasPorCliente.set(reserva.clienteId, []);
+        }
+        reservasPorCliente.get(reserva.clienteId).push(reserva);
+    });
 
-    clientesSnapshot.forEach(doc => {
-        const clienteId = doc.id;
-        const historialReservas = reservasPorCliente.get(clienteId) || [];
-        
-        const totalGastado = historialReservas.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0);
-        const numeroDeReservas = historialReservas.length;
+    const batch = db.batch();
+    let clientesActualizados = 0;
 
-        let tipoCliente = 'Cliente Nuevo';
-        if (numeroDeReservas === 0) {
-            tipoCliente = 'Sin Reservas';
-        } else if (totalGastado > 1000000) {
-            tipoCliente = 'Cliente Premium';
-        } else if (numeroDeReservas > 1) {
-            tipoCliente = 'Cliente Frecuente';
-        }
+    clientesSnapshot.forEach(doc => {
+        const clienteId = doc.id;
+        const historialReservas = reservasPorCliente.get(clienteId) || [];
+        
+        // --- INICIO DE LA MODIFICACIÓN 2: Cálculo de 'totalGastado' flotante ---
+        const totalGastado = historialReservas.reduce((sum, r) => {
+            const moneda = r.moneda || 'CLP';
+            const estadoGestion = r.estadoGestion;
+            let valorHuespedFinal = r.valores?.valorHuesped || 0; // Default a valor estático
 
-        const rfmSegmento = segmentarClienteRFM(historialReservas, totalGastado);
+            // Recalcular si es moneda extranjera Y NO está Facturado
+            if (moneda !== 'CLP' && estadoGestion !== 'Facturado') {
+                const valorHuespedOriginal = r.valores?.valorHuespedOriginal || 0;
+                if (valorHuespedOriginal > 0) {
+                    // Usamos el 'valorDolarHoy' que obtuvimos al inicio de la función
+                    valorHuespedFinal = Math.round(valorHuespedOriginal * valorDolarHoy);
+                }
+            }
+            return sum + valorHuespedFinal;
+        }, 0);
+        // --- FIN DE LA MODIFICACIÓN 2 ---
 
-        const updates = {
-            totalGastado,
-            numeroDeReservas,
-            tipoCliente,
-            rfmSegmento
-        };
+        const numeroDeReservas = historialReservas.length;
 
-        batch.update(doc.ref, updates);
-        clientesActualizados++;
-    });
+        let tipoCliente = 'Cliente Nuevo';
+        if (numeroDeReservas === 0) {
+            tipoCliente = 'Sin Reservas';
+        } else if (totalGastado > 1000000) {
+            tipoCliente = 'Cliente Premium';
+        } else if (numeroDeReservas > 1) {
+            tipoCliente = 'Cliente Frecuente';
+        }
 
-    await batch.commit();
-    return { actualizados: clientesActualizados, total: clientesSnapshot.size };
+        const rfmSegmento = segmentarClienteRFM(historialReservas, totalGastado);
+
+        const updates = {
+            totalGastado, // Ahora es el valor flotante
+            numeroDeReservas,
+            tipoCliente,
+            rfmSegmento
+        };
+
+        batch.update(doc.ref, updates);
+        clientesActualizados++;
+    });
+
+    await batch.commit();
+    return { actualizados: clientesActualizados, total: clientesSnapshot.size };
 };
 
 module.exports = {

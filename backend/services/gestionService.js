@@ -3,40 +3,54 @@
 const admin = require('firebase-admin');
 const { obtenerValorDolarHoy } = require('./dolarService');
 
+// Función de utilidad para "trocear" arrays grandes
+const splitIntoChunks = (arr, size) => {
+    if (!arr || arr.length === 0) return [];
+    const chunks = [];
+    for (let i = 0; i < arr.length; i += size) {
+        chunks.push(arr.slice(i, i + size));
+    }
+    return chunks;
+};
+
 const getReservasPendientes = async (db, empresaId) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
     
-    // --- INICIO DE LA MODIFICACIÓN 1: Obtener Dólar Hoy (una vez) ---
-    const dolarHoyData = await obtenerValorDolarHoy(db, empresaId);
-    const valorDolarHoy = dolarHoyData ? dolarHoyData.valor : 950; // Fallback
-    // --- FIN DE LA MODIFICACIÓN 1 ---
+    const dolarHoyData = await obtenerValorDolarHoy(db, empresaId);
+    const valorDolarHoy = dolarHoyData ? dolarHoyData.valor : 950;
 
     const estadosSnapshot = await db.collection('empresas').doc(empresaId).collection('estadosReserva').where('esEstadoDeGestion', '==', true).get();
     const estadosDeGestion = estadosSnapshot.docs.map(doc => doc.data().nombre);
 
     const queries = [];
     if (estadosDeGestion.length > 0) {
-        queries.push(
-            reservasRef
-                .where('estado', '==', 'Confirmada')
-                .where('estadoGestion', 'in', estadosDeGestion)
-                .get()
-        );
+        const estadoChunks = splitIntoChunks(estadosDeGestion, 30);
+        estadoChunks.forEach(chunk => {
+            queries.push(
+                reservasRef
+                    .where('estado', '==', 'Confirmada')
+                    .where('estadoGestion', 'in', chunk)
+                    .get()
+            );
+        });
     }
     queries.push(reservasRef.where('estado', '==', 'Desconocido').get());
 
     const snapshots = await Promise.all(queries);
-    const [gestionSnapshot, desconocidoSnapshot] = snapshots;
-
+    
     const allDocs = [];
     const docIds = new Set();
 
-    if(gestionSnapshot) {
-        gestionSnapshot.forEach(doc => { allDocs.push(doc); docIds.add(doc.id); });
-    }
-    if (desconocidoSnapshot) {
-        desconocidoSnapshot.forEach(doc => { if (!docIds.has(doc.id)) allDocs.push(doc); });
-    }
+    snapshots.forEach(snapshot => {
+        if(snapshot) {
+            snapshot.forEach(doc => { 
+                if (!docIds.has(doc.id)) {
+                    allDocs.push(doc); 
+                    docIds.add(doc.id); 
+                }
+            });
+        }
+    });
 
     if (allDocs.length === 0) {
         return { grupos: [], hasMore: false, lastVisible: null };
@@ -49,39 +63,92 @@ const getReservasPendientes = async (db, empresaId) => {
     const clienteIds = [...new Set(allReservasData.map(r => r.clienteId).filter(Boolean))];
     const reservaIdsOriginales = [...new Set(allReservasData.map(r => r.idReservaCanal))];
 
-    // ... (El resto de las cargas de datos (clientes, notas, transacciones) no cambia) ...
+    const firestoreQueryLimit = 30;
+    const clienteIdChunks = splitIntoChunks(clienteIds, firestoreQueryLimit);
+    const reservaIdChunks = splitIntoChunks(reservaIdsOriginales, firestoreQueryLimit);
+
+    const fetchInBatches = async (collectionName, field, idChunks) => {
+        if (idChunks.length === 0) return { docs: [] };
+        const promises = idChunks.map(chunk => 
+            db.collection('empresas').doc(empresaId).collection(collectionName)
+              .where(field, 'in', chunk)
+              .get()
+        );
+        const snapshots = await Promise.all(promises);
+        return { docs: snapshots.flatMap(s => s.docs) };
+    };
+
+    const fetchByIdBatches = async (collectionName, idChunks) => {
+        if (idChunks.length === 0) return { docs: [] };
+        const promises = idChunks.map(chunk => 
+            db.collection('empresas').doc(empresaId).collection(collectionName)
+              .where(admin.firestore.FieldPath.documentId(), 'in', chunk)
+              .get()
+        );
+        const snapshots = await Promise.all(promises);
+        return { docs: snapshots.flatMap(s => s.docs) };
+    };
+
     const [clientesSnapshot, notasSnapshot, transaccionesSnapshot, historialReservasSnapshot] = await Promise.all([
-        clienteIds.length > 0 ? db.collection('empresas').doc(empresaId).collection('clientes').where(admin.firestore.FieldPath.documentId(), 'in', clienteIds).get() : Promise.resolve({ docs: [] }),
-        reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('gestionNotas').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
-        reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('transacciones').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
-        clienteIds.length > 0 ? db.collection('empresas').doc(empresaId).collection('reservas').where('clienteId', 'in', clienteIds).where('estado', '==', 'Confirmada').get() : Promise.resolve({ docs: [] })
+        fetchByIdBatches('clientes', clienteIdChunks),
+        fetchInBatches('gestionNotas', 'reservaIdOriginal', reservaIdChunks),
+        fetchInBatches('transacciones', 'reservaIdOriginal', reservaIdChunks),
+        fetchInBatches('reservas', 'clienteId', clienteIdChunks) 
     ]);
 
-    // ... (El resto del mapeo de clientsMap, notesCountMap y abonosMap no cambia) ...
     const clientsMap = new Map();
     clientesSnapshot.docs.forEach(doc => {
         const clienteData = doc.data();
         const historialCliente = historialReservasSnapshot.docs
-            .filter(reservaDoc => reservaDoc.data().clienteId === doc.id)
+            .filter(reservaDoc => reservaDoc.data().clienteId === doc.id && reservaDoc.data().estado === 'Confirmada') 
             .map(reservaDoc => reservaDoc.data());
-        const totalGastado = historialCliente.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0);
+
+        // --- INICIO DE LA MODIFICACIÓN: Cálculo de 'totalGastado' flotante ---
+        const totalGastado = historialCliente.reduce((sum, r) => {
+            const moneda = r.moneda || 'CLP';
+            const estadoGestion = r.estadoGestion;
+            let valorHuespedFinal = r.valores?.valorHuesped || 0; // Default a valor estático
+
+            // Recalcular si es moneda extranjera Y NO está Facturado
+            if (moneda !== 'CLP' && estadoGestion !== 'Facturado') {
+                const valorHuespedOriginal = r.valores?.valorHuespedOriginal || 0;
+                if (valorHuespedOriginal > 0) {
+                    // Usamos el 'valorDolarHoy' que obtuvimos al inicio de la función
+                    valorHuespedFinal = Math.round(valorHuespedOriginal * valorDolarHoy);
+                }
+            }
+            return sum + valorHuespedFinal;
+        }, 0);
+        // --- FIN DE LA MODIFICACIÓN ---
+
         const numeroDeReservas = historialCliente.length;
+        
         let tipoCliente = 'Cliente Nuevo';
-        if (totalGastado > 1000000) tipoCliente = 'Cliente Premium';
-        else if (numeroDeReservas > 1) tipoCliente = 'Cliente Frecuente';
-        clientsMap.set(doc.id, { ...clienteData, numeroDeReservas, tipoCliente });
+        if (totalGastado > 1000000) {
+            tipoCliente = 'Cliente Premium';
+        } else if (numeroDeReservas > 1) {
+            tipoCliente = 'Cliente Frecuente';
+        }
+
+        clientsMap.set(doc.id, {
+            ...clienteData,
+            numeroDeReservas,
+            tipoCliente
+            // (Añadimos totalGastado por si el frontend lo necesita)
+            // totalGastado: totalGastado 
+        });
     });
+    
     const notesCountMap = new Map();
-    notasSnapshot.forEach(doc => {
+    notasSnapshot.docs.forEach(doc => {
         const id = doc.data().reservaIdOriginal;
         notesCountMap.set(id, (notesCountMap.get(id) || 0) + 1);
     });
     const abonosMap = new Map();
-    transaccionesSnapshot.forEach(doc => {
+    transaccionesSnapshot.docs.forEach(doc => {
         const id = doc.data().reservaIdOriginal;
         abonosMap.set(id, (abonosMap.get(id) || 0) + (parseFloat(doc.data().monto) || 0));
     });
-
 
     const reservasAgrupadas = new Map();
     allReservasData.forEach(data => {
@@ -91,19 +158,19 @@ const getReservasPendientes = async (db, empresaId) => {
             reservasAgrupadas.set(reservaId, {
                 reservaIdOriginal: reservaId,
                 clienteId: data.clienteId,
-                clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
+               clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
                 telefono: clienteActual?.telefono || 'N/A',
-                tipoCliente: clienteActual?.tipoCliente || 'Nuevo',
+                tipoCliente: clienteActual?.tipoCliente || 'Nuevo', // Ahora es consistente
                 numeroDeReservas: clienteActual?.numeroDeReservas || 1,
                 fechaLlegada: data.fechaLlegada?.toDate(),
                 fechaSalida: data.fechaSalida?.toDate(),
                 totalNoches: data.totalNoches,
                 estado: data.estado,
-                estadoGestion: data.estadoGestion,
-                abonoTotal: abonosMap.get(reservaId) || 0, // Este valor es correcto (estático)
+               estadoGestion: data.estadoGestion,
+                abonoTotal: abonosMap.get(reservaId) || 0,
                 notasCount: notesCountMap.get(reservaId) || 0,
                 transaccionesCount: transaccionesSnapshot.docs.filter(d => d.data().reservaIdOriginal === reservaId).length,
-                reservasIndividuales: []
+               reservasIndividuales: []
             });
         }
         reservasAgrupadas.get(reservaId).reservasIndividuales.push(data);
@@ -111,18 +178,14 @@ const getReservasPendientes = async (db, empresaId) => {
 
     const gruposProcesados = Array.from(reservasAgrupadas.values()).map(grupo => {
         const primerReserva = grupo.reservasIndividuales[0];
-        // --- INICIO DE LA MODIFICACIÓN 2: Usar variables consistentes ---
         const monedaGrupo = primerReserva.moneda || 'CLP';
         const estadoGestionGrupo = primerReserva.estadoGestion;
-        // --- FIN DE LA MODIFICACIÓN 2 ---
 
         const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
             
-            // --- INICIO DE LA MODIFICACIÓN 3: Lógica Flotante dentro del Reduce ---
             let valorHuespedFinal = r.valores?.valorHuesped || 0;
             let costoCanalFinal = (r.valores?.comision > 0 ? r.valores.comision : r.valores?.costoCanal || 0);
 
-            // Si es moneda extranjera Y NO está Facturado, recalcular
             if (monedaGrupo !== 'CLP' && estadoGestionGrupo !== 'Facturado') {
                 const valorHuespedOriginal = r.valores?.valorHuespedOriginal || 0;
                 const costoCanalOriginal = r.valores?.comisionOriginal || r.valores?.costoCanalOriginal || 0;
@@ -132,41 +195,36 @@ const getReservasPendientes = async (db, empresaId) => {
                     costoCanalFinal = Math.round(costoCanalOriginal * valorDolarHoy);
                 }
             }
-            // --- FIN DE LA MODIFICACIÓN 3 ---
             
-            // Usar los valores finales (flotantes o estáticos)
             acc.valorTotalHuesped += valorHuespedFinal;
             acc.costoCanal += costoCanalFinal;
-
-            acc.valorListaBaseTotal += r.valores?.valorOriginal || 0; // (Se mantiene, parece ser USD original)
+            
+            // --- INICIO REPARACIÓN ERROR SINTAXIS (Mi error de copy-paste) ---
+            acc.valorListaBaseTotal += r.valores?.valorOriginal || 0;
             if (r.ajusteManualRealizado) acc.ajusteManualRealizado = true;
             if (r.potencialCalculado) acc.potencialCalculado = true;
             if (r.clienteGestionado) acc.clienteGestionado = true;
             if (r.documentos) acc.documentos = { ...acc.documentos, ...r.documentos };
+            // --- FIN REPARACIÓN ERROR SINTAXIS ---
+            
             return acc;
         }, { valorTotalHuesped: 0, costoCanal: 0, valorListaBaseTotal: 0, ajusteManualRealizado: false, potencialCalculado: false, clienteGestionado: false, documentos: {} });
         
         const resultado = {
             ...grupo,
             ...valoresAgregados,
-            esUSD: monedaGrupo === 'USD', // Usar la variable consistente
+            esUSD: monedaGrupo === 'USD', 
             payoutFinalReal: valoresAgregados.valorTotalHuesped - valoresAgregados.costoCanal
-            // El 'saldo' (valorTotalHuesped - abonoTotal) ahora será correcto
         };
 
-        // --- INICIO DE LA MODIFICACIÓN 4: Usar Dólar Correcto para 'valoresUSD' ---
         if (resultado.esUSD) {
-            // Determinar qué valor del dólar usar
             const valorDolarParaCalculo = (estadoGestionGrupo === 'Facturado')
-                ? (primerReserva.valores?.valorDolarFacturacion || valorDolarHoy) // Usar 'congelado'
-                : valorDolarHoy; // Usar 'flotante'
+                ? (primerReserva.valores?.valorDolarFacturacion || valorDolarHoy) 
+                : valorDolarHoy; 
 
-            // 'valorOriginal' parece ser el Payout Original en USD
-            const totalPayoutUSD = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorOriginal || 0), 0);
-            // 'iva' parece ser el IVA en CLP
-            const totalIvaCLP = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.iva || 0), 0);
-            // Convertir IVA de CLP a USD usando el valor del dólar correcto
-            const totalIvaUSD = valorDolarParaCalculo > 0 ? totalIvaCLP / valorDolarParaCalculo : 0;
+            const totalPayoutUSD = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorOriginal || 0), 0);
+            const totalIvaCLP = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.iva || 0), 0);
+            const totalIvaUSD = valorDolarParaCalculo > 0 ? totalIvaCLP / valorDolarParaCalculo : 0;
             
             resultado.valoresUSD = {
                 payout: totalPayoutUSD,
@@ -174,7 +232,6 @@ const getReservasPendientes = async (db, empresaId) => {
                 totalCliente: totalPayoutUSD + totalIvaUSD
             };
         }
-        // --- FIN DE LA MODIFICACIÓN 4 ---
 
         return resultado;
     });
