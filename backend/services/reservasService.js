@@ -209,8 +209,8 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
     }
     const reservaData = doc.data();
     
-    // ... (Código de manejo de iCal que ya discutimos - sin cambios) ...
     const idReservaOriginal = reservaData.idReservaCanal;
+
     if (!idReservaOriginal) {
        if (reservaData.origen === 'ical' && !reservaData.clienteId) {
             console.warn(`Reserva iCal ${reservaId} no tiene idReservaCanal. Devolviendo datos parciales.`);
@@ -222,14 +222,12 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
                 cliente: {},
                 notas: [],
                 transacciones: [],
-                // --- INICIO MODIFICACIÓN 2: Devolver objeto de valores consistente ---
                 datosIndividuales: { 
                     valorTotalHuesped: 0, costoCanal: 0, payoutFinalReal: 0, 
                     valorPotencial: 0, descuentoPotencialPct: 0, abonoProporcional: 0, 
                     saldo: 0, ajusteCobro: 0, valorHuespedOriginal: 0, 
                     costoCanalOriginal: 0, moneda: reservaData.moneda || 'CLP', valorDolarUsado: null
                 },
-                // --- FIN MODIFICACIÓN 2 ---
                 datosGrupo: { propiedades: [reservaData.alojamientoNombre], valorTotal: 0, payoutTotal: 0, abonoTotal: 0, saldo: 0 }
             };
        }
@@ -242,7 +240,6 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
     
     const reservasDelGrupo = grupoSnapshot.docs.map(d => d.data());
 
-    // ... (Carga de cliente, notas y transacciones - sin cambios) ...
     let clientePromise;
     if (reservaData.clienteId) {
         clientePromise = db.collection('empresas').doc(empresaId).collection('clientes').doc(reservaData.clienteId).get();
@@ -258,72 +255,72 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
     const notas = notasSnapshot.docs.map(d => ({...d.data(), fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
     const transacciones = transaccionesSnapshot.docs.map(d => ({...d.data(), id: d.id, fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
 
-
-    // --- INICIO DE LA MODIFICACIÓN 3: LÓGICA DE VALORIZACIÓN FLOTANTE ---
-
-    // 1. Definir variables para los valores finales
+    // --- LÓGICA DE VALORIZACIÓN FLOTANTE (Paso anterior) ---
     let valorHuespedCLP, costoCanalCLP, payoutCLP;
     let valorDolarUsado = null;
     const moneda = reservaData.moneda || 'CLP';
-
-    // 2. Obtener los valores originales (en USD o la moneda extranjera)
     const valorHuespedOriginal = reservaData.valores?.valorHuespedOriginal || 0;
     const costoCanalOriginal = reservaData.valores?.comisionOriginal || reservaData.valores?.costoCanalOriginal || 0;
-    // (Asumimos que valorHuesped y comision/costoCanal en la BBDD son CLP estáticos o congelados)
     const valorHuespedCongelado = reservaData.valores?.valorHuesped || 0;
     const costoCanalCongelado = reservaData.valores?.comision || reservaData.valores?.costoCanal || 0;
 
-
-    // 3. Aplicar la lógica condicional
     if (moneda !== 'CLP' && valorHuespedOriginal > 0) {
         if (reservaData.estadoGestion === 'Facturado') {
-            // LÓGICA 2 (Congelado): Usar los valores CLP guardados.
             valorHuespedCLP = valorHuespedCongelado;
             costoCanalCLP = costoCanalCongelado;
-            valorDolarUsado = reservaData.valores?.valorDolarFacturacion || null; // Leer el dólar "congelado"
+            valorDolarUsado = reservaData.valores?.valorDolarFacturacion || null;
         } else {
-            // LÓGICA 1 (Flotante): Recalcular en tiempo real.
             const dolarHoyData = await obtenerValorDolarHoy(db, empresaId);
-            const valorDolarHoy = dolarHoyData ? dolarHoyData.valor : 950; // Usar 950 como fallback si la API falla
-            
+            const valorDolarHoy = dolarHoyData ? dolarHoyData.valor : 950;
             valorHuespedCLP = valorHuespedOriginal * valorDolarHoy;
             costoCanalCLP = costoCanalOriginal * valorDolarHoy;
             valorDolarUsado = valorDolarHoy;
         }
     } else {
-        // Es una reserva en CLP, usar los valores tal cual.
         valorHuespedCLP = valorHuespedCongelado;
         costoCanalCLP = costoCanalCongelado;
-        // valorHuespedOriginal ya está seteado a 0 o al valor que tenga
     }
-
-    // Calcular el payout real basado en los valores CLP determinados
     payoutCLP = valorHuespedCLP - costoCanalCLP;
+    // --- FIN LÓGICA DE VALORIZACIÓN ---
 
-    // --- FIN DE LA MODIFICACIÓN 3 ---
 
-
+    // --- LÓGICA DE DATOS DE GRUPO (Cálculo de Abono) ---
     const datosGrupo = {
         propiedades: reservasDelGrupo.map(r => r.alojamientoNombre),
-        valorTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0), // (Esto es un desafío, el grupo también debería recalcularse)
+        valorTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0), // (Sigue siendo un desafío, el grupo no se recalcula flotante aquí)
         payoutTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorTotal || 0), 0),
         abonoTotal: transacciones.reduce((sum, t) => sum + (t.monto || 0), 0),
     };
-    datosGrupo.saldo = datosGrupo.valorTotal - datosGrupo.abonoTotal; // (Sujeto al mismo desafío)
+    datosGrupo.saldo = datosGrupo.valorTotal - datosGrupo.abonoTotal;
 
     const abonoProporcional = (datosGrupo.valorTotal > 0)
-        ? (valorHuespedCLP / datosGrupo.valorTotal) * datosGrupo.abonoTotal // (Usamos el CLP calculado)
+        ? (valorHuespedCLP / datosGrupo.valorTotal) * datosGrupo.abonoTotal
         : 0;
     
-    const valorPotencial = reservaData.valores?.valorPotencial || 0; // (Este probablemente también es un valor estático)
-    const descuentoPotencialPct = (valorPotencial > 0 && valorPotencial > valorHuespedCLP)
-        ? (1 - (valorHuespedCLP / valorPotencial)) * 100
-        : 0;
+    // --- INICIO DE LA MODIFICACIÓN: Cálculo correcto de Valor Potencial ---
+    
+    // 1. Cargar el "Precio Base" (Valor Canal Base) desde la BBDD.
+    //    Este campo DEBE ser calculado y guardado por el servicio de Carga/Consolidación.
+    const valorCanalBase_CLP = reservaData.valores?.valorPotencial || 0;
 
-    const valorHuespedOriginalBBDD = reservaData.valores?.valorHuespedOriginal || 0;
+    // 2. Cargar el "Precio Externo" (ya lo tenemos de la lógica flotante)
+    const valorCanalExterno_CLP = valorHuespedCLP;
+
+    // 3. Calcular los dos campos que ve el modal
+    let valorPotencial_Monto = 0; // El monto de la "pérdida"
+    let valorPotencial_Pct = 0;   // El porcentaje de esa "pérdida"
+
+    // Solo calcular si el Precio Base es válido y mayor que el precio externo
+    if (valorCanalBase_CLP > 0 && valorCanalBase_CLP > valorCanalExterno_CLP) {
+        valorPotencial_Monto = valorCanalBase_CLP - valorCanalExterno_CLP;
+        valorPotencial_Pct = (valorPotencial_Monto / valorCanalBase_CLP) * 100;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+
+    const valorHuespedOriginalBBDD = reservaData.valores?.valorHuespedOriginal || 0; // Esto es confuso, es el valorHuesped en USD
     const ajusteCobro = (valorHuespedOriginalBBDD > 0 && valorHuespedOriginalBBDD !== valorHuespedCLP)
         ? valorHuespedCLP - valorHuespedOriginalBBDD
-        : 0;
+        : 0; // (Esta lógica de 'ajusteCobro' parece incorrecta, compara USD (valorHuespedOriginalBBDD) con CLP)
 
 
     return {
@@ -335,33 +332,37 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
         notas,
         transacciones,
         
-        // --- INICIO DE LA MODIFICACIÓN 4: Actualizar el objeto de retorno ---
+        // --- INICIO DE LA MODIFICACIÓN: Objeto de retorno final ---
         datosIndividuales: {
             // Valores CLP (flotantes o congelados)
             valorTotalHuesped: Math.round(valorHuespedCLP),
             costoCanal: Math.round(costoCanalCLP),
             payoutFinalReal: Math.round(payoutCLP),
             saldo: Math.round(valorHuespedCLP - abonoProporcional),
+            abonoProporcional: Math.round(abonoProporcional),
 
-            // Valores Originales (Moneda Extranjera)
+            // Valores Originales (Moneda Extranjera) - El frontend NO los está usando
             valorHuespedOriginal: valorHuespedOriginal, 
             costoCanalOriginal: costoCanalOriginal,
 
-            // Metadatos de la valorización
+            // Metadatos de la valorización - El frontend NO los está usando
             moneda: moneda,
             valorDolarUsado: valorDolarUsado,
 
-            // Valores de cálculo (sin cambios)
-            valorPotencial,
-            descuentoPotencialPct,
-            abonoProporcional: Math.round(abonoProporcional),
+            // Analítica de Potencial (Esto SÍ lo usa el frontend)
+            valorPotencial: Math.round(valorPotencial_Monto),
+            descuentoPotencialPct: valorPotencial_Pct,
+            
+            // (Campos heredados, revisar lógica de 'ajusteCobro')
             ajusteCobro: Math.round(ajusteCobro),
-            valorHuespedOriginal: valorHuespedOriginalBBDD, // (Esto es confuso, el nombre original vs. el de la BBDD)
+            valorHuespedOriginal: valorHuespedOriginal, // (Confuso, frontend puede estar usando este mal)
+            valorPotencialOriginal_DB: valorCanalBase_CLP // (Devuelvo el precio base por si acaso)
         },
-        // --- FIN DE LA MODIFICACIÓN 4 ---
+        // --- FIN DE LA MODIFICACIÓN ---
         datosGrupo
     };
 };
+
 const eliminarReserva = async (db, empresaId, reservaId) => {
     const reservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(reservaId);
     await reservaRef.delete();

@@ -21,6 +21,13 @@ const formatDateTime = (dateString) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleString('es-CL');
 };
+
+const formatForeign = (value, currency) => {
+    if (!currency || currency === 'CLP') return formatCurrency(value);
+    // Formatear a 2 decimales para monedas extranjeras
+    return `${(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+};
+
 const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
 const formatStars = (rating) => '⭐'.repeat(rating || 0) + '☆'.repeat(5 - (rating || 0));
 
@@ -75,31 +82,70 @@ async function abrirModalVer(reservaId) {
         document.getElementById('view-cliente-ubicacion').textContent = data.cliente.ubicacion || '-';
         document.getElementById('view-cliente-notas').textContent = data.cliente.notas || 'Sin notas.';
         
+        // --- INICIO DE LA MODIFICACIÓN (Frontend) ---
         const { datosIndividuales } = data;
+        const moneda = datosIndividuales.moneda || 'CLP';
+
+        // --- Análisis Cobranza ---
         const analisisCobranzaEl = document.getElementById('analisis-cobranza');
-        analisisCobranzaEl.innerHTML = `
-            <dt class="text-gray-500">Total Cliente (Individual):</dt><dd class="font-semibold">${formatCurrency(datosIndividuales.valorTotalHuesped)}</dd>
+        let cobranzaHTML = `
+            <dt class="text-gray-500">Total Cliente (CLP):</dt><dd class="font-semibold">${formatCurrency(datosIndividuales.valorTotalHuesped)}</dd>
             <dt class="text-gray-500">Abono (Proporcional):</dt><dd class="text-green-600">${formatCurrency(datosIndividuales.abonoProporcional)}</dd>
-            <dt class="text-gray-500">Saldo (Individual):</dt><dd class="text-red-600 font-bold">${formatCurrency(datosIndividuales.saldo)}</dd>
-            ${datosIndividuales.ajusteCobro !== 0 ? `
-                <dt class="text-gray-500 col-span-2 border-t mt-1 pt-1">Ajuste de Cobro:</dt>
-                <dd class="col-span-2 grid grid-cols-2">
-                    <span>${formatCurrency(datosIndividuales.ajusteCobro)}</span>
-                    <span class="text-xs text-right text-gray-500">Valor Original: ${formatCurrency(datosIndividuales.valorHuespedOriginal)}</span>
-                </dd>
-            ` : ''}
+            <dt class="text-gray-500">Saldo (CLP):</dt><dd class="text-red-600 font-bold">${formatCurrency(datosIndividuales.saldo)}</dd>
         `;
 
+        if (moneda !== 'CLP') {
+            cobranzaHTML += `
+                <dt class="text-gray-500 border-t pt-1 mt-1">Total Cliente (${moneda}):</dt>
+                <dd class="font-semibold border-t pt-1 mt-1">${formatForeign(datosIndividuales.valorHuespedOriginal, moneda)}</dd>
+                
+                <dt class="text-gray-500">Valor Dólar (Usado):</dt>
+                <dd>CLP ${datosIndividuales.valorDolarUsado ? datosIndividuales.valorDolarUsado.toLocaleString('es-CL') : 'N/A'}</dd>
+            `;
+        }
+        
+        // (Lógica de ajuste de cobro se mantiene)
+        cobranzaHTML += `${datosIndividuales.ajusteCobro !== 0 ? `
+            <dt class="text-gray-500 col-span-2 border-t mt-1 pt-1">Ajuste de Cobro:</dt>
+            <dd class="col-span-2 grid grid-cols-2">
+                <span>${formatCurrency(datosIndividuales.ajusteCobro)}</span>
+                <span class="text-xs text-right text-gray-500">Valor Original: ${formatCurrency(datosIndividuales.valorHuespedOriginal)}</span>
+            </dd>
+        ` : ''}`;
+        analisisCobranzaEl.innerHTML = cobranzaHTML;
+
+
+        // --- Análisis Rentabilidad ---
         const analisisRentabilidadEl = document.getElementById('analisis-rentabilidad');
-        analisisRentabilidadEl.innerHTML = `
-            <dt class="text-gray-500">Payout (Ingreso Real):</dt><dd>${formatCurrency(datosIndividuales.payoutFinalReal)}</dd>
-            <dt class="text-gray-500">Costo del Canal:</dt><dd>${formatCurrency(datosIndividuales.costoCanal)}</dd>
-            <dt class="text-gray-500 col-span-2">Valor Potencial (KPI):</dt>
+        
+        // Calcular Payout Original (Moneda Extranjera)
+        const payoutOriginal = datosIndividuales.valorHuespedOriginal - datosIndividuales.costoCanalOriginal;
+
+        let rentabilidadHTML = `
+            <dt class="text-gray-500">Payout (CLP):</dt><dd>${formatCurrency(datosIndividuales.payoutFinalReal)}</dd>
+            <dt class="text-gray-500">Costo Canal (CLP):</dt><dd>${formatCurrency(datosIndividuales.costoCanal)}</dd>
+        `;
+
+        if (moneda !== 'CLP') {
+            rentabilidadHTML += `
+                <dt class="text-gray-500 border-t pt-1 mt-1">Payout (${moneda}):</dt>
+                <dd class="border-t pt-1 mt-1">${formatForeign(payoutOriginal, moneda)}</dd> 
+                
+                <dt class="text-gray-500">Costo Canal (${moneda}):</dt>
+                <dd>${formatForeign(datosIndividuales.costoCanalOriginal, moneda)}</dd>
+            `;
+        }
+        
+        // (Lógica de valor potencial se mantiene, pero se añade un borde si es USD)
+        rentabilidadHTML += `
+            <dt class="text-gray-500 col-span-2 ${moneda !== 'CLP' ? 'border-t pt-1 mt-1' : ''}">Valor Potencial (KPI):</dt>
             <dd class="col-span-2 grid grid-cols-2">
                 <span>${formatCurrency(datosIndividuales.valorPotencial)}</span>
                 ${datosIndividuales.descuentoPotencialPct > 0 ? `<span class="text-xs text-right text-red-500">(${datosIndividuales.descuentoPotencialPct.toFixed(1)}% dscto.)</span>` : ''}
             </dd>
         `;
+        analisisRentabilidadEl.innerHTML = rentabilidadHTML;
+        // --- FIN DE LA MODIFICACIÓN ---
 
 
         const transaccionesContainer = document.getElementById('view-transacciones-list');
