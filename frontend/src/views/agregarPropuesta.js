@@ -17,6 +17,8 @@ import {
   currentPricing
 } from './utils.js';
 
+// frontend/src/views/agregarPropuesta.js
+
 export function render() {
   return `
     <div class="bg-white p-8 rounded-lg shadow space-y-8">
@@ -93,12 +95,30 @@ export function render() {
           <div id="pricing-section" class="p-4 border rounded-md bg-gray-50">
             <h3 class="font-semibold text-gray-800 mb-4">4. Descuentos y Resumen Final</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              
               <div class="space-y-4 md:col-span-1">
                 <div id="valor-dolar-container" class="hidden"><p id="valor-dolar-info" class="text-sm font-semibold text-blue-600"></p></div>
-                <div><label for="cupon-input" class="block text-sm font-medium">Código de Descuento</label><input type="text" id="cupon-input" class="form-input mt-1"><div id="cupon-status" class="text-xs mt-1"></div></div>
-                <div><label for="descuento-pct" class="block text-sm font-medium">Descuento Manual (%)</label><input type="number" id="descuento-pct" placeholder="Ej: 15" class="discount-input form-input mt-1"></div>
-                <div><label id="descuento-fijo-label" for="descuento-fijo-total" class="block text-sm font-medium">Descuento Fijo Manual</label><input type="number" id="descuento-fijo-total" placeholder="Ej: 20000" class="discount-input form-input mt-1"></div>
-              </div>
+                
+                <div>
+                  <label for="valor-final-fijo" class="block text-sm font-medium text-gray-900">1. Valor Final Fijo (Prioritario)</label>
+                  <input type="number" id="valor-final-fijo" placeholder="Ej: 300000" class="form-input mt-1">
+                </div>
+                <hr>
+                <div>
+                  <label for="cupon-input" class="block text-sm font-medium text-gray-700">2. Código de Descuento</label>
+                  <input type="text" id="cupon-input" class="form-input mt-1 discount-input">
+                  <div id="cupon-status" class="text-xs mt-1"></div>
+                </div>
+                <div>
+                  <label for="descuento-pct" class="block text-sm font-medium text-gray-700">3. Descuento Manual (%)</label>
+                  <input type="number" id="descuento-pct" placeholder="Ej: 15" class="form-input mt-1 discount-input">
+                </div>
+                <div>
+                  <label id="descuento-fijo-label" for="descuento-fijo-total" class="block text-sm font-medium text-gray-700">4. Descuento Fijo Manual</label>
+                  <input type="number" id="descuento-fijo-total" placeholder="Ej: 20000" class="form-input mt-1 discount-input">
+                </div>
+                </div>
+              
               <div id="summary-original-currency-container" class="p-4 bg-blue-50 border border-blue-200 rounded-md space-y-2 md:col-span-1 hidden"></div>
               <div id="summary-clp-container" class="p-4 bg-white rounded-md border space-y-2 md:col-span-1"></div>
             </div>
@@ -125,6 +145,8 @@ export function render() {
   `;
 }
 
+// frontend/src/views/agregarPropuesta.js
+
 export async function afterRender() {
   await loadInitialData();
 
@@ -132,30 +154,26 @@ export async function afterRender() {
   document.getElementById('buscar-btn')?.addEventListener('click', runSearch);
   document.getElementById('client-search')?.addEventListener('input', filterClients);
   document.getElementById('canal-select')?.addEventListener('change', handleCanalChange);
-  document.getElementById('cupon-input')?.addEventListener('change', handleCuponChange);
   document.getElementById('guardar-propuesta-btn')?.addEventListener('click', handleGuardarPropuesta);
   document.getElementById('copiar-propuesta-btn')?.addEventListener('click', handleCopyPropuesta);
   document.getElementById('cerrar-propuesta-modal-btn')?.addEventListener('click', handleCerrarModal);
 
   // --- INICIO DE LA CORRECCIÓN ---
-  // Se eliminó la condición `if (availabilityData.suggestion)` que estaba rota
-  // porque `availabilityData` no está en el scope de este archivo.
-  // Ahora, cualquier cambio en estos checkboxes disparará la búsqueda,
-  // que es el comportamiento esperado.
   
-  document.getElementById('sin-camarotes')?.addEventListener('change', () => {
-    runSearch();
-  });
-  
-  document.getElementById('permitir-cambios')?.addEventListener('change', () => {
-    runSearch();
-  });
-  // --- FIN DE LA CORRECCIÓN ---
+  // Listener para el nuevo campo "Valor Final Fijo"
+  const valorFinalInput = document.getElementById('valor-final-fijo');
+  valorFinalInput?.addEventListener('input', () => updateSummary(currentPricing));
 
-  // Descuentos manuales
-  document.querySelectorAll('.discount-input').forEach(input => {
-    input.addEventListener('input', () => updateSummary(currentPricing));
-  });
+  // Listeners para los descuentos (ahora recalcularán también)
+  document.getElementById('cupon-input')?.addEventListener('change', handleCuponChange); // 'change' es mejor para cupones
+  document.getElementById('descuento-pct')?.addEventListener('input', () => updateSummary(currentPricing));
+  document.getElementById('descuento-fijo-total')?.addEventListener('input', () => updateSummary(currentPricing));
+
+  // Listeners para refrescar la búsqueda
+  document.getElementById('sin-camarotes')?.addEventListener('change', runSearch);
+  document.getElementById('permitir-cambios')?.addEventListener('change', runSearch);
+
+  // --- FIN DE LA CORRECCIÓN ---
 
   handleEditMode();
 }

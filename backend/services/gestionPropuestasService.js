@@ -6,9 +6,16 @@ const { marcarCuponComoUtilizado } = require('./cuponesService');
 
 // backend/services/gestionPropuestasService.js
 
+// backend/services/gestionPropuestasService.js
+
 const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExistente = null) => {
-    // --- INICIO CORRECCIÓN 1: Añadir 'personas' a la destructuración ---
-    const { cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, canalId, canalNombre, moneda, valorDolarDia, valorOriginal, origen, icalUid, idReservaCanal, codigoCupon, personas } = datos;
+    // --- INICIO CORRECCIÓN 1: Añadir 'personas' y los nuevos campos de descuento ---
+    const { 
+        cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, 
+        canalId, canalNombre, moneda, valorDolarDia, valorOriginal, 
+        origen, icalUid, idReservaCanal, codigoCupon, personas,
+        descuentoPct, descuentoFijo, valorFinalFijado // <-- CAMPOS AÑADIDOS
+    } = datos;
     // --- FIN CORRECCIÓN 1 ---
     
     const idGrupo = idReservaCanal || idPropuestaExistente || db.collection('empresas').doc().id;
@@ -45,12 +52,7 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
             snapshotExistentes.forEach(doc => transaction.delete(doc.ref));
         }
 
-        // --- INICIO CORRECCIÓN 2: Lógica de Personas ---
-        // Si hay varias cabañas (ej: 2) y 5 personas,
-        // guardamos el total (5) en la primera, y 0 en las siguientes.
-        // 'obtenerPropuestas' debe sumar 'cantidadHuespedes'.
         let personasAsignadas = false;
-        // --- FIN CORRECCIÓN 2 ---
 
         for (const prop of propiedades) {
             const nuevaReservaRef = reservasRef.doc();
@@ -58,14 +60,11 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
             const precioFinalPorPropiedad = (propiedades.length > 0) ? Math.round(precioFinal / propiedades.length) : 0;
             const valorOriginalPorPropiedad = (propiedades.length > 0 && moneda === 'USD') ? (valorOriginal / propiedades.length) : precioFinalPorPropiedad;
 
-            // --- INICIO CORRECCIÓN 3: Asignación de Personas ---
             let huespedesParaEstaReserva = 0;
             if (!personasAsignadas) {
-                // Asignar el total de personas (del formulario) a la primera reserva
                 huespedesParaEstaReserva = personas || 0;
                 personasAsignadas = true;
             }
-            // --- FIN CORRECCIÓN 3 ---
 
             const datosReserva = {
                 id: nuevaReservaRef.id,
@@ -81,21 +80,26 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
                 fechaLlegada: admin.firestore.Timestamp.fromDate(new Date(fechaLlegada + 'T00:00:00Z')),
                 fechaSalida: admin.firestore.Timestamp.fromDate(new Date(fechaSalida + 'T00:00:00Z')),
                 totalNoches: noches,
-                
-                // --- INICIO CORRECCIÓN 4: Usar la variable calculada ---
                 cantidadHuespedes: huespedesParaEstaReserva,
-                // --- FIN CORRECCIÓN 4 ---
-                
-                estado: 'Propuesta', // <-- GUARDADO COMO PROPUESTA
+                estado: 'Propuesta',
                 origen: origen || 'manual',
                 moneda,
                 valorDolarDia,
                 cuponUtilizado: codigoCupon || null,
+                
+                // --- INICIO CORRECCIÓN 2: Guardar todos los datos de precio ---
                 valores: {
                     valorOriginal: valorOriginalPorPropiedad,
                     valorTotal: precioFinalPorPropiedad,
-                    valorHuesped: precioFinalPorPropiedad
+                    valorHuesped: precioFinalPorPropiedad,
+                    
+                    // Campos para reconstruir la edición
+                    descuentoPct: descuentoPct || 0,
+                    descuentoFijo: descuentoFijo || 0,
+                    valorFinalFijado: valorFinalFijado || 0
                 },
+                // --- FIN CORRECCIÓN 2 ---
+
                 fechaReserva: admin.firestore.FieldValue.serverTimestamp(),
                 fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
                 fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()

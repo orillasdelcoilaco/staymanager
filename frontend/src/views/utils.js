@@ -227,6 +227,8 @@ export async function handleSelectionChange() {
   }
 }
 
+// frontend/src/views/utils.js
+
 export function updateSummary(pricing) {
   currentPricing = pricing;
   if (!pricing) return;
@@ -236,27 +238,79 @@ export function updateSummary(pricing) {
   const summaryOriginalContainer = document.getElementById('summary-original-currency-container');
   const summaryCLPContainer = document.getElementById('summary-clp-container');
 
-  let descuentoManualEnMonedaOriginal = 0;
-  const pct = parseFloat(document.getElementById('descuento-pct').value) || 0;
-  const fijo = parseFloat(document.getElementById('descuento-fijo-total').value) || 0;
-  if (pct > 0) descuentoManualEnMonedaOriginal = totalPriceOriginal * (pct / 100);
-  else if (fijo > 0) descuentoManualEnMonedaOriginal = fijo;
+  // --- INICIO DE LA CORRECCIÓN: Lógica de Prioridad de Precios ---
 
-  const descuentoCuponEnMonedaOriginal = cuponAplicado ? totalPriceOriginal * (cuponAplicado.porcentajeDescuento / 100) : 0;
-  const descuentoTotalEnMonedaOriginal = descuentoManualEnMonedaOriginal + descuentoCuponEnMonedaOriginal;
-  const precioFinalEnMonedaOriginal = totalPriceOriginal - descuentoTotalEnMonedaOriginal;
+  const valorFinalFijoInput = document.getElementById('valor-final-fijo');
+  const cuponInput = document.getElementById('cupon-input');
+  const pctInput = document.getElementById('descuento-pct');
+  const fijoInput = document.getElementById('descuento-fijo-total');
 
+  let precioFinalEnMonedaOriginal = 0;
+  let descuentoTotalEnMonedaOriginal = 0;
+  
+  const valorFijo = parseFloat(valorFinalFijoInput.value) || 0;
+  const precioLista = totalPriceOriginal || 0;
+
+  if (valorFijo > 0) {
+    // 1. MODO "VALOR FINAL FIJO" (Prioridad 1)
+    // El usuario ha fijado el precio.
+    
+    // Deshabilitar otros descuentos
+    [cuponInput, pctInput, fijoInput].forEach(input => {
+        if(input) input.disabled = true;
+    });
+
+    precioFinalEnMonedaOriginal = valorFijo;
+    
+    // Lógica de "Descuento Inteligente"
+    if (precioFinalEnMonedaOriginal < precioLista) {
+      // Si el precio fijo es menor, la diferencia es un descuento
+      descuentoTotalEnMonedaOriginal = precioLista - precioFinalEnMonedaOriginal;
+    } else {
+      // Si es mayor o igual, no hay descuento
+      descuentoTotalEnMonedaOriginal = 0;
+    }
+    
+  } else {
+    // 2. MODO "DESCUENTOS" (Lógica normal)
+    
+    // Habilitar otros descuentos
+    [cuponInput, pctInput, fijoInput].forEach(input => {
+        if(input) input.disabled = false;
+    });
+
+    // Calcular descuentos (Lógica existente)
+    const pct = parseFloat(pctInput.value) || 0;
+    const fijo = parseFloat(fijoInput.value) || 0;
+    
+    let descuentoManual = 0;
+    if (pct > 0) {
+        descuentoManual = precioLista * (pct / 100);
+    } else if (fijo > 0) {
+        descuentoManual = fijo;
+    }
+
+    const descuentoCupon = cuponAplicado ? precioLista * (cuponAplicado.porcentajeDescuento / 100) : 0;
+    
+    descuentoTotalEnMonedaOriginal = descuentoManual + descuentoCupon;
+    precioFinalEnMonedaOriginal = precioLista - descuentoTotalEnMonedaOriginal;
+  }
+  
+  // --- FIN DE LA CORRECCIÓN ---
+
+  // Cálculo de totales en CLP (sin cambios)
   const precioFinalCLP = currencyOriginal === 'USD' 
     ? Math.round(precioFinalEnMonedaOriginal * valorDolarDia) 
     : precioFinalEnMonedaOriginal;
   
   const descuentoTotalCLP = totalPriceCLP - precioFinalCLP;
 
+  // Renderizar Resumen en Moneda Original (si aplica)
   if (currencyOriginal !== 'CLP') {
     summaryOriginalContainer.classList.remove('hidden');
     summaryOriginalContainer.innerHTML = `
       <h4 class="font-bold text-blue-800 text-center mb-1">Valores en ${currencyOriginal}</h4>
-      <div class="flex justify-between text-sm"><span class="text-gray-600">Precio de Lista:</span><span class="font-medium">${formatCurrency(totalPriceOriginal, currencyOriginal)}</span></div>
+      <div class="flex justify-between text-sm"><span class="text-gray-600">Precio de Lista:</span><span class="font-medium">${formatCurrency(precioLista, currencyOriginal)}</span></div>
       <div class="flex justify-between text-sm text-red-600"><span class="font-medium">Descuento Total:</span><span class="font-medium">-${formatCurrency(descuentoTotalEnMonedaOriginal, currencyOriginal)}</span></div>
       <div class="flex justify-between text-base font-bold border-t pt-2 mt-2"><span>Total (${currencyOriginal}):</span><span class="text-blue-600">${formatCurrency(precioFinalEnMonedaOriginal, currencyOriginal)}</span></div>
     `;
@@ -269,6 +323,7 @@ export function updateSummary(pricing) {
     summaryCLPContainer.classList.add('md:col-span-2');
   }
   
+  // Renderizar Resumen en CLP
   summaryCLPContainer.innerHTML = `
     <h4 class="font-bold text-gray-800 text-center mb-1">Totales en CLP</h4>
     <div class="flex justify-between text-sm"><span class="text-gray-600">Noches Totales:</span><span id="summary-noches" class="font-medium">${nights || 0}</span></div>
@@ -398,8 +453,9 @@ export async function handleCuponChange() {
   }
 }
 
+// frontend/src/views/utils.js
+
 export async function handleGuardarPropuesta() {
-  // 1. Validaciones y obtención de cliente
   if (!availabilityData.suggestion) {
     alert('Primero realiza una búsqueda de disponibilidad.');
     return;
@@ -411,85 +467,82 @@ export async function handleGuardarPropuesta() {
     alert('No se pudo procesar el cliente. Verifica los datos.');
     return;
   }
-
-  // 2. Obtener precios calculados desde la UI/estado
+  
   const precioFinalCalculado = parseFloat(document.getElementById('summary-precio-final')?.textContent.replace(/[$.]/g, '')) || 0;
   const nochesCalculadas = parseInt(document.getElementById('summary-noches')?.textContent) || 0;
   
-  // --- INICIO DE LA CORRECCIÓN ---
-  // Leer el precio de lista (Subtotal) directamente del estado, no del DOM.
-  // currentPricing.totalPriceCLP es el valor *antes* de descuentos manuales/cupones.
-  const precioListaCLPCalculado = currentPricing.totalPriceCLP || 0;
-  // --- FIN DE LA CORRECCIÓN ---
+  const summaryContainer = document.getElementById('summary-clp-container');
+  const precioListaElement = summaryContainer.querySelector('div:nth-child(2) > span:nth-child(2)'); // Target "Precio Lista (CLP)"
+  const precioListaCLPCalculado = precioListaElement ? parseFloat(precioListaElement.textContent.replace(/[$.]/g, '')) : (currentPricing.totalPriceCLP || 0);
   
   const descuentoCLPCalculado = precioListaCLPCalculado - precioFinalCalculado;
 
-  // 3. Construir el payload para *guardar* la propuesta (para gestionPropuestasService)
+  // --- INICIO DE LA CORRECCIÓN ---
+  const valorFinalFijado = parseFloat(document.getElementById('valor-final-fijo').value) || 0;
+  // --- FIN DE LA CORRECCIÓN ---
+
   const propuestaPayloadGuardar = {
     fechaLlegada: document.getElementById('fecha-llegada').value,
     fechaSalida: document.getElementById('fecha-salida').value,
     personas: parseInt(document.getElementById('personas').value),
     canalId: document.getElementById('canal-select').value,
     canalNombre: allCanales.find(c => c.id === document.getElementById('canal-select').value)?.nombre || 'Desconocido',
-    cliente: cliente, // Pasa el objeto cliente completo
+    cliente: cliente,
     propiedades: selectedProperties,
-    precioFinal: precioFinalCalculado, // El precio final con descuentos
+    precioFinal: precioFinalCalculado,
     noches: nochesCalculadas,
     moneda: currentPricing.currencyOriginal,
     valorDolarDia: valorDolarDia,
-    valorOriginal: currentPricing.totalPriceOriginal, // El precio de lista en moneda original
+    valorOriginal: currentPricing.totalPriceOriginal,
     codigoCupon: cuponAplicado?.codigo || null,
     idReservaCanal: document.getElementById('id-reserva-canal-input').value || null,
     icalUid: document.getElementById('ical-uid-input').value || null,
     origen: origenReserva,
     sinCamarotes: document.getElementById('sin-camarotes').checked,
     permitirCambios: document.getElementById('permitir-cambios').checked,
+    
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Guardar los descuentos Y el nuevo valor fijo
     descuentoPct: parseFloat(document.getElementById('descuento-pct').value) || 0,
     descuentoFijo: parseFloat(document.getElementById('descuento-fijo-total').value) || 0,
+    valorFinalFijado: valorFinalFijado,
+    // --- FIN DE LA CORRECCIÓN ---
+
     plantillaId: document.getElementById('plantilla-select').value || null
   };
 
-  // 4. Iniciar el proceso de guardado
   const guardarBtn = document.getElementById('guardar-propuesta-btn');
   try {
     guardarBtn.disabled = true;
     guardarBtn.textContent = editId ? 'Actualizando...' : 'Guardando...';
 
-    // 5. LLAMADA A LA API DE GUARDADO
     let propuestaGuardada;
     if (editId) {
-      // Al editar, el payload se envía al endpoint de actualización
       propuestaGuardada = await fetchAPI(`/gestion-propuestas/propuesta-tentativa/${editId}`, {
         method: 'PUT',
         body: propuestaPayloadGuardar
       });
-      // Aseguramos que el ID de la propuesta sea el `editId` para el generador de texto
       propuestaGuardada.id = editId;
     } else {
-      // Al crear, se envía al endpoint de creación
       propuestaGuardada = await fetchAPI('/gestion-propuestas/propuesta-tentativa', {
         method: 'POST',
         body: propuestaPayloadGuardar
       });
     }
 
-    // 6. Construir el payload para *generar el texto* (para mensajeService)
-    // Este payload SÍ necesita los detalles de precios.
     const payloadTexto = {
-      ...propuestaPayloadGuardar, // Reutiliza la mayoría de los datos
-      idPropuesta: propuestaGuardada.id, // El ID devuelto/usado al guardar
-      precioListaCLP: precioListaCLPCalculado, // <-- Este valor ahora será correcto
+      ...propuestaPayloadGuardar,
+      idPropuesta: propuestaGuardada.id,
+      precioListaCLP: precioListaCLPCalculado,
       descuentoCLP: descuentoCLPCalculado,
-      pricingDetails: currentPricing.details || [] // Los detalles del desglose de precios
+      pricingDetails: currentPricing.details || []
     };
-
-    // 7. LLAMADA A LA API DE GENERACIÓN DE TEXTO
+    
     const resultadoTexto = await fetchAPI('/propuestas/generar-texto', {
         method: 'POST',
         body: payloadTexto
     });
 
-    // 8. Mostrar el resultado
     document.getElementById('propuesta-texto').value = resultadoTexto.texto;
     document.getElementById('propuesta-guardada-modal').classList.remove('hidden');
 
@@ -497,7 +550,6 @@ export async function handleGuardarPropuesta() {
     console.error('Error al guardar propuesta:', error);
     alert(`Error al guardar: ${error.message}`);
   } finally {
-    // 9. Resetear el botón
     guardarBtn.disabled = false;
     guardarBtn.textContent = editId ? 'Actualizar Propuesta' : 'Crear Reserva Tentativa';
   }
@@ -539,90 +591,97 @@ export function handleEditMode() {
 
 // frontend/src/views/utils.js
 
+// frontend/src/views/utils.js
+
 export async function handleCargarPropuesta(loadDocId, editIdGrupo, propIdsQuery) {
-    const params = new URLSearchParams(window.location.search);
+  const params = new URLSearchParams(window.location.search);
 
-    try {
-        // --- INICIO DE LA CORRECCIÓN ---
-        // 1. LEER DATOS DE LA URL
-        // La URL (de gestionarPropuestas) es la fuente de verdad para la BÚSQUEDA.
-        const fechaLlegada = params.get('fechaLlegada');
-        const fechaSalida = params.get('fechaSalida');
-        const personas = params.get('personas');
-        const canalId = params.get('canalId');
+  try {
+    // 1. Rellenar formulario desde la URL
+    const fechaLlegada = params.get('fechaLlegada');
+    const fechaSalida = params.get('fechaSalida');
+    const personas = params.get('personas');
+    const canalId = params.get('canalId');
+    
+    document.getElementById('fecha-llegada').value = fechaLlegada || '';
+    document.getElementById('fecha-salida').value = fechaSalida || '';
+    document.getElementById('personas').value = personas || '1';
+    if (canalId) {
+      document.getElementById('canal-select').value = canalId;
+    }
+
+    // 2. Ejecutar la búsqueda con los datos rellenados
+    const searchSuccess = await runSearch();
+    
+    // 3. Cargar la reserva para datos de cliente y descuentos
+    const propuesta = await fetchAPI(`/reservas/${loadDocId}`);
+    if (!propuesta) {
+      alert('Reserva no encontrada');
+      handleNavigation('/gestionar-propuestas');
+      return;
+    }
+
+    // 4. Rellenar campos restantes (Cliente, ID Canal, etc.)
+    if (propuesta.cliente) {
+      if (propuesta.cliente.id) {
+        selectedClient = propuesta.cliente;
+        document.getElementById('client-search').value = propuesta.cliente.nombre;
+        document.getElementById('client-form-title').textContent = '... o actualiza los datos del cliente seleccionado';
+      }
+      document.getElementById('new-client-name').value = propuesta.cliente.nombre || '';
+      document.getElementById('new-client-phone').value = propuesta.cliente.telefono || '';
+      document.getElementById('new-client-email').value = propuesta.cliente.email || '';
+    }
+
+    document.getElementById('id-reserva-canal-input').value = propuesta.idReservaCanal || editIdGrupo;
+    if (propuesta.icalUid) {
+      document.getElementById('ical-uid-input').value = propuesta.icalUid;
+      document.getElementById('ical-uid-container').classList.remove('hidden');
+    }
+    document.getElementById('guardar-propuesta-btn').textContent = 'Actualizar Propuesta';
+    if (propuesta.plantillaId) {
+      document.getElementById('plantilla-select').value = propuesta.plantillaId;
+    }
+
+    // 5. Rellenar checkboxes y descuentos
+    if (searchSuccess && propIdsQuery) {
+        const selectedIds = new Set(propIdsQuery.split(','));
         
-        // 2. RELLENAR EL FORMULARIO *ANTES* DE BUSCAR
-        // Esto soluciona el error "Personas: 0"
-        document.getElementById('fecha-llegada').value = fechaLlegada || '';
-        document.getElementById('fecha-salida').value = fechaSalida || '';
-        document.getElementById('personas').value = personas || '1';
-        if (canalId) {
-            document.getElementById('canal-select').value = canalId;
+        document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
+          cb.checked = selectedIds.has(cb.dataset.id);
+        });
+
+        selectedProperties = (availabilityData.allValidProperties || allProperties).filter(p => selectedIds.has(p.id));
+        
+        // Forzar recálculo
+        await handleSelectionChange();
+
+        // 6. Aplicar descuentos/cupones y el NUEVO VALOR FIJO
+        if (propuesta.valores?.codigoCupon) {
+          document.getElementById('cupon-input').value = propuesta.valores.codigoCupon;
+          await handleCuponChange(); // Validar y aplicar
         }
-
-        // 3. EJECUTAR BÚSQUEDA
-        // runSearch() ahora leerá "personas" del formulario (ej: 6)
-        // y pasará el 'editId' al backend para excluir esta reserva de la ocupación.
-        const searchSuccess = await runSearch();
-        // --- FIN DE LA CORRECCIÓN ---
-
-        // 4. Cargar el resto de los datos de la reserva (cliente, descuentos, etc.)
-        const propuesta = await fetchAPI(`/reservas/${loadDocId}`);
-        if (!propuesta) {
-            alert('Reserva no encontrada');
-            handleNavigation('/gestionar-propuestas');
-            return;
-        }
-
-        // 5. Rellenar campos restantes (Cliente, ID Canal, etc.)
-        if (propuesta.cliente) {
-            if (propuesta.cliente.id) {
-                selectedClient = propuesta.cliente;
-                document.getElementById('client-search').value = propuesta.cliente.nombre;
-                document.getElementById('client-form-title').textContent = '... o actualiza los datos del cliente seleccionado';
-            }
-            document.getElementById('new-client-name').value = propuesta.cliente.nombre || '';
-            document.getElementById('new-client-phone').value = propuesta.cliente.telefono || '';
-            document.getElementById('new-client-email').value = propuesta.cliente.email || '';
-        }
-
-        document.getElementById('id-reserva-canal-input').value = propuesta.idReservaCanal || editIdGrupo;
-        if (propuesta.icalUid) {
-            document.getElementById('ical-uid-input').value = propuesta.icalUid;
-            document.getElementById('ical-uid-container').classList.remove('hidden');
-        }
-
-        document.getElementById('guardar-propuesta-btn').textContent = 'Actualizar Propuesta';
-
-        // Rellenar checkboxes y descuentos
-        if (searchSuccess && propIdsQuery) {
-            const selectedIds = new Set(propIdsQuery.split(','));
-            
-            document.querySelectorAll('.propiedad-checkbox').forEach(cb => {
-              cb.checked = selectedIds.has(cb.dataset.id);
-            });
-
-            // Forzar que 'selectedProperties' en memoria sea correcto
-            selectedProperties = (availabilityData.allValidProperties || allProperties).filter(p => selectedIds.has(p.id));
-            
-            // Forzar recálculo (si `runSearch` no lo hizo) y aplicar descuentos
-            await handleSelectionChange();
-
-            // Aplicar descuentos/cupones guardados
-            if (propuesta.valores?.codigoCupon) {
-              document.getElementById('cupon-input').value = propuesta.valores.codigoCupon;
-              await handleCuponChange(); // Validar y aplicar
-            }
-            
+        
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Cargar el valor final fijo (si existe)
+        const valorFijoGuardado = propuesta.valores?.valorFinalFijado || 0;
+        if (valorFijoGuardado > 0) {
+            document.getElementById('valor-final-fijo').value = valorFijoGuardado;
+        } else {
+            // Si no había valor fijo, cargar los descuentos manuales
             document.getElementById('descuento-pct').value = propuesta.valores?.descuentoPct || '';
             document.getElementById('descuento-fijo-total').value = propuesta.valores?.descuentoFijo || '';
-            updateSummary(currentPricing); // Actualizar resumen final con descuentos
         }
-    } catch (error) {
-        console.error('Error al cargar la propuesta:', error);
-        alert(`Error al cargar la propuesta: ${error.message}`);
-        handleNavigation('/gestionar-propuestas');
+        
+        // Volver a ejecutar updateSummary para aplicar la lógica de prioridad
+        updateSummary(currentPricing);
+        // --- FIN DE LA CORRECCIÓN ---
     }
+  } catch (error) {
+    console.error('Error al cargar la propuesta:', error);
+    alert(`Error al cargar la propuesta: ${error.message}`);
+    handleNavigation('/gestionar-propuestas');
+  }
 }
 
 async function obtenerOcrearCliente() {
