@@ -226,7 +226,8 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
                     valorTotalHuesped: 0, costoCanal: 0, payoutFinalReal: 0, 
                     valorPotencial: 0, descuentoPotencialPct: 0, abonoProporcional: 0, 
                     saldo: 0, ajusteCobro: 0, valorHuespedOriginal: 0, 
-                    costoCanalOriginal: 0, moneda: reservaData.moneda || 'CLP', valorDolarUsado: null
+                    costoCanalOriginal: 0, moneda: reservaData.moneda || 'CLP', valorDolarUsado: null,
+                    valorPotencialOriginal_DB: 0
                 },
                 datosGrupo: { propiedades: [reservaData.alojamientoNombre], valorTotal: 0, payoutTotal: 0, abonoTotal: 0, saldo: 0 }
             };
@@ -255,12 +256,15 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
     const notas = notasSnapshot.docs.map(d => ({...d.data(), fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
     const transacciones = transaccionesSnapshot.docs.map(d => ({...d.data(), id: d.id, fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
 
-    // --- LÓGICA DE VALORIZACIÓN FLOTANTE (Paso anterior) ---
+    // --- LÓGICA DE VALORIZACIÓN FLOTANTE (Corregida en G-019) ---
     let valorHuespedCLP, costoCanalCLP, payoutCLP;
     let valorDolarUsado = null;
     const moneda = reservaData.moneda || 'CLP';
+
+    // ¡AHORA SÍ DEBERÍAN LEER LOS VALORES CORRECTOS!
     const valorHuespedOriginal = reservaData.valores?.valorHuespedOriginal || 0;
     const costoCanalOriginal = reservaData.valores?.comisionOriginal || reservaData.valores?.costoCanalOriginal || 0;
+    
     const valorHuespedCongelado = reservaData.valores?.valorHuesped || 0;
     const costoCanalCongelado = reservaData.valores?.comision || reservaData.valores?.costoCanal || 0;
 
@@ -287,7 +291,7 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
     // --- LÓGICA DE DATOS DE GRUPO (Cálculo de Abono) ---
     const datosGrupo = {
         propiedades: reservasDelGrupo.map(r => r.alojamientoNombre),
-        valorTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0), // (Sigue siendo un desafío, el grupo no se recalcula flotante aquí)
+        valorTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0),
         payoutTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorTotal || 0), 0),
         abonoTotal: transacciones.reduce((sum, t) => sum + (t.monto || 0), 0),
     };
@@ -300,27 +304,35 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
     // --- INICIO DE LA MODIFICACIÓN: Cálculo correcto de Valor Potencial ---
     
     // 1. Cargar el "Precio Base" (Valor Canal Base) desde la BBDD.
-    //    Este campo DEBE ser calculado y guardado por el servicio de Carga/Consolidación.
-    const valorCanalBase_CLP = reservaData.valores?.valorPotencial || 0;
+    //    (Está en USD/Moneda Original, como vimos en sincronizacionService)
+    const valorCanalBase_Original = reservaData.valores?.valorOriginal || 0; 
 
-    // 2. Cargar el "Precio Externo" (ya lo tenemos de la lógica flotante)
-    const valorCanalExterno_CLP = valorHuespedCLP;
+    // 2. Cargar el "Precio Externo" (ya lo tenemos en CLP)
+    const valorCanalExterno_CLP = valorHuespedCLP; 
 
-    // 3. Calcular los dos campos que ve el modal
+    // 3. Convertir el Precio Base a CLP usando el mismo dólar flotante
+    //    (valorDolarUsado fue calculado en la lógica de valorización anterior)
+    let valorCanalBase_CLP = 0;
+    if (moneda === 'CLP') {
+        valorCanalBase_CLP = valorCanalBase_Original; // Si la reserva es CLP, el valor original es CLP
+    } else if (moneda !== 'CLP' && valorDolarUsado > 0) {
+        valorCanalBase_CLP = valorCanalBase_Original * valorDolarUsado; // Convertir KPI (USD) a KPI (CLP)
+    }
+
+    // 4. Calcular los dos campos que ve el modal
     let valorPotencial_Monto = 0; // El monto de la "pérdida"
     let valorPotencial_Pct = 0;   // El porcentaje de esa "pérdida"
 
-    // Solo calcular si el Precio Base es válido y mayor que el precio externo
     if (valorCanalBase_CLP > 0 && valorCanalBase_CLP > valorCanalExterno_CLP) {
         valorPotencial_Monto = valorCanalBase_CLP - valorCanalExterno_CLP;
         valorPotencial_Pct = (valorPotencial_Monto / valorCanalBase_CLP) * 100;
     }
     // --- FIN DE LA MODIFICACIÓN ---
 
-    const valorHuespedOriginalBBDD = reservaData.valores?.valorHuespedOriginal || 0; // Esto es confuso, es el valorHuesped en USD
-    const ajusteCobro = (valorHuespedOriginalBBDD > 0 && valorHuespedOriginalBBDD !== valorHuespedCLP)
-        ? valorHuespedCLP - valorHuespedOriginalBBDD
-        : 0; // (Esta lógica de 'ajusteCobro' parece incorrecta, compara USD (valorHuespedOriginalBBDD) con CLP)
+    // (Esta lógica de 'ajusteCobro' sigue siendo confusa, pero la mantenemos)
+    const ajusteCobro = (valorHuespedOriginal > 0 && valorHuespedOriginal !== valorHuespedCLP)
+        ? valorHuespedCLP - valorHuespedOriginal
+        : 0;
 
 
     return {
@@ -341,22 +353,21 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
             saldo: Math.round(valorHuespedCLP - abonoProporcional),
             abonoProporcional: Math.round(abonoProporcional),
 
-            // Valores Originales (Moneda Extranjera) - El frontend NO los está usando
+            // Valores Originales (Moneda Extranjera) - ¡Ahora deberían tener datos!
             valorHuespedOriginal: valorHuespedOriginal, 
             costoCanalOriginal: costoCanalOriginal,
 
-            // Metadatos de la valorización - El frontend NO los está usando
+            // Metadatos de la valorización
             moneda: moneda,
             valorDolarUsado: valorDolarUsado,
 
-            // Analítica de Potencial (Esto SÍ lo usa el frontend)
+            // Analítica de Potencial (¡Ahora debería calcularse bien!)
             valorPotencial: Math.round(valorPotencial_Monto),
             descuentoPotencialPct: valorPotencial_Pct,
-            
-            // (Campos heredados, revisar lógica de 'ajusteCobro')
+          
+            // (Campos heredados)
             ajusteCobro: Math.round(ajusteCobro),
-            valorHuespedOriginal: valorHuespedOriginal, // (Confuso, frontend puede estar usando este mal)
-            valorPotencialOriginal_DB: valorCanalBase_CLP // (Devuelvo el precio base por si acaso)
+            valorPotencialOriginal_DB: valorCanalBase_CLP
         },
         // --- FIN DE LA MODIFICACIÓN ---
         datosGrupo
