@@ -1,156 +1,185 @@
 // backend/services/gestionService.js
 
 const admin = require('firebase-admin');
+const { obtenerValorDolarHoy } = require('./dolarService');
 
 const getReservasPendientes = async (db, empresaId) => {
-    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
-    
-    // CAMBIO: Obtener dinámicamente los estados de gestión desde la nueva colección
-    const estadosSnapshot = await db.collection('empresas').doc(empresaId).collection('estadosReserva').where('esEstadoDeGestion', '==', true).get();
-    const estadosDeGestion = estadosSnapshot.docs.map(doc => doc.data().nombre);
+    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
+    
+    // --- INICIO DE LA MODIFICACIÓN 1: Obtener Dólar Hoy (una vez) ---
+    const dolarHoyData = await obtenerValorDolarHoy(db, empresaId);
+    const valorDolarHoy = dolarHoyData ? dolarHoyData.valor : 950; // Fallback
+    // --- FIN DE LA MODIFICACIÓN 1 ---
 
-    const queries = [];
-    if (estadosDeGestion.length > 0) {
-        queries.push(
-            reservasRef
-                .where('estado', '==', 'Confirmada')
-                .where('estadoGestion', 'in', estadosDeGestion)
-                .get()
-        );
-    }
-    queries.push(reservasRef.where('estado', '==', 'Desconocido').get());
+    const estadosSnapshot = await db.collection('empresas').doc(empresaId).collection('estadosReserva').where('esEstadoDeGestion', '==', true).get();
+    const estadosDeGestion = estadosSnapshot.docs.map(doc => doc.data().nombre);
 
-    const snapshots = await Promise.all(queries);
-    const [gestionSnapshot, desconocidoSnapshot] = snapshots;
+    const queries = [];
+    if (estadosDeGestion.length > 0) {
+        queries.push(
+            reservasRef
+                .where('estado', '==', 'Confirmada')
+                .where('estadoGestion', 'in', estadosDeGestion)
+                .get()
+        );
+    }
+    queries.push(reservasRef.where('estado', '==', 'Desconocido').get());
 
-    const allDocs = [];
-    const docIds = new Set();
+    const snapshots = await Promise.all(queries);
+    const [gestionSnapshot, desconocidoSnapshot] = snapshots;
 
-    if(gestionSnapshot) {
-        gestionSnapshot.forEach(doc => { allDocs.push(doc); docIds.add(doc.id); });
-    }
-    if (desconocidoSnapshot) {
-        desconocidoSnapshot.forEach(doc => { if (!docIds.has(doc.id)) allDocs.push(doc); });
-    }
+    const allDocs = [];
+    const docIds = new Set();
 
-    if (allDocs.length === 0) {
-        return { grupos: [], hasMore: false, lastVisible: null };
-    }
-    
-    allDocs.sort((a, b) => a.data().fechaLlegada.toDate() - b.data().fechaLlegada.toDate());
+    if(gestionSnapshot) {
+        gestionSnapshot.forEach(doc => { allDocs.push(doc); docIds.add(doc.id); });
+    }
+    if (desconocidoSnapshot) {
+        desconocidoSnapshot.forEach(doc => { if (!docIds.has(doc.id)) allDocs.push(doc); });
+    }
 
-    const allReservasData = allDocs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (allDocs.length === 0) {
+        return { grupos: [], hasMore: false, lastVisible: null };
+    }
+    
+    allDocs.sort((a, b) => a.data().fechaLlegada.toDate() - b.data().fechaLlegada.toDate());
 
-    const clienteIds = [...new Set(allReservasData.map(r => r.clienteId).filter(Boolean))];
-    const reservaIdsOriginales = [...new Set(allReservasData.map(r => r.idReservaCanal))];
+    const allReservasData = allDocs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    const [clientesSnapshot, notasSnapshot, transaccionesSnapshot, historialReservasSnapshot] = await Promise.all([
-        clienteIds.length > 0 ? db.collection('empresas').doc(empresaId).collection('clientes').where(admin.firestore.FieldPath.documentId(), 'in', clienteIds).get() : Promise.resolve({ docs: [] }),
-        reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('gestionNotas').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
-        reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('transacciones').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
-        clienteIds.length > 0 ? db.collection('empresas').doc(empresaId).collection('reservas').where('clienteId', 'in', clienteIds).where('estado', '==', 'Confirmada').get() : Promise.resolve({ docs: [] })
-    ]);
+    const clienteIds = [...new Set(allReservasData.map(r => r.clienteId).filter(Boolean))];
+    const reservaIdsOriginales = [...new Set(allReservasData.map(r => r.idReservaCanal))];
 
-    const clientsMap = new Map();
-    clientesSnapshot.docs.forEach(doc => {
-        const clienteData = doc.data();
-        const historialCliente = historialReservasSnapshot.docs
-            .filter(reservaDoc => reservaDoc.data().clienteId === doc.id)
-            .map(reservaDoc => reservaDoc.data());
+    // ... (El resto de las cargas de datos (clientes, notas, transacciones) no cambia) ...
+    const [clientesSnapshot, notasSnapshot, transaccionesSnapshot, historialReservasSnapshot] = await Promise.all([
+        clienteIds.length > 0 ? db.collection('empresas').doc(empresaId).collection('clientes').where(admin.firestore.FieldPath.documentId(), 'in', clienteIds).get() : Promise.resolve({ docs: [] }),
+        reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('gestionNotas').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
+        reservaIdsOriginales.length > 0 ? db.collection('empresas').doc(empresaId).collection('transacciones').where('reservaIdOriginal', 'in', reservaIdsOriginales).get() : Promise.resolve({ docs: [] }),
+        clienteIds.length > 0 ? db.collection('empresas').doc(empresaId).collection('reservas').where('clienteId', 'in', clienteIds).where('estado', '==', 'Confirmada').get() : Promise.resolve({ docs: [] })
+    ]);
 
-        const totalGastado = historialCliente.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0);
-        const numeroDeReservas = historialCliente.length;
-        
-        let tipoCliente = 'Cliente Nuevo';
-        if (totalGastado > 1000000) {
-            tipoCliente = 'Cliente Premium';
-        } else if (numeroDeReservas > 1) {
-            tipoCliente = 'Cliente Frecuente';
-        }
+    // ... (El resto del mapeo de clientsMap, notesCountMap y abonosMap no cambia) ...
+    const clientsMap = new Map();
+    clientesSnapshot.docs.forEach(doc => {
+        const clienteData = doc.data();
+        const historialCliente = historialReservasSnapshot.docs
+            .filter(reservaDoc => reservaDoc.data().clienteId === doc.id)
+            .map(reservaDoc => reservaDoc.data());
+        const totalGastado = historialCliente.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0);
+        const numeroDeReservas = historialCliente.length;
+        let tipoCliente = 'Cliente Nuevo';
+        if (totalGastado > 1000000) tipoCliente = 'Cliente Premium';
+        else if (numeroDeReservas > 1) tipoCliente = 'Cliente Frecuente';
+        clientsMap.set(doc.id, { ...clienteData, numeroDeReservas, tipoCliente });
+    });
+    const notesCountMap = new Map();
+    notasSnapshot.forEach(doc => {
+        const id = doc.data().reservaIdOriginal;
+        notesCountMap.set(id, (notesCountMap.get(id) || 0) + 1);
+    });
+    const abonosMap = new Map();
+    transaccionesSnapshot.forEach(doc => {
+        const id = doc.data().reservaIdOriginal;
+        abonosMap.set(id, (abonosMap.get(id) || 0) + (parseFloat(doc.data().monto) || 0));
+    });
 
-        clientsMap.set(doc.id, {
-            ...clienteData,
-            numeroDeReservas,
-            tipoCliente
-        });
-    });
-    
-    const notesCountMap = new Map();
-    notasSnapshot.forEach(doc => {
-        const id = doc.data().reservaIdOriginal;
-        notesCountMap.set(id, (notesCountMap.get(id) || 0) + 1);
-    });
-    const abonosMap = new Map();
-    transaccionesSnapshot.forEach(doc => {
-        const id = doc.data().reservaIdOriginal;
-        abonosMap.set(id, (abonosMap.get(id) || 0) + (parseFloat(doc.data().monto) || 0));
-    });
 
-    const reservasAgrupadas = new Map();
-    allReservasData.forEach(data => {
-        const reservaId = data.idReservaCanal;
-        if (!reservasAgrupadas.has(reservaId)) {
-            const clienteActual = clientsMap.get(data.clienteId);
-            reservasAgrupadas.set(reservaId, {
-                reservaIdOriginal: reservaId,
-                clienteId: data.clienteId,
-                clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
-                telefono: clienteActual?.telefono || 'N/A',
-                tipoCliente: clienteActual?.tipoCliente || 'Nuevo',
-                numeroDeReservas: clienteActual?.numeroDeReservas || 1,
-                fechaLlegada: data.fechaLlegada?.toDate(),
-                fechaSalida: data.fechaSalida?.toDate(),
-                totalNoches: data.totalNoches,
-                estado: data.estado,
-                estadoGestion: data.estadoGestion,
-                abonoTotal: abonosMap.get(reservaId) || 0,
-                notasCount: notesCountMap.get(reservaId) || 0,
-                transaccionesCount: transaccionesSnapshot.docs.filter(d => d.data().reservaIdOriginal === reservaId).length,
-                reservasIndividuales: []
-            });
-        }
-        reservasAgrupadas.get(reservaId).reservasIndividuales.push(data);
-    });
+    const reservasAgrupadas = new Map();
+    allReservasData.forEach(data => {
+        const reservaId = data.idReservaCanal;
+        if (!reservasAgrupadas.has(reservaId)) {
+            const clienteActual = clientsMap.get(data.clienteId);
+            reservasAgrupadas.set(reservaId, {
+                reservaIdOriginal: reservaId,
+                clienteId: data.clienteId,
+                clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
+                telefono: clienteActual?.telefono || 'N/A',
+                tipoCliente: clienteActual?.tipoCliente || 'Nuevo',
+                numeroDeReservas: clienteActual?.numeroDeReservas || 1,
+                fechaLlegada: data.fechaLlegada?.toDate(),
+                fechaSalida: data.fechaSalida?.toDate(),
+                totalNoches: data.totalNoches,
+                estado: data.estado,
+                estadoGestion: data.estadoGestion,
+                abonoTotal: abonosMap.get(reservaId) || 0, // Este valor es correcto (estático)
+                notasCount: notesCountMap.get(reservaId) || 0,
+                transaccionesCount: transaccionesSnapshot.docs.filter(d => d.data().reservaIdOriginal === reservaId).length,
+                reservasIndividuales: []
+            });
+        }
+        reservasAgrupadas.get(reservaId).reservasIndividuales.push(data);
+    });
 
-    const gruposProcesados = Array.from(reservasAgrupadas.values()).map(grupo => {
-        const primerReserva = grupo.reservasIndividuales[0];
-        const esUSD = primerReserva.moneda === 'USD';
+    const gruposProcesados = Array.from(reservasAgrupadas.values()).map(grupo => {
+        const primerReserva = grupo.reservasIndividuales[0];
+        // --- INICIO DE LA MODIFICACIÓN 2: Usar variables consistentes ---
+        const monedaGrupo = primerReserva.moneda || 'CLP';
+        const estadoGestionGrupo = primerReserva.estadoGestion;
+        // --- FIN DE LA MODIFICACIÓN 2 ---
 
-        const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
-            acc.valorTotalHuesped += r.valores?.valorHuesped || 0;
-            acc.costoCanal += (r.valores?.comision > 0 ? r.valores.comision : r.valores?.costoCanal || 0);
-            acc.valorListaBaseTotal += r.valores?.valorOriginal || 0;
-            if (r.ajusteManualRealizado) acc.ajusteManualRealizado = true;
-            if (r.potencialCalculado) acc.potencialCalculado = true;
-            if (r.clienteGestionado) acc.clienteGestionado = true;
-            if (r.documentos) acc.documentos = { ...acc.documentos, ...r.documentos };
-            return acc;
-        }, { valorTotalHuesped: 0, costoCanal: 0, valorListaBaseTotal: 0, ajusteManualRealizado: false, potencialCalculado: false, clienteGestionado: false, documentos: {} });
-        
-        const resultado = {
-            ...grupo,
-            ...valoresAgregados,
-            esUSD,
-            payoutFinalReal: valoresAgregados.valorTotalHuesped - valoresAgregados.costoCanal
-        };
+        const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
+            
+            // --- INICIO DE LA MODIFICACIÓN 3: Lógica Flotante dentro del Reduce ---
+            let valorHuespedFinal = r.valores?.valorHuesped || 0;
+            let costoCanalFinal = (r.valores?.comision > 0 ? r.valores.comision : r.valores?.costoCanal || 0);
 
-        if (esUSD) {
-            const valorDolarDia = primerReserva.valorDolarDia || 1;
-            const totalPayoutUSD = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorOriginal || 0), 0);
-            const totalIvaCLP = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.iva || 0), 0);
-            const totalIvaUSD = valorDolarDia > 0 ? totalIvaCLP / valorDolarDia : 0;
+            // Si es moneda extranjera Y NO está Facturado, recalcular
+            if (monedaGrupo !== 'CLP' && estadoGestionGrupo !== 'Facturado') {
+                const valorHuespedOriginal = r.valores?.valorHuespedOriginal || 0;
+                const costoCanalOriginal = r.valores?.comisionOriginal || r.valores?.costoCanalOriginal || 0;
+                
+                if (valorHuespedOriginal > 0) {
+                    valorHuespedFinal = Math.round(valorHuespedOriginal * valorDolarHoy);
+                    costoCanalFinal = Math.round(costoCanalOriginal * valorDolarHoy);
+                }
+            }
+            // --- FIN DE LA MODIFICACIÓN 3 ---
             
-            resultado.valoresUSD = {
-                payout: totalPayoutUSD,
-                iva: totalIvaUSD,
-                totalCliente: totalPayoutUSD + totalIvaUSD
-            };
-        }
+            // Usar los valores finales (flotantes o estáticos)
+            acc.valorTotalHuesped += valorHuespedFinal;
+            acc.costoCanal += costoCanalFinal;
 
-        return resultado;
-    });
-    
-    return { grupos: gruposProcesados, hasMore: false, lastVisible: null };
+            acc.valorListaBaseTotal += r.valores?.valorOriginal || 0; // (Se mantiene, parece ser USD original)
+            if (r.ajusteManualRealizado) acc.ajusteManualRealizado = true;
+            if (r.potencialCalculado) acc.potencialCalculado = true;
+            if (r.clienteGestionado) acc.clienteGestionado = true;
+            if (r.documentos) acc.documentos = { ...acc.documentos, ...r.documentos };
+            return acc;
+        }, { valorTotalHuesped: 0, costoCanal: 0, valorListaBaseTotal: 0, ajusteManualRealizado: false, potencialCalculado: false, clienteGestionado: false, documentos: {} });
+        
+        const resultado = {
+            ...grupo,
+            ...valoresAgregados,
+            esUSD: monedaGrupo === 'USD', // Usar la variable consistente
+            payoutFinalReal: valoresAgregados.valorTotalHuesped - valoresAgregados.costoCanal
+            // El 'saldo' (valorTotalHuesped - abonoTotal) ahora será correcto
+        };
+
+        // --- INICIO DE LA MODIFICACIÓN 4: Usar Dólar Correcto para 'valoresUSD' ---
+        if (resultado.esUSD) {
+            // Determinar qué valor del dólar usar
+            const valorDolarParaCalculo = (estadoGestionGrupo === 'Facturado')
+                ? (primerReserva.valores?.valorDolarFacturacion || valorDolarHoy) // Usar 'congelado'
+                : valorDolarHoy; // Usar 'flotante'
+
+            // 'valorOriginal' parece ser el Payout Original en USD
+            const totalPayoutUSD = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorOriginal || 0), 0);
+            // 'iva' parece ser el IVA en CLP
+            const totalIvaCLP = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.iva || 0), 0);
+            // Convertir IVA de CLP a USD usando el valor del dólar correcto
+            const totalIvaUSD = valorDolarParaCalculo > 0 ? totalIvaCLP / valorDolarParaCalculo : 0;
+            
+            resultado.valoresUSD = {
+                payout: totalPayoutUSD,
+                iva: totalIvaUSD,
+                totalCliente: totalPayoutUSD + totalIvaUSD
+            };
+        }
+        // --- FIN DE LA MODIFICACIÓN 4 ---
+
+        return resultado;
+    });
+    
+    return { grupos: gruposProcesados, hasMore: false, lastVisible: null };
 };
 
 
