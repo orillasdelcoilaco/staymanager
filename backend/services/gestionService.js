@@ -2,6 +2,7 @@
 
 const admin = require('firebase-admin');
 const { obtenerValorDolarHoy } = require('./dolarService');
+const { obtenerEstados } = require('./estadosService');
 
 // Función de utilidad para "trocear" arrays grandes
 const splitIntoChunks = (arr, size) => {
@@ -239,15 +240,54 @@ const getReservasPendientes = async (db, empresaId) => {
     return { grupos: gruposProcesados, hasMore: false, lastVisible: null };
 };
 
-
 const actualizarEstadoGrupo = async (db, empresaId, idsIndividuales, nuevoEstado) => {
+    
+    // --- INICIO DE LA MODIFICACIÓN: Lógica de Estados Inteligente ---
+    
+    // 1. Obtener todas las definiciones de estados que creaste en "gestionarEstados"
+    const allEstados = await obtenerEstados(db, empresaId);
+    
+    // 2. Encontrar la definición del estado que el usuario seleccionó (ej. "No Presentado")
+    const estadoDef = allEstados.find(e => e.nombre === nuevoEstado);
+
+    const updateData = {};
+
+    if (estadoDef) {
+        // 3. Aplicar la lógica basada en el tipo de estado
+        
+        if (estadoDef.esEstadoPrincipal) {
+            // Si es un estado Principal (ej. "No Presentado", "Cancelada", "Confirmada")
+            // Actualizamos el 'estado' principal de la reserva.
+            updateData.estado = nuevoEstado;
+        }
+
+        if (estadoDef.esEstadoDeGestion) {
+            // Si es un estado de Gestión (ej. "Pendiente Check-in", "En Casa")
+            // Actualizamos el 'estadoGestion'.
+            updateData.estadoGestion = nuevoEstado;
+        } else if (estadoDef.esEstadoPrincipal) {
+            // Si es Principal PERO NO de Gestión (ej. "No Presentado")
+            // Limpiamos el estado de gestión, sacándolo del flujo.
+            updateData.estadoGestion = null;
+        }
+
+    } else {
+        // Fallback para estados especiales no definidos en la colección 
+        // (como "Facturado", que se maneja en reservasService)
+        console.warn(`[actualizarEstadoGrupo] El estado "${nuevoEstado}" no se encontró en 'estadosReserva'. Actualizando solo 'estadoGestion'.`);
+        updateData.estadoGestion = nuevoEstado;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+
+    // 4. Aplicar la actualización a todas las reservas del grupo
     const batch = db.batch();
-    idsIndividuales.forEach(id => {
-        const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);
-        batch.update(ref, { estadoGestion: nuevoEstado });
-    });
-    await batch.commit();
+    idsIndividuales.forEach(id => {
+        const ref = db.collection('empresas').doc(empresaId).collection('reservas').doc(id);
+        batch.update(ref, updateData);
+    });
+    await batch.commit();
 };
+
 
 const getNotas = async (db, empresaId, reservaIdOriginal) => {
     const snapshot = await db.collection('empresas').doc(empresaId).collection('gestionNotas')
