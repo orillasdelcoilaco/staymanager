@@ -72,10 +72,10 @@ async function abrirModalVer(reservaId) {
         // --- 2. Información General (Sin cambios) ---
         document.getElementById('view-modal-title').textContent = `Detalle Reserva: ${data.idReservaCanal}`;
         document.getElementById('view-alojamiento').textContent = data.alojamientoNombre;
+// ... (resto de campos generales) ...
         document.getElementById('view-canal').textContent = data.canalNombre;
         document.getElementById('view-checkin').textContent = formatDate(data.fechaLlegada);
         document.getElementById('view-checkout').textContent = formatDate(data.fechaSalida);
-        // ... (resto de campos generales) ...
         document.getElementById('view-noches').textContent = data.totalNoches;
         document.getElementById('view-huespedes').textContent = data.cantidadHuespedes;
         document.getElementById('view-estado-reserva').textContent = data.estado;
@@ -85,8 +85,8 @@ async function abrirModalVer(reservaId) {
 
         // --- 3. Información del Cliente (Sin cambios) ---
         document.getElementById('view-cliente-nombre').textContent = data.cliente.nombre || '-';
+// ... (resto de campos de cliente) ...
         document.getElementById('view-cliente-telefono').textContent = data.cliente.telefono || '-';
-        // ... (resto de campos de cliente) ...
         document.getElementById('view-cliente-email').textContent = data.cliente.email || '-';
         document.getElementById('view-cliente-pais').textContent = data.cliente.pais || '-';
         document.getElementById('view-cliente-calificacion').innerHTML = formatStars(data.cliente.calificacion);
@@ -94,11 +94,12 @@ async function abrirModalVer(reservaId) {
         document.getElementById('view-cliente-notas').textContent = data.cliente.notas || 'Sin notas.';
         
         
-        // --- 4. NUEVO ANÁLISIS FINANCIERO ---
+        // --- 4. NUEVO ANÁLISIS FINANCIERO (Corregido) ---
         
         const { datosIndividuales } = data;
         const moneda = datosIndividuales.moneda || 'CLP';
         const esMonedaExtranjera = moneda !== 'CLP';
+        const noches = data.totalNoches > 0 ? data.totalNoches : 1; // Evitar división por cero
 
         const createRow = (label, clpValue, usdValue = null, isBold = false) => {
             const clpFormatted = formatCurrency(clpValue);
@@ -128,13 +129,21 @@ async function abrirModalVer(reservaId) {
         const desgloseEl = document.getElementById('view-desglose-valores');
         let desgloseHTML = '<table class="w-full">_HEADER_<tbody>_ROWS_</tbody></table>';
         let desgloseRows = '';
+        
+        // CORRECCIÓN 1: Calcular Subtotal (Base IVA) correctamente
+        const subtotalCLP = datosIndividuales.valorTotalHuesped - datosIndividuales.iva;
+        const subtotalUSD = datosIndividuales.valorHuespedOriginal - datosIndividuales.ivaOriginal;
+
         desgloseRows += createRow('Payout (Anfitrión)', datosIndividuales.payoutFinalReal, datosIndividuales.valorTotalOriginal, true); // valorTotalOriginal es Payout
-        desgloseRows += createRow('(+) Comisión (Sumable)', datosIndividuales.comision, datosIndividuales.comisionOriginal);
-        desgloseRows += createRow('(=) Subtotal (Base IVA)', (datosIndividuales.payoutFinalReal + datosIndividuales.comision), (datosIndividuales.valorTotalOriginal + datosIndividuales.comisionOriginal));
+        desgloseRows += createRow('(+) Comisión (Sumable)', (subtotalCLP - datosIndividuales.payoutFinalReal), (subtotalUSD - datosIndividuales.valorTotalOriginal)); // (Subtotal - Payout)
+        desgloseRows += createRow('(=) Subtotal (Base IVA)', subtotalCLP, subtotalUSD); // (Total - IVA)
         desgloseRows += createRow('(+) IVA (Calculado)', datosIndividuales.iva, datosIndividuales.ivaOriginal);
         desgloseRows += createRow('Total Cliente (A)', datosIndividuales.valorTotalHuesped, datosIndividuales.valorHuespedOriginal, true);
         desgloseRows += createRow('(Info) Costo Canal', datosIndividuales.costoCanal, datosIndividuales.costoCanalOriginal);
         
+        // CORRECCIÓN 2: Añadir Valor Noche
+        desgloseRows += createRow('Valor Noche (Canal)', (datosIndividuales.valorTotalHuesped / noches), (datosIndividuales.valorHuespedOriginal / noches));
+
         desgloseEl.innerHTML = desgloseHTML.replace('_HEADER_', createHeader()).replace('_ROWS_', desgloseRows);
 
         // --- Sección 3: Análisis de Cobranza ---
@@ -142,10 +151,16 @@ async function abrirModalVer(reservaId) {
         let cobranzaHTML = '<table class="w-full">_HEADER_<tbody>_ROWS_</tbody></table>';
         let cobranzaRows = '';
         cobranzaRows += createRow('Total Cliente (A)', datosIndividuales.valorTotalHuesped, datosIndividuales.valorHuespedOriginal, true);
-        cobranzaRows += createRow('(-) Abonos Recibidos', datosIndividuales.abonoProporcional, 0); // (Abono solo se maneja en CLP)
-        cobranzaRows += createRow('Saldo Pendiente', datosIndividuales.saldo, datosIndividuales.valorHuespedOriginal, true);
+        cobranzaRows += createRow('(-) Abonos Recibidos', datosIndividuales.abonoProporcional, 0);
+        cobranzaRows += createRow('Saldo Pendiente', datosIndividuales.saldo, (datosIndividuales.valorHuespedOriginal - (datosIndividuales.abonoProporcional / (datosIndividuales.valorDolarUsado || 1))), true);
+        
+        // CORRECCIÓN 3: Etiqueta de Dólar Fijo/Flotante
         if (esMonedaExtranjera && datosIndividuales.valorDolarUsado) {
-            cobranzaRows += `<tr class="border-t"><td class="pt-2 text-gray-500" colspan="3">Valor Dólar Usado: ${formatCurrency(datosIndividuales.valorDolarUsado)} (${datosIndividuales.valorDolarUsado > 0 ? (datosIndividuales.esFijo ? 'Fijo' : 'Flotante') : 'N/A'})</td></tr>`;
+            let etiquetaDolar = `(Flotante)`;
+            if (datosIndividuales.esValorFijo) {
+                etiquetaDolar = `(Fijo al ${formatDate(data.fechaLlegada)})`;
+            }
+            cobranzaRows += `<tr class="border-t"><td class="pt-2 text-gray-500" colspan="3">Valor Dólar Usado: ${formatCurrency(datosIndividuales.valorDolarUsado)} ${etiquetaDolar}</td></tr>`;
         }
         cobranzaEl.innerHTML = cobranzaHTML.replace('_HEADER_', createHeader()).replace('_ROWS_', cobranzaRows);
 
@@ -160,12 +175,13 @@ async function abrirModalVer(reservaId) {
 
         kpiEl.innerHTML = kpiHTML.replace('_HEADER_', createHeader()).replace('_ROWS_', kpiRows);
         
-        // --- 5. Trazabilidad (Ya está en el HTML) ---
-        // (En el futuro, aquí se popularía #view-historial-ajustes)
+        // --- 5. Trazabilidad (Aclaración) ---
+        document.getElementById('view-historial-ajustes').innerHTML = '<p class="text-gray-500">Ajustes manuales (cupones, descuentos) aún no implementados en esta vista.</p>';
 
 
         // --- Transacciones y Notas (Sin cambios) ---
         const transaccionesContainer = document.getElementById('view-transacciones-list');
+// ... (resto de la función de transacciones y notas sin cambios) ...
         if (data.transacciones.length > 0) {
             transaccionesContainer.innerHTML = data.transacciones.map(t => `
                 <div class="bg-gray-50 p-2 rounded grid grid-cols-4 gap-2 items-center">

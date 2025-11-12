@@ -232,7 +232,8 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
                     valorTotalOriginal: 0, // Payout
                     ivaOriginal: 0,
                     moneda: reservaData.moneda || 'CLP', valorDolarUsado: null,
-                    valorPotencialOriginal_DB: 0
+                    valorPotencialOriginal_DB: 0,
+                    esValorFijo: false // Añadido para iCal
                 },
                 datosGrupo: { propiedades: [reservaData.alojamientoNombre], valorTotal: 0, payoutTotal: 0, abonoTotal: 0, saldo: 0 }
             };
@@ -261,7 +262,7 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
     const notas = notasSnapshot.docs.map(d => ({...d.data(), fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
     const transacciones = transaccionesSnapshot.docs.map(d => ({...d.data(), id: d.id, fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
 
-    // --- INICIO DE LA MODIFICACIÓN: Lógica de Valor Fijo/Flotante ---
+    // --- Lógica de Valor Fijo/Flotante (Corregida en G-025) ---
     let valorHuespedCLP, costoCanalCLP, payoutCLP, ivaCLP;
     let valorDolarUsado = null;
     const moneda = reservaData.moneda || 'CLP';
@@ -271,34 +272,32 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
     const payoutOriginal = reservaData.valores?.valorTotalOriginal || 0;
     const ivaOriginal = reservaData.valores?.ivaOriginal || 0;
 
-    // 1. Definir las condiciones para "congelar" el valor
     const fechaActual = new Date();
     fechaActual.setUTCHours(0, 0, 0, 0);
     const fechaLlegada = reservaData.fechaLlegada?.toDate ? reservaData.fechaLlegada.toDate() : null;
 
     const esFacturado = reservaData.estadoGestion === 'Facturado';
     const esPasado = fechaLlegada && fechaLlegada < fechaActual;
+    
+    // --- INICIO DE LA MODIFICACIÓN: Definir 'esFijo' ---
     const esFijo = esFacturado || esPasado; // Esta es TU nueva regla
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (moneda !== 'CLP' && valorHuespedOriginal > 0) {
         if (esFijo) {
-            // 2. Caso Estático (Facturado o Pasado)
             valorHuespedCLP = reservaData.valores?.valorHuesped || 0;
             costoCanalCLP = reservaData.valores?.costoCanal || 0;
             payoutCLP = reservaData.valores?.valorTotal || 0;
             ivaCLP = reservaData.valores?.iva || 0;
             
-            // Determinar el dólar que se usó
             if (esFacturado) {
                 valorDolarUsado = reservaData.valores?.valorDolarFacturacion || null;
             }
             if (!valorDolarUsado && fechaLlegada) {
-                // Si no está facturado pero es pasado, usa el dólar de la fecha de llegada
                 valorDolarUsado = await obtenerValorDolar(db, empresaId, fechaLlegada);
             }
 
         } else {
-            // 3. Caso Flotante: Recalcular desde USD con dólar de HOY
             const dolarHoyData = await obtenerValorDolarHoy(db, empresaId);
             const valorDolarHoy = dolarHoyData ? dolarHoyData.valor : 950;
             
@@ -309,15 +308,12 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
             valorDolarUsado = valorDolarHoy;
         }
     } else {
-        // 4. Caso Estático (CLP)
         valorHuespedCLP = reservaData.valores?.valorHuesped || 0;
         costoCanalCLP = reservaData.valores?.costoCanal || 0;
         payoutCLP = reservaData.valores?.valorTotal || 0;
         ivaCLP = reservaData.valores?.iva || 0;
     }
-    // --- FIN LÓGICA DE VALORIZACIÓN ---
-
-// ... (resto de la función: datosGrupo, abonoProporcional, valorPotencial, etc., sin cambios) ...
+// ... (resto de la función: datosGrupo, abonoProporcional, valorPotencial, etc. sin cambios) ...
     const datosGrupo = {
         propiedades: reservasDelGrupo.map(r => r.alojamientoNombre),
         valorTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0),
@@ -359,7 +355,7 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
         notas,
         transacciones,
         
-        // --- INICIO DE LA MODIFICACIÓN: Objeto de retorno final ALINEADO ---
+        // --- INICIO DE LA MODIFICACIÓN: Objeto de retorno final ---
         datosIndividuales: {
             // Valores CLP (flotantes o fijos)
             valorTotalHuesped: Math.round(valorHuespedCLP),
@@ -378,6 +374,7 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
             // Metadatos de la valorización
             moneda: moneda,
             valorDolarUsado: valorDolarUsado,
+            esValorFijo: esFijo, // <-- ¡NUEVA BANDERA AÑADIDA!
 
             // Analítica de Potencial (KPI)
             valorPotencial: Math.round(valorPotencial_Monto),
