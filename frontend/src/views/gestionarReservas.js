@@ -31,6 +31,18 @@ const formatForeign = (value, currency) => {
 const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
 const formatStars = (rating) => '⭐'.repeat(rating || 0) + '☆'.repeat(5 - (rating || 0));
 
+// (Agregar estas funciones al inicio del archivo, junto a las otras 'utils')
+
+const formatForeign = (value, currency) => {
+    if (!currency || currency === 'CLP') return formatCurrency(value);
+    // Formatear a 2 decimales para monedas extranjeras
+    return `${(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+};
+
+const formatPercent = (value) => {
+    if (!value || value === 0) return '0%';
+    return `${value.toFixed(1)}%`;
+};
 
 // --- VIEW MODAL LOGIC ---
 function renderDocumentoLink(docUrl, defaultText = 'No adjunto') {
@@ -50,6 +62,7 @@ async function abrirModalVer(reservaId) {
     try {
         const data = await fetchAPI(`/reservas/${reservaId}`);
         
+        // --- 1. Resumen del Grupo (Sin cambios) ---
         const infoGrupoEl = document.getElementById('view-info-grupo');
         if (data.datosGrupo && data.datosGrupo.propiedades.length > 1) {
             infoGrupoEl.innerHTML = `
@@ -62,11 +75,13 @@ async function abrirModalVer(reservaId) {
             infoGrupoEl.classList.add('hidden');
         }
 
+        // --- 2. Información General (Sin cambios) ---
         document.getElementById('view-modal-title').textContent = `Detalle Reserva: ${data.idReservaCanal}`;
         document.getElementById('view-alojamiento').textContent = data.alojamientoNombre;
         document.getElementById('view-canal').textContent = data.canalNombre;
         document.getElementById('view-checkin').textContent = formatDate(data.fechaLlegada);
         document.getElementById('view-checkout').textContent = formatDate(data.fechaSalida);
+        // ... (resto de campos generales) ...
         document.getElementById('view-noches').textContent = data.totalNoches;
         document.getElementById('view-huespedes').textContent = data.cantidadHuespedes;
         document.getElementById('view-estado-reserva').textContent = data.estado;
@@ -74,80 +89,88 @@ async function abrirModalVer(reservaId) {
         document.getElementById('view-doc-reserva').innerHTML = renderDocumentoLink(data.documentos?.enlaceReserva);
         document.getElementById('view-doc-boleta').innerHTML = renderDocumentoLink(data.documentos?.enlaceBoleta);
 
+        // --- 3. Información del Cliente (Sin cambios) ---
         document.getElementById('view-cliente-nombre').textContent = data.cliente.nombre || '-';
         document.getElementById('view-cliente-telefono').textContent = data.cliente.telefono || '-';
+        // ... (resto de campos de cliente) ...
         document.getElementById('view-cliente-email').textContent = data.cliente.email || '-';
         document.getElementById('view-cliente-pais').textContent = data.cliente.pais || '-';
         document.getElementById('view-cliente-calificacion').innerHTML = formatStars(data.cliente.calificacion);
         document.getElementById('view-cliente-ubicacion').textContent = data.cliente.ubicacion || '-';
         document.getElementById('view-cliente-notas').textContent = data.cliente.notas || 'Sin notas.';
         
-        // --- INICIO DE LA MODIFICACIÓN (Frontend) ---
+        
+        // --- 4. NUEVO ANÁLISIS FINANCIERO ---
+        
         const { datosIndividuales } = data;
         const moneda = datosIndividuales.moneda || 'CLP';
+        const esMonedaExtranjera = moneda !== 'CLP';
 
-        // --- Análisis Cobranza ---
-        const analisisCobranzaEl = document.getElementById('analisis-cobranza');
-        let cobranzaHTML = `
-            <dt class="text-gray-500">Total Cliente (CLP):</dt><dd class="font-semibold">${formatCurrency(datosIndividuales.valorTotalHuesped)}</dd>
-            <dt class="text-gray-500">Abono (Proporcional):</dt><dd class="text-green-600">${formatCurrency(datosIndividuales.abonoProporcional)}</dd>
-            <dt class="text-gray-500">Saldo (CLP):</dt><dd class="text-red-600 font-bold">${formatCurrency(datosIndividuales.saldo)}</dd>
-        `;
-
-        if (moneda !== 'CLP') {
-            cobranzaHTML += `
-                <dt class="text-gray-500 border-t pt-1 mt-1">Total Cliente (${moneda}):</dt>
-                <dd class="font-semibold border-t pt-1 mt-1">${formatForeign(datosIndividuales.valorHuespedOriginal, moneda)}</dd>
-                
-                <dt class="text-gray-500">Valor Dólar (Usado):</dt>
-                <dd>CLP ${datosIndividuales.valorDolarUsado ? datosIndividuales.valorDolarUsado.toLocaleString('es-CL') : 'N/A'}</dd>
+        const createRow = (label, clpValue, usdValue = null, isBold = false) => {
+            const clpFormatted = formatCurrency(clpValue);
+            const usdFormatted = esMonedaExtranjera ? formatForeign(usdValue, moneda) : '';
+            const boldClass = isBold ? 'font-bold' : '';
+            return `
+                <tr class="border-b ${boldClass}">
+                    <td class="py-1 pr-4">${label}</td>
+                    ${esMonedaExtranjera ? `<td class="py-1 pr-4 text-right">${usdFormatted}</td>` : ''}
+                    <td class="py-1 text-right ${boldClass}">${clpFormatted}</td>
+                </tr>
             `;
+        };
+        
+        const createHeader = () => {
+             return `
+                <thead class="bg-gray-50">
+                    <tr class="text-gray-600">
+                        <th class="py-2 pr-4 text-left font-semibold">Concepto</th>
+                        ${esMonedaExtranjera ? `<th class="py-2 pr-4 text-right font-semibold">Moneda Original (${moneda})</th>` : ''}
+                        <th class="py-2 text-right font-semibold">Conversión (CLP)</th>
+                    </tr>
+                </thead>`;
+        };
+
+        // --- Sección 2: Desglose de Valores ---
+        const desgloseEl = document.getElementById('view-desglose-valores');
+        let desgloseHTML = '<table class="w-full">_HEADER_<tbody>_ROWS_</tbody></table>';
+        let desgloseRows = '';
+        desgloseRows += createRow('Payout (Anfitrión)', datosIndividuales.payoutFinalReal, datosIndividuales.valorTotalOriginal, true); // valorTotalOriginal es Payout
+        desgloseRows += createRow('(+) Comisión (Sumable)', datosIndividuales.comision, datosIndividuales.comisionOriginal);
+        desgloseRows += createRow('(=) Subtotal (Base IVA)', (datosIndividuales.payoutFinalReal + datosIndividuales.comision), (datosIndividuales.valorTotalOriginal + datosIndividuales.comisionOriginal));
+        desgloseRows += createRow('(+) IVA (Calculado)', datosIndividuales.iva, datosIndividuales.ivaOriginal);
+        desgloseRows += createRow('Total Cliente (A)', datosIndividuales.valorTotalHuesped, datosIndividuales.valorHuespedOriginal, true);
+        desgloseRows += createRow('(Info) Costo Canal', datosIndividuales.costoCanal, datosIndividuales.costoCanalOriginal);
+        
+        desgloseEl.innerHTML = desgloseHTML.replace('_HEADER_', createHeader()).replace('_ROWS_', desgloseRows);
+
+        // --- Sección 3: Análisis de Cobranza ---
+        const cobranzaEl = document.getElementById('view-analisis-cobranza');
+        let cobranzaHTML = '<table class="w-full">_HEADER_<tbody>_ROWS_</tbody></table>';
+        let cobranzaRows = '';
+        cobranzaRows += createRow('Total Cliente (A)', datosIndividuales.valorTotalHuesped, datosIndividuales.valorHuespedOriginal, true);
+        cobranzaRows += createRow('(-) Abonos Recibidos', datosIndividuales.abonoProporcional, 0); // (Abono solo se maneja en CLP)
+        cobranzaRows += createRow('Saldo Pendiente', datosIndividuales.saldo, datosIndividuales.valorHuespedOriginal, true);
+        if (esMonedaExtranjera && datosIndividuales.valorDolarUsado) {
+            cobranzaRows += `<tr class="border-t"><td class="pt-2 text-gray-500" colspan="3">Valor Dólar Usado: ${formatCurrency(datosIndividuales.valorDolarUsado)} (${datosIndividuales.valorDolarUsado > 0 ? (datosIndividuales.esFijo ? 'Fijo' : 'Flotante') : 'N/A'})</td></tr>`;
         }
+        cobranzaEl.innerHTML = cobranzaHTML.replace('_HEADER_', createHeader()).replace('_ROWS_', cobranzaRows);
+
+        // --- Sección 4: Análisis de Rentabilidad (KPI) ---
+        const kpiEl = document.getElementById('view-analisis-kpi');
+        let kpiHTML = '<table class="w-full">_HEADER_<tbody>_ROWS_</tbody></table>';
+        let kpiRows = '';
+        kpiRows += createRow('Valor Tarifa Base (KPI)', datosIndividuales.valorPotencialOriginal_DB, (datosIndividuales.valorPotencialOriginal_DB / (datosIndividuales.valorDolarUsado || 1)));
+        kpiRows += createRow('(-) Total Cliente (A)', datosIndividuales.valorTotalHuesped, datosIndividuales.valorHuespedOriginal);
+        kpiRows += createRow('Valor Potencial (Pérdida)', datosIndividuales.valorPotencial, (datosIndividuales.valorPotencial / (datosIndividuales.valorDolarUsado || 1)), true);
+        kpiRows += `<tr class="border-t"><td class="pt-2 text-gray-500" colspan="3">Descuento Potencial: <span class="font-bold text-red-600">${formatPercent(datosIndividuales.descuentoPotencialPct)}</span></td></tr>`;
+
+        kpiEl.innerHTML = kpiHTML.replace('_HEADER_', createHeader()).replace('_ROWS_', kpiRows);
         
-        // (Lógica de ajuste de cobro se mantiene)
-        cobranzaHTML += `${datosIndividuales.ajusteCobro !== 0 ? `
-            <dt class="text-gray-500 col-span-2 border-t mt-1 pt-1">Ajuste de Cobro:</dt>
-            <dd class="col-span-2 grid grid-cols-2">
-                <span>${formatCurrency(datosIndividuales.ajusteCobro)}</span>
-                <span class="text-xs text-right text-gray-500">Valor Original: ${formatCurrency(datosIndividuales.valorHuespedOriginal)}</span>
-            </dd>
-        ` : ''}`;
-        analisisCobranzaEl.innerHTML = cobranzaHTML;
+        // --- 5. Trazabilidad (Ya está en el HTML) ---
+        // (En el futuro, aquí se popularía #view-historial-ajustes)
 
 
-        // --- Análisis Rentabilidad ---
-        const analisisRentabilidadEl = document.getElementById('analisis-rentabilidad');
-        
-        // Calcular Payout Original (Moneda Extranjera)
-        const payoutOriginal = datosIndividuales.valorHuespedOriginal - datosIndividuales.costoCanalOriginal;
-
-        let rentabilidadHTML = `
-            <dt class="text-gray-500">Payout (CLP):</dt><dd>${formatCurrency(datosIndividuales.payoutFinalReal)}</dd>
-            <dt class="text-gray-500">Costo Canal (CLP):</dt><dd>${formatCurrency(datosIndividuales.costoCanal)}</dd>
-        `;
-
-        if (moneda !== 'CLP') {
-            rentabilidadHTML += `
-                <dt class="text-gray-500 border-t pt-1 mt-1">Payout (${moneda}):</dt>
-                <dd class="border-t pt-1 mt-1">${formatForeign(payoutOriginal, moneda)}</dd> 
-                
-                <dt class="text-gray-500">Costo Canal (${moneda}):</dt>
-                <dd>${formatForeign(datosIndividuales.costoCanalOriginal, moneda)}</dd>
-            `;
-        }
-        
-        // (Lógica de valor potencial se mantiene, pero se añade un borde si es USD)
-        rentabilidadHTML += `
-            <dt class="text-gray-500 col-span-2 ${moneda !== 'CLP' ? 'border-t pt-1 mt-1' : ''}">Valor Potencial (KPI):</dt>
-            <dd class="col-span-2 grid grid-cols-2">
-                <span>${formatCurrency(datosIndividuales.valorPotencial)}</span>
-                ${datosIndividuales.descuentoPotencialPct > 0 ? `<span class="text-xs text-right text-red-500">(${datosIndividuales.descuentoPotencialPct.toFixed(1)}% dscto.)</span>` : ''}
-            </dd>
-        `;
-        analisisRentabilidadEl.innerHTML = rentabilidadHTML;
-        // --- FIN DE LA MODIFICACIÓN ---
-
-
+        // --- Transacciones y Notas (Sin cambios) ---
         const transaccionesContainer = document.getElementById('view-transacciones-list');
         if (data.transacciones.length > 0) {
             transaccionesContainer.innerHTML = data.transacciones.map(t => `
@@ -183,7 +206,6 @@ async function abrirModalVer(reservaId) {
         }
     }
 }
-
 
 // --- EDIT MODAL LOGIC ---
 function toggleDolarFields(form) {
@@ -511,7 +533,7 @@ export async function render() {
                     <div id="view-info-grupo" class="hidden"></div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="space-y-4">
-                            <section>
+                             <section>
                                 <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Información de la Reserva</h4>
                                 <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                                     <dt class="text-gray-500">Alojamiento:</dt><dd id="view-alojamiento"></dd>
@@ -550,16 +572,21 @@ export async function render() {
                     </div>
                     <div class="space-y-4 border-t pt-4 mt-4">
                         <section>
-                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Análisis Financiero (Individual)</h4>
-                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 text-sm">
-                                <div>
-                                    <h5 class="font-semibold text-gray-600 mb-1">Cobranza</h5>
-                                    <dl id="analisis-cobranza" class="grid grid-cols-2 gap-x-4 gap-y-1"></dl>
-                                </div>
-                                <div class="border-t md:border-t-0 md:border-l md:pl-4">
-                                    <h5 class="font-semibold text-gray-600 mb-1">Rentabilidad (KPIs)</h5>
-                                    <dl id="analisis-rentabilidad" class="grid grid-cols-2 gap-x-4 gap-y-1"></dl>
-                                </div>
+                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">📈 Desglose de Valores (Fuente de la Verdad)</h4>
+                            <div id="view-desglose-valores" class="overflow-x-auto text-sm"></div>
+                        </section>
+                        <section>
+                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">💸 Análisis de Cobranza (Saldos)</h4>
+                            <div id="view-analisis-cobranza" class="overflow-x-auto text-sm"></div>
+                        </section>
+                        <section>
+                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">📊 Análisis de Rentabilidad (KPI)</h4>
+                            <div id="view-analisis-kpi" class="overflow-x-auto text-sm"></div>
+                        </section>
+                        <section>
+                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">✏️ Historial de Ajustes (Trazabilidad)</h4>
+                            <div id="view-historial-ajustes" class="text-sm text-gray-500">
+                                <p>Próximamente: Se listarán cupones, descuentos manuales y ajustes de cobro.</p>
                             </div>
                         </section>
                         <section>
