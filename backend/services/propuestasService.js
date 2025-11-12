@@ -2,8 +2,7 @@
 
 const admin = require('firebase-admin');
 // *** VERIFICACIÓN CRÍTICA: Asegurarse que esta línea esté presente y correcta ***
-const { obtenerValorDolar } = require('./dolarService');
-const { parseISO, isValid, differenceInDays, addDays, format } = require('date-fns');
+const { parseISO, isValid, addDays, format } = require('date-fns');
 
 // --- Función getAvailabilityData (Sin cambios) ---
 // backend/services/propuestasService.js
@@ -191,160 +190,10 @@ function findSegmentedCombination(allProperties, allTarifas, availabilityMap, re
 // --- Función calculatePrice (Sin cambios, verifica la llamada a obtenerValorDolar) ---
 // backend/services/propuestasService.js
 
-async function calculatePrice(db, empresaId, items, startDate, endDate, allTarifas, canalObjetivoId, valorDolarDiaOverride = null, isSegmented = false) {
-    const canalesRef = db.collection('empresas').doc(empresaId).collection('canales');
-    const [canalDefectoSnapshot, canalObjetivoDoc] = await Promise.all([
-        canalesRef.where('esCanalPorDefecto', '==', true).limit(1).get(),
-        canalesRef.doc(canalObjetivoId).get()
-    ]);
-
-    if (canalDefectoSnapshot.empty) throw new Error("No se ha configurado un canal por defecto.");
-    if (!canalObjetivoDoc.exists) throw new Error("El canal de venta seleccionado no es válido.");
-
-    const canalPorDefecto = { id: canalDefectoSnapshot.docs[0].id, ...canalDefectoSnapshot.docs[0].data() };
-    const canalObjetivo = { id: canalObjetivoDoc.id, ...canalObjetivoDoc.data() };
-
-    const valorDolarDia = valorDolarDiaOverride ??
-                          ((canalPorDefecto.moneda === 'USD' || canalObjetivo.moneda === 'USD')
-                              ? await obtenerValorDolar(db, empresaId, startDate) // <--- PUNTO CRÍTICO
-                              : null);
-
-    let totalPrecioOriginal = 0;
-    const priceDetails = []; // Este es el array 'details' que se enviará
-    let totalNights = 0;
-
-    if (isSegmented) {
-        // --- MODO ITINERARIO (SEGMENTADO) ---
-        // Devuelve un desglose por DÍA
-        const daySet = new Set(); 
-        
-        for (const dailyOption of items) {
-            const currentDate = dailyOption.date;
-            daySet.add(format(currentDate, 'yyyy-MM-dd'));
-            const option = dailyOption.option;
-            const propertiesForDay = Array.isArray(option) ? option : [option];
-            
-            let dailyRateBase = 0;
-            for (const prop of propertiesForDay) {
-                const tarifasDelDia = allTarifas.filter(t =>
-                    t.alojamientoId === prop.id &&
-                    t.fechaInicio <= currentDate &&
-                    t.fechaTermino >= currentDate
-                );
-                if (tarifasDelDia.length > 0) {
-                    const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
-                    const precioBaseObj = tarifa.precios?.[canalPorDefecto.id];
-                    dailyRateBase += (typeof precioBaseObj === 'number' ? precioBaseObj : 0);
-                } else {
-                    console.warn(`[WARN] No se encontró tarifa base para ${prop.nombre} en fecha ${format(currentDate, 'yyyy-MM-dd')} (segmentado)`);
-                }
-            }
-
-            let dailyRateModified = dailyRateBase;
-            if (canalObjetivo.id !== canalPorDefecto.id && canalObjetivo.modificadorValor) {
-                if (canalObjetivo.modificadorTipo === 'porcentaje') {
-                    dailyRateModified *= (1 + (canalObjetivo.modificadorValor / 100));
-                } else if (canalObjetivo.modificadorTipo === 'fijo') {
-                    dailyRateModified += canalObjetivo.modificadorValor;
-                }
-            }
-
-            let dailyRateInTargetCurrency = dailyRateModified;
-            if (canalPorDefecto.moneda === 'USD' && canalObjetivo.moneda === 'CLP') {
-                 if (valorDolarDia === null) throw new Error("Se necesita valor del dólar para convertir USD a CLP.");
-                dailyRateInTargetCurrency = dailyRateModified * valorDolarDia;
-            } else if (canalPorDefecto.moneda === 'CLP' && canalObjetivo.moneda === 'USD') {
-                 if (valorDolarDia === null) throw new Error("Se necesita valor del dólar para convertir CLP a USD.");
-                 dailyRateInTargetCurrency = valorDolarDia > 0 ? (dailyRateModified / valorDolarDia) : 0;
-            }
-
-            totalPrecioOriginal += dailyRateInTargetCurrency;
-
-            // Añadir el desglose DIARIO al array 'details'
-             priceDetails.push({
-                 date: format(currentDate, 'yyyy-MM-dd'),
-                 properties: propertiesForDay.map(p => ({id: p.id, nombre: p.nombre})),
-                 dailyRate: dailyRateInTargetCurrency // Este es el formato del log
-             });
-        }
-        totalNights = daySet.size;
-
-    } else {
-        // --- MODO NORMAL (NO SEGMENTADO) ---
-        // Devuelve un desglose por PROPIEDAD
-        totalNights = differenceInDays(endDate, startDate);
-        if (totalNights <= 0) {
-            return { totalPriceCLP: 0, totalPriceOriginal: 0, currencyOriginal: canalObjetivo.moneda, valorDolarDia, nights: 0, details: [] };
-        }
-
-        for (const prop of items) {
-            let propPrecioBaseTotal = 0;
-            for (let d = new Date(startDate); d < endDate; d = addDays(d, 1)) {
-                const currentDate = new Date(d);
-                const tarifasDelDia = allTarifas.filter(t =>
-                    t.alojamientoId === prop.id &&
-                    t.fechaInicio <= currentDate &&
-                    t.fechaTermino >= currentDate
-                );
-                if (tarifasDelDia.length > 0) {
-                    const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
-                    const precioBaseObj = tarifa.precios?.[canalPorDefecto.id];
-                    propPrecioBaseTotal += (typeof precioBaseObj === 'number' ? precioBaseObj : 0);
-                } else {
-                     console.warn(`[WARN] No se encontró tarifa base para ${prop.nombre} en fecha ${format(currentDate, 'yyyy-MM-dd')}`);
-                }
-            }
-
-            let precioPropModificado = propPrecioBaseTotal;
-            if (canalObjetivo.id !== canalPorDefecto.id && canalObjetivo.modificadorValor) {
-                if (canalObjetivo.modificadorTipo === 'porcentaje') {
-                    precioPropModificado *= (1 + (canalObjetivo.modificadorValor / 100));
-                } else if (canalObjetivo.modificadorTipo === 'fijo') {
-                    precioPropModificado += (canalObjetivo.modificadorValor * totalNights);
-                }
-            }
-
-            let precioPropEnMonedaObjetivo = precioPropModificado;
-            if (canalPorDefecto.moneda === 'USD' && canalObjetivo.moneda === 'CLP') {
-                 if (valorDolarDia === null) throw new Error("Se necesita valor del dólar para convertir USD a CLP.");
-                 precioPropEnMonedaObjetivo = precioPropModificado * valorDolarDia;
-            } else if (canalPorDefecto.moneda === 'CLP' && canalObjetivo.moneda === 'USD') {
-                 if (valorDolarDia === null) throw new Error("Se necesita valor del dólar para convertir CLP a USD.");
-                 precioPropEnMonedaObjetivo = valorDolarDia > 0 ? (precioPropModificado / valorDolarDia) : 0;
-            }
-
-            totalPrecioOriginal += precioPropEnMonedaObjetivo;
-
-            // Añadir el desglose por PROPIEDAD al array 'details'
-            priceDetails.push({
-                nombre: prop.nombre,
-                id: prop.id,
-                precioTotal: precioPropEnMonedaObjetivo,
-                precioPorNoche: totalNights > 0 ? precioPropEnMonedaObjetivo / totalNights : 0,
-            });
-        }
-    }
-
-    let totalPriceCLP = totalPrecioOriginal;
-    if (canalObjetivo.moneda === 'USD') {
-         if (valorDolarDia === null) throw new Error("Se necesita valor del dólar para calcular el total en CLP desde USD.");
-        totalPriceCLP = totalPrecioOriginal * valorDolarDia;
-    }
-
-    return {
-        totalPriceCLP: Math.round(totalPriceCLP),
-        totalPriceOriginal: totalPrecioOriginal,
-        currencyOriginal: canalObjetivo.moneda,
-        valorDolarDia: valorDolarDia,
-        nights: totalNights,
-        details: priceDetails // Devuelve el array 'details' en el formato correcto según el modo
-    };
-}
 
 
 module.exports = {
     getAvailabilityData,
     findNormalCombination,
-    findSegmentedCombination,
-    calculatePrice
+    findSegmentedCombination
 };

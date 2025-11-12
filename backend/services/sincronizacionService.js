@@ -10,7 +10,7 @@ const { obtenerMapeosPorEmpresa } = require('./mapeosService');
 const { obtenerValorDolar, actualizarValorDolarApi } = require('./dolarService');
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 const { registrarCarga } = require('./historialCargasService');
-const { calculatePrice } = require('./propuestasService');
+const { calculatePrice } = require('./utils/calculoValoresService');
 
 const leerArchivo = (buffer, nombreArchivo) => {
     const esCsv = nombreArchivo && nombreArchivo.toLowerCase().endsWith('.csv');
@@ -200,7 +200,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 telefono: get('telefonoCliente'), 
                 email: get('correoCliente'), 
                 pais: get('pais') || 'CL',
-                canalNombre: canalNombre,
+             canalNombre: canalNombre,
                 idReservaCanal: idReservaCanal
             };
 
@@ -222,32 +222,33 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                     throw new Error(`No se encontró una conversión para el alojamiento "${nombreExterno}" en el canal ${canalNombre}.`);
                 }
                 const propiedad = propiedades.find(p => p.id === conversion.alojamientoId);
-               if (!propiedad) {
+                if (!propiedad) {
                     throw new Error(`La propiedad interna con ID ${conversion.alojamientoId} no fue encontrada.`);
-                }
+           }
                 alojamientosDeReserva.push(propiedad);
             }
             
             for (const alojamiento of alojamientosDeReserva) {
                 const proporcion = 1 / alojamientosDeReserva.length;
 
-                // --- INICIO LÓGICA DE VALORES (según tu fórmula G-046) ---
-                const valorAnfitrion_Orig = parsearMoneda(get('valorAnfitrion'), separadorDecimal) * proporcion; // (Payout)
-                const comisionSumable_Orig = parsearMoneda(get('comision'), separadorDecimal) * proporcion;
-                const costoCanal_Informativo_Orig = parsearMoneda(get('costoCanal'), separadorDecimal) * proporcion;
-                const subtotal_Orig = valorAnfitrion_Orig + comisionSumable_Orig;
-                let iva_Final_Orig, valorHuesped_Final_Orig;
-                if (configuracionIva === 'agregar') {
-                    iva_Final_Orig = subtotal_Orig * 0.19;
-                    valorHuesped_Final_Orig = subtotal_Orig + iva_Final_Orig;
-                } else {
-                    valorHuesped_Final_Orig = subtotal_Orig;
-                    iva_Final_Orig = valorHuesped_Final_Orig / 1.19 * 0.19;
-                }
+                // --- INICIO DE LA MODIFICACIÓN: Refactorización a Servicio Central ---
+                
+                // 1. Recolectar datos crudos del mapeo (en USD)
+                const datosMapeo = {
+                    valorAnfitrion: parsearMoneda(get('valorAnfitrion'), separadorDecimal) * proporcion,
+                    comisionSumable: parsearMoneda(get('comision'), separadorDecimal) * proporcion,
+                    costoCanal: parsearMoneda(get('costoCanal'), separadorDecimal) * proporcion
+                };
+
+                // 2. Llamar al servicio central para obtener el objeto de 10 valores (5 Actuales + 5 Ancla)
+                const valoresCalculados = calcularValoresBaseDesdeReporte(datosMapeo, configuracionIva);
+                // --- FIN DE LA MODIFICACIÓN ---
+
+                // Calcular el precio base teórico para KPI (Lógica se mantiene aquí)
                 const precioBaseTeorico = await calculatePrice(db, empresaId, [alojamiento], fechaLlegada, fechaSalida, allTarifas, canalId);
                 const valorOriginalParaGuardar = precioBaseTeorico.totalPriceOriginal; // (KPI en USD)
+
                 const convertirACLPSIesNecesario = (monto) => (monedaCanal === 'USD' && valorDolarDia) ? monto * valorDolarDia : monto;
-                // --- FIN LÓGICA DE VALORES ---
 
                 const totalNoches = Math.round((fechaSalida - fechaLlegada) / (1000 * 60 * 60 * 24));
                 const idUnicoReserva = `${idReservaCanal}-${alojamiento.id}`;
@@ -261,36 +262,25 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                     clienteId: resultadoCliente.cliente.id, alojamientoId: alojamiento.id, alojamientoNombre: alojamiento.nombre,
                     moneda: monedaCanal,
 
-                    // --- INICIO DE LA MODIFICACIÓN: Guardar el SET DE RESPALDO (ANCLA) ---
+                    // --- INICIO DE LA MODIFICACIÓN: Guardar valores desde el servicio central ---
                     valores: {
                         // --- Set "Actual" (CLP) ---
-                        valorHuesped: Math.round(convertirACLPSIesNecesario(valorHuesped_Final_Orig)),
-                        valorTotal: Math.round(convertirACLPSIesNecesario(valorAnfitrion_Orig)),
-                        comision: Math.round(convertirACLPSIesNecesario(comisionSumable_Orig)),
-                        costoCanal: Math.round(convertirACLPSIesNecesario(costoCanal_Informativo_Orig)),
-                        iva: Math.round(convertirACLPSIesNecesario(iva_Final_Orig)),
+                        valorHuesped: Math.round(convertirACLPSIesNecesario(valoresCalculados.valorHuespedOriginal)),
+                        valorTotal: Math.round(convertirACLPSIesNecesario(valoresCalculados.valorTotalOriginal)),
+                        comision: Math.round(convertirACLPSIesNecesario(valoresCalculados.comisionOriginal)),
+                     costoCanal: Math.round(convertirACLPSIesNecesario(valoresCalculados.costoCanalOriginal)),
+                     iva: Math.round(convertirACLPSIesNecesario(valoresCalculados.ivaOriginal)),
                         
                         // --- KPI (Precio Base) ---
                         valorOriginal: valorOriginalParaGuardar,
 
-                        // --- Set "Actual" (USD) ---
-                        valorHuespedOriginal: valorHuesped_Final_Orig,
-                        valorTotalOriginal: valorAnfitrion_Orig,
-                        comisionOriginal: comisionSumable_Orig,
-                        costoCanalOriginal: costoCanal_Informativo_Orig,
-                        ivaOriginal: iva_Final_Orig,
-
-                        // --- SET DE RESPALDO / "ANCLA" (Tu idea de "dos pares de valores") ---
-                        valorHuespedCalculado: valorHuesped_Final_Orig,
-                        valorTotalCalculado: valorAnfitrion_Orig,
-                        comisionCalculado: comisionSumable_Orig,
-                        costoCanalCalculado: costoCanal_Informativo_Orig,
-                        ivaCalculado: iva_Final_Orig
+                        // --- Set "Actual" (USD) y Set "Ancla" (USD) ---
+                        ...valoresCalculados // Esto expande los 10 campos USD (Actuales y Ancla)
                     },
                     // --- FIN DE LA MODIFICACIÓN ---
 
                     valorDolarDia, requiereActualizacionDolar: monedaCanal === 'USD' && fechaLlegada > today
-                };
+               };
                 
                 const res = await crearOActualizarReserva(db, empresaId, datosReserva);
                 if (res.status === 'creada') resultados.reservasCreadas++;

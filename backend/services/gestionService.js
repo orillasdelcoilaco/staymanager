@@ -1,8 +1,8 @@
 // backend/services/gestionService.js
 
 const admin = require('firebase-admin');
-const { obtenerValorDolarHoy } = require('./dolarService');
 const { obtenerEstados } = require('./estadosService');
+const { getValoresCLP } = require('./utils/calculoValoresService');
 
 // Función de utilidad para "trocear" arrays grandes
 const splitIntoChunks = (arr, size) => {
@@ -17,18 +17,11 @@ const splitIntoChunks = (arr, size) => {
 const getReservasPendientes = async (db, empresaId) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
     
-    const dolarHoyData = await obtenerValorDolarHoy(db, empresaId);
-    const valorDolarHoy = dolarHoyData ? dolarHoyData.valor : 950;
-    
-    // --- INICIO DE LA MODIFICACIÓN: Definir fechaActual ---
-    const fechaActual = new Date();
-    fechaActual.setUTCHours(0, 0, 0, 0);
-    // --- FIN DE LA MODIFICACIÓN ---
+    // --- MODIFICACIÓN: Eliminada la llamada a obtenerValorDolarHoy ---
 
     const estadosSnapshot = await db.collection('empresas').doc(empresaId).collection('estadosReserva').where('esEstadoDeGestion', '==', true).get();
     const estadosDeGestion = estadosSnapshot.docs.map(doc => doc.data().nombre);
 
-// ... (resto de la función: queries, snapshots, allDocs, idChunks, fetchInBatches, etc. sin cambios) ...
     const queries = [];
     if (estadosDeGestion.length > 0) {
         const estadoChunks = splitIntoChunks(estadosDeGestion, 30);
@@ -67,13 +60,24 @@ const getReservasPendientes = async (db, empresaId) => {
 
     const allReservasData = allDocs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    const clienteIds = [...new Set(allReservasData.map(r => r.clienteId).filter(Boolean))];
-    const reservaIdsOriginales = [...new Set(allReservasData.map(r => r.idReservaCanal))];
+    // --- INICIO DE LA MODIFICACIÓN: Calcular todos los valores CLP primero ---
+    const allReservasConCLP = await Promise.all(
+        allReservasData.map(async (reserva) => {
+            // Llamamos al servicio central para obtener los CLP (flotantes o fijos)
+            const valoresCLP = await getValoresCLP(db, empresaId, reserva);
+            return { ...reserva, valoresCLP: valoresCLP }; // Adjuntamos los valores calculados
+        })
+    );
+    // --- FIN DE LA MODIFICACIÓN ---
+
+    const clienteIds = [...new Set(allReservasConCLP.map(r => r.clienteId).filter(Boolean))];
+    const reservaIdsOriginales = [...new Set(allReservasConCLP.map(r => r.idReservaCanal))];
 
     const firestoreQueryLimit = 30;
     const clienteIdChunks = splitIntoChunks(clienteIds, firestoreQueryLimit);
     const reservaIdChunks = splitIntoChunks(reservaIdsOriginales, firestoreQueryLimit);
 
+    // (Funciones fetchInBatches y fetchByIdBatches sin cambios)
     const fetchInBatches = async (collectionName, field, idChunks) => {
         if (idChunks.length === 0) return { docs: [] };
         const promises = idChunks.map(chunk => 
@@ -84,7 +88,6 @@ const getReservasPendientes = async (db, empresaId) => {
         const snapshots = await Promise.all(promises);
         return { docs: snapshots.flatMap(s => s.docs) };
     };
-
     const fetchByIdBatches = async (collectionName, idChunks) => {
         if (idChunks.length === 0) return { docs: [] };
         const promises = idChunks.map(chunk => 
@@ -103,38 +106,34 @@ const getReservasPendientes = async (db, empresaId) => {
         fetchInBatches('reservas', 'clienteId', clienteIdChunks) 
     ]);
 
+    // --- INICIO DE LA MODIFICACIÓN: Refactorizar cálculo de 'totalGastado' ---
+    // (Ahora necesitamos obtener los valores CLP para el historial del cliente también)
+    const historialReservasConCLP = await Promise.all(
+        historialReservasSnapshot.docs
+            .map(doc => doc.data())
+            .filter(reserva => reserva.estado === 'Confirmada')
+            .map(async (reserva) => {
+                const valoresCLP = await getValoresCLP(db, empresaId, reserva);
+                return { ...reserva, valoresCLP: valoresCLP };
+            })
+    );
+    // --- FIN DE LA MODIFICACIÓN ---
+
     const clientsMap = new Map();
     clientesSnapshot.docs.forEach(doc => {
         const clienteData = doc.data();
-        const historialCliente = historialReservasSnapshot.docs
-            .filter(reservaDoc => reservaDoc.data().clienteId === doc.id && reservaDoc.data().estado === 'Confirmada') 
-            .map(reservaDoc => reservaDoc.data());
+        
+        // --- INICIO DE LA MODIFICACIÓN: Usar valoresCLP pre-calculados ---
+        const historialCliente = historialReservasConCLP
+            .filter(reservaDoc => reservaDoc.clienteId === doc.id);
 
-        // --- INICIO DE LA MODIFICACIÓN: Cálculo de 'totalGastado' flotante/fijo ---
         const totalGastado = historialCliente.reduce((sum, r) => {
-            const moneda = r.moneda || 'CLP';
-            
-            // 1. Definir condiciones de valor fijo
-            const fechaLlegada = r.fechaLlegada?.toDate ? r.fechaLlegada.toDate() : null;
-            const esFacturado = r.estadoGestion === 'Facturado';
-            const esPasado = fechaLlegada && fechaLlegada < fechaActual;
-            const esFijo = esFacturado || esPasado;
-
-            let valorHuespedFinal = r.valores?.valorHuesped || 0; // Default a valor estático (CLP)
-
-            // 2. Recalcular si es flotante
-            if (moneda !== 'CLP' && !esFijo) {
-                const valorHuespedOriginal = r.valores?.valorHuespedOriginal || 0;
-                if (valorHuespedOriginal > 0) {
-                    valorHuespedFinal = Math.round(valorHuespedOriginal * valorDolarHoy);
-                }
-            }
-            return sum + valorHuespedFinal;
+            // Simplemente leemos el valorHuesped ya calculado (fijo o flotante)
+            return sum + (r.valoresCLP.valorHuesped || 0);
         }, 0);
         // --- FIN DE LA MODIFICACIÓN ---
 
         const numeroDeReservas = historialCliente.length;
-// ... (resto de clientsMap sin cambios) ...
         
         let tipoCliente = 'Cliente Nuevo';
         if (totalGastado > 1000000) {
@@ -150,7 +149,6 @@ const getReservasPendientes = async (db, empresaId) => {
         });
     });
     
-// ... (resto de notesCountMap y abonosMap sin cambios) ...
     const notesCountMap = new Map();
     notasSnapshot.docs.forEach(doc => {
         const id = doc.data().reservaIdOriginal;
@@ -163,8 +161,9 @@ const getReservasPendientes = async (db, empresaId) => {
     });
 
     const reservasAgrupadas = new Map();
-    allReservasData.forEach(data => {
-// ... (creación de reservasAgrupadas sin cambios) ...
+    // --- INICIO DE LA MODIFICACIÓN: Usar allReservasConCLP ---
+    allReservasConCLP.forEach(data => {
+    // --- FIN DE LA MODIFICACIÓN ---
         const reservaId = data.idReservaCanal;
         if (!reservasAgrupadas.has(reservaId)) {
             const clienteActual = clientsMap.get(data.clienteId);
@@ -172,16 +171,17 @@ const getReservasPendientes = async (db, empresaId) => {
                 reservaIdOriginal: reservaId,
                 clienteId: data.clienteId,
                 clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
+// ... (resto de campos del grupo sin cambios) ...
                 telefono: clienteActual?.telefono || 'N/A',
                 tipoCliente: clienteActual?.tipoCliente || 'Nuevo', 
                 numeroDeReservas: clienteActual?.numeroDeReservas || 1,
-                fechaLlegada: data.fechaLlegada?.toDate(),
+               fechaLlegada: data.fechaLlegada?.toDate(),
                 fechaSalida: data.fechaSalida?.toDate(),
                 totalNoches: data.totalNoches,
                 estado: data.estado,
                 estadoGestion: data.estadoGestion,
                 abonoTotal: abonosMap.get(reservaId) || 0,
-                notasCount: notesCountMap.get(reservaId) || 0,
+               notasCount: notesCountMap.get(reservaId) || 0,
                 transaccionesCount: transaccionesSnapshot.docs.filter(d => d.data().reservaIdOriginal === reservaId).length,
                 reservasIndividuales: []
             });
@@ -196,51 +196,23 @@ const getReservasPendientes = async (db, empresaId) => {
 
         const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
             
-            // --- INICIO DE LA MODIFICACIÓN: Lógica flotante/fija ALINEADA ---
-            
-            // 1. Leer los valores Originales (USD)
-            const valorHuespedOriginal = r.valores?.valorHuespedOriginal || 0;
-            const costoCanalOriginal = r.valores?.costoCanalOriginal || 0;
-            const payoutOriginal = r.valores?.valorTotalOriginal || 0;
-            
-            // 2. Definir valores finales (CLP)
-            let valorHuespedFinal, costoCanalFinal, payoutFinal;
-
-            // 3. Definir condiciones de valor fijo
-            const fechaLlegada = r.fechaLlegada?.toDate ? r.fechaLlegada.toDate() : null;
-            const esFacturado = r.estadoGestion === 'Facturado';
-            const esPasado = fechaLlegada && fechaLlegada < fechaActual; // usa 'fechaActual' de arriba
-            const esFijo = esFacturado || esPasado;
-
-            if (monedaGrupo !== 'CLP' && !esFijo) {
-                // 4. Caso Flotante: Recalcular desde USD
-                valorHuespedFinal = Math.round(valorHuespedOriginal * valorDolarHoy);
-                costoCanalFinal = Math.round(costoCanalOriginal * valorDolarHoy);
-                payoutFinal = Math.round(payoutOriginal * valorDolarHoy);
-                
-            } else {
-                // 5. Caso Estático (CLP o Fijo): Leer valores CLP de la BBDD
-                valorHuespedFinal = r.valores?.valorHuesped || 0;
-                costoCanalFinal = r.valores?.costoCanal || 0;
-                payoutFinal = r.valores?.valorTotal || 0;
-            }
+            // --- INICIO DE LA MODIFICACIÓN: Usar valoresCLP pre-calculados ---
+            // Ya no hay lógica de cálculo aquí
+            acc.valorTotalHuesped += r.valoresCLP.valorHuesped;
+            acc.costoCanal += r.valoresCLP.costoCanal;
+            acc.payoutFinalReal += r.valoresCLP.payout;
             // --- FIN DE LA MODIFICACIÓN ---
             
-            acc.valorTotalHuesped += valorHuespedFinal;
-            acc.costoCanal += costoCanalFinal; 
-            acc.payoutFinalReal += payoutFinal; 
-            
-            acc.valorListaBaseTotal += r.valores?.valorOriginal || 0; // KPI
-// ... (resto del reduce sin cambios) ...
+           acc.valorListaBaseTotal += r.valores?.valorOriginal || 0; // KPI (USD)
             if (r.ajusteManualRealizado) acc.ajusteManualRealizado = true;
             if (r.potencialCalculado) acc.potencialCalculado = true;
             if (r.clienteGestionado) acc.clienteGestionado = true;
             if (r.documentos) acc.documentos = { ...acc.documentos, ...r.documentos };
-            return acc;
+           return acc;
         }, { 
             valorTotalHuesped: 0, 
             costoCanal: 0, 
-            payoutFinalReal: 0, 
+            payoutFinalReal: 0,
             valorListaBaseTotal: 0, 
             ajusteManualRealizado: false, 
             potencialCalculado: false, 
@@ -248,17 +220,17 @@ const getReservasPendientes = async (db, empresaId) => {
             documentos: {} 
         });
         
-// ... (resto de la función: 'resultado', 'if (resultado.esUSD)', etc. sin cambios) ...
         const resultado = {
             ...grupo,
             ...valoresAgregados,
-            esUSD: monedaGrupo === 'USD', 
+           esUSD: monedaGrupo === 'USD', 
         };
 
         if (resultado.esUSD) {
+            // (Lógica de valoresUSD sin cambios)
             const valorDolarParaCalculo = (estadoGestionGrupo === 'Facturado')
                 ? (primerReserva.valores?.valorDolarFacturacion || valorDolarHoy) 
-                : valorDolarHoy; 
+                : (primerReserva.valoresCLP.valorDolarUsado || valorDolarHoy); 
 
             const totalPayoutUSD = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorTotalOriginal || 0), 0);
             const totalIvaUSD = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.ivaOriginal || 0), 0);
@@ -266,8 +238,7 @@ const getReservasPendientes = async (db, empresaId) => {
             resultado.valoresUSD = {
                 payout: totalPayoutUSD, 
                 iva: totalIvaUSD,
-// Esta lógica sigue siendo Payout + IVA, no el Total Cliente.
-                totalCliente: totalPayoutUSD + totalIvaUSD 
+               totalCliente: totalPayoutUSD + totalIvaUSD 
             };
         }
 

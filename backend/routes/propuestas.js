@@ -1,7 +1,9 @@
 // backend/routes/propuestas.js
 
 const express = require('express');
-const { getAvailabilityData, findNormalCombination, findSegmentedCombination, calculatePrice } = require('../services/propuestasService');
+const { getAvailabilityData, findNormalCombination, findSegmentedCombination } = require('../services/propuestasService');
+// (Añadir esta línea, por ejemplo, en la línea 3)
+const { calculatePrice } = require('../services/utils/calculoValoresService');
 const { generarTextoPropuesta } = require('../services/mensajeService');
 // *** VERIFICACIÓN: Necesitamos obtenerValorDolar aquí también para la ruta /recalcular ***
 const { obtenerValorDolar, obtenerValorDolarHoy } = require('../services/dolarService');

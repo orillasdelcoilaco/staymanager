@@ -3,112 +3,186 @@ const admin = require('firebase-admin');
 const { getAvailabilityData } = require('./propuestasService');
 const { crearOActualizarCliente } = require('./clientesService');
 const { marcarCuponComoUtilizado } = require('./cuponesService');
+const { calcularValoresBaseDesdeReporte, recalcularValoresDesdeTotal } = require('./utils/calculoValoresService');
 
 // backend/services/gestionPropuestasService.js
 
 // backend/services/gestionPropuestasService.js
 
 const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExistente = null) => {
-    // --- INICIO CORRECCIÓN 1: Añadir 'personas' y los nuevos campos de descuento ---
-    const { 
-        cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, 
-        canalId, canalNombre, moneda, valorDolarDia, valorOriginal, 
-        origen, icalUid, idReservaCanal, codigoCupon, personas,
-        descuentoPct, descuentoFijo, valorFinalFijado // <-- CAMPOS AÑADIDOS
-    } = datos;
-    // --- FIN CORRECCIÓN 1 ---
-    
-    const idGrupo = idReservaCanal || idPropuestaExistente || db.collection('empresas').doc().id;
+    const { 
+        cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, 
+        canalId, canalNombre, moneda, valorDolarDia, valorOriginal, // 'valorOriginal' es el Precio Teórico (KPI)
+        origen, icalUid, idReservaCanal, codigoCupon, personas,
+        descuentoPct, descuentoFijo, valorFinalFijado // <-- Modificadores
+    } = datos;
+    
+    const idGrupo = idReservaCanal || idPropuestaExistente || db.collection('empresas').doc().id;
 
-    let clienteId;
-    if (cliente.id) {
-        clienteId = cliente.id;
-    } else if (cliente.nombre && cliente.telefono) {
-        const resultadoCliente = await crearOActualizarCliente(db, empresaId, {
-            nombre: cliente.nombre,
-            telefono: cliente.telefono,
-            email: cliente.email,
-            canalNombre: canalNombre,
-            idReservaCanal: idGrupo
-        });
-        clienteId = resultadoCliente.cliente.id;
+    let clienteId;
+    if (cliente.id) {
+        clienteId = cliente.id;
+    } else if (cliente.nombre && cliente.telefono) {
+        const resultadoCliente = await crearOActualizarCliente(db, empresaId, {
+            nombre: cliente.nombre,
+            telefono: cliente.telefono,
+            email: cliente.email,
+            canalNombre: canalNombre,
+            idReservaCanal: idGrupo
+        });
+        clienteId = resultadoCliente.cliente.id;
+    } else {
+        clienteId = null; 
+    }
+
+    // --- Lógica de Trazabilidad para Propuestas (G-056) ---
+
+    // 1. Obtener datos del canal (para la fórmula de IVA y Comisión)
+    const canalDoc = await db.collection('empresas').doc(empresaId).collection('canales').doc(canalId).get();
+    if (!canalDoc.exists) throw new Error("El canal seleccionado no es válido.");
+    const canalData = canalDoc.data();
+    const configuracionIva = canalData.configuracionIva || 'incluido';
+    const comisionSumable_Orig = 0; // Asumimos 0 para propuestas manuales
+
+    // 2. Determinar el "Valor Ancla" (Teórico)
+    let ancla_Subtotal_USD = valorOriginal;
+    let ancla_Iva_USD, ancla_TotalCliente_USD;
+
+    if (configuracionIva === 'agregar') {
+        ancla_Iva_USD = ancla_Subtotal_USD * 0.19;
+        ancla_TotalCliente_USD = ancla_Subtotal_USD + ancla_Iva_USD;
+    } else {
+        ancla_TotalCliente_USD = ancla_Subtotal_USD;
+        ancla_Iva_USD = ancla_TotalCliente_USD / 1.19 * 0.19;
+    }
+    const ancla_Payout_USD = ancla_Subtotal_USD - comisionSumable_Orig;
+
+
+    // 3. Determinar los valores "Actuales" (Modificados)
+    let actual_TotalCliente_USD;
+    let ajusteManualUSD = 0;
+
+    if (valorFinalFijado && valorFinalFijado > 0) {
+        // Caso A: "Valor Final Fijo"
+        actual_TotalCliente_USD = (moneda === 'USD') ? valorFinalFijado : (valorFinalFijado / valorDolarDia);
+    } else if (descuentoPct && descuentoPct > 0) {
+        // Caso B: "Descuento Porcentaje"
+        actual_TotalCliente_USD = ancla_TotalCliente_USD * (1 - (descuentoPct / 100));
+    } else if (descuentoFijo && descuentoFijo > 0) {
+        // Caso C: "Descuento Fijo (CLP)"
+        const descuentoUSD = (moneda === 'USD') ? descuentoFijo : (descuentoFijo / valorDolarDia);
+        actual_TotalCliente_USD = ancla_TotalCliente_USD - descuentoUSD;
     } else {
-        clienteId = null; 
+        // Caso D: Sin modificación
+        actual_TotalCliente_USD = ancla_TotalCliente_USD;
     }
-    
-    await db.runTransaction(async (transaction) => {
-        const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
-        
-        let idCargaParaPreservar = null;
 
-        if (idPropuestaExistente) {
-            const queryExistentes = reservasRef.where('idReservaCanal', '==', idPropuestaExistente).where('estado', '==', 'Propuesta');
-            const snapshotExistentes = await transaction.get(queryExistentes);
-            
-            if (!snapshotExistentes.empty) {
-                idCargaParaPreservar = snapshotExistentes.docs[0].data().idCarga;
-            }
+    // 4. Recalcular Payout e IVA basados en el nuevo Total Cliente "Actual"
+    const valoresActuales = recalcularValoresDesdeTotal(
+        actual_TotalCliente_USD,
+        configuracionIva,
+        comisionSumable_Orig
+    );
 
-            snapshotExistentes.forEach(doc => transaction.delete(doc.ref));
-        }
+    // 5. Calcular el historial de ajuste
+    ajusteManualUSD = actual_TotalCliente_USD - ancla_TotalCliente_USD;
+    
+    await db.runTransaction(async (transaction) => {
+        const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
+        
+        let idCargaParaPreservar = null;
 
-        let personasAsignadas = false;
+        if (idPropuestaExistente) {
+            const queryExistentes = reservasRef.where('idReservaCanal', '==', idPropuestaExistente).where('estado', '==', 'Propuesta');
+            const snapshotExistentes = await transaction.get(queryExistentes);
+            
+            if (!snapshotExistentes.empty) {
+                idCargaParaPreservar = snapshotExistentes.docs[0].data().idCarga;
+            }
 
-        for (const prop of propiedades) {
-            const nuevaReservaRef = reservasRef.doc();
-            const idUnicoReserva = `${idGrupo}-${prop.id}`;
-            const precioFinalPorPropiedad = (propiedades.length > 0) ? Math.round(precioFinal / propiedades.length) : 0;
-            const valorOriginalPorPropiedad = (propiedades.length > 0 && moneda === 'USD') ? (valorOriginal / propiedades.length) : precioFinalPorPropiedad;
+            snapshotExistentes.forEach(doc => transaction.delete(doc.ref));
+        }
 
-            let huespedesParaEstaReserva = 0;
-            if (!personasAsignadas) {
-                huespedesParaEstaReserva = personas || 0;
-                personasAsignadas = true;
-            }
+        let personasAsignadas = false;
 
-            const datosReserva = {
-                id: nuevaReservaRef.id,
-                idUnicoReserva,
-                idCarga: idCargaParaPreservar,
-                idReservaCanal: idGrupo,
-                icalUid: icalUid || null,
-                clienteId,
-                alojamientoId: prop.id,
-                alojamientoNombre: prop.nombre,
-                canalId: canalId || null,
-                canalNombre: canalNombre || 'Por Defecto',
-                fechaLlegada: admin.firestore.Timestamp.fromDate(new Date(fechaLlegada + 'T00:00:00Z')),
-                fechaSalida: admin.firestore.Timestamp.fromDate(new Date(fechaSalida + 'T00:00:00Z')),
-                totalNoches: noches,
-                cantidadHuespedes: huespedesParaEstaReserva,
-                estado: 'Propuesta',
-                origen: origen || 'manual',
-                moneda,
-                valorDolarDia,
-                cuponUtilizado: codigoCupon || null,
-                
-                // --- INICIO CORRECCIÓN 2: Guardar todos los datos de precio ---
-                valores: {
-                    valorOriginal: valorOriginalPorPropiedad,
-                    valorTotal: precioFinalPorPropiedad,
-                    valorHuesped: precioFinalPorPropiedad,
-                    
-                    // Campos para reconstruir la edición
-                    descuentoPct: descuentoPct || 0,
-                    descuentoFijo: descuentoFijo || 0,
-                    valorFinalFijado: valorFinalFijado || 0
-                },
-                // --- FIN CORRECCIÓN 2 ---
+        for (const prop of propiedades) {
+            const nuevaReservaRef = reservasRef.doc();
+            const idUnicoReserva = `${idGrupo}-${prop.id}`;
+            
+            const proporcion = 1 / propiedades.length;
+            const convertirACLPSIesNecesario = (monto) => (moneda === 'USD' && valorDolarDia) ? monto * valorDolarDia : monto;
 
-                fechaReserva: admin.firestore.FieldValue.serverTimestamp(),
-                fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
-                fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
-            };
-            transaction.set(nuevaReservaRef, datosReserva);
-        }
-    });
+            let huespedesParaEstaReserva = 0;
+            if (!personasAsignadas) {
+                huespedesParaEstaReserva = personas || 0;
+                personasAsignadas = true;
+            }
 
-    return { id: idGrupo };
+            const datosReserva = {
+                id: nuevaReservaRef.id,
+                idUnicoReserva,
+                idCarga: idCargaParaPreservar,
+           idReservaCanal: idGrupo,
+                icalUid: icalUid || null,
+                clienteId,
+                alojamientoId: prop.id,
+                alojamientoNombre: prop.nombre,
+                canalId: canalId || null,
+             canalNombre: canalNombre || 'Por Defecto',
+                fechaLlegada: admin.firestore.Timestamp.fromDate(new Date(fechaLlegada + 'T00:00:00Z')),
+                fechaSalida: admin.firestore.Timestamp.fromDate(new Date(fechaSalida + 'T00:00:00Z')),
+                totalNoches: noches,
+                cantidadHuespedes: huespedesParaEstaReserva,
+                estado: 'Propuesta',
+             origen: origen || 'manual',
+                moneda,
+                valorDolarDia,
+                cuponUtilizado: codigoCupon || null,
+                
+                valores: {
+                    // --- Set "Actual" (CLP) ---
+                    valorHuesped: Math.round(convertirACLPSIesNecesario(valoresActuales.valorHuespedOriginal * proporcion)),
+                    valorTotal: Math.round(convertirACLPSIesNecesario(valoresActuales.valorTotalOriginal * proporcion)),
+                    comision: Math.round(convertirACLPSIesNecesario(comisionSumable_Orig * proporcion)),
+                    costoCanal: 0,
+                    iva: Math.round(convertirACLPSIesNecesario(valoresActuales.ivaOriginal * proporcion)),
+                    
+                        // --- KPI (Precio Base) ---
+                        valorOriginal: valorOriginal, 
+
+                        // --- Set "Actual" (USD) ---
+                        valorHuespedOriginal: valoresActuales.valorHuespedOriginal * proporcion,
+                        valorTotalOriginal: valoresActuales.valorTotalOriginal * proporcion,
+                        comisionOriginal: comisionSumable_Orig * proporcion,
+                        costoCanalOriginal: 0,
+                        ivaOriginal: valoresActuales.ivaOriginal * proporcion,
+
+                        // --- SET DE RESPALDO / "ANCLA" (USD) ---
+                        valorHuespedCalculado: ancla_TotalCliente_USD * proporcion,
+                        valorTotalCalculado: ancla_Payout_USD * proporcion,
+                        comisionCalculado: comisionSumable_Orig * proporcion,
+                        costoCanalCalculado: 0,
+                        ivaCalculado: ancla_Iva_USD * proporcion,
+
+                        // Campos de trazabilidad de Propuesta
+                    descuentoPct: descuentoPct || 0,
+                    descuentoFijo: descuentoFijo || 0,
+               valorFinalFijado: valorFinalFijado || 0
+                },
+
+                fechaReserva: admin.firestore.FieldValue.serverTimestamp(),
+                fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
+                fechaActualizacion: admin.firestore.FieldValue.serverTimestamp(), // <-- ¡LA COMA FALTANTE!
+
+                ajustes: {
+                    ajusteManualUSD: ajusteManualUSD * proporcion
+                }
+         };
+            transaction.set(nuevaReservaRef, datosReserva);
+        }
+    });
+
+    return { id: idGrupo };
 };
 
 const guardarPresupuesto = async (db, empresaId, datos) => {
