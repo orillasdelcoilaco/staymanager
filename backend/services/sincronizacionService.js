@@ -10,123 +10,132 @@ const { obtenerMapeosPorEmpresa } = require('./mapeosService');
 const { obtenerValorDolar, actualizarValorDolarApi } = require('./dolarService');
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 const { registrarCarga } = require('./historialCargasService');
-const { calculatePrice } = require('./utils/calculoValoresService');
+
+// --- INICIO DE LA MODIFICACIÓN: Importar los servicios centrales ---
+// Importar 'calculatePrice' (KPI) y 'calcularValoresBaseDesdeReporte' (Fórmula)
+const { calculatePrice, calcularValoresBaseDesdeReporte } = require('./utils/calculoValoresService');
+// --- FIN DE LA MODIFICACIÓN ---
+
 
 const leerArchivo = (buffer, nombreArchivo) => {
-    const esCsv = nombreArchivo && nombreArchivo.toLowerCase().endsWith('.csv');
-    if (esCsv) {
-        const data = buffer.toString('utf8');
-        const workbook = xlsx.read(data, { type: 'string', cellDates: true, raw: true });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        return xlsx.utils.sheet_to_json(sheet, { header: 1 });
-    }
-    const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    return xlsx.utils.sheet_to_json(sheet, { header: 1, raw: false });
+    const esCsv = nombreArchivo && nombreArchivo.toLowerCase().endsWith('.csv');
+    if (esCsv) {
+        const data = buffer.toString('utf8');
+        const workbook = xlsx.read(data, { type: 'string', cellDates: true, raw: true });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        return xlsx.utils.sheet_to_json(sheet, { header: 1 });
+    }
+    const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    return xlsx.utils.sheet_to_json(sheet, { header: 1, raw: false });
 };
 
 const analizarCabeceras = async (buffer, nombreArchivo) => {
-    const rows = leerArchivo(buffer, nombreArchivo);
-    return rows.length > 0 ? rows[0].filter(Boolean) : [];
+    const rows = leerArchivo(buffer, nombreArchivo);
+    return rows.length > 0 ? rows[0].filter(Boolean) : [];
 };
 
 const analizarValoresUnicosColumna = async (buffer, nombreArchivo, indiceColumna) => {
-    const rows = leerArchivo(buffer, nombreArchivo);
-    if (rows.length < 2) return [];
-    
-    const valores = new Set();
-    for (let i = 1; i < rows.length; i++) {
-        const valor = rows[i][indiceColumna];
-        if (valor !== undefined && valor !== null && valor.toString().trim() !== '') {
-            valores.add(valor.toString().trim());
-        }
-    }
-    return Array.from(valores);
+    const rows = leerArchivo(buffer, nombreArchivo);
+    if (rows.length < 2) return [];
+    
+    const valores = new Set();
+    for (let i = 1; i < rows.length; i++) {
+        const valor = rows[i][indiceColumna];
+        if (valor !== undefined && valor !== null && valor.toString().trim() !== '') {
+            valores.add(valor.toString().trim());
+        }
+    }
+    return Array.from(valores);
 };
 
 const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
-    const mapeo = mapeosDelCanal.find(m => m.campoInterno === campoInterno);
-    if (!mapeo || typeof mapeo.columnaIndex !== 'number' || mapeo.columnaIndex < 0) {
-        return undefined;
-    }
-    return fila[mapeo.columnaIndex];
+    const mapeo = mapeosDelCanal.find(m => m.campoInterno === campoInterno);
+    if (!mapeo || typeof mapeo.columnaIndex !== 'number' || mapeo.columnaIndex < 0) {
+        return undefined;
+    }
+    return fila[mapeo.columnaIndex];
 };
 
 const parsearFecha = (dateValue, formatoFecha = 'DD/MM/YYYY') => {
-    if (!dateValue) return null;
-    if (dateValue instanceof Date && !isNaN(dateValue)) return dateValue;
-    if (typeof dateValue === 'number') {
-        return new Date(Date.UTC(1899, 11, 30, 0, 0, 0, 0) + dateValue * 86400000);
-    }
-    if (typeof dateValue !== 'string') return null;
+// ... (Esta función no cambia) ...
+    if (!dateValue) return null;
+    if (dateValue instanceof Date && !isNaN(dateValue)) return dateValue;
+    if (typeof dateValue === 'number') {
+        return new Date(Date.UTC(1899, 11, 30, 0, 0, 0, 0) + dateValue * 86400000);
+    }
+    if (typeof dateValue !== 'string') return null;
 
-    const dateStr = dateValue.trim().split(' ')[0];
-    const match = dateStr.match(/^(\d{1,4})[\\/.-](\d{1,2})[\\/.-](\d{1,4})$/);
+    const dateStr = dateValue.trim().split(' ')[0];
+    const match = dateStr.match(/^(\d{1,4})[\\/.-](\d{1,2})[\\/.-](\d{1,4})$/);
 
-    if (!match) {
-        const genericDate = new Date(dateStr);
-        if (!isNaN(genericDate.getTime())) {
-            return new Date(Date.UTC(genericDate.getFullYear(), genericDate.getMonth(), genericDate.getDate()));
-        }
-        return null;
-    }
+    if (!match) {
+        const genericDate = new Date(dateStr);
+        if (!isNaN(genericDate.getTime())) {
+            return new Date(Date.UTC(genericDate.getFullYear(), genericDate.getMonth(), genericDate.getDate()));
+        }
+        return null;
+    }
 
-    let day, month, year;
+    let day, month, year;
 
-    switch (formatoFecha) {
-        case 'YYYY-MM-DD':
-            [_, year, month, day] = match.map(Number);
-            break;
-        case 'MM/DD/YYYY':
-            [_, month, day, year] = match.map(Number);
-            break;
-        case 'DD/MM/YYYY':
-        default:
-            [_, day, month, year] = match.map(Number);
-            break;
-    }
+    switch (formatoFecha) {
+        case 'YYYY-MM-DD':
+            [_, year, month, day] = match.map(Number);
+            break;
+        case 'MM/DD/YYYY':
+            [_, month, day, year] = match.map(Number);
+            break;
+        case 'DD/MM/YYYY':
+        default:
+            [_, day, month, year] = match.map(Number);
+            break;
+    }
 
-    if (year < 100) year += 2000;
-    
-    const date = new Date(Date.UTC(year, month - 1, day));
-    if (!isNaN(date) && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day) {
-        return date;
-    }
+    if (year < 100) year += 2000;
+    
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (!isNaN(date) && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day) {
+        return date;
+    }
 
-    return null;
+    return null;
 };
 
 const normalizarString = (texto) => {
-    if (!texto) return '';
-    return texto.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, ' ');
+// ... (Esta función no cambia) ...
+    if (!texto) return '';
+    return texto.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, ' ');
 };
 
 const determinarEstado = (estadoCrudo, mapeosDeEstado) => {
-    if (!estadoCrudo) return 'Desconocido';
-    const estadoNormalizado = normalizarString(estadoCrudo);
-    for (const [key, value] of Object.entries(mapeosDeEstado)) {
-        if (normalizarString(key) === estadoNormalizado) {
-            return value;
-        }
-    }
-    return 'Desconocido';
+// ... (Esta función no cambia) ...
+    if (!estadoCrudo) return 'Desconocido';
+    const estadoNormalizado = normalizarString(estadoCrudo);
+    for (const [key, value] of Object.entries(mapeosDeEstado)) {
+        if (normalizarString(key) === estadoNormalizado) {
+            return value;
+        }
+    }
+    return 'Desconocido';
 };
 
 const parsearMoneda = (valor, separadorDecimal = ',') => {
-    if (valor === undefined || valor === null) return 0;
-    
-    const valorStr = valor.toString().trim();
-    
-    let numeroFormateado;
-    if (separadorDecimal === ',') {
-        numeroFormateado = valorStr.replace(/[^\d,-]/g, "").replace(/\./g, '').replace(',', '.');
-    } else {
-        numeroFormateado = valorStr.replace(/[^\d.-]/g, "").replace(/,/g, '');
-    }
-    
-    return parseFloat(numeroFormateado) || 0;
+// ... (Esta función no cambia) ...
+    if (valor === undefined || valor === null) return 0;
+    
+    const valorStr = valor.toString().trim();
+    
+    let numeroFormateado;
+    if (separadorDecimal === ',') {
+        numeroFormateado = valorStr.replace(/[^\d,-]/g, "").replace(/\./g, '').replace(',', '.');
+    } else {
+        numeroFormateado = valorStr.replace(/[^\d.-]/g, "").replace(/,/g, '');
+    }
+    
+    return parseFloat(numeroFormateado) || 0;
 };
 
 const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, nombreArchivoOriginal, usuarioEmail) => {
@@ -151,6 +160,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
     ]);
     
     const allTarifas = tarifasSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, fechaInicio: doc.data().fechaInicio.toDate(), fechaTermino: doc.data().fechaTermino.toDate() }));
+
 
     const mapeosDelCanal = todosLosMapeos.filter(m => m.canalId === canalId);
     if (mapeosDelCanal.length === 0) throw new Error("No se ha configurado un mapeo para este canal.");
@@ -183,7 +193,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 resultados.filasIgnoradas++;
                 continue;
             }
-
+// ... (resto de la función igual hasta el bucle de alojamientos) ...
             const fechaLlegadaCruda = get('fechaLlegada');
             let fechaLlegada = parsearFecha(fechaLlegadaCruda, formatoFecha);
             let fechaSalida = parsearFecha(get('fechaSalida'), formatoFecha);
@@ -207,14 +217,14 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             const resultadoCliente = await crearOActualizarCliente(db, empresaId, datosParaCliente);
             if (resultadoCliente.status === 'creado') resultados.clientesCreados++;
             
-            const nombresExternosAlojamientos = (get('alojamientoNombre') || '').toString().split(',').map(s => s.trim()).filter(Boolean);
+         const nombresExternosAlojamientos = (get('alojamientoNombre') || '').toString().split(',').map(s => s.trim()).filter(Boolean);
             if (nombresExternosAlojamientos.length === 0) {
                 throw new Error("La columna de alojamiento está vacía o es inválida.");
             }
             
             const valorDolarDia = monedaCanal === 'USD' ? await obtenerValorDolar(db, empresaId, fechaLlegada) : null;
 
-            const alojamientosDeReserva = [];
+         const alojamientosDeReserva = [];
             for (const nombreExterno of nombresExternosAlojamientos) {
                 const nombreExternoNormalizado = normalizarString(nombreExterno);
                 const conversion = conversionesAlojamiento.find(c => c.canalId === canalId && c.nombreExterno.split(';').map(normalizarString).includes(nombreExternoNormalizado));
@@ -222,16 +232,16 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                     throw new Error(`No se encontró una conversión para el alojamiento "${nombreExterno}" en el canal ${canalNombre}.`);
                 }
                 const propiedad = propiedades.find(p => p.id === conversion.alojamientoId);
-                if (!propiedad) {
+               if (!propiedad) {
                     throw new Error(`La propiedad interna con ID ${conversion.alojamientoId} no fue encontrada.`);
-           }
+                }
                 alojamientosDeReserva.push(propiedad);
             }
             
             for (const alojamiento of alojamientosDeReserva) {
                 const proporcion = 1 / alojamientosDeReserva.length;
 
-                // --- INICIO DE LA MODIFICACIÓN: Refactorización a Servicio Central ---
+                // --- INICIO DE LA MODIFICACIÓN: Refactorización a Servicio Central (G-050) ---
                 
                 // 1. Recolectar datos crudos del mapeo (en USD)
                 const datosMapeo = {
@@ -269,7 +279,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                         valorTotal: Math.round(convertirACLPSIesNecesario(valoresCalculados.valorTotalOriginal)),
                         comision: Math.round(convertirACLPSIesNecesario(valoresCalculados.comisionOriginal)),
                      costoCanal: Math.round(convertirACLPSIesNecesario(valoresCalculados.costoCanalOriginal)),
-                     iva: Math.round(convertirACLPSIesNecesario(valoresCalculados.ivaOriginal)),
+                        iva: Math.round(convertirACLPSIesNecesario(valoresCalculados.ivaOriginal)),
                         
                         // --- KPI (Precio Base) ---
                         valorOriginal: valorOriginalParaGuardar,
@@ -280,17 +290,17 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                     // --- FIN DE LA MODIFICACIÓN ---
 
                     valorDolarDia, requiereActualizacionDolar: monedaCanal === 'USD' && fechaLlegada > today
-               };
+                };
                 
                 const res = await crearOActualizarReserva(db, empresaId, datosReserva);
-                if (res.status === 'creada') resultados.reservasCreadas++;
+             if (res.status === 'creada') resultados.reservasCreadas++;
                 else if (res.status === 'actualizada') resultados.reservasActualizadas++;
                 else if (res.status === 'sin_cambios') resultados.reservasSinCambios++;
             }
 
         } catch (error) {
             console.error(`Error procesando fila ${idFilaParaError}:`, error);
-            resultados.errores.push({ fila: idFilaParaError, error: error.message });
+           resultados.errores.push({ fila: idFilaParaError, error: error.message });
         }
     }
 
@@ -302,7 +312,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
 };
 
 module.exports = {
-    procesarArchivoReservas,
-    analizarCabeceras,
-    analizarValoresUnicosColumna
+    procesarArchivoReservas,
+    analizarCabeceras,
+    analizarValoresUnicosColumna
 };
