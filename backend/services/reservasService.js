@@ -84,14 +84,14 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
     const ajustesExistentes = reservaExistente.ajustes || {};
     const valoresExistentes = reservaExistente.valores || {};
 
+    // --- INICIO DE LA MODIFICACIÓN: Lógica de Trazabilidad y Ajuste de Cobro ---
+
     // Copiamos los datos que llegan para no modificar el original
     let nuevosValores = { ...(datosNuevos.valores || {}) };
     let nuevosAjustes = { ...(datosNuevos.ajustes || {}) };
 
     if (datosNuevos.fechaLlegada) datosNuevos.fechaLlegada = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaLlegada + 'T00:00:00Z'));
     if (datosNuevos.fechaSalida) datosNuevos.fechaSalida = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaSalida + 'T00:00:00Z'));
-
-    // --- INICIO DE LA MODIFICACIÓN: Lógica de Trazabilidad y Ajuste de Cobro ---
 
     // 1. Determinar el valor del dólar a usar (Lógica Fijo/Flotante)
     let valorDolarUsado = null;
@@ -105,8 +105,10 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
 
     if (moneda !== 'CLP') {
         if (esFijo) {
+            // Si es fijo, buscamos el dólar "congelado"
             valorDolarUsado = reservaExistente.valores?.valorDolarFacturacion || (fechaLlegada ? await obtenerValorDolar(db, empresaId, fechaLlegada) : (await obtenerValorDolarHoy(db, empresaId)).valor);
         } else {
+            // Si es flotante, usamos el de hoy
             valorDolarUsado = (await obtenerValorDolarHoy(db, empresaId)).valor;
         }
     }
@@ -119,15 +121,17 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
         let ajusteManualUSD = 0;
 
         if (moneda !== 'CLP' && valorDolarUsado > 0) {
-            nuevoValorHuespedUSD = nuevoValorHuespedCLP / valorDolarUsado; // $400.000 / 953.2 = 419.64
+            nuevoValorHuespedUSD = nuevoValorHuespedCLP / valorDolarUsado; // $400.000 / 953 = 419.72
         } else {
-            nuevoValorHuespedUSD = nuevoValorHuespedCLP;
+            nuevoValorHuespedUSD = nuevoValorHuespedCLP; // Es CLP
         }
 
+        // Leer el "Ancla" (el valor original calculado en la carga)
         const valorAnclaUSD = valoresExistentes.valorHuespedCalculado || 0; // 424.12
 
+        // Calcular el ajuste contra el ancla
         if (valorAnclaUSD > 0) {
-            ajusteManualUSD = nuevoValorHuespedUSD - valorAnclaUSD; // 419.64 - 424.12 = -4.48
+            ajusteManualUSD = nuevoValorHuespedUSD - valorAnclaUSD; // 419.72 - 424.12 = -4.40
         }
 
         // Actualizar los objetos que se van a fusionar
@@ -162,6 +166,9 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
         const valorExistente = reservaExistente[key];
         
         if (typeof valorNuevo === 'object' && valorNuevo !== null && !Array.isArray(valorNuevo)) {
+            // ¡ESTA ES LA LÍNEA QUE CAUSABA EL BUG Y FUE ELIMINADA!
+            // if (key === 'valores') { ... } 
+
             // Iterar sub-claves (para 'valores' y 'ajustes')
             Object.keys(valorNuevo).forEach(subKey => {
                 if (JSON.stringify(valorExistente?.[subKey]) !== JSON.stringify(valorNuevo[subKey])) {
@@ -179,6 +186,9 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
         edicionesManuales,
         fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
     };
+
+    // (Debug: Descomenta esto si sigue fallando para ver qué se está guardando)
+    // console.log("Datos finales para guardar:", JSON.stringify(datosFinalesParaUpdate, null, 2));
 
     await reservaRef.update(datosFinalesParaUpdate);
     return { id: reservaId, ...datosFinalesParaUpdate };
