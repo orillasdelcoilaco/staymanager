@@ -1,7 +1,7 @@
 // backend/services/reservasService.js
 
 const admin = require('firebase-admin');
-const { obtenerValorDolarHoy } = require('./dolarService');
+const { obtenerValorDolar, obtenerValorDolarHoy } = require('./dolarService');
 
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
