@@ -82,6 +82,11 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
     const reservaExistente = reservaDoc.data();
     const edicionesManuales = reservaExistente.edicionesManuales || {};
     const ajustesExistentes = reservaExistente.ajustes || {};
+    const valoresExistentes = reservaExistente.valores || {};
+
+    // Copiamos los datos que llegan para no modificar el original
+    let nuevosValores = { ...(datosNuevos.valores || {}) };
+    let nuevosAjustes = { ...(datosNuevos.ajustes || {}) };
 
     if (datosNuevos.fechaLlegada) datosNuevos.fechaLlegada = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaLlegada + 'T00:00:00Z'));
     if (datosNuevos.fechaSalida) datosNuevos.fechaSalida = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaSalida + 'T00:00:00Z'));
@@ -107,60 +112,57 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
     }
 
     // 2. Lógica de "Ajustar Cobro" (si el 'valorHuesped' CLP fue modificado)
-    if (datosNuevos.valores && datosNuevos.valores.valorHuesped !== undefined && datosNuevos.valores.valorHuesped !== reservaExistente.valores.valorHuesped) {
+    if (nuevosValores.valorHuesped !== undefined && nuevosValores.valorHuesped !== valoresExistentes.valorHuesped) {
         
-        const nuevoValorHuespedCLP = datosNuevos.valores.valorHuesped;
+        const nuevoValorHuespedCLP = nuevosValores.valorHuesped; // El valor de $400.000
         let nuevoValorHuespedUSD = 0;
         let ajusteManualUSD = 0;
 
-        // Convertir el nuevo valor CLP a USD (si aplica)
         if (moneda !== 'CLP' && valorDolarUsado > 0) {
-            nuevoValorHuespedUSD = nuevoValorHuespedCLP / valorDolarUsado;
+            nuevoValorHuespedUSD = nuevoValorHuespedCLP / valorDolarUsado; // $400.000 / 953.2 = 419.64
         } else {
-            nuevoValorHuespedUSD = nuevoValorHuespedCLP; // Es CLP
+            nuevoValorHuespedUSD = nuevoValorHuespedCLP;
         }
 
-        // Leer el "Ancla" (el valor original calculado en la carga)
-        const valorAnclaUSD = reservaExistente.valores?.valorHuespedCalculado || 0;
+        const valorAnclaUSD = valoresExistentes.valorHuespedCalculado || 0; // 424.12
 
-        // Calcular el ajuste contra el ancla
         if (valorAnclaUSD > 0) {
-            ajusteManualUSD = nuevoValorHuespedUSD - valorAnclaUSD;
+            ajusteManualUSD = nuevoValorHuespedUSD - valorAnclaUSD; // 419.64 - 424.12 = -4.48
         }
 
-        // Actualizar los datos que se van a guardar
-        datosNuevos.valores.valorHuespedOriginal = nuevoValorHuespedUSD; // Sobrescribir el valor "Actual"
-        datosNuevos.ajustes = { ...ajustesExistentes, ajusteManualUSD: ajusteManualUSD }; // Guardar el historial
-        
-        // Marcar los campos como editados
-        edicionesManuales['valores.valorHuesped'] = true;
-        edicionesManuales['valores.valorHuespedOriginal'] = true;
-        edicionesManuales['ajustes.ajusteManualUSD'] = true;
+        // Actualizar los objetos que se van a fusionar
+        nuevosValores.valorHuespedOriginal = nuevoValorHuespedUSD; // Sobrescribir el valor "Actual" USD
+        nuevosAjustes = { ...nuevosAjustes, ajusteManualUSD: ajusteManualUSD }; // Guardar el historial
     }
 
     // 3. Lógica de "Facturación" (Congelación)
     if (datosNuevos.estadoGestion === 'Facturado' && reservaExistente.estadoGestion !== 'Facturado') {
         if (moneda !== 'CLP' && valorDolarUsado > 0) {
-            // Congelar el valor del dólar usado para esta transacción
-            if (!datosNuevos.valores) datosNuevos.valores = {};
-            datosNuevos.valores.valorDolarFacturacion = valorDolarUsado;
-            edicionesManuales['valores.valorDolarFacturacion'] = true;
+            nuevosValores.valorDolarFacturacion = valorDolarUsado;
         }
     }
+    
+    // 4. Crear el objeto final de datos a actualizar
+    const datosAActualizar = {
+        ...datosNuevos, // Trae los campos de primer nivel (ej. estadoGestion)
+        valores: {
+            ...valoresExistentes,
+            ...nuevosValores // Sobrescribe con los valores nuevos (ej. valorHuesped, valorHuespedOriginal)
+        },
+        ajustes: {
+            ...ajustesExistentes,
+            ...nuevosAjustes // Sobrescribe con los nuevos ajustes
+        }
+    };
     // --- FIN DE LA MODIFICACIÓN ---
 
-    Object.keys(datosNuevos).forEach(key => {
-        const valorNuevo = datosNuevos[key];
+    // 5. Calcular Ediciones Manuales (Iterar sobre el objeto final)
+    Object.keys(datosAActualizar).forEach(key => {
+        const valorNuevo = datosAActualizar[key];
         const valorExistente = reservaExistente[key];
+        
         if (typeof valorNuevo === 'object' && valorNuevo !== null && !Array.isArray(valorNuevo)) {
-            // Asegurarse de que 'valores' y 'ajustes' se fusionen, no se reemplacen
-            if (key === 'valores') {
-                 datosNuevos.valores = { ...reservaExistente.valores, ...datosNuevos.valores };
-            }
-            if (key === 'ajustes') {
-                 datosNuevos.ajustes = { ...reservaExistente.ajustes, ...datosNuevos.ajustes };
-            }
-
+            // Iterar sub-claves (para 'valores' y 'ajustes')
             Object.keys(valorNuevo).forEach(subKey => {
                 if (JSON.stringify(valorExistente?.[subKey]) !== JSON.stringify(valorNuevo[subKey])) {
                     edicionesManuales[`${key}.${subKey}`] = true;
@@ -170,10 +172,16 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
             edicionesManuales[key] = true;
         }
     });
+    
+    // 6. Fusionar todo y guardar
+    const datosFinalesParaUpdate = {
+        ...datosAActualizar,
+        edicionesManuales,
+        fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
+    };
 
-    const datosAActualizar = { ...datosNuevos, edicionesManuales, fechaActualizacion: admin.firestore.FieldValue.serverTimestamp() };
-    await reservaRef.update(datosAActualizar);
-    return { id: reservaId, ...datosAActualizar };
+    await reservaRef.update(datosFinalesParaUpdate);
+    return { id: reservaId, ...datosFinalesParaUpdate };
 };
 
 const obtenerReservasPorEmpresa = async (db, empresaId) => {
