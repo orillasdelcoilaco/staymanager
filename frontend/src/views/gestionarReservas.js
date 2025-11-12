@@ -22,12 +22,6 @@ const formatDateTime = (dateString) => {
     return new Date(dateString).toLocaleString('es-CL');
 };
 
-const formatForeign = (value, currency) => {
-    if (!currency || currency === 'CLP') return formatCurrency(value);
-    // Formatear a 2 decimales para monedas extranjeras
-    return `${(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
-};
-
 const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
 const formatStars = (rating) => '⭐'.repeat(rating || 0) + '☆'.repeat(5 - (rating || 0));
 
