@@ -87,11 +87,16 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
 
     // --- INICIO DE LA MODIFICACIÓN: Refactorización a Servicio Central ---
 
+    // Copiamos los datos que llegan para no modificar el original
     let nuevosValores = { ...(datosNuevos.valores || {}) };
     let nuevosAjustes = { ...(datosNuevos.ajustes || {}) };
+    // Copiamos los datos de primer nivel (ej. estadoGestion)
+    let datosNuevosNivelSuperior = { ...datosNuevos };
+    delete datosNuevosNivelSuperior.valores; // Eliminamos 'valores' de los datos de nivel superior
+    delete datosNuevosNivelSuperior.ajustes; // Eliminamos 'ajustes'
 
-    if (datosNuevos.fechaLlegada) datosNuevos.fechaLlegada = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaLlegada + 'T00:00:00Z'));
-    if (datosNuevos.fechaSalida) datosNuevos.fechaSalida = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaSalida + 'T00:00:00Z'));
+    if (datosNuevos.fechaLlegada) datosNuevosNivelSuperior.fechaLlegada = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaLlegada + 'T00:00:00Z'));
+    if (datosNuevos.fechaSalida) datosNuevosNivelSuperior.fechaSalida = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaSalida + 'T00:00:00Z'));
 
     // 1. Determinar el valor del dólar a usar (Lógica Fijo/Flotante)
     let valorDolarUsado = null;
@@ -122,13 +127,14 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
         if (moneda !== 'CLP' && valorDolarUsado > 0) {
             nuevoValorHuespedUSD = nuevoValorHuespedCLP / valorDolarUsado; // ej. 314.79 USD
         } else {
-            nuevoValorHuespedUSD = nuevoValorHuespedCLP; // Es CLP
+            nuevoValorHuespedUSD = nuevoValorHuespedCLP;
         }
         
         // --- LLAMADA AL SERVICIO CENTRAL DE RECÁLCULO ---
         const canal = await db.collection('empresas').doc(empresaId).collection('canales').doc(reservaExistente.canalId).get();
         const configuracionIva = canal.exists ? (canal.data().configuracionIva || 'incluido') : 'incluido';
-        const comisionSumable_Orig = valoresExistentes.comisionOriginal || 0; // Se mantiene la comisión original
+        // (Usamos la comisión sumable 'Actual', no la 'Ancla')
+        const comisionSumable_Orig = valoresExistentes.comisionOriginal || 0; 
 
         // El servicio central recalcula Payout, IVA, etc., a partir del nuevo Total Cliente
         const valoresRecalculadosUSD = recalcularValoresDesdeTotal(
@@ -164,7 +170,7 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
     
     // 4. Crear el objeto final de datos a actualizar
     const datosAActualizar = {
-        ...datosNuevos,
+        ...datosNuevosNivelSuperior, // Nivel superior (ej. estadoGestion)
         valores: {
             ...valoresExistentes,
             ...nuevosValores
@@ -204,8 +210,6 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
 };
 
 const obtenerReservasPorEmpresa = async (db, empresaId) => {
-    // --- INICIO DE LA MODIFICACIÓN: Refactorización ---
-    // (Eliminada la llamada a obtenerValorDolarHoy)
     
     const [reservasSnapshot, clientesSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('reservas').orderBy('fechaLlegada', 'desc').get(),
@@ -217,14 +221,13 @@ const obtenerReservasPorEmpresa = async (db, empresaId) => {
     const clientesMap = new Map();
     clientesSnapshot.forEach(doc => clientesMap.set(doc.id, doc.data()));
 
+    // --- INICIO DE LA MODIFICACIÓN: Refactorización a Servicio Central ---
     // 1. Iterar y llamar al servicio central para cada reserva
     const reservasConCLP = await Promise.all(
         reservasSnapshot.docs.map(async (doc) => {
             const data = doc.data();
-            // Llamamos al servicio central para obtener los CLP (flotantes o fijos)
             const valoresCLP = await getValoresCLP(db, empresaId, data);
             
-            // Sobrescribimos los valores CLP estáticos con los correctos
             if (!data.valores) data.valores = {};
             data.valores.valorHuesped = valoresCLP.valorHuesped;
             data.valores.valorTotal = valoresCLP.payout; // 'valorTotal' es Payout
@@ -237,6 +240,7 @@ const obtenerReservasPorEmpresa = async (db, empresaId) => {
 
     // 2. Mapear los resultados finales
     return reservasConCLP.map(item => {
+    // --- FIN DE LA MODIFICACIÓN ---
         const data = item.data;
         const cliente = clientesMap.get(data.clienteId);
         return {
@@ -251,7 +255,6 @@ const obtenerReservasPorEmpresa = async (db, empresaId) => {
             fechaReserva: data.fechaReserva?.toDate().toISOString() || null
         };
     });
-    // --- FIN DE LA MODIFICACIÓN ---
 };
 
 const obtenerReservaPorId = async (db, empresaId, reservaId) => {
@@ -348,7 +351,7 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
 
     const abonoProporcional = (datosGrupo.valorTotal > 0)
         ? (valorHuespedCLP / datosGrupo.valorTotal) * datosGrupo.abonoTotal
-        : 0;
+     : 0;
     
     // --- Lógica de Valor Potencial (KPI) ---
     const valorCanalBase_Original = valoresOriginales.valorOriginal || 0; // KPI (en USD/moneda canal)
@@ -366,7 +369,6 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
 
     if (valorCanalBase_CLP > 0 && valorCanalBase_CLP > valorCanalExterno_CLP) {
         valorPotencial_Monto = valorCanalBase_CLP - valorCanalExterno_CLP;
-        // Corregido el cálculo del porcentaje
         valorPotencial_Pct = (valorPotencial_Monto / valorCanalBase_CLP) * 100;
     }
 
@@ -375,7 +377,7 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
         fechaLlegada: reservaData.fechaLlegada?.toDate().toISOString().split('T')[0] || null,
         fechaSalida: reservaData.fechaSalida?.toDate().toISOString().split('T')[0] || null,
         fechaReserva: reservaData.fechaReserva?.toDate().toISOString().split('T')[0] || null,
-        cliente,
+     cliente,
         notas,
         transacciones,
         
@@ -389,7 +391,7 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
             saldo: Math.round(valoresEnCLP.valorHuesped - abonoProporcional),
             abonoProporcional: Math.round(abonoProporcional),
 
-            // Valores Originales (Moneda Extranjera, leídos de la BBDD)
+         // Valores Originales (Moneda Extranjera, leídos de la BBDD)
             valorHuespedOriginal: valorHuespedOriginal, 
             costoCanalOriginal: costoCanalOriginal,
             valorTotalOriginal: payoutOriginal, // Payout
