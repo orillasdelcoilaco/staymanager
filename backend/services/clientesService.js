@@ -223,9 +223,11 @@ const recalcularEstadisticasClientes = async (db, empresaId) => {
     const clientesRef = db.collection('empresas').doc(empresaId).collection('clientes');
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
 
-    // --- INICIO DE LA MODIFICACIÓN 1: Obtener Dólar Hoy ---
+    // --- INICIO DE LA MODIFICACIÓN 1: Obtener Dólar Hoy y Fecha Actual ---
     const dolarHoyData = await obtenerValorDolarHoy(db, empresaId);
     const valorDolarHoy = dolarHoyData ? dolarHoyData.valor : 950; // Fallback
+    const fechaActual = new Date();
+    fechaActual.setUTCHours(0, 0, 0, 0);
     // --- FIN DE LA MODIFICACIÓN 1 ---
 
     const [clientesSnapshot, reservasSnapshot] = await Promise.all([
@@ -239,6 +241,7 @@ const recalcularEstadisticasClientes = async (db, empresaId) => {
 
     const reservasPorCliente = new Map();
     reservasSnapshot.forEach(doc => {
+// ... (código de reservasPorCliente sin cambios) ...
         const reserva = doc.data();
         if (!reservasPorCliente.has(reserva.clienteId)) {
             reservasPorCliente.set(reserva.clienteId, []);
@@ -253,17 +256,22 @@ const recalcularEstadisticasClientes = async (db, empresaId) => {
         const clienteId = doc.id;
         const historialReservas = reservasPorCliente.get(clienteId) || [];
         
-        // --- INICIO DE LA MODIFICACIÓN 2: Cálculo de 'totalGastado' flotante ---
+        // --- INICIO DE LA MODIFICACIÓN 2: Cálculo de 'totalGastado' flotante/fijo ---
         const totalGastado = historialReservas.reduce((sum, r) => {
             const moneda = r.moneda || 'CLP';
-            const estadoGestion = r.estadoGestion;
-            let valorHuespedFinal = r.valores?.valorHuesped || 0; // Default a valor estático
+            
+            // 1. Definir condiciones de valor fijo
+            const fechaLlegada = r.fechaLlegada?.toDate ? r.fechaLlegada.toDate() : null;
+            const esFacturado = r.estadoGestion === 'Facturado';
+            const esPasado = fechaLlegada && fechaLlegada < fechaActual;
+            const esFijo = esFacturado || esPasado;
 
-            // Recalcular si es moneda extranjera Y NO está Facturado
-            if (moneda !== 'CLP' && estadoGestion !== 'Facturado') {
+            let valorHuespedFinal = r.valores?.valorHuesped || 0; // Default a valor estático (CLP)
+
+            // 2. Recalcular si es flotante
+            if (moneda !== 'CLP' && !esFijo) {
                 const valorHuespedOriginal = r.valores?.valorHuespedOriginal || 0;
                 if (valorHuespedOriginal > 0) {
-                    // Usamos el 'valorDolarHoy' que obtuvimos al inicio de la función
                     valorHuespedFinal = Math.round(valorHuespedOriginal * valorDolarHoy);
                 }
             }
@@ -272,7 +280,8 @@ const recalcularEstadisticasClientes = async (db, empresaId) => {
         // --- FIN DE LA MODIFICACIÓN 2 ---
 
         const numeroDeReservas = historialReservas.length;
-
+// ... (resto de la función: tipoCliente, rfmSegmento, updates, etc. sin cambios) ...
+        
         let tipoCliente = 'Cliente Nuevo';
         if (numeroDeReservas === 0) {
             tipoCliente = 'Sin Reservas';
@@ -285,11 +294,11 @@ const recalcularEstadisticasClientes = async (db, empresaId) => {
         const rfmSegmento = segmentarClienteRFM(historialReservas, totalGastado);
 
         const updates = {
-            totalGastado, // Ahora es el valor flotante
+            totalGastado, // Ahora es el valor flotante/fijo
             numeroDeReservas,
             tipoCliente,
             rfmSegmento
-        };
+       };
 
         batch.update(doc.ref, updates);
         clientesActualizados++;

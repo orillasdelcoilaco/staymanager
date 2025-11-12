@@ -19,10 +19,16 @@ const getReservasPendientes = async (db, empresaId) => {
     
     const dolarHoyData = await obtenerValorDolarHoy(db, empresaId);
     const valorDolarHoy = dolarHoyData ? dolarHoyData.valor : 950;
+    
+    // --- INICIO DE LA MODIFICACIÓN: Definir fechaActual ---
+    const fechaActual = new Date();
+    fechaActual.setUTCHours(0, 0, 0, 0);
+    // --- FIN DE LA MODIFICACIÓN ---
 
     const estadosSnapshot = await db.collection('empresas').doc(empresaId).collection('estadosReserva').where('esEstadoDeGestion', '==', true).get();
     const estadosDeGestion = estadosSnapshot.docs.map(doc => doc.data().nombre);
 
+// ... (resto de la función: queries, snapshots, allDocs, idChunks, fetchInBatches, etc. sin cambios) ...
     const queries = [];
     if (estadosDeGestion.length > 0) {
         const estadoChunks = splitIntoChunks(estadosDeGestion, 30);
@@ -36,7 +42,7 @@ const getReservasPendientes = async (db, empresaId) => {
         });
     }
     queries.push(reservasRef.where('estado', '==', 'Desconocido').get());
-// ... (resto de la función igual hasta el mapeo de clientes) ...
+
     const snapshots = await Promise.all(queries);
     
     const allDocs = [];
@@ -100,16 +106,24 @@ const getReservasPendientes = async (db, empresaId) => {
     const clientsMap = new Map();
     clientesSnapshot.docs.forEach(doc => {
         const clienteData = doc.data();
-      const historialCliente = historialReservasSnapshot.docs
+        const historialCliente = historialReservasSnapshot.docs
             .filter(reservaDoc => reservaDoc.data().clienteId === doc.id && reservaDoc.data().estado === 'Confirmada') 
             .map(reservaDoc => reservaDoc.data());
 
+        // --- INICIO DE LA MODIFICACIÓN: Cálculo de 'totalGastado' flotante/fijo ---
         const totalGastado = historialCliente.reduce((sum, r) => {
             const moneda = r.moneda || 'CLP';
-            const estadoGestion = r.estadoGestion;
-            let valorHuespedFinal = r.valores?.valorHuesped || 0; 
+            
+            // 1. Definir condiciones de valor fijo
+            const fechaLlegada = r.fechaLlegada?.toDate ? r.fechaLlegada.toDate() : null;
+            const esFacturado = r.estadoGestion === 'Facturado';
+            const esPasado = fechaLlegada && fechaLlegada < fechaActual;
+            const esFijo = esFacturado || esPasado;
 
-            if (moneda !== 'CLP' && estadoGestion !== 'Facturado') {
+            let valorHuespedFinal = r.valores?.valorHuesped || 0; // Default a valor estático (CLP)
+
+            // 2. Recalcular si es flotante
+            if (moneda !== 'CLP' && !esFijo) {
                 const valorHuespedOriginal = r.valores?.valorHuespedOriginal || 0;
                 if (valorHuespedOriginal > 0) {
                     valorHuespedFinal = Math.round(valorHuespedOriginal * valorDolarHoy);
@@ -117,8 +131,10 @@ const getReservasPendientes = async (db, empresaId) => {
             }
             return sum + valorHuespedFinal;
         }, 0);
+        // --- FIN DE LA MODIFICACIÓN ---
 
         const numeroDeReservas = historialCliente.length;
+// ... (resto de clientsMap sin cambios) ...
         
         let tipoCliente = 'Cliente Nuevo';
         if (totalGastado > 1000000) {
@@ -130,10 +146,11 @@ const getReservasPendientes = async (db, empresaId) => {
         clientsMap.set(doc.id, {
             ...clienteData,
             numeroDeReservas,
-          tipoCliente
+            tipoCliente
         });
     });
     
+// ... (resto de notesCountMap y abonosMap sin cambios) ...
     const notesCountMap = new Map();
     notasSnapshot.docs.forEach(doc => {
         const id = doc.data().reservaIdOriginal;
@@ -147,11 +164,11 @@ const getReservasPendientes = async (db, empresaId) => {
 
     const reservasAgrupadas = new Map();
     allReservasData.forEach(data => {
+// ... (creación de reservasAgrupadas sin cambios) ...
         const reservaId = data.idReservaCanal;
         if (!reservasAgrupadas.has(reservaId)) {
             const clienteActual = clientsMap.get(data.clienteId);
             reservasAgrupadas.set(reservaId, {
-// ... (resto de la creación del grupo sin cambios) ...
                 reservaIdOriginal: reservaId,
                 clienteId: data.clienteId,
                 clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
@@ -161,12 +178,12 @@ const getReservasPendientes = async (db, empresaId) => {
                 fechaLlegada: data.fechaLlegada?.toDate(),
                 fechaSalida: data.fechaSalida?.toDate(),
                 totalNoches: data.totalNoches,
-               estado: data.estado,
+                estado: data.estado,
                 estadoGestion: data.estadoGestion,
                 abonoTotal: abonosMap.get(reservaId) || 0,
                 notasCount: notesCountMap.get(reservaId) || 0,
                 transaccionesCount: transaccionesSnapshot.docs.filter(d => d.data().reservaIdOriginal === reservaId).length,
-              reservasIndividuales: []
+                reservasIndividuales: []
             });
         }
         reservasAgrupadas.get(reservaId).reservasIndividuales.push(data);
@@ -179,24 +196,30 @@ const getReservasPendientes = async (db, empresaId) => {
 
         const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
             
-            // --- INICIO DE LA MODIFICACIÓN: Lógica flotante ALINEADA ---
+            // --- INICIO DE LA MODIFICACIÓN: Lógica flotante/fija ALINEADA ---
             
-            // 1. Leer los valores Originales (USD) guardados por 'sincronizacionService'
-            const valorHuespedOriginal = r.valores?.valorHuespedOriginal || 0; // 428.35
-            const costoCanalOriginal = r.valores?.costoCanalOriginal || 0; // 45.57 (Informativo)
-            const payoutOriginal = r.valores?.valorTotalOriginal || 0; // 359.96 (Payout)
+            // 1. Leer los valores Originales (USD)
+            const valorHuespedOriginal = r.valores?.valorHuespedOriginal || 0;
+            const costoCanalOriginal = r.valores?.costoCanalOriginal || 0;
+            const payoutOriginal = r.valores?.valorTotalOriginal || 0;
             
             // 2. Definir valores finales (CLP)
             let valorHuespedFinal, costoCanalFinal, payoutFinal;
 
-            if (monedaGrupo !== 'CLP' && estadoGestionGrupo !== 'Facturado') {
-                // 3. Caso Flotante: Recalcular desde USD
+            // 3. Definir condiciones de valor fijo
+            const fechaLlegada = r.fechaLlegada?.toDate ? r.fechaLlegada.toDate() : null;
+            const esFacturado = r.estadoGestion === 'Facturado';
+            const esPasado = fechaLlegada && fechaLlegada < fechaActual; // usa 'fechaActual' de arriba
+            const esFijo = esFacturado || esPasado;
+
+            if (monedaGrupo !== 'CLP' && !esFijo) {
+                // 4. Caso Flotante: Recalcular desde USD
                 valorHuespedFinal = Math.round(valorHuespedOriginal * valorDolarHoy);
-                costoCanalFinal = Math.round(costoCanalOriginal * valorDolarHoy); // 45.57 * 962 = 43,838
-                payoutFinal = Math.round(payoutOriginal * valorDolarHoy); // 359.96 * 962 = 346,281
+                costoCanalFinal = Math.round(costoCanalOriginal * valorDolarHoy);
+                payoutFinal = Math.round(payoutOriginal * valorDolarHoy);
                 
             } else {
-                // 4. Caso Estático (CLP o Facturado): Leer valores CLP de la BBDD
+                // 5. Caso Estático (CLP o Fijo): Leer valores CLP de la BBDD
                 valorHuespedFinal = r.valores?.valorHuesped || 0;
                 costoCanalFinal = r.valores?.costoCanal || 0;
                 payoutFinal = r.valores?.valorTotal || 0;
@@ -204,20 +227,20 @@ const getReservasPendientes = async (db, empresaId) => {
             // --- FIN DE LA MODIFICACIÓN ---
             
             acc.valorTotalHuesped += valorHuespedFinal;
-            acc.costoCanal += costoCanalFinal; // Acumula el Costo Canal (CLP)
-            acc.payoutFinalReal += payoutFinal; // Acumula el Payout (CLP)
+            acc.costoCanal += costoCanalFinal; 
+            acc.payoutFinalReal += payoutFinal; 
             
             acc.valorListaBaseTotal += r.valores?.valorOriginal || 0; // KPI
 // ... (resto del reduce sin cambios) ...
             if (r.ajusteManualRealizado) acc.ajusteManualRealizado = true;
             if (r.potencialCalculado) acc.potencialCalculado = true;
-           if (r.clienteGestionado) acc.clienteGestionado = true;
+            if (r.clienteGestionado) acc.clienteGestionado = true;
             if (r.documentos) acc.documentos = { ...acc.documentos, ...r.documentos };
             return acc;
         }, { 
             valorTotalHuesped: 0, 
             costoCanal: 0, 
-            payoutFinalReal: 0, // Acumulador de Payout
+            payoutFinalReal: 0, 
             valorListaBaseTotal: 0, 
             ajusteManualRealizado: false, 
             potencialCalculado: false, 
@@ -225,21 +248,20 @@ const getReservasPendientes = async (db, empresaId) => {
             documentos: {} 
         });
         
-       const resultado = {
+// ... (resto de la función: 'resultado', 'if (resultado.esUSD)', etc. sin cambios) ...
+        const resultado = {
             ...grupo,
             ...valoresAgregados,
-           esUSD: monedaGrupo === 'USD', 
-            // (Ya no calculamos payoutFinalReal aquí, se acumula en 'valoresAgregados')
+            esUSD: monedaGrupo === 'USD', 
         };
 
         if (resultado.esUSD) {
-// ... (lógica de valoresUSD sin cambios) ...
             const valorDolarParaCalculo = (estadoGestionGrupo === 'Facturado')
                 ? (primerReserva.valores?.valorDolarFacturacion || valorDolarHoy) 
                 : valorDolarHoy; 
 
             const totalPayoutUSD = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorTotalOriginal || 0), 0);
-          const totalIvaUSD = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.ivaOriginal || 0), 0);
+            const totalIvaUSD = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.ivaOriginal || 0), 0);
             
             resultado.valoresUSD = {
                 payout: totalPayoutUSD, 
