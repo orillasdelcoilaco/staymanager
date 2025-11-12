@@ -256,7 +256,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
 // ... (campos de id, fechas, cliente, etc. sin cambios) ...
                     empresaId, idUnicoReserva, idCarga, idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
                     estado: estadoFinal, estadoGestion: estadoFinal === 'Confirmada' ? 'Pendiente Bienvenida' : null,
-               fechaReserva: parsearFecha(get('fechaReserva'), formatoFecha), fechaLlegada, fechaSalida, totalNoches: totalNoches > 0 ? totalNoches : 1,
+                    fechaReserva: parsearFecha(get('fechaReserva'), formatoFecha), fechaLlegada, fechaSalida, totalNoches: totalNoches > 0 ? totalNoches : 1,
                     cantidadHuespedes: Math.ceil((parseInt(get('invitados')) || alojamiento.capacidad || 1) / alojamientosDeReserva.length),
                     clienteId: resultadoCliente.cliente.id, alojamientoId: alojamiento.id, alojamientoNombre: alojamiento.nombre,
                     moneda: monedaCanal,
@@ -290,12 +290,12 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                     // --- FIN DE LA MODIFICACIÓN ---
 
                     valorDolarDia, requiereActualizacionDolar: monedaCanal === 'USD' && fechaLlegada > today
-             };
+                };
                 
                 const res = await crearOActualizarReserva(db, empresaId, datosReserva);
                 if (res.status === 'creada') resultados.reservasCreadas++;
                 else if (res.status === 'actualizada') resultados.reservasActualizadas++;
-               else if (res.status === 'sin_cambios') resultados.reservasSinCambios++;
+                else if (res.status === 'sin_cambios') resultados.reservasSinCambios++;
             }
 
         } catch (error) {

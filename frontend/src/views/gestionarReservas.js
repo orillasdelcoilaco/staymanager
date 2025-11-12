@@ -185,7 +185,7 @@ async function abrirModalVer(reservaId) {
         
         // --- INICIO DE LA MODIFICACIÓN: Sección 5. Trazabilidad ---
         const historialEl = document.getElementById('view-historial-ajustes');
-        const anclaUSD = datosIndividuales.valorOriginalCalculado; // El "Ancla"
+        const anclaUSD = datosIndividuales.valorOriginalCalculado; // El "Ancla" (424.12)
         const anclaCLP = anclaUSD * (datosIndividuales.valorDolarUsado || 1);
         const ajusteManualUSD = datosIndividuales.historialAjustes.ajusteManualUSD || 0;
         const ajusteManualCLP = ajusteManualUSD * (datosIndividuales.valorDolarUsado || 1);
@@ -193,6 +193,7 @@ async function abrirModalVer(reservaId) {
         let historialHTML = '<table class="w-full">_HEADER_<tbody>_ROWS_</tbody></table>';
         let historialRows = '';
 
+        // Fila 1: El Ancla (Valor Original)
         historialRows += createRow(
             'Valor Original (del Reporte)', 
             anclaCLP,
@@ -200,6 +201,7 @@ async function abrirModalVer(reservaId) {
             false 
         );
 
+        // Fila 2: Ajuste Manual (de G. Diaria)
         if (ajusteManualUSD !== 0) {
             historialRows += createRow(
                 'Ajuste de Cobro (G. Diaria)',
@@ -210,6 +212,7 @@ async function abrirModalVer(reservaId) {
         
         // (Aquí se agregarían filas para 'descuentoManualUSD', 'cuponDescuentoUSD', etc.)
 
+        // Fila 3: El Total Actual (para confirmar)
         historialRows += createRow(
             'Total Cliente (Actual)',
             datosIndividuales.valorTotalHuesped,

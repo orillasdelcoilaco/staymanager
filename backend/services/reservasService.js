@@ -84,13 +84,13 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
     const ajustesExistentes = reservaExistente.ajustes || {};
     const valoresExistentes = reservaExistente.valores || {};
 
+    // --- INICIO DE LA MODIFICACIÓN: Lógica de RE-CÁLCULO TOTAL ---
+
     let nuevosValores = { ...(datosNuevos.valores || {}) };
     let nuevosAjustes = { ...(datosNuevos.ajustes || {}) };
 
     if (datosNuevos.fechaLlegada) datosNuevos.fechaLlegada = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaLlegada + 'T00:00:00Z'));
     if (datosNuevos.fechaSalida) datosNuevos.fechaSalida = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaSalida + 'T00:00:00Z'));
-
-    // --- INICIO DE LA MODIFICACIÓN: Lógica de RE-CÁLCULO TOTAL ---
 
     // 1. Determinar el valor del dólar a usar (Lógica Fijo/Flotante)
     let valorDolarUsado = null;
@@ -153,7 +153,8 @@ const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevo
         nuevosValores.ivaOriginal = nuevoIvaUSD; // 50.26
         
         // Convertir los nuevos valores USD a CLP para guardarlos
-        nuevosValores.valorHuesped = Math.round(nuevoValorHuespedUSD * valorDolarUsado); // $300,000
+        // (¡Importante! Usamos el 'valorHuesped' original que mandó el usuario, no el recalculado)
+        nuevosValores.valorHuesped = nuevoValorHuespedCLP; // $300,000
         nuevosValores.valorTotal = Math.round(nuevoPayoutUSD * valorDolarUsado);
         nuevosValores.iva = Math.round(nuevoIvaUSD * valorDolarUsado);
         
