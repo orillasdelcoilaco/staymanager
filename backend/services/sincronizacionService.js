@@ -184,7 +184,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 resultados.filasIgnoradas++;
                 continue;
             }
-
+// ... (resto de la función igual hasta el bucle de alojamientos) ...
             const fechaLlegadaCruda = get('fechaLlegada');
             let fechaLlegada = parsearFecha(fechaLlegadaCruda, formatoFecha);
             let fechaSalida = parsearFecha(get('fechaSalida'), formatoFecha);
@@ -203,7 +203,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 pais: get('pais') || 'CL',
                 canalNombre: canalNombre,
                 idReservaCanal: idReservaCanal
-            };
+         };
 
             const resultadoCliente = await crearOActualizarCliente(db, empresaId, datosParaCliente);
             if (resultadoCliente.status === 'creado') resultados.clientesCreados++;
@@ -211,7 +211,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             const nombresExternosAlojamientos = (get('alojamientoNombre') || '').toString().split(',').map(s => s.trim()).filter(Boolean);
             if (nombresExternosAlojamientos.length === 0) {
                 throw new Error("La columna de alojamiento está vacía o es inválida.");
-            }
+         }
             
             const valorDolarDia = monedaCanal === 'USD' ? await obtenerValorDolar(db, empresaId, fechaLlegada) : null;
 
@@ -225,7 +225,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 const propiedad = propiedades.find(p => p.id === conversion.alojamientoId);
                 if (!propiedad) {
                     throw new Error(`La propiedad interna con ID ${conversion.alojamientoId} no fue encontrada.`);
-                }
+          }
                 alojamientosDeReserva.push(propiedad);
             }
             
@@ -234,14 +234,14 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
 
                 // --- INICIO DE LA MODIFICACIÓN: Lógica de valores según TU fórmula ---
 
-                // 1. Leer los valores del reporte tal como los mapeaste
-                const valorAnfitrion_Orig = parsearMoneda(get('valorAnfitrion'), separadorDecimal) * proporcion; // (Payout) 356.4
+                // 1. Leer los valores del reporte tal como los mapeaste (en USD)
+                const valorAnfitrion_Orig = parsearMoneda(get('valorAnfitrion'), separadorDecimal) * proporcion; // (Payout) 359.96
                 const comisionSumable_Orig = parsearMoneda(get('comision'), separadorDecimal) * proporcion;     // (Comisión sumable) 0
-                const costoCanal_Informativo_Orig = parsearMoneda(get('costoCanal'), separadorDecimal) * proporcion; // (Informativo) 45.56
-                // (Ya no leemos 'iva' del reporte, lo calculamos)
+                const costoCanal_Informativo_Orig = parsearMoneda(get('costoCanal'), separadorDecimal) * proporcion; // (Informativo) 45.57
+                // (Ignoramos 'total cliente' como pediste)
 
                 // 2. Calcular el Subtotal (Payout + Comisión Sumable)
-                const subtotal_Orig = valorAnfitrion_Orig + comisionSumable_Orig; // 356.4 + 0 = 356.4
+                const subtotal_Orig = valorAnfitrion_Orig + comisionSumable_Orig; // 359.96 + 0 = 359.96
 
                 // 3. Determinar el IVA final y el Total Cliente
                 let iva_Final_Orig;
@@ -249,12 +249,12 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
 
                 if (configuracionIva === 'agregar') {
                     // Caso 1: "Agregar 19% de iva al total"
-                    iva_Final_Orig = subtotal_Orig * 0.19; // 356.4 * 0.19 = 67.716
-                    valorHuesped_Final_Orig = subtotal_Orig + iva_Final_Orig; // 356.4 + 67.716 = 424.116
+                    iva_Final_Orig = subtotal_Orig * 0.19; // 359.96 * 0.19 = 68.39
+                    valorHuesped_Final_Orig = subtotal_Orig + iva_Final_Orig; // 359.96 + 68.39 = 428.35
                 } else {
                     // Caso 2: "iva ya esta incluido en los montos"
                     valorHuesped_Final_Orig = subtotal_Orig; // Total Cliente = Subtotal
-                    iva_Final_Orig = valorHuesped_Final_Orig / 1.19 * 0.19; // IVA (informativo)
+                    iva_Final_Orig = valorHuesped_Final_Orig / 1.19 * 0.19; // IVA (informativo)
                 }
                 // --- FIN DE LA MODIFICACIÓN ---
 
@@ -268,47 +268,47 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                 const idUnicoReserva = `${idReservaCanal}-${alojamiento.id}`;
                 
                 const datosReserva = {
-                // ... (campos de id, fechas, cliente, etc. sin cambios) ...
+// ... (campos de id, fechas, cliente, etc. sin cambios) ...
                     empresaId, idUnicoReserva, idCarga, idReservaCanal: idReservaCanal.toString(), canalId, canalNombre,
                     estado: estadoFinal, estadoGestion: estadoFinal === 'Confirmada' ? 'Pendiente Bienvenida' : null,
                     fechaReserva: parsearFecha(get('fechaReserva'), formatoFecha), fechaLlegada, fechaSalida, totalNoches: totalNoches > 0 ? totalNoches : 1,
-                    cantidadHuespedes: Math.ceil((parseInt(get('invitados')) || alojamiento.capacidad || 1) / alojamientosDeReserva.length),
+                    cantidadHuespedes: Math.ceil((parseInt(get('invitados')) || alojamiento.capacidad || 1) / alojamientosDeReserva.length),
                     clienteId: resultadoCliente.cliente.id, alojamientoId: alojamiento.id, alojamientoNombre: alojamiento.nombre,
                     moneda: monedaCanal,
 
                     // --- INICIO DE LA MODIFICACIÓN: Guardar todos los valores (Corregido) ---
-                        valores: {
+                    valores: {
                         // --- Valores en CLP (Convertidos) ---
-                        valorHuesped: Math.round(convertirACLPSIesNecesario(valorHuesped_Final_Orig)), // 424.12 -> CLP
-                        valorTotal: Math.round(convertirACLPSIesNecesario(valorAnfitrion_Orig)), // 356.4 -> CLP
+                        valorHuesped: Math.round(convertirACLPSIesNecesario(valorHuesped_Final_Orig)), // 428.35 -> CLP
+                        valorTotal: Math.round(convertirACLPSIesNecesario(valorAnfitrion_Orig)), // 359.96 -> CLP
                         comision: Math.round(convertirACLPSIesNecesario(comisionSumable_Orig)), // 0 -> CLP
-                        costoCanal: Math.round(convertirACLPSIesNecesario(costoCanal_Informativo_Orig)), // 45.56 -> CLP
-                        iva: Math.round(convertirACLPSIesNecesario(iva_Final_Orig)), // 67.72 -> CLP
+                        costoCanal: Math.round(convertirACLPSIesNecesario(costoCanal_Informativo_Orig)), // 45.57 -> CLP
+                     iva: Math.round(convertirACLPSIesNecesario(iva_Final_Orig)), // 68.39 -> CLP
                         
                         // --- KPI (Precio Base) ---
                         valorOriginal: valorOriginalParaGuardar, // KPI (en USD)
 
                         // --- Valores Originales (Moneda Extranjera) ---
-                        valorHuespedOriginal: valorHuesped_Final_Orig, // 424.12 USD
-                        valorTotalOriginal: valorAnfitrion_Orig, // Payout (356.4 USD)
+                        valorHuespedOriginal: valorHuesped_Final_Orig, // 428.35 USD
+                        valorTotalOriginal: valorAnfitrion_Orig, // Payout (359.96 USD)
                         comisionOriginal: comisionSumable_Orig, // Comisión sumable (0 USD)
-                        costoCanalOriginal: costoCanal_Informativo_Orig, // Costo info (45.56 USD)
-                        ivaOriginal: iva_Final_Orig // IVA (67.72 USD)
+                        costoCanalOriginal: costoCanal_Informativo_Orig, // Costo info (45.57 USD)
+                        ivaOriginal: iva_Final_Orig // IVA (68.39 USD)
                     },
                     // --- FIN DE LA MODIFICACIÓN ---
 
                     valorDolarDia, requiereActualizacionDolar: monedaCanal === 'USD' && fechaLlegada > today
-              };
+                };
                 
                 const res = await crearOActualizarReserva(db, empresaId, datosReserva);
                 if (res.status === 'creada') resultados.reservasCreadas++;
-                else if (res.status === 'actualizada') resultados.reservasActualizadas++;
-                else if (res.status === 'sin_cambios') resultados.reservasSinCambios++;
+                else if (res.status === 'actualizada') resultados.reservasActualizadas++;
+               else if (res.status === 'sin_cambios') resultados.reservasSinCambios++;
             }
 
         } catch (error) {
             console.error(`Error procesando fila ${idFilaParaError}:`, error);
-            resultados.errores.push({ fila: idFilaParaError, error: error.message });
+           resultados.errores.push({ fila: idFilaParaError, error: error.message });
         }
     }
 

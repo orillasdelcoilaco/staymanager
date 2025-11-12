@@ -36,7 +36,7 @@ const getReservasPendientes = async (db, empresaId) => {
         });
     }
     queries.push(reservasRef.where('estado', '==', 'Desconocido').get());
-
+// ... (resto de la función igual hasta el mapeo de clientes) ...
     const snapshots = await Promise.all(queries);
     
     const allDocs = [];
@@ -100,27 +100,23 @@ const getReservasPendientes = async (db, empresaId) => {
     const clientsMap = new Map();
     clientesSnapshot.docs.forEach(doc => {
         const clienteData = doc.data();
-        const historialCliente = historialReservasSnapshot.docs
+      const historialCliente = historialReservasSnapshot.docs
             .filter(reservaDoc => reservaDoc.data().clienteId === doc.id && reservaDoc.data().estado === 'Confirmada') 
             .map(reservaDoc => reservaDoc.data());
 
-        // --- INICIO DE LA MODIFICACIÓN: Cálculo de 'totalGastado' flotante ---
         const totalGastado = historialCliente.reduce((sum, r) => {
             const moneda = r.moneda || 'CLP';
             const estadoGestion = r.estadoGestion;
-            let valorHuespedFinal = r.valores?.valorHuesped || 0; // Default a valor estático
+            let valorHuespedFinal = r.valores?.valorHuesped || 0; 
 
-            // Recalcular si es moneda extranjera Y NO está Facturado
             if (moneda !== 'CLP' && estadoGestion !== 'Facturado') {
                 const valorHuespedOriginal = r.valores?.valorHuespedOriginal || 0;
                 if (valorHuespedOriginal > 0) {
-                    // Usamos el 'valorDolarHoy' que obtuvimos al inicio de la función
                     valorHuespedFinal = Math.round(valorHuespedOriginal * valorDolarHoy);
                 }
             }
             return sum + valorHuespedFinal;
         }, 0);
-        // --- FIN DE LA MODIFICACIÓN ---
 
         const numeroDeReservas = historialCliente.length;
         
@@ -134,9 +130,7 @@ const getReservasPendientes = async (db, empresaId) => {
         clientsMap.set(doc.id, {
             ...clienteData,
             numeroDeReservas,
-            tipoCliente
-            // (Añadimos totalGastado por si el frontend lo necesita)
-            // totalGastado: totalGastado 
+          tipoCliente
         });
     });
     
@@ -157,21 +151,22 @@ const getReservasPendientes = async (db, empresaId) => {
         if (!reservasAgrupadas.has(reservaId)) {
             const clienteActual = clientsMap.get(data.clienteId);
             reservasAgrupadas.set(reservaId, {
+// ... (resto de la creación del grupo sin cambios) ...
                 reservaIdOriginal: reservaId,
                 clienteId: data.clienteId,
-               clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
+                clienteNombre: clienteActual?.nombre || data.nombreCliente || 'Cliente Desconocido',
                 telefono: clienteActual?.telefono || 'N/A',
-                tipoCliente: clienteActual?.tipoCliente || 'Nuevo', // Ahora es consistente
+                tipoCliente: clienteActual?.tipoCliente || 'Nuevo', 
                 numeroDeReservas: clienteActual?.numeroDeReservas || 1,
                 fechaLlegada: data.fechaLlegada?.toDate(),
                 fechaSalida: data.fechaSalida?.toDate(),
                 totalNoches: data.totalNoches,
-                estado: data.estado,
-               estadoGestion: data.estadoGestion,
+               estado: data.estado,
+                estadoGestion: data.estadoGestion,
                 abonoTotal: abonosMap.get(reservaId) || 0,
                 notasCount: notesCountMap.get(reservaId) || 0,
                 transaccionesCount: transaccionesSnapshot.docs.filter(d => d.data().reservaIdOriginal === reservaId).length,
-               reservasIndividuales: []
+              reservasIndividuales: []
             });
         }
         reservasAgrupadas.get(reservaId).reservasIndividuales.push(data);
@@ -184,53 +179,73 @@ const getReservasPendientes = async (db, empresaId) => {
 
         const valoresAgregados = grupo.reservasIndividuales.reduce((acc, r) => {
             
-            let valorHuespedFinal = r.valores?.valorHuesped || 0;
-            let costoCanalFinal = (r.valores?.comision > 0 ? r.valores.comision : r.valores?.costoCanal || 0);
+            // --- INICIO DE LA MODIFICACIÓN: Lógica flotante ALINEADA ---
+            
+            // 1. Leer los valores Originales (USD) guardados por 'sincronizacionService'
+            const valorHuespedOriginal = r.valores?.valorHuespedOriginal || 0; // 428.35
+            const costoCanalOriginal = r.valores?.costoCanalOriginal || 0; // 45.57 (Informativo)
+            const payoutOriginal = r.valores?.valorTotalOriginal || 0; // 359.96 (Payout)
+            
+            // 2. Definir valores finales (CLP)
+            let valorHuespedFinal, costoCanalFinal, payoutFinal;
 
             if (monedaGrupo !== 'CLP' && estadoGestionGrupo !== 'Facturado') {
-                const valorHuespedOriginal = r.valores?.valorHuespedOriginal || 0;
-                const costoCanalOriginal = r.valores?.comisionOriginal || r.valores?.costoCanalOriginal || 0;
+                // 3. Caso Flotante: Recalcular desde USD
+                valorHuespedFinal = Math.round(valorHuespedOriginal * valorDolarHoy);
+                costoCanalFinal = Math.round(costoCanalOriginal * valorDolarHoy); // 45.57 * 962 = 43,838
+                payoutFinal = Math.round(payoutOriginal * valorDolarHoy); // 359.96 * 962 = 346,281
                 
-                if (valorHuespedOriginal > 0) {
-                    valorHuespedFinal = Math.round(valorHuespedOriginal * valorDolarHoy);
-                    costoCanalFinal = Math.round(costoCanalOriginal * valorDolarHoy);
-                }
+            } else {
+                // 4. Caso Estático (CLP o Facturado): Leer valores CLP de la BBDD
+                valorHuespedFinal = r.valores?.valorHuesped || 0;
+                costoCanalFinal = r.valores?.costoCanal || 0;
+                payoutFinal = r.valores?.valorTotal || 0;
             }
+            // --- FIN DE LA MODIFICACIÓN ---
             
             acc.valorTotalHuesped += valorHuespedFinal;
-            acc.costoCanal += costoCanalFinal;
+            acc.costoCanal += costoCanalFinal; // Acumula el Costo Canal (CLP)
+            acc.payoutFinalReal += payoutFinal; // Acumula el Payout (CLP)
             
-            // --- INICIO REPARACIÓN ERROR SINTAXIS (Mi error de copy-paste) ---
-            acc.valorListaBaseTotal += r.valores?.valorOriginal || 0;
+            acc.valorListaBaseTotal += r.valores?.valorOriginal || 0; // KPI
+// ... (resto del reduce sin cambios) ...
             if (r.ajusteManualRealizado) acc.ajusteManualRealizado = true;
             if (r.potencialCalculado) acc.potencialCalculado = true;
-            if (r.clienteGestionado) acc.clienteGestionado = true;
+           if (r.clienteGestionado) acc.clienteGestionado = true;
             if (r.documentos) acc.documentos = { ...acc.documentos, ...r.documentos };
-            // --- FIN REPARACIÓN ERROR SINTAXIS ---
-            
             return acc;
-        }, { valorTotalHuesped: 0, costoCanal: 0, valorListaBaseTotal: 0, ajusteManualRealizado: false, potencialCalculado: false, clienteGestionado: false, documentos: {} });
+        }, { 
+            valorTotalHuesped: 0, 
+            costoCanal: 0, 
+            payoutFinalReal: 0, // Acumulador de Payout
+            valorListaBaseTotal: 0, 
+            ajusteManualRealizado: false, 
+            potencialCalculado: false, 
+            clienteGestionado: false, 
+            documentos: {} 
+        });
         
-        const resultado = {
+       const resultado = {
             ...grupo,
             ...valoresAgregados,
-            esUSD: monedaGrupo === 'USD', 
-            payoutFinalReal: valoresAgregados.valorTotalHuesped - valoresAgregados.costoCanal
+           esUSD: monedaGrupo === 'USD', 
+            // (Ya no calculamos payoutFinalReal aquí, se acumula en 'valoresAgregados')
         };
 
         if (resultado.esUSD) {
+// ... (lógica de valoresUSD sin cambios) ...
             const valorDolarParaCalculo = (estadoGestionGrupo === 'Facturado')
                 ? (primerReserva.valores?.valorDolarFacturacion || valorDolarHoy) 
                 : valorDolarHoy; 
 
-            const totalPayoutUSD = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorOriginal || 0), 0);
-            const totalIvaCLP = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.iva || 0), 0);
-            const totalIvaUSD = valorDolarParaCalculo > 0 ? totalIvaCLP / valorDolarParaCalculo : 0;
+            const totalPayoutUSD = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.valorTotalOriginal || 0), 0);
+          const totalIvaUSD = grupo.reservasIndividuales.reduce((sum, r) => sum + (r.valores?.ivaOriginal || 0), 0);
             
             resultado.valoresUSD = {
-                payout: totalPayoutUSD,
+                payout: totalPayoutUSD, 
                 iva: totalIvaUSD,
-                totalCliente: totalPayoutUSD + totalIvaUSD
+// Esta lógica sigue siendo Payout + IVA, no el Total Cliente.
+                totalCliente: totalPayoutUSD + totalIvaUSD 
             };
         }
 
