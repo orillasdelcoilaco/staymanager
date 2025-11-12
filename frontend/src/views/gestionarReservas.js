@@ -58,6 +58,7 @@ async function abrirModalVer(reservaId) {
         
         // --- 1. Resumen del Grupo (Sin cambios) ---
         const infoGrupoEl = document.getElementById('view-info-grupo');
+// ... (código de infoGrupoEl sin cambios) ...
         if (data.datosGrupo && data.datosGrupo.propiedades.length > 1) {
             infoGrupoEl.innerHTML = `
                 <div class="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm mb-4">
@@ -94,7 +95,7 @@ async function abrirModalVer(reservaId) {
         document.getElementById('view-cliente-notas').textContent = data.cliente.notas || 'Sin notas.';
         
         
-        // --- 4. ANÁLISIS FINANCIERO (Corregido en G-037) ---
+        // --- 4. ANÁLISIS FINANCIERO (Corregido para NO calcular) ---
         
         const { datosIndividuales } = data;
         const moneda = datosIndividuales.moneda || 'CLP';
@@ -102,6 +103,7 @@ async function abrirModalVer(reservaId) {
         const noches = data.totalNoches > 0 ? data.totalNoches : 1;
 
         const createRow = (label, clpValue, usdValue = null, isBold = false) => {
+// ... (código de createRow sin cambios) ...
             const clpFormatted = formatCurrency(clpValue);
             const usdFormatted = esMonedaExtranjera ? formatForeign(usdValue, moneda) : '';
             const boldClass = isBold ? 'font-bold' : '';
@@ -115,6 +117,7 @@ async function abrirModalVer(reservaId) {
         };
         
         const createHeader = () => {
+// ... (código de createHeader sin cambios) ...
              return `
                 <thead class="bg-gray-50">
                     <tr class="text-gray-600">
@@ -125,16 +128,17 @@ async function abrirModalVer(reservaId) {
                 </thead>`;
         };
 
-        // --- Sección Desglose de Valores (Corregida en G-037) ---
+        // --- INICIO DE LA MODIFICACIÓN: Sección 2: Desglose de Valores ---
         const desgloseEl = document.getElementById('view-desglose-valores');
         let desgloseHTML = '<table class="w-full">_HEADER_<tbody>_ROWS_</tbody></table>';
         let desgloseRows = '';
         
-        const subtotalCLP = datosIndividuales.valorTotalHuesped - datosIndividuales.iva;
-        const subtotalUSD = datosIndividuales.valorHuespedOriginal - datosIndividuales.ivaOriginal;
+        // El frontend YA NO CALCULA. Solo lee los valores "Actuales" que envía el backend.
+        const subtotalCLP = datosIndividuales.payoutFinalReal + datosIndividuales.comision;
+        const subtotalUSD = datosIndividuales.valorTotalOriginal + datosIndividuales.comisionOriginal;
 
         desgloseRows += createRow('Payout (Anfitrión)', datosIndividuales.payoutFinalReal, datosIndividuales.valorTotalOriginal, true);
-        desgloseRows += createRow('(+) Comisión (Sumable)', (subtotalCLP - datosIndividuales.payoutFinalReal), (subtotalUSD - datosIndividuales.valorTotalOriginal));
+        desgloseRows += createRow('(+) Comisión (Sumable)', datosIndividuales.comision, datosIndividuales.comisionOriginal);
         desgloseRows += createRow('(=) Subtotal (Base IVA)', subtotalCLP, subtotalUSD);
         desgloseRows += createRow('(+) IVA (Calculado)', datosIndividuales.iva, datosIndividuales.ivaOriginal);
         desgloseRows += createRow('Total Cliente (A)', datosIndividuales.valorTotalHuesped, datosIndividuales.valorHuespedOriginal, true);
@@ -142,14 +146,21 @@ async function abrirModalVer(reservaId) {
         desgloseRows += createRow('Valor Noche (Canal)', (datosIndividuales.valorTotalHuesped / noches), (datosIndividuales.valorHuespedOriginal / noches));
         
         desgloseEl.innerHTML = desgloseHTML.replace('_HEADER_', createHeader()).replace('_ROWS_', desgloseRows);
+        // --- FIN DE LA MODIFICACIÓN ---
 
-        // --- Sección Análisis de Cobranza (Corregida en G-037) ---
+        // --- Sección 3: Análisis de Cobranza (Corregido) ---
         const cobranzaEl = document.getElementById('view-analisis-cobranza');
         let cobranzaHTML = '<table class="w-full">_HEADER_<tbody>_ROWS_</tbody></table>';
         let cobranzaRows = '';
         cobranzaRows += createRow('Total Cliente (A)', datosIndividuales.valorTotalHuesped, datosIndividuales.valorHuespedOriginal, true);
         cobranzaRows += createRow('(-) Abonos Recibidos', datosIndividuales.abonoProporcional, 0);
-        cobranzaRows += createRow('Saldo Pendiente', datosIndividuales.saldo, (datosIndividuales.valorHuespedOriginal - (datosIndividuales.abonoProporcional / (datosIndividuales.valorDolarUsado || 1))), true);
+        
+        // CORRECCIÓN: El saldo en USD también debe calcularse
+        let saldoUSD = datosIndividuales.valorHuespedOriginal;
+        if(datosIndividuales.valorDolarUsado > 0) {
+             saldoUSD = datosIndividuales.valorHuespedOriginal - (datosIndividuales.abonoProporcional / datosIndividuales.valorDolarUsado);
+        }
+        cobranzaRows += createRow('Saldo Pendiente', datosIndividuales.saldo, saldoUSD, true);
         
         if (esMonedaExtranjera && datosIndividuales.valorDolarUsado) {
             let etiquetaDolar = `(Flotante)`;
@@ -160,7 +171,7 @@ async function abrirModalVer(reservaId) {
         }
         cobranzaEl.innerHTML = cobranzaHTML.replace('_HEADER_', createHeader()).replace('_ROWS_', cobranzaRows);
 
-        // --- Sección Análisis de Rentabilidad (KPI) (Corregida en G-037) ---
+        // --- Sección 4: Análisis de Rentabilidad (KPI) (Sin cambios) ---
         const kpiEl = document.getElementById('view-analisis-kpi');
 // ... (código de kpiEl sin cambios) ...
         let kpiHTML = '<table class="w-full">_HEADER_<tbody>_ROWS_</tbody></table>';
@@ -174,34 +185,31 @@ async function abrirModalVer(reservaId) {
         
         // --- INICIO DE LA MODIFICACIÓN: Sección 5. Trazabilidad ---
         const historialEl = document.getElementById('view-historial-ajustes');
-        const anclaUSD = datosIndividuales.valorOriginalCalculado;
-        const ajustes = datosIndividuales.historialAjustes;
-        const dolar = datosIndividuales.valorDolarUsado || 1;
-        const ajusteManualUSD = ajustes.ajusteManualUSD || 0;
+        const anclaUSD = datosIndividuales.valorOriginalCalculado; // El "Ancla"
+        const anclaCLP = anclaUSD * (datosIndividuales.valorDolarUsado || 1);
+        const ajusteManualUSD = datosIndividuales.historialAjustes.ajusteManualUSD || 0;
+        const ajusteManualCLP = ajusteManualUSD * (datosIndividuales.valorDolarUsado || 1);
         
         let historialHTML = '<table class="w-full">_HEADER_<tbody>_ROWS_</tbody></table>';
         let historialRows = '';
 
-        // Fila 1: El Ancla (Valor Original)
         historialRows += createRow(
             'Valor Original (del Reporte)', 
-            anclaUSD * dolar,
+            anclaCLP,
             anclaUSD,
             false 
         );
 
-        // Fila 2: Ajuste Manual (de G. Diaria)
         if (ajusteManualUSD !== 0) {
             historialRows += createRow(
                 'Ajuste de Cobro (G. Diaria)',
-                ajusteManualUSD * dolar,
+                ajusteManualCLP,
                 ajusteManualUSD
             );
         }
         
         // (Aquí se agregarían filas para 'descuentoManualUSD', 'cuponDescuentoUSD', etc.)
 
-        // Fila 3: El Total Actual (para confirmar)
         historialRows += createRow(
             'Total Cliente (Actual)',
             datosIndividuales.valorTotalHuesped,
