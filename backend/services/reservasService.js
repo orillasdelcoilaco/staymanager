@@ -497,6 +497,10 @@ const decidirYEliminarReserva = async (db, empresaId, reservaId) => {
 // Desde la línea donde dice "const eliminarGrupoReservasCascada = async (db, empresaId, idReservaCanal) => {"
 // Hasta el cierre de la función (antes de module.exports)
 
+// REEMPLAZAR COMPLETO la función eliminarGrupoReservasCascada
+// Desde la línea donde dice "const eliminarGrupoReservasCascada = async (db, empresaId, idReservaCanal) => {"
+// Hasta el cierre de la función (antes de module.exports)
+
 const eliminarGrupoReservasCascada = async (db, empresaId, idReservaCanal) => {
     try {
         const admin = require('firebase-admin');
@@ -588,14 +592,20 @@ const eliminarGrupoReservasCascada = async (db, empresaId, idReservaCanal) => {
         
         // 3. ELIMINAR DOCUMENTOS DE FIRESTORE (usando el manifiesto)
         console.log(`[DEBUG] Eliminando documentos de Firestore vinculados al grupo...`);
-        const collectionsToClean = idUpdateManifest.firestore.filter(item => item.collection !== 'reservas');
+        
+        // Filtrar el manifiesto: excluir 'reservas' (se borran al final)
+        const collectionsToClean = idUpdateManifest.filter(item => item.collection !== 'reservas');
         
         for (const item of collectionsToClean) {
-            const snapshot = await db.collection('empresas').doc(empresaId).collection(item.collection)
-                .where(item.field, '==', idReservaCanal)
-                .get();
-            console.log(`[DEBUG] - ${item.collection}: ${snapshot.size} documentos a eliminar`);
-            snapshot.forEach(doc => batch.delete(doc.ref));
+            try {
+                const snapshot = await db.collection('empresas').doc(empresaId).collection(item.collection)
+                    .where(item.field, '==', idReservaCanal)
+                    .get();
+                console.log(`[DEBUG] - ${item.collection}: ${snapshot.size} documentos a eliminar`);
+                snapshot.forEach(doc => batch.delete(doc.ref));
+            } catch (error) {
+                console.log(`[DEBUG] - ${item.collection}: Error al consultar (${error.message})`);
+            }
         }
         
         // 4. ELIMINAR LAS RESERVAS DEL GRUPO
