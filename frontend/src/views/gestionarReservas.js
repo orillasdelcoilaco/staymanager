@@ -795,57 +795,62 @@ export function afterRender() {
         abrirModalEditar(reservaIdParaEditar);
     }
 
-    tbody.addEventListener('click', async (e) => {
-        const id = e.target.dataset.id;
-        if (!id) return;
+tbody.addEventListener('click', async (e) => {
+    const id = e.target.dataset.id;
+    if (!id) return;
 
-        if (e.target.classList.contains('view-btn')) {
-            abrirModalVer(id);
-        }
-        if (e.target.classList.contains('edit-btn')) {
-            abrirModalEditar(id);
-        }
-        if (e.target.classList.contains('delete-btn')) {
-            const reserva = todasLasReservas.find(r => r.id === id);
-            if (!reserva) return;
+    if (e.target.classList.contains('view-btn')) {
+        abrirModalVer(id);
+    }
+    if (e.target.classList.contains('edit-btn')) {
+        abrirModalEditar(id);
+    }
+    if (e.target.classList.contains('delete-btn')) {
+        const reserva = todasLasReservas.find(r => r.id === id);
+        if (!reserva) return;
+        
+        try {
+            await fetchAPI(`/reservas/${id}`, { method: 'DELETE' });
             
-            const grupoReservas = todasLasReservas.filter(r => r.idReservaCanal === reserva.idReservaCanal);
-            
-            if (grupoReservas.length <= 1) {
-                if (!confirm(`¿Estás seguro de que quieres eliminar esta reserva (${reserva.alojamientoNombre})?\n\nSe borrarán también todos sus pagos, notas y documentos asociados (si existen).`)) {
-                    return;
-                }
-            }
+            // Eliminación exitosa (caso individual o grupo limpio)
+            todasLasReservas = todasLasReservas.filter(r => r.id !== id);
+            renderTabla(getFiltros());
+            alert('Reserva eliminada con éxito.');
 
-            try {
-                await fetchAPI(`/reservas/${id}`, { method: 'DELETE' });
+        } catch (error) {
+            // Capturar el error 409 (grupo con datos vinculados)
+            if (error.status === 409 && error.data) {
+                const { idReservaCanal, grupoInfo, message } = error.data;
                 
-                todasLasReservas = todasLasReservas.filter(r => r.id !== id);
-                renderTabla(getFiltros());
-                alert('Reserva individual eliminada con éxito.');
-
-            } catch (error) {
-                if (error.status === 409 && error.data) {
-                    const { idReservaCanal, grupoInfo, message } = error.data;
-                    
-                    const modal = document.getElementById('modal-confirmar-borrado-grupo');
-                    const infoEl = modal.querySelector('#borrado-grupo-info');
-                    const listaEl = modal.querySelector('#borrado-grupo-lista');
-                    const confirmBtn = modal.querySelector('#borrado-grupo-confirmar');
-                    
-                    infoEl.querySelector('p').textContent = message;
-                    listaEl.innerHTML = grupoInfo.map(r => 
-                        `<p class="text-sm">${r.nombre} (${formatCurrency(r.valor)})</p>`
-                    ).join('');
-                    
-                    confirmBtn.dataset.idReservaCanal = idReservaCanal;
-                    modal.classList.remove('hidden');
-                } else {
-                    alert(`Error al eliminar: ${error.message}`);
-                }
+                // Abrir el modal de confirmación
+                const modal = document.getElementById('modal-confirmar-borrado-grupo');
+                const mensajeEl = modal.querySelector('#borrado-grupo-info p');
+                const listaEl = modal.querySelector('#borrado-grupo-lista');
+                const confirmBtn = modal.querySelector('#borrado-grupo-confirmar');
+                
+                // Actualizar el contenido del modal
+                mensajeEl.textContent = message;
+                
+                // Mostrar la lista de reservas del grupo
+                listaEl.innerHTML = grupoInfo.map(r => 
+                    `<div class="flex justify-between items-center py-1 border-b">
+                        <span class="font-medium">${r.nombre}</span>
+                        <span class="text-gray-600">${formatCurrency(r.valor)}</span>
+                    </div>`
+                ).join('');
+                
+                // Guardar el ID del grupo en el botón para usarlo después
+                confirmBtn.dataset.idReservaCanal = idReservaCanal;
+                
+                // Mostrar el modal
+                modal.classList.remove('hidden');
+            } else {
+                // Otro tipo de error
+                alert(`Error al eliminar: ${error.message}`);
             }
         }
-    });
+    }
+});
 
     document.getElementById('borrado-grupo-cancelar').addEventListener('click', () => {
         document.getElementById('modal-confirmar-borrado-grupo').classList.add('hidden');

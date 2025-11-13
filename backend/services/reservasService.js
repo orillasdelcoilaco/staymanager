@@ -490,8 +490,84 @@ const decidirYEliminarReserva = async (db, empresaId, reservaId) => {
     throw error;
 };
 
+// REEMPLAZAR la función eliminarGrupoReservasCascada en backend/services/reservasService.js
+
 const eliminarGrupoReservasCascada = async (db, empresaId, idReservaCanal) => {
+    const admin = require('firebase-admin');
+    const bucket = admin.storage().bucket();
     const batch = db.batch();
+    
+    let archivosEliminados = 0;
+    let erroresStorage = 0;
+    
+    // 1. RECOPILAR TODAS LAS URLs DE STORAGE ANTES DE BORRAR
+    const urlsStorage = [];
+    
+    // 1.1 Documentos de las reservas (enlaceReserva, enlaceBoleta)
+    const reservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
+        .where('idReservaCanal', '==', idReservaCanal)
+        .get();
+    
+    reservasSnapshot.forEach(doc => {
+        const reserva = doc.data();
+        if (reserva.documentos?.enlaceReserva) {
+            urlsStorage.push(reserva.documentos.enlaceReserva);
+        }
+        if (reserva.documentos?.enlaceBoleta) {
+            urlsStorage.push(reserva.documentos.enlaceBoleta);
+        }
+    });
+    
+    // 1.2 Comprobantes de transacciones
+    const transaccionesSnapshot = await db.collection('empresas').doc(empresaId).collection('transacciones')
+        .where('reservaIdOriginal', '==', idReservaCanal)
+        .get();
+    
+    transaccionesSnapshot.forEach(doc => {
+        const transaccion = doc.data();
+        if (transaccion.enlaceComprobante && transaccion.enlaceComprobante !== 'SIN_DOCUMENTO') {
+            urlsStorage.push(transaccion.enlaceComprobante);
+        }
+    });
+    
+    // 2. ELIMINAR ARCHIVOS DE STORAGE
+    for (const url of urlsStorage) {
+        if (!url || url === 'SIN_DOCUMENTO') continue;
+        
+        try {
+            // Extraer el path del archivo desde la URL
+            // Formato típico: https://storage.googleapis.com/[BUCKET]/[PATH]
+            // o https://firebasestorage.googleapis.com/v0/b/[BUCKET]/o/[PATH_ENCODED]?...
+            
+            let filePath = null;
+            
+            if (url.includes('firebasestorage.googleapis.com')) {
+                // Formato Firebase Storage API
+                const matches = url.match(/\/o\/(.+?)\?/);
+                if (matches && matches[1]) {
+                    filePath = decodeURIComponent(matches[1]);
+                }
+            } else if (url.includes('storage.googleapis.com')) {
+                // Formato directo de GCS
+                const bucketName = bucket.name;
+                const baseUrl = `https://storage.googleapis.com/${bucketName}/`;
+                if (url.startsWith(baseUrl)) {
+                    filePath = url.replace(baseUrl, '');
+                }
+            }
+            
+            if (filePath) {
+                const file = bucket.file(filePath);
+                await file.delete();
+                archivosEliminados++;
+            }
+        } catch (error) {
+            console.error(`Error al eliminar archivo de Storage: ${url}`, error);
+            erroresStorage++;
+        }
+    }
+    
+    // 3. ELIMINAR DOCUMENTOS DE FIRESTORE (usando el manifiesto)
     const collectionsToClean = idUpdateManifest.firestore.filter(item => item.collection !== 'reservas');
     
     for (const item of collectionsToClean) {
@@ -500,17 +576,21 @@ const eliminarGrupoReservasCascada = async (db, empresaId, idReservaCanal) => {
             .get();
         snapshot.forEach(doc => batch.delete(doc.ref));
     }
-
-    const reservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
-        .where('idReservaCanal', '==', idReservaCanal)
-        .get();
+    
+    // 4. ELIMINAR LAS RESERVAS DEL GRUPO
     reservasSnapshot.forEach(doc => batch.delete(doc.ref));
     
-    // (Aquí faltaría la lógica de borrado de Storage, que es más compleja,
-    // pero por ahora borramos la "basura" de Firestore)
-    
+    // 5. COMMIT DEL BATCH
     await batch.commit();
-    return { status: 'group_deleted', deletedReservas: reservasSnapshot.size };
+    
+    return { 
+        status: 'group_deleted', 
+        deletedReservas: reservasSnapshot.size,
+        storage: {
+            archivosEliminados,
+            erroresStorage
+        }
+    };
 };
 
 module.exports = {
