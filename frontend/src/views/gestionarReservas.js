@@ -818,16 +818,21 @@ export function afterRender() {
             }
 
             try {
+                // --- INICIO DE LA CORRECCIÓN ---
                 await fetchAPI(`/reservas/${id}`, { method: 'DELETE' });
                 
-                todasLasReservas = todasLasReservas.filter(r => r.idReservaCanal !== reserva.idReservaCanal);
+                // Si el borrado fue exitoso (era "limpio"), solo borramos esa reserva del array
+                todasLasReservas = todasLasReservas.filter(r => r.id !== id);
                 renderTabla(getFiltros());
-                alert('¡Reserva (y su grupo asociado) eliminada con éxito!');
+                alert('Reserva individual eliminada con éxito.');
+                // --- FIN DE LA CORRECCIÓN ---
 
             } catch (error) {
+                // --- INICIO DE LA CORRECCIÓN ---
                 if (error.status === 409) {
-                    const errorData = await error.json();
-                    const { idReservaCanal, grupoInfo, message } = errorData.data;
+                    const errorData = error.data; // Usar error.data, no error.json()
+                    const { idReservaCanal, grupoInfo, message } = errorData;
+                    // --- FIN DE LA CORRECCIÓN ---
                     
                     const modal = document.getElementById('modal-confirmar-borrado-grupo');
                     const infoEl = modal.querySelector('#borrado-grupo-info');

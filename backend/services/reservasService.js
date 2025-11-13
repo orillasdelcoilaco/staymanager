@@ -331,9 +331,18 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
         ...log,
         fecha: log.fecha.toDate().toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     })).sort((a, b) => {
-        const dateA = new Date(a.fecha.split(', ')[0].split('-').reverse().join('-') + ' ' + a.fecha.split(', ')[1]);
-        const dateB = new Date(b.fecha.split(', ')[0].split('-').reverse().join('-') + ' ' + b.fecha.split(', ')[1]);
-        return dateA - dateB;
+        // Convertir fecha 'dd-MM-yyyy, HH:mm' a 'yyyy-MM-ddTHH:mm:ss' para comparación
+        const partsA = a.fecha.split(', ');
+        const dateA = partsA[0].split('-').reverse().join('-');
+        const timeA = partsA[1];
+        const isoA = `${dateA}T${timeA}`;
+
+        const partsB = b.fecha.split(', ');
+        const dateB = partsB[0].split('-').reverse().join('-');
+        const timeB = partsB[1];
+        const isoB = `${dateB}T${timeB}`;
+
+        return new Date(isoA) - new Date(isoB);
     });
 
 
@@ -378,7 +387,7 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
         
         datosIndividuales: {
             valorTotalHuesped: valoresEnCLP.valorHuesped,
-            costoCanal: valoresEnCLP.costoCanal,
+            costoCanal: valoresEnCLP.costoCanal,
             payoutFinalReal: valoresEnCLP.payout,
             iva: valoresEnCLP.iva,
             saldo: Math.round(valoresEnCLP.valorHuesped - abonoProporcional),
@@ -426,12 +435,53 @@ const decidirYEliminarReserva = async (db, empresaId, reservaId) => {
         transaccionesRef.where('reservaIdOriginal', '==', idReservaCanal).limit(1).get(),
         notasRef.where('reservaIdOriginal', '==', idReservaCanal).limit(1).get()
     ]);
+    
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Verificamos si hay documentos adjuntos en la reserva individual
+    const tieneDocumentos = reservaData.documentos && (reservaData.documentos.enlaceReserva || reservaData.documentos.enlaceBoleta);
+    
+    // Verificamos si hay CUALQUIER tipo de "basura"
+    const estaLimpia = transaccionesSnapshot.empty && notasSnapshot.empty && !tieneDocumentos;
+    // --- FIN DE LA CORRECCIÓN ---
 
-    if (transaccionesSnapshot.empty && notasSnapshot.empty) {
-        await reservaRef.delete();
-        return { status: 'individual_deleted', message: 'Reserva individual eliminada de un grupo limpio.' };
+    if (estaLimpia) {
+        // Si no hay basura Y esta es la ÚLTIMA reserva del grupo, borramos.
+        const grupoSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
+            .where('idReservaCanal', '==', idReservaCanal).get();
+        
+        if (grupoSnapshot.size === 1) {
+            await reservaRef.delete();
+            return { status: 'individual_deleted', message: 'Reserva individual eliminada.' };
+        }
+
+        // Si hay otras reservas en el grupo, pero esta está "limpia", podemos borrarla.
+        // (Aunque esto podría ser problemático si OTRA reserva del grupo tiene basura)
+        // Por seguridad, vamos a chequear la basura de OTRAS reservas.
+        
+        // RE-EVALUACIÓN: El plan original es más seguro. Si hay basura *en cualquier parte* del grupo, se bloquea.
+        // La lógica de `decidirYEliminarReserva` debe chequear la basura del GRUPO, no de la reserva individual.
+        
+        // ... (Volviendo a la lógica anterior que SÍ revisaba el grupo) ...
+        // SI transacciones Y notas del GRUPO están vacías...
+        if (transaccionesSnapshot.empty && notasSnapshot.empty) {
+             // AHORA, debemos chequear si CUALQUIER reserva del grupo tiene documentos
+             const grupoReservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
+                .where('idReservaCanal', '==', idReservaCanal).get();
+            
+             const algunaReservaConDocumentos = grupoReservasSnapshot.docs.some(doc => 
+                doc.data().documentos && (doc.data().documentos.enlaceReserva || doc.data().documentos.enlaceBoleta)
+             );
+
+             if (!algunaReservaConDocumentos) {
+                 // El grupo COMPLETO está limpio (sin pagos, sin notas, sin documentos).
+                 // Es seguro borrar solo esta reserva individual.
+                await reservaRef.delete();
+                return { status: 'individual_deleted', message: 'Reserva individual eliminada de un grupo limpio.' };
+             }
+        }
     }
 
+    // --- CASO B: El grupo está "sucio" (tiene pagos, notas O documentos) ---
     const grupoReservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
         .where('idReservaCanal', '==', idReservaCanal)
         .get();
@@ -442,11 +492,11 @@ const decidirYEliminarReserva = async (db, empresaId, reservaId) => {
         valor: doc.data().valores?.valorHuesped || 0
     }));
 
-    const error = new Error('Esta reserva tiene datos (pagos/notas) asociados. Solo se puede eliminar el grupo completo.');
+    const error = new Error('Esta reserva tiene datos (pagos/notas/documentos) asociados. Solo se puede eliminar el grupo completo.');
     error.code = 409;
     error.data = {
         idReservaCanal: idReservaCanal,
-        message: `Esta reserva es parte de un grupo que tiene ${transaccionesSnapshot.size} pago(s) y ${notasSnapshot.size} nota(s) asociados.`,
+        message: `Esta reserva es parte de un grupo que tiene datos vinculados (pagos, notas o documentos).`,
         grupoInfo: grupoInfo
     };
     throw error;
@@ -467,6 +517,9 @@ const eliminarGrupoReservasCascada = async (db, empresaId, idReservaCanal) => {
         .where('idReservaCanal', '==', idReservaCanal)
         .get();
     reservasSnapshot.forEach(doc => batch.delete(doc.ref));
+    
+    // (Aquí faltaría la lógica de borrado de Storage, que es más compleja,
+    // pero por ahora borramos la "basura" de Firestore)
     
     await batch.commit();
     return { status: 'group_deleted', deletedReservas: reservasSnapshot.size };
