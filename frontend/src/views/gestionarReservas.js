@@ -50,7 +50,7 @@ async function abrirModalVer(reservaId) {
     const contentEl = document.getElementById('reserva-view-content');
     
     modal.classList.remove('hidden');
-    contentEl.classList.add('hidden'); // Ocultar contenido mientras carga
+    contentEl.classList.add('hidden');
     document.getElementById('view-loading-state').classList.remove('hidden');
 
     try {
@@ -166,11 +166,16 @@ async function abrirModalVer(reservaId) {
 
         kpiEl.innerHTML = kpiHTML.replace('_HEADER_', createHeader()).replace('_ROWS_', kpiRows);
         
+        // --- INICIO DE LA MODIFICACIÓN DE TRAZABILIDAD ---
         const historialEl = document.getElementById('view-historial-ajustes');
         const anclaUSD = datosIndividuales.valorOriginalCalculado;
-        const anclaCLP = anclaUSD * (datosIndividuales.valorDolarUsado || 1);
         const historialAjustes = datosIndividuales.historialAjustes;
         
+        // Determinar el valor del dólar del "Ancla".
+        // Lo tomamos del primer log, o si no hay logs, del valor del dólar actual (que será null si es CLP)
+        const dolarAncla = (historialAjustes.length > 0 ? historialAjustes[0].valorDolarUsado : datosIndividuales.valorDolarUsado) || 1;
+        const anclaCLP = anclaUSD * dolarAncla;
+
         let historialHTML = `
             <table class="w-full text-left text-xs">
                 <thead class="bg-gray-50 text-gray-600">
@@ -178,20 +183,33 @@ async function abrirModalVer(reservaId) {
                         <th class="py-2 px-2">Fecha</th>
                         <th class="py-2 px-2">Fuente</th>
                         <th class="py-2 px-2">Usuario</th>
-                        <th class="py-2 px-2 text-right">Valor Anterior</th>
-                        <th class="py-2 px-2 text-right">Valor Nuevo</th>
-                        <th class="py-2 px-2 text-right">Ajuste</th>
+                        ${esMonedaExtranjera ? `
+                            <th class="py-2 px-2 text-right">Valor Anterior (USD)</th>
+                            <th class="py-2 px-2 text-right">Valor Nuevo (USD)</th>
+                            <th class="py-2 px-2 text-right">Ajuste (USD)</th>
+                        ` : `
+                            <th class="py-2 px-2 text-right">Valor Anterior (CLP)</th>
+                            <th class="py-2 px-2 text-right">Valor Nuevo (CLP)</th>
+                            <th class="py-2 px-2 text-right">Ajuste (CLP)</th>
+                        `}
                     </tr>
                 </thead>
                 <tbody>
         `;
         
+        // --- Fila del Ancla (Reporte Original) ---
         historialHTML += `
             <tr class="border-b bg-gray-50 font-semibold">
                 <td class="py-2 px-2" colspan="3">Valor Original (Reporte/Ancla)</td>
-                <td class="py-2 px-2 text-right">${formatForeign(anclaUSD, moneda)}</td>
-                <td class="py-2 px-2 text-right">${formatCurrency(anclaCLP)}</td>
-                <td class="py-2 px-2 text-right"></td>
+                ${esMonedaExtranjera ? `
+                    <td class="py-2 px-2 text-right">${formatForeign(anclaUSD, moneda)}</td>
+                    <td class="py-2 px-2 text-right">${formatCurrency(anclaCLP)}</td>
+                    <td class="py-2 px-2 text-right"></td>
+                ` : `
+                    <td class="py-2 px-2 text-right">${formatCurrency(anclaCLP)}</td>
+                    <td class="py-2 px-2 text-right"></td>
+                    <td class="py-2 px-2 text-right"></td>
+                `}
             </tr>
         `;
 
@@ -199,36 +217,64 @@ async function abrirModalVer(reservaId) {
             historialHTML += `<tr><td colspan="6" class="py-3 px-2 text-center text-gray-500">No hay ajustes manuales registrados.</td></tr>`;
         } else {
             historialAjustes.forEach(log => {
-                const dolarParaCalculo = log.valorDolarUsado || datosIndividuales.valorDolarUsado || 1;
-                const ajusteCLP = log.ajusteUSD * dolarParaCalculo;
-                const anteriorCLP = log.valorAnteriorUSD * dolarParaCalculo;
-                const nuevoCLP = log.valorNuevoUSD * dolarParaCalculo;
+                const dolarParaCalculo = log.valorDolarUsado || 1;
                 const ajusteColor = log.ajusteUSD > 0 ? 'text-green-600' : 'text-red-600';
                 
-                historialHTML += `
-                    <tr class="border-b">
-                        <td class="py-2 px-2">${log.fecha}</td>
-                        <td class="py-2 px-2">${log.fuente}</td>
-                        <td class="py-2 px-2">${log.usuarioEmail.split('@')[0]}</td>
-                        <td class="py-2 px-2 text-right">${formatForeign(log.valorAnteriorUSD, moneda)}<br><span class="text-gray-500">${formatCurrency(anteriorCLP)}</span></td>
-                        <td class="py-2 px-2 text-right">${formatForeign(log.valorNuevoUSD, moneda)}<br><span class="text-gray-500">${formatCurrency(nuevoCLP)}</span></td>
-                        <td class="py-2 px-2 text-right font-medium ${ajusteColor}">${formatForeign(log.ajusteUSD, moneda)}<br><span class="text-gray-500">${formatCurrency(ajusteCLP)}</span></td>
-                    </tr>
-                `;
+                if (esMonedaExtranjera) {
+                    // Vista para canales USD
+                    const anteriorCLP = log.valorAnteriorUSD * dolarParaCalculo;
+                    const nuevoCLP = log.valorNuevoUSD * dolarParaCalculo;
+                    const ajusteCLP = log.ajusteUSD * dolarParaCalculo;
+                    
+                    historialHTML += `
+                        <tr class="border-b">
+                            <td class="py-2 px-2">${log.fecha}</td>
+                            <td class="py-2 px-2">${log.fuente}</td>
+                            <td class="py-2 px-2">${log.usuarioEmail.split('@')[0]}</td>
+                            <td class="py-2 px-2 text-right">${formatForeign(log.valorAnteriorUSD, moneda)}<br><span class="text-gray-500">${formatCurrency(anteriorCLP)}</span></td>
+                            <td class="py-2 px-2 text-right">${formatForeign(log.valorNuevoUSD, moneda)}<br><span class="text-gray-500">${formatCurrency(nuevoCLP)}</span></td>
+                            <td class="py-2 px-2 text-right font-medium ${ajusteColor}">${formatForeign(log.ajusteUSD, moneda)}<br><span class="text-gray-500">${formatCurrency(ajusteCLP)}</span></td>
+                        </tr>
+                    `;
+                } else {
+                    // Vista para canales CLP
+                    const anteriorCLP = log.valorAnteriorUSD * dolarParaCalculo;
+                    const nuevoCLP = log.valorNuevoUSD * dolarParaCalculo;
+                    const ajusteCLP = log.ajusteUSD * dolarParaCalculo;
+                    
+                    historialHTML += `
+                        <tr class="border-b">
+                            <td class="py-2 px-2">${log.fecha}</td>
+                            <td class="py-2 px-2">${log.fuente}</td>
+                            <td class="py-2 px-2">${log.usuarioEmail.split('@')[0]}</td>
+                            <td class="py-2 px-2 text-right">${formatCurrency(anteriorCLP)}</td>
+                            <td class="py-2 px-2 text-right">${formatCurrency(nuevoCLP)}</td>
+                            <td class="py-2 px-2 text-right font-medium ${ajusteColor}">${formatCurrency(ajusteCLP)}</td>
+                        </tr>
+                    `;
+                }
             });
         }
         
+        // --- Fila de Valor Actual ---
         historialHTML += `
             <tr class="border-t bg-gray-100 font-bold">
                 <td class="py-2 px-2" colspan="3">Valor Actual (Total Cliente)</td>
-                <td class="py-2 px-2 text-right">${formatForeign(datosIndividuales.valorHuespedOriginal, moneda)}</td>
-                <td class="py-2 px-2 text-right">${formatCurrency(datosIndividuales.valorTotalHuesped)}</td>
-                <td class="py-2 px-2 text-right"></td>
+                ${esMonedaExtranjera ? `
+                    <td class="py-2 px-2 text-right">${formatForeign(datosIndividuales.valorHuespedOriginal, moneda)}</td>
+                    <td class="py-2 px-2 text-right">${formatCurrency(datosIndividuales.valorTotalHuesped)}</td>
+                    <td class="py-2 px-2 text-right"></td>
+                ` : `
+                    <td class="py-2 px-2 text-right">${formatCurrency(datosIndividuales.valorTotalHuesped)}</td>
+                    <td class="py-2 px-2 text-right"></td>
+                    <td class="py-2 px-2 text-right"></td>
+                `}
             </tr>
         `;
         
         historialHTML += `</tbody></table>`;
         historialEl.innerHTML = historialHTML;
+        // --- FIN DE LA MODIFICACIÓN DE TRAZABILIDAD ---
 
         const transaccionesContainer = document.getElementById('view-transacciones-list');
         if (data.transacciones.length > 0) {
@@ -294,7 +340,6 @@ function calcularValorFinal(form, source) {
     }
 }
 
-
 function renderizarGestorDocumento(form, tipo, docUrl) {
     const container = form.querySelector(`#documento-${tipo}-container`);
     let html = '';
@@ -350,7 +395,6 @@ function renderizarListaTransacciones(form, transacciones) {
     `).join('');
 }
 
-
 async function abrirModalEditar(reservaId) {
     const modal = document.getElementById('reserva-modal-edit');
     const form = document.getElementById('reserva-form-edit');
@@ -399,7 +443,6 @@ async function abrirModalEditar(reservaId) {
         alert(`Error al cargar los detalles de la reserva: ${error.message}`);
     }
 }
-
 
 function cerrarModalEditar() {
     document.getElementById('reserva-modal-edit').classList.add('hidden');
@@ -464,7 +507,6 @@ function renderTabla(filtros) {
         </tr>
     `}).join('');
 }
-
 
 export async function render() {
     try {
