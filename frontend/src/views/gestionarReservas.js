@@ -113,7 +113,7 @@ async function abrirModalVer(reservaId) {
                     <tr class="text-gray-600">
                         <th class="py-2 pr-4 text-left font-semibold">Concepto</th>
                         ${esMonedaExtranjera ? `<th class="py-2 pr-4 text-right font-semibold">Moneda Original (${moneda})</th>` : ''}
-                        <th class="py-2 text-right font-semibold">Conversión (CLP)</th>
+                        <th class="py-2 text-right font-semibold">${esMonedaExtranjera ? 'Conversión (CLP)' : 'Valor (CLP)'}</th>
                     </tr>
                 </thead>`;
         };
@@ -159,7 +159,17 @@ async function abrirModalVer(reservaId) {
         const kpiEl = document.getElementById('view-analisis-kpi');
         let kpiHTML = '<table class="w-full">_HEADER_<tbody>_ROWS_</tbody></table>';
         let kpiRows = '';
-        kpiRows += createRow('Valor Tarifa Base (KPI)', datosIndividuales.valorPotencialOriginal_DB, (datosIndividuales.valorPotencialOriginal_DB / (datosIndividuales.valorDolarUsado || 1)));
+        
+        // --- INICIO DE CORRECCIÓN KPI PARA CLP ---
+        // datosIndividuales.valorPotencialOriginal_DB (de getReservaPorId) ya está en CLP si la moneda es CLP
+        const kpiAnclaCLP = datosIndividuales.valorPotencialOriginal_DB;
+        const kpiAnclaUSD = (esMonedaExtranjera && datosIndividuales.valorDolarUsado > 0) 
+            ? (kpiAnclaCLP / datosIndividuales.valorDolarUsado) 
+            : (datosIndividuales.valorDolarUsado > 0 ? (kpiAnclaCLP / datosIndividuales.valorDolarUsado) : 0);
+
+        kpiRows += createRow('Valor Tarifa Base (KPI)', kpiAnclaCLP, kpiAnclaUSD);
+        // --- FIN DE CORRECCIÓN KPI PARA CLP ---
+        
         kpiRows += createRow('(-) Total Cliente (A)', datosIndividuales.valorTotalHuesped, datosIndividuales.valorHuespedOriginal);
         kpiRows += createRow('Valor Potencial (Pérdida)', datosIndividuales.valorPotencial, (datosIndividuales.valorPotencial / (datosIndividuales.valorDolarUsado || 1)), true);
         kpiRows += `<tr class="border-t"><td class="pt-2 text-gray-500" colspan="3">Descuento Potencial: <span class="font-bold text-red-600">${formatPercent(datosIndividuales.descuentoPotencialPct)}</span></td></tr>`;
@@ -171,10 +181,20 @@ async function abrirModalVer(reservaId) {
         const anclaUSD = datosIndividuales.valorOriginalCalculado;
         const historialAjustes = datosIndividuales.historialAjustes;
         
-        // Determinar el valor del dólar del "Ancla".
-        // Lo tomamos del primer log, o si no hay logs, del valor del dólar actual (que será null si es CLP)
-        const dolarAncla = (historialAjustes.length > 0 ? historialAjustes[0].valorDolarUsado : datosIndividuales.valorDolarUsado) || 1;
-        const anclaCLP = anclaUSD * dolarAncla;
+        let dolarAncla = (historialAjustes.length > 0 ? historialAjustes[0].valorDolarUsado : datosIndividuales.valorDolarUsado);
+        if (moneda === 'CLP' && !dolarAncla && historialAjustes.length > 0) {
+             // Fallback por si el primer log no tiene dolar (aunque debería)
+             dolarAncla = historialAjustes[0].valorDolarUsado || 950; // Asumir un default si todo falla
+        } else if (moneda === 'CLP' && !dolarAncla) {
+             dolarAncla = 950; // Asumir default si no hay logs y es CLP
+        } else if (!dolarAncla) {
+             dolarAncla = 1; // Default para USD si todo falla
+        }
+       
+        // Si la moneda es CLP, el Ancla real es el KPI (valorOriginal), no el ancla USD
+        const anclaCLP = (moneda === 'CLP') 
+            ? datosIndividuales.valorPotencialOriginal_DB // Este es el KPI Teórico en CLP (440.000)
+            : anclaUSD * dolarAncla; // Este es el Ancla USD * Dolar (para canales USD)
 
         let historialHTML = `
             <table class="w-full text-left text-xs">
@@ -197,10 +217,9 @@ async function abrirModalVer(reservaId) {
                 <tbody>
         `;
         
-        // --- Fila del Ancla (Reporte Original) ---
         historialHTML += `
             <tr class="border-b bg-gray-50 font-semibold">
-                <td class="py-2 px-2" colspan="3">Valor Original (Reporte/Ancla)</td>
+                <td class="py-2 px-2" colspan="3">Valor Original (Ancla)</td>
                 ${esMonedaExtranjera ? `
                     <td class="py-2 px-2 text-right">${formatForeign(anclaUSD, moneda)}</td>
                     <td class="py-2 px-2 text-right">${formatCurrency(anclaCLP)}</td>
@@ -221,7 +240,6 @@ async function abrirModalVer(reservaId) {
                 const ajusteColor = log.ajusteUSD > 0 ? 'text-green-600' : 'text-red-600';
                 
                 if (esMonedaExtranjera) {
-                    // Vista para canales USD
                     const anteriorCLP = log.valorAnteriorUSD * dolarParaCalculo;
                     const nuevoCLP = log.valorNuevoUSD * dolarParaCalculo;
                     const ajusteCLP = log.ajusteUSD * dolarParaCalculo;
@@ -237,7 +255,6 @@ async function abrirModalVer(reservaId) {
                         </tr>
                     `;
                 } else {
-                    // Vista para canales CLP
                     const anteriorCLP = log.valorAnteriorUSD * dolarParaCalculo;
                     const nuevoCLP = log.valorNuevoUSD * dolarParaCalculo;
                     const ajusteCLP = log.ajusteUSD * dolarParaCalculo;
@@ -256,7 +273,6 @@ async function abrirModalVer(reservaId) {
             });
         }
         
-        // --- Fila de Valor Actual ---
         historialHTML += `
             <tr class="border-t bg-gray-100 font-bold">
                 <td class="py-2 px-2" colspan="3">Valor Actual (Total Cliente)</td>
