@@ -1,3 +1,5 @@
+// frontend/src/api.js - REEMPLAZAR COMPLETO
+
 // --- Lógica de Sesión ---
 export function logout() {
     localStorage.removeItem('idToken');
@@ -48,7 +50,13 @@ export async function fetchAPI(endpoint, options = {}) {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ message: response.statusText }));
-            throw new Error(errorData.error || errorData.message || 'Error en la petición a la API');
+            
+            // Crear un error personalizado con status y data
+            const error = new Error(errorData.error || errorData.message || 'Error en la petición a la API');
+            error.status = response.status;
+            error.data = errorData.data || null;
+            
+            throw error;
         }
         
         if (response.status === 204) {

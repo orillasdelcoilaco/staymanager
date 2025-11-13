@@ -798,6 +798,9 @@ export function afterRender() {
 // REEMPLAZAR la sección del event listener del tbody (líneas ~730-790 aprox)
 // desde "tbody.addEventListener('click', async (e) => {" hasta antes del listener de 'borrado-grupo-cancelar'
 
+// REEMPLAZAR la sección del event listener del tbody (líneas ~730-790 aprox)
+// desde "tbody.addEventListener('click', async (e) => {" hasta antes del listener de 'borrado-grupo-cancelar'
+
 tbody.addEventListener('click', async (e) => {
     const id = e.target.dataset.id;
     if (!id) return;
@@ -822,10 +825,6 @@ tbody.addEventListener('click', async (e) => {
 
         } catch (error) {
             // Capturar el error 409 (grupo con datos vinculados)
-            console.log('Error capturado:', error); // DEBUG
-            console.log('Error.status:', error.status); // DEBUG
-            console.log('Error.data:', error.data); // DEBUG
-            
             if (error.status === 409 && error.data) {
                 const { idReservaCanal, grupoInfo, message } = error.data;
                 

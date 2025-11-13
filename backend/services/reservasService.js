@@ -491,6 +491,7 @@ const decidirYEliminarReserva = async (db, empresaId, reservaId) => {
 };
 
 // REEMPLAZAR la función eliminarGrupoReservasCascada en backend/services/reservasService.js
+// REEMPLAZAR la función eliminarGrupoReservasCascada en backend/services/reservasService.js
 
 const eliminarGrupoReservasCascada = async (db, empresaId, idReservaCanal) => {
     const admin = require('firebase-admin');
