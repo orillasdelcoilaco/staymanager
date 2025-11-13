@@ -25,8 +25,6 @@ const formatDateTime = (dateString) => {
 const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
 const formatStars = (rating) => '⭐'.repeat(rating || 0) + '☆'.repeat(5 - (rating || 0));
 
-// (Agregar estas funciones al inicio del archivo, junto a las otras 'utils')
-
 const formatForeign = (value, currency) => {
     if (!currency || currency === 'CLP') return formatCurrency(value);
     // Formatear a 2 decimales para monedas extranjeras
@@ -160,15 +158,12 @@ async function abrirModalVer(reservaId) {
         let kpiHTML = '<table class="w-full">_HEADER_<tbody>_ROWS_</tbody></table>';
         let kpiRows = '';
         
-        // --- INICIO DE CORRECCIÓN KPI PARA CLP ---
-        // datosIndividuales.valorPotencialOriginal_DB (de getReservaPorId) ya está en CLP si la moneda es CLP
         const kpiAnclaCLP = datosIndividuales.valorPotencialOriginal_DB;
         const kpiAnclaUSD = (esMonedaExtranjera && datosIndividuales.valorDolarUsado > 0) 
             ? (kpiAnclaCLP / datosIndividuales.valorDolarUsado) 
             : (datosIndividuales.valorDolarUsado > 0 ? (kpiAnclaCLP / datosIndividuales.valorDolarUsado) : 0);
 
         kpiRows += createRow('Valor Tarifa Base (KPI)', kpiAnclaCLP, kpiAnclaUSD);
-        // --- FIN DE CORRECCIÓN KPI PARA CLP ---
         
         kpiRows += createRow('(-) Total Cliente (A)', datosIndividuales.valorTotalHuesped, datosIndividuales.valorHuespedOriginal);
         kpiRows += createRow('Valor Potencial (Pérdida)', datosIndividuales.valorPotencial, (datosIndividuales.valorPotencial / (datosIndividuales.valorDolarUsado || 1)), true);
@@ -176,25 +171,22 @@ async function abrirModalVer(reservaId) {
 
         kpiEl.innerHTML = kpiHTML.replace('_HEADER_', createHeader()).replace('_ROWS_', kpiRows);
         
-        // --- INICIO DE LA MODIFICACIÓN DE TRAZABILIDAD ---
         const historialEl = document.getElementById('view-historial-ajustes');
         const anclaUSD = datosIndividuales.valorOriginalCalculado;
         const historialAjustes = datosIndividuales.historialAjustes;
         
         let dolarAncla = (historialAjustes.length > 0 ? historialAjustes[0].valorDolarUsado : datosIndividuales.valorDolarUsado);
         if (moneda === 'CLP' && !dolarAncla && historialAjustes.length > 0) {
-             // Fallback por si el primer log no tiene dolar (aunque debería)
-             dolarAncla = historialAjustes[0].valorDolarUsado || 950; // Asumir un default si todo falla
+             dolarAncla = historialAjustes[0].valorDolarUsado || 950;
         } else if (moneda === 'CLP' && !dolarAncla) {
-             dolarAncla = 950; // Asumir default si no hay logs y es CLP
+             dolarAncla = 950;
         } else if (!dolarAncla) {
-             dolarAncla = 1; // Default para USD si todo falla
+             dolarAncla = 1;
         }
        
-        // Si la moneda es CLP, el Ancla real es el KPI (valorOriginal), no el ancla USD
         const anclaCLP = (moneda === 'CLP') 
-            ? datosIndividuales.valorPotencialOriginal_DB // Este es el KPI Teórico en CLP (440.000)
-            : anclaUSD * dolarAncla; // Este es el Ancla USD * Dolar (para canales USD)
+            ? datosIndividuales.valorPotencialOriginal_DB
+            : anclaUSD * dolarAncla;
 
         let historialHTML = `
             <table class="w-full text-left text-xs">
@@ -290,7 +282,6 @@ async function abrirModalVer(reservaId) {
         
         historialHTML += `</tbody></table>`;
         historialEl.innerHTML = historialHTML;
-        // --- FIN DE LA MODIFICACIÓN DE TRAZABILIDAD ---
 
         const transaccionesContainer = document.getElementById('view-transacciones-list');
         if (data.transacciones.length > 0) {
@@ -356,6 +347,7 @@ function calcularValorFinal(form, source) {
     }
 }
 
+
 function renderizarGestorDocumento(form, tipo, docUrl) {
     const container = form.querySelector(`#documento-${tipo}-container`);
     let html = '';
@@ -411,6 +403,7 @@ function renderizarListaTransacciones(form, transacciones) {
     `).join('');
 }
 
+
 async function abrirModalEditar(reservaId) {
     const modal = document.getElementById('reserva-modal-edit');
     const form = document.getElementById('reserva-form-edit');
@@ -459,6 +452,7 @@ async function abrirModalEditar(reservaId) {
         alert(`Error al cargar los detalles de la reserva: ${error.message}`);
     }
 }
+
 
 function cerrarModalEditar() {
     document.getElementById('reserva-modal-edit').classList.add('hidden');
@@ -523,6 +517,7 @@ function renderTabla(filtros) {
         </tr>
     `}).join('');
 }
+
 
 export async function render() {
     try {
@@ -717,6 +712,21 @@ export async function render() {
                 </div>
             </div>
         </div>
+
+        <div id="modal-confirmar-borrado-grupo" class="modal hidden">
+            <div class="modal-content !max-w-lg">
+                <h3 class="text-xl font-semibold text-red-700 mb-4">⚠️ ¡Advertencia! Reserva con Datos Vinculados</h3>
+                <div id="borrado-grupo-info" class="text-sm space-y-3 mb-6">
+                    <p>Esta reserva tiene pagos y/o notas asociadas. No se puede borrar individualmente sin corromper los datos financieros.</p>
+                    <p class="font-semibold">Si continúas, se borrará el GRUPO COMPLETO y todos sus datos en cascada.</p>
+                    <div id="borrado-grupo-lista" class="p-3 bg-gray-50 border rounded-md max-h-40 overflow-y-auto"></div>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="borrado-grupo-cancelar" class="btn-secondary">Cancelar</button>
+                    <button type="button" id="borrado-grupo-confirmar" class="btn-danger">Sí, Borrar Grupo Completo</button>
+                </div>
+            </div>
+        </div>
     `;
 }
 
@@ -796,15 +806,75 @@ export function afterRender() {
             abrirModalEditar(id);
         }
         if (e.target.classList.contains('delete-btn')) {
-            if (confirm('¿Estás seguro de que quieres eliminar esta reserva?')) {
-                try {
-                    await fetchAPI(`/reservas/${id}`, { method: 'DELETE' });
-                    todasLasReservas = todasLasReservas.filter(r => r.id !== id);
-                    renderTabla(getFiltros());
-                } catch (error) {
+            const reserva = todasLasReservas.find(r => r.id === id);
+            if (!reserva) return;
+            
+            const grupoReservas = todasLasReservas.filter(r => r.idReservaCanal === reserva.idReservaCanal);
+            
+            if (grupoReservas.length <= 1) {
+                if (!confirm(`¿Estás seguro de que quieres eliminar esta reserva (${reserva.alojamientoNombre})?\n\nSe borrarán también todos sus pagos y notas asociadas (si existen).`)) {
+                    return;
+                }
+            }
+
+            try {
+                await fetchAPI(`/reservas/${id}`, { method: 'DELETE' });
+                
+                todasLasReservas = todasLasReservas.filter(r => r.idReservaCanal !== reserva.idReservaCanal);
+                renderTabla(getFiltros());
+                alert('¡Reserva (y su grupo asociado) eliminada con éxito!');
+
+            } catch (error) {
+                if (error.status === 409) {
+                    const errorData = await error.json();
+                    const { idReservaCanal, grupoInfo, message } = errorData.data;
+                    
+                    const modal = document.getElementById('modal-confirmar-borrado-grupo');
+                    const infoEl = modal.querySelector('#borrado-grupo-info');
+                    const listaEl = modal.querySelector('#borrado-grupo-lista');
+                    const confirmBtn = modal.querySelector('#borrado-grupo-confirmar');
+                    
+                    infoEl.querySelector('p').textContent = message;
+                    listaEl.innerHTML = grupoInfo.map(r => 
+                        `<p class="text-sm">${r.nombre} (${formatCurrency(r.valor)})</p>`
+                    ).join('');
+                    
+                    confirmBtn.dataset.idReservaCanal = idReservaCanal;
+                    modal.classList.remove('hidden');
+                } else {
                     alert(`Error al eliminar: ${error.message}`);
                 }
             }
+        }
+    });
+
+    document.getElementById('borrado-grupo-cancelar').addEventListener('click', () => {
+        document.getElementById('modal-confirmar-borrado-grupo').classList.add('hidden');
+    });
+
+    document.getElementById('borrado-grupo-confirmar').addEventListener('click', async (e) => {
+        const idReservaCanal = e.target.dataset.idReservaCanal;
+        if (!idReservaCanal) return;
+        
+        e.target.disabled = true;
+        e.target.textContent = 'Eliminando...';
+
+        try {
+            await fetchAPI('/reservas/grupo/eliminar', {
+                method: 'POST',
+                body: { idReservaCanal }
+            });
+
+            todasLasReservas = todasLasReservas.filter(r => r.idReservaCanal !== idReservaCanal);
+            renderTabla(getFiltros());
+            document.getElementById('modal-confirmar-borrado-grupo').classList.add('hidden');
+            alert('¡Grupo completo eliminado con éxito!');
+
+        } catch (error) {
+            alert(`Error al borrar el grupo: ${error.message}`);
+        } finally {
+            e.target.disabled = false;
+            e.target.textContent = 'Sí, Borrar Grupo Completo';
         }
     });
 

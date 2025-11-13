@@ -4,6 +4,7 @@ const admin = require('firebase-admin');
 const { obtenerValorDolar, obtenerValorDolarHoy } = require('./dolarService');
 const { recalcularValoresDesdeTotal, getValoresCLP } = require('./utils/calculoValoresService');
 const { registrarAjusteValor } = require('./utils/trazabilidadService');
+const idUpdateManifest = require('../config/idUpdateManifest');
 
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
@@ -377,7 +378,7 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
         
         datosIndividuales: {
             valorTotalHuesped: valoresEnCLP.valorHuesped,
-            costoCanal: valoresEnCLP.costoCanal,
+            costoCanal: valoresEnCLP.costoCanal,
             payoutFinalReal: valoresEnCLP.payout,
             iva: valoresEnCLP.iva,
             saldo: Math.round(valoresEnCLP.valorHuesped - abonoProporcional),
@@ -403,16 +404,79 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
     };
 };
 
-const eliminarReserva = async (db, empresaId, reservaId) => {
+const decidirYEliminarReserva = async (db, empresaId, reservaId) => {
     const reservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(reservaId);
-    await reservaRef.delete();
+    const reservaDoc = await reservaRef.get();
+    if (!reservaDoc.exists) {
+        throw new Error('Reserva no encontrada.');
+    }
+
+    const reservaData = reservaDoc.data();
+    const idReservaCanal = reservaData.idReservaCanal;
+
+    if (!idReservaCanal) {
+        await reservaRef.delete();
+        return { status: 'individual_deleted', message: 'Reserva individual sin grupo eliminada.' };
+    }
+
+    const transaccionesRef = db.collection('empresas').doc(empresaId).collection('transacciones');
+    const notasRef = db.collection('empresas').doc(empresaId).collection('gestionNotas');
+
+    const [transaccionesSnapshot, notasSnapshot] = await Promise.all([
+        transaccionesRef.where('reservaIdOriginal', '==', idReservaCanal).limit(1).get(),
+        notasRef.where('reservaIdOriginal', '==', idReservaCanal).limit(1).get()
+    ]);
+
+    if (transaccionesSnapshot.empty && notasSnapshot.empty) {
+        await reservaRef.delete();
+        return { status: 'individual_deleted', message: 'Reserva individual eliminada de un grupo limpio.' };
+    }
+
+    const grupoReservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
+        .where('idReservaCanal', '==', idReservaCanal)
+        .get();
+        
+    const grupoInfo = grupoReservasSnapshot.docs.map(doc => ({
+        id: doc.id,
+        nombre: doc.data().alojamientoNombre,
+        valor: doc.data().valores?.valorHuesped || 0
+    }));
+
+    const error = new Error('Esta reserva tiene datos (pagos/notas) asociados. Solo se puede eliminar el grupo completo.');
+    error.code = 409;
+    error.data = {
+        idReservaCanal: idReservaCanal,
+        message: `Esta reserva es parte de un grupo que tiene ${transaccionesSnapshot.size} pago(s) y ${notasSnapshot.size} nota(s) asociados.`,
+        grupoInfo: grupoInfo
+    };
+    throw error;
 };
 
+const eliminarGrupoReservasCascada = async (db, empresaId, idReservaCanal) => {
+    const batch = db.batch();
+    const collectionsToClean = idUpdateManifest.firestore.filter(item => item.collection !== 'reservas');
+    
+    for (const item of collectionsToClean) {
+        const snapshot = await db.collection('empresas').doc(empresaId).collection(item.collection)
+            .where(item.field, '==', idReservaCanal)
+            .get();
+        snapshot.forEach(doc => batch.delete(doc.ref));
+    }
+
+    const reservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
+        .where('idReservaCanal', '==', idReservaCanal)
+        .get();
+    reservasSnapshot.forEach(doc => batch.delete(doc.ref));
+    
+    await batch.commit();
+    return { status: 'group_deleted', deletedReservas: reservasSnapshot.size };
+};
 
 module.exports = {
     crearOActualizarReserva,
     obtenerReservasPorEmpresa,
     obtenerReservaPorId,
     actualizarReservaManualmente,
-    eliminarReserva,
+    decidirYEliminarReserva,
+    eliminarGrupoReservasCascada,
 };
