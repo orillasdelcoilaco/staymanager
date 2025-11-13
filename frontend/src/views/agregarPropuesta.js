@@ -1,3 +1,5 @@
+// frontend/src/views/agregarPropuesta.js
+
 import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
 
@@ -156,8 +158,13 @@ export async function afterRender() {
   document.getElementById('canal-select')?.addEventListener('change', handleCanalChange);
   document.getElementById('guardar-propuesta-btn')?.addEventListener('click', handleGuardarPropuesta);
   document.getElementById('copiar-propuesta-btn')?.addEventListener('click', handleCopyPropuesta);
-  document.getElementById('cerrar-propuesta-modal-btn')?.addEventListener('click', handleCerrarModal);
+  
+  document.getElementById('cerrar-propuesta-modal-btn')?.addEventListener('click', () => {
+    handleCerrarModal();
+    handleNavigation('/gestionar-propuestas');
+  });
 
+  
   // --- INICIO DE LA CORRECCIÓN ---
   
   // Listener para el nuevo campo "Valor Final Fijo"

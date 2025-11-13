@@ -38,9 +38,17 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
     const configuracionIva = canalData.configuracionIva || 'incluido';
     const comisionSumable_Orig = 0; 
 
+    // --- INICIO DE CORRECCIÓN DE LÓGICA DE MONEDA ---
+    
+    // 1. Asegurar que el ANCLA (valorOriginal) esté en USD
     let ancla_Subtotal_USD = valorOriginal;
-    let ancla_Iva_USD, ancla_TotalCliente_USD;
+    if (moneda === 'CLP' && valorDolarDia > 0) {
+        ancla_Subtotal_USD = valorOriginal / valorDolarDia;
+    } else if (moneda === 'CLP' && (!valorDolarDia || valorDolarDia === 0)) {
+        throw new Error("Se requiere un valor de dólar para convertir el ancla de CLP a USD.");
+    }
 
+    let ancla_Iva_USD, ancla_TotalCliente_USD;
     if (configuracionIva === 'agregar') {
         ancla_Iva_USD = ancla_Subtotal_USD * 0.19;
         ancla_TotalCliente_USD = ancla_Subtotal_USD + ancla_Iva_USD;
@@ -50,18 +58,27 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
     }
     const ancla_Payout_USD = ancla_Subtotal_USD - comisionSumable_Orig;
 
+
+    // 2. Determinar el valor ACTUAL (el modificado) en USD
     let actual_TotalCliente_USD;
 
     if (valorFinalFijado && valorFinalFijado > 0) {
-        actual_TotalCliente_USD = (moneda === 'USD') ? valorFinalFijado : (valorFinalFijado / valorDolarDia);
+        // valorFinalFijado es SIEMPRE CLP (desde el formulario)
+        if (!valorDolarDia || valorDolarDia === 0) throw new Error("Se requiere un valor de dólar para convertir el Valor Final Fijo.");
+        actual_TotalCliente_USD = valorFinalFijado / valorDolarDia;
     } else if (descuentoPct && descuentoPct > 0) {
+        // % se aplica sobre el ancla USD
         actual_TotalCliente_USD = ancla_TotalCliente_USD * (1 - (descuentoPct / 100));
     } else if (descuentoFijo && descuentoFijo > 0) {
-        const descuentoUSD = (moneda === 'USD') ? descuentoFijo : (descuentoFijo / valorDolarDia);
+        // descuentoFijo es SIEMPRE CLP (desde el formulario)
+        if (!valorDolarDia || valorDolarDia === 0) throw new Error("Se requiere un valor de dólar para convertir el Descuento Fijo.");
+        const descuentoUSD = descuentoFijo / valorDolarDia;
         actual_TotalCliente_USD = ancla_TotalCliente_USD - descuentoUSD;
     } else {
+        // Sin modificación
         actual_TotalCliente_USD = ancla_TotalCliente_USD;
     }
+    // --- FIN DE CORRECCIÓN DE LÓGICA DE MONEDA ---
 
     const valoresActuales = recalcularValoresDesdeTotal(
         actual_TotalCliente_USD,
@@ -92,7 +109,20 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
             const idUnicoReserva = `${idGrupo}-${prop.id}`;
             
             const proporcion = 1 / propiedades.length;
-            const convertirACLPSIesNecesario = (monto) => (moneda === 'USD' && valorDolarDia) ? monto * valorDolarDia : monto;
+            
+            // --- INICIO DE CORRECCIÓN DE LÓGICA DE GUARDADO ---
+            // 'valoresActuales' contiene los valores en USD.
+            // Siempre multiplicamos por valorDolarDia para obtener el CLP.
+            const valorHuespedCLP = Math.round((valoresActuales.valorHuespedOriginal * proporcion) * valorDolarDia);
+            const valorTotalCLP = Math.round((valoresActuales.valorTotalOriginal * proporcion) * valorDolarDia);
+            const comisionCLP = Math.round((comisionSumable_Orig * proporcion) * valorDolarDia);
+            const ivaCLP = Math.round((valoresActuales.ivaOriginal * proporcion) * valorDolarDia);
+
+            const valorHuespedUSD = valoresActuales.valorHuespedOriginal * proporcion;
+            const valorTotalUSD = valoresActuales.valorTotalOriginal * proporcion;
+            const comisionUSD = comisionSumable_Orig * proporcion;
+            const ivaUSD = valoresActuales.ivaOriginal * proporcion;
+            // --- FIN DE CORRECCIÓN DE LÓGICA DE GUARDADO ---
 
             let huespedesParaEstaReserva = 0;
             if (!personasAsignadas) {
@@ -122,26 +152,31 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
                 cuponUtilizado: codigoCupon || null,
                 
                 valores: {
-                    valorHuesped: Math.round(convertirACLPSIesNecesario(valoresActuales.valorHuespedOriginal * proporcion)),
-                    valorTotal: Math.round(convertirACLPSIesNecesario(valoresActuales.valorTotalOriginal * proporcion)),
-                    comision: Math.round(convertirACLPSIesNecesario(comisionSumable_Orig * proporcion)),
+                    // --- Set "Actual" (CLP) ---
+                    valorHuesped: valorHuespedCLP,
+                    valorTotal: valorTotalCLP,
+                    comision: comisionCLP,
                     costoCanal: 0,
-                    iva: Math.round(convertirACLPSIesNecesario(valoresActuales.ivaOriginal * proporcion)),
+                    iva: ivaCLP,
                     
+                        // --- KPI (Precio Base) ---
                         valorOriginal: valorOriginal, 
 
-                        valorHuespedOriginal: valoresActuales.valorHuespedOriginal * proporcion,
-                        valorTotalOriginal: valoresActuales.valorTotalOriginal * proporcion,
-                        comisionOriginal: comisionSumable_Orig * proporcion,
+                        // --- Set "Actual" (USD) ---
+                        valorHuespedOriginal: valorHuespedUSD,
+                        valorTotalOriginal: valorTotalUSD,
+                        comisionOriginal: comisionUSD,
                         costoCanalOriginal: 0,
-                        ivaOriginal: valoresActuales.ivaOriginal * proporcion,
+                        ivaOriginal: ivaUSD,
 
+                        // --- SET DE RESPALDO / "ANCLA" (USD) ---
                         valorHuespedCalculado: ancla_TotalCliente_USD * proporcion,
                         valorTotalCalculado: ancla_Payout_USD * proporcion,
-                        comisionCalculado: comisionSumable_Orig * proporcion,
+                        comisionCalculado: comisionUSD,
                         costoCanalCalculado: 0,
                         ivaCalculado: ancla_Iva_USD * proporcion,
 
+                        // Campos de trazabilidad de Propuesta
                     descuentoPct: descuentoPct || 0,
                     descuentoFijo: descuentoFijo || 0,
                valorFinalFijado: valorFinalFijado || 0
@@ -149,7 +184,7 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
                 historialAjustes: [],
                 fechaReserva: admin.firestore.FieldValue.serverTimestamp(),
                 fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
-                fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
+                fechaActualizacion: new Date()
          };
             
             transaction.set(nuevaReservaRef, datosReserva);
@@ -171,6 +206,7 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
 };
 
 const guardarPresupuesto = async (db, empresaId, datos) => {
+    // ... (esta función no requiere cambios)
     const { id, cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, texto } = datos;
     const presupuestosRef = db.collection('empresas').doc(empresaId).collection('presupuestos');
     
@@ -208,6 +244,7 @@ const guardarPresupuesto = async (db, empresaId, datos) => {
 };
 
 const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
+    // ... (esta función no requiere cambios)
     const [propuestasSnapshot, presupuestosSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('reservas').where('estado', '==', 'Propuesta').orderBy('fechaCreacion', 'desc').get(),
         db.collection('empresas').doc(empresaId).collection('presupuestos').where('estado', 'in', ['Borrador', 'Enviado']).orderBy('fechaCreacion', 'desc').get()
@@ -320,6 +357,7 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
 
 
 const aprobarPropuesta = async (db, empresaId, idsReservas) => {
+    // ... (esta función no requiere cambios)
     if (!idsReservas || idsReservas.length === 0) {
         throw new Error("No se proporcionaron IDs de reserva para aprobar.");
     }
@@ -372,6 +410,7 @@ const aprobarPropuesta = async (db, empresaId, idsReservas) => {
 };
 
 const rechazarPropuesta = async (db, empresaId, idsReservas) => {
+    // ... (esta función no requiere cambios)
     if (!idsReservas || idsReservas.length === 0) {
         throw new Error("No se proporcionaron IDs de reserva para rechazar.");
     }
@@ -384,6 +423,7 @@ const rechazarPropuesta = async (db, empresaId, idsReservas) => {
 };
 
 const aprobarPresupuesto = async (db, empresaId, presupuestoId) => {
+    // ... (esta función no requiere cambios)
     const presupuestoRef = db.collection('empresas').doc(empresaId).collection('presupuestos').doc(presupuestoId);
     const presupuestoDoc = await presupuestoRef.get();
     if (!presupuestoDoc.exists) throw new Error('El presupuesto no fue encontrado.');
@@ -453,6 +493,7 @@ const aprobarPresupuesto = async (db, empresaId, presupuestoId) => {
 };
 
 const rechazarPresupuesto = async (db, empresaId, presupuestoId) => {
+    // ... (esta función no requiere cambios)
     const presupuestoRef = db.collection('empresas').doc(empresaId).collection('presupuestos').doc(presupuestoId);
     await presupuestoRef.update({ estado: 'Rechazado' });
 };
