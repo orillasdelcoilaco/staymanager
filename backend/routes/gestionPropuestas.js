@@ -36,7 +36,7 @@ module.exports = (db) => {
 
     router.post('/propuesta-tentativa', async (req, res) => {
         try {
-            const resultado = await guardarOActualizarPropuesta(db, req.user.empresaId, req.body);
+            const resultado = await guardarOActualizarPropuesta(db, req.user.empresaId, req.user.email, req.body);
             res.status(201).json(resultado);
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -46,7 +46,7 @@ module.exports = (db) => {
     router.put('/propuesta-tentativa/:id', async (req, res) => {
         try {
             const { id } = req.params;
-            const resultado = await guardarOActualizarPropuesta(db, req.user.empresaId, req.body, id);
+            const resultado = await guardarOActualizarPropuesta(db, req.user.empresaId, req.user.email, req.body, id);
             res.status(200).json(resultado);
         } catch (error) {
             res.status(500).json({ error: error.message });

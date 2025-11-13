@@ -4,17 +4,14 @@ const { getAvailabilityData } = require('./propuestasService');
 const { crearOActualizarCliente } = require('./clientesService');
 const { marcarCuponComoUtilizado } = require('./cuponesService');
 const { calcularValoresBaseDesdeReporte, recalcularValoresDesdeTotal } = require('./utils/calculoValoresService');
+const { registrarAjusteValor } = require('./utils/trazabilidadService');
 
-// backend/services/gestionPropuestasService.js
-
-// backend/services/gestionPropuestasService.js
-
-const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExistente = null) => {
+const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, idPropuestaExistente = null) => {
     const { 
         cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, 
-        canalId, canalNombre, moneda, valorDolarDia, valorOriginal, // 'valorOriginal' es el Precio Teórico (KPI)
+        canalId, canalNombre, moneda, valorDolarDia, valorOriginal, 
         origen, icalUid, idReservaCanal, codigoCupon, personas,
-        descuentoPct, descuentoFijo, valorFinalFijado // <-- Modificadores
+        descuentoPct, descuentoFijo, valorFinalFijado
     } = datos;
     
     const idGrupo = idReservaCanal || idPropuestaExistente || db.collection('empresas').doc().id;
@@ -35,16 +32,12 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
         clienteId = null; 
     }
 
-    // --- Lógica de Trazabilidad para Propuestas (G-056) ---
-
-    // 1. Obtener datos del canal (para la fórmula de IVA y Comisión)
     const canalDoc = await db.collection('empresas').doc(empresaId).collection('canales').doc(canalId).get();
     if (!canalDoc.exists) throw new Error("El canal seleccionado no es válido.");
     const canalData = canalDoc.data();
     const configuracionIva = canalData.configuracionIva || 'incluido';
-    const comisionSumable_Orig = 0; // Asumimos 0 para propuestas manuales
+    const comisionSumable_Orig = 0; 
 
-    // 2. Determinar el "Valor Ancla" (Teórico)
     let ancla_Subtotal_USD = valorOriginal;
     let ancla_Iva_USD, ancla_TotalCliente_USD;
 
@@ -57,35 +50,24 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
     }
     const ancla_Payout_USD = ancla_Subtotal_USD - comisionSumable_Orig;
 
-
-    // 3. Determinar los valores "Actuales" (Modificados)
     let actual_TotalCliente_USD;
-    let ajusteManualUSD = 0;
 
     if (valorFinalFijado && valorFinalFijado > 0) {
-        // Caso A: "Valor Final Fijo"
         actual_TotalCliente_USD = (moneda === 'USD') ? valorFinalFijado : (valorFinalFijado / valorDolarDia);
     } else if (descuentoPct && descuentoPct > 0) {
-        // Caso B: "Descuento Porcentaje"
         actual_TotalCliente_USD = ancla_TotalCliente_USD * (1 - (descuentoPct / 100));
     } else if (descuentoFijo && descuentoFijo > 0) {
-        // Caso C: "Descuento Fijo (CLP)"
         const descuentoUSD = (moneda === 'USD') ? descuentoFijo : (descuentoFijo / valorDolarDia);
         actual_TotalCliente_USD = ancla_TotalCliente_USD - descuentoUSD;
     } else {
-        // Caso D: Sin modificación
         actual_TotalCliente_USD = ancla_TotalCliente_USD;
     }
 
-    // 4. Recalcular Payout e IVA basados en el nuevo Total Cliente "Actual"
     const valoresActuales = recalcularValoresDesdeTotal(
         actual_TotalCliente_USD,
         configuracionIva,
         comisionSumable_Orig
     );
-
-    // 5. Calcular el historial de ajuste
-    ajusteManualUSD = actual_TotalCliente_USD - ancla_TotalCliente_USD;
     
     await db.runTransaction(async (transaction) => {
         const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
@@ -133,6 +115,7 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
                 fechaSalida: admin.firestore.Timestamp.fromDate(new Date(fechaSalida + 'T00:00:00Z')),
                 totalNoches: noches,
                 cantidadHuespedes: huespedesParaEstaReserva,
+id: '123',
                 estado: 'Propuesta',
              origen: origen || 'manual',
                 moneda,
@@ -140,45 +123,48 @@ const guardarOActualizarPropuesta = async (db, empresaId, datos, idPropuestaExis
                 cuponUtilizado: codigoCupon || null,
                 
                 valores: {
-                    // --- Set "Actual" (CLP) ---
                     valorHuesped: Math.round(convertirACLPSIesNecesario(valoresActuales.valorHuespedOriginal * proporcion)),
                     valorTotal: Math.round(convertirACLPSIesNecesario(valoresActuales.valorTotalOriginal * proporcion)),
                     comision: Math.round(convertirACLPSIesNecesario(comisionSumable_Orig * proporcion)),
                     costoCanal: 0,
                     iva: Math.round(convertirACLPSIesNecesario(valoresActuales.ivaOriginal * proporcion)),
                     
-                        // --- KPI (Precio Base) ---
                         valorOriginal: valorOriginal, 
 
-                        // --- Set "Actual" (USD) ---
                         valorHuespedOriginal: valoresActuales.valorHuespedOriginal * proporcion,
                         valorTotalOriginal: valoresActuales.valorTotalOriginal * proporcion,
                         comisionOriginal: comisionSumable_Orig * proporcion,
                         costoCanalOriginal: 0,
                         ivaOriginal: valoresActuales.ivaOriginal * proporcion,
 
-                        // --- SET DE RESPALDO / "ANCLA" (USD) ---
                         valorHuespedCalculado: ancla_TotalCliente_USD * proporcion,
                         valorTotalCalculado: ancla_Payout_USD * proporcion,
                         comisionCalculado: comisionSumable_Orig * proporcion,
                         costoCanalCalculado: 0,
                         ivaCalculado: ancla_Iva_USD * proporcion,
 
-                        // Campos de trazabilidad de Propuesta
                     descuentoPct: descuentoPct || 0,
                     descuentoFijo: descuentoFijo || 0,
                valorFinalFijado: valorFinalFijado || 0
                 },
-
+                historialAjustes: [],
                 fechaReserva: admin.firestore.FieldValue.serverTimestamp(),
                 fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
-                fechaActualizacion: admin.firestore.FieldValue.serverTimestamp(), // <-- ¡LA COMA FALTANTE!
-
-                ajustes: {
-                    ajusteManualUSD: ajusteManualUSD * proporcion
-                }
+                fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
          };
+            
             transaction.set(nuevaReservaRef, datosReserva);
+
+            const valorAnteriorUSD = ancla_TotalCliente_USD * proporcion;
+            const valorNuevoUSD = actual_TotalCliente_USD * proporcion;
+
+            await registrarAjusteValor(transaction, db, empresaId, nuevaReservaRef, {
+                fuente: idPropuestaExistente ? 'Edición Propuesta' : 'Creación Propuesta',
+                usuarioEmail: usuarioEmail,
+                valorAnteriorUSD: valorAnteriorUSD,
+                valorNuevoUSD: valorNuevoUSD,
+                valorDolarUsado: valorDolarDia
+            });
         }
     });
 
@@ -222,13 +208,6 @@ const guardarPresupuesto = async (db, empresaId, datos) => {
     }
 };
 
-// backend/services/gestionPropuestasService.js
-
-// (Función completa para reemplazar)
-// backend/services/gestionPropuestasService.js
-
-// backend/services/gestionPropuestasService.js
-
 const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
     const [propuestasSnapshot, presupuestosSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('reservas').where('estado', '==', 'Propuesta').orderBy('fechaCreacion', 'desc').get(),
@@ -245,10 +224,10 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
     const allPropiedadesIds = new Set();
     allItems.forEach(item => {
         const data = item.doc.data();
-        if (data.propiedades) { // Para presupuestos
+        if (data.propiedades) {
             data.propiedades.forEach(p => allPropiedadesIds.add(p.id));
         }
-        if (data.alojamientoId) { // Para propuestas
+        if (data.alojamientoId) {
             allPropiedadesIds.add(data.alojamientoId);
         }
     });
@@ -277,12 +256,12 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
     allItems.filter(item => item.type === 'propuesta').forEach(item => {
         const data = item.doc.data();
         const id = data.idReservaCanal;
-        if (!id) return; // Ignorar si no tiene ID de grupo
+        if (!id) return; 
 
         if (!propuestasAgrupadas.has(id)) {
             propuestasAgrupadas.set(id, {
                 id: id,
-                tipo: 'propuesta', // <-- TIPO CORRECTO
+                tipo: 'propuesta',
                 origen: data.origen || 'manual',
                 clienteId: data.clienteId,
                 clienteNombre: data.clienteNombre,
@@ -295,7 +274,7 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
                 monto: 0,
                 propiedades: [],
                 idsReservas: [],
-                personas: 0 // <-- INICIO CORRECCIÓN (Inicializar personas)
+                personas: 0
             });
         }
         const grupo = propuestasAgrupadas.get(id);
@@ -304,9 +283,7 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
         grupo.propiedades.push({ id: data.alojamientoId, nombre: propiedad.nombre, capacidad: propiedad.capacidad });
         grupo.idsReservas.push(data.id);
         
-        // --- INICIO CORRECCIÓN: Sumar 'cantidadHuespedes' (que guardamos) ---
         grupo.personas += data.cantidadHuespedes || 0;
-        // --- FIN CORRECCIÓN ---
     });
 
     const presupuestos = allItems.filter(item => item.type === 'presupuesto').map(item => {
@@ -317,17 +294,15 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
         });
         const cliente = clientesMap.get(data.clienteId);
         
-        // --- INICIO CORRECCIÓN: Sumar capacidad para presupuestos ---
         const totalPersonas = propiedadesConCapacidad.reduce((sum, p) => sum + (p.capacidad || 0), 0);
-        // --- FIN CORRECCIÓN ---
 
         return { 
             id: item.doc.id, 
-            tipo: 'presupuesto', // <-- TIPO CORRECTO
+            tipo: 'presupuesto',
             ...data, 
             propiedades: propiedadesConCapacidad, 
             clienteNombre: cliente?.nombre || data.clienteNombre,
-            personas: totalPersonas // <-- Dato añadido
+            personas: totalPersonas
         };
     });
 
@@ -339,7 +314,6 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
         }
         item.propiedadesNombres = item.propiedades.map(p => p.nombre).join(', ');
         
-        // (La lógica de 'personas' ahora está dentro de los bucles de mapeo)
     });
 
     return resultado;

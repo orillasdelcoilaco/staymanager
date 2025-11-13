@@ -54,11 +54,8 @@ async function abrirModalVer(reservaId) {
     document.getElementById('view-loading-state').classList.remove('hidden');
 
     try {
-        // 1. El Backend (G-076) hace todo el trabajo.
-        //    Llama a getValoresCLP() y devuelve los 5 valores (USD) y 5 valores (CLP) correctos.
         const data = await fetchAPI(`/reservas/${reservaId}`);
         
-        // --- 1. Resumen del Grupo (Sin cambios) ---
         const infoGrupoEl = document.getElementById('view-info-grupo');
         if (data.datosGrupo && data.datosGrupo.propiedades.length > 1) {
             infoGrupoEl.innerHTML = `
@@ -71,7 +68,6 @@ async function abrirModalVer(reservaId) {
             infoGrupoEl.classList.add('hidden');
         }
 
-        // --- 2. Información General (Sin cambios) ---
         document.getElementById('view-modal-title').textContent = `Detalle Reserva: ${data.idReservaCanal}`;
         document.getElementById('view-alojamiento').textContent = data.alojamientoNombre;
         document.getElementById('view-canal').textContent = data.canalNombre;
@@ -84,7 +80,6 @@ async function abrirModalVer(reservaId) {
         document.getElementById('view-doc-reserva').innerHTML = renderDocumentoLink(data.documentos?.enlaceReserva);
         document.getElementById('view-doc-boleta').innerHTML = renderDocumentoLink(data.documentos?.enlaceBoleta);
 
-        // --- 3. Información del Cliente (Sin cambios) ---
         document.getElementById('view-cliente-nombre').textContent = data.cliente.nombre || '-';
         document.getElementById('view-cliente-telefono').textContent = data.cliente.telefono || '-';
         document.getElementById('view-cliente-email').textContent = data.cliente.email || '-';
@@ -93,8 +88,6 @@ async function abrirModalVer(reservaId) {
         document.getElementById('view-cliente-ubicacion').textContent = data.cliente.ubicacion || '-';
         document.getElementById('view-cliente-notas').textContent = data.cliente.notas || 'Sin notas.';
         
-        
-        // --- 4. ANÁLISIS FINANCIERO (Corregido para NO recalcular) ---
         
         const { datosIndividuales } = data;
         const moneda = datosIndividuales.moneda || 'CLP';
@@ -125,34 +118,23 @@ async function abrirModalVer(reservaId) {
                 </thead>`;
         };
 
-        // --- INICIO DE LA MODIFICACIÓN: Sección 2: Desglose de Valores ---
         const desgloseEl = document.getElementById('view-desglose-valores');
         let desgloseHTML = '<table class="w-full">_HEADER_<tbody>_ROWS_</tbody></table>';
         let desgloseRows = '';
         
-        // El frontend YA NO CALCULA. Solo lee los valores "Actuales" que envía el backend.
-        // El backend (G-076) ya envió:
-        // datosIndividuales.payoutFinalReal (Payout CLP)
-        // datosIndividuales.valorTotalOriginal (Payout USD)
-        // datosIndividuales.comision (Comisión CLP)
-        // datosIndividuales.comisionOriginal (Comisión USD)
-        
-        // El Subtotal SÍ se puede calcular en el frontend, es una suma simple.
         const subtotalCLP = (datosIndividuales.payoutFinalReal || 0) + (datosIndividuales.comision || 0);
         const subtotalUSD = (datosIndividuales.valorTotalOriginal || 0) + (datosIndividuales.comisionOriginal || 0);
 
         desgloseRows += createRow('Payout (Anfitrión)', datosIndividuales.payoutFinalReal, datosIndividuales.valorTotalOriginal, true);
         desgloseRows += createRow('(+) Comisión (Sumable)', datosIndividuales.comision, datosIndividuales.comisionOriginal);
-        desgloseRows += createRow('(=) Subtotal (Base IVA)', subtotalCLP, subtotalUSD); // ¡Ahora sí suma!
+        desgloseRows += createRow('(=) Subtotal (Base IVA)', subtotalCLP, subtotalUSD);
         desgloseRows += createRow('(+) IVA (Calculado)', datosIndividuales.iva, datosIndividuales.ivaOriginal);
         desgloseRows += createRow('Total Cliente (A)', datosIndividuales.valorTotalHuesped, datosIndividuales.valorHuespedOriginal, true);
         desgloseRows += createRow('(Info) Costo Canal', datosIndividuales.costoCanal, datosIndividuales.costoCanalOriginal);
         desgloseRows += createRow('Valor Noche (Canal)', (datosIndividuales.valorTotalHuesped / noches), (datosIndividuales.valorHuespedOriginal / noches));
         
         desgloseEl.innerHTML = desgloseHTML.replace('_HEADER_', createHeader()).replace('_ROWS_', desgloseRows);
-        // --- FIN DE LA MODIFICACIÓN ---
 
-        // --- Sección 3: Análisis de Cobranza (Corregido) ---
         const cobranzaEl = document.getElementById('view-analisis-cobranza');
         let cobranzaHTML = '<table class="w-full">_HEADER_<tbody>_ROWS_</tbody></table>';
         let cobranzaRows = '';
@@ -168,14 +150,12 @@ async function abrirModalVer(reservaId) {
         if (esMonedaExtranjera && datosIndividuales.valorDolarUsado) {
             let etiquetaDolar = `(Flotante)`;
             if (datosIndividuales.esValorFijo) {
-                // Usamos la 'fechaLlegada' de la reserva (que viene en 'data')
                 etiquetaDolar = `(Fijo al ${formatDate(data.fechaLlegada)})`;
             }
             cobranzaRows += `<tr class="border-t"><td class="pt-2 text-gray-500" colspan="3">Valor Dólar Usado: ${formatCurrency(datosIndividuales.valorDolarUsado)} ${etiquetaDolar}</td></tr>`;
         }
         cobranzaEl.innerHTML = cobranzaHTML.replace('_HEADER_', createHeader()).replace('_ROWS_', cobranzaRows);
 
-        // --- Sección 4: Análisis de Rentabilidad (KPI) ---
         const kpiEl = document.getElementById('view-analisis-kpi');
         let kpiHTML = '<table class="w-full">_HEADER_<tbody>_ROWS_</tbody></table>';
         let kpiRows = '';
@@ -186,48 +166,70 @@ async function abrirModalVer(reservaId) {
 
         kpiEl.innerHTML = kpiHTML.replace('_HEADER_', createHeader()).replace('_ROWS_', kpiRows);
         
-        // --- INICIO DE LA MODIFICACIÓN: Sección 5. Trazabilidad ---
         const historialEl = document.getElementById('view-historial-ajustes');
-        const anclaUSD = datosIndividuales.valorOriginalCalculado; // El "Ancla" (424.12)
+        const anclaUSD = datosIndividuales.valorOriginalCalculado;
         const anclaCLP = anclaUSD * (datosIndividuales.valorDolarUsado || 1);
-        const ajusteManualUSD = datosIndividuales.historialAjustes.ajusteManualUSD || 0;
-        const ajusteManualCLP = ajusteManualUSD * (datosIndividuales.valorDolarUsado || 1);
+        const historialAjustes = datosIndividuales.historialAjustes;
         
-        let historialHTML = '<table class="w-full">_HEADER_<tbody>_ROWS_</tbody></table>';
-        let historialRows = '';
+        let historialHTML = `
+            <table class="w-full text-left text-xs">
+                <thead class="bg-gray-50 text-gray-600">
+                    <tr>
+                        <th class="py-2 px-2">Fecha</th>
+                        <th class="py-2 px-2">Fuente</th>
+                        <th class="py-2 px-2">Usuario</th>
+                        <th class="py-2 px-2 text-right">Valor Anterior</th>
+                        <th class="py-2 px-2 text-right">Valor Nuevo</th>
+                        <th class="py-2 px-2 text-right">Ajuste</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        historialHTML += `
+            <tr class="border-b bg-gray-50 font-semibold">
+                <td class="py-2 px-2" colspan="3">Valor Original (Reporte/Ancla)</td>
+                <td class="py-2 px-2 text-right">${formatForeign(anclaUSD, moneda)}</td>
+                <td class="py-2 px-2 text-right">${formatCurrency(anclaCLP)}</td>
+                <td class="py-2 px-2 text-right"></td>
+            </tr>
+        `;
 
-        historialRows += createRow(
-            'Valor Original (del Reporte)', 
-            anclaCLP,
-            anclaUSD,
-            false 
-        );
-
-        if (ajusteManualUSD !== 0) {
-            historialRows += createRow(
-                'Ajuste de Cobro (G. Diaria)',
-                ajusteManualCLP,
-                ajusteManualUSD
-            );
+        if (historialAjustes.length === 0) {
+            historialHTML += `<tr><td colspan="6" class="py-3 px-2 text-center text-gray-500">No hay ajustes manuales registrados.</td></tr>`;
+        } else {
+            historialAjustes.forEach(log => {
+                const dolarParaCalculo = log.valorDolarUsado || datosIndividuales.valorDolarUsado || 1;
+                const ajusteCLP = log.ajusteUSD * dolarParaCalculo;
+                const anteriorCLP = log.valorAnteriorUSD * dolarParaCalculo;
+                const nuevoCLP = log.valorNuevoUSD * dolarParaCalculo;
+                const ajusteColor = log.ajusteUSD > 0 ? 'text-green-600' : 'text-red-600';
+                
+                historialHTML += `
+                    <tr class="border-b">
+                        <td class="py-2 px-2">${log.fecha}</td>
+                        <td class="py-2 px-2">${log.fuente}</td>
+                        <td class="py-2 px-2">${log.usuarioEmail.split('@')[0]}</td>
+                        <td class="py-2 px-2 text-right">${formatForeign(log.valorAnteriorUSD, moneda)}<br><span class="text-gray-500">${formatCurrency(anteriorCLP)}</span></td>
+                        <td class="py-2 px-2 text-right">${formatForeign(log.valorNuevoUSD, moneda)}<br><span class="text-gray-500">${formatCurrency(nuevoCLP)}</span></td>
+                        <td class="py-2 px-2 text-right font-medium ${ajusteColor}">${formatForeign(log.ajusteUSD, moneda)}<br><span class="text-gray-500">${formatCurrency(ajusteCLP)}</span></td>
+                    </tr>
+                `;
+            });
         }
         
-        // (Aquí se agregarían filas para 'descuentoManualUSD', 'cuponDescuentoUSD', etc.)
+        historialHTML += `
+            <tr class="border-t bg-gray-100 font-bold">
+                <td class="py-2 px-2" colspan="3">Valor Actual (Total Cliente)</td>
+                <td class="py-2 px-2 text-right">${formatForeign(datosIndividuales.valorHuespedOriginal, moneda)}</td>
+                <td class="py-2 px-2 text-right">${formatCurrency(datosIndividuales.valorTotalHuesped)}</td>
+                <td class="py-2 px-2 text-right"></td>
+            </tr>
+        `;
+        
+        historialHTML += `</tbody></table>`;
+        historialEl.innerHTML = historialHTML;
 
-        // Solo mostrar el Total si hubo ajustes
-        if (ajusteManualUSD !== 0) {
-            historialRows += createRow(
-                'Total Cliente (Actual)',
-                datosIndividuales.valorTotalHuesped,
-                datosIndividuales.valorHuespedOriginal,
-                true
-            );
-        }
-
-        historialEl.innerHTML = historialHTML.replace('_HEADER_', createHeader()).replace('_ROWS_', historialRows);
-        // --- FIN DE LA MODIFICACIÓN ---
-
-
-        // --- Transacciones y Notas (Sin cambios) ---
         const transaccionesContainer = document.getElementById('view-transacciones-list');
         if (data.transacciones.length > 0) {
             transaccionesContainer.innerHTML = data.transacciones.map(t => `
@@ -383,8 +385,8 @@ async function abrirModalEditar(reservaId) {
         form.fechaSalida.value = editandoReserva.fechaSalida;
         form.moneda.value = editandoReserva.moneda || 'CLP';
         form.valorOriginal.value = editandoReserva.valores?.valorOriginal || 0;
-        form.valorTotal.value = editandoReserva.valores?.valorHuesped || 0;
-        form.valorDolarDia.value = editandoReserva.valorDolarDia || '';
+        form.valorTotal.value = editandoReserva.datosIndividuales?.valorTotalHuesped || 0;
+        form.valorDolarDia.value = editandoReserva.datosIndividuales?.valorDolarUsado || '';
         form.cantidadHuespedes.value = editandoReserva.cantidadHuespedes || 0;
 
         renderizarGestorDocumento(form, 'reserva', editandoReserva.documentos?.enlaceReserva);
@@ -642,8 +644,7 @@ export async function render() {
                         </section>
                         <section>
                             <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">✏️ Historial de Ajustes (Trazabilidad)</h4>
-                            <div id="view-historial-ajustes" class="text-sm text-gray-500">
-                                <p>Próximamente: Se listarán cupones, descuentos manuales y ajustes de cobro.</p>
+                            <div id="view-historial-ajustes" class="overflow-x-auto text-sm">
                             </div>
                         </section>
                         <section>

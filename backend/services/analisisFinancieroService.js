@@ -3,10 +3,10 @@ const admin = require('firebase-admin');
 // --- INICIO DE LA MODIFICACIÓN ---
 const { obtenerValorDolar, obtenerValorDolarHoy } = require('./dolarService');
 const { recalcularValoresDesdeTotal } = require('./utils/calculoValoresService');
+const { registrarAjusteValor } = require('./utils/trazabilidadService');
 // --- FIN DE LA MODIFICACIÓN ---
 
-const actualizarValoresGrupo = async (db, empresaId, valoresCabanas, nuevoTotalHuesped) => {
-    const batch = db.batch();
+const actualizarValoresGrupo = async (db, empresaId, usuarioEmail, valoresCabanas, nuevoTotalHuesped) => {
     
     const docs = await Promise.all(valoresCabanas.map(item => 
         db.collection('empresas').doc(empresaId).collection('reservas').doc(item.id).get()
@@ -68,88 +68,103 @@ const actualizarValoresGrupo = async (db, empresaId, valoresCabanas, nuevoTotalH
         valoresExistentesGrupo.comisionOriginal // Usamos la comisión sumable total del grupo
     );
 
-    // 5. Calcular el ajuste total contra el "Ancla"
-    const anclaTotalGrupoUSD = valoresExistentesGrupo.valorHuespedCalculado;
-    const ajusteManualUSD = nuevoTotalHuespedUSD - anclaTotalGrupoUSD;
+    // 5. Calcular el ajuste total contra el "Ancla" (ya no se usa para guardar, solo para lógica si fuera necesaria)
+    // const anclaTotalGrupoUSD = valoresExistentesGrupo.valorHuespedCalculado;
+    // const ajusteManualUSD = nuevoTotalHuespedUSD - anclaTotalGrupoUSD;
 
     // 6. Distribuir los nuevos valores proporcionalmente
     const totalHuespedActualCLP = valoresExistentesGrupo.valorHuesped;
-    if (totalHuespedActualCLP === 0) {
-        // Evitar división por cero si el valor actual es 0 (ej. reserva iCal)
-        // Distribuir equitativamente
-        const proporcion = 1 / docs.length;
 
-        docs.forEach(doc => {
-            const reserva = doc.data();
-            const nuevosValores = { ...reserva.valores };
-            const nuevosAjustes = { ...reserva.ajustes };
+    // Usamos una transacción para asegurar que todo el grupo se actualice atómicamente
+    await db.runTransaction(async (transaction) => {
+        if (totalHuespedActualCLP === 0) {
+            // Evitar división por cero si el valor actual es 0 (ej. reserva iCal)
+            // Distribuir equitativamente
+            const proporcion = 1 / docs.length;
 
-            // Set "Actual" (USD)
-            nuevosValores.valorHuespedOriginal = valoresRecalculadosGrupoUSD.valorHuespedOriginal * proporcion;
-            nuevosValores.valorTotalOriginal = valoresRecalculadosGrupoUSD.valorTotalOriginal * proporcion;
-            nuevosValores.ivaOriginal = valoresRecalculadosGrupoUSD.ivaOriginal * proporcion;
-            
-            // Set "Actual" (CLP)
-            nuevosValores.valorHuesped = Math.round(nuevoTotalHuespedCLP * proporcion);
-            nuevosValores.valorTotal = Math.round(valoresRecalculadosGrupoUSD.valorTotalOriginal * proporcion * valorDolarUsado);
-            nuevosValores.iva = Math.round(valoresRecalculadosGrupoUSD.ivaOriginal * proporcion * valorDolarUsado);
+            for (const doc of docs) {
+                const reserva = doc.data();
+                const nuevosValores = { ...reserva.valores };
+                
+                const valorAnteriorUSD = nuevosValores.valorHuespedOriginal || 0;
+                const valorNuevoUSD = valoresRecalculadosGrupoUSD.valorHuespedOriginal * proporcion;
 
-            // Ajuste
-            nuevosAjustes.ajusteManualUSD = ajusteManualUSD * proporcion;
+                // Set "Actual" (USD)
+                nuevosValores.valorHuespedOriginal = valorNuevoUSD;
+                nuevosValores.valorTotalOriginal = valoresRecalculadosGrupoUSD.valorTotalOriginal * proporcion;
+                nuevosValores.ivaOriginal = valoresRecalculadosGrupoUSD.ivaOriginal * proporcion;
+                
+                // Set "Actual" (CLP)
+                nuevosValores.valorHuesped = Math.round(nuevoTotalHuespedCLP * proporcion);
+                nuevosValores.valorTotal = Math.round(valoresRecalculadosGrupoUSD.valorTotalOriginal * proporcion * valorDolarUsado);
+                nuevosValores.iva = Math.round(valoresRecalculadosGrupoUSD.ivaOriginal * proporcion * valorDolarUsado);
 
-            batch.update(doc.ref, { 
-                'valores': nuevosValores,
-                'ajustes': nuevosAjustes,
-                'edicionesManuales.valores.valorHuesped': true,
-                'edicionesManuales.valores.valorTotal': true,
-                'edicionesManuales.valores.iva': true,
-                'edicionesManuales.valores.valorHuespedOriginal': true,
-                'edicionesManuales.valores.valorTotalOriginal': true,
-                'edicionesManuales.valores.ivaOriginal': true,
-                'ajusteManualRealizado': true
-            });
-        });
+                // Registrar en el log de trazabilidad
+                await registrarAjusteValor(transaction, db, empresaId, doc.ref, {
+                    fuente: 'Gestión Diaria (Ajustar Cobro)',
+                    usuarioEmail: usuarioEmail,
+                    valorAnteriorUSD: valorAnteriorUSD,
+                    valorNuevoUSD: valorNuevoUSD,
+                    valorDolarUsado: valorDolarUsado
+                });
 
-    } else {
-        // Distribuir basado en la proporción original
-        docs.forEach(doc => {
-            const reserva = doc.data();
-            const valorHuespedActualIndividual = reserva.valores.valorHuesped || 0;
-            const proporcion = valorHuespedActualIndividual / totalHuespedActualCLP;
+                // Actualizar los valores y marcar como editado
+                transaction.update(doc.ref, { 
+                    'valores': nuevosValores,
+                    'edicionesManuales.valores.valorHuesped': true,
+                    'edicionesManuales.valores.valorTotal': true,
+                    'edicionesManuales.valores.iva': true,
+                    'edicionesManuales.valores.valorHuespedOriginal': true,
+                    'edicionesManuales.valores.valorTotalOriginal': true,
+                    'edicionesManuales.valores.ivaOriginal': true
+                });
+            }
 
-            const nuevosValores = { ...reserva.valores };
-            const nuevosAjustes = { ...reserva.ajustes };
+        } else {
+            // Distribuir basado en la proporción original
+            for (const doc of docs) {
+                const reserva = doc.data();
+                const valorHuespedActualIndividual = reserva.valores.valorHuesped || 0;
+                const proporcion = valorHuespedActualIndividual / totalHuespedActualCLP;
 
-            // Set "Actual" (USD)
-            nuevosValores.valorHuespedOriginal = valoresRecalculadosGrupoUSD.valorHuespedOriginal * proporcion;
-            nuevosValores.valorTotalOriginal = valoresRecalculadosGrupoUSD.valorTotalOriginal * proporcion;
-            nuevosValores.ivaOriginal = valoresRecalculadosGrupoUSD.ivaOriginal * proporcion;
-            
-            // Set "Actual" (CLP)
-            nuevosValores.valorHuesped = Math.round(nuevoTotalHuespedCLP * proporcion);
-            nuevosValores.valorTotal = Math.round(valoresRecalculadosGrupoUSD.valorTotalOriginal * proporcion * valorDolarUsado);
-            nuevosValores.iva = Math.round(valoresRecalculadosGrupoUSD.ivaOriginal * proporcion * valorDolarUsado);
+                const nuevosValores = { ...reserva.valores };
+                
+                const valorAnteriorUSD = nuevosValores.valorHuespedOriginal || 0;
+                const valorNuevoUSD = valoresRecalculadosGrupoUSD.valorHuespedOriginal * proporcion;
 
-            // Ajuste
-            nuevosAjustes.ajusteManualUSD = ajusteManualUSD * proporcion;
+                // Set "Actual" (USD)
+                nuevosValores.valorHuespedOriginal = valorNuevoUSD;
+                nuevosValores.valorTotalOriginal = valoresRecalculadosGrupoUSD.valorTotalOriginal * proporcion;
+                nuevosValores.ivaOriginal = valoresRecalculadosGrupoUSD.ivaOriginal * proporcion;
+                
+                // Set "Actual" (CLP)
+                nuevosValores.valorHuesped = Math.round(nuevoTotalHuespedCLP * proporcion);
+                nuevosValores.valorTotal = Math.round(valoresRecalculadosGrupoUSD.valorTotalOriginal * proporcion * valorDolarUsado);
+                nuevosValores.iva = Math.round(valoresRecalculadosGrupoUSD.ivaOriginal * proporcion * valorDolarUsado);
 
-            batch.update(doc.ref, { 
-                'valores': nuevosValores,
-                'ajustes': nuevosAjustes,
-                'edicionesManuales.valores.valorHuesped': true,
-                'edicionesManuales.valores.valorTotal': true,
-                'edicionesManuales.valores.iva': true,
-                'edicionesManuales.valores.valorHuespedOriginal': true,
-                'edicionesManuales.valores.valorTotalOriginal': true,
-                'edicionesManuales.valores.ivaOriginal': true,
-                'ajusteManualRealizado': true
-            });
-        });
-    }
+                // Registrar en el log de trazabilidad
+                await registrarAjusteValor(transaction, db, empresaId, doc.ref, {
+                    fuente: 'Gestión Diaria (Ajustar Cobro)',
+                    usuarioEmail: usuarioEmail,
+                    valorAnteriorUSD: valorAnteriorUSD,
+                    valorNuevoUSD: valorNuevoUSD,
+                    valorDolarUsado: valorDolarUsado
+                });
 
+                // Actualizar los valores y marcar como editado
+                transaction.update(doc.ref, { 
+                    'valores': nuevosValores,
+                    'edicionesManuales.valores.valorHuesped': true,
+                    'edicionesManuales.valores.valorTotal': true,
+                    'edicionesManuales.valores.iva': true,
+                    'edicionesManuales.valores.valorHuespedOriginal': true,
+                    'edicionesManuales.valores.valorTotalOriginal': true,
+                    'edicionesManuales.valores.ivaOriginal': true
+                });
+            }
+        }
+    });
     // --- FIN DE LA LÓGICA DE RECÁLCULO ---
-
-    await batch.commit();
 };
 
 const calcularPotencialGrupo = async (db, empresaId, idsIndividuales, descuento) => {

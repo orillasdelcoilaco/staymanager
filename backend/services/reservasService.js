@@ -3,6 +3,7 @@
 const admin = require('firebase-admin');
 const { obtenerValorDolar, obtenerValorDolarHoy } = require('./dolarService');
 const { recalcularValoresDesdeTotal, getValoresCLP } = require('./utils/calculoValoresService');
+const { registrarAjusteValor } = require('./utils/trazabilidadService');
 
 const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
@@ -75,138 +76,136 @@ const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
     }
 };
 
-const actualizarReservaManualmente = async (db, empresaId, reservaId, datosNuevos) => {
+const actualizarReservaManualmente = async (db, empresaId, usuarioEmail, reservaId, datosNuevos) => {
     const reservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(reservaId);
-    const reservaDoc = await reservaRef.get();
-    if (!reservaDoc.exists) throw new Error('La reserva no existe.');
+
+    const datosFinales = await db.runTransaction(async (transaction) => {
+        const reservaDoc = await transaction.get(reservaRef);
+        if (!reservaDoc.exists) throw new Error('La reserva no existe.');
+        
+        const reservaExistente = reservaDoc.data();
+        const edicionesManuales = reservaExistente.edicionesManuales || {};
+        const valoresExistentes = reservaExistente.valores || {};
     
-    const reservaExistente = reservaDoc.data();
-    const edicionesManuales = reservaExistente.edicionesManuales || {};
-    const ajustesExistentes = reservaExistente.ajustes || {};
-    const valoresExistentes = reservaExistente.valores || {};
-
-    // --- INICIO DE LA MODIFICACIÓN: Refactorización a Servicio Central ---
-
-    // Copiamos los datos que llegan para no modificar el original
-    let nuevosValores = { ...(datosNuevos.valores || {}) };
-    let nuevosAjustes = { ...(datosNuevos.ajustes || {}) };
-    // Copiamos los datos de primer nivel (ej. estadoGestion)
-    let datosNuevosNivelSuperior = { ...datosNuevos };
-    delete datosNuevosNivelSuperior.valores; // Eliminamos 'valores' de los datos de nivel superior
-    delete datosNuevosNivelSuperior.ajustes; // Eliminamos 'ajustes'
-
-    if (datosNuevos.fechaLlegada) datosNuevosNivelSuperior.fechaLlegada = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaLlegada + 'T00:00:00Z'));
-    if (datosNuevos.fechaSalida) datosNuevosNivelSuperior.fechaSalida = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaSalida + 'T00:00:00Z'));
-
-    // 1. Determinar el valor del dólar a usar (Lógica Fijo/Flotante)
-    let valorDolarUsado = null;
-    const moneda = reservaExistente.moneda || 'CLP';
-    const fechaActual = new Date();
-    fechaActual.setUTCHours(0, 0, 0, 0);
-    const fechaLlegada = reservaExistente.fechaLlegada?.toDate ? reservaExistente.fechaLlegada.toDate() : null;
-    const esFacturado = datosNuevos.estadoGestion === 'Facturado' || reservaExistente.estadoGestion === 'Facturado';
-    const esPasado = fechaLlegada && fechaLlegada < fechaActual;
-    const esFijo = esFacturado || esPasado;
-
-    if (moneda !== 'CLP') {
-        if (esFijo) {
-            valorDolarUsado = valoresExistentes.valorDolarFacturacion || (fechaLlegada ? await obtenerValorDolar(db, empresaId, fechaLlegada) : (await obtenerValorDolarHoy(db, empresaId)).valor);
-        } else {
-            valorDolarUsado = (await obtenerValorDolarHoy(db, empresaId)).valor;
-        }
-    } else {
-        valorDolarUsado = 1; // Usar 1 para cálculos en CLP
-    }
-
-    // 2. Lógica de "Ajustar Cobro" (si el 'valorHuesped' CLP fue modificado)
-    if (nuevosValores.valorHuesped !== undefined && nuevosValores.valorHuesped !== valoresExistentes.valorHuesped) {
-        
-        const nuevoValorHuespedCLP = nuevosValores.valorHuesped; // ej. $300,000
-        let nuevoValorHuespedUSD = 0;
-
-        if (moneda !== 'CLP' && valorDolarUsado > 0) {
-            nuevoValorHuespedUSD = nuevoValorHuespedCLP / valorDolarUsado; // ej. 314.79 USD
-        } else {
-            nuevoValorHuespedUSD = nuevoValorHuespedCLP;
-        }
-        
-        // --- LLAMADA AL SERVICIO CENTRAL DE RECÁLCULO ---
-        const canal = await db.collection('empresas').doc(empresaId).collection('canales').doc(reservaExistente.canalId).get();
-        const configuracionIva = canal.exists ? (canal.data().configuracionIva || 'incluido') : 'incluido';
-        // (Usamos la comisión sumable 'Actual', no la 'Ancla')
-        const comisionSumable_Orig = valoresExistentes.comisionOriginal || 0; 
-
-        // El servicio central recalcula Payout, IVA, etc., a partir del nuevo Total Cliente
-        const valoresRecalculadosUSD = recalcularValoresDesdeTotal(
-            nuevoValorHuespedUSD, 
-            configuracionIva, 
-            comisionSumable_Orig
-        );
-
-        // Calcular el ajuste contra el ancla (informativo)
-        const valorAnclaUSD = valoresExistentes.valorHuespedCalculado || 0;
-        const ajusteManualUSD = nuevoValorHuespedUSD - valorAnclaUSD;
-
-        // Actualizar el objeto "nuevosValores" que se fusionará
-        // Set "Actual" (USD)
-        nuevosValores.valorHuespedOriginal = valoresRecalculadosUSD.valorHuespedOriginal;
-        nuevosValores.valorTotalOriginal = valoresRecalculadosUSD.valorTotalOriginal; // Payout
-        nuevosValores.ivaOriginal = valoresRecalculadosUSD.ivaOriginal;
-        
-        // Set "Actual" (CLP)
-        nuevosValores.valorHuesped = nuevoValorHuespedCLP; // Usar el valor CLP exacto que ingresó el usuario
-        nuevosValores.valorTotal = Math.round(valoresRecalculadosUSD.valorTotalOriginal * valorDolarUsado); // Payout CLP
-        nuevosValores.iva = Math.round(valoresRecalculadosUSD.ivaOriginal * valorDolarUsado); // IVA CLP
-        
-        nuevosAjustes = { ...nuevosAjustes, ajusteManualUSD: ajusteManualUSD };
-    }
-
-    // 3. Lógica de "Facturación" (Congelación)
-    if (datosNuevos.estadoGestion === 'Facturado' && reservaExistente.estadoGestion !== 'Facturado') {
-        if (moneda !== 'CLP' && valorDolarUsado > 0) {
-            nuevosValores.valorDolarFacturacion = valorDolarUsado;
-        }
-    }
+        let nuevosValores = { ...(datosNuevos.valores || {}) };
+        let datosNuevosNivelSuperior = { ...datosNuevos };
+        delete datosNuevosNivelSuperior.valores;
+        delete datosNuevosNivelSuperior.ajustes; // Obsoleto, se elimina
     
-    // 4. Crear el objeto final de datos a actualizar
-    const datosAActualizar = {
-        ...datosNuevosNivelSuperior, // Nivel superior (ej. estadoGestion)
-        valores: {
-            ...valoresExistentes,
-            ...nuevosValores
-        },
-        ajustes: {
-            ...ajustesExistentes,
-            ...nuevosAjustes
+        if (datosNuevos.fechaLlegada) datosNuevosNivelSuperior.fechaLlegada = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaLlegada + 'T00:00:00Z'));
+        if (datosNuevos.fechaSalida) datosNuevosNivelSuperior.fechaSalida = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaSalida + 'T00:00:00Z'));
+    
+        // 1. Determinar el valor del dólar a usar (Lógica Fijo/Flotante)
+        let valorDolarUsado = null;
+        const moneda = reservaExistente.moneda || 'CLP';
+        const fechaActual = new Date();
+        fechaActual.setUTCHours(0, 0, 0, 0);
+        const fechaLlegada = reservaExistente.fechaLlegada?.toDate ? reservaExistente.fechaLlegada.toDate() : null;
+        const esFacturado = datosNuevos.estadoGestion === 'Facturado' || reservaExistente.estadoGestion === 'Facturado';
+        const esPasado = fechaLlegada && fechaLlegada < fechaActual;
+        const esFijo = esFacturado || esPasado;
+    
+        if (moneda !== 'CLP') {
+            if (esFijo) {
+                valorDolarUsado = valoresExistentes.valorDolarFacturacion || (fechaLlegada ? await obtenerValorDolar(db, empresaId, fechaLlegada) : (await obtenerValorDolarHoy(db, empresaId)).valor);
+            } else {
+                valorDolarUsado = (await obtenerValorDolarHoy(db, empresaId)).valor;
+            }
+        } else {
+            valorDolarUsado = 1;
         }
-    };
-    // --- FIN DE LA MODIFICACIÓN ---
 
-    // 5. Calcular Ediciones Manuales
-    Object.keys(datosAActualizar).forEach(key => {
-        const valorNuevo = datosAActualizar[key];
-        const valorExistente = reservaExistente[key];
-        
-        if (typeof valorNuevo === 'object' && valorNuevo !== null && !Array.isArray(valorNuevo)) {
-            Object.keys(valorNuevo).forEach(subKey => {
-                if (JSON.stringify(valorExistente?.[subKey]) !== JSON.stringify(valorNuevo[subKey])) {
-                    edicionesManuales[`${key}.${subKey}`] = true;
-                }
-            });
-        } else if (JSON.stringify(valorExistente) !== JSON.stringify(valorNuevo)) {
-            edicionesManuales[key] = true;
+        // Variables para el log de trazabilidad
+        const valorAnteriorUSD = valoresExistentes.valorHuespedOriginal || 0;
+        let valorNuevoUSD = valorAnteriorUSD;
+    
+        // 2. Lógica de "Ajustar Cobro" (si el 'valorHuesped' CLP fue modificado)
+        if (nuevosValores.valorHuesped !== undefined && nuevosValores.valorHuesped !== valoresExistentes.valorHuesped) {
+            
+            const nuevoValorHuespedCLP = nuevosValores.valorHuesped;
+            let nuevoValorHuespedUSD_Calculado = 0;
+    
+            if (moneda !== 'CLP' && valorDolarUsado > 0) {
+                nuevoValorHuespedUSD_Calculado = nuevoValorHuespedCLP / valorDolarUsado;
+            } else {
+                nuevoValorHuespedUSD_Calculado = nuevoValorHuespedCLP;
+            }
+            
+            valorNuevoUSD = nuevoValorHuespedUSD_Calculado; // Guardar para el log
+            
+            const canal = await db.collection('empresas').doc(empresaId).collection('canales').doc(reservaExistente.canalId).get();
+            const configuracionIva = canal.exists ? (canal.data().configuracionIva || 'incluido') : 'incluido';
+            const comisionSumable_Orig = valoresExistentes.comisionOriginal || 0; 
+    
+            const valoresRecalculadosUSD = recalcularValoresDesdeTotal(
+                nuevoValorHuespedUSD_Calculado, 
+                configuracionIva, 
+                comisionSumable_Orig
+            );
+    
+            nuevosValores.valorHuespedOriginal = valoresRecalculadosUSD.valorHuespedOriginal;
+            nuevosValores.valorTotalOriginal = valoresRecalculadosUSD.valorTotalOriginal;
+            nuevosValores.ivaOriginal = valoresRecalculadosUSD.ivaOriginal;
+            
+            nuevosValores.valorHuesped = nuevoValorHuespedCLP;
+            nuevosValores.valorTotal = Math.round(valoresRecalculadosUSD.valorTotalOriginal * valorDolarUsado);
+            nuevosValores.iva = Math.round(valoresRecalculadosUSD.ivaOriginal * valorDolarUsado);
         }
+    
+        // 3. Lógica de "Facturación" (Congelación)
+        if (datosNuevos.estadoGestion === 'Facturado' && reservaExistente.estadoGestion !== 'Facturado') {
+            if (moneda !== 'CLP' && valorDolarUsado > 0) {
+                nuevosValores.valorDolarFacturacion = valorDolarUsado;
+            }
+        }
+        
+        // 4. Crear el objeto final de datos a actualizar
+        const datosAActualizar = {
+            ...datosNuevosNivelSuperior,
+            valores: {
+                ...valoresExistentes,
+                ...nuevosValores
+            }
+        };
+    
+        // 5. Calcular Ediciones Manuales
+        Object.keys(datosAActualizar).forEach(key => {
+            const valorNuevo = datosAActualizar[key];
+            const valorExistente = reservaExistente[key];
+            
+            if (typeof valorNuevo === 'object' && valorNuevo !== null && !Array.isArray(valorNuevo)) {
+                Object.keys(valorNuevo).forEach(subKey => {
+                    if (JSON.stringify(valorExistente?.[subKey]) !== JSON.stringify(valorNuevo[subKey])) {
+                        edicionesManuales[`${key}.${subKey}`] = true;
+                    }
+                });
+            } else if (JSON.stringify(valorExistente) !== JSON.stringify(valorNuevo)) {
+                edicionesManuales[key] = true;
+            }
+        });
+        
+        // 6. Fusionar todo para la BBDD
+        const datosFinalesParaUpdate = {
+            ...datosAActualizar,
+            edicionesManuales,
+            fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
+        };
+
+        // 7. Registrar el log de trazabilidad
+        await registrarAjusteValor(transaction, db, empresaId, reservaRef, {
+            fuente: 'Gestionar Reservas (Editar)',
+            usuarioEmail: usuarioEmail,
+            valorAnteriorUSD: valorAnteriorUSD,
+            valorNuevoUSD: valorNuevoUSD,
+            valorDolarUsado: valorDolarUsado
+        });
+    
+        transaction.update(reservaRef, datosFinalesParaUpdate);
+        
+        return { id: reservaId, ...datosFinalesParaUpdate };
     });
-    
-    // 6. Fusionar todo y guardar
-    const datosFinalesParaUpdate = {
-        ...datosAActualizar,
-        edicionesManuales,
-        fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
-    };
 
-    await reservaRef.update(datosFinalesParaUpdate);
-    return { id: reservaId, ...datosFinalesParaUpdate };
+    return datosFinales;
 };
 
 const obtenerReservasPorEmpresa = async (db, empresaId) => {
@@ -221,8 +220,6 @@ const obtenerReservasPorEmpresa = async (db, empresaId) => {
     const clientesMap = new Map();
     clientesSnapshot.forEach(doc => clientesMap.set(doc.id, doc.data()));
 
-    // --- INICIO DE LA MODIFICACIÓN: Refactorización a Servicio Central ---
-    // 1. Iterar y llamar al servicio central para cada reserva
     const reservasConCLP = await Promise.all(
         reservasSnapshot.docs.map(async (doc) => {
             const data = doc.data();
@@ -230,7 +227,7 @@ const obtenerReservasPorEmpresa = async (db, empresaId) => {
             
             if (!data.valores) data.valores = {};
             data.valores.valorHuesped = valoresCLP.valorHuesped;
-            data.valores.valorTotal = valoresCLP.payout; // 'valorTotal' es Payout
+            data.valores.valorTotal = valoresCLP.payout;
             data.valores.comision = valoresCLP.comision;
             data.valores.costoCanal = valoresCLP.costoCanal;
             
@@ -238,9 +235,7 @@ const obtenerReservasPorEmpresa = async (db, empresaId) => {
         })
     );
 
-    // 2. Mapear los resultados finales
     return reservasConCLP.map(item => {
-    // --- FIN DE LA MODIFICACIÓN ---
         const data = item.data;
         const cliente = clientesMap.get(data.clienteId);
         return {
@@ -290,7 +285,7 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
                     moneda: reservaData.moneda || 'CLP', valorDolarUsado: null,
                     valorPotencialOriginal_DB: 0,
                     esValorFijo: false,
-                    historialAjustes: {}
+                    historialAjustes: []
                 },
                 datosGrupo: { propiedades: [reservaData.alojamientoNombre], valorTotal: 0, payoutTotal: 0, abonoTotal: 0, saldo: 0 }
             };
@@ -319,29 +314,29 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
     const notas = notasSnapshot.docs.map(d => ({...d.data(), fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
     const transacciones = transaccionesSnapshot.docs.map(d => ({...d.data(), id: d.id, fecha: d.data().fecha.toDate().toLocaleString('es-CL') }));
 
-    // --- INICIO DE LA MODIFICACIÓN: Refactorización a Servicio Central ---
-    
-    // 1. Llamar al servicio central de valorización
     const valoresEnCLP = await getValoresCLP(db, empresaId, reservaData);
     const valorHuespedCLP = valoresEnCLP.valorHuesped;
     const valorDolarUsado = valoresEnCLP.valorDolarUsado;
     
-    // 2. Leer los valores "Actuales" (USD) de la BBDD
     const valoresOriginales = reservaData.valores || {};
     const valorHuespedOriginal = valoresOriginales.valorHuespedOriginal || 0;
     const costoCanalOriginal = valoresOriginales.costoCanalOriginal || 0;
     const payoutOriginal = valoresOriginales.valorTotalOriginal || 0;
     const ivaOriginal = valoresOriginales.ivaOriginal || 0;
     
-    // 3. Leer el "Ancla" (USD) y el "Historial"
     const valorAnclaUSD = valoresOriginales.valorHuespedCalculado || 0;
-    const historialAjustes = reservaData.ajustes || {};
+    
+    const historialAjustes = (reservaData.historialAjustes || []).map(log => ({
+        ...log,
+        fecha: log.fecha.toDate().toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    })).sort((a, b) => {
+        const dateA = new Date(a.fecha.split(', ')[0].split('-').reverse().join('-') + ' ' + a.fecha.split(', ')[1]);
+        const dateB = new Date(b.fecha.split(', ')[0].split('-').reverse().join('-') + ' ' + b.fecha.split(', ')[1]);
+        return dateA - dateB;
+    });
 
-    // --- FIN DE LA MODIFICACIÓN ---
 
-
-    // --- LÓGICA DE DATOS DE GRUPO (Cálculo de Abono) ---
-    const datosGrupo = {
+    const datosGrupo = {
         propiedades: reservasDelGrupo.map(r => r.alojamientoNombre),
         valorTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0),
         payoutTotal: reservasDelGrupo.reduce((sum, r) => sum + (r.valores?.valorTotal || 0), 0),
@@ -353,8 +348,7 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
         ? (valorHuespedCLP / datosGrupo.valorTotal) * datosGrupo.abonoTotal
      : 0;
     
-    // --- Lógica de Valor Potencial (KPI) ---
-    const valorCanalBase_Original = valoresOriginales.valorOriginal || 0; // KPI (en USD/moneda canal)
+    const valorCanalBase_Original = valoresOriginales.valorOriginal || 0;
     const valorCanalExterno_CLP = valorHuespedCLP;
 
     let valorCanalBase_CLP = 0;
@@ -381,9 +375,7 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
         notas,
         transacciones,
         
-        // --- INICIO DE LA MODIFICACIÓN: Objeto de retorno final ---
         datosIndividuales: {
-            // Valores CLP (calculados por el servicio central)
             valorTotalHuesped: valoresEnCLP.valorHuesped,
             costoCanal: valoresEnCLP.costoCanal,
             payoutFinalReal: valoresEnCLP.payout,
@@ -391,27 +383,22 @@ const obtenerReservaPorId = async (db, empresaId, reservaId) => {
             saldo: Math.round(valoresEnCLP.valorHuesped - abonoProporcional),
             abonoProporcional: Math.round(abonoProporcional),
 
-         // Valores Originales (Moneda Extranjera, leídos de la BBDD)
             valorHuespedOriginal: valorHuespedOriginal, 
             costoCanalOriginal: costoCanalOriginal,
-            valorTotalOriginal: payoutOriginal, // Payout
+            valorTotalOriginal: payoutOriginal,
             ivaOriginal: ivaOriginal,
 
-            // Metadatos de la valorización (del servicio central)
             moneda: reservaData.moneda || 'CLP',
             valorDolarUsado: valoresEnCLP.valorDolarUsado,
             esValorFijo: valoresEnCLP.esValorFijo,
 
-            // Analítica de Potencial (KPI)
             valorPotencial: Math.round(valorPotencial_Monto),
             descuentoPotencialPct: valorPotencial_Pct,
             valorPotencialOriginal_DB: Math.round(valorCanalBase_CLP),
             
-            // Trazabilidad (leído de la BBDD)
             valorOriginalCalculado: valorAnclaUSD,
             historialAjustes: historialAjustes
         },
-        // --- FIN DE LA MODIFICACIÓN ---
         datosGrupo
     };
 };

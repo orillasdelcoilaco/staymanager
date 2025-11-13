@@ -36,11 +36,6 @@ module.exports = (db) => {
         }
     });
 
-    // --- INICIO: NUEVO ENDPOINT PARA ESTADO DE RESERVA ---
-    /**
-     * Actualiza el 'estado' principal de una reserva (Confirmada, Cancelada, etc.)
-     * Esto afecta a todas las reservas de un mismo grupo (idReservaCanal).
-     */
     router.post('/actualizar-estado-reserva', async (req, res) => {
         try {
             const { empresaId } = req.user;
@@ -72,7 +67,6 @@ module.exports = (db) => {
             res.status(500).send('Error al actualizar estado de reserva: ' + error.message);
         }
     });
-    // --- FIN: NUEVO ENDPOINT PARA ESTADO DE RESERVA ---
     
     router.post('/marcar-cliente-gestionado', async (req, res) => {
         try {
@@ -130,9 +124,9 @@ module.exports = (db) => {
 
     router.post('/ajustar-valores', async (req, res) => {
         try {
-            const { empresaId } = req.user;
+            const { empresaId, email } = req.user;
             const { valoresCabanas, nuevoTotalHuesped } = req.body;
-            await actualizarValoresGrupo(db, empresaId, valoresCabanas, nuevoTotalHuesped);
+            await actualizarValoresGrupo(db, empresaId, email, valoresCabanas, nuevoTotalHuesped);
             res.status(200).json({ message: 'Valores actualizados.' });
         } catch (error) {
             res.status(500).json({ error: error.message });
