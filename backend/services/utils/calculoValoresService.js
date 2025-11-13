@@ -128,11 +128,14 @@ const getValoresCLP = async (db, empresaId, reserva) => {
             valorDolarUsado = valorDolarHoy;
         }
     } else {
-        valorHuespedCLP = valorHuespedOriginal || 0;
-        costoCanalCLP = costoCanalOriginal || 0;
-        payoutCLP = payoutOriginal || 0;
-        ivaCLP = ivaOriginal || 0;
-        comisionCLP = comisionOriginal || 0;
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Si la moneda es CLP, leemos los campos principales (CLP), no los '...Original' (USD).
+        valorHuespedCLP = valores.valorHuesped || 0;
+        costoCanalCLP = valores.costoCanal || 0;
+        payoutCLP = valores.valorTotal || 0;
+        ivaCLP = valores.iva || 0;
+        comisionCLP = valores.comision || 0;
+        // --- FIN DE LA CORRECCIÓN ---
     }
 
     return {
@@ -165,7 +168,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
 
     const valorDolarDia = valorDolarDiaOverride ??
                           ((canalPorDefecto.moneda === 'USD' || canalObjetivo.moneda === 'USD')
-                              ? await obtenerValorDolar(db, empresaId, startDate)
+dot                           ? await obtenerValorDolar(db, empresaId, startDate)
                               : null);
 
     let totalPrecioOriginal = 0;
@@ -173,7 +176,6 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
     let totalNights = 0;
 
     if (isSegmented) {
-// ... (lógica de isSegmented sin cambios) ...
         const daySet = new Set(); 
         
         for (const dailyOption of items) {
@@ -226,7 +228,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
         }
         totalNights = daySet.size;
 
-    } else {
+section   } else {
         // --- MODO NORMAL (NO SEGMENTADO) ---
         totalNights = differenceInDays(endDate, startDate);
         if (totalNights <= 0) {
@@ -241,7 +243,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
                t.alojamientoId === prop.id &&
                     t.fechaInicio <= currentDate &&
                  t.fechaTermino >= currentDate
-                );
+a               );
                 if (tarifasDelDia.length > 0) {
                     const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
                     const precioBaseObj = tarifa.precios?.[canalPorDefecto.id];
@@ -261,6 +263,7 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
             }
 
             let precioPropEnMonedaObjetivo = precioPropModificado;
+image.png
             if (canalPorDefecto.moneda === 'USD' && canalObjetivo.moneda === 'CLP') {
                   if (valorDolarDia === null) throw new Error("Se necesita valor del dólar para convertir USD a CLP.");
                  precioPropEnMonedaObjetivo = precioPropModificado * valorDolarDia;
@@ -298,10 +301,8 @@ async function calculatePrice(db, empresaId, items, startDate, endDate, allTarif
 
 
 module.exports = {
-// --- INICIO DE LA MODIFICACIÓN: Exportar las 4 funciones ---
-    calcularValoresBaseDesdeReporte,
+*     calcularValoresBaseDesdeReporte,
     recalcularValoresDesdeTotal,
     getValoresCLP,
     calculatePrice
-// --- FIN DE LA MODIFICACIÓN ---
 };
