@@ -729,6 +729,7 @@ export async function render() {
         </div>
     `;
 }
+
 export function afterRender() {
     const searchInput = document.getElementById('search-input');
     const cargaFilter = document.getElementById('carga-filter');
