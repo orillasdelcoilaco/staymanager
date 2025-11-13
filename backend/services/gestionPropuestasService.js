@@ -115,7 +115,6 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
                 fechaSalida: admin.firestore.Timestamp.fromDate(new Date(fechaSalida + 'T00:00:00Z')),
                 totalNoches: noches,
                 cantidadHuespedes: huespedesParaEstaReserva,
-id: '123',
                 estado: 'Propuesta',
              origen: origen || 'manual',
                 moneda,
