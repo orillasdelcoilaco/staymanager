@@ -24,7 +24,7 @@ const registrarAjusteValor = async (transaction, db, empresaId, reservaRef, dato
     }
 
     const logEntry = {
-        fecha: admin.firestore.FieldValue.serverTimestamp(),
+        fecha: new Date(),
         fuente: datosAjuste.fuente,
         usuarioEmail: datosAjuste.usuarioEmail,
         valorAnteriorUSD: datosAjuste.valorAnteriorUSD,
