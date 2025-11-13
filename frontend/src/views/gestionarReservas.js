@@ -729,7 +729,6 @@ export async function render() {
         </div>
     `;
 }
-
 export function afterRender() {
     const searchInput = document.getElementById('search-input');
     const cargaFilter = document.getElementById('carga-filter');
@@ -812,27 +811,21 @@ export function afterRender() {
             const grupoReservas = todasLasReservas.filter(r => r.idReservaCanal === reserva.idReservaCanal);
             
             if (grupoReservas.length <= 1) {
-                if (!confirm(`¿Estás seguro de que quieres eliminar esta reserva (${reserva.alojamientoNombre})?\n\nSe borrarán también todos sus pagos y notas asociadas (si existen).`)) {
+                if (!confirm(`¿Estás seguro de que quieres eliminar esta reserva (${reserva.alojamientoNombre})?\n\nSe borrarán también todos sus pagos, notas y documentos asociados (si existen).`)) {
                     return;
                 }
             }
 
             try {
-                // --- INICIO DE LA CORRECCIÓN ---
                 await fetchAPI(`/reservas/${id}`, { method: 'DELETE' });
                 
-                // Si el borrado fue exitoso (era "limpio"), solo borramos esa reserva del array
                 todasLasReservas = todasLasReservas.filter(r => r.id !== id);
                 renderTabla(getFiltros());
                 alert('Reserva individual eliminada con éxito.');
-                // --- FIN DE LA CORRECCIÓN ---
 
             } catch (error) {
-                // --- INICIO DE LA CORRECCIÓN ---
-                if (error.status === 409) {
-                    const errorData = error.data; // Usar error.data, no error.json()
-                    const { idReservaCanal, grupoInfo, message } = errorData;
-                    // --- FIN DE LA CORRECCIÓN ---
+                if (error.status === 409 && error.data) {
+                    const { idReservaCanal, grupoInfo, message } = error.data;
                     
                     const modal = document.getElementById('modal-confirmar-borrado-grupo');
                     const infoEl = modal.querySelector('#borrado-grupo-info');

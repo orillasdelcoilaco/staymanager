@@ -424,10 +424,28 @@ const decidirYEliminarReserva = async (db, empresaId, reservaId) => {
     const idReservaCanal = reservaData.idReservaCanal;
 
     if (!idReservaCanal) {
+        // Reserva antigua o sin grupo. Chequeamos solo esta reserva.
+        const tieneDocumentos = reservaData.documentos && (reservaData.documentos.enlaceReserva || reservaData.documentos.enlaceBoleta);
+        if (tieneDocumentos) {
+            // Si tiene documentos, no se puede borrar individualmente.
+             const error = new Error('Esta reserva tiene documentos asociados. Solo se puede eliminar el grupo completo (aunque sea un grupo de 1).');
+             error.code = 409;
+             error.data = {
+                 idReservaCanal: reservaId, // Usamos el ID de la reserva como ID de "grupo"
+                 message: `Esta reserva tiene documentos adjuntos.`,
+                 grupoInfo: [{ id: reservaId, nombre: reservaData.alojamientoNombre, valor: reservaData.valores?.valorHuesped || 0 }]
+             };
+             throw error;
+        }
+        
+        // Está limpia y no tiene grupo
         await reservaRef.delete();
         return { status: 'individual_deleted', message: 'Reserva individual sin grupo eliminada.' };
     }
 
+    // --- LÓGICA DE GRUPO ---
+
+    // 1. Verificar "basura" a nivel de GRUPO (Pagos, Notas)
     const transaccionesRef = db.collection('empresas').doc(empresaId).collection('transacciones');
     const notasRef = db.collection('empresas').doc(empresaId).collection('gestionNotas');
 
@@ -436,56 +454,26 @@ const decidirYEliminarReserva = async (db, empresaId, reservaId) => {
         notasRef.where('reservaIdOriginal', '==', idReservaCanal).limit(1).get()
     ]);
     
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Verificamos si hay documentos adjuntos en la reserva individual
-    const tieneDocumentos = reservaData.documentos && (reservaData.documentos.enlaceReserva || reservaData.documentos.enlaceBoleta);
+    const tienePagosONotas = !transaccionesSnapshot.empty || !notasSnapshot.empty;
+
+    // 2. Verificar "basura" a nivel de CADA RESERVA (Documentos)
+    const grupoReservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
+        .where('idReservaCanal', '==', idReservaCanal).get();
     
-    // Verificamos si hay CUALQUIER tipo de "basura"
-    const estaLimpia = transaccionesSnapshot.empty && notasSnapshot.empty && !tieneDocumentos;
-    // --- FIN DE LA CORRECCIÓN ---
+    const algunaReservaConDocumentos = grupoReservasSnapshot.docs.some(doc => {
+        const d = doc.data().documentos;
+        return d && (d.enlaceReserva || d.enlaceBoleta);
+    });
+
+    const estaLimpia = !tienePagosONotas && !algunaReservaConDocumentos;
 
     if (estaLimpia) {
-        // Si no hay basura Y esta es la ÚLTIMA reserva del grupo, borramos.
-        const grupoSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
-            .where('idReservaCanal', '==', idReservaCanal).get();
-        
-        if (grupoSnapshot.size === 1) {
-            await reservaRef.delete();
-            return { status: 'individual_deleted', message: 'Reserva individual eliminada.' };
-        }
-
-        // Si hay otras reservas en el grupo, pero esta está "limpia", podemos borrarla.
-        // (Aunque esto podría ser problemático si OTRA reserva del grupo tiene basura)
-        // Por seguridad, vamos a chequear la basura de OTRAS reservas.
-        
-        // RE-EVALUACIÓN: El plan original es más seguro. Si hay basura *en cualquier parte* del grupo, se bloquea.
-        // La lógica de `decidirYEliminarReserva` debe chequear la basura del GRUPO, no de la reserva individual.
-        
-        // ... (Volviendo a la lógica anterior que SÍ revisaba el grupo) ...
-        // SI transacciones Y notas del GRUPO están vacías...
-        if (transaccionesSnapshot.empty && notasSnapshot.empty) {
-             // AHORA, debemos chequear si CUALQUIER reserva del grupo tiene documentos
-             const grupoReservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
-                .where('idReservaCanal', '==', idReservaCanal).get();
-            
-             const algunaReservaConDocumentos = grupoReservasSnapshot.docs.some(doc => 
-                doc.data().documentos && (doc.data().documentos.enlaceReserva || doc.data().documentos.enlaceBoleta)
-             );
-
-             if (!algunaReservaConDocumentos) {
-                 // El grupo COMPLETO está limpio (sin pagos, sin notas, sin documentos).
-                 // Es seguro borrar solo esta reserva individual.
-                await reservaRef.delete();
-                return { status: 'individual_deleted', message: 'Reserva individual eliminada de un grupo limpio.' };
-             }
-        }
+        // CASO A: El grupo está "limpio". Borramos solo la reserva individual.
+        await reservaRef.delete();
+        return { status: 'individual_deleted', message: 'Reserva individual eliminada de un grupo limpio.' };
     }
 
-    // --- CASO B: El grupo está "sucio" (tiene pagos, notas O documentos) ---
-    const grupoReservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
-        .where('idReservaCanal', '==', idReservaCanal)
-        .get();
-        
+    // CASO B: El grupo está "sucio". Devolver error 409 con los datos del grupo.
     const grupoInfo = grupoReservasSnapshot.docs.map(doc => ({
         id: doc.id,
         nombre: doc.data().alojamientoNombre,
