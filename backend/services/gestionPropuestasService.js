@@ -38,8 +38,6 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
     const configuracionIva = canalData.configuracionIva || 'incluido';
     const comisionSumable_Orig = 0; 
 
-    // --- INICIO DE CORRECCIÓN DE LÓGICA DE MONEDA ---
-    
     // 1. Asegurar que el ANCLA (valorOriginal) esté en USD
     let ancla_Subtotal_USD = valorOriginal;
     if (moneda === 'CLP' && valorDolarDia > 0) {
@@ -78,7 +76,6 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
         // Sin modificación
         actual_TotalCliente_USD = ancla_TotalCliente_USD;
     }
-    // --- FIN DE CORRECCIÓN DE LÓGICA DE MONEDA ---
 
     const valoresActuales = recalcularValoresDesdeTotal(
         actual_TotalCliente_USD,
@@ -110,7 +107,6 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
             
             const proporcion = 1 / propiedades.length;
             
-            // --- INICIO DE CORRECCIÓN DE LÓGICA DE GUARDADO ---
             // 'valoresActuales' contiene los valores en USD.
             // Siempre multiplicamos por valorDolarDia para obtener el CLP.
             const valorHuespedCLP = Math.round((valoresActuales.valorHuespedOriginal * proporcion) * valorDolarDia);
@@ -122,7 +118,6 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
             const valorTotalUSD = valoresActuales.valorTotalOriginal * proporcion;
             const comisionUSD = comisionSumable_Orig * proporcion;
             const ivaUSD = valoresActuales.ivaOriginal * proporcion;
-            // --- FIN DE CORRECCIÓN DE LÓGICA DE GUARDADO ---
 
             let huespedesParaEstaReserva = 0;
             if (!personasAsignadas) {
@@ -244,7 +239,6 @@ const guardarPresupuesto = async (db, empresaId, datos) => {
 };
 
 const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
-    // ... (esta función no requiere cambios)
     const [propuestasSnapshot, presupuestosSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('reservas').where('estado', '==', 'Propuesta').orderBy('fechaCreacion', 'desc').get(),
         db.collection('empresas').doc(empresaId).collection('presupuestos').where('estado', 'in', ['Borrador', 'Enviado']).orderBy('fechaCreacion', 'desc').get()
@@ -309,7 +303,7 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
                 fechaSalida: data.fechaSalida.toDate().toISOString().split('T')[0],
                 monto: 0,
                 propiedades: [],
-                idsReservas: [],
+                idsReservas: [], // Este es el array que enviaremos para borrar
                 personas: 0
             });
         }
@@ -317,7 +311,11 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
         grupo.monto += data.valores?.valorHuesped || 0;
         const propiedad = propiedadesMap.get(data.alojamientoId) || { nombre: data.alojamientoNombre, capacidad: 0 };
         grupo.propiedades.push({ id: data.alojamientoId, nombre: propiedad.nombre, capacidad: propiedad.capacidad });
-        grupo.idsReservas.push(data.id);
+        
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Usamos el ID del documento real, no el campo 'id'
+        grupo.idsReservas.push(item.doc.id);
+        // --- FIN DE LA CORRECCIÓN ---
         
         grupo.personas += data.cantidadHuespedes || 0;
     });
