@@ -493,105 +493,131 @@ const decidirYEliminarReserva = async (db, empresaId, reservaId) => {
 // REEMPLAZAR la función eliminarGrupoReservasCascada en backend/services/reservasService.js
 // REEMPLAZAR la función eliminarGrupoReservasCascada en backend/services/reservasService.js
 
+// REEMPLAZAR COMPLETO la función eliminarGrupoReservasCascada
+// Desde la línea donde dice "const eliminarGrupoReservasCascada = async (db, empresaId, idReservaCanal) => {"
+// Hasta el cierre de la función (antes de module.exports)
+
 const eliminarGrupoReservasCascada = async (db, empresaId, idReservaCanal) => {
-    const admin = require('firebase-admin');
-    const bucket = admin.storage().bucket();
-    const batch = db.batch();
-    
-    let archivosEliminados = 0;
-    let erroresStorage = 0;
-    
-    // 1. RECOPILAR TODAS LAS URLs DE STORAGE ANTES DE BORRAR
-    const urlsStorage = [];
-    
-    // 1.1 Documentos de las reservas (enlaceReserva, enlaceBoleta)
-    const reservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
-        .where('idReservaCanal', '==', idReservaCanal)
-        .get();
-    
-    reservasSnapshot.forEach(doc => {
-        const reserva = doc.data();
-        if (reserva.documentos?.enlaceReserva) {
-            urlsStorage.push(reserva.documentos.enlaceReserva);
-        }
-        if (reserva.documentos?.enlaceBoleta) {
-            urlsStorage.push(reserva.documentos.enlaceBoleta);
-        }
-    });
-    
-    // 1.2 Comprobantes de transacciones
-    const transaccionesSnapshot = await db.collection('empresas').doc(empresaId).collection('transacciones')
-        .where('reservaIdOriginal', '==', idReservaCanal)
-        .get();
-    
-    transaccionesSnapshot.forEach(doc => {
-        const transaccion = doc.data();
-        if (transaccion.enlaceComprobante && transaccion.enlaceComprobante !== 'SIN_DOCUMENTO') {
-            urlsStorage.push(transaccion.enlaceComprobante);
-        }
-    });
-    
-    // 2. ELIMINAR ARCHIVOS DE STORAGE
-    for (const url of urlsStorage) {
-        if (!url || url === 'SIN_DOCUMENTO') continue;
+    try {
+        const admin = require('firebase-admin');
+        const bucket = admin.storage().bucket();
+        const batch = db.batch();
         
-        try {
-            // Extraer el path del archivo desde la URL
-            // Formato típico: https://storage.googleapis.com/[BUCKET]/[PATH]
-            // o https://firebasestorage.googleapis.com/v0/b/[BUCKET]/o/[PATH_ENCODED]?...
-            
-            let filePath = null;
-            
-            if (url.includes('firebasestorage.googleapis.com')) {
-                // Formato Firebase Storage API
-                const matches = url.match(/\/o\/(.+?)\?/);
-                if (matches && matches[1]) {
-                    filePath = decodeURIComponent(matches[1]);
-                }
-            } else if (url.includes('storage.googleapis.com')) {
-                // Formato directo de GCS
-                const bucketName = bucket.name;
-                const baseUrl = `https://storage.googleapis.com/${bucketName}/`;
-                if (url.startsWith(baseUrl)) {
-                    filePath = url.replace(baseUrl, '');
-                }
-            }
-            
-            if (filePath) {
-                const file = bucket.file(filePath);
-                await file.delete();
-                archivosEliminados++;
-            }
-        } catch (error) {
-            console.error(`Error al eliminar archivo de Storage: ${url}`, error);
-            erroresStorage++;
-        }
-    }
+        let archivosEliminados = 0;
+        let erroresStorage = 0;
+        
+        console.log(`[DEBUG] Iniciando eliminación en cascada para idReservaCanal: ${idReservaCanal}`);
     
-    // 3. ELIMINAR DOCUMENTOS DE FIRESTORE (usando el manifiesto)
-    const collectionsToClean = idUpdateManifest.firestore.filter(item => item.collection !== 'reservas');
-    
-    for (const item of collectionsToClean) {
-        const snapshot = await db.collection('empresas').doc(empresaId).collection(item.collection)
-            .where(item.field, '==', idReservaCanal)
+        // 1. RECOPILAR TODAS LAS URLs DE STORAGE ANTES DE BORRAR
+        const urlsStorage = [];
+        
+        // 1.1 Documentos de las reservas (enlaceReserva, enlaceBoleta)
+        const reservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
+            .where('idReservaCanal', '==', idReservaCanal)
             .get();
-        snapshot.forEach(doc => batch.delete(doc.ref));
-    }
-    
-    // 4. ELIMINAR LAS RESERVAS DEL GRUPO
-    reservasSnapshot.forEach(doc => batch.delete(doc.ref));
-    
-    // 5. COMMIT DEL BATCH
-    await batch.commit();
-    
-    return { 
-        status: 'group_deleted', 
-        deletedReservas: reservasSnapshot.size,
-        storage: {
-            archivosEliminados,
-            erroresStorage
+        
+        reservasSnapshot.forEach(doc => {
+            const reserva = doc.data();
+            if (reserva.documentos?.enlaceReserva) {
+                urlsStorage.push(reserva.documentos.enlaceReserva);
+            }
+            if (reserva.documentos?.enlaceBoleta) {
+                urlsStorage.push(reserva.documentos.enlaceBoleta);
+            }
+        });
+        
+        // 1.2 Comprobantes de transacciones
+        const transaccionesSnapshot = await db.collection('empresas').doc(empresaId).collection('transacciones')
+            .where('reservaIdOriginal', '==', idReservaCanal)
+            .get();
+        
+        transaccionesSnapshot.forEach(doc => {
+            const transaccion = doc.data();
+            if (transaccion.enlaceComprobante && transaccion.enlaceComprobante !== 'SIN_DOCUMENTO') {
+                urlsStorage.push(transaccion.enlaceComprobante);
+            }
+        });
+        
+        // 2. ELIMINAR ARCHIVOS DE STORAGE
+        console.log(`[DEBUG] URLs de Storage a eliminar: ${urlsStorage.length}`);
+        
+        for (const url of urlsStorage) {
+            if (!url || url === 'SIN_DOCUMENTO') continue;
+            
+            try {
+                let filePath = null;
+                
+                if (url.includes('firebasestorage.googleapis.com')) {
+                    // Extraer path del formato: /v0/b/[BUCKET]/o/[PATH_ENCODED]?...
+                    const matches = url.match(/\/o\/(.+?)(\?|$)/);
+                    if (matches && matches[1]) {
+                        filePath = decodeURIComponent(matches[1]);
+                    }
+                } else if (url.includes('storage.googleapis.com')) {
+                    // Formato directo: https://storage.googleapis.com/[BUCKET]/[PATH]
+                    const urlObj = new URL(url);
+                    const pathParts = urlObj.pathname.split('/');
+                    // pathname es /[BUCKET]/[PATH], así que quitamos el primer elemento vacío y el bucket
+                    if (pathParts.length >= 3) {
+                        pathParts.shift(); // quitar el primer ''
+                        pathParts.shift(); // quitar el bucket name
+                        filePath = pathParts.join('/');
+                    }
+                }
+                
+                if (filePath) {
+                    console.log(`[DEBUG] Intentando eliminar archivo: ${filePath}`);
+                    const file = bucket.file(filePath);
+                    
+                    // Verificar si existe antes de intentar borrar
+                    const [exists] = await file.exists();
+                    if (exists) {
+                        await file.delete();
+                        archivosEliminados++;
+                        console.log(`[DEBUG] Archivo eliminado exitosamente: ${filePath}`);
+                    } else {
+                        console.log(`[DEBUG] Archivo no existe (skip): ${filePath}`);
+                        erroresStorage++; // Contar como "error" para registrar
+                    }
+                }
+            } catch (error) {
+                console.error(`[ERROR] Al eliminar archivo de Storage: ${url}`, error.message);
+                erroresStorage++;
+            }
         }
-    };
+        
+        // 3. ELIMINAR DOCUMENTOS DE FIRESTORE (usando el manifiesto)
+        console.log(`[DEBUG] Eliminando documentos de Firestore vinculados al grupo...`);
+        const collectionsToClean = idUpdateManifest.firestore.filter(item => item.collection !== 'reservas');
+        
+        for (const item of collectionsToClean) {
+            const snapshot = await db.collection('empresas').doc(empresaId).collection(item.collection)
+                .where(item.field, '==', idReservaCanal)
+                .get();
+            console.log(`[DEBUG] - ${item.collection}: ${snapshot.size} documentos a eliminar`);
+            snapshot.forEach(doc => batch.delete(doc.ref));
+        }
+        
+        // 4. ELIMINAR LAS RESERVAS DEL GRUPO
+        console.log(`[DEBUG] Eliminando ${reservasSnapshot.size} reservas del grupo...`);
+        reservasSnapshot.forEach(doc => batch.delete(doc.ref));
+        
+        // 5. COMMIT DEL BATCH
+        await batch.commit();
+        console.log(`[DEBUG] Eliminación en cascada completada exitosamente`);
+        
+        return { 
+            status: 'group_deleted', 
+            deletedReservas: reservasSnapshot.size,
+            storage: {
+                archivosEliminados,
+                erroresStorage
+            }
+        };
+    } catch (error) {
+        console.error(`[ERROR CRÍTICO] Error en eliminarGrupoReservasCascada:`, error);
+        throw new Error(`Error al eliminar el grupo: ${error.message}`);
+    }
 };
 
 module.exports = {
