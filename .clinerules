@@ -1,0 +1,375 @@
+# SuiteManager - Contexto Completo para Claude
+
+## 🎯 Visión del Negocio
+
+### Propuesta de Valor
+Centralizar TODOS los canales de venta de propiedades de arriendo a corto plazo en una sola aplicación, permitiendo:
+- Gestión unificada de reservas de múltiples OTAs
+- CRM con marketing personalizado
+- Motor de reservas directas (reducir comisiones OTAs)
+- Co-anfitriones con sistema de comisiones
+
+### Modelo de Negocio
+- **Target**: Empresas de cabañas en Pucón, Chile (luego expansión)
+- **Pricing**: $300.000 CLP/año por empresa
+- **Meta**: 1,000 usuarios = $300M CLP/año
+
+### Arquitectura de Dos Mundos (SEPARACIÓN CRÍTICA)
+
+```
+┌─────────────────────────────────────────────────┐
+│  🔵 SPA (Panel Admin - /admin-assets)          │
+│  Puerto de entrada: /                          │
+│  Usuarios: Administradores de empresas         │
+│  Funciones: Gestión, CRM, Config, Sync OTAs    │
+└─────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────┐
+│  🟢 SSR (Web Pública - /public-assets)         │
+│  Puerto de entrada: / (según dominio/subdom)   │
+│  Usuarios: Clientes finales + Co-anfitriones   │
+│  Funciones: Reservas directas, SEO, Integr. IA │
+└─────────────────────────────────────────────────┘
+```
+
+**IMPORTANTE**: Mantener lógicas COMPLETAMENTE separadas. Si una feature afecta ambos mundos, crear servicios duplicados pero independientes.
+
+---
+
+## 🏗️ Principios Arquitectónicos CRÍTICOS
+
+### 1. Multi-Tenant (Aislamiento Total)
+```javascript
+// ✅ SIEMPRE
+db.collection('empresas').doc(empresaId).collection('reservas')
+
+// ❌ NUNCA
+db.collection('reservas')
+```
+
+### 2. Sistema Paramétrico (Flexibilidad sin Código)
+**TODO debe ser configurable desde la UI**:
+- ✅ Canales de venta (nombre, comisiones, modificadores)
+- ✅ Estados de gestión y reserva
+- ✅ Mapeo de CSV (separadores, formatos, reglas de comisión/IVA)
+- ✅ Tarifas por temporada
+- ✅ Valores de dólar históricos
+
+**NO hardcodear valores de negocio en el código**.
+
+### 3. Fuente de la Verdad (Inmutabilidad Financiera)
+- `valores.valorHuesped` (CLP) = **INMUTABLE** (viene de reporte o ajuste manual)
+- Motor de tarifas calcula KPIs (comparativa), **NUNCA sobrescribe valores reales**
+- Ajustes de precio: Explícitos (Propuesta, Gestión Diaria, Gestionar Reservas)
+- Trazabilidad: Historial de ajustes con usuario, fecha, valor anterior/nuevo
+
+### 4. Integridad de Reservas (No Duplicados)
+**Prioridad de fuentes**:
+1. **Manual** (usuario crea/edita) → Máxima prioridad
+2. **iCal** (sincronización calendario) → Crea "fantasma" (estado: Propuesta)
+3. **Reporte CSV** (OTA) → Actualiza iCal si existe, crea si no
+
+**Lógica**: Si iCal + Reporte coinciden (fechas, propiedad), el reporte "completa" el iCal sin duplicar.
+
+---
+
+## 📐 Separación de Responsabilidades
+
+```
+backend/
+  ├── services/              ← Lógica pura (sin req/res)
+  │   ├── [entidad]Service.js    (ej: reservasService.js)
+  │   ├── publicWebsiteService.js  ← SSR (separado)
+  │   └── utils/
+  ├── routes/
+  │   ├── api/              ← SPA (admin)
+  │   ├── website.js        ← SSR (público)
+  │   └── integrations/     ← Google Hotels, APIs externas
+  ├── middleware/
+  │   ├── authMiddleware.js      ← SPA (JWT)
+  │   └── tenantResolver.js      ← SSR (dominio/subdominio)
+  └── config/
+      └── idUpdateManifest.js    ← Definición de cascadas
+
+frontend/src/              ← SPA SOLAMENTE
+  ├── views/               ← Orquestadores
+  ├── views/components/    ← Componentes específicos por vista
+  ├── api.js               ← Cliente HTTP
+  └── router.js            ← Navegación
+
+backend/views/             ← SSR (EJS templates)
+  ├── home.ejs
+  ├── propiedad.ejs
+  └── checkout.ejs
+```
+
+---
+
+## 💰 Modelo de Datos Financieros
+
+### Estructura de Valores
+```javascript
+{
+  moneda: 'USD' | 'CLP',  // Moneda del canal
+  valores: {
+    // Moneda Original (del reporte)
+    valorHuespedOriginal: 100.00,
+    valorTotalOriginal: 85.00,     // Payout
+    comisionOriginal: 15.00,
+    ivaOriginal: 0,
+    
+    // Conversión a CLP
+    valorHuesped: 95000,           // ← FUENTE DE VERDAD (cobro cliente)
+    valorTotal: 80750,             // Payout en CLP
+    comision: 14250,
+    iva: 0,
+    
+    // Referencia (KPI)
+    valorOriginal: 110.00,         // Precio base según tarifas
+    valorDolarFacturacion: 950     // Dólar fijado (si facturado)
+  },
+  historialAjustes: [              // Trazabilidad
+    {
+      fuente: 'Gestionar Reservas (Editar)',
+      usuarioEmail: 'admin@empresa.com',
+      fecha: Timestamp,
+      valorAnteriorUSD: 100,
+      valorNuevoUSD: 95,
+      ajusteUSD: -5,
+      valorDolarUsado: 950
+    }
+  ]
+}
+```
+
+### Conversión Fijo/Flotante
+- **Flotante**: Reservas futuras/no facturadas → dólar actual
+- **Fijo**: Reservas pasadas/facturadas → dólar histórico (guardado en valorDolarFacturacion)
+
+---
+
+## 🔗 Grupos de Reservas (Multi-Alojamiento)
+
+**Concepto**: Una reserva puede incluir múltiples propiedades (ej: cabaña + quincho).
+
+**Identificador**: `idReservaCanal` (viene del reporte, ej: "ABC123")
+
+**Datos Compartidos** (a nivel de grupo):
+- Cliente (clienteId)
+- Transacciones/Pagos (reservaIdOriginal = idReservaCanal)
+- Notas de bitácora (reservaIdOriginal = idReservaCanal)
+
+**Datos Individuales** (por reserva):
+- Alojamiento (propiedadId)
+- Fechas (fechaLlegada, fechaSalida)
+- Valores financieros (cada propiedad tiene su precio)
+- Documentos (enlaceReserva, enlaceBoleta)
+
+---
+
+## 🗄️ Estructura Firestore
+
+```
+empresas/{empresaId}/
+  ├── (documento raíz)
+  │   ├── nombre: string
+  │   └── websiteSettings: {domain, subdomain, googleAnalyticsId, ...}
+  │
+  ├── users/
+  ├── clientes/              ← CRM
+  ├── reservas/              ← idReservaCanal agrupa reservas
+  ├── transacciones/         ← reservaIdOriginal vincula al grupo
+  ├── gestionNotas/          ← reservaIdOriginal vincula al grupo
+  ├── propiedades/
+  │   └── {propiedadId}
+  │       ├── componentes: array  ← Definidos por usuario (ej: "Dormitorio Principal")
+  │       ├── websiteData: {aiDescription, images: {componentId: [...]}}
+  │       └── googleHotelData: {hotelId, address, ...}
+  ├── canales/               ← Paramétrico (usuarios pueden agregar)
+  │   └── {canalId}
+  │       ├── nombre: string
+  │       ├── esCanalPorDefecto: boolean
+  │       ├── modificadorTipo: 'porcentaje' | 'fijo'
+  │       ├── modificadorValor: number
+  │       ├── configuracionIva: 'incluido' | 'excluido'
+  │       └── mapeoCSV: {separador, formatoFecha, comisionIncluida, ...}
+  ├── tarifas/               ← Tarifa Base + Modificadores por canal
+  ├── valoresDolar/          ← Histórico (clave: fecha-YYYY-MM-DD)
+  ├── historialCargas/       ← Auditoría de CSV subidos
+  ├── campanas/              ← Marketing CRM
+  └── cupones/               ← Descuentos para clientes
+```
+
+---
+
+## 🎨 Reglas de Codificación (NO NEGOCIABLES)
+
+### General
+1. **Archivos completos SIEMPRE**: Nunca `// ... código existente`
+2. **Sin comentarios en funciones**: Código autoexplicativo
+3. **Mantener estilo**: Respetar convenciones, indentación
+4. **Todos los archivos**: Si modifico N archivos, entregar N completos
+
+### Backend: Servicios Puros
+```javascript
+// ✅ CORRECTO
+const obtenerReservas = async (db, empresaId) => {
+    const snapshot = await db.collection('empresas')
+        .doc(empresaId).collection('reservas').get();
+    return snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
+};
+
+// ❌ INCORRECTO: Lógica en routes
+router.get('/reservas', async (req, res) => {
+    const snapshot = await db.collection(...).get();
+    res.json(...);
+});
+```
+
+### Frontend: Gestión de Errores Estructurados
+```javascript
+// En api.js
+const error = new Error(errorData.error);
+error.status = response.status;
+error.data = errorData.data;
+throw error;
+
+// En vistas
+try {
+    await fetchAPI('/reservas', {method: 'DELETE'});
+} catch (error) {
+    if (error.status === 409 && error.data) {
+        // Mostrar modal de confirmación
+    }
+}
+```
+
+---
+
+## 🔧 Características Especiales
+
+### 1. Sincronización iCal (Sin Duplicados)
+**Flujo**:
+1. Usuario sincroniza iCal → Crea reservas "fantasma" (origen: 'ical', estado: 'Propuesta')
+2. Usuario sube CSV de OTA → Sistema busca reserva iCal con mismas fechas/propiedad
+3. Si encuentra: Actualiza iCal → origen: 'reporte', completa datos faltantes
+4. Si no: Crea nueva reserva
+
+**Campos Protegidos** (no se sobrescriben si fueron editados manualmente):
+- Guardados en `edicionesManuales: {campo: true}`
+
+### 2. Mapeo Paramétrico de CSV
+Cada canal tiene configuración:
+```javascript
+{
+  separador: ',' | ';',
+  formatoFecha: 'DD/MM/YYYY' | 'MM/DD/YYYY' | ...,
+  formatoNumero: 'punto' | 'coma',
+  comisionIncluida: boolean,
+  ivaIncluido: boolean,
+  camposMapeo: {
+    idReserva: 'Booking ID',
+    fechaLlegada: 'Check-in',
+    valorTotal: 'Total Price',
+    ...
+  }
+}
+```
+
+### 3. Motor de Tarifas (Base + Modificadores)
+- **Tarifa Base**: Un precio por temporada/propiedad/canal por defecto
+- **Modificadores**: Otros canales aplican % o monto fijo sobre la base
+- **Cálculo en Tiempo Real**: Para propuestas y presupuestos
+- **No Sobrescribe**: Valores de reportes se guardan como referencia (KPI)
+
+### 4. CRM y Marketing
+- **Segmentación RFM**: Automática (Recencia, Frecuencia, Valor Monetario)
+- **Campañas**: Por segmento, con cupones de un solo uso
+- **WhatsApp Directo**: Via Google Contacts (sin API de WhatsApp)
+- **Scraping de Comentarios**: Por ID de reserva de cualquier canal
+
+### 5. Co-anfitriones (Futura Expansión)
+- Generan reservas con código único
+- Sistema calcula comisión automáticamente
+- Seguimiento de conversiones por co-anfitrión
+
+### 6. SSR (Motor de Reservas Públicas)
+**Optimización**:
+- Gemini genera textos SEO, robot.txt, sitemap
+- Imágenes: WebP optimizadas con sharp
+- Metadatos dinámicos por propiedad (og:tags, JSON-LD)
+
+**Integración**:
+- Google Hotels: Feeds XML (Property Data + ARI)
+- Deep Linking: Pre-selección de fechas desde Google
+- Preparado para: ChatGPT, Claude, otros agentes IA
+
+---
+
+## 📦 Archivos Críticos
+
+### Backend (SPA + SSR)
+- `services/reservasService.js`: CRUD + eliminación en cascada
+- `services/dolarService.js`: Conversión fijo/flotante
+- `services/publicWebsiteService.js`: Lógica SSR (SEPARADA)
+- `config/idUpdateManifest.js`: Cascadas de actualización
+- `middleware/authMiddleware.js`: JWT (SPA)
+- `middleware/tenantResolver.js`: Dominio/Subdominio (SSR)
+
+### Frontend SPA
+- `api.js`: Cliente HTTP con errores estructurados
+- `router.js`: Navegación SPA
+- `views/gestionDiaria.js`: Vista principal operativa
+- `views/gestionarReservas.js`: Gestión completa con modales
+- `views/configurarWebPublica.js`: Config SSR desde SPA
+
+### Templates SSR (EJS)
+- `backend/views/home.ejs`
+- `backend/views/propiedad.ejs`
+- `backend/views/checkout.ejs`
+
+---
+
+## 🚀 Features Implementadas ✅
+
+- Arquitectura multi-empresa
+- CRUD de reservas con grupos
+- Eliminación en cascada (Firestore + Storage)
+- Sistema de tarifas base + modificadores
+- Conversión multi-moneda (fijo/flotante)
+- Trazabilidad de ajustes financieros
+- CRM con segmentación RFM
+- Campañas y cupones
+- Gestión diaria con flujo de estados
+- Sincronización de reportes CSV (paramétrica)
+- Sincronización iCal (sin duplicados)
+- Motor de reservas SSR
+- Integración Google Hotels (feeds XML)
+- Optimización SEO con IA (Gemini)
+
+## 🔄 Próximos Pasos
+
+- Dashboard con KPIs (ADR, RevPAR, Ocupación)
+- Generador de presupuestos mejorado
+- Sistema de co-anfitriones con comisiones
+- Integración con agentes IA (ChatGPT, Claude) para reservas
+- Scraping de comentarios automatizado
+- Notificaciones por email (cambios de estado)
+
+---
+
+## ⚙️ Comandos
+
+```bash
+npm run dev              # Desarrollo local (backend)
+git push origin main     # Deploy automático en Render
+```
+
+---
+
+## 💡 Filosofía de Desarrollo
+
+> "Si el usuario no puede parametrizar algo desde la UI, 
+> estamos limitando el potencial del sistema."
+
+**Objetivo**: Crear una plataforma donde agregar canales, modificar flujos o cambiar reglas de negocio sea TAN SIMPLE como llenar un formulario.

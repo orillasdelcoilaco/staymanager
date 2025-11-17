@@ -2,6 +2,7 @@
 
 import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
+import { formatDate, formatDateTime, formatCurrency, formatStars, formatForeign, formatPercent } from './components/gestionarReservas/reservas.utils.js';
 
 let todasLasReservas = [];
 let historialCargas = [];
@@ -11,32 +12,6 @@ let canales = [];
 let editandoReserva = null;
 let transaccionesActuales = [];
 
-// --- UTILS ---
-const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    const datePart = dateString.split('T')[0];
-    return new Date(datePart + 'T00:00:00Z').toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
-};
-const formatDateTime = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleString('es-CL');
-};
-
-const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
-const formatStars = (rating) => '⭐'.repeat(rating || 0) + '☆'.repeat(5 - (rating || 0));
-
-const formatForeign = (value, currency) => {
-    if (!currency || currency === 'CLP') return formatCurrency(value);
-    // Formatear a 2 decimales para monedas extranjeras
-    return `${(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
-};
-
-const formatPercent = (value) => {
-    if (!value || value === 0) return '0%';
-    return `${value.toFixed(1)}%`;
-};
-
-// --- VIEW MODAL LOGIC ---
 function renderDocumentoLink(docUrl, defaultText = 'No adjunto') {
     if (!docUrl) return `<span class="text-gray-500">${defaultText}</span>`;
     if (docUrl === 'SIN_DOCUMENTO') return '<span class="font-semibold">Declarado sin documento</span>';
@@ -319,7 +294,6 @@ async function abrirModalVer(reservaId) {
     }
 }
 
-// --- EDIT MODAL LOGIC ---
 function toggleDolarFields(form) {
     const moneda = form.moneda.value;
     const dolarContainer = form.querySelector('#dolar-container');
@@ -340,7 +314,7 @@ function calcularValorFinal(form, source) {
         if (source === 'original') {
             const valorOriginal = parseFloat(valorOriginalInput.value) || 0;
             valorTotalInput.value = Math.round(valorOriginal * valorDolar);
-        } else { // source === 'total' or 'dolar'
+        } else {
             const valorTotal = parseFloat(valorTotalInput.value) || 0;
             valorOriginalInput.value = (valorTotal / valorDolar).toFixed(2);
         }
@@ -459,7 +433,6 @@ function cerrarModalEditar() {
     editandoReserva = null;
 }
 
-// --- MAIN TABLE RENDER ---
 function renderTabla(filtros) {
     const tbody = document.getElementById('reservas-tbody');
     if (!tbody) return;
@@ -795,12 +768,6 @@ export function afterRender() {
         abrirModalEditar(reservaIdParaEditar);
     }
 
-// REEMPLAZAR la sección del event listener del tbody (líneas ~730-790 aprox)
-// desde "tbody.addEventListener('click', async (e) => {" hasta antes del listener de 'borrado-grupo-cancelar'
-
-// REEMPLAZAR la sección del event listener del tbody (líneas ~730-790 aprox)
-// desde "tbody.addEventListener('click', async (e) => {" hasta antes del listener de 'borrado-grupo-cancelar'
-
 tbody.addEventListener('click', async (e) => {
     const id = e.target.dataset.id;
     if (!id) return;
@@ -818,26 +785,21 @@ tbody.addEventListener('click', async (e) => {
         try {
             await fetchAPI(`/reservas/${id}`, { method: 'DELETE' });
             
-            // Eliminación exitosa (caso individual o grupo limpio)
             todasLasReservas = todasLasReservas.filter(r => r.id !== id);
             renderTabla(getFiltros());
             alert('Reserva eliminada con éxito.');
 
         } catch (error) {
-            // Capturar el error 409 (grupo con datos vinculados)
             if (error.status === 409 && error.data) {
                 const { idReservaCanal, grupoInfo, message } = error.data;
                 
-                // Abrir el modal de confirmación
                 const modal = document.getElementById('modal-confirmar-borrado-grupo');
                 const mensajeEl = modal.querySelector('#borrado-grupo-info p');
                 const listaEl = modal.querySelector('#borrado-grupo-lista');
                 const confirmBtn = modal.querySelector('#borrado-grupo-confirmar');
                 
-                // Actualizar el contenido del modal
                 mensajeEl.textContent = message;
                 
-                // Mostrar la lista de reservas del grupo
                 listaEl.innerHTML = grupoInfo.map(r => 
                     `<div class="flex justify-between items-center py-1 border-b">
                         <span class="font-medium">${r.nombre}</span>
@@ -845,13 +807,10 @@ tbody.addEventListener('click', async (e) => {
                     </div>`
                 ).join('');
                 
-                // Guardar el ID del grupo en el botón para usarlo después
                 confirmBtn.dataset.idReservaCanal = idReservaCanal;
                 
-                // Mostrar el modal
                 modal.classList.remove('hidden');
             } else {
-                // Otro tipo de error
                 alert(`Error al eliminar: ${error.message}`);
             }
         }
