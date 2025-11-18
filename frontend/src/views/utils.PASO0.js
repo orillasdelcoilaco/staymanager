@@ -1,12 +1,10 @@
 import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
-import { formatCurrency } from '../shared/formatters.js';
-import { handleCuponChange as handleCuponChangeShared, getCuponAplicado, setCuponAplicado, clearCupon } from '../shared/cuponesValidator.js';
 
 let allClients = [];
 let allProperties = [];
 let allCanales = [];
-let allPlantillas = [];
+let allPlantillas = []; // AÑADIDO: para usar plantillas en memoria
 let selectedClient = null;
 let availabilityData = {};
 let selectedProperties = [];
@@ -14,16 +12,21 @@ let currentPricing = {};
 let editId = null;
 let valorDolarDia = 0;
 let origenReserva = 'manual';
+let cuponAplicado = null;
 
 // Exporta variables de estado
 export {
-  allClients, allProperties, allCanales, allPlantillas,
+  allClients, allProperties, allCanales, allPlantillas, // AÑADIDO allPlantillas
   selectedClient, availabilityData, selectedProperties,
-  currentPricing, editId, valorDolarDia, origenReserva
+  currentPricing, editId, valorDolarDia, origenReserva, cuponAplicado
 };
 
-// Re-exportar formatCurrency para mantener compatibilidad
-export { formatCurrency };
+export function formatCurrency(value, currency = 'CLP') {
+  if (currency === 'USD') {
+    return `$${(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  return `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
+}
 
 export async function loadInitialData() {
   try {
@@ -31,7 +34,7 @@ export async function loadInitialData() {
       fetchAPI('/clientes'),
       fetchAPI('/propiedades'),
       fetchAPI('/canales'),
-      fetchAPI('/plantillas')
+      fetchAPI('/plantillas') // AÑADIDO: carga todas las plantillas
     ]);
 
     const canalSelect = document.getElementById('canal-select');
@@ -109,6 +112,8 @@ export function createPropertyCheckbox(prop, isSuggested) {
     </div>`;
 }
 
+// frontend/src/views/utils.js
+
 export function renderSelectionUI() {
   const suggestionList = document.getElementById('suggestion-list');
   const availableList = document.getElementById('available-list');
@@ -117,23 +122,30 @@ export function renderSelectionUI() {
 
   if (!availabilityData.suggestion) return;
 
+  // --- INICIO DE LA CORRECCIÓN ---
+  // Determinar propiedades seleccionadas (puede ser un itinerario o una selección normal)
   if (availabilityData.suggestion.isSegmented) {
+    // En modo segmentado, las propiedades seleccionadas son todas las que aparecen en el itinerario
     const propMap = new Map();
     availabilityData.suggestion.itinerary.forEach(segment => {
         segment.propiedades.forEach(prop => propMap.set(prop.id, prop));
     });
     selectedProperties = Array.from(propMap.values());
   } else {
+    // En modo normal, son las propiedades sugeridas
     selectedProperties = [...availabilityData.suggestion.propiedades];
   }
 
+  // Renderizar la UI
   if (availabilityData.suggestion.isSegmented) {
+    // UI para MODO ITINERARIO (Segmentado)
     suggestionList.innerHTML = `
       <h4 class="font-medium text-gray-700">Propuesta de Itinerario</h4>
       <div class="space-y-3 p-3 bg-white rounded-md border">${
         availabilityData.suggestion.itinerary.map((segment) => {
           const fechaSalidaSegmento = new Date(segment.endDate); 
           
+          // Iterar sobre el array segment.propiedades (plural)
           const propertiesHtml = segment.propiedades.map(prop => `
             <div class="grid grid-cols-5 gap-4 items-center text-sm">
               <span class="font-semibold col-span-2">${prop.nombre}</span>
@@ -154,6 +166,7 @@ export function renderSelectionUI() {
     availableList.innerHTML = '<p class="text-sm text-gray-500">Modo itinerario: no se pueden añadir otras cabañas.</p>';
   
   } else {
+    // UI para MODO NORMAL (Checkboxes)
     const suggestedIds = new Set(selectedProperties.map(p => p.id));
     suggestionList.innerHTML = `<h4 class="font-medium text-gray-700">Propiedades Sugeridas</h4>` + 
       selectedProperties.map(p => createPropertyCheckbox(p, true)).join('');
@@ -164,22 +177,31 @@ export function renderSelectionUI() {
       .map(p => createPropertyCheckbox(p, false))
       .join('');
   }
+  // --- FIN DE LA CORRECCIÓN ---
   
+  // Adjuntar listeners (solo para modo normal)
   document.querySelectorAll('.propiedad-checkbox').forEach(cb => cb.addEventListener('change', handleSelectionChange));
+  // Mostrar el precio que vino del backend
   updateSummary(availabilityData.suggestion.pricing);
 }
 
 export async function handleSelectionChange() {
   const selectedIds = new Set(Array.from(document.querySelectorAll('.propiedad-checkbox:checked')).map(cb => cb.dataset.id));
   
+  // --- INICIO DE LA CORRECCIÓN ---
+  // Usar la lista 'allValidProperties' que creamos en 'runSearch'.
+  // Esta lista SÍ está filtrada y es la fuente de verdad para la selección actual.
   if (availabilityData.allValidProperties) {
       selectedProperties = availabilityData.allValidProperties.filter(p => selectedIds.has(p.id));
   } else {
+      // Fallback de seguridad, aunque no debería ocurrir si runSearch es exitoso.
       selectedProperties = allProperties.filter(p => selectedIds.has(p.id));
       console.warn("availabilityData.allValidProperties no estaba definida durante handleSelectionChange");
   }
+  // --- FIN DE LA CORRECCIÓN ---
 
   if (selectedProperties.length === 0) {
+    // Si no hay nada seleccionado, limpiar el resumen de precios.
     updateSummary({ 
       totalPriceOriginal: 0, 
       totalPriceCLP: 0, 
@@ -194,15 +216,18 @@ export async function handleSelectionChange() {
     const payload = {
       fechaLlegada: document.getElementById('fecha-llegada').value,
       fechaSalida: document.getElementById('fecha-salida').value,
-      propiedades: selectedProperties,
+      propiedades: selectedProperties, // Enviar la lista limpia
       canalId: document.getElementById('canal-select').value
     };
+    // Pedir al backend que recalcule el precio solo para esta selección
     const newPricing = await fetchAPI('/propuestas/recalcular', { method: 'POST', body: payload });
     updateSummary(newPricing);
   } catch (error) {
     alert(`Error al recalcular: ${error.message}`);
   }
 }
+
+// frontend/src/views/utils.js
 
 export function updateSummary(pricing) {
   currentPricing = pricing;
@@ -212,6 +237,8 @@ export function updateSummary(pricing) {
   
   const summaryOriginalContainer = document.getElementById('summary-original-currency-container');
   const summaryCLPContainer = document.getElementById('summary-clp-container');
+
+  // --- INICIO DE LA CORRECCIÓN: Lógica de Prioridad de Precios ---
 
   const valorFinalFijoInput = document.getElementById('valor-final-fijo');
   const cuponInput = document.getElementById('cupon-input');
@@ -225,23 +252,34 @@ export function updateSummary(pricing) {
   const precioLista = totalPriceOriginal || 0;
 
   if (valorFijo > 0) {
+    // 1. MODO "VALOR FINAL FIJO" (Prioridad 1)
+    // El usuario ha fijado el precio.
+    
+    // Deshabilitar otros descuentos
     [cuponInput, pctInput, fijoInput].forEach(input => {
         if(input) input.disabled = true;
     });
 
     precioFinalEnMonedaOriginal = valorFijo;
     
+    // Lógica de "Descuento Inteligente"
     if (precioFinalEnMonedaOriginal < precioLista) {
+      // Si el precio fijo es menor, la diferencia es un descuento
       descuentoTotalEnMonedaOriginal = precioLista - precioFinalEnMonedaOriginal;
     } else {
+      // Si es mayor o igual, no hay descuento
       descuentoTotalEnMonedaOriginal = 0;
     }
     
   } else {
+    // 2. MODO "DESCUENTOS" (Lógica normal)
+    
+    // Habilitar otros descuentos
     [cuponInput, pctInput, fijoInput].forEach(input => {
         if(input) input.disabled = false;
     });
 
+    // Calcular descuentos (Lógica existente)
     const pct = parseFloat(pctInput.value) || 0;
     const fijo = parseFloat(fijoInput.value) || 0;
     
@@ -252,19 +290,22 @@ export function updateSummary(pricing) {
         descuentoManual = fijo;
     }
 
-    const cuponAplicado = getCuponAplicado();
     const descuentoCupon = cuponAplicado ? precioLista * (cuponAplicado.porcentajeDescuento / 100) : 0;
     
     descuentoTotalEnMonedaOriginal = descuentoManual + descuentoCupon;
     precioFinalEnMonedaOriginal = precioLista - descuentoTotalEnMonedaOriginal;
   }
+  
+  // --- FIN DE LA CORRECCIÓN ---
 
+  // Cálculo de totales en CLP (sin cambios)
   const precioFinalCLP = currencyOriginal === 'USD' 
     ? Math.round(precioFinalEnMonedaOriginal * valorDolarDia) 
     : precioFinalEnMonedaOriginal;
   
   const descuentoTotalCLP = totalPriceCLP - precioFinalCLP;
 
+  // Renderizar Resumen en Moneda Original (si aplica)
   if (currencyOriginal !== 'CLP') {
     summaryOriginalContainer.classList.remove('hidden');
     summaryOriginalContainer.innerHTML = `
@@ -282,6 +323,7 @@ export function updateSummary(pricing) {
     summaryCLPContainer.classList.add('md:col-span-2');
   }
   
+  // Renderizar Resumen en CLP
   summaryCLPContainer.innerHTML = `
     <h4 class="font-bold text-gray-800 text-center mb-1">Totales en CLP</h4>
     <div class="flex justify-between text-sm"><span class="text-gray-600">Noches Totales:</span><span id="summary-noches" class="font-medium">${nights || 0}</span></div>
@@ -307,6 +349,8 @@ export function handleCanalChange() {
   }
 }
 
+// frontend/src/views/utils.js
+
 export async function runSearch() {
   const payload = {
     fechaLlegada: document.getElementById('fecha-llegada').value,
@@ -315,8 +359,9 @@ export async function runSearch() {
     sinCamarotes: document.getElementById('sin-camarotes').checked,
     permitirCambios: document.getElementById('permitir-cambios').checked,
     canalId: document.getElementById('canal-select').value,
-    editId: editId
+    editId: editId // <-- INICIO DE LA CORRECCIÓN (Pasar el ID de edición al backend)
   };
+  // --- FIN DE LA CORRECCIÓN ---
 
   if (!payload.fechaLlegada || !payload.fechaSalida || !payload.personas) {
     alert('Por favor, completa las fechas y la cantidad de personas.');
@@ -339,8 +384,13 @@ export async function runSearch() {
     currentPricing = {};
     document.getElementById('descuento-pct').value = '';
     document.getElementById('descuento-fijo-total').value = '';
-    
-    clearCupon(updateSummary, currentPricing);
+    document.getElementById('cupon-input').value = '';
+    const cuponStatus = document.getElementById('cupon-status');
+    if (cuponStatus) {
+      cuponStatus.textContent = '';
+      cuponStatus.className = 'text-xs mt-1';
+    }
+    cuponAplicado = null;
   } catch (e) {
     console.warn("Error al limpiar estado:", e);
   }
@@ -380,8 +430,30 @@ export async function runSearch() {
 }
 
 export async function handleCuponChange() {
-  await handleCuponChangeShared(updateSummary, currentPricing);
+  const codigo = document.getElementById('cupon-input').value.trim();
+  const statusEl = document.getElementById('cupon-status');
+  if (!codigo) {
+    cuponAplicado = null;
+    statusEl.textContent = '';
+    updateSummary(currentPricing);
+    return;
+  }
+
+  try {
+    statusEl.textContent = 'Validando...';
+    cuponAplicado = await fetchAPI(`/crm/cupones/validar/${codigo}`);
+    statusEl.textContent = `Cupón válido: ${cuponAplicado.porcentajeDescuento}% de descuento.`;
+    statusEl.className = 'text-xs mt-1 text-green-600';
+    updateSummary(currentPricing);
+  } catch (error) {
+    cuponAplicado = null;
+    statusEl.textContent = `${error.message}`;
+    statusEl.className = 'text-xs mt-1 text-red-600';
+    updateSummary(currentPricing);
+  }
 }
+
+// frontend/src/views/utils.js
 
 export async function handleGuardarPropuesta() {
   if (!availabilityData.suggestion) {
@@ -400,13 +472,14 @@ export async function handleGuardarPropuesta() {
   const nochesCalculadas = parseInt(document.getElementById('summary-noches')?.textContent) || 0;
   
   const summaryContainer = document.getElementById('summary-clp-container');
-  const precioListaElement = summaryContainer.querySelector('div:nth-child(2) > span:nth-child(2)');
+  const precioListaElement = summaryContainer.querySelector('div:nth-child(2) > span:nth-child(2)'); // Target "Precio Lista (CLP)"
   const precioListaCLPCalculado = precioListaElement ? parseFloat(precioListaElement.textContent.replace(/[$.]/g, '')) : (currentPricing.totalPriceCLP || 0);
   
   const descuentoCLPCalculado = precioListaCLPCalculado - precioFinalCalculado;
 
+  // --- INICIO DE LA CORRECCIÓN ---
   const valorFinalFijado = parseFloat(document.getElementById('valor-final-fijo').value) || 0;
-  const cuponAplicado = getCuponAplicado();
+  // --- FIN DE LA CORRECCIÓN ---
 
   const propuestaPayloadGuardar = {
     fechaLlegada: document.getElementById('fecha-llegada').value,
@@ -427,9 +500,14 @@ export async function handleGuardarPropuesta() {
     origen: origenReserva,
     sinCamarotes: document.getElementById('sin-camarotes').checked,
     permitirCambios: document.getElementById('permitir-cambios').checked,
+    
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Guardar los descuentos Y el nuevo valor fijo
     descuentoPct: parseFloat(document.getElementById('descuento-pct').value) || 0,
     descuentoFijo: parseFloat(document.getElementById('descuento-fijo-total').value) || 0,
     valorFinalFijado: valorFinalFijado,
+    // --- FIN DE LA CORRECCIÓN ---
+
     plantillaId: document.getElementById('plantilla-select').value || null
   };
 
@@ -494,21 +572,32 @@ export function handleCerrarModal() {
 export function handleEditMode() {
   const params = new URLSearchParams(window.location.search);
   
-  editId = params.get('edit');
-  const loadDocId = params.get('load');
-  const propIds = params.get('props');
+  // 1. Obtener el ID de GRUPO (para el PUT de guardado)
+  editId = params.get('edit'); // ej: "Miryan Sanchez (4274)"
+  
+  // 2. Obtener el ID del DOCUMENTO (para el GET de carga)
+  const loadDocId = params.get('load'); // ej: "aB3xYqZ..."
+  
+  // 3. Obtener los IDs de Propiedad (para marcar checkboxes)
+  const propIds = params.get('props'); // ej: "id1,id2"
   
   origenReserva = params.get('origen') || 'manual';
 
   if (editId && loadDocId) {
+    // Pasar ambos IDs a la función de carga
     handleCargarPropuesta(loadDocId, editId, propIds);
   }
 }
+
+// frontend/src/views/utils.js
+
+// frontend/src/views/utils.js
 
 export async function handleCargarPropuesta(loadDocId, editIdGrupo, propIdsQuery) {
   const params = new URLSearchParams(window.location.search);
 
   try {
+    // 1. Rellenar formulario desde la URL
     const fechaLlegada = params.get('fechaLlegada');
     const fechaSalida = params.get('fechaSalida');
     const personas = params.get('personas');
@@ -521,8 +610,10 @@ export async function handleCargarPropuesta(loadDocId, editIdGrupo, propIdsQuery
       document.getElementById('canal-select').value = canalId;
     }
 
+    // 2. Ejecutar la búsqueda con los datos rellenados
     const searchSuccess = await runSearch();
     
+    // 3. Cargar la reserva para datos de cliente y descuentos
     const propuesta = await fetchAPI(`/reservas/${loadDocId}`);
     if (!propuesta) {
       alert('Reserva no encontrada');
@@ -530,6 +621,7 @@ export async function handleCargarPropuesta(loadDocId, editIdGrupo, propIdsQuery
       return;
     }
 
+    // 4. Rellenar campos restantes (Cliente, ID Canal, etc.)
     if (propuesta.cliente) {
       if (propuesta.cliente.id) {
         selectedClient = propuesta.cliente;
@@ -551,6 +643,7 @@ export async function handleCargarPropuesta(loadDocId, editIdGrupo, propIdsQuery
       document.getElementById('plantilla-select').value = propuesta.plantillaId;
     }
 
+    // 5. Rellenar checkboxes y descuentos
     if (searchSuccess && propIdsQuery) {
         const selectedIds = new Set(propIdsQuery.split(','));
         
@@ -560,22 +653,29 @@ export async function handleCargarPropuesta(loadDocId, editIdGrupo, propIdsQuery
 
         selectedProperties = (availabilityData.allValidProperties || allProperties).filter(p => selectedIds.has(p.id));
         
+        // Forzar recálculo
         await handleSelectionChange();
 
+        // 6. Aplicar descuentos/cupones y el NUEVO VALOR FIJO
         if (propuesta.valores?.codigoCupon) {
           document.getElementById('cupon-input').value = propuesta.valores.codigoCupon;
-          await handleCuponChange();
+          await handleCuponChange(); // Validar y aplicar
         }
         
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Cargar el valor final fijo (si existe)
         const valorFijoGuardado = propuesta.valores?.valorFinalFijado || 0;
         if (valorFijoGuardado > 0) {
             document.getElementById('valor-final-fijo').value = valorFijoGuardado;
         } else {
+            // Si no había valor fijo, cargar los descuentos manuales
             document.getElementById('descuento-pct').value = propuesta.valores?.descuentoPct || '';
             document.getElementById('descuento-fijo-total').value = propuesta.valores?.descuentoFijo || '';
         }
         
+        // Volver a ejecutar updateSummary para aplicar la lógica de prioridad
         updateSummary(currentPricing);
+        // --- FIN DE LA CORRECCIÓN ---
     }
   } catch (error) {
     console.error('Error al cargar la propuesta:', error);
@@ -620,3 +720,7 @@ async function obtenerOcrearCliente() {
     return null;
   }
 }
+
+// --- FUNCIONES ELIMINADAS ---
+// export async function generarTextoWhatsApp(propuesta, cliente) { ... }
+// function replacePlaceholders(texto, propuesta, cliente) { ... }
