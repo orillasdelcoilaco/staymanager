@@ -5,32 +5,39 @@ const { crearOActualizarCliente } = require('./clientesService');
 const { marcarCuponComoUtilizado } = require('./cuponesService');
 const { calcularValoresBaseDesdeReporte, recalcularValoresDesdeTotal } = require('./utils/calculoValoresService');
 const { registrarAjusteValor } = require('./utils/trazabilidadService');
+const { procesarPlantilla } = require('./plantillasService');
+const emailService = require('./emailService');
+const { registrarComunicacion } = require('./comunicacionesService');
 
 const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, idPropuestaExistente = null) => {
-    const { 
-        cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, 
-        canalId, canalNombre, moneda, valorDolarDia, valorOriginal, 
-        origen, icalUid, idReservaCanal, codigoCupon, personas,
-        descuentoPct, descuentoFijo, valorFinalFijado
-    } = datos;
-    
-    const idGrupo = idReservaCanal || idPropuestaExistente || db.collection('empresas').doc().id;
+    const { 
+        cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, 
+        canalId, canalNombre, moneda, valorDolarDia, valorOriginal, 
+        origen, icalUid, idReservaCanal, codigoCupon, personas,
+        descuentoPct, descuentoFijo, valorFinalFijado,
+        plantillaId, enviarEmail
+    } = datos;
+    
+    const idGrupo = idReservaCanal || idPropuestaExistente || db.collection('empresas').doc().id;
 
-    let clienteId;
-    if (cliente.id) {
-        clienteId = cliente.id;
-    } else if (cliente.nombre && cliente.telefono) {
-        const resultadoCliente = await crearOActualizarCliente(db, empresaId, {
-            nombre: cliente.nombre,
-            telefono: cliente.telefono,
-            email: cliente.email,
-            canalNombre: canalNombre,
-            idReservaCanal: idGrupo
-        });
-        clienteId = resultadoCliente.cliente.id;
-    } else {
-        clienteId = null; 
-    }
+    let clienteId;
+    let clienteData = cliente;
+    
+    if (cliente.id) {
+        clienteId = cliente.id;
+    } else if (cliente.nombre && cliente.telefono) {
+        const resultadoCliente = await crearOActualizarCliente(db, empresaId, {
+            nombre: cliente.nombre,
+            telefono: cliente.telefono,
+            email: cliente.email,
+            canalNombre: canalNombre,
+            idReservaCanal: idGrupo
+        });
+        clienteId = resultadoCliente.cliente.id;
+        clienteData = resultadoCliente.cliente;
+    } else {
+        clienteId = null; 
+    }
 
     const canalDoc = await db.collection('empresas').doc(empresaId).collection('canales').doc(canalId).get();
     if (!canalDoc.exists) throw new Error("El canal seleccionado no es válido.");
@@ -47,13 +54,13 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
     }
 
     let ancla_Iva_USD, ancla_TotalCliente_USD;
-    if (configuracionIva === 'agregar') {
-        ancla_Iva_USD = ancla_Subtotal_USD * 0.19;
-        ancla_TotalCliente_USD = ancla_Subtotal_USD + ancla_Iva_USD;
-    } else {
-        ancla_TotalCliente_USD = ancla_Subtotal_USD;
-        ancla_Iva_USD = ancla_TotalCliente_USD / 1.19 * 0.19;
-    }
+    if (configuracionIva === 'agregar') {
+        ancla_Iva_USD = ancla_Subtotal_USD * 0.19;
+        ancla_TotalCliente_USD = ancla_Subtotal_USD + ancla_Iva_USD;
+    } else {
+        ancla_TotalCliente_USD = ancla_Subtotal_USD;
+        ancla_Iva_USD = ancla_TotalCliente_USD / 1.19 * 0.19;
+    }
     const ancla_Payout_USD = ancla_Subtotal_USD - comisionSumable_Orig;
 
 
@@ -82,29 +89,29 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
         configuracionIva,
         comisionSumable_Orig
     );
-    
-    await db.runTransaction(async (transaction) => {
-        const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
-        
-        let idCargaParaPreservar = null;
+    
+    await db.runTransaction(async (transaction) => {
+        const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
+        
+        let idCargaParaPreservar = null;
 
-        if (idPropuestaExistente) {
-            const queryExistentes = reservasRef.where('idReservaCanal', '==', idPropuestaExistente).where('estado', '==', 'Propuesta');
-            const snapshotExistentes = await transaction.get(queryExistentes);
-            
-            if (!snapshotExistentes.empty) {
-                idCargaParaPreservar = snapshotExistentes.docs[0].data().idCarga;
-            }
+        if (idPropuestaExistente) {
+            const queryExistentes = reservasRef.where('idReservaCanal', '==', idPropuestaExistente).where('estado', '==', 'Propuesta');
+            const snapshotExistentes = await transaction.get(queryExistentes);
+            
+            if (!snapshotExistentes.empty) {
+                idCargaParaPreservar = snapshotExistentes.docs[0].data().idCarga;
+            }
 
-            snapshotExistentes.forEach(doc => transaction.delete(doc.ref));
-        }
+            snapshotExistentes.forEach(doc => transaction.delete(doc.ref));
+        }
 
-        let personasAsignadas = false;
+        let personasAsignadas = false;
 
-        for (const prop of propiedades) {
-            const nuevaReservaRef = reservasRef.doc();
-            const idUnicoReserva = `${idGrupo}-${prop.id}`;
-            
+        for (const prop of propiedades) {
+            const nuevaReservaRef = reservasRef.doc();
+            const idUnicoReserva = `${idGrupo}-${prop.id}`;
+            
             const proporcion = 1 / propiedades.length;
             
             // 'valoresActuales' contiene los valores en USD.
@@ -119,70 +126,70 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
             const comisionUSD = comisionSumable_Orig * proporcion;
             const ivaUSD = valoresActuales.ivaOriginal * proporcion;
 
-            let huespedesParaEstaReserva = 0;
-            if (!personasAsignadas) {
-                huespedesParaEstaReserva = personas || 0;
-                personasAsignadas = true;
-            }
+            let huespedesParaEstaReserva = 0;
+            if (!personasAsignadas) {
+                huespedesParaEstaReserva = personas || 0;
+                personasAsignadas = true;
+            }
 
-            const datosReserva = {
-                id: nuevaReservaRef.id,
-                idUnicoReserva,
-                idCarga: idCargaParaPreservar,
-           idReservaCanal: idGrupo,
-                icalUid: icalUid || null,
-                clienteId,
-                alojamientoId: prop.id,
-                alojamientoNombre: prop.nombre,
-                canalId: canalId || null,
-             canalNombre: canalNombre || 'Por Defecto',
-                fechaLlegada: admin.firestore.Timestamp.fromDate(new Date(fechaLlegada + 'T00:00:00Z')),
-                fechaSalida: admin.firestore.Timestamp.fromDate(new Date(fechaSalida + 'T00:00:00Z')),
-                totalNoches: noches,
-                cantidadHuespedes: huespedesParaEstaReserva,
-                estado: 'Propuesta',
-             origen: origen || 'manual',
-                moneda,
-                valorDolarDia,
-                cuponUtilizado: codigoCupon || null,
-                
-                valores: {
-                    // --- Set "Actual" (CLP) ---
-                    valorHuesped: valorHuespedCLP,
-                    valorTotal: valorTotalCLP,
-                    comision: comisionCLP,
-                    costoCanal: 0,
-                    iva: ivaCLP,
-                    
-                        // --- KPI (Precio Base) ---
-                        valorOriginal: valorOriginal, 
+            const datosReserva = {
+                id: nuevaReservaRef.id,
+                idUnicoReserva,
+                idCarga: idCargaParaPreservar,
+                idReservaCanal: idGrupo,
+                icalUid: icalUid || null,
+                clienteId,
+                alojamientoId: prop.id,
+                alojamientoNombre: prop.nombre,
+                canalId: canalId || null,
+                canalNombre: canalNombre || 'Por Defecto',
+                fechaLlegada: admin.firestore.Timestamp.fromDate(new Date(fechaLlegada + 'T00:00:00Z')),
+                fechaSalida: admin.firestore.Timestamp.fromDate(new Date(fechaSalida + 'T00:00:00Z')),
+                totalNoches: noches,
+                cantidadHuespedes: huespedesParaEstaReserva,
+                estado: 'Propuesta',
+                origen: origen || 'manual',
+                moneda,
+                valorDolarDia,
+                cuponUtilizado: codigoCupon || null,
+                
+                valores: {
+                    // --- Set "Actual" (CLP) ---
+                    valorHuesped: valorHuespedCLP,
+                    valorTotal: valorTotalCLP,
+                    comision: comisionCLP,
+                    costoCanal: 0,
+                    iva: ivaCLP,
+                    
+                    // --- KPI (Precio Base) ---
+                    valorOriginal: valorOriginal, 
 
-                        // --- Set "Actual" (USD) ---
-                        valorHuespedOriginal: valorHuespedUSD,
-                        valorTotalOriginal: valorTotalUSD,
-                        comisionOriginal: comisionUSD,
-                        costoCanalOriginal: 0,
-                        ivaOriginal: ivaUSD,
+                    // --- Set "Actual" (USD) ---
+                    valorHuespedOriginal: valorHuespedUSD,
+                    valorTotalOriginal: valorTotalUSD,
+                    comisionOriginal: comisionUSD,
+                    costoCanalOriginal: 0,
+                    ivaOriginal: ivaUSD,
 
-                        // --- SET DE RESPALDO / "ANCLA" (USD) ---
-                        valorHuespedCalculado: ancla_TotalCliente_USD * proporcion,
-                        valorTotalCalculado: ancla_Payout_USD * proporcion,
-                        comisionCalculado: comisionUSD,
-                        costoCanalCalculado: 0,
-                        ivaCalculado: ancla_Iva_USD * proporcion,
+                    // --- SET DE RESPALDO / "ANCLA" (USD) ---
+                    valorHuespedCalculado: ancla_TotalCliente_USD * proporcion,
+                    valorTotalCalculado: ancla_Payout_USD * proporcion,
+                    comisionCalculado: comisionUSD,
+                    costoCanalCalculado: 0,
+                    ivaCalculado: ancla_Iva_USD * proporcion,
 
-                        // Campos de trazabilidad de Propuesta
-                    descuentoPct: descuentoPct || 0,
-                    descuentoFijo: descuentoFijo || 0,
-               valorFinalFijado: valorFinalFijado || 0
-                },
+                    // Campos de trazabilidad de Propuesta
+                    descuentoPct: descuentoPct || 0,
+                    descuentoFijo: descuentoFijo || 0,
+                    valorFinalFijado: valorFinalFijado || 0
+                },
                 historialAjustes: [],
-                fechaReserva: admin.firestore.FieldValue.serverTimestamp(),
-                fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
-                fechaActualizacion: new Date()
-         };
+                fechaReserva: admin.firestore.FieldValue.serverTimestamp(),
+                fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
+                fechaActualizacion: new Date()
+            };
             
-            transaction.set(nuevaReservaRef, datosReserva);
+            transaction.set(nuevaReservaRef, datosReserva);
 
             const valorAnteriorUSD = ancla_TotalCliente_USD * proporcion;
             const valorNuevoUSD = actual_TotalCliente_USD * proporcion;
@@ -194,14 +201,112 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
                 valorNuevoUSD: valorNuevoUSD,
                 valorDolarUsado: valorDolarDia
             });
-        }
-    });
+        }
+    });
 
-    return { id: idGrupo };
+    // --- ENVÍO DE EMAIL (después de la transacción) ---
+    if (enviarEmail && plantillaId && clienteData?.email) {
+        try {
+            await enviarEmailPropuesta(db, empresaId, {
+                plantillaId,
+                cliente: clienteData,
+                propiedades,
+                fechaLlegada,
+                fechaSalida,
+                noches,
+                personas,
+                precioFinal,
+                propuestaId: idGrupo
+            });
+            console.log(`✅ Email de propuesta enviado a ${clienteData.email}`);
+        } catch (emailError) {
+            // No fallar la operación si el email falla
+            console.error('❌ Error enviando email de propuesta:', emailError.message);
+        }
+    }
+
+    return { id: idGrupo };
+};
+
+// --- NUEVA FUNCIÓN: Enviar email de propuesta ---
+const enviarEmailPropuesta = async (db, empresaId, datos) => {
+    const { plantillaId, cliente, propiedades, fechaLlegada, fechaSalida, noches, personas, precioFinal, propuestaId } = datos;
+    
+    if (!cliente?.email) {
+        throw new Error('El cliente no tiene email registrado');
+    }
+
+    // Obtener datos de la empresa
+    const empresaDoc = await db.collection('empresas').doc(empresaId).get();
+    const empresaData = empresaDoc.data();
+
+    // Formatear datos para las etiquetas
+    const formatearFecha = (fecha) => {
+        const d = new Date(fecha + 'T00:00:00Z');
+        return d.toLocaleDateString('es-CL', { timeZone: 'UTC' });
+    };
+
+    const formatearMoneda = (valor) => {
+        return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(valor);
+    };
+
+    const nombresPropiedades = propiedades.map(p => p.nombre).join(', ');
+
+    // Procesar plantilla con etiquetas
+    const { contenido, asunto } = await procesarPlantilla(db, empresaId, plantillaId, {
+        nombreCliente: cliente.nombre,
+        reservaId: propuestaId,
+        fechaLlegada: formatearFecha(fechaLlegada),
+        fechaSalida: formatearFecha(fechaSalida),
+        nombrePropiedad: nombresPropiedades,
+        totalNoches: noches?.toString() || '',
+        numeroHuespedes: personas?.toString() || '',
+        saldoPendiente: formatearMoneda(precioFinal),
+        propuestaId: propuestaId,
+        empresaNombre: empresaData?.nombre || '',
+        contactoNombre: empresaData?.contactoNombre || '',
+        contactoEmail: empresaData?.contactoEmail || '',
+        contactoTelefono: empresaData?.contactoTelefono || ''
+    });
+
+    // Enviar correo
+    const resultado = await emailService.enviarCorreo(db, {
+        to: cliente.email,
+        subject: asunto,
+        html: contenido,
+        empresaId,
+        replyTo: empresaData?.contactoEmail
+    });
+
+    if (!resultado.success) {
+        throw new Error(resultado.error || 'Error al enviar correo');
+    }
+
+    // Registrar en historial de comunicaciones del cliente
+    if (cliente.id) {
+        try {
+            await registrarComunicacion(db, empresaId, cliente.id, {
+                tipo: 'email',
+                evento: 'propuesta-enviada',
+                asunto: asunto,
+                plantillaId: plantillaId,
+                destinatario: cliente.email,
+                relacionadoCon: {
+                    tipo: 'propuesta',
+                    id: propuestaId
+                },
+                estado: 'enviado',
+                messageId: resultado.messageId || null
+            });
+        } catch (logError) {
+            console.warn('No se pudo registrar comunicación:', logError.message);
+        }
+    }
+
+    return resultado;
 };
 
 const guardarPresupuesto = async (db, empresaId, datos) => {
-    // ... (esta función no requiere cambios)
     const { id, cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, texto } = datos;
     const presupuestosRef = db.collection('empresas').doc(empresaId).collection('presupuestos');
     
@@ -303,7 +408,7 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
                 fechaSalida: data.fechaSalida.toDate().toISOString().split('T')[0],
                 monto: 0,
                 propiedades: [],
-                idsReservas: [], // Este es el array que enviaremos para borrar
+                idsReservas: [],
                 personas: 0
             });
         }
@@ -312,10 +417,7 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
         const propiedad = propiedadesMap.get(data.alojamientoId) || { nombre: data.alojamientoNombre, capacidad: 0 };
         grupo.propiedades.push({ id: data.alojamientoId, nombre: propiedad.nombre, capacidad: propiedad.capacidad });
         
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Usamos el ID del documento real, no el campo 'id'
         grupo.idsReservas.push(item.doc.id);
-        // --- FIN DE LA CORRECCIÓN ---
         
         grupo.personas += data.cantidadHuespedes || 0;
     });
@@ -355,7 +457,6 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
 
 
 const aprobarPropuesta = async (db, empresaId, idsReservas) => {
-    // ... (esta función no requiere cambios)
     if (!idsReservas || idsReservas.length === 0) {
         throw new Error("No se proporcionaron IDs de reserva para aprobar.");
     }
@@ -408,7 +509,6 @@ const aprobarPropuesta = async (db, empresaId, idsReservas) => {
 };
 
 const rechazarPropuesta = async (db, empresaId, idsReservas) => {
-    // ... (esta función no requiere cambios)
     if (!idsReservas || idsReservas.length === 0) {
         throw new Error("No se proporcionaron IDs de reserva para rechazar.");
     }
@@ -421,7 +521,6 @@ const rechazarPropuesta = async (db, empresaId, idsReservas) => {
 };
 
 const aprobarPresupuesto = async (db, empresaId, presupuestoId) => {
-    // ... (esta función no requiere cambios)
     const presupuestoRef = db.collection('empresas').doc(empresaId).collection('presupuestos').doc(presupuestoId);
     const presupuestoDoc = await presupuestoRef.get();
     if (!presupuestoDoc.exists) throw new Error('El presupuesto no fue encontrado.');
@@ -491,7 +590,6 @@ const aprobarPresupuesto = async (db, empresaId, presupuestoId) => {
 };
 
 const rechazarPresupuesto = async (db, empresaId, presupuestoId) => {
-    // ... (esta función no requiere cambios)
     const presupuestoRef = db.collection('empresas').doc(empresaId).collection('presupuestos').doc(presupuestoId);
     await presupuestoRef.update({ estado: 'Rechazado' });
 };
@@ -503,5 +601,6 @@ module.exports = {
     aprobarPropuesta,
     rechazarPropuesta,
     aprobarPresupuesto,
-    rechazarPresupuesto
+    rechazarPresupuesto,
+    enviarEmailPropuesta
 };

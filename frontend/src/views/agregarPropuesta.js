@@ -90,6 +90,17 @@ export function render() {
                   <label for="plantilla-select" class="block text-sm font-medium text-gray-700">Plantilla de Mensaje</label>
                   <select id="plantilla-select" class="form-select mt-1"></select>
                 </div>
+                <div class="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-md">
+                  <div class="flex items-center">
+                    <input id="enviar-email-checkbox" type="checkbox" checked class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                    <label for="enviar-email-checkbox" class="ml-2 block text-sm font-medium text-indigo-700">
+                      📧 Enviar propuesta por correo al cliente
+                    </label>
+                  </div>
+                  <p id="enviar-email-warning" class="hidden mt-1 text-xs text-amber-600">
+                    ⚠️ El cliente no tiene email registrado
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -180,7 +191,30 @@ export async function afterRender() {
   document.getElementById('sin-camarotes')?.addEventListener('change', runSearch);
   document.getElementById('permitir-cambios')?.addEventListener('change', runSearch);
 
+  // Listener para validar email cuando cambia el campo de email del cliente
+  document.getElementById('new-client-email')?.addEventListener('input', validarEmailParaEnvio);
+
   // --- FIN DE LA CORRECCIÓN ---
 
   handleEditMode();
+}
+
+// Función para validar si se puede enviar email
+function validarEmailParaEnvio() {
+  const emailInput = document.getElementById('new-client-email');
+  const checkbox = document.getElementById('enviar-email-checkbox');
+  const warning = document.getElementById('enviar-email-warning');
+  
+  const tieneEmail = emailInput && emailInput.value.trim() !== '';
+  
+  if (checkbox) {
+    checkbox.disabled = !tieneEmail;
+    if (!tieneEmail) {
+      checkbox.checked = false;
+    }
+  }
+  
+  if (warning) {
+    warning.classList.toggle('hidden', tieneEmail);
+  }
 }

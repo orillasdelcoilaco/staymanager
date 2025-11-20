@@ -87,6 +87,9 @@ export function selectClient(client) {
   document.getElementById('new-client-name').value = client.nombre || '';
   document.getElementById('new-client-phone').value = client.telefono || '';
   document.getElementById('new-client-email').value = client.email || '';
+  
+  // Validar checkbox de email al seleccionar cliente
+  validarEmailParaEnvio();
 }
 
 export function clearClientSelection() {
@@ -96,6 +99,29 @@ export function clearClientSelection() {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  
+  // Validar checkbox de email al limpiar
+  validarEmailParaEnvio();
+}
+
+// Función para validar si se puede enviar email
+function validarEmailParaEnvio() {
+  const emailInput = document.getElementById('new-client-email');
+  const checkbox = document.getElementById('enviar-email-checkbox');
+  const warning = document.getElementById('enviar-email-warning');
+  
+  const tieneEmail = emailInput && emailInput.value.trim() !== '';
+  
+  if (checkbox) {
+    checkbox.disabled = !tieneEmail;
+    if (!tieneEmail) {
+      checkbox.checked = false;
+    }
+  }
+  
+  if (warning) {
+    warning.classList.toggle('hidden', tieneEmail);
+  }
 }
 
 export function createPropertyCheckbox(prop, isSuggested) {
@@ -408,6 +434,10 @@ export async function handleGuardarPropuesta() {
   const valorFinalFijado = parseFloat(document.getElementById('valor-final-fijo').value) || 0;
   const cuponAplicado = getCuponAplicado();
 
+  // Capturar estado del checkbox de envío de email
+  const enviarEmailCheckbox = document.getElementById('enviar-email-checkbox');
+  const enviarEmail = enviarEmailCheckbox ? enviarEmailCheckbox.checked : false;
+
   const propuestaPayloadGuardar = {
     fechaLlegada: document.getElementById('fecha-llegada').value,
     fechaSalida: document.getElementById('fecha-salida').value,
@@ -430,7 +460,9 @@ export async function handleGuardarPropuesta() {
     descuentoPct: parseFloat(document.getElementById('descuento-pct').value) || 0,
     descuentoFijo: parseFloat(document.getElementById('descuento-fijo-total').value) || 0,
     valorFinalFijado: valorFinalFijado,
-    plantillaId: document.getElementById('plantilla-select').value || null
+    plantillaId: document.getElementById('plantilla-select').value || null,
+    // NUEVO: Enviar flag de email
+    enviarEmail: enviarEmail
   };
 
   const guardarBtn = document.getElementById('guardar-propuesta-btn');
@@ -539,6 +571,9 @@ export async function handleCargarPropuesta(loadDocId, editIdGrupo, propIdsQuery
       document.getElementById('new-client-name').value = propuesta.cliente.nombre || '';
       document.getElementById('new-client-phone').value = propuesta.cliente.telefono || '';
       document.getElementById('new-client-email').value = propuesta.cliente.email || '';
+      
+      // Validar checkbox de email al cargar cliente
+      validarEmailParaEnvio();
     }
 
     document.getElementById('id-reserva-canal-input').value = propuesta.idReservaCanal || editIdGrupo;

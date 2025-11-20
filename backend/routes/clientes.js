@@ -7,6 +7,7 @@ const {
     eliminarCliente,
     sincronizarClienteGoogle
 } = require('../services/clientesService');
+const { obtenerComunicacionesCliente } = require('../services/comunicacionesService');
 
 module.exports = (db) => {
     const router = express.Router();
@@ -26,6 +27,16 @@ module.exports = (db) => {
             res.status(200).json(cliente);
         } catch (error) {
             res.status(404).json({ error: error.message });
+        }
+    });
+
+    // Nueva ruta: Obtener comunicaciones de un cliente
+    router.get('/:id/comunicaciones', async (req, res) => {
+        try {
+            const comunicaciones = await obtenerComunicacionesCliente(db, req.user.empresaId, req.params.id);
+            res.status(200).json(comunicaciones);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
         }
     });
 
