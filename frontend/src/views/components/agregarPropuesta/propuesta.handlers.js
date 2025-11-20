@@ -319,11 +319,18 @@ export async function runSearch() {
     }
   
     try {
-      const dolar = await fetchAPI(`/dolar/valor/${payload.fechaLlegada}`);
+      // OPTIMIZACIÓN: Ejecutamos ambas consultas en paralelo para reducir el tiempo de espera
+      const [dolar, availability] = await Promise.all([
+        fetchAPI(`/dolar/valor/${payload.fechaLlegada}`),
+        fetchAPI('/propuestas/generar', { method: 'POST', body: payload })
+      ]);
+
+      // 1. Procesar Dólar
       state.valorDolarDia = dolar.valor;
       document.getElementById('valor-dolar-info').textContent = `Valor Dólar para el Check-in: ${formatCurrency(state.valorDolarDia)}`;
   
-      state.availabilityData = await fetchAPI('/propuestas/generar', { method: 'POST', body: payload });
+      // 2. Procesar Disponibilidad
+      state.availabilityData = availability;
       
       const suggested = state.availabilityData.suggestion?.propiedades || [];
       const available = state.availabilityData.availableProperties || [];
