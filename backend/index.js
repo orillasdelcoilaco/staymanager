@@ -110,6 +110,10 @@ try {
     apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
     app.use('/api', apiRouter);
 
+// borrar despues de probar
+const testEmailRoutes = require('./routes/test-email');
+app.use('/api/test-email', testEmailRoutes);
+
     // **PRIORIDAD 2: Rutas Públicas Específicas (iCal, Integraciones)**
     app.use('/ical', icalRoutes(db));
     app.use('/integrations', integrationsRoutes(db));
