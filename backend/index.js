@@ -77,10 +77,6 @@ try {
     const apiRouter = express.Router();
     const authMiddleware = createAuthMiddleware(admin, db);
 
-    // borrar despues de probar
-const testEmailRoutes = require('./routes/test-email');
-apiRouter.use('/test-email', testEmailRoutes); 
-
     apiRouter.use('/auth', authRoutes(admin, db));
     apiRouter.use(authMiddleware);
     // ... (registro de todas las rutas API como estaban)
