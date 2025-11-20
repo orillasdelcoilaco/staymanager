@@ -7,7 +7,6 @@ let tipos = [];
 let editandoPlantilla = null;
 
 const ETIQUETAS_DISPONIBLES = [
-    // Etiquetas de Mensajes Generales
     { etiqueta: '[CLIENTE_NOMBRE]', descripcion: 'Nombre completo del cliente' },
     { etiqueta: '[RESERVA_ID_CANAL]', descripcion: 'ID de la reserva en el canal de origen' },
     { etiqueta: '[FECHA_LLEGADA]', descripcion: 'Fecha de check-in' },
@@ -17,8 +16,6 @@ const ETIQUETAS_DISPONIBLES = [
     { etiqueta: '[CANTIDAD_HUESPEDES]', descripcion: 'Número de huéspedes en la reserva' },
     { etiqueta: '[SALDO_PENDIENTE]', descripcion: 'Monto del saldo adeudado por el cliente' },
     { etiqueta: '[COBRO]', descripcion: 'Genera un resumen detallado del cobro (Total, abonos, saldo, etc.)' },
-    
-    // Etiquetas Específicas para Propuestas y Presupuestos
     { etiqueta: '[RESUMEN_VALORES_PROPUESTA]', descripcion: '(Para Propuestas) Bloque completo con detalle de precios, descuentos y totales' },
     { etiqueta: '[PROPUESTA_ID]', descripcion: 'ID único generado para la propuesta de reserva' },
     { etiqueta: '[FECHAS_ESTADIA_TEXTO]', descripcion: 'Texto formateado de las fechas (ej: 7 al 17 de octubre)' },
@@ -34,15 +31,11 @@ const ETIQUETAS_DISPONIBLES = [
     { etiqueta: '[TOTAL_GENERAL]', descripcion: '(Para Presupuestos) Monto total del documento' },
     { etiqueta: '[RESUMEN_CANTIDAD_CABANAS]', descripcion: 'N° total de cabañas' },
     { etiqueta: '[RESUMEN_CAPACIDAD_TOTAL]', descripcion: 'Suma de la capacidad de las cabañas' },
-
-    // Etiquetas para Reportes
     { etiqueta: '[FECHA_REPORTE]', descripcion: '(Para Reporte Actividad) La fecha seleccionada para el reporte.' },
     { etiqueta: '[REPORTE_ACTIVIDAD_DIARIA]', descripcion: '(Para Reporte Actividad) Bloque completo con el estado de cada propiedad.' },
     { etiqueta: '[FECHA_INICIO_REPORTE]', descripcion: '(Para Reporte Disponibilidad) Fecha de inicio del rango consultado.' },
     { etiqueta: '[FECHA_FIN_REPORTE]', descripcion: '(Para Reporte Disponibilidad) Fecha de fin del rango consultado.' },
     { etiqueta: '[REPORTE_DISPONIBILIDAD]', descripcion: '(Para Reporte Disponibilidad) Bloque completo con las propiedades y sus fechas libres.' },
-
-    // Etiquetas de Configuración de la Empresa
     { etiqueta: '[EMPRESA_NOMBRE]', descripcion: 'Nombre de tu empresa' },
     { etiqueta: '[EMPRESA_SLOGAN]', descripcion: 'Slogan o bajada de título de tu empresa' },
     { etiqueta: '[SERVICIOS_GENERALES]', descripcion: 'Bloque de texto con servicios generales' },
@@ -68,10 +61,18 @@ function abrirModal(plantilla = null) {
         form.nombre.value = plantilla.nombre;
         form.tipoId.value = plantilla.tipoId;
         form.texto.value = plantilla.texto;
+        form.enviarPorEmail.checked = plantilla.enviarPorEmail || false;
+        
+        if (plantilla.enviarPorEmail) {
+            document.getElementById('destinatarios-section').classList.remove('hidden');
+            form.querySelector('[name="dest-cliente"]').checked = (plantilla.destinatarios || []).includes('cliente');
+            form.querySelector('[name="dest-admin"]').checked = (plantilla.destinatarios || []).includes('admin');
+        }
     } else {
         editandoPlantilla = null;
         modalTitle.textContent = 'Nueva Plantilla';
         form.reset();
+        document.getElementById('destinatarios-section').classList.add('hidden');
     }
     
     modal.classList.remove('hidden');
@@ -87,7 +88,7 @@ function renderTabla() {
     if (!tbody) return;
 
     if (plantillas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-gray-500 py-4">No hay plantillas registradas.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">No hay plantillas registradas.</td></tr>';
         return;
     }
     
@@ -98,6 +99,9 @@ function renderTabla() {
             <td class="py-3 px-4 text-center font-medium text-gray-500">${index + 1}</td>
             <td class="py-3 px-4 font-medium">${p.nombre}</td>
             <td class="py-3 px-4">${tiposMap.get(p.tipoId) || 'Sin tipo'}</td>
+            <td class="py-3 px-4 text-center">
+                ${p.enviarPorEmail ? '<span class="text-green-600">✓ Sí</span>' : '<span class="text-gray-400">No</span>'}
+            </td>
             <td class="py-3 px-4">
                 <button data-id="${p.id}" class="edit-btn btn-table-edit mr-2">Editar</button>
                 <button data-id="${p.id}" class="delete-btn btn-table-delete">Eliminar</button>
@@ -134,6 +138,7 @@ export async function render() {
                             <th class="th w-12">#</th>
                             <th class="th">Nombre</th>
                             <th class="th">Tipo</th>
+                            <th class="th">Envío Email</th>
                             <th class="th">Acciones</th>
                         </tr>
                     </thead>
@@ -157,8 +162,28 @@ export async function render() {
                         </div>
                         <div>
                             <label for="texto" class="block text-sm font-medium text-gray-700">Cuerpo del Mensaje</label>
-                            <textarea name="texto" rows="20" required class="form-input"></textarea>
+                            <textarea name="texto" rows="15" required class="form-input"></textarea>
                         </div>
+                        
+                        <div class="border-t pt-4">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" name="enviarPorEmail" class="mr-2 h-4 w-4">
+                                <span class="text-sm font-medium text-gray-700">📧 Enviar automáticamente por correo electrónico</span>
+                            </label>
+                            
+                            <div id="destinatarios-section" class="hidden ml-6 mt-3 p-3 bg-gray-50 rounded">
+                                <label class="block text-sm font-medium text-gray-600 mb-2">Destinatarios:</label>
+                                <label class="flex items-center mt-2">
+                                    <input type="checkbox" name="dest-cliente" class="mr-2">
+                                    <span class="text-sm">Cliente</span>
+                                </label>
+                                <label class="flex items-center mt-2">
+                                    <input type="checkbox" name="dest-admin" class="mr-2">
+                                    <span class="text-sm">Administrador</span>
+                                </label>
+                            </div>
+                        </div>
+                        
                         <div class="flex justify-end pt-4 border-t">
                             <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
                             <button type="submit" class="btn-primary">Guardar Plantilla</button>
@@ -182,7 +207,7 @@ async function fetchAndRender() {
         ]);
         renderTabla();
     } catch (error) {
-        document.getElementById('plantillas-tbody').innerHTML = `<tr><td colspan="4" class="text-center text-red-500 py-4">Error al cargar datos: ${error.message}</td></tr>`;
+        document.getElementById('plantillas-tbody').innerHTML = `<tr><td colspan="5" class="text-center text-red-500 py-4">Error al cargar datos: ${error.message}</td></tr>`;
     }
 }
 
@@ -193,13 +218,31 @@ export async function afterRender() {
     document.getElementById('add-plantilla-btn').addEventListener('click', () => abrirModal());
     document.getElementById('cancel-btn').addEventListener('click', cerrarModal);
 
-    document.getElementById('plantilla-form').addEventListener('submit', async (e) => {
+    const form = document.getElementById('plantilla-form');
+    const enviarEmailCheckbox = form.querySelector('[name="enviarPorEmail"]');
+    const destinatariosSection = document.getElementById('destinatarios-section');
+
+    enviarEmailCheckbox.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            destinatariosSection.classList.remove('hidden');
+        } else {
+            destinatariosSection.classList.add('hidden');
+        }
+    });
+
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const form = e.target;
+        
+        const destinatarios = [];
+        if (form.querySelector('[name="dest-cliente"]').checked) destinatarios.push('cliente');
+        if (form.querySelector('[name="dest-admin"]').checked) destinatarios.push('admin');
+        
         const datos = {
             nombre: form.nombre.value,
             tipoId: form.tipoId.value,
-            texto: form.texto.value
+            texto: form.texto.value,
+            enviarPorEmail: form.enviarPorEmail.checked,
+            destinatarios: destinatarios
         };
 
         try {
