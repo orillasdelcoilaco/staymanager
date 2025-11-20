@@ -1,12 +1,11 @@
 // frontend/src/views/agregarPropuesta.js
 
-import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
 
-// IMPORTA TODAS LAS FUNCIONES QUE USAS
+// IMPORTA DESDE LA NUEVA CARPETA DE COMPONENTES
+import { state } from './components/agregarPropuesta/propuesta.state.js';
 import {
-  formatCurrency,
-  loadInitialData,
+  initializeView,
   filterClients,
   runSearch,
   handleCanalChange,
@@ -15,11 +14,8 @@ import {
   handleCopyPropuesta,
   handleCerrarModal,
   handleEditMode,
-  updateSummary,
-  currentPricing
-} from './utils.js';
-
-// frontend/src/views/agregarPropuesta.js
+  updateSummary
+} from './components/agregarPropuesta/propuesta.handlers.js';
 
 export function render() {
   return `
@@ -90,17 +86,6 @@ export function render() {
                   <label for="plantilla-select" class="block text-sm font-medium text-gray-700">Plantilla de Mensaje</label>
                   <select id="plantilla-select" class="form-select mt-1"></select>
                 </div>
-                <div class="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-md">
-                  <div class="flex items-center">
-                    <input id="enviar-email-checkbox" type="checkbox" checked class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
-                    <label for="enviar-email-checkbox" class="ml-2 block text-sm font-medium text-indigo-700">
-                      📧 Enviar propuesta por correo al cliente
-                    </label>
-                  </div>
-                  <p id="enviar-email-warning" class="hidden mt-1 text-xs text-amber-600">
-                    ⚠️ El cliente no tiene email registrado
-                  </p>
-                </div>
               </div>
             </div>
           </div>
@@ -158,10 +143,8 @@ export function render() {
   `;
 }
 
-// frontend/src/views/agregarPropuesta.js
-
 export async function afterRender() {
-  await loadInitialData();
+  await initializeView(); // Cambio de nombre de la función
 
   // Eventos
   document.getElementById('buscar-btn')?.addEventListener('click', runSearch);
@@ -175,46 +158,18 @@ export async function afterRender() {
     handleNavigation('/gestionar-propuestas');
   });
 
-  
-  // --- INICIO DE LA CORRECCIÓN ---
-  
-  // Listener para el nuevo campo "Valor Final Fijo"
+  // Listener para "Valor Final Fijo"
   const valorFinalInput = document.getElementById('valor-final-fijo');
-  valorFinalInput?.addEventListener('input', () => updateSummary(currentPricing));
+  valorFinalInput?.addEventListener('input', () => updateSummary(state.currentPricing));
 
-  // Listeners para los descuentos (ahora recalcularán también)
-  document.getElementById('cupon-input')?.addEventListener('change', handleCuponChange); // 'change' es mejor para cupones
-  document.getElementById('descuento-pct')?.addEventListener('input', () => updateSummary(currentPricing));
-  document.getElementById('descuento-fijo-total')?.addEventListener('input', () => updateSummary(currentPricing));
+  // Listeners para descuentos
+  document.getElementById('cupon-input')?.addEventListener('change', handleCuponChange);
+  document.getElementById('descuento-pct')?.addEventListener('input', () => updateSummary(state.currentPricing));
+  document.getElementById('descuento-fijo-total')?.addEventListener('input', () => updateSummary(state.currentPricing));
 
-  // Listeners para refrescar la búsqueda
+  // Listeners para refrescar búsqueda
   document.getElementById('sin-camarotes')?.addEventListener('change', runSearch);
   document.getElementById('permitir-cambios')?.addEventListener('change', runSearch);
 
-  // Listener para validar email cuando cambia el campo de email del cliente
-  document.getElementById('new-client-email')?.addEventListener('input', validarEmailParaEnvio);
-
-  // --- FIN DE LA CORRECCIÓN ---
-
   handleEditMode();
-}
-
-// Función para validar si se puede enviar email
-function validarEmailParaEnvio() {
-  const emailInput = document.getElementById('new-client-email');
-  const checkbox = document.getElementById('enviar-email-checkbox');
-  const warning = document.getElementById('enviar-email-warning');
-  
-  const tieneEmail = emailInput && emailInput.value.trim() !== '';
-  
-  if (checkbox) {
-    checkbox.disabled = !tieneEmail;
-    if (!tieneEmail) {
-      checkbox.checked = false;
-    }
-  }
-  
-  if (warning) {
-    warning.classList.toggle('hidden', tieneEmail);
-  }
 }
