@@ -106,15 +106,17 @@ export const cerrarModalCliente = () => {
 export const setupModalCliente = (callback) => {
     onSaveCallback = callback;
     
-    document.getElementById('cancel-cliente-btn')?.addEventListener('click', cerrarModalCliente);
-    
     const form = document.getElementById('cliente-form');
     if (!form) return;
 
-    // Removemos listeners anteriores para evitar duplicados si se llama varias veces
+    // 1. Clonamos y reemplazamos PRIMERO para limpiar eventos anteriores
     const newForm = form.cloneNode(true);
     form.parentNode.replaceChild(newForm, form);
 
+    // 2. AHORA agregamos el listener al botón cancelar (que está dentro del NUEVO formulario)
+    document.getElementById('cancel-cliente-btn')?.addEventListener('click', cerrarModalCliente);
+
+    // 3. Agregamos el listener de submit al nuevo formulario
     newForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = e.target;
