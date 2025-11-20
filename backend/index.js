@@ -106,13 +106,14 @@ try {
     apiRouter.use('/website-config', websiteConfigRoutes(db));
     // --- INICIO DE LA MODIFICACIÓN (Montar nueva ruta) ---
     apiRouter.use('/comentarios', comentariosRoutes(db));
+    // borrar despues de probar
+const testEmailRoutes = require('./routes/test-email');
+apiRouter.use('/test-email', testEmailRoutes); 
+
     // --- FIN DE LA MODIFICACIÓN ---
     apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
     app.use('/api', apiRouter);
 
-// borrar despues de probar
-const testEmailRoutes = require('./routes/test-email');
-app.use('/api/test-email', testEmailRoutes);
 
     // **PRIORIDAD 2: Rutas Públicas Específicas (iCal, Integraciones)**
     app.use('/ical', icalRoutes(db));
