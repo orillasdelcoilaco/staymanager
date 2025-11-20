@@ -1,7 +1,11 @@
+// frontend/src/views/utils.js
+
 import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
 import { formatCurrency } from '../shared/formatters.js';
 import { handleCuponChange as handleCuponChangeShared, getCuponAplicado, setCuponAplicado, clearCupon } from '../shared/cuponesValidator.js';
+// IMPORTAMOS EL NUEVO COMPONENTE DE UI
+import { renderSelectionWidgets } from './components/agregarPropuesta/propuesta.ui.js';
 
 let allClients = [];
 let allProperties = [];
@@ -87,9 +91,6 @@ export function selectClient(client) {
   document.getElementById('new-client-name').value = client.nombre || '';
   document.getElementById('new-client-phone').value = client.telefono || '';
   document.getElementById('new-client-email').value = client.email || '';
-  
-  // Validar checkbox de email al seleccionar cliente
-  validarEmailParaEnvio();
 }
 
 export function clearClientSelection() {
@@ -99,50 +100,15 @@ export function clearClientSelection() {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
-  
-  // Validar checkbox de email al limpiar
-  validarEmailParaEnvio();
-}
-
-// Función para validar si se puede enviar email
-function validarEmailParaEnvio() {
-  const emailInput = document.getElementById('new-client-email');
-  const checkbox = document.getElementById('enviar-email-checkbox');
-  const warning = document.getElementById('enviar-email-warning');
-  
-  const tieneEmail = emailInput && emailInput.value.trim() !== '';
-  
-  if (checkbox) {
-    checkbox.disabled = !tieneEmail;
-    if (!tieneEmail) {
-      checkbox.checked = false;
-    }
-  }
-  
-  if (warning) {
-    warning.classList.toggle('hidden', tieneEmail);
-  }
-}
-
-export function createPropertyCheckbox(prop, isSuggested) {
-  return `
-    <div class="p-2 border rounded-md flex items-center justify-between bg-white">
-      <div>
-        <input type="checkbox" id="cb-${prop.id}" data-id="${prop.id}" class="propiedad-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded" ${isSuggested ? 'checked' : ''}>
-        <label for="cb-${prop.id}" class="ml-2 font-medium">${prop.nombre}</label>
-        <span class="ml-2 text-sm text-gray-500">(Cap: ${prop.capacidad})</span>
-      </div>
-    </div>`;
 }
 
 export function renderSelectionUI() {
   const suggestionList = document.getElementById('suggestion-list');
   const availableList = document.getElementById('available-list');
-  suggestionList.innerHTML = '';
-  availableList.innerHTML = '';
-
+  
   if (!availabilityData.suggestion) return;
 
+  // Mantenemos la lógica de estado aquí (State)
   if (availabilityData.suggestion.isSegmented) {
     const propMap = new Map();
     availabilityData.suggestion.itinerary.forEach(segment => {
@@ -153,45 +119,15 @@ export function renderSelectionUI() {
     selectedProperties = [...availabilityData.suggestion.propiedades];
   }
 
-  if (availabilityData.suggestion.isSegmented) {
-    suggestionList.innerHTML = `
-      <h4 class="font-medium text-gray-700">Propuesta de Itinerario</h4>
-      <div class="space-y-3 p-3 bg-white rounded-md border">${
-        availabilityData.suggestion.itinerary.map((segment) => {
-          const fechaSalidaSegmento = new Date(segment.endDate); 
-          
-          const propertiesHtml = segment.propiedades.map(prop => `
-            <div class="grid grid-cols-5 gap-4 items-center text-sm">
-              <span class="font-semibold col-span-2">${prop.nombre}</span>
-              <span class="col-span-3 text-xs text-gray-500">(Cap: ${prop.capacidad} pers.)</span>
-            </div>
-          `).join('');
-
-          return `
-            <div class="border-b pb-2 last:border-b-0">
-              <div class="grid grid-cols-5 gap-4 items-center text-sm font-medium mb-1">
-                <span class="col-span-2">Fechas:</span>
-                <span class="col-span-3">${new Date(segment.startDate).toLocaleDateString('es-CL', {timeZone: 'UTC'})} al ${fechaSalidaSegmento.toLocaleDateString('es-CL', {timeZone: 'UTC'})}</span>
-              </div>
-              ${propertiesHtml}
-            </div>`;
-        }).join('')
-      }</div>`;
-    availableList.innerHTML = '<p class="text-sm text-gray-500">Modo itinerario: no se pueden añadir otras cabañas.</p>';
+  // Delegamos la pintura a la UI (View)
+  renderSelectionWidgets(
+      suggestionList,
+      availableList,
+      availabilityData,
+      selectedProperties,
+      handleSelectionChange // Pasamos el manejador de eventos
+  );
   
-  } else {
-    const suggestedIds = new Set(selectedProperties.map(p => p.id));
-    suggestionList.innerHTML = `<h4 class="font-medium text-gray-700">Propiedades Sugeridas</h4>` + 
-      selectedProperties.map(p => createPropertyCheckbox(p, true)).join('');
-
-    const availableWithId = availabilityData.allValidProperties || [];
-    availableList.innerHTML = availableWithId
-      .filter(p => !suggestedIds.has(p.id))
-      .map(p => createPropertyCheckbox(p, false))
-      .join('');
-  }
-  
-  document.querySelectorAll('.propiedad-checkbox').forEach(cb => cb.addEventListener('change', handleSelectionChange));
   updateSummary(availabilityData.suggestion.pricing);
 }
 
@@ -390,6 +326,7 @@ export async function runSearch() {
     if (availabilityData.suggestion) {
       statusContainer.classList.add('hidden');
       document.getElementById('results-container').classList.remove('hidden');
+      // Llamada a la función refactorizada
       renderSelectionUI(); 
       return true;
     } else {
@@ -434,10 +371,6 @@ export async function handleGuardarPropuesta() {
   const valorFinalFijado = parseFloat(document.getElementById('valor-final-fijo').value) || 0;
   const cuponAplicado = getCuponAplicado();
 
-  // Capturar estado del checkbox de envío de email
-  const enviarEmailCheckbox = document.getElementById('enviar-email-checkbox');
-  const enviarEmail = enviarEmailCheckbox ? enviarEmailCheckbox.checked : false;
-
   const propuestaPayloadGuardar = {
     fechaLlegada: document.getElementById('fecha-llegada').value,
     fechaSalida: document.getElementById('fecha-salida').value,
@@ -460,9 +393,7 @@ export async function handleGuardarPropuesta() {
     descuentoPct: parseFloat(document.getElementById('descuento-pct').value) || 0,
     descuentoFijo: parseFloat(document.getElementById('descuento-fijo-total').value) || 0,
     valorFinalFijado: valorFinalFijado,
-    plantillaId: document.getElementById('plantilla-select').value || null,
-    // NUEVO: Enviar flag de email
-    enviarEmail: enviarEmail
+    plantillaId: document.getElementById('plantilla-select').value || null
   };
 
   const guardarBtn = document.getElementById('guardar-propuesta-btn');
@@ -571,9 +502,6 @@ export async function handleCargarPropuesta(loadDocId, editIdGrupo, propIdsQuery
       document.getElementById('new-client-name').value = propuesta.cliente.nombre || '';
       document.getElementById('new-client-phone').value = propuesta.cliente.telefono || '';
       document.getElementById('new-client-email').value = propuesta.cliente.email || '';
-      
-      // Validar checkbox de email al cargar cliente
-      validarEmailParaEnvio();
     }
 
     document.getElementById('id-reserva-canal-input').value = propuesta.idReservaCanal || editIdGrupo;
