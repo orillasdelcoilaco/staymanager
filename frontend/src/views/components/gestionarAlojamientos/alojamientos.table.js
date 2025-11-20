@@ -20,8 +20,8 @@ export const renderFilasTabla = (propiedades) => {
             <td class="py-3 px-4 text-center">${p.numPiezas || 0}</td>
             <td class="py-3 px-4 text-center">${p.numBanos || 0}</td>
             <td class="py-3 px-4">
-                <button data-id="${p.id}" class="edit-btn btn-table-edit mr-2 text-blue-600 hover:text-blue-800">Editar</button>
-                <button data-id="${p.id}" class="delete-btn btn-table-delete text-red-600 hover:text-red-800">Eliminar</button>
+                <button data-id="${p.id}" class="edit-btn btn-table-edit mr-2">Editar</button>
+                <button data-id="${p.id}" class="delete-btn btn-table-delete">Eliminar</button>
             </td>
         </tr>
     `).join('');
