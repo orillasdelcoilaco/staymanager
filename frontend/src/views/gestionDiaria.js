@@ -3,6 +3,8 @@ import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
 import { renderGrupos } from './components/gestionDiaria/gestionDiaria.cards.js';
 import { openManagementModal, initializeModals, openRevertModal } from './components/gestionDiaria/gestionDiaria.modals.js';
+// Importamos las utilidades del modal de clientes
+import { renderModalCliente, setupModalCliente, abrirModalCliente } from './components/gestionarClientes/clientes.modals.js';
 
 let allGrupos = [];
 let allEstados = [];
@@ -51,6 +53,8 @@ export async function render() {
             <img id="image-viewer-src" src="" class="max-w-[90vw] max-h-[90vh] object-contain">
             <button id="image-viewer-close" class="absolute top-4 right-4 text-white text-4xl font-bold">&times;</button>
         </div>
+
+        ${renderModalCliente()}
     `;
 }
 
@@ -111,7 +115,6 @@ function handleCardButtonClick(e) {
     }
 }
 
-// --- INICIO: NUEVO HANDLER PARA EL DROPDOWN DE ESTADO DE RESERVA ---
 async function handleEstadoReservaChange(e) {
     const select = e.target;
     const idReservaCanal = select.dataset.reservaIdCanal;
@@ -126,7 +129,7 @@ async function handleEstadoReservaChange(e) {
     const confirmacion = confirm(`¿Estás seguro de cambiar el ESTADO DE LA RESERVA del grupo ${idReservaCanal} a "${nuevoEstadoReserva}"?\n\nEsto afectará la disponibilidad y los reportes.`);
     
     if (!confirmacion) {
-        select.value = estadoAnterior; // Revertir el cambio visual
+        select.value = estadoAnterior; 
         return;
     }
 
@@ -139,7 +142,6 @@ async function handleEstadoReservaChange(e) {
             body: { idReservaCanal, nuevoEstadoReserva }
         });
         
-        // Éxito: Actualizar el estado local y el color
         grupo.estado = nuevoEstadoReserva;
         
         select.classList.remove('bg-gray-100', 'bg-green-100', 'bg-red-100', 'bg-yellow-100');
@@ -155,16 +157,21 @@ async function handleEstadoReservaChange(e) {
 
     } catch (error) {
         alert(`Error al actualizar el estado: ${error.message}`);
-        select.value = estadoAnterior; // Revertir si falla
+        select.value = estadoAnterior; 
     } finally {
         loader.classList.add('hidden');
         select.disabled = false;
     }
 }
-// --- FIN: NUEVO HANDLER ---
 
 export async function afterRender() {
     await loadAndRender();
+
+    // Configuración del modal de cliente con recarga tras guardar
+    setupModalCliente(async () => {
+        console.log('Cliente actualizado, recargando datos...');
+        await loadAndRender();
+    });
 
     const searchInput = document.getElementById('search-input');
     searchInput.addEventListener('input', () => {
@@ -188,30 +195,43 @@ export async function afterRender() {
     ];
 
     listsContainer.forEach(container => {
-        if (!container) return; // Asegurarse de que el contenedor exista
-        container.addEventListener('click', (e) => {
+        if (!container) return; 
+        container.addEventListener('click', async (e) => {
+            // 1. Manejo del clic en el NOMBRE DEL CLIENTE
+            if (e.target.classList.contains('client-trigger')) {
+                const clienteId = e.target.dataset.clienteId;
+                if (clienteId) {
+                    try {
+                        const cliente = await fetchAPI(`/clientes/${clienteId}`);
+                        abrirModalCliente(cliente);
+                    } catch (error) {
+                        alert('Error al cargar datos del cliente: ' + error.message);
+                    }
+                }
+                return;
+            }
+
+            // 2. Manejo de enlaces de navegación (si quedan)
             const link = e.target.closest('a[data-navigo]');
             if (link) {
                 e.preventDefault();
                 handleNavigation(link.getAttribute('href'));
-            } else {
-                handleCardButtonClick(e);
-            }
+                return;
+            } 
+            
+            // 3. Manejo de botones de gestión
+            handleCardButtonClick(e);
 
-            // --- INICIO: AÑADIR LISTENER PARA EL NUEVO DROPDOWN ---
             if (e.target.classList.contains('reserva-estado-select')) {
-                // Si el click fue en el select, no hacer nada (el 'change' se maneja abajo)
+                // No hacer nada en click, esperar a change
             }
-            // --- FIN: AÑADIR LISTENER ---
         });
 
-        // --- INICIO: AÑADIR LISTENER DE *CAMBIO* PARA EL NUEVO DROPDOWN ---
         container.addEventListener('change', (e) => {
             if (e.target.classList.contains('reserva-estado-select')) {
                 handleEstadoReservaChange(e);
             }
         });
-        // --- FIN: AÑADIR LISTENER DE CAMBIO ---
     });
     
     initializeModals(loadAndRender, currentUserEmail, () => allEstados);

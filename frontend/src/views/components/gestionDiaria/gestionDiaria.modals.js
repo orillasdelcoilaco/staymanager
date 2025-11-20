@@ -1,10 +1,13 @@
+// frontend/src/views/components/gestionDiaria/gestionDiaria.modals.js
 import { fetchAPI } from '../../../api.js';
-import { getStatusInfo, formatCurrency, showPreview, handlePaste, openImageViewer } from './gestionDiaria.utils.js';
+import { getStatusInfo } from './gestionDiaria.utils.js';
 import { renderAjusteTarifaModal } from './modals/ajusteTarifaModal.js';
 import { renderPagosModal } from './modals/pagosModal.js';
 import { renderDocumentoModal } from './modals/documentoModal.js';
 import { renderMensajeModal } from './modals/mensajeModal.js';
-import { handleNavigation } from '../../../router.js'; 
+import { handleNavigation } from '../../../router.js';
+// Importamos el modal unificado de clientes
+import { abrirModalCliente } from '../gestionarClientes/clientes.modals.js';
 
 let currentGrupo = null;
 let currentUserEmail = '';
@@ -20,6 +23,19 @@ export function initializeModals(callback, userEmail) {
     document.getElementById('image-viewer-close')?.addEventListener('click', () => document.getElementById('image-viewer-modal').classList.add('hidden'));
 }
 
+// Función auxiliar para cargar cliente y abrir modal
+async function abrirEdicionCliente(clienteId) {
+    try {
+        // Cerramos el modal de gestión si está abierto para evitar superposiciones
+        document.getElementById('gestion-modal').classList.add('hidden');
+        
+        const cliente = await fetchAPI(`/clientes/${clienteId}`);
+        abrirModalCliente(cliente);
+    } catch (error) {
+        alert('Error al cargar datos del cliente: ' + error.message);
+    }
+}
+
 export function openManagementModal(type, grupo) {
     currentGrupo = grupo;
     const modal = document.getElementById('gestion-modal');
@@ -33,7 +49,13 @@ export function openManagementModal(type, grupo) {
         'pagos': () => renderPagosModal(grupo, onActionComplete),
         'boleta': () => renderDocumentoModal('boleta', grupo, onActionComplete),
         'gestionar_reserva': () => renderDocumentoModal('reserva', grupo, onActionComplete),
-        'gestionar_cliente': () => renderMensajeModal(grupo, 'salida', onActionComplete),
+        
+        // --- CAMBIO: Ahora 'gestionar_cliente' abre el modal de edición/calificación ---
+        'gestionar_cliente': () => {
+            abrirEdicionCliente(grupo.clienteId);
+            return false; // No abrir el modal genérico de gestión
+        },
+        
         'corregir_estado': () => {
             handleNavigation(`/gestionar-reservas?reservaId=${grupo.reservasIndividuales[0].id}`);
             return false;

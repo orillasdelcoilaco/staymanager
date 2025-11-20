@@ -65,6 +65,7 @@ function renderActionButtons(grupo) {
     }
     
     if (estadoInfo.level >= 5) {
+         // Aquí mantenemos el botón de gestión de cliente para el flujo final
          buttons += `<button class="gestion-btn btn-table-edit text-xs" data-gestion="gestionar_cliente">Gestionar Cliente ${grupo.clienteGestionado ? '✓' : ''}</button>`;
     }
 
@@ -75,10 +76,6 @@ function renderActionButtons(grupo) {
     return buttons;
 }
 
-// --- INICIO: NUEVA FUNCIÓN PARA DROPDOWN ESTADO RESERVA ---
-/**
- * Genera el HTML para el dropdown de Estados de Reserva (Confirmada, Cancelada, etc.)
- */
 function crearDropdownEstadosReserva(grupo) {
     const estadosReserva = ['Confirmada', 'Cancelada', 'No Presentado', 'Desconocido', 'Propuesta'];
     
@@ -88,8 +85,7 @@ function crearDropdownEstadosReserva(grupo) {
         </option>`
     ).join('');
 
-    // Define un color de fondo basado en el estado
-    let bgColorClass = 'bg-gray-100'; // Default
+    let bgColorClass = 'bg-gray-100';
     if (grupo.estado === 'Confirmada') {
         bgColorClass = 'bg-green-100';
     } else if (grupo.estado === 'Cancelada' || grupo.estado === 'No Presentado') {
@@ -108,8 +104,6 @@ function crearDropdownEstadosReserva(grupo) {
         </div>
     `;
 }
-// --- FIN: NUEVA FUNCIÓN ---
-
 
 function createCard(grupo, allEstados) {
     const today = new Date();
@@ -124,14 +118,20 @@ function createCard(grupo, allEstados) {
         ? `<button class="gestion-btn px-2 py-1 text-xs font-semibold rounded-full" data-gestion="${estadoInfo.gestionType}" style="background-color: ${estadoInfo.color}; color: white;">${estadoInfo.text}</button>`
         : `<span class="px-2 py-1 text-xs font-semibold rounded-full" style="background-color: ${estadoInfo.color}; color: white;">${estadoInfo.text}</span>`;
 
-    // --- MODIFICADO: Añadir el nuevo dropdown de Estado Reserva ---
+    // --- CAMBIO CLAVE: Botón en lugar de enlace para el nombre del cliente ---
     return `
     <div id="card-${grupo.reservaIdOriginal}" class="p-4 border rounded-lg bg-white shadow-sm flex flex-col md:flex-row gap-4">
         <div class="flex-grow">
             <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-3">
                     ${estadoBotonHtml}
-                    <a href="/cliente/${grupo.clienteId}?from-reserva=${grupo.reservaIdOriginal}" data-navigo class="text-lg font-bold text-blue-800 hover:underline">${grupo.clienteNombre}</a>
+                    <button 
+                        class="client-trigger text-lg font-bold text-blue-800 hover:underline focus:outline-none text-left" 
+                        data-cliente-id="${grupo.clienteId}"
+                        title="Ver/Editar Cliente"
+                    >
+                        ${grupo.clienteNombre}
+                    </button>
                     <span class="px-2 py-0.5 bg-gray-100 text-gray-800 text-xs font-semibold rounded-full">${grupo.tipoCliente} (${grupo.numeroDeReservas})</span>
                 </div>
                 <span class="text-sm font-semibold text-gray-600">${diasParaLlegada > 0 ? `Llega en ${diasParaLlegada} día(s)` : (diasParaLlegada === 0 ? 'Llega HOY' : `Llegó hace ${-diasParaLlegada} día(s)`)}</span>

@@ -1,82 +1,22 @@
+// frontend/src/views/gestionarClientes.js
+
 import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
+import { filtrarClientes } from './components/gestionarClientes/clientes.utils.js';
+import { renderFilasTabla } from './components/gestionarClientes/clientes.table.js';
+import { renderModalCliente, setupModalCliente, abrirModalCliente } from './components/gestionarClientes/clientes.modals.js';
 
 let clientes = [];
-let editandoCliente = null;
 
-function abrirModal(cliente = null) {
-    const modal = document.getElementById('cliente-modal');
-    const form = document.getElementById('cliente-form');
-    const modalTitle = document.getElementById('modal-title');
-    
-    if (cliente) {
-        editandoCliente = cliente;
-        modalTitle.textContent = 'Editar Cliente';
-        form.nombre.value = cliente.nombre || '';
-        form.email.value = cliente.email || '';
-        form.telefono.value = cliente.telefono || '';
-        form.pais.value = cliente.pais || '';
-        form.calificacion.value = cliente.calificacion || 0;
-        form.ubicacion.value = cliente.ubicacion || '';
-        form.notas.value = cliente.notas || '';
-    } else {
-        editandoCliente = null;
-        modalTitle.textContent = 'Nuevo Cliente';
-        form.reset();
-    }
-    
-    modal.classList.remove('hidden');
-}
-
-function cerrarModal() {
-    document.getElementById('cliente-modal').classList.add('hidden');
-    editandoCliente = null;
-}
-
-function renderTabla() {
+function actualizarTabla() {
     const tbody = document.getElementById('clientes-tbody');
     const searchInput = document.getElementById('search-input');
     const tipoFilter = document.getElementById('tipo-cliente-filter');
+    
     if (!tbody || !searchInput || !tipoFilter) return;
 
-    const filtroTexto = searchInput.value.toLowerCase();
-    const filtroTipo = tipoFilter.value;
-
-    const clientesFiltrados = clientes.filter(c => {
-        const textoMatch = (c.nombre && c.nombre.toLowerCase().includes(filtroTexto)) ||
-                           (c.telefono && c.telefono.includes(filtroTexto)) ||
-                           (c.email && c.email.toLowerCase().includes(filtroTexto));
-        
-        const tipoMatch = !filtroTipo || c.tipoCliente === filtroTipo;
-
-        return textoMatch && tipoMatch;
-    });
-
-    if (clientesFiltrados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-gray-500 py-4">No se encontraron clientes.</td></tr>';
-        return;
-    }
-
-    tbody.innerHTML = clientesFiltrados.map((c, index) => {
-        const syncStatusHtml = c.googleContactSynced
-            ? '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800" title="Sincronizado con Google Contacts">Sincronizado</span>'
-            : `<button data-id="${c.id}" class="sync-btn btn-table-sync">Sincronizar</button>`;
-
-        return `
-        <tr class="border-b hover:bg-gray-50 text-sm">
-            <td class="py-2 px-3 text-center font-medium text-gray-500">${index + 1}</td>
-            <td class="py-2 px-3 font-medium">${c.nombre}</td>
-            <td class="py-2 px-3">${c.telefono}</td>
-            <td class="py-2 px-3">${c.email || '-'}</td>
-            <td class="py-2 px-3"><span class="px-2 py-0.5 bg-gray-100 text-gray-800 text-xs font-semibold rounded-full">${c.tipoCliente || 'N/A'} (${c.numeroDeReservas || 0})</span></td>
-            <td class="py-2 px-3">${c.pais || '-'}</td>
-            <td class="py-2 px-3 whitespace-nowrap space-x-2">
-                <button data-id="${c.id}" class="view-btn btn-table-edit">Ver Perfil</button>
-                ${syncStatusHtml}
-                <button data-id="${c.id}" class="delete-btn btn-table-delete">Eliminar</button>
-            </td>
-        </tr>
-    `}).join('');
+    const clientesFiltrados = filtrarClientes(clientes, searchInput.value, tipoFilter.value);
+    tbody.innerHTML = renderFilasTabla(clientesFiltrados);
 }
 
 export async function render() {
@@ -119,92 +59,28 @@ export async function render() {
                 </table>
             </div>
         </div>
-
-        <div id="cliente-modal" class="modal hidden">
-            <div class="modal-content">
-                <h3 id="modal-title" class="text-xl font-semibold mb-4">Nuevo Cliente</h3>
-                <form id="cliente-form">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="mb-2">
-                            <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre Completo</label>
-                            <input type="text" id="nombre" name="nombre" required class="form-input mt-1">
-                        </div>
-                        <div class="mb-2">
-                            <label for="telefono" class="block text-sm font-medium text-gray-700">Teléfono</label>
-                            <input type="tel" id="telefono" name="telefono" required class="form-input mt-1" placeholder="Ej: 56912345678">
-                        </div>
-                        <div class="mb-2">
-                            <label for="email" class="block text-sm font-medium text-gray-700">Email (Opcional)</label>
-                            <input type="email" id="email" name="email" class="form-input mt-1">
-                        </div>
-                         <div class="mb-2">
-                            <label for="pais" class="block text-sm font-medium text-gray-700">País (Opcional)</label>
-                            <input type="text" id="pais" name="pais" class="form-input mt-1" placeholder="Ej: CL">
-                        </div>
-                    </div>
-                    <hr class="my-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="mb-2">
-                            <label for="calificacion" class="block text-sm font-medium text-gray-700">Calificación</label>
-                            <select id="calificacion" name="calificacion" class="form-select mt-1">
-                                <option value="0">Sin calificar</option>
-                                <option value="1">⭐</option><option value="2">⭐⭐</option><option value="3">⭐⭐⭐</option>
-                                <option value="4">⭐⭐⭐⭐</option><option value="5">⭐⭐⭐⭐⭐</option>
-                            </select>
-                        </div>
-                        <div class="mb-2">
-                            <label for="ubicacion" class="block text-sm font-medium text-gray-700">Ubicación (Opcional)</label>
-                            <input type="text" id="ubicacion" name="ubicacion" class="form-input mt-1" placeholder="Ej: Santiago, Chile">
-                        </div>
-                    </div>
-                    <div class="mb-2">
-                        <label for="notas" class="block text-sm font-medium text-gray-700">Notas (Opcional)</label>
-                        <textarea id="notas" name="notas" rows="3" class="form-input mt-1"></textarea>
-                    </div>
-                    <div class="flex justify-end pt-4 mt-4 border-t">
-                        <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
-                        <button type="submit" class="btn-primary">Guardar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+        
+        ${renderModalCliente()}
     `;
 }
 
 export function afterRender() {
-    renderTabla();
+    actualizarTabla();
 
-    document.getElementById('add-cliente-btn').addEventListener('click', () => abrirModal());
-    document.getElementById('cancel-btn').addEventListener('click', cerrarModal);
-    document.getElementById('search-input').addEventListener('input', renderTabla);
-    document.getElementById('tipo-cliente-filter').addEventListener('change', renderTabla);
-
-    document.getElementById('cliente-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const form = e.target;
-        const datos = {
-            nombre: form.nombre.value,
-            telefono: form.telefono.value,
-            email: form.email.value,
-            pais: form.pais.value,
-            calificacion: parseInt(form.calificacion.value) || 0,
-            ubicacion: form.ubicacion.value,
-            notas: form.notas.value
-        };
-
-        try {
-            const endpoint = editandoCliente ? `/clientes/${editandoCliente.id}` : '/clientes';
-            const method = editandoCliente ? 'PUT' : 'POST';
-            await fetchAPI(endpoint, { method, body: datos });
-            
-            clientes = await fetchAPI('/clientes');
-            renderTabla();
-            cerrarModal();
-        } catch (error) {
-            alert(`Error al guardar: ${error.message}`);
-        }
+    // Configuramos el modal con su callback de éxito
+    setupModalCliente(async () => {
+        clientes = await fetchAPI('/clientes');
+        actualizarTabla();
     });
 
+    // Botón de crear nuevo
+    document.getElementById('add-cliente-btn').addEventListener('click', () => abrirModalCliente());
+    
+    // Filtros
+    document.getElementById('search-input').addEventListener('input', actualizarTabla);
+    document.getElementById('tipo-cliente-filter').addEventListener('change', actualizarTabla);
+
+    // Eventos de la tabla
     document.getElementById('clientes-tbody').addEventListener('click', async (e) => {
         const target = e.target;
         const id = target.dataset.id;
@@ -217,9 +93,13 @@ export function afterRender() {
             handleNavigation(`/cliente/${id}`);
         }
 
+        if (target.classList.contains('edit-btn')) {
+            abrirModalCliente(cliente);
+        }
+
         if (target.classList.contains('sync-btn')) {
             target.disabled = true;
-            target.textContent = 'Sincronizando...';
+            target.textContent = '...';
             try {
                 const result = await fetchAPI(`/clientes/${id}/sincronizar-google`, { method: 'POST' });
                 alert(result.message);
@@ -227,7 +107,7 @@ export function afterRender() {
                 if (clienteIndex > -1) {
                     clientes[clienteIndex].googleContactSynced = true;
                 }
-                renderTabla();
+                actualizarTabla();
             } catch (error) {
                 alert(`Error al sincronizar: ${error.message}`);
                 target.disabled = false;
@@ -240,7 +120,7 @@ export function afterRender() {
                 try {
                     await fetchAPI(`/clientes/${id}`, { method: 'DELETE' });
                     clientes = await fetchAPI('/clientes');
-                    renderTabla();
+                    actualizarTabla();
                 } catch (error) {
                     alert(`Error al eliminar: ${error.message}`);
                 }
