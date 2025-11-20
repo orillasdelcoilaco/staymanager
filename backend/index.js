@@ -72,9 +72,15 @@ try {
 
     // --- ORDEN DE RUTAS ESTRATÉGICO ---
 
+
     // **PRIORIDAD 1: Rutas de la API (/api/...)**
     const apiRouter = express.Router();
     const authMiddleware = createAuthMiddleware(admin, db);
+
+    // borrar despues de probar
+const testEmailRoutes = require('./routes/test-email');
+apiRouter.use('/test-email', testEmailRoutes); 
+
     apiRouter.use('/auth', authRoutes(admin, db));
     apiRouter.use(authMiddleware);
     // ... (registro de todas las rutas API como estaban)
@@ -106,9 +112,6 @@ try {
     apiRouter.use('/website-config', websiteConfigRoutes(db));
     // --- INICIO DE LA MODIFICACIÓN (Montar nueva ruta) ---
     apiRouter.use('/comentarios', comentariosRoutes(db));
-    // borrar despues de probar
-const testEmailRoutes = require('./routes/test-email');
-apiRouter.use('/test-email', testEmailRoutes); 
 
     // --- FIN DE LA MODIFICACIÓN ---
     apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
