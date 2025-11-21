@@ -7,11 +7,15 @@ import { handleCuponChange as handleCuponChangeShared, getCuponAplicado, clearCu
 import { renderSelectionWidgets } from './propuesta.ui.js';
 import { state, fetchInitialData, resetSearchState } from './propuesta.state.js';
 
-// ... (MANTENER TODO EL CÓDIGO DE INICIALIZACIÓN Y CLIENTES IGUAL) ...
-// Solo estoy mostrando la función modificada para ahorrar espacio, pero
-// asegúrate de mantener el resto del archivo handlers.js intacto.
+// Importamos los nuevos módulos especializados
+import { filterClients, selectClient, clearClientSelection, obtenerOcrearCliente } from './propuesta.clientes.js';
+import { updateSummary } from './propuesta.precios.js';
+
+// Re-exportamos las funciones de clientes para que agregarPropuesta.js las use en los listeners
+export { filterClients, selectClient, clearClientSelection, updateSummary };
 
 // --- Inicialización ---
+
 export async function initializeView() {
     const success = await fetchInitialData();
     if (!success) {
@@ -36,90 +40,7 @@ export async function initializeView() {
     handleCanalChange();
 }
 
-// --- Gestión de Clientes (MANTENER IGUAL) ---
-export function filterClients(e) {
-    const searchTerm = e.target.value.toLowerCase();
-    const resultsList = document.getElementById('client-results-list');
-    resultsList.innerHTML = '';
-    resultsList.classList.add('hidden');
-    
-    if (!searchTerm) {
-        clearClientSelection();
-        return;
-    }
-    
-    const filtered = state.allClients.filter(c => c.nombre.toLowerCase().includes(searchTerm) || (c.telefono && c.telefono.includes(searchTerm)));
-    
-    if (filtered.length > 0) {
-        resultsList.classList.remove('hidden');
-    }
-    
-    filtered.slice(0, 5).forEach(client => {
-        const div = document.createElement('div');
-        div.className = 'p-2 cursor-pointer hover:bg-gray-100';
-        div.textContent = `${client.nombre} (${client.telefono})`;
-        div.onclick = () => selectClient(client);
-        resultsList.appendChild(div);
-    });
-}
-
-export function selectClient(client) {
-    state.selectedClient = client;
-    document.getElementById('client-form-title').textContent = '... o actualiza los datos del cliente seleccionado';
-    document.getElementById('client-search').value = client.nombre;
-    document.getElementById('client-results-list').classList.add('hidden');
-    document.getElementById('new-client-name').value = client.nombre || '';
-    document.getElementById('new-client-phone').value = client.telefono || '';
-    document.getElementById('new-client-email').value = client.email || '';
-}
-
-export function clearClientSelection() {
-    state.selectedClient = null;
-    document.getElementById('client-form-title').textContent = '... o añade un cliente nuevo';
-    ['new-client-name', 'new-client-phone', 'new-client-email'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
-}
-
-async function obtenerOcrearCliente() {
-    const nombre = document.getElementById('new-client-name').value.trim();
-    const telefono = document.getElementById('new-client-phone').value.trim();
-    const email = document.getElementById('new-client-email').value.trim();
-  
-    if (!nombre || !telefono) {
-      alert('Nombre y teléfono son obligatorios.');
-      return null;
-    }
-  
-    try {
-      if (state.selectedClient && state.selectedClient.id) {
-        const datosCargados = { nombre: state.selectedClient.nombre, telefono: state.selectedClient.telefono, email: state.selectedClient.email };
-        const datosFormulario = { nombre, telefono, email };
-        const hayCambios = JSON.stringify(datosCargados) !== JSON.stringify(datosFormulario);
-  
-        if (hayCambios) {
-          const clienteActualizado = { id: state.selectedClient.id, nombre, telefono, email: email || null };
-          const response = await fetchAPI(`/clientes/${state.selectedClient.id}`, { method: 'PUT', body: clienteActualizado });
-          state.selectedClient = response;
-          return response;
-        } else {
-          return state.selectedClient;
-        }
-      } else {
-        const nuevoCliente = { nombre, telefono, email: email || null };
-        const response = await fetchAPI('/clientes', { method: 'POST', body: nuevoCliente });
-        state.selectedClient = response.cliente;
-        return response.cliente;
-      }
-    } catch (error) {
-      console.error('Error al procesar cliente:', error);
-      alert(`Error con el cliente: ${error.message}`);
-      return null;
-    }
-}
-
-// --- Lógica de Propuesta (MANTENER IGUAL HASTA handleCuponChange) ---
+// --- Lógica de Propuesta ---
 
 export function handleCanalChange() {
     const canalSelect = document.getElementById('canal-select');
@@ -198,89 +119,6 @@ export async function handleSelectionChange() {
     }
 }
 
-export function updateSummary(pricing) {
-    if (!pricing) pricing = state.currentPricing; 
-    state.currentPricing = pricing;
-  
-    const { totalPriceOriginal, currencyOriginal, nights, totalPriceCLP } = pricing;
-    
-    const summaryOriginalContainer = document.getElementById('summary-original-currency-container');
-    const summaryCLPContainer = document.getElementById('summary-clp-container');
-  
-    const valorFinalFijoInput = document.getElementById('valor-final-fijo');
-    const cuponInput = document.getElementById('cupon-input');
-    const pctInput = document.getElementById('descuento-pct');
-    const fijoInput = document.getElementById('descuento-fijo-total');
-  
-    let precioFinalEnMonedaOriginal = 0;
-    let descuentoTotalEnMonedaOriginal = 0;
-    
-    const valorFijo = parseFloat(valorFinalFijoInput.value) || 0;
-    const precioLista = totalPriceOriginal || 0;
-  
-    if (valorFijo > 0) {
-      [cuponInput, pctInput, fijoInput].forEach(input => { if(input) input.disabled = true; });
-  
-      precioFinalEnMonedaOriginal = valorFijo;
-      
-      if (precioFinalEnMonedaOriginal < precioLista) {
-        descuentoTotalEnMonedaOriginal = precioLista - precioFinalEnMonedaOriginal;
-      } else {
-        descuentoTotalEnMonedaOriginal = 0;
-      }
-      
-    } else {
-      [cuponInput, pctInput, fijoInput].forEach(input => { if(input) input.disabled = false; });
-  
-      const pct = parseFloat(pctInput.value) || 0;
-      const fijo = parseFloat(fijoInput.value) || 0;
-      
-      let descuentoManual = 0;
-      if (pct > 0) {
-          descuentoManual = precioLista * (pct / 100);
-      } else if (fijo > 0) {
-          descuentoManual = fijo;
-      }
-  
-      const cuponAplicado = getCuponAplicado();
-      const descuentoCupon = cuponAplicado ? precioLista * (cuponAplicado.porcentajeDescuento / 100) : 0;
-      
-      descuentoTotalEnMonedaOriginal = descuentoManual + descuentoCupon;
-      precioFinalEnMonedaOriginal = precioLista - descuentoTotalEnMonedaOriginal;
-    }
-  
-    const precioFinalCLP = currencyOriginal === 'USD' 
-      ? Math.round(precioFinalEnMonedaOriginal * state.valorDolarDia) 
-      : precioFinalEnMonedaOriginal;
-    
-    const descuentoTotalCLP = totalPriceCLP - precioFinalCLP;
-  
-    if (currencyOriginal !== 'CLP') {
-      summaryOriginalContainer.classList.remove('hidden');
-      summaryOriginalContainer.innerHTML = `
-        <h4 class="font-bold text-blue-800 text-center mb-1">Valores en ${currencyOriginal}</h4>
-        <div class="flex justify-between text-sm"><span class="text-gray-600">Precio de Lista:</span><span class="font-medium">${formatCurrency(precioLista, currencyOriginal)}</span></div>
-        <div class="flex justify-between text-sm text-red-600"><span class="font-medium">Descuento Total:</span><span class="font-medium">-${formatCurrency(descuentoTotalEnMonedaOriginal, currencyOriginal)}</span></div>
-        <div class="flex justify-between text-base font-bold border-t pt-2 mt-2"><span>Total (${currencyOriginal}):</span><span class="text-blue-600">${formatCurrency(precioFinalEnMonedaOriginal, currencyOriginal)}</span></div>
-      `;
-      summaryCLPContainer.classList.add('md:col-span-1');
-      summaryCLPContainer.classList.remove('md:col-span-2');
-    } else {
-      summaryOriginalContainer.classList.add('hidden');
-      summaryOriginalContainer.innerHTML = '';
-      summaryCLPContainer.classList.remove('md:col-span-1');
-      summaryCLPContainer.classList.add('md:col-span-2');
-    }
-    
-    summaryCLPContainer.innerHTML = `
-      <h4 class="font-bold text-gray-800 text-center mb-1">Totales en CLP</h4>
-      <div class="flex justify-between text-sm"><span class="text-gray-600">Noches Totales:</span><span id="summary-noches" class="font-medium">${nights || 0}</span></div>
-      <div class="flex justify-between text-sm"><span class="text-gray-600">Precio Lista (CLP):</span><span class="font-medium">${formatCurrency(totalPriceCLP)}</span></div>
-      <div class="flex justify-between text-sm text-red-600"><span class="font-medium">Descuento Total (CLP):</span><span class="font-medium">-${formatCurrency(descuentoTotalCLP)}</span></div>
-      <div class="flex justify-between text-lg font-bold border-t pt-2 mt-2"><span>Precio Final a Cobrar:</span><span id="summary-precio-final" class="text-indigo-600">${formatCurrency(precioFinalCLP)}</span></div>
-    `;
-}
-
 export async function runSearch() {
     const payload = {
       fechaLlegada: document.getElementById('fecha-llegada').value,
@@ -355,20 +193,15 @@ export async function runSearch() {
     }
 }
 
-// --- MODIFICADO: Handler de cupón con acción "Crear" ---
 export async function handleCuponChange() {
     await handleCuponChangeShared(
         updateSummary, 
         state.currentPricing, 
-        // Callback onNotFoundAction
         (codigoIntentado) => {
             if (!state.selectedClient) {
                 alert("Por favor, selecciona o crea un cliente primero.");
                 return;
             }
-            
-            // Redirigir al CRM con parámetros pre-cargados si es posible, 
-            // o simplemente ir a la vista de gestión de cupones.
             if(confirm(`¿Quieres ir a la sección de CRM para crear el cupón "${codigoIntentado}" para ${state.selectedClient.nombre}?`)) {
                 handleNavigation('/crm-promociones'); 
             }
@@ -376,7 +209,6 @@ export async function handleCuponChange() {
     );
 }
 
-// ... (MANTENER EL RESTO DE FUNCIONES: handleGuardarPropuesta, handleCopyPropuesta, etc. IGUAL) ...
 export async function handleGuardarPropuesta() {
     if (!state.availabilityData.suggestion) {
       alert('Primero realiza una búsqueda de disponibilidad.');
@@ -525,13 +357,12 @@ export async function handleCargarPropuesta(loadDocId, editIdGrupo, propIdsQuery
   
       if (propuesta.cliente) {
         if (propuesta.cliente.id) {
-          state.selectedClient = propuesta.cliente;
-          document.getElementById('client-search').value = propuesta.cliente.nombre;
-          document.getElementById('client-form-title').textContent = '... o actualiza los datos del cliente seleccionado';
+          selectClient(propuesta.cliente); // Usamos la función importada
+        } else {
+            document.getElementById('new-client-name').value = propuesta.cliente.nombre || '';
+            document.getElementById('new-client-phone').value = propuesta.cliente.telefono || '';
+            document.getElementById('new-client-email').value = propuesta.cliente.email || '';
         }
-        document.getElementById('new-client-name').value = propuesta.cliente.nombre || '';
-        document.getElementById('new-client-phone').value = propuesta.cliente.telefono || '';
-        document.getElementById('new-client-email').value = propuesta.cliente.email || '';
       }
   
       document.getElementById('id-reserva-canal-input').value = propuesta.idReservaCanal || editIdGrupo;
