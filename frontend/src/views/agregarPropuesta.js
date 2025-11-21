@@ -15,7 +15,8 @@ import {
   handleCopyPropuesta,
   handleCerrarModal,
   handleEditMode,
-  updateSummary
+  updateSummary,
+  actualizarEstadoCheckboxEmail
 } from './components/agregarPropuesta/propuesta.handlers.js';
 
 export function render() {
@@ -34,6 +35,7 @@ export async function afterRender() {
   
   // Gestión de Clientes
   document.getElementById('client-search')?.addEventListener('input', filterClients);
+  document.getElementById('new-client-email')?.addEventListener('input', actualizarEstadoCheckboxEmail);
   
   // Gestión de Canales
   document.getElementById('canal-select')?.addEventListener('change', handleCanalChange);

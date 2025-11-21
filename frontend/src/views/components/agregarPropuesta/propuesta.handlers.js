@@ -14,9 +14,6 @@ import { updateSummary } from './propuesta.precios.js';
 // Re-exportamos las funciones de clientes para que agregarPropuesta.js las use en los listeners
 export { filterClients, selectClient, clearClientSelection, updateSummary };
 
-// Variable para almacenar datos necesarios para el envío de correo
-let datosParaCorreo = null;
-
 // --- Inicialización ---
 
 export async function initializeView() {
@@ -212,6 +209,28 @@ export async function handleCuponChange() {
     );
 }
 
+/**
+ * Actualiza el estado del checkbox de envío de email según si el cliente tiene email
+ */
+export function actualizarEstadoCheckboxEmail() {
+    const emailInput = document.getElementById('new-client-email');
+    const checkbox = document.getElementById('enviar-email-checkbox');
+    const warning = document.getElementById('email-warning');
+    
+    if (!checkbox || !warning) return;
+    
+    const tieneEmail = emailInput && emailInput.value.trim() !== '';
+    
+    if (tieneEmail) {
+        checkbox.disabled = false;
+        warning.classList.add('hidden');
+    } else {
+        checkbox.checked = false;
+        checkbox.disabled = true;
+        warning.classList.remove('hidden');
+    }
+}
+
 export async function handleGuardarPropuesta() {
     if (!state.availabilityData.suggestion) {
       alert('Primero realiza una búsqueda de disponibilidad.');
@@ -235,6 +254,10 @@ export async function handleGuardarPropuesta() {
   
     const valorFinalFijado = parseFloat(document.getElementById('valor-final-fijo').value) || 0;
     const cuponAplicado = getCuponAplicado();
+    
+    // Leer estado del checkbox de envío de email
+    const enviarEmailCheckbox = document.getElementById('enviar-email-checkbox');
+    const enviarEmail = enviarEmailCheckbox ? enviarEmailCheckbox.checked : false;
   
     const propuestaPayloadGuardar = {
       fechaLlegada: document.getElementById('fecha-llegada').value,
@@ -258,7 +281,8 @@ export async function handleGuardarPropuesta() {
       descuentoPct: parseFloat(document.getElementById('descuento-pct').value) || 0,
       descuentoFijo: parseFloat(document.getElementById('descuento-fijo-total').value) || 0,
       valorFinalFijado: valorFinalFijado,
-      plantillaId: document.getElementById('plantilla-select').value || null
+      plantillaId: document.getElementById('plantilla-select').value || null,
+      enviarEmail: enviarEmail // <-- Agregado: enviar email si checkbox está marcado
     };
   
     const guardarBtn = document.getElementById('guardar-propuesta-btn');
@@ -294,10 +318,6 @@ export async function handleGuardarPropuesta() {
       });
   
       document.getElementById('propuesta-texto').value = resultadoTexto.texto;
-      
-      // Configurar el checkbox de envío de correo
-      configurarCheckboxCorreo(cliente, propuestaGuardada.id, payloadTexto);
-      
       document.getElementById('propuesta-guardada-modal').classList.remove('hidden');
   
     } catch (error) {
@@ -306,51 +326,6 @@ export async function handleGuardarPropuesta() {
     } finally {
       guardarBtn.disabled = false;
       guardarBtn.textContent = state.editId ? 'Actualizar Propuesta' : 'Crear Reserva Tentativa';
-    }
-}
-
-/**
- * Configura el estado del checkbox de envío de correo según los datos del cliente
- */
-function configurarCheckboxCorreo(cliente, propuestaId, payloadTexto) {
-    const checkbox = document.getElementById('enviar-propuesta-email');
-    const emailDestinatario = document.getElementById('email-destinatario');
-    const emailAdvertencia = document.getElementById('email-advertencia');
-    const contenedor = document.getElementById('enviar-correo-container');
-    
-    if (!checkbox || !emailDestinatario || !emailAdvertencia || !contenedor) return;
-    
-    const emailCliente = cliente.email || '';
-    
-    // Guardar datos para el envío posterior
-    datosParaCorreo = {
-        clienteId: cliente.id,
-        clienteEmail: emailCliente,
-        clienteNombre: cliente.nombre,
-        propuestaId: propuestaId,
-        plantillaId: document.getElementById('plantilla-select').value,
-        textoMensaje: document.getElementById('propuesta-texto').value,
-        payloadTexto: payloadTexto
-    };
-    
-    if (emailCliente && emailCliente.trim() !== '') {
-        // Cliente tiene email - habilitar checkbox
-        checkbox.checked = true;
-        checkbox.disabled = false;
-        emailDestinatario.textContent = `Se enviará a: ${emailCliente}`;
-        emailDestinatario.classList.remove('hidden');
-        emailAdvertencia.classList.add('hidden');
-        contenedor.classList.remove('bg-amber-50', 'border-amber-200');
-        contenedor.classList.add('bg-gray-50');
-    } else {
-        // Cliente NO tiene email - deshabilitar checkbox y mostrar advertencia
-        checkbox.checked = false;
-        checkbox.disabled = true;
-        emailDestinatario.classList.add('hidden');
-        emailAdvertencia.textContent = '⚠️ No se puede enviar correo: el cliente no tiene email registrado';
-        emailAdvertencia.classList.remove('hidden');
-        contenedor.classList.remove('bg-gray-50');
-        contenedor.classList.add('bg-amber-50', 'border-amber-200');
     }
 }
 
@@ -363,45 +338,7 @@ export function handleCopyPropuesta() {
     setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
 }
   
-export async function handleCerrarModal() {
-    const checkbox = document.getElementById('enviar-propuesta-email');
-    
-    // Si el checkbox está marcado y tenemos datos, enviar el correo
-    if (checkbox && checkbox.checked && !checkbox.disabled && datosParaCorreo) {
-        const cerrarBtn = document.getElementById('cerrar-propuesta-modal-btn');
-        
-        try {
-            cerrarBtn.disabled = true;
-            cerrarBtn.textContent = 'Enviando correo...';
-            
-            await fetchAPI('/comunicaciones/enviar-propuesta', {
-                method: 'POST',
-                body: {
-                    clienteId: datosParaCorreo.clienteId,
-                    clienteEmail: datosParaCorreo.clienteEmail,
-                    clienteNombre: datosParaCorreo.clienteNombre,
-                    propuestaId: datosParaCorreo.propuestaId,
-                    plantillaId: datosParaCorreo.plantillaId,
-                    textoMensaje: datosParaCorreo.textoMensaje
-                }
-            });
-            
-            // Mostrar confirmación breve
-            cerrarBtn.textContent = '✅ Correo enviado';
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-        } catch (error) {
-            console.error('Error al enviar correo:', error);
-            // No bloquear el cierre, solo mostrar advertencia
-            alert(`Advertencia: No se pudo enviar el correo. ${error.message}`);
-        } finally {
-            cerrarBtn.disabled = false;
-            cerrarBtn.textContent = 'Cerrar';
-        }
-    }
-    
-    // Limpiar datos y cerrar modal
-    datosParaCorreo = null;
+export function handleCerrarModal() {
     document.getElementById('propuesta-guardada-modal').classList.add('hidden');
     handleNavigation('/gestionar-propuestas');
 }
@@ -464,6 +401,9 @@ export async function handleCargarPropuesta(loadDocId, editIdGrupo, propIdsQuery
       if (propuesta.plantillaId) {
         document.getElementById('plantilla-select').value = propuesta.plantillaId;
       }
+      
+      // Actualizar estado del checkbox de email después de cargar cliente
+      actualizarEstadoCheckboxEmail();
   
       if (searchSuccess && propIdsQuery) {
           const selectedIds = new Set(propIdsQuery.split(','));

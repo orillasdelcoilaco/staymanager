@@ -139,6 +139,11 @@ export function renderPropuestaLayout() {
                   <label for="plantilla-select" class="block text-sm font-medium text-gray-700">Plantilla de Mensaje</label>
                   <select id="plantilla-select" class="form-select mt-1"></select>
                 </div>
+                <div class="mt-3 flex items-center">
+                  <input id="enviar-email-checkbox" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded" checked>
+                  <label for="enviar-email-checkbox" class="ml-2 block text-sm font-medium text-gray-700">Enviar propuesta por correo</label>
+                </div>
+                <p id="email-warning" class="text-xs text-amber-600 mt-1 hidden">⚠️ El cliente no tiene email registrado</p>
               </div>
             </div>
           </div>
@@ -187,16 +192,6 @@ export function renderPropuestaLayout() {
         <h3 class="text-xl font-semibold mb-4">Propuesta Guardada con Éxito</h3>
         <p class="text-sm text-gray-600 mb-4">Copia el siguiente resumen y envíalo al cliente. Puedes gestionar esta y otras propuestas en la nueva sección "Gestionar Propuestas".</p>
         <textarea id="propuesta-texto" rows="15" class="form-input w-full bg-gray-50 font-mono text-xs"></textarea>
-        
-        <div id="enviar-correo-container" class="mt-4 p-3 bg-gray-50 rounded-md border">
-          <div class="flex items-center">
-            <input type="checkbox" id="enviar-propuesta-email" class="h-4 w-4 text-indigo-600 border-gray-300 rounded" checked>
-            <label for="enviar-propuesta-email" class="ml-2 text-sm font-medium text-gray-700">Enviar propuesta por correo electrónico</label>
-          </div>
-          <p id="email-destinatario" class="text-xs text-gray-500 mt-1 ml-6"></p>
-          <p id="email-advertencia" class="text-xs text-amber-600 mt-1 ml-6 hidden"></p>
-        </div>
-
         <div class="flex justify-end space-x-2 mt-4">
           <button id="copiar-propuesta-btn" class="btn-secondary">Copiar</button>
           <button id="cerrar-propuesta-modal-btn" class="btn-primary">Cerrar</button>
