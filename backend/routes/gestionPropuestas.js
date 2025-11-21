@@ -5,6 +5,7 @@ const {
     guardarPresupuesto,
     obtenerPropuestasYPresupuestos,
     aprobarPropuesta,
+    verificarDisponibilidadPropuesta,
     rechazarPropuesta,
     aprobarPresupuesto,
     rechazarPresupuesto
@@ -77,6 +78,17 @@ module.exports = (db) => {
             res.status(200).json(listado);
         } catch (error) {
             res.status(500).json({ error: error.message });
+        }
+    });
+
+    // NUEVO: Verificar disponibilidad antes de aprobar
+    router.post('/propuesta/:id/verificar-disponibilidad', async (req, res) => {
+        try {
+            const { idsReservas } = req.body;
+            await verificarDisponibilidadPropuesta(db, req.user.empresaId, idsReservas);
+            res.status(200).json({ disponible: true, message: 'Disponibilidad verificada correctamente.' });
+        } catch (error) {
+            res.status(409).json({ error: error.message });
         }
     });
     

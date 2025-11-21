@@ -4,7 +4,6 @@ import { fetchAPI } from '../../../api.js';
 let editandoPlantilla = null;
 let onSaveCallback = null;
 
-// Definición de etiquetas para ayuda al usuario
 const ETIQUETAS_DISPONIBLES = [
     { etiqueta: '[CLIENTE_NOMBRE]', descripcion: 'Nombre completo del cliente' },
     { etiqueta: '[RESERVA_ID_CANAL]', descripcion: 'ID de la reserva en el canal de origen' },
@@ -67,8 +66,8 @@ export const renderModalPlantilla = () => {
                             </div>
 
                             <div class="flex-grow flex flex-col mb-4">
-                                <label for="contenido" class="block text-sm font-medium text-gray-700 mb-1">Contenido del Mensaje</label>
-                                <textarea id="contenido" name="contenido" required class="form-input flex-grow resize-none font-mono text-sm" placeholder="Hola [CLIENTE_NOMBRE]..."></textarea>
+                                <label for="texto" class="block text-sm font-medium text-gray-700 mb-1">Contenido del Mensaje</label>
+                                <textarea id="texto" name="texto" required class="form-input flex-grow resize-none font-mono text-sm" placeholder="Hola [CLIENTE_NOMBRE]..."></textarea>
                             </div>
 
                             <div class="flex justify-end pt-4 border-t mt-auto flex-shrink-0">
@@ -109,7 +108,7 @@ export const abrirModalPlantilla = (plantilla = null, tipos = []) => {
         form.nombre.value = plantilla.nombre;
         form.tipoId.value = plantilla.tipoId;
         form.asunto.value = plantilla.asunto || '';
-        form.contenido.value = plantilla.contenido;
+        form.texto.value = plantilla.texto; // CORREGIDO: usar 'texto'
     } else {
         editandoPlantilla = null;
         modalTitle.textContent = 'Nueva Plantilla';
@@ -131,17 +130,12 @@ export const setupModalPlantilla = (callback) => {
     const form = document.getElementById('plantilla-form');
     if (!form) return;
 
-    // Clonar para limpiar eventos anteriores del formulario
     const newForm = form.cloneNode(true);
     form.parentNode.replaceChild(newForm, form);
 
-    // Listeners de cierre
     document.getElementById('close-modal-btn').addEventListener('click', cerrarModalPlantilla);
     document.getElementById('cancel-btn').addEventListener('click', cerrarModalPlantilla);
 
-    // Listener de copiado de etiquetas (Delegación de eventos)
-    // Nota: Como el HTML de etiquetas es estático en el render, podemos asignar el listener al contenedor padre una sola vez o aquí.
-    // Para seguridad, lo reiniciamos clonando el contenedor si fuera necesario, pero como es estático, basta con asegurar que no se duplique.
     const etiquetasContainer = document.getElementById('etiquetas-container');
     const newEtiquetasContainer = etiquetasContainer.cloneNode(true);
     etiquetasContainer.parentNode.replaceChild(newEtiquetasContainer, etiquetasContainer);
@@ -151,7 +145,6 @@ export const setupModalPlantilla = (callback) => {
         if (btn) {
             const etiqueta = btn.dataset.etiqueta;
             navigator.clipboard.writeText(etiqueta).then(() => {
-                // Feedback visual temporal en el botón
                 const originalHtml = btn.innerHTML;
                 btn.textContent = '✅';
                 setTimeout(() => { btn.innerHTML = originalHtml; }, 1500);
@@ -159,7 +152,6 @@ export const setupModalPlantilla = (callback) => {
         }
     });
 
-    // Listener de Submit
     newForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = e.target;
@@ -167,7 +159,7 @@ export const setupModalPlantilla = (callback) => {
             nombre: formData.nombre.value,
             tipoId: formData.tipoId.value,
             asunto: formData.asunto.value,
-            contenido: formData.contenido.value
+            texto: formData.texto.value // CORREGIDO: usar 'texto'
         };
 
         try {

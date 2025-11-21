@@ -22,7 +22,6 @@ async function fetchAndRender() {
 }
 
 export async function render() {
-    // Iniciamos carga
     try {
         [plantillas, tipos] = await Promise.all([
             fetchAPI('/plantillas'),

@@ -5,7 +5,7 @@ const { crearOActualizarCliente } = require('./clientesService');
 const { marcarCuponComoUtilizado } = require('./cuponesService');
 const { calcularValoresBaseDesdeReporte, recalcularValoresDesdeTotal } = require('./utils/calculoValoresService');
 const { registrarAjusteValor } = require('./utils/trazabilidadService');
-const { procesarPlantilla } = require('./plantillasService');
+const { procesarPlantilla, textoAHtml } = require('./plantillasService');
 const emailService = require('./emailService');
 const { registrarComunicacion } = require('./comunicacionesService');
 
@@ -348,6 +348,130 @@ const enviarEmailPropuesta = async (db, empresaId, datos) => {
     return resultado;
 };
 
+// --- FUNCIÓN: Enviar email de reserva confirmada ---
+const enviarEmailReservaConfirmada = async (db, empresaId, datosReserva) => {
+    const { clienteId, reservaId, propiedades, fechaLlegada, fechaSalida, noches, personas, precioFinal } = datosReserva;
+    
+    if (!clienteId) {
+        console.warn('No se puede enviar email: no hay clienteId');
+        return;
+    }
+
+    // Obtener datos del cliente
+    const clienteDoc = await db.collection('empresas').doc(empresaId).collection('clientes').doc(clienteId).get();
+    if (!clienteDoc.exists) {
+        console.warn('No se puede enviar email: cliente no encontrado');
+        return;
+    }
+    const cliente = clienteDoc.data();
+    
+    if (!cliente.email) {
+        console.warn('No se puede enviar email: cliente sin email');
+        return;
+    }
+
+    // Obtener datos de la empresa
+    const empresaDoc = await db.collection('empresas').doc(empresaId).get();
+    const empresaData = empresaDoc.data();
+
+    const formatearFecha = (fecha) => {
+        if (fecha instanceof admin.firestore.Timestamp) {
+            return fecha.toDate().toLocaleDateString('es-CL');
+        }
+        return new Date(fecha).toLocaleDateString('es-CL');
+    };
+
+    const formatearMoneda = (valor) => {
+        return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(valor || 0);
+    };
+
+    const fechaLlegadaStr = formatearFecha(fechaLlegada);
+    const fechaSalidaStr = formatearFecha(fechaSalida);
+    const nombresPropiedades = propiedades.map(p => p.nombre || p).join(', ');
+
+    // Crear contenido del email
+    const contenidoTexto = `
+✅ Reserva Confirmada #${reservaId}
+
+Hola ${cliente.nombre},
+
+¡Tu reserva ha sido confirmada exitosamente!
+
+📅 Detalles de tu reserva:
+• Check-in: ${fechaLlegadaStr}
+• Check-out: ${fechaSalidaStr}
+• Noches: ${noches || 'N/A'}
+• Huéspedes: ${personas || 'N/A'}
+• Alojamiento: ${nombresPropiedades}
+• Total: ${formatearMoneda(precioFinal)}
+
+Gracias por tu preferencia.
+
+Saludos,
+${empresaData?.contactoNombre || empresaData?.nombre || 'El equipo'}
+${empresaData?.contactoTelefono || ''}
+${empresaData?.website || ''}
+    `.trim();
+
+    const contenidoHtml = textoAHtml(contenidoTexto);
+
+    // Enviar correo al cliente
+    const resultado = await emailService.enviarCorreo(db, {
+        to: cliente.email,
+        subject: `✅ Reserva Confirmada #${reservaId} - ${empresaData?.nombre || 'SuiteManager'}`,
+        html: contenidoHtml,
+        empresaId,
+        replyTo: empresaData?.contactoEmail
+    });
+
+    if (!resultado.success) {
+        throw new Error(resultado.error || 'Error al enviar correo');
+    }
+
+    // Enviar copia al administrador
+    if (empresaData?.contactoEmail) {
+        try {
+            await emailService.enviarCorreo(db, {
+                to: empresaData.contactoEmail,
+                subject: `[Admin] Reserva Confirmada #${reservaId} - ${cliente.nombre}`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px;">
+                        <h2>Nueva Reserva Confirmada</h2>
+                        <p><strong>Cliente:</strong> ${cliente.nombre} (${cliente.email})</p>
+                        <p><strong>N° Reserva:</strong> ${reservaId}</p>
+                        <p><strong>Fechas:</strong> ${fechaLlegadaStr} al ${fechaSalidaStr}</p>
+                        <p><strong>Alojamiento:</strong> ${nombresPropiedades}</p>
+                        <p><strong>Total:</strong> ${formatearMoneda(precioFinal)}</p>
+                    </div>
+                `,
+                empresaId
+            });
+        } catch (adminEmailError) {
+            console.warn('No se pudo enviar copia al admin:', adminEmailError.message);
+        }
+    }
+
+    // Registrar en historial del cliente
+    try {
+        await registrarComunicacion(db, empresaId, clienteId, {
+            tipo: 'email',
+            evento: 'reserva-confirmada',
+            asunto: `Reserva Confirmada #${reservaId}`,
+            destinatario: cliente.email,
+            relacionadoCon: {
+                tipo: 'reserva',
+                id: reservaId
+            },
+            estado: 'enviado',
+            messageId: resultado.messageId || null
+        });
+    } catch (logError) {
+        console.warn('No se pudo registrar comunicación:', logError.message);
+    }
+
+    return resultado;
+};
+
 const guardarPresupuesto = async (db, empresaId, datos) => {
     const { id, cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, texto } = datos;
     const presupuestosRef = db.collection('empresas').doc(empresaId).collection('presupuestos');
@@ -497,6 +621,48 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
     return resultado;
 };
 
+// NUEVA FUNCIÓN: Solo verificar disponibilidad (sin aprobar)
+const verificarDisponibilidadPropuesta = async (db, empresaId, idsReservas) => {
+    if (!idsReservas || idsReservas.length === 0) {
+        throw new Error("No se proporcionaron IDs de reserva para verificar.");
+    }
+    
+    const reservasRefs = idsReservas.map(id => db.collection('empresas').doc(empresaId).collection('reservas').doc(id));
+    const reservasDocs = await db.getAll(...reservasRefs);
+
+    if (reservasDocs.some(doc => !doc.exists)) {
+        throw new Error('Una o más reservas de la propuesta no fueron encontradas.');
+    }
+
+    const propuestaReservas = reservasDocs.map(d => d.data());
+    const primeraReserva = propuestaReservas[0];
+    const startDate = primeraReserva.fechaLlegada.toDate();
+    const endDate = primeraReserva.fechaSalida.toDate();
+
+    const { availableProperties } = await getAvailabilityData(db, empresaId, startDate, endDate);
+    const availableIds = new Set(availableProperties.map(p => p.id));
+
+    for (const reserva of propuestaReservas) {
+        if (!availableIds.has(reserva.alojamientoId)) {
+            const reservasConflictivas = await db.collection('empresas').doc(empresaId).collection('reservas')
+                .where('alojamientoId', '==', reserva.alojamientoId)
+                .where('estado', '==', 'Confirmada')
+                .where('fechaLlegada', '<', reserva.fechaSalida)
+                .get();
+
+            const conflicto = reservasConflictivas.docs.find(doc => doc.data().fechaSalida.toDate() > startDate);
+            if (conflicto) {
+                const dataConflicto = conflicto.data();
+                const idReserva = dataConflicto.idReservaCanal || 'Desconocido';
+                const fechaReservaTimestamp = dataConflicto.fechaCreacion || dataConflicto.fechaReserva;
+                const fechaReserva = fechaReservaTimestamp ? fechaReservaTimestamp.toDate().toLocaleDateString('es-CL') : 'una fecha no registrada';
+                throw new Error(`La cabaña ${reserva.alojamientoNombre} ya no está disponible. Fue reservada por la reserva ${idReserva} del canal ${dataConflicto.canalNombre}, creada el ${fechaReserva}.`);
+            }
+        }
+    }
+
+    return { disponible: true };
+};
 
 const aprobarPropuesta = async (db, empresaId, idsReservas) => {
     if (!idsReservas || idsReservas.length === 0) {
@@ -504,6 +670,9 @@ const aprobarPropuesta = async (db, empresaId, idsReservas) => {
     }
     
     const reservasRefs = idsReservas.map(id => db.collection('empresas').doc(empresaId).collection('reservas').doc(id));
+    
+    // Variables para el envío de correo después de la transacción
+    let datosParaEmail = null;
     
     await db.runTransaction(async (transaction) => {
         const reservasDocs = await transaction.getAll(...reservasRefs);
@@ -547,7 +716,35 @@ const aprobarPropuesta = async (db, empresaId, idsReservas) => {
         reservasDocs.forEach(doc => {
             transaction.update(doc.ref, { estado: 'Confirmada', estadoGestion: 'Pendiente Bienvenida' });
         });
+
+        // Preparar datos para email (se enviará después de la transacción)
+        const precioTotal = propuestaReservas.reduce((sum, r) => sum + (r.valores?.valorHuesped || 0), 0);
+        const propiedadesNombres = propuestaReservas.map(r => ({ nombre: r.alojamientoNombre }));
+        const totalNoches = primeraReserva.totalNoches;
+        const totalPersonas = propuestaReservas.reduce((sum, r) => sum + (r.cantidadHuespedes || 0), 0);
+
+        datosParaEmail = {
+            clienteId: primeraReserva.clienteId,
+            reservaId: primeraReserva.idReservaCanal,
+            propiedades: propiedadesNombres,
+            fechaLlegada: primeraReserva.fechaLlegada,
+            fechaSalida: primeraReserva.fechaSalida,
+            noches: totalNoches,
+            personas: totalPersonas,
+            precioFinal: precioTotal
+        };
     });
+
+    // Enviar email DESPUÉS de que la transacción sea exitosa
+    if (datosParaEmail && datosParaEmail.clienteId) {
+        try {
+            await enviarEmailReservaConfirmada(db, empresaId, datosParaEmail);
+            console.log(`✅ Email de reserva confirmada enviado`);
+        } catch (emailError) {
+            // No fallar la aprobación si el email falla
+            console.error('❌ Error enviando email de confirmación:', emailError.message);
+        }
+    }
 };
 
 const rechazarPropuesta = async (db, empresaId, idsReservas) => {
@@ -640,6 +837,7 @@ module.exports = {
     guardarOActualizarPropuesta,
     guardarPresupuesto,
     obtenerPropuestasYPresupuestos,
+    verificarDisponibilidadPropuesta,
     aprobarPropuesta,
     rechazarPropuesta,
     aprobarPresupuesto,
