@@ -7,8 +7,11 @@ import { handleCuponChange as handleCuponChangeShared, getCuponAplicado, clearCu
 import { renderSelectionWidgets } from './propuesta.ui.js';
 import { state, fetchInitialData, resetSearchState } from './propuesta.state.js';
 
-// --- Inicialización ---
+// ... (MANTENER TODO EL CÓDIGO DE INICIALIZACIÓN Y CLIENTES IGUAL) ...
+// Solo estoy mostrando la función modificada para ahorrar espacio, pero
+// asegúrate de mantener el resto del archivo handlers.js intacto.
 
+// --- Inicialización ---
 export async function initializeView() {
     const success = await fetchInitialData();
     if (!success) {
@@ -16,7 +19,6 @@ export async function initializeView() {
         return;
     }
 
-    // Rellenar Selects
     const canalSelect = document.getElementById('canal-select');
     if (canalSelect) {
         canalSelect.innerHTML = state.allCanales.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
@@ -34,8 +36,7 @@ export async function initializeView() {
     handleCanalChange();
 }
 
-// --- Gestión de Clientes ---
-
+// --- Gestión de Clientes (MANTENER IGUAL) ---
 export function filterClients(e) {
     const searchTerm = e.target.value.toLowerCase();
     const resultsList = document.getElementById('client-results-list');
@@ -93,7 +94,6 @@ async function obtenerOcrearCliente() {
   
     try {
       if (state.selectedClient && state.selectedClient.id) {
-        // Verificar cambios
         const datosCargados = { nombre: state.selectedClient.nombre, telefono: state.selectedClient.telefono, email: state.selectedClient.email };
         const datosFormulario = { nombre, telefono, email };
         const hayCambios = JSON.stringify(datosCargados) !== JSON.stringify(datosFormulario);
@@ -107,7 +107,6 @@ async function obtenerOcrearCliente() {
           return state.selectedClient;
         }
       } else {
-        // Crear nuevo
         const nuevoCliente = { nombre, telefono, email: email || null };
         const response = await fetchAPI('/clientes', { method: 'POST', body: nuevoCliente });
         state.selectedClient = response.cliente;
@@ -120,7 +119,7 @@ async function obtenerOcrearCliente() {
     }
 }
 
-// --- Lógica de Propuesta ---
+// --- Lógica de Propuesta (MANTENER IGUAL HASTA handleCuponChange) ---
 
 export function handleCanalChange() {
     const canalSelect = document.getElementById('canal-select');
@@ -200,7 +199,7 @@ export async function handleSelectionChange() {
 }
 
 export function updateSummary(pricing) {
-    if (!pricing) pricing = state.currentPricing; // Fallback si se llama sin args
+    if (!pricing) pricing = state.currentPricing; 
     state.currentPricing = pricing;
   
     const { totalPriceOriginal, currencyOriginal, nights, totalPriceCLP } = pricing;
@@ -319,17 +318,14 @@ export async function runSearch() {
     }
   
     try {
-      // OPTIMIZACIÓN: Ejecutamos ambas consultas en paralelo para reducir el tiempo de espera
       const [dolar, availability] = await Promise.all([
         fetchAPI(`/dolar/valor/${payload.fechaLlegada}`),
         fetchAPI('/propuestas/generar', { method: 'POST', body: payload })
       ]);
 
-      // 1. Procesar Dólar
       state.valorDolarDia = dolar.valor;
       document.getElementById('valor-dolar-info').textContent = `Valor Dólar para el Check-in: ${formatCurrency(state.valorDolarDia)}`;
   
-      // 2. Procesar Disponibilidad
       state.availabilityData = availability;
       
       const suggested = state.availabilityData.suggestion?.propiedades || [];
@@ -359,10 +355,28 @@ export async function runSearch() {
     }
 }
 
+// --- MODIFICADO: Handler de cupón con acción "Crear" ---
 export async function handleCuponChange() {
-    await handleCuponChangeShared(updateSummary, state.currentPricing);
+    await handleCuponChangeShared(
+        updateSummary, 
+        state.currentPricing, 
+        // Callback onNotFoundAction
+        (codigoIntentado) => {
+            if (!state.selectedClient) {
+                alert("Por favor, selecciona o crea un cliente primero.");
+                return;
+            }
+            
+            // Redirigir al CRM con parámetros pre-cargados si es posible, 
+            // o simplemente ir a la vista de gestión de cupones.
+            if(confirm(`¿Quieres ir a la sección de CRM para crear el cupón "${codigoIntentado}" para ${state.selectedClient.nombre}?`)) {
+                handleNavigation('/crm-promociones'); 
+            }
+        }
+    );
 }
 
+// ... (MANTENER EL RESTO DE FUNCIONES: handleGuardarPropuesta, handleCopyPropuesta, etc. IGUAL) ...
 export async function handleGuardarPropuesta() {
     if (!state.availabilityData.suggestion) {
       alert('Primero realiza una búsqueda de disponibilidad.');
@@ -470,8 +484,6 @@ export function handleCerrarModal() {
     handleNavigation('/gestionar-propuestas');
 }
 
-// --- Lógica de Edición ---
-
 export function handleEditMode() {
     const params = new URLSearchParams(window.location.search);
     
@@ -545,7 +557,7 @@ export async function handleCargarPropuesta(loadDocId, editIdGrupo, propIdsQuery
             state.selectedProperties = state.allProperties.filter(p => selectedIds.has(p.id));
           }
           
-          await handleSelectionChange(); // IMPORTANTE: Llama a la función exportada en este archivo
+          await handleSelectionChange(); 
   
           if (propuesta.valores?.codigoCupon) {
             document.getElementById('cupon-input').value = propuesta.valores.codigoCupon;

@@ -3,66 +3,78 @@
 import { fetchAPI } from '../api.js';
 
 /**
- * Estado del cupón aplicado (se exporta para que utils.js pueda acceder)
+ * Estado del cupón aplicado
  */
 export let cuponAplicado = null;
 
-/**
- * Setter para actualizar el cupón aplicado desde otros módulos
- * @param {object|null} cupon - Objeto del cupón o null para limpiar
- */
 export function setCuponAplicado(cupon) {
   cuponAplicado = cupon;
 }
 
+export function getCuponAplicado() {
+  return cuponAplicado;
+}
+
 /**
- * Maneja el cambio en el campo de cupón y valida contra el backend
- * @param {Function} updateSummaryCallback - Callback para actualizar el resumen de precios
- * @param {object} currentPricing - Objeto con el pricing actual
- * @returns {Promise<void>}
+ * Maneja el cambio en el campo de cupón
+ * @param {Function} updateSummaryCallback - Para actualizar precios
+ * @param {object} currentPricing - Precios actuales
+ * @param {Function} [onNotFoundAction] - (Opcional) Callback si el cupón no existe
  */
-export async function handleCuponChange(updateSummaryCallback, currentPricing) {
+export async function handleCuponChange(updateSummaryCallback, currentPricing, onNotFoundAction = null) {
   const codigoInput = document.getElementById('cupon-input');
   const statusEl = document.getElementById('cupon-status');
   
-  if (!codigoInput || !statusEl) {
-    console.warn('Elementos de cupón no encontrados en el DOM');
-    return;
-  }
+  if (!codigoInput || !statusEl) return;
 
   const codigo = codigoInput.value.trim();
   
   if (!codigo) {
     cuponAplicado = null;
     statusEl.textContent = '';
+    statusEl.className = 'text-xs mt-1';
     updateSummaryCallback(currentPricing);
     return;
   }
 
   try {
     statusEl.textContent = 'Validando...';
-    statusEl.className = 'text-xs mt-1 text-gray-600';
+    statusEl.className = 'text-xs mt-1 text-gray-500';
     
+    // Si el cupón no existe, fetchAPI lanzará un error (generalmente 404)
     cuponAplicado = await fetchAPI(`/crm/cupones/validar/${codigo}`);
     
-    statusEl.textContent = `Cupón válido: ${cuponAplicado.porcentajeDescuento}% de descuento.`;
-    statusEl.className = 'text-xs mt-1 text-green-600';
+    statusEl.textContent = `✅ Cupón válido: ${cuponAplicado.porcentajeDescuento}% OFF`;
+    statusEl.className = 'text-xs mt-1 text-green-600 font-medium';
     
     updateSummaryCallback(currentPricing);
+
   } catch (error) {
     cuponAplicado = null;
-    statusEl.textContent = `${error.message}`;
     statusEl.className = 'text-xs mt-1 text-red-600';
+    
+    // Detectamos si es un error de "No encontrado"
+    if (onNotFoundAction && (error.status === 404 || error.message.toLowerCase().includes('no existe'))) {
+        statusEl.innerHTML = `
+            <span>🚫 ${error.message}</span>
+            <button id="btn-crear-cupon-rapido" class="ml-1 text-indigo-600 hover:underline font-bold focus:outline-none">
+                ¿Crearlo?
+            </button>
+        `;
+        
+        // Asignamos el evento al botón recién creado
+        document.getElementById('btn-crear-cupon-rapido').addEventListener('click', (e) => {
+            e.preventDefault();
+            onNotFoundAction(codigo);
+        });
+    } else {
+        statusEl.textContent = `🚫 ${error.message}`;
+    }
     
     updateSummaryCallback(currentPricing);
   }
 }
 
-/**
- * Limpia el cupón aplicado y resetea el UI
- * @param {Function} updateSummaryCallback - Callback para actualizar el resumen
- * @param {object} currentPricing - Objeto con el pricing actual
- */
 export function clearCupon(updateSummaryCallback, currentPricing) {
   cuponAplicado = null;
   
@@ -78,12 +90,4 @@ export function clearCupon(updateSummaryCallback, currentPricing) {
   if (updateSummaryCallback && currentPricing) {
     updateSummaryCallback(currentPricing);
   }
-}
-
-/**
- * Obtiene el cupón actualmente aplicado
- * @returns {object|null} - Objeto del cupón o null
- */
-export function getCuponAplicado() {
-  return cuponAplicado;
 }
