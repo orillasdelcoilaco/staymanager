@@ -1,5 +1,6 @@
 const express = require('express');
-const { crearUsuario, listarUsuariosPorEmpresa, eliminarUsuario } = require('../services/usuariosService');
+// Importamos actualizarUsuario
+const { crearUsuario, listarUsuariosPorEmpresa, eliminarUsuario, actualizarUsuario } = require('../services/usuariosService');
 const admin = require('firebase-admin');
 
 module.exports = (db) => {
@@ -22,6 +23,21 @@ module.exports = (db) => {
             const nuevoUsuario = await crearUsuario(admin, db, { empresaId, email, password });
             res.status(201).json(nuevoUsuario);
         } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    });
+
+    // --- NUEVA RUTA PUT ---
+    router.put('/:uid', async (req, res) => {
+        try {
+            const { empresaId } = req.user;
+            const { uid } = req.params;
+            const datos = req.body; // { password, email... }
+
+            const resultado = await actualizarUsuario(admin, db, { empresaId, uid, datos });
+            res.status(200).json(resultado);
+        } catch (error) {
+            console.error('Error al actualizar usuario:', error);
             res.status(400).json({ error: error.message });
         }
     });
