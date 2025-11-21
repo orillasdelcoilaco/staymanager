@@ -35,6 +35,7 @@ const icalRoutes = require('./routes/ical.js');
 const crmRoutes = require('./routes/crm.js');
 const websiteRoutes = require('./routes/website.js');
 const integrationsRoutes = require('./routes/integrations.js');
+const comunicacionesRoutes = require('./routes/comunicaciones.js');
 const estadosRoutes = require('./routes/estados.js');
 const websiteConfigRoutes = require('./routes/websiteConfigRoutes.js');
 // --- INICIO DE LA MODIFICACIÓN (Importar nueva ruta) ---
@@ -81,6 +82,7 @@ try {
     apiRouter.use(authMiddleware);
     // ... (registro de todas las rutas API como estaban)
     apiRouter.use('/propiedades', propiedadesRoutes(db));
+    apiRouter.use('/comunicaciones', comunicacionesRoutes(db));
     apiRouter.use('/canales', canalesRoutes(db));
     apiRouter.use('/tarifas', tarifasRoutes(db));
     apiRouter.use('/conversiones', conversionesRoutes(db));
