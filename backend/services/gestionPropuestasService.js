@@ -228,7 +228,7 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
     return { id: idGrupo };
 };
 
-// --- NUEVA FUNCIÓN: Enviar email de propuesta ---
+// --- FUNCIÓN: Enviar email de propuesta ---
 const enviarEmailPropuesta = async (db, empresaId, datos) => {
     const { plantillaId, cliente, propiedades, fechaLlegada, fechaSalida, noches, personas, precioFinal, propuestaId } = datos;
     
@@ -247,26 +247,68 @@ const enviarEmailPropuesta = async (db, empresaId, datos) => {
     };
 
     const formatearMoneda = (valor) => {
-        return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(valor);
+        return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(valor || 0);
     };
 
+    const fechaLlegadaFormateada = formatearFecha(fechaLlegada);
+    const fechaSalidaFormateada = formatearFecha(fechaSalida);
     const nombresPropiedades = propiedades.map(p => p.nombre).join(', ');
+    
+    // Calcular fecha de vencimiento (24 horas desde ahora)
+    const fechaVencimiento = new Date();
+    fechaVencimiento.setDate(fechaVencimiento.getDate() + 1);
+    
+    // Calcular monto de abono (50%)
+    const montoAbono = precioFinal ? precioFinal * 0.5 : 0;
 
-    // Procesar plantilla con etiquetas
+    // Generar detalle de propiedades
+    const detallePropiedades = propiedades.map(p => `• ${p.nombre}`).join('\n');
+
+    // Procesar plantilla con TODAS las etiquetas que usa la plantilla
     const { contenido, asunto } = await procesarPlantilla(db, empresaId, plantillaId, {
-        nombreCliente: cliente.nombre,
-        reservaId: propuestaId,
-        fechaLlegada: formatearFecha(fechaLlegada),
-        fechaSalida: formatearFecha(fechaSalida),
-        nombrePropiedad: nombresPropiedades,
-        totalNoches: noches?.toString() || '',
-        numeroHuespedes: personas?.toString() || '',
-        saldoPendiente: formatearMoneda(precioFinal),
+        // Identificadores
         propuestaId: propuestaId,
+        reservaId: propuestaId,
+        
+        // Cliente
+        clienteNombre: cliente.nombre,
+        nombreCliente: cliente.nombre,
+        
+        // Fechas
+        fechaEmision: new Date().toLocaleDateString('es-CL'),
+        fechaLlegada: fechaLlegadaFormateada,
+        fechaSalida: fechaSalidaFormateada,
+        fechasEstadiaTexto: `${fechaLlegadaFormateada} al ${fechaSalidaFormateada}`,
+        fechaVencimiento: fechaVencimiento.toLocaleDateString('es-CL') + ' a las ' + fechaVencimiento.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
+        
+        // Estadía
+        noches: noches?.toString() || '',
+        totalNoches: noches?.toString() || '',
+        personas: personas?.toString() || '',
+        numeroHuespedes: personas?.toString() || '',
+        
+        // Propiedades
+        nombrePropiedad: nombresPropiedades,
+        propiedadesNombres: nombresPropiedades,
+        detallePropiedades: detallePropiedades,
+        
+        // Valores
+        precioFinal: formatearMoneda(precioFinal),
+        saldoPendiente: formatearMoneda(precioFinal),
+        montoTotal: formatearMoneda(precioFinal),
+        resumenValores: `Total: ${formatearMoneda(precioFinal)}`,
+        porcentajeAbono: '50%',
+        montoAbono: formatearMoneda(montoAbono),
+        
+        // Empresa y usuario
         empresaNombre: empresaData?.nombre || '',
+        empresaWebsite: empresaData?.website || '',
         contactoNombre: empresaData?.contactoNombre || '',
+        usuarioNombre: empresaData?.contactoNombre || '',
         contactoEmail: empresaData?.contactoEmail || '',
-        contactoTelefono: empresaData?.contactoTelefono || ''
+        usuarioEmail: empresaData?.contactoEmail || '',
+        contactoTelefono: empresaData?.contactoTelefono || '',
+        usuarioTelefono: empresaData?.contactoTelefono || ''
     });
 
     // Enviar correo

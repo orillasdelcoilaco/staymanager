@@ -77,7 +77,7 @@ const eliminarPlantilla = async (db, empresaId, plantillaId) => {
     await db.collection('empresas').doc(empresaId).collection('plantillasMensajes').doc(plantillaId).delete();
 };
 
-// --- NUEVAS FUNCIONES PARA EMAIL ---
+// --- FUNCIONES PARA EMAIL ---
 
 const obtenerPlantilla = async (db, empresaId, plantillaId) => {
     const doc = await db
@@ -95,23 +95,52 @@ const obtenerPlantilla = async (db, empresaId, plantillaId) => {
     };
 };
 
+/**
+ * Reemplaza las etiquetas en el texto de la plantilla
+ * Etiquetas soportadas basadas en las plantillas existentes
+ */
 const reemplazarEtiquetas = (texto, datos) => {
     let resultado = texto;
     
+    // Mapeo de etiquetas según las plantillas existentes
     const etiquetas = {
-        '[CLIENTE_NOMBRE]': datos.nombreCliente || '',
-        '[RESERVA_ID_CANAL]': datos.reservaId || '',
+        // Identificadores
+        '[PROPUESTA_ID]': datos.propuestaId || '',
+        '[RESERVA_ID]': datos.reservaId || datos.propuestaId || '',
+        '[RESERVA_ID_CANAL]': datos.reservaId || datos.propuestaId || '',
+        
+        // Cliente
+        '[CLIENTE_NOMBRE]': datos.clienteNombre || datos.nombreCliente || '',
+        
+        // Fechas
+        '[FECHA_EMISION]': datos.fechaEmision || new Date().toLocaleDateString('es-CL'),
         '[FECHA_LLEGADA]': datos.fechaLlegada || '',
         '[FECHA_SALIDA]': datos.fechaSalida || '',
-        '[ALOJAMIENTO_NOMBRE]': datos.nombrePropiedad || '',
-        '[TOTAL_NOCHES]': datos.totalNoches || '',
-        '[CANTIDAD_HUESPEDES]': datos.numeroHuespedes || '',
-        '[SALDO_PENDIENTE]': datos.saldoPendiente || '',
-        '[PROPUESTA_ID]': datos.propuestaId || '',
+        '[FECHAS_ESTADIA_TEXTO]': datos.fechasEstadiaTexto || `${datos.fechaLlegada || ''} al ${datos.fechaSalida || ''}`,
+        '[FECHA_VENCIMIENTO_PROPUESTA]': datos.fechaVencimiento || '',
+        
+        // Estadía
+        '[TOTAL_NOCHES]': datos.totalNoches || datos.noches || '',
+        '[GRUPO_SOLICITADO]': datos.personas || datos.numeroHuespedes || '',
+        '[CANTIDAD_HUESPEDES]': datos.personas || datos.numeroHuespedes || '',
+        
+        // Propiedades
+        '[ALOJAMIENTO_NOMBRE]': datos.nombrePropiedad || datos.propiedadesNombres || '',
+        '[DETALLE_PROPIEDADES_PROPUESTA]': datos.detallePropiedades || datos.nombrePropiedad || '',
+        
+        // Valores
+        '[RESUMEN_VALORES_PROPUESTA]': datos.resumenValores || '',
+        '[SALDO_PENDIENTE]': datos.saldoPendiente || datos.precioFinal || '',
+        '[MONTO_TOTAL]': datos.montoTotal || datos.precioFinal || '',
+        '[PORCENTAJE_ABONO]': datos.porcentajeAbono || '50%',
+        '[MONTO_ABONO]': datos.montoAbono || '',
+        
+        // Empresa y usuario
         '[EMPRESA_NOMBRE]': datos.empresaNombre || '',
-        '[USUARIO_NOMBRE]': datos.contactoNombre || '',
-        '[USUARIO_EMAIL]': datos.contactoEmail || '',
-        '[USUARIO_TELEFONO]': datos.contactoTelefono || '',
+        '[EMPRESA_WEBSITE]': datos.empresaWebsite || '',
+        '[USUARIO_NOMBRE]': datos.contactoNombre || datos.usuarioNombre || '',
+        '[USUARIO_EMAIL]': datos.contactoEmail || datos.usuarioEmail || '',
+        '[USUARIO_TELEFONO]': datos.contactoTelefono || datos.usuarioTelefono || '',
     };
     
     Object.keys(etiquetas).forEach(etiqueta => {
@@ -122,13 +151,50 @@ const reemplazarEtiquetas = (texto, datos) => {
     return resultado;
 };
 
+/**
+ * Convierte texto plano a HTML básico
+ */
+const textoAHtml = (texto) => {
+    if (!texto) return '';
+    
+    // Escapar caracteres HTML peligrosos
+    let html = texto
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    
+    // Convertir emojis de sección a headers
+    html = html.replace(/📌\s*(.+?)(?=\n|$)/g, '<h2 style="color: #1e40af; margin-top: 20px;">📌 $1</h2>');
+    html = html.replace(/⚠️\s*(.+?)(?=\n|$)/g, '<h3 style="color: #d97706; margin-top: 15px;">⚠️ $1</h3>');
+    html = html.replace(/✅\s*(.+?)(?=\n|$)/g, '<h3 style="color: #059669; margin-top: 15px;">✅ $1</h3>');
+    
+    // Convertir saltos de línea a <br>
+    html = html.replace(/\n/g, '<br>');
+    
+    // Envolver en contenedor con estilos básicos
+    return `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            ${html}
+        </div>
+    `;
+};
+
+/**
+ * Procesa una plantilla reemplazando etiquetas y convirtiendo a HTML
+ */
 const procesarPlantilla = async (db, empresaId, plantillaId, datos) => {
     const plantilla = await obtenerPlantilla(db, empresaId, plantillaId);
-    const textoFinal = reemplazarEtiquetas(plantilla.texto, datos);
+    
+    // Reemplazar etiquetas
+    const textoConEtiquetas = reemplazarEtiquetas(plantilla.texto, datos);
+    
+    // Convertir a HTML
+    const contenidoHtml = textoAHtml(textoConEtiquetas);
     
     return {
         plantilla,
-        contenido: textoFinal,
+        contenido: contenidoHtml,
+        contenidoTexto: textoConEtiquetas, // Texto plano por si se necesita
         asunto: plantilla.nombre
     };
 };
@@ -149,6 +215,7 @@ module.exports = {
     eliminarPlantilla,
     obtenerPlantilla,
     reemplazarEtiquetas,
+    textoAHtml,
     procesarPlantilla,
     verificarEnvioAutomatico
 };

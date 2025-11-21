@@ -32,7 +32,7 @@ function renderTabla() {
     });
 
     if (propuestasFiltradas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-gray-500 py-4">No hay propuestas que coincidan con los filtros.</td></tr>'; // Colspan 10
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-gray-500 py-4">No hay propuestas que coincidan con los filtros.</td></tr>';
         return;
     }
 
@@ -43,10 +43,8 @@ function renderTabla() {
         const clienteNombre = item.origen === 'ical' && isIncomplete ? (item.idReservaCanal || item.id) : (item.clienteNombre || 'N/A');
         const montoTexto = (isIncomplete && item.monto === 0) ? 'Por completar' : formatCurrency(item.monto);
         
-        // --- CORRECCIÓN LÓGICA PERSONAS ---
         const personasTexto = item.personas > 0 ? item.personas : (isIncomplete ? '?' : 'N/A');
         const noches = Math.round((new Date(item.fechaSalida) - new Date(item.fechaLlegada)) / (1000 * 60 * 60 * 24));
-        // --- FIN CORRECCIÓN ---
 
         return `
         <tr class="border-b text-sm hover:bg-gray-50 ${isIncomplete ? 'bg-yellow-50' : ''}">
@@ -130,37 +128,34 @@ export async function render() {
     `;
 }
 
-// frontend/src/views/gestionarPropuestas.js
-
 export async function afterRender() {
-await fetchAndRender();
+    await fetchAndRender();
 
     document.getElementById('canal-filter').addEventListener('change', renderTabla);
     document.getElementById('fecha-inicio-filter').addEventListener('input', renderTabla);
     document.getElementById('fecha-fin-filter').addEventListener('input', renderTabla);
 
     const tbody = document.getElementById('propuestas-tbody');
+    
+    // Usar un solo handler con event delegation
     tbody.addEventListener('click', async (e) => {
         const target = e.target;
+        
+        // Verificar que sea un botón con los datos necesarios
+        if (!target.matches('button[data-id]')) return;
+        
         const id = target.dataset.id;
         const tipo = target.dataset.tipo;
         if (!id || !tipo) return;
 
+        // --- EDITAR ---
         if (target.classList.contains('edit-btn')) {
             const item = todasLasPropuestas.find(p => p.id === id);
             if (!item) {
                 alert('Error: No se pudo encontrar el ítem para editar.');
                 return;
             }
-            
-            console.log("--- DEBUG: Datos del ítem seleccionado ---");
-            console.log(item);
 
-            // --- INICIO DE LA CORRECCIÓN ---
-            // Unificar la lógica. Tanto 'propuesta' como 'presupuesto'
-            // enviarán todos los datos que 'generadorPresupuestos'
-            // y 'agregarPropuesta' esperan en la URL.
-            
             const personas = item.personas || 1;
             let params;
             let route;
@@ -169,7 +164,7 @@ await fetchAndRender();
                 const loadDocId = item.idsReservas && item.idsReservas.length > 0 ? item.idsReservas[0] : null;
 
                 if (!loadDocId) {
-                    alert(`Error: Esta propuesta (ID: ${id}) no tiene un ID de reserva válido para cargar. No se puede editar.`);
+                    alert(`Error: Esta propuesta (ID: ${id}) no tiene un ID de reserva válido para cargar.`);
                     return;
                 }
 
@@ -186,85 +181,103 @@ await fetchAndRender();
                     origen: item.origen || 'manual',
                     icalUid: item.icalUid || ''
                 });
-                
                 route = '/agregar-propuesta';
 
-            } else { // item.tipo === 'presupuesto'
-                
-                // Los presupuestos se editan en 'generar-presupuesto'
-                // y SÍ necesitan todos los datos en la URL.
+            } else {
                 params = new URLSearchParams({
                     edit: item.id,
                     clienteId: item.clienteId || '',
                     fechaLlegada: item.fechaLlegada,
                     fechaSalida: item.fechaSalida,
-                    // 'item.personas' para presupuestos es la suma de capacidad
                     personas: item.personas || 1, 
                     propiedades: item.propiedades.map(p => p.id).join(','),
-                    // (Los presupuestos no tienen estos campos, pero los pasamos vacíos)
                     canalId: item.canalId || '',
                     origen: item.origen || 'manual'
                 });
-                
                 route = '/generar-presupuesto';
             }
-            // --- FIN DE LA CORRECCIÓN ---
 
-            const url = `${route}?${params.toString()}`;
-            
-            console.log("--- DEBUG: URL de navegación generada ---");
-            console.log(url);
-            
-            handleNavigation(url);
+            handleNavigation(`${route}?${params.toString()}`);
+            return;
         }
-        // --- FIN DE LA CORRECCIÓN ---
         
+        // --- APROBAR ---
         if (target.classList.contains('approve-btn')) {
-            if (!confirm(`¿Estás seguro de que quieres aprobar est${tipo === 'propuesta' ? 'a propuesta' : 'e presupuesto'}? Se verificará la disponibilidad antes de confirmar.`)) return;
+            const tipoTexto = tipo === 'propuesta' ? 'esta propuesta' : 'este presupuesto';
             
+            if (!confirm(`¿Estás seguro de que quieres aprobar ${tipoTexto}?\n\nSe verificará la disponibilidad antes de confirmar.`)) {
+                return;
+            }
+            
+            // Deshabilitar botón inmediatamente
             target.disabled = true;
+            const textoOriginal = target.textContent;
             target.textContent = 'Verificando...';
 
             try {
                 let result;
                 if (tipo === 'propuesta') {
-                    const idsReservas = target.dataset.idsReservas.split(',');
-                    result = await fetchAPI(`/gestion-propuestas/propuesta/${id}/aprobar`, { method: 'POST', body: { idsReservas } });
+                    const idsReservas = target.dataset.idsReservas?.split(',') || [];
+                    if (idsReservas.length === 0) {
+                        throw new Error('No se encontraron IDs de reserva para aprobar.');
+                    }
+                    result = await fetchAPI(`/gestion-propuestas/propuesta/${id}/aprobar`, { 
+                        method: 'POST', 
+                        body: { idsReservas } 
+                    });
                 } else {
-                    result = await fetchAPI(`/gestion-propuestas/presupuesto/${id}/aprobar`, { method: 'POST' });
+                    result = await fetchAPI(`/gestion-propuestas/presupuesto/${id}/aprobar`, { 
+                        method: 'POST' 
+                    });
                 }
-                alert(result.message);
+                
+                // Solo mostrar éxito si llegamos aquí
+                alert('✅ ' + result.message);
                 await fetchAndRender();
+                
             } catch (error) {
-                alert(`Error al aprobar: ${error.message}`);
-            } finally {
+                alert(`❌ Error al aprobar: ${error.message}`);
+                // Restaurar botón
                 target.disabled = false;
-                target.textContent = 'Aprobar';
+                target.textContent = textoOriginal;
             }
+            return;
         }
         
+        // --- RECHAZAR ---
         if (target.classList.contains('reject-btn')) {
-             if (!confirm(`¿Estás seguro de que quieres rechazar est${tipo === 'propuesta' ? 'a propuesta' : 'e presupuesto'}?`)) return;
+            const tipoTexto = tipo === 'propuesta' ? 'esta propuesta' : 'este presupuesto';
+            
+            if (!confirm(`¿Estás seguro de que quieres rechazar ${tipoTexto}?\n\nEsta acción eliminará la propuesta permanentemente.`)) {
+                return;
+            }
              
-             target.disabled = true;
-             target.textContent = 'Rechazando...';
+            target.disabled = true;
+            const textoOriginal = target.textContent;
+            target.textContent = 'Eliminando...';
              
-             try {
-                 let result;
-                 if (tipo === 'propuesta') {
-                     const idsReservas = target.dataset.idsReservas.split(',');
-                     result = await fetchAPI(`/gestion-propuestas/propuesta/${id}/rechazar`, { method: 'POST', body: { idsReservas } });
-                 } else {
-                     result = await fetchAPI(`/gestion-propuestas/presupuesto/${id}/rechazar`, { method: 'POST' });
-                 }
-                 alert('Propuesta rechazada y eliminada.');
-                 await fetchAndRender();
-             } catch(error) {
-                 alert(`Error: ${error.message}`);
-             } finally {
-                 target.disabled = false;
-                 target.textContent = 'Rechazar';
-             }
+            try {
+                if (tipo === 'propuesta') {
+                    const idsReservas = target.dataset.idsReservas?.split(',') || [];
+                    await fetchAPI(`/gestion-propuestas/propuesta/${id}/rechazar`, { 
+                        method: 'POST', 
+                        body: { idsReservas } 
+                    });
+                } else {
+                    await fetchAPI(`/gestion-propuestas/presupuesto/${id}/rechazar`, { 
+                        method: 'POST' 
+                    });
+                }
+                
+                alert('✅ Propuesta rechazada y eliminada.');
+                await fetchAndRender();
+                
+            } catch(error) {
+                alert(`❌ Error: ${error.message}`);
+                target.disabled = false;
+                target.textContent = textoOriginal;
+            }
+            return;
         }
     });
 }
