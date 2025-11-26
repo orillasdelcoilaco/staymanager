@@ -52,16 +52,14 @@ function renderImagenesGrid(imagenes, componentId) {
             <img src="${img.storagePath}" class="w-full h-full object-cover">
              <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-opacity flex items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
                 <button data-component-id="${componentId}" data-image-id="${img.imageId}" class="eliminar-imagen-btn bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center" title="Eliminar">&times;</button>
-                <button data-component-id="${componentId}" data-image-url="${img.storagePath}" class="editar-existente-btn bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs" title="Editar">✎</button>
+                <button data-component-id="${componentId}" data-image-url="${img.storagePath}" data-old-image-id="${img.imageId}" class="editar-existente-btn bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs" title="Editar">✎</button>
             </div>
         </div>
     `).join('');
 }
 
 export function setupGaleriaEvents() {
-    // Listener para el botón "Recortar y Subir"
     document.querySelectorAll('.btn-subir-img').forEach(btn => {
-        // Clonar para evitar duplicados
         const newBtn = btn.cloneNode(true);
         btn.parentNode.replaceChild(newBtn, btn);
         
@@ -75,11 +73,8 @@ export function setupGaleriaEvents() {
         });
     });
 
-    // Listeners para acciones en imágenes existentes (Delegación)
-    // Usamos delegación en el contenedor principal para no re-attachear mil veces
     const contenedoresGaleria = document.querySelectorAll('[id^="galeria-"]');
     contenedoresGaleria.forEach(container => {
-        // Clonamos el contenedor para limpiar listeners viejos si renderizamos de nuevo
         const newContainer = container.cloneNode(true);
         container.parentNode.replaceChild(newContainer, container);
 
@@ -90,35 +85,50 @@ export function setupGaleriaEvents() {
             }
             if (e.target.closest('.editar-existente-btn')) {
                 const btn = e.target.closest('.editar-existente-btn');
-                openEditor(btn.dataset.imageUrl, (blob) => handleSubirGaleria(btn.dataset.componentId, blob)); // Re-subir como nueva versión (o nueva imagen)
+                // Pasamos el oldImageId para que handleSubirGaleria sepa que debe borrar el antiguo
+                openEditor(btn.dataset.imageUrl, (blob) => handleSubirGaleria(btn.dataset.componentId, blob, btn.dataset.oldImageId));
             }
         });
     });
 }
 
-async function handleSubirGaleria(componentId, blob) {
+async function handleSubirGaleria(componentId, blob, oldImageId = null) {
     const statusEl = document.getElementById(`upload-status-${componentId}`);
-    statusEl.textContent = 'Subiendo...';
+    statusEl.textContent = oldImageId ? 'Actualizando...' : 'Subiendo...';
     
     const formData = new FormData();
-    // Importante: backend espera 'images' (array) aunque mandemos 1
-    formData.append('images', blob, 'gallery-image.jpg');
+    formData.append('images', blob, 'gallery.jpg');
 
     try {
+        // 1. Subir la nueva imagen
         const resultados = await fetchAPI(`/website-config/propiedad/${currentPropiedadId}/upload-image/${componentId}`, {
             method: 'POST',
             body: formData
         });
         
+        // 2. Si estamos editando, borrar la vieja
+        if (oldImageId) {
+            try {
+                await fetchAPI(`/website-config/propiedad/${currentPropiedadId}/delete-image/${componentId}/${oldImageId}`, {
+                    method: 'DELETE'
+                });
+                // Eliminar del estado local la vieja
+                if (currentImages[componentId]) {
+                    currentImages[componentId] = currentImages[componentId].filter(img => img.imageId !== oldImageId);
+                }
+            } catch (delError) {
+                console.warn("No se pudo borrar la imagen antigua automáticamente:", delError);
+            }
+        }
+        
+        // 3. Actualizar estado y UI
         if (!currentImages[componentId]) currentImages[componentId] = [];
         currentImages[componentId].push(...resultados);
         
-        // Actualizar UI
         document.getElementById(`galeria-${componentId}`).innerHTML = renderImagenesGrid(currentImages[componentId], componentId);
-        // Importante: Volver a attach listeners a los nuevos elementos generados
         setupGaleriaEvents(); 
         
-        statusEl.textContent = 'Listo.';
+        statusEl.textContent = oldImageId ? 'Editado con éxito.' : 'Subida completada.';
         const input = document.getElementById(`input-${componentId}`);
         if(input) input.value = '';
         
@@ -136,7 +146,7 @@ async function handleEliminar(componentId, imageId) {
         });
         currentImages[componentId] = currentImages[componentId].filter(img => img.imageId !== imageId);
         document.getElementById(`galeria-${componentId}`).innerHTML = renderImagenesGrid(currentImages[componentId], componentId);
-        setupGaleriaEvents(); // Re-bind events for the new grid
+        setupGaleriaEvents();
     } catch (error) {
         alert(`Error: ${error.message}`);
     }

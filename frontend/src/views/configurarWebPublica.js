@@ -30,26 +30,16 @@ export async function render() {
                     <div id="contenedor-galeria"></div>
                 </div>
             </div>
-
-            <div class="border-t pt-8 mt-8">
-                <details>
-                    <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Herramientas de Sistema (Click para expandir)</summary>
-                    <div class="p-4 bg-gray-50 rounded mt-2 border">
-                        <p class="text-xs text-gray-600 mb-2">Si tienes problemas editando imágenes (error de carga/bloqueo), presiona este botón una vez:</p>
-                        <button id="btn-fix-cors" class="btn-secondary text-xs bg-gray-200 hover:bg-gray-300 text-gray-700">
-                            🛠️ Habilitar Edición de Imágenes (Reparar CORS)
-                        </button>
-                    </div>
-                </details>
-            </div>
         </div>
     `;
 }
 
 export async function afterRender() {
     try {
-        console.log('[ConfigWeb] Iniciando carga de datos...');
-        
+        // Ejecutar configuración de CORS en segundo plano (Fire & Forget)
+        fetchAPI('/website-config/fix-storage-cors', { method: 'POST' })
+            .catch(err => console.warn("CORS Auto-fix warning (non-blocking):", err));
+
         const [empresa, propiedades, configWeb] = await Promise.all([
             fetchAPI('/empresa'),
             fetchAPI('/propiedades'),
@@ -75,24 +65,8 @@ export async function afterRender() {
             select.addEventListener('change', async (e) => handlePropiedadChange(e.target.value));
         }
 
-        // NUEVO: Listener para el botón de reparación CORS
-        document.getElementById('btn-fix-cors')?.addEventListener('click', async (e) => {
-            const btn = e.target;
-            btn.disabled = true;
-            btn.textContent = 'Configurando permisos...';
-            try {
-                const result = await fetchAPI('/website-config/fix-storage-cors', { method: 'POST' });
-                alert(`✅ ${result.message}\n\nAhora intenta editar una imagen nuevamente.`);
-            } catch (error) {
-                alert(`❌ Error: ${error.message}`);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '🛠️ Habilitar Edición de Imágenes (Reparar CORS)';
-            }
-        });
-
     } catch (error) {
-        console.error('[ConfigWeb] Error crítico:', error);
+        console.error('Error en carga inicial:', error);
         const container = document.querySelector('.bg-white');
         if (container) container.innerHTML = `<p class="text-red-500">Error de carga: ${error.message}</p>`;
     }
@@ -126,7 +100,7 @@ async function handlePropiedadChange(propiedadId) {
         setupGaleriaEvents();
 
     } catch (error) {
-        console.error('[ConfigWeb] Error al cargar propiedad:', error);
+        console.error('Error al cargar propiedad:', error);
         propContainer.innerHTML = `<p class="text-red-500">Error cargando propiedad: ${error.message}</p>`;
     }
 }
