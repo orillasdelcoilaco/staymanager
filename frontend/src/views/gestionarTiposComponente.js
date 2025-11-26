@@ -40,25 +40,24 @@ export async function render() {
 }
 
 export async function afterRender() {
+    console.log('[Tipos] Iniciando vista de Tipos de Componente...');
     await cargarTipos();
     
-    // Configurar el Wizard
     setupWizardEvents(async () => {
-        // Callback al guardar exitosamente
+        console.log('[Tipos] Wizard guardó correctamente. Recargando lista...');
         await cargarTipos();
     });
 
-    // Listener botón nuevo
     document.getElementById('btn-nuevo-tipo').addEventListener('click', openWizard);
 
-    // Delegación para botones de la lista
     const tbody = document.getElementById('tipos-tbody');
     tbody.addEventListener('click', async (e) => {
+        
         // Eliminar
         const btnDelete = e.target.closest('.btn-delete-tipo');
         if (btnDelete) {
             const id = btnDelete.dataset.id;
-            if (confirm('¿Eliminar este tipo de componente? Esto no afectará a los alojamientos que ya lo usen, pero no podrás seleccionarlo en el futuro.')) {
+            if (confirm('¿Eliminar este tipo de componente?')) {
                 try {
                     await fetchAPI(`/componentes/${id}`, { method: 'DELETE' });
                     await cargarTipos();
@@ -68,15 +67,22 @@ export async function afterRender() {
             }
         }
 
-        // Inicializar Defaults (si la lista está vacía y se muestra el botón)
+        // Inicializar Defaults (Botón de Carga Básica)
         if (e.target.id === 'btn-init-defaults') {
+            console.log('[Tipos] Click en Cargar Tipos Básicos. Llamando a API...');
             e.target.disabled = true;
-            e.target.textContent = 'Creando estructura base...';
+            e.target.textContent = 'Creando estructura base (Conectando con IA)...';
+            
             try {
-                await fetchAPI('/componentes/init-defaults', { method: 'POST' });
+                const response = await fetchAPI('/componentes/init-defaults', { method: 'POST' });
+                console.log('[Tipos] Respuesta init-defaults:', response);
+                
+                alert(response.message || 'Tipos creados con éxito.');
                 await cargarTipos();
             } catch (error) {
-                alert(`Error: ${error.message}`);
+                console.error('[Tipos] Error crítico en init-defaults:', error);
+                alert(`Error al crear tipos básicos: ${error.message}. Revisa la consola.`);
+            } finally {
                 e.target.disabled = false;
             }
         }
@@ -87,9 +93,13 @@ async function cargarTipos() {
     const tbody = document.getElementById('tipos-tbody');
     try {
         tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4">Cargando ontología...</td></tr>';
+        console.log('[Tipos] Fetching /componentes...');
         tiposComponente = await fetchAPI('/componentes');
+        console.log(`[Tipos] Cargados ${tiposComponente.length} tipos.`);
+        
         tbody.innerHTML = renderTablaTipos(tiposComponente);
     } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-red-500">Error: ${error.message}</td></tr>`;
+        console.error('[Tipos] Error al cargar lista:', error);
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-red-500">Error de conexión: ${error.message}</td></tr>`;
     }
 }
