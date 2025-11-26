@@ -88,7 +88,15 @@ export function setupGeneralEvents() {
     attach('btn-generar-home-seo', () => generarTextosHomeIA('seo'));
     attach('btn-generar-home-content', () => generarTextosHomeIA('content'));
     attach('save-empresa-config-btn', guardarTextosHome);
-    attach('upload-hero-image-btn', handleSubirHeroImage);
+    // CAMBIO AQUÍ: En lugar de handleSubirHeroImage directo, abrimos el editor
+    attach('upload-hero-image-btn', () => {
+        const input = document.getElementById('upload-hero-image-input');
+        const file = input.files?.[0];
+        if (!file) return alert('Selecciona una imagen primero.');
+        
+        // Abrir el editor y pasar la función que maneja la subida del blob resultante
+        openEditor(file, (editedBlob) => handleSubirHeroImage(editedBlob));
+    });
 }
 
 async function generarTextosHomeIA(tipo) {
@@ -162,19 +170,16 @@ async function guardarTextosHome() {
     }
 }
 
-async function handleSubirHeroImage() {
-    const input = document.getElementById('upload-hero-image-input');
-    const file = input.files?.[0];
-    if (!file) return alert('Selecciona una imagen primero.');
-
+async function handleSubirHeroImage(imageBlob) {
     const btn = document.getElementById('upload-hero-image-btn');
     const statusEl = document.getElementById('upload-hero-status');
     
     if(btn) btn.disabled = true;
-    if(statusEl) statusEl.textContent = 'Subiendo...';
+    if(statusEl) statusEl.textContent = 'Subiendo y procesando...';
 
     const formData = new FormData();
-    formData.append('heroImage', file);
+    // Añadimos el blob como si fuera un archivo, dándole un nombre
+    formData.append('heroImage', imageBlob, 'hero-image-edited.jpg');
     formData.append('altText', document.getElementById('upload-hero-alt-input').value);
     formData.append('titleText', document.getElementById('upload-hero-title-input').value);
 
@@ -186,6 +191,8 @@ async function handleSubirHeroImage() {
             <img src="${result['websiteSettings.theme.heroImageUrl']}" alt="Vista previa portada" class="w-full h-32 object-cover rounded-md border bg-gray-100">
         `;
         if(statusEl) statusEl.textContent = 'Imagen de portada subida con éxito.';
+        // Limpiar el input file original
+        document.getElementById('upload-hero-image-input').value = '';
     } catch (error) {
         if(statusEl) statusEl.textContent = `Error: ${error.message}`;
     } finally {

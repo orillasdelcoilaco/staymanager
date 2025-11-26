@@ -1,5 +1,7 @@
 // frontend/src/views/components/configurarWebPublica/webPublica.propiedad.js
 import { fetchAPI } from '../../../api.js';
+// IMPORTAR EL EDITOR
+import { openEditor } from '../../../utils/imageEditorModal.js';
 
 let currentPropiedad = null;
 let currentWebsiteData = null;
@@ -74,17 +76,20 @@ export function setupPropiedadEvents() {
         }
     };
 
-    attach('upload-card-image-btn', handleSubirCardImage);
+    // CAMBIO AQUÍ: Usar el editor
+    attach('upload-card-image-btn', () => {
+        const input = document.getElementById('subir-card-image-input');
+        const file = input.files?.[0];
+        if (!file) return alert('Selecciona un archivo.');
+        
+        openEditor(file, (editedBlob) => handleSubirCardImage(editedBlob));
+    });
     attach('btn-generar-ai-desc', generarTextoDescripcionPropiedad);
     attach('btn-guardar-ai-desc', guardarTextoDescripcionPropiedad);
 }
 
 async function handleSubirCardImage() {
-    const input = document.getElementById('subir-card-image-input');
-    const file = input.files?.[0];
-    if (!file) return alert('Selecciona un archivo.');
-
-    const statusEl = document.getElementById('upload-status-card-image');
+const statusEl = document.getElementById('upload-status-card-image');
     const btn = document.getElementById('upload-card-image-btn');
     
     statusEl.textContent = 'Subiendo y optimizando...';
@@ -92,7 +97,8 @@ async function handleSubirCardImage() {
     btn.disabled = true;
 
     const formData = new FormData();
-    formData.append('cardImage', file);
+    // Usar el blob editado
+    formData.append('cardImage', imageBlob, 'card-image-edited.jpg');
 
     try {
         const result = await fetchAPI(`/website-config/propiedad/${currentPropiedad.id}/upload-card-image`, {
@@ -108,7 +114,7 @@ async function handleSubirCardImage() {
             <div class="relative w-48 border rounded-md overflow-hidden group">
                 <img src="${result.storagePath}" class="w-full h-32 object-cover">
             </div>`;
-        input.value = '';
+        document.getElementById('subir-card-image-input').value = '';
     } catch (error) {
         statusEl.textContent = `Error: ${error.message}`;
         statusEl.classList.add('text-red-500');
