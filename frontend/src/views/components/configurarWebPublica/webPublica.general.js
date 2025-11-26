@@ -3,7 +3,7 @@ import { fetchAPI } from '../../../api.js';
 
 let settings = { seo: {}, content: {}, theme: {}, general: {} };
 
-// Helper para evitar "undefined" en los inputs
+// Helper vital para evitar "undefined" en la UI
 const clean = (val) => {
     if (val === undefined || val === null || val === 'undefined') return '';
     return val;
@@ -72,15 +72,16 @@ export function renderGeneral(datosSettings) {
 }
 
 export function setupGeneralEvents() {
+    // Función helper para adjuntar eventos de forma segura
     const attach = (id, handler) => {
         const el = document.getElementById(id);
         if (el) {
-            // Clonar para eliminar listeners previos si se vuelve a renderizar
+            // Reemplazar el elemento para limpiar listeners previos (evita duplicados)
             const newEl = el.cloneNode(true);
             el.parentNode.replaceChild(newEl, el);
             newEl.addEventListener('click', handler);
         } else {
-            console.warn(`[ConfigWeb] Botón no encontrado: ${id}`);
+            console.warn(`[ConfigWeb] Botón no encontrado en DOM: ${id}`);
         }
     };
 
@@ -93,6 +94,7 @@ export function setupGeneralEvents() {
 async function generarTextosHomeIA(tipo) {
     const btnId = tipo === 'seo' ? 'btn-generar-home-seo' : 'btn-generar-home-content';
     const btn = document.getElementById(btnId);
+    
     if(btn) {
         btn.disabled = true;
         btn.textContent = 'Generando...';
@@ -103,11 +105,12 @@ async function generarTextosHomeIA(tipo) {
         const data = await fetchAPI(endpoint, { method: 'POST' });
 
         if (tipo === 'seo') {
-            document.getElementById('home-seo-title').value = clean(data.homeTitle);
-            document.getElementById('home-seo-description').value = clean(data.homeDescription);
+            // Mapeo correcto: la API devuelve metaTitle/metaDescription
+            document.getElementById('home-seo-title').value = clean(data.metaTitle);
+            document.getElementById('home-seo-description').value = clean(data.metaDescription);
         } else {
-            document.getElementById('home-h1').value = clean(data.homeH1);
-            document.getElementById('home-intro').value = clean(data.homeIntro);
+            document.getElementById('home-h1').value = clean(data.h1);
+            document.getElementById('home-intro').value = clean(data.introParagraph);
         }
     } catch (error) {
         alert(`Error generando textos con IA: ${error.message}`);
