@@ -12,11 +12,6 @@ export function initGaleria(propiedadId, images) {
     currentImages = images || {};
 }
 
-/**
- * Renderiza la galería completa con la guía de IA (Auditor Visual).
- * @param {Array} componentes - Componentes de la propiedad.
- * @param {Array} tiposMaestros - Lista de tipos definidos en la empresa (para buscar shotList).
- */
 export function renderGaleria(componentes, tiposMaestros = []) {
     if (!componentes || componentes.length === 0) {
         return `<p class="text-sm text-gray-500 p-4 border border-yellow-200 bg-yellow-50 rounded">
@@ -25,22 +20,23 @@ export function renderGaleria(componentes, tiposMaestros = []) {
         </p>`;
     }
     return `
-        <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            Galería por Áreas 
-            <span class="text-xs font-normal bg-green-100 text-green-800 px-2 py-1 rounded-full">Auditor IA Activo</span>
-        </h3>
-        ${componentes.map(comp => renderComponenteBloque(comp, tiposMaestros)).join('')}
+        <div class="space-y-6">
+            <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                Galería por Áreas 
+                <span class="text-xs font-normal bg-green-100 text-green-800 px-2 py-1 rounded-full">Auditor IA Activo</span>
+            </h3>
+            ${componentes.map(comp => renderComponenteBloque(comp, tiposMaestros)).join('')}
+        </div>
     `;
 }
 
 function renderComponenteBloque(componente, tiposMaestros) {
     const imagenes = currentImages[componente.id] || [];
     
-    // 1. Buscar la definición inteligente del tipo
+    // Buscar definición de IA para el Shot List
     const tipoDefinicion = tiposMaestros.find(t => t.id === componente.tipoId) 
-                        || tiposMaestros.find(t => t.nombreNormalizado === componente.tipo); // Fallback por nombre
+                        || tiposMaestros.find(t => t.nombreNormalizado === componente.tipo); 
 
-    // 2. Generar el Checklist (Shot List)
     let checklistHtml = '';
     if (tipoDefinicion && tipoDefinicion.shotList) {
         const itemsHtml = tipoDefinicion.shotList.map(req => `
@@ -62,13 +58,16 @@ function renderComponenteBloque(componente, tiposMaestros) {
     }
 
     return `
-        <fieldset class="border p-4 rounded-md mb-6 bg-white shadow-sm">
+        <fieldset class="border p-4 rounded-md bg-white shadow-sm">
             <legend class="px-2 font-semibold text-gray-700 flex items-center gap-2">
                 ${componente.nombre} 
                 <span class="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded">${componente.tipo}</span>
             </legend>
             
             ${checklistHtml}
+
+            <div id="ai-feedback-${componente.id}" class="hidden mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm rounded-r shadow-sm">
+                </div>
 
             <div class="space-y-3">
                 <div id="galeria-${componente.id}" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -88,66 +87,147 @@ function renderComponenteBloque(componente, tiposMaestros) {
 }
 
 function renderImagenesGrid(imagenes, componentId) {
-    if (imagenes.length === 0) return '<p class="text-xs text-gray-500 col-span-full py-2">No hay imágenes en esta sección.</p>';
+    if (imagenes.length === 0) return '<p class="text-xs text-gray-500 col-span-full py-4 text-center italic">Aún no hay imágenes. Usa la guía de arriba para empezar.</p>';
     
-    return imagenes.map(img => `
-        <div class="relative border rounded-md overflow-hidden group h-40 bg-gray-100 flex flex-col"> <div class="relative h-24 w-full">
+    return imagenes.map(img => {
+        // Lógica visual para la etiqueta corta
+        const tieneAdvertencia = !!img.advertencia;
+        const statusHtml = tieneAdvertencia
+            ? `<p class="text-red-600 font-bold mt-1 text-[10px] bg-red-50 px-1 rounded border border-red-100 flex items-center gap-1 cursor-help" title="${img.advertencia}">
+                 ⚠️ Revisar Alerta
+               </p>`
+            : `<p class="text-green-600 mt-1 text-[10px] flex items-center gap-1">
+                 ✅ Aprobada
+               </p>`;
+
+        const bordeClass = tieneAdvertencia ? "border-red-400 ring-2 ring-red-100" : "border-gray-200";
+
+        return `
+        <div class="relative border ${bordeClass} rounded-md overflow-hidden group h-44 bg-white flex flex-col shadow-sm hover:shadow-md transition-all">
+            <div class="relative h-28 w-full bg-gray-100">
                 <img src="${img.storagePath}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
                 
                 <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-opacity flex items-center justify-center opacity-0 group-hover:opacity-100 gap-3">
-                    <button data-component-id="${componentId}" data-image-id="${img.imageId}" class="eliminar-imagen-btn bg-white text-red-600 rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-50 shadow-md" title="Eliminar">&times;</button>
-                    <button data-component-id="${componentId}" data-image-url="${img.storagePath}" data-old-image-id="${img.imageId}" class="editar-existente-btn bg-white text-blue-600 rounded-full w-8 h-8 flex items-center justify-center hover:bg-blue-50 shadow-md" title="Recortar">✎</button>
+                    <button data-component-id="${componentId}" data-image-id="${img.imageId}" class="eliminar-imagen-btn bg-white text-red-600 rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-50 shadow-md transition-transform hover:scale-110" title="Eliminar">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                    </button>
+                    <button data-component-id="${componentId}" data-image-url="${img.storagePath}" data-old-image-id="${img.imageId}" class="editar-existente-btn bg-white text-blue-600 rounded-full w-8 h-8 flex items-center justify-center hover:bg-blue-50 shadow-md transition-transform hover:scale-110" title="Recortar">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+                    </button>
                 </div>
             </div>
 
-            <div class="p-2 bg-white flex-grow flex flex-col justify-between text-[10px]">
-                <p class="text-gray-600 truncate" title="${clean(img.altText)}">${clean(img.altText) || 'Analizando...'}</p>
-                
-                ${img.advertencia ? 
-                    `<p class="text-red-600 font-bold mt-1 leading-tight bg-red-50 p-1 rounded border border-red-100">⚠️ ${img.advertencia}</p>` : 
-                    `<p class="text-green-600 mt-1">✅ Validada por IA</p>`
-                }
+            <div class="p-2 flex-grow flex flex-col justify-between">
+                <div>
+                    <p class="text-gray-900 font-medium text-[10px] truncate leading-tight" title="${img.title}">${img.title || 'Sin Título'}</p>
+                    <p class="text-gray-500 text-[9px] truncate mt-0.5" title="${clean(img.altText)}">${clean(img.altText) || 'Analizando...'}</p>
+                </div>
+                ${statusHtml}
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
-// ... (resto de funciones setupGaleriaEvents, handleSubirMasivo, etc. IGUALES que la versión anterior) ...
 export function setupGaleriaEvents() {
     document.querySelectorAll('.subir-imagenes-input').forEach(input => {
         const newInput = input.cloneNode(true);
         input.parentNode.replaceChild(newInput, input);
+        
         newInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) handleSubirMasivo(e.target.dataset.componentId, e.target.files);
+            if (e.target.files.length > 0) {
+                handleSubirMasivo(e.target.dataset.componentId, e.target.files);
+            }
         });
     });
+
     const contenedoresGaleria = document.querySelectorAll('[id^="galeria-"]');
     contenedoresGaleria.forEach(container => {
         const newContainer = container.cloneNode(true);
         container.parentNode.replaceChild(newContainer, container);
+
         newContainer.addEventListener('click', (e) => {
             const btnEliminar = e.target.closest('.eliminar-imagen-btn');
-            if (btnEliminar) handleEliminar(btnEliminar.dataset.componentId, btnEliminar.dataset.imageId);
+            if (btnEliminar) {
+                handleEliminar(btnEliminar.dataset.componentId, btnEliminar.dataset.imageId);
+            }
+            
             const btnEditar = e.target.closest('.editar-existente-btn');
-            if (btnEditar) openEditor(btnEditar.dataset.imageUrl, (blob) => handleReemplazarImagen(btnEditar.dataset.componentId, blob, btnEditar.dataset.oldImageId));
+            if (btnEditar) {
+                openEditor(btnEditar.dataset.imageUrl, (blob) => handleReemplazarImagen(btnEditar.dataset.componentId, blob, btnEditar.dataset.oldImageId));
+            }
         });
     });
 }
 
+// Función Auxiliar para mostrar alertas globales en el bloque del componente
+function mostrarFeedbackIA(componentId, resultados) {
+    const feedbackContainer = document.getElementById(`ai-feedback-${componentId}`);
+    if (!feedbackContainer) return;
+
+    // Filtrar solo los que tienen advertencia
+    const errores = resultados.filter(r => r.advertencia);
+
+    if (errores.length > 0) {
+        const listaErrores = errores.map(err => `
+            <li class="mb-1">
+                <strong>Imagen analizada:</strong> ${err.advertencia}
+            </li>
+        `).join('');
+
+        feedbackContainer.innerHTML = `
+            <div class="flex items-start gap-2">
+                <span class="text-xl">🤖</span>
+                <div>
+                    <p class="font-bold mb-1">El Auditor Visual ha detectado inconsistencias:</p>
+                    <ul class="list-disc list-inside pl-1">
+                        ${listaErrores}
+                    </ul>
+                    <p class="mt-2 text-xs italic text-red-600">Las imágenes se han subido pero están marcadas como "Revisar" en la galería.</p>
+                </div>
+            </div>
+        `;
+        feedbackContainer.classList.remove('hidden');
+    } else {
+        feedbackContainer.classList.add('hidden');
+        feedbackContainer.innerHTML = '';
+    }
+}
+
 async function handleSubirMasivo(componentId, files) {
     const statusEl = document.getElementById(`upload-status-${componentId}`);
-    statusEl.textContent = `Subiendo ${files.length} imágenes y generando descripciones IA...`;
+    const feedbackContainer = document.getElementById(`ai-feedback-${componentId}`);
+    
+    // Limpiar estado previo
+    if (feedbackContainer) feedbackContainer.classList.add('hidden');
+    
+    statusEl.textContent = `Subiendo ${files.length} imágenes y auditando con IA...`;
     statusEl.className = 'text-xs mt-1 text-blue-600 font-medium animate-pulse';
+    
     const formData = new FormData();
-    for (const file of files) formData.append('images', file);
+    for (const file of files) {
+        formData.append('images', file);
+    }
+
     try {
-        const resultados = await fetchAPI(`/website-config/propiedad/${currentPropiedadId}/upload-image/${componentId}`, { method: 'POST', body: formData });
+        const resultados = await fetchAPI(`/website-config/propiedad/${currentPropiedadId}/upload-image/${componentId}`, {
+            method: 'POST',
+            body: formData
+        });
+        
         if (!currentImages[componentId]) currentImages[componentId] = [];
         currentImages[componentId].push(...resultados);
+        
+        // Renderizar galería actualizada
         document.getElementById(`galeria-${componentId}`).innerHTML = renderImagenesGrid(currentImages[componentId], componentId);
-        statusEl.textContent = '¡Listo! Imágenes subidas y analizadas.';
+        
+        // Mostrar resultados de la IA (Errores completos arriba)
+        mostrarFeedbackIA(componentId, resultados);
+
+        statusEl.textContent = '¡Proceso completado!';
         statusEl.className = 'text-xs mt-1 text-green-600 font-medium';
+        
         document.getElementById(`input-${componentId}`).value = '';
+        
     } catch (error) {
         statusEl.textContent = `Error: ${error.message}`;
         statusEl.className = 'text-xs mt-1 text-red-500 font-medium';
@@ -157,23 +237,46 @@ async function handleSubirMasivo(componentId, files) {
 async function handleReemplazarImagen(componentId, blob, oldImageId) {
     const statusEl = document.getElementById(`upload-status-${componentId}`);
     statusEl.textContent = 'Actualizando imagen...';
+    
     const formData = new FormData();
     formData.append('images', blob, 'edited-image.jpg');
+
     try {
-        const resultados = await fetchAPI(`/website-config/propiedad/${currentPropiedadId}/upload-image/${componentId}`, { method: 'POST', body: formData });
-        await fetchAPI(`/website-config/propiedad/${currentPropiedadId}/delete-image/${componentId}/${oldImageId}`, { method: 'DELETE' });
+        const resultados = await fetchAPI(`/website-config/propiedad/${currentPropiedadId}/upload-image/${componentId}`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        await fetchAPI(`/website-config/propiedad/${currentPropiedadId}/delete-image/${componentId}/${oldImageId}`, {
+            method: 'DELETE'
+        });
+
         currentImages[componentId] = currentImages[componentId].filter(img => img.imageId !== oldImageId);
         currentImages[componentId].push(...resultados);
+        
         document.getElementById(`galeria-${componentId}`).innerHTML = renderImagenesGrid(currentImages[componentId], componentId);
+        
+        // También mostramos feedback si la imagen editada sigue mal
+        mostrarFeedbackIA(componentId, resultados);
+
         statusEl.textContent = 'Edición guardada.';
-    } catch (error) { alert(`Error al guardar edición: ${error.message}`); }
+        
+    } catch (error) {
+        alert(`Error al guardar edición: ${error.message}`);
+    }
 }
 
 async function handleEliminar(componentId, imageId) {
     if (!confirm('¿Estás seguro de eliminar esta imagen permanentemente?')) return;
     try {
-        await fetchAPI(`/website-config/propiedad/${currentPropiedadId}/delete-image/${componentId}/${imageId}`, { method: 'DELETE' });
+        await fetchAPI(`/website-config/propiedad/${currentPropiedadId}/delete-image/${componentId}/${imageId}`, {
+            method: 'DELETE'
+        });
         currentImages[componentId] = currentImages[componentId].filter(img => img.imageId !== imageId);
         document.getElementById(`galeria-${componentId}`).innerHTML = renderImagenesGrid(currentImages[componentId], componentId);
-    } catch (error) { alert(`Error al eliminar: ${error.message}`); }
+        
+        // Ocultar feedback si ya no es relevante (opcional, por simplicidad lo dejamos hasta nueva carga)
+    } catch (error) {
+        alert(`Error al eliminar: ${error.message}`);
+    }
 }
