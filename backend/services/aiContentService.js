@@ -113,28 +113,26 @@ const generarDescripcionAlojamiento = async (desc, nombre, empresa, ubicacion, t
     return await llamarGeminiAPI(prompt);
 };
 
-// 4. Metadata Imagen (WITH VISUAL AUDITOR)
+// 4. Metadata Imagen (STRICT VISUAL AUDITOR)
 const generarMetadataImagen = async (empresa, propiedad, desc, componente, tipo, imageBuffer) => {
     const prompt = `
-        Actúa como un Auditor de Calidad Visual para hoteles y experto SEO.
+        Eres un Auditor de Calidad Hotelera estricto.
         
-        ESTÁS VIENDO: Una foto subida por el usuario para el espacio: "${componente}" (Tipo esperado: ${tipo}).
+        CONTEXTO: El usuario dice que esta foto es del espacio: "${componente}" (Categoría: ${tipo}).
         PROPIEDAD: "${propiedad}".
-        EMPRESA: "${empresa}".
 
-        TAREAS:
-        1. **altText**: Describe VISUALMENTE lo que ves en la foto con detalle (colores, materiales, vistas, objetos clave) para SEO. (Máx 125 chars).
-        2. **title**: Un título corto y atractivo. (Máx 60 chars).
-        3. **AUDITORÍA**: ¿La foto coincide con el tipo "${tipo}"?
-           - Si suben un baño y es "Dormitorio": DETECTARLO.
-           - Si suben un paisaje y es "Cocina": DETECTARLO.
-           - Si la foto es borrosa o mala: DETECTARLO.
+        TAREA DE ANÁLISIS VISUAL:
+        1. Identifica qué es realmente la imagen (ej: un baño, una cama, un paisaje, un perro, una cocina).
+        2. Compáralo con la Categoría Esperada ("${tipo}").
 
-        Responde SOLO JSON:
+        FORMATO DE RESPUESTA (JSON ÚNICO):
         {
-            "altText": "...",
-            "title": "...",
-            "advertencia": "Mensaje corto al usuario si hay error (ej: 'Parece un baño, no un dormitorio'). Si está bien, pon null."
+            "altText": "Descripción visual atractiva y detallada para SEO de lo que REALMENTE se ve en la foto. (Máx 125 chars).",
+            "title": "Título comercial corto. (Máx 60 chars).",
+            "advertencia": "CAMPO CRÍTICO: Si la imagen NO coincide claramente con la categoría '${tipo}', escribe una advertencia directa y explicativa. 
+                            Ejemplo: 'CUIDADO: Has subido un paisaje exterior en la sección de Dormitorio'. 
+                            Ejemplo: 'ERROR: Esto parece un baño, no corresponde a Cocina'.
+                            Si la imagen coincide o es ambigua pero aceptable, pon null."
         }
     `;
     
