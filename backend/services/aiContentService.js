@@ -1,7 +1,6 @@
 // backend/services/aiContentService.js
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// Cargar dotenv solo si no estamos en producción
 if (!process.env.RENDER) {
     require('dotenv').config();
 }
@@ -9,113 +8,85 @@ if (!process.env.RENDER) {
 const API_KEY = process.env.GEMINI_API_KEY;
 
 if (!API_KEY) {
-    console.warn("¡ADVERTENCIA! No se encontró GEMINI_API_KEY.");
+    console.warn("¡ADVERTENCIA! No se encontró la GEMINI_API_KEY. Las funciones de IA usarán respuestas simuladas.");
 }
 
-// Usamos gemini-1.5-flash por ser el estándar actual de velocidad/calidad
+// Inicializar el cliente
 const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
-const model = genAI ? genAI.getGenerativeModel({  model: "models/gemini-2.5-flash" }) : null;
+
+// *** CORRECCIÓN CRÍTICA: Usar el modelo validado por el usuario ***
+const model = genAI ? genAI.getGenerativeModel({ model: "models/gemini-2.5-flash" }) : null;
 
 // --- Función Placeholder (Respaldo) ---
 async function llamarIASimulada(prompt) {
     console.log("--- Usando respuesta de respaldo (Fallback) ---");
-    // Respuestas genéricas pero profesionales si falla la API
     if (prompt.includes("generar metadatos SEO")) {
         return JSON.stringify({ 
-            metaTitle: "Alojamiento Turístico | Reserva Directa al Mejor Precio", 
-            metaDescription: "Reserva tu estancia directamente con nosotros. Mejor tarifa garantizada, confirmación inmediata y atención personalizada." 
+            metaTitle: "Alojamiento Turístico | Reserva Directa", 
+            metaDescription: "Reserva tu estancia con la mejor tarifa garantizada." 
         });
     } else if (prompt.includes("generar el contenido principal")) {
         return JSON.stringify({ 
             h1: "Bienvenidos a Nuestro Alojamiento", 
-            introParagraph: "Disfruta de una experiencia única con todas las comodidades. Ubicación ideal para tu descanso y desconexión." 
+            introParagraph: "Disfruta de una experiencia única." 
         });
     }
     return "Contenido generado automáticamente.";
 }
 
-async function llamarGeminiAPI(prompt) {
+async function llamarGeminiAPI(prompt, imageBuffer = null) {
     if (!model) return llamarIASimulada(prompt);
     
     try {
-        console.log(`[AI Service] Enviando prompt a Gemini...`);
-        const result = await model.generateContent(prompt);
+        let result;
+        if (imageBuffer) {
+            console.log(`[AI Service] Enviando imagen y prompt al modelo ${model.model}...`);
+            const imagePart = {
+                inlineData: {
+                    data: imageBuffer.toString("base64"),
+                    mimeType: "image/webp"
+                },
+            };
+            result = await model.generateContent([prompt, imagePart]);
+        } else {
+            console.log(`[AI Service] Enviando texto al modelo ${model.model}...`);
+            result = await model.generateContent(prompt);
+        }
+
         const response = await result.response;
         let text = response.text();
         
-        if (!text) throw new Error("Respuesta vacía");
-        
-        // Limpieza agresiva de bloques de código Markdown que la IA a veces añade
-        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        
-        return text;
+        // Limpieza de formato Markdown
+        return text.replace(/```json/g, '').replace(/```/g, '').trim();
+
     } catch (error) {
         console.error("Error Gemini API:", error.message);
         return llamarIASimulada(prompt);
     }
 }
 
-// 1. SEO Home Page (Optimizada para Google Hotels/Local)
+// 1. SEO Home Page
 const generarSeoHomePage = async (empresaData) => {
-    // Extraemos datos ricos para el prompt
-    const nombre = empresaData.nombre || "Nuestra Empresa";
-    const ubicacion = empresaData.ubicacionTexto || "Chile";
-    const tipo = empresaData.tipoAlojamientoPrincipal || "Alojamientos";
-    const keywords = empresaData.palabrasClaveAdicionales || "reserva directa, sin comisiones";
-
     const prompt = `
-        Actúa como un estratega SEO Senior especializado en hotelería y Google Hotels.
-        Genera un objeto JSON con "metaTitle" y "metaDescription" para la página de inicio (Home).
-
-        DATOS OBLIGATORIOS A INCLUIR:
-        - Nombre de Marca: "${nombre}"
-        - Ubicación Clave: "${ubicacion}"
-        - Palabra Clave Principal: "${tipo}"
-        - Extras: "${keywords}"
-
-        REGLAS ESTRICTAS:
-        1. **metaTitle** (Máx 60 chars): Estructura recomendada: "[Tipo] en [Ubicación] | [Nombre Marca]". Debe ser potente y local.
-        2. **metaDescription** (Máx 155 chars): Debe comenzar con un verbo de acción (Reserva, Descubre, Vive). DEBE mencionar que es "Reserva Directa" o "Sin Comisiones" (clave para competir con OTAs). Incluye el nombre de la empresa.
-
-        Salida: SOLO JSON válido {"metaTitle": "...", "metaDescription": "..."}.
+        Actúa como experto SEO. Genera JSON {"metaTitle", "metaDescription"} para la HOME.
+        Empresa: "${empresaData.nombre}", Ubicación: "${empresaData.ubicacionTexto || ''}".
+        Respuesta SOLO JSON válido.
     `;
-
     try {
         const raw = await llamarGeminiAPI(prompt);
-        const json = JSON.parse(raw);
-        return {
-            metaTitle: json.metaTitle?.substring(0, 60) || `${tipo} en ${ubicacion} | ${nombre}`,
-            metaDescription: json.metaDescription?.substring(0, 155) || `Reserva directa en ${nombre}. Los mejores ${tipo} en ${ubicacion}.`
-        };
+        return JSON.parse(raw);
     } catch (e) {
         return JSON.parse(await llamarIASimulada("generar metadatos SEO"));
     }
 };
 
-// 2. Contenido Home Page (Copywriting Persuasivo)
+// 2. Contenido Home Page
 const generarContenidoHomePage = async (empresaData) => {
-    const nombre = empresaData.nombre || "";
-    const ubicacion = empresaData.ubicacionTexto || "";
-    const tipo = empresaData.tipoAlojamientoPrincipal || "alojamientos";
-    const marketing = empresaData.enfoqueMarketing || "descanso y desconexión";
-
     const prompt = `
-        Actúa como un Copywriter experto en conversión web para hoteles.
-        Genera un objeto JSON con "h1" y "introParagraph" para la portada.
-
-        DATOS:
-        - Empresa: "${nombre}"
-        - Ubicación: "${ubicacion}"
-        - Servicio: "${tipo}"
-        - Promesa de Valor: "${marketing}"
-
-        REGLAS:
-        1. **h1** (Título Principal): No pongas solo "Bienvenidos". Usa una frase con keywords. Ej: "Arriendo de [Tipo] en [Ubicación]" o "Tu refugio de [Marketing] en [Ubicación]". Máx 70 caracteres.
-        2. **introParagraph**: 2 o 3 frases cortas. Menciona explícitamente a "${nombre}". Destaca la ubicación y el beneficio principal (${marketing}). Termina invitando a ver las opciones.
-
-        Salida: SOLO JSON válido {"h1": "...", "introParagraph": "..."}.
+        Actúa como Copywriter. Genera JSON {"h1", "introParagraph"} para HOME.
+        Empresa: "${empresaData.nombre}".
+        Respuesta SOLO JSON válido.
     `;
-
     try {
         const raw = await llamarGeminiAPI(prompt);
         return JSON.parse(raw);
@@ -124,42 +95,33 @@ const generarContenidoHomePage = async (empresaData) => {
     }
 };
 
-// 3. Descripción Alojamiento (Detallada y Específica)
-const generarDescripcionAlojamiento = async (descManual, nombreAlojamiento, nombreEmpresa, ubicacion, tipo, marketing) => {
+// 3. Descripción Alojamiento
+const generarDescripcionAlojamiento = async (desc, nombre, empresa, ubicacion, tipo, marketing) => {
     const prompt = `
-        Mejora la descripción comercial para la propiedad "${nombreAlojamiento}" de la empresa "${nombreEmpresa}".
-        
-        Contexto SEO:
-        - Ubicación: ${ubicacion}
-        - Tipo: ${tipo}
-        - Enfoque: ${marketing}
-        - Borrador manual: "${descManual || ''}"
-
-        Instrucciones:
-        - Redacta un texto atractivo de 2 párrafos (máx 150 palabras en total).
-        - **Primer párrafo**: Gancho emocional centrado en la experiencia en "${ubicacion}". Usa el nombre de la propiedad.
-        - **Segundo párrafo**: Detalles prácticos y comodidades, cerrando con una invitación a reservar directo.
-        - Usa palabras clave de cola larga (long-tail) relacionadas con "${tipo} en ${ubicacion}".
-        - NO uses Markdown, solo texto plano.
+        Mejora esta descripción para "${nombre}" en ${ubicacion}.
+        Base: "${desc || ''}". Enfoque: ${marketing}.
+        Salida: Texto plano persuasivo.
     `;
     return await llamarGeminiAPI(prompt);
 };
 
-// 4. Metadata Imagen (SEO de Imágenes)
-const generarMetadataImagen = async (empresa, propiedad, desc, componente, tipo) => {
+// 4. Metadata Imagen (CON VISIÓN)
+const generarMetadataImagen = async (empresa, propiedad, desc, componente, tipo, imageBuffer) => {
     const prompt = `
-        Genera metadatos SEO (JSON) para una foto de: "${componente}" (Tipo: ${tipo}) en la propiedad "${propiedad}" de "${empresa}".
+        Analiza esta imagen visualmente.
+        Contexto: Foto de "${componente}" (${tipo}) en "${propiedad}".
         
-        REGLAS:
-        1. **altText** (SEO): Describe la imagen incluyendo palabras clave. Ej: "Dormitorio matrimonial con vista al bosque en Cabaña X, Pucón". (Máx 120 chars).
-        2. **title** (Tooltip): Nombre corto y descriptivo. Ej: "Dormitorio Principal - ${propiedad}". (Máx 80 chars).
+        1. altText: Describe lo que ves (colores, luz, muebles) para SEO. Máx 125 chars.
+        2. title: Título corto. Máx 60 chars.
 
-        Salida: SOLO JSON válido {"altText": "...", "title": "..."}.
+        Respuesta SOLO JSON {"altText": "...", "title": "..."}.
     `;
     try {
-        const raw = await llamarGeminiAPI(prompt);
+        // Pasamos el buffer para que el modelo 2.5 lo "vea"
+        const raw = await llamarGeminiAPI(prompt, imageBuffer);
         return JSON.parse(raw);
     } catch (e) {
+        console.warn("Fallo generación metadata imagen:", e);
         return { altText: `${componente} en ${propiedad}`, title: componente };
     }
 };

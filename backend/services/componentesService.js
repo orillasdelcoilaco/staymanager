@@ -7,48 +7,47 @@ if (!process.env.RENDER) {
 }
 const API_KEY = process.env.GEMINI_API_KEY;
 const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
-const model = genAI ? genAI.getGenerativeModel({ model: "gemini-1.5-flash" }) : null;
+
+// *** CORRECCIÓN CRÍTICA: Usar el modelo gemini-2.5-flash ***
+const model = genAI ? genAI.getGenerativeModel({ model: "models/gemini-2.5-flash" }) : null;
 
 const obtenerTiposPorEmpresa = async (db, empresaId) => {
     console.log(`[Service] Consultando tipos para empresa: ${empresaId}`);
-    
-    // CAMBIO: Quitamos orderBy temporalmente para asegurar que lee TODO lo que hay
     const snapshot = await db.collection('empresas').doc(empresaId)
                              .collection('tiposComponente')
-                             .get();
+                             .get(); // Sin orderBy por si faltan índices
     
-    if (snapshot.empty) {
-        console.log(`[Service] Consulta vacía. No hay tipos.`);
-        return [];
-    }
-    
-    const resultados = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    console.log(`[Service] Encontrados ${resultados.length} tipos.`);
-    return resultados;
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
 const analizarNuevoTipoConIA = async (nombreUsuario) => {
     if (!model) return {
         nombreNormalizado: nombreUsuario,
         icono: "📍",
-        descripcionBase: "Espacio del alojamiento.",
-        shotList: ["Vista General", "Detalle"],
+        descripcionBase: "Espacio definido manualmente.",
+        shotList: ["Vista general"],
         palabrasClave: [nombreUsuario]
     };
 
     const prompt = `
-        Actúa como Arquitecto. Analiza: "${nombreUsuario}".
-        Responde JSON:
+        Actúa como Arquitecto. Analiza el espacio: "${nombreUsuario}".
+        Responde SOLO JSON válido:
         {
-            "nombreNormalizado": "Nombre estándar",
-            "icono": "Emoji",
+            "nombreNormalizado": "Nombre estándar comercial",
+            "icono": "Emoji representativo",
             "descripcionBase": "Definición breve",
-            "shotList": ["Foto 1", "Foto 2", "Foto 3"],
-            "palabrasClave": ["seo1", "seo2"]
+            "shotList": [
+                "Instrucción foto 1",
+                "Instrucción foto 2 (detalle)",
+                "Instrucción foto 3 (ángulo)"
+            ],
+            "palabrasClave": ["keyword1", "keyword2"]
         }
     `;
 
     try {
+        console.log(`[Componentes IA] Analizando con modelo 2.5: ${nombreUsuario}...`);
         const result = await model.generateContent(prompt);
         const response = await result.response;
         let text = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
@@ -57,22 +56,16 @@ const analizarNuevoTipoConIA = async (nombreUsuario) => {
         console.error("[IA Error]", error);
         return {
             nombreNormalizado: nombreUsuario,
-            icono: "📍",
-            descripcionBase: "Espacio definido manualmente.",
-            shotList: ["Vista general"],
+            icono: "🏠",
+            descripcionBase: "Espacio del alojamiento.",
+            shotList: ["Vista General", "Detalle"],
             palabrasClave: [nombreUsuario]
         };
     }
 };
 
 const crearTipoComponente = async (db, empresaId, datos) => {
-    console.log(`[Service] Creando tipo "${datos.nombreNormalizado}" para empresa ${empresaId}`);
-    
-    // Validación de seguridad
-    if (!empresaId) throw new Error("Intento de creación sin ID de empresa.");
-
     const ref = db.collection('empresas').doc(empresaId).collection('tiposComponente').doc();
-    
     const nuevoTipo = {
         id: ref.id,
         nombreUsuario: datos.nombreUsuario || datos.nombreNormalizado,
@@ -84,9 +77,7 @@ const crearTipoComponente = async (db, empresaId, datos) => {
         origen: datos.origen || 'personalizado',
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
     };
-    
     await ref.set(nuevoTipo);
-    console.log(`[Service] Tipo creado con ID: ${ref.id}`);
     return nuevoTipo;
 };
 
