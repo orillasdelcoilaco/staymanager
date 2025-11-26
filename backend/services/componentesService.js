@@ -2,86 +2,94 @@
 const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// Configuración IA (Reutilizamos la key existente)
+if (!process.env.RENDER) {
+    require('dotenv').config();
+}
 const API_KEY = process.env.GEMINI_API_KEY;
 const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
 const model = genAI ? genAI.getGenerativeModel({ model: "gemini-1.5-flash" }) : null;
 
-/**
- * CRUD: Obtener todos los tipos de componentes de una empresa
- */
 const obtenerTiposPorEmpresa = async (db, empresaId) => {
+    console.log(`[Service] Consultando tipos para empresa: ${empresaId}`);
+    
+    // CAMBIO: Quitamos orderBy temporalmente para asegurar que lee TODO lo que hay
     const snapshot = await db.collection('empresas').doc(empresaId)
                              .collection('tiposComponente')
-                             .orderBy('nombre', 'asc')
                              .get();
     
-    if (snapshot.empty) return [];
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (snapshot.empty) {
+        console.log(`[Service] Consulta vacía. No hay tipos.`);
+        return [];
+    }
+    
+    const resultados = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    console.log(`[Service] Encontrados ${resultados.length} tipos.`);
+    return resultados;
 };
 
-/**
- * IA: Analiza un nombre de espacio y genera su perfil técnico y visual.
- */
 const analizarNuevoTipoConIA = async (nombreUsuario) => {
-    if (!model) throw new Error("Servicio de IA no disponible.");
+    if (!model) return {
+        nombreNormalizado: nombreUsuario,
+        icono: "📍",
+        descripcionBase: "Espacio del alojamiento.",
+        shotList: ["Vista General", "Detalle"],
+        palabrasClave: [nombreUsuario]
+    };
 
     const prompt = `
-        Actúa como un Arquitecto y Experto en Marketing Inmobiliario.
-        Analiza el siguiente espacio/componente de una propiedad turística: "${nombreUsuario}".
-
-        Tu tarea es estandarizarlo y definir qué fotografías son necesarias para venderlo bien en Internet.
-
-        Responde SOLO con un objeto JSON (sin markdown) con esta estructura exacta:
+        Actúa como Arquitecto. Analiza: "${nombreUsuario}".
+        Responde JSON:
         {
-            "nombreNormalizado": "Nombre estándar (ej: Zona de Barbacoa)",
-            "icono": "Un solo emoji representativo (ej: 🔥)",
-            "descripcionBase": "Breve definición comercial (máx 1 frase)",
-            "shotList": [
-                "Lista de 3 a 5 fotos OBLIGATORIAS para mostrar este espacio correctamente.",
-                "Deben ser instrucciones claras de fotografía (ej: 'Vista frontal con la parrilla abierta', 'Detalle de la mesa')."
-            ],
-            "palabrasClave": ["3-5", "keywords", "para", "seo"]
+            "nombreNormalizado": "Nombre estándar",
+            "icono": "Emoji",
+            "descripcionBase": "Definición breve",
+            "shotList": ["Foto 1", "Foto 2", "Foto 3"],
+            "palabrasClave": ["seo1", "seo2"]
         }
     `;
 
     try {
         const result = await model.generateContent(prompt);
         const response = await result.response;
-        let text = response.text();
-        // Limpieza de formato
-        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        let text = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
         return JSON.parse(text);
     } catch (error) {
-        console.error("[IA Error] Fallo al analizar componente:", error);
-        // Fallback manual si la IA falla
+        console.error("[IA Error]", error);
         return {
             nombreNormalizado: nombreUsuario,
-            icono: "🏠",
-            descripcionBase: "Espacio del alojamiento.",
-            shotList: ["Vista General", "Detalle de equipamiento"],
+            icono: "📍",
+            descripcionBase: "Espacio definido manualmente.",
+            shotList: ["Vista general"],
             palabrasClave: [nombreUsuario]
         };
     }
 };
 
-/**
- * CRUD: Crear un nuevo tipo (Guardar el resultado de la IA)
- */
 const crearTipoComponente = async (db, empresaId, datos) => {
+    console.log(`[Service] Creando tipo "${datos.nombreNormalizado}" para empresa ${empresaId}`);
+    
+    // Validación de seguridad
+    if (!empresaId) throw new Error("Intento de creación sin ID de empresa.");
+
     const ref = db.collection('empresas').doc(empresaId).collection('tiposComponente').doc();
+    
     const nuevoTipo = {
         id: ref.id,
-        ...datos,
+        nombreUsuario: datos.nombreUsuario || datos.nombreNormalizado,
+        nombreNormalizado: datos.nombreNormalizado,
+        icono: datos.icono || '📦',
+        descripcionBase: datos.descripcionBase || '',
+        shotList: datos.shotList || [],
+        palabrasClave: datos.palabrasClave || [],
+        origen: datos.origen || 'personalizado',
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
     };
+    
     await ref.set(nuevoTipo);
+    console.log(`[Service] Tipo creado con ID: ${ref.id}`);
     return nuevoTipo;
 };
 
-/**
- * CRUD: Eliminar un tipo
- */
 const eliminarTipoComponente = async (db, empresaId, tipoId) => {
     await db.collection('empresas').doc(empresaId).collection('tiposComponente').doc(tipoId).delete();
 };

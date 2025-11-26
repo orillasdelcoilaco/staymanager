@@ -10,22 +10,21 @@ const {
 module.exports = (db) => {
     const router = express.Router();
 
-    // Obtener todos
     router.get('/', async (req, res) => {
         try {
+            // Log para verificar que el usuario está autenticado y tiene empresa
+            console.log(`[API] GET /componentes - Usuario: ${req.user.email}, Empresa: ${req.user.empresaId}`);
             const tipos = await obtenerTiposPorEmpresa(db, req.user.empresaId);
             res.json(tipos);
         } catch (error) {
+            console.error("[API Error] GET /:", error);
             res.status(500).json({ error: error.message });
         }
     });
 
-    // Paso 1 del Wizard: Consultar a la IA (No guarda nada aún)
     router.post('/analizar-ia', async (req, res) => {
         try {
             const { nombre } = req.body;
-            if (!nombre) return res.status(400).json({ error: "Falta el nombre" });
-            
             const analisis = await analizarNuevoTipoConIA(nombre);
             res.json(analisis);
         } catch (error) {
@@ -33,7 +32,6 @@ module.exports = (db) => {
         }
     });
 
-    // Paso 2 del Wizard: Guardar el tipo definitivo
     router.post('/', async (req, res) => {
         try {
             const nuevoTipo = await crearTipoComponente(db, req.user.empresaId, req.body);
@@ -43,7 +41,6 @@ module.exports = (db) => {
         }
     });
 
-    // Eliminar
     router.delete('/:id', async (req, res) => {
         try {
             await eliminarTipoComponente(db, req.user.empresaId, req.params.id);
@@ -53,28 +50,50 @@ module.exports = (db) => {
         }
     });
 
-    // Inicializar tipos por defecto (Seed)
+    // Inicializar tipos por defecto
     router.post('/init-defaults', async (req, res) => {
         try {
-            const tiposExistentes = await obtenerTiposPorEmpresa(db, req.user.empresaId);
+            console.log(`[API] Iniciando defaults para empresa: ${req.user.empresaId}`);
+            const { empresaId } = req.user;
+            
+            // 1. Verificar existencia
+            const tiposExistentes = await obtenerTiposPorEmpresa(db, empresaId);
             if (tiposExistentes.length > 0) {
-                return res.json({ message: "Ya existen tipos configurados." });
+                console.log(`[API] Ya existen ${tiposExistentes.length} tipos. Abortando init.`);
+                return res.json({ message: `Ya existen ${tiposExistentes.length} tipos configurados.`, created: [] });
             }
 
+            // 2. Definir defaults
             const defaults = [
-                { nombreNormalizado: "Dormitorio", icono: "🛏️", shotList: ["Vista general desde la puerta", "Ángulo desde la ventana", "Detalle de la cama/almohadas", "Closet o zona de guardado"] },
-                { nombreNormalizado: "Baño", icono: "🚿", shotList: ["Vista general", "Detalle de ducha/tina", "Lavamanos y espejo", "Amenities (jabón, toallas)"] },
-                { nombreNormalizado: "Cocina", icono: "🍳", shotList: ["Vista general", "Electrodomésticos abiertos (refri, horno)", "Vajilla y utensilios", "Zona de café/té"] },
-                { nombreNormalizado: "Living / Sala", icono: "🛋️", shotList: ["Vista general mostrando amplitud", "Sofá y TV", "Vista hacia el exterior", "Detalles decorativos"] },
-                { nombreNormalizado: "Terraza / Exterior", icono: "🌲", shotList: ["Vista panorámica", "Mobiliario de terraza", "Parrilla (si aplica)", "Entorno natural"] }
+                { nombreNormalizado: "Dormitorio", icono: "🛏️", descripcionBase: "Espacio para dormir.", shotList: ["Vista general", "Cama", "Guardado"] },
+                { nombreNormalizado: "Baño", icono: "🚿", descripcionBase: "Cuarto de baño.", shotList: ["Vista general", "Ducha", "Lavabo"] },
+                { nombreNormalizado: "Cocina", icono: "🍳", descripcionBase: "Zona de cocina.", shotList: ["General", "Equipamiento"] },
+                { nombreNormalizado: "Sala de Estar", icono: "🛋️", descripcionBase: "Zona social.", shotList: ["General", "Vistas"] },
+                { nombreNormalizado: "Exterior", icono: "🌲", descripcionBase: "Aire libre.", shotList: ["General", "Entorno"] }
             ];
 
+            // 3. Crear secuencialmente para evitar race conditions y ver logs
+            const creados = [];
             for (const tipo of defaults) {
-                await crearTipoComponente(db, req.user.empresaId, { ...tipo, nombreUsuario: tipo.nombreNormalizado });
+                const t = await crearTipoComponente(db, empresaId, { 
+                    ...tipo, 
+                    nombreUsuario: tipo.nombreNormalizado,
+                    origen: 'sistema'
+                });
+                creados.push(t);
             }
             
-            res.json({ message: "Tipos por defecto creados con éxito." });
+            console.log(`[API] Se crearon ${creados.length} tipos exitosamente.`);
+            
+            // Devolver lo que se creó para confirmación visual en frontend (si se inspecciona red)
+            res.json({ 
+                message: "Tipos por defecto creados con éxito.", 
+                count: creados.length,
+                created: creados 
+            });
+
         } catch (error) {
+            console.error("[API Error] Init Defaults:", error);
             res.status(500).json({ error: error.message });
         }
     });
