@@ -88,21 +88,25 @@ function renderComponenteBloque(componente, tiposMaestros) {
 }
 
 function renderImagenesGrid(imagenes, componentId) {
-    if (imagenes.length === 0) return '<p class="text-xs text-gray-500 col-span-full py-4 text-center italic">Aún no hay imágenes. Usa la guía de arriba para empezar.</p>';
+    if (imagenes.length === 0) return '<p class="text-xs text-gray-500 col-span-full py-2">No hay imágenes en esta sección.</p>';
     
     return imagenes.map(img => `
-        <div class="relative border rounded-md overflow-hidden group h-32 bg-gray-100 shadow-sm hover:shadow-md transition-shadow">
-            <img src="${img.storagePath}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
-             <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-opacity flex items-center justify-center opacity-0 group-hover:opacity-100 gap-3">
-                <button data-component-id="${componentId}" data-image-id="${img.imageId}" class="eliminar-imagen-btn bg-white text-red-600 rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-50 shadow-md transition-transform hover:scale-110" title="Eliminar">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
-                </button>
-                <button data-component-id="${componentId}" data-image-url="${img.storagePath}" data-old-image-id="${img.imageId}" class="editar-existente-btn bg-white text-blue-600 rounded-full w-8 h-8 flex items-center justify-center hover:bg-blue-50 shadow-md transition-transform hover:scale-110" title="Recortar">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
-                </button>
+        <div class="relative border rounded-md overflow-hidden group h-40 bg-gray-100 flex flex-col"> <div class="relative h-24 w-full">
+                <img src="${img.storagePath}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
+                
+                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-opacity flex items-center justify-center opacity-0 group-hover:opacity-100 gap-3">
+                    <button data-component-id="${componentId}" data-image-id="${img.imageId}" class="eliminar-imagen-btn bg-white text-red-600 rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-50 shadow-md" title="Eliminar">&times;</button>
+                    <button data-component-id="${componentId}" data-image-url="${img.storagePath}" data-old-image-id="${img.imageId}" class="editar-existente-btn bg-white text-blue-600 rounded-full w-8 h-8 flex items-center justify-center hover:bg-blue-50 shadow-md" title="Recortar">✎</button>
+                </div>
             </div>
-            <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 p-1">
-                <p class="text-[10px] text-white truncate text-center" title="${clean(img.altText)}">${clean(img.altText) || 'Analizando...'}</p>
+
+            <div class="p-2 bg-white flex-grow flex flex-col justify-between text-[10px]">
+                <p class="text-gray-600 truncate" title="${clean(img.altText)}">${clean(img.altText) || 'Analizando...'}</p>
+                
+                ${img.advertencia ? 
+                    `<p class="text-red-600 font-bold mt-1 leading-tight bg-red-50 p-1 rounded border border-red-100">⚠️ ${img.advertencia}</p>` : 
+                    `<p class="text-green-600 mt-1">✅ Validada por IA</p>`
+                }
             </div>
         </div>
     `).join('');
