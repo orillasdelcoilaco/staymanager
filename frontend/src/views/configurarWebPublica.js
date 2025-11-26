@@ -11,9 +11,11 @@ export async function render() {
     return `
         <div class="bg-white p-8 rounded-lg shadow space-y-6">
             <h2 class="text-2xl font-semibold text-gray-900">Configurar Contenido Web Público (SSR)</h2>
+            
             <div id="contenedor-general">
-                <div class="animate-pulse flex space-x-4"><div class="flex-1 space-y-4 py-1"><div class="h-4 bg-gray-200 rounded w-3/4"></div><div class="space-y-2"><div class="h-4 bg-gray-200 rounded"></div></div></div></div>
+                <p class="text-gray-500">Cargando configuración general...</p>
             </div>
+            
             <div class="border-t pt-6">
                 <h3 class="text-xl font-bold text-gray-800 mb-4">Contenido por Alojamiento</h3>
                  <div>
@@ -22,10 +24,23 @@ export async function render() {
                         <option value="">-- Cargando... --</option>
                     </select>
                 </div>
+
                 <div id="config-container-propiedad" class="hidden space-y-6 mt-4">
                     <div id="contenedor-propiedad"></div>
                     <div id="contenedor-galeria"></div>
                 </div>
+            </div>
+
+            <div class="border-t pt-8 mt-8">
+                <details>
+                    <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Herramientas de Sistema (Click para expandir)</summary>
+                    <div class="p-4 bg-gray-50 rounded mt-2 border">
+                        <p class="text-xs text-gray-600 mb-2">Si tienes problemas editando imágenes (error de carga/bloqueo), presiona este botón una vez:</p>
+                        <button id="btn-fix-cors" class="btn-secondary text-xs bg-gray-200 hover:bg-gray-300 text-gray-700">
+                            🛠️ Habilitar Edición de Imágenes (Reparar CORS)
+                        </button>
+                    </div>
+                </details>
             </div>
         </div>
     `;
@@ -33,6 +48,8 @@ export async function render() {
 
 export async function afterRender() {
     try {
+        console.log('[ConfigWeb] Iniciando carga de datos...');
+        
         const [empresa, propiedades, configWeb] = await Promise.all([
             fetchAPI('/empresa'),
             fetchAPI('/propiedades'),
@@ -58,8 +75,24 @@ export async function afterRender() {
             select.addEventListener('change', async (e) => handlePropiedadChange(e.target.value));
         }
 
+        // NUEVO: Listener para el botón de reparación CORS
+        document.getElementById('btn-fix-cors')?.addEventListener('click', async (e) => {
+            const btn = e.target;
+            btn.disabled = true;
+            btn.textContent = 'Configurando permisos...';
+            try {
+                const result = await fetchAPI('/website-config/fix-storage-cors', { method: 'POST' });
+                alert(`✅ ${result.message}\n\nAhora intenta editar una imagen nuevamente.`);
+            } catch (error) {
+                alert(`❌ Error: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🛠️ Habilitar Edición de Imágenes (Reparar CORS)';
+            }
+        });
+
     } catch (error) {
-        console.error(error); // Solo errores críticos
+        console.error('[ConfigWeb] Error crítico:', error);
         const container = document.querySelector('.bg-white');
         if (container) container.innerHTML = `<p class="text-red-500">Error de carga: ${error.message}</p>`;
     }
@@ -76,7 +109,7 @@ async function handlePropiedadChange(propiedadId) {
     }
 
     container.classList.remove('hidden');
-    propContainer.innerHTML = '<p class="text-gray-500">Cargando...</p>';
+    propContainer.innerHTML = '<p class="text-gray-500">Cargando datos de la propiedad...</p>';
     galContainer.innerHTML = '';
 
     try {
@@ -93,6 +126,7 @@ async function handlePropiedadChange(propiedadId) {
         setupGaleriaEvents();
 
     } catch (error) {
-        propContainer.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+        console.error('[ConfigWeb] Error al cargar propiedad:', error);
+        propContainer.innerHTML = `<p class="text-red-500">Error cargando propiedad: ${error.message}</p>`;
     }
 }

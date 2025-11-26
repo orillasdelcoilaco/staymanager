@@ -361,6 +361,27 @@ module.exports = (db) => {
             next(error);
         }
     });
+    // *** NUEVA RUTA: Reparar permisos CORS de Firebase Storage ***
+    router.post('/fix-storage-cors', async (req, res) => {
+        try {
+            const bucket = admin.storage().bucket();
+            
+            await bucket.setCorsConfiguration([
+                {
+                    maxAgeSeconds: 3600,
+                    method: ["GET", "HEAD", "PUT", "POST", "DELETE"],
+                    origin: ["*"], // Permite acceso desde cualquier dominio (incluido tu Render y localhost)
+                    responseHeader: ["Content-Type", "Access-Control-Allow-Origin"]
+                }
+            ]);
 
+            console.log("✅ Configuración CORS de Firebase Storage actualizada correctamente.");
+            res.status(200).json({ message: 'Permisos de edición de imágenes (CORS) configurados con éxito.' });
+        } catch (error) {
+            console.error("Error configurando CORS:", error);
+            res.status(500).json({ error: `Error al configurar CORS: ${error.message}` });
+        }
+    });
+    
     return router;
 };

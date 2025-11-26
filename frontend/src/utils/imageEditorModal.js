@@ -41,7 +41,6 @@ const initModal = () => {
     document.body.insertAdjacentHTML('beforeend', createModalHTML());
     modalContainer = document.getElementById('image-editor-modal');
 
-    // Listeners
     document.getElementById('btn-cancel-crop').addEventListener('click', closeEditor);
     document.getElementById('btn-rotate-left').addEventListener('click', () => cropper?.rotate(-90));
     document.getElementById('btn-rotate-right').addEventListener('click', () => cropper?.rotate(90));
@@ -75,8 +74,10 @@ export const openEditor = (imageSource, onConfirm) => {
     const imageElement = document.getElementById('image-to-crop');
     
     const startCropper = (src) => {
+        // IMPORTANTE: Configurar CORS antes de establecer el src
+        imageElement.crossOrigin = 'anonymous'; 
         imageElement.src = src;
-        // Mostrar modal (usando style para asegurar visibilidad)
+        
         modalContainer.classList.remove('hidden');
         modalContainer.style.display = 'block';
         
@@ -86,7 +87,8 @@ export const openEditor = (imageSource, onConfirm) => {
             viewMode: 1,
             autoCropArea: 1,
             responsive: true,
-            background: false, // Mejor visualización
+            background: false,
+            checkCrossOrigin: false, // Ya lo manejamos manualmente
         });
     };
 
@@ -95,10 +97,10 @@ export const openEditor = (imageSource, onConfirm) => {
         reader.onload = (e) => startCropper(e.target.result);
         reader.readAsDataURL(imageSource);
     } else if (typeof imageSource === 'string') {
-        // Es una URL (para editar imágenes existentes)
-        // Necesitamos 'crossOrigin' para evitar taint del canvas
-        imageElement.crossOrigin = 'anonymous'; 
-        startCropper(imageSource);
+        // FIX DE CORS: Añadir timestamp para evitar caché del navegador
+        const separator = imageSource.includes('?') ? '&' : '?';
+        const urlWithCacheBust = `${imageSource}${separator}t=${new Date().getTime()}`;
+        startCropper(urlWithCacheBust);
     }
 };
 
@@ -112,6 +114,9 @@ const closeEditor = () => {
         cropper = null;
     }
     const img = document.getElementById('image-to-crop');
-    if(img) img.src = '';
+    if(img) {
+        img.src = '';
+        img.removeAttribute('crossOrigin');
+    }
     onConfirmCallback = null;
 };
