@@ -12,7 +12,9 @@ export async function render() {
         <div class="bg-white p-8 rounded-lg shadow space-y-6">
             <h2 class="text-2xl font-semibold text-gray-900">Configurar Contenido Web Público (SSR)</h2>
             
-            <div id="contenedor-general"></div>
+            <div id="contenedor-general">
+                <p class="text-gray-500">Cargando configuración general...</p>
+            </div>
             
             <div class="border-t pt-6">
                 <h3 class="text-xl font-bold text-gray-800 mb-4">Contenido por Alojamiento</h3>
@@ -34,7 +36,9 @@ export async function render() {
 
 export async function afterRender() {
     try {
-        // 1. Carga Inicial
+        console.log('[ConfigWeb] Iniciando carga de datos...');
+        
+        // 1. Carga Inicial Paralela
         const [empresa, propiedades, configWeb] = await Promise.all([
             fetchAPI('/empresa'),
             fetchAPI('/propiedades'),
@@ -44,22 +48,31 @@ export async function afterRender() {
         empresaInfo = empresa;
         todasLasPropiedades = propiedades;
 
+        console.log('[ConfigWeb] Datos cargados. Config:', configWeb);
+
         // 2. Renderizar General
-        document.getElementById('contenedor-general').innerHTML = renderGeneral(configWeb);
-        setupGeneralEvents();
+        const containerGeneral = document.getElementById('contenedor-general');
+        if (containerGeneral) {
+            containerGeneral.innerHTML = renderGeneral(configWeb || {});
+            setupGeneralEvents(); // Adjuntar eventos después de renderizar
+        }
 
-        // 3. Configurar Select
+        // 3. Configurar Select de Propiedades
         const select = document.getElementById('propiedad-select');
-        select.innerHTML = '<option value="">-- Elige un alojamiento --</option>' +
-            todasLasPropiedades
-            .sort((a, b) => a.nombre.localeCompare(b.nombre))
-            .map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+        if (select) {
+            select.innerHTML = '<option value="">-- Elige un alojamiento --</option>' +
+                todasLasPropiedades
+                .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                .map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
 
-        // 4. Listener de Cambio
-        select.addEventListener('change', async (e) => handlePropiedadChange(e.target.value));
+            // 4. Listener de Cambio de Propiedad
+            select.addEventListener('change', async (e) => handlePropiedadChange(e.target.value));
+        }
 
     } catch (error) {
-        document.querySelector('.bg-white').innerHTML = `<p class="text-red-500">Error de carga: ${error.message}</p>`;
+        console.error('[ConfigWeb] Error crítico:', error);
+        const container = document.querySelector('.bg-white');
+        if (container) container.innerHTML = `<p class="text-red-500">Error de carga: ${error.message}</p>`;
     }
 }
 
@@ -95,6 +108,7 @@ async function handlePropiedadChange(propiedadId) {
         setupGaleriaEvents();
 
     } catch (error) {
+        console.error('[ConfigWeb] Error al cargar propiedad:', error);
         propContainer.innerHTML = `<p class="text-red-500">Error cargando propiedad: ${error.message}</p>`;
     }
 }

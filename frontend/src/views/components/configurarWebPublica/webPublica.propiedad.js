@@ -1,8 +1,11 @@
+// frontend/src/views/components/configurarWebPublica/webPublica.propiedad.js
 import { fetchAPI } from '../../../api.js';
 
 let currentPropiedad = null;
 let currentWebsiteData = null;
 let currentEmpresaName = '';
+
+const clean = (val) => (val === undefined || val === null || val === 'undefined') ? '' : val;
 
 export function initPropiedad(propiedad, websiteData, nombreEmpresa) {
     currentPropiedad = propiedad;
@@ -23,7 +26,7 @@ export function renderPropiedadSettings() {
             <div class="relative w-48 border rounded-md overflow-hidden group">
                 <img src="${cardImage.storagePath}" 
                      onerror="this.onerror=null; this.src='https://via.placeholder.com/100x60.png?text=Error';"
-                     alt="${cardImage.altText || 'Imagen Tarjeta'}" 
+                     alt="${clean(cardImage.altText) || 'Imagen Tarjeta'}" 
                      class="w-full h-32 object-cover">
             </div>`;
     } else if (isListed) {
@@ -50,10 +53,10 @@ export function renderPropiedadSettings() {
             <legend class="px-2 font-semibold text-gray-700">Descripción Optimizada (IA)</legend>
             <p class="text-xs text-gray-500 mt-1 mb-3">Descripción para la página pública.</p>
             <div class="space-y-2">
-                <textarea id="ai-description-textarea" rows="8" class="form-input w-full">${currentWebsiteData.aiDescription || ''}</textarea>
+                <textarea id="ai-description-textarea" rows="8" class="form-input w-full">${clean(currentWebsiteData.aiDescription)}</textarea>
                 <div class="flex flex-wrap gap-2">
-                    <button id="btn-generar-ai-desc" class="btn-secondary btn-sm">Generar con IA</button>
-                    <button id="btn-guardar-ai-desc" class="btn-primary btn-sm">Guardar Descripción</button>
+                    <button type="button" id="btn-generar-ai-desc" class="btn-secondary btn-sm">Generar con IA</button>
+                    <button type="button" id="btn-guardar-ai-desc" class="btn-primary btn-sm">Guardar Descripción</button>
                 </div>
                 <div id="save-ai-description-status" class="text-xs mt-1"></div>
             </div>
@@ -62,9 +65,18 @@ export function renderPropiedadSettings() {
 }
 
 export function setupPropiedadEvents() {
-    document.getElementById('upload-card-image-btn')?.addEventListener('click', handleSubirCardImage);
-    document.getElementById('btn-generar-ai-desc')?.addEventListener('click', generarTextoDescripcionPropiedad);
-    document.getElementById('btn-guardar-ai-desc')?.addEventListener('click', guardarTextoDescripcionPropiedad);
+    const attach = (id, handler) => {
+        const el = document.getElementById(id);
+        if (el) {
+            const newEl = el.cloneNode(true);
+            el.parentNode.replaceChild(newEl, el);
+            newEl.addEventListener('click', handler);
+        }
+    };
+
+    attach('upload-card-image-btn', handleSubirCardImage);
+    attach('btn-generar-ai-desc', generarTextoDescripcionPropiedad);
+    attach('btn-guardar-ai-desc', guardarTextoDescripcionPropiedad);
 }
 
 async function handleSubirCardImage() {
@@ -91,7 +103,6 @@ async function handleSubirCardImage() {
         statusEl.textContent = '¡Imagen subida con éxito!';
         statusEl.classList.add('text-green-500');
         
-        // Actualizar preview sin recargar todo
         document.getElementById('preview-card-image-container').innerHTML = `
             <p class="text-xs text-green-600 mb-2 font-medium">Imagen de tarjeta actual:</p>
             <div class="relative w-48 border rounded-md overflow-hidden group">
@@ -110,15 +121,15 @@ async function generarTextoDescripcionPropiedad() {
     const btn = document.getElementById('btn-generar-ai-desc');
     const textarea = document.getElementById('ai-description-textarea');
     btn.disabled = true;
-    btn.innerHTML = 'Generando...';
+    btn.textContent = 'Generando...';
     try {
         const { texto } = await fetchAPI(`/website-config/propiedad/${currentPropiedad.id}/generate-ai-text`, { method: 'POST' });
-        textarea.value = texto;
+        textarea.value = clean(texto);
     } catch (error) {
         alert(`Error: ${error.message}`);
     } finally {
         btn.disabled = false;
-        btn.innerHTML = 'Generar con IA';
+        btn.textContent = 'Generar con IA';
     }
 }
 

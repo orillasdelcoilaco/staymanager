@@ -1,7 +1,10 @@
+// frontend/src/views/components/configurarWebPublica/webPublica.galeria.js
 import { fetchAPI } from '../../../api.js';
 
 let currentPropiedadId = null;
 let currentImages = {};
+
+const clean = (val) => (val === undefined || val === null || val === 'undefined') ? '' : val;
 
 export function initGaleria(propiedadId, images) {
     currentPropiedadId = propiedadId;
@@ -49,7 +52,7 @@ function renderImagenesGrid(imagenes, componentId) {
              <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-opacity flex flex-col justify-between p-1 text-white opacity-0 group-hover:opacity-100">
                 <button data-component-id="${componentId}" data-image-id="${img.imageId}" class="eliminar-imagen-btn absolute top-1 right-1 bg-red-600 rounded-full w-4 h-4 flex items-center justify-center font-bold leading-none">&times;</button>
                 <div class="bg-black bg-opacity-50 p-0.5 rounded-sm overflow-hidden text-[10px]">
-                    <p class="truncate">Alt: ${img.altText || '...'}</p>
+                    <p class="truncate">Alt: ${clean(img.altText) || '...'}</p>
                 </div>
             </div>
         </div>
@@ -58,7 +61,10 @@ function renderImagenesGrid(imagenes, componentId) {
 
 export function setupGaleriaEvents() {
     document.querySelectorAll('.subir-imagenes-input').forEach(input => {
-        input.addEventListener('change', (e) => handleSubir(e.target.dataset.componentId, e.target.files));
+        // Clonar para limpiar listeners
+        const newInput = input.cloneNode(true);
+        input.parentNode.replaceChild(newInput, input);
+        newInput.addEventListener('change', (e) => handleSubir(e.target.dataset.componentId, e.target.files));
     });
     document.querySelectorAll('.eliminar-imagen-btn').forEach(button => {
         button.addEventListener('click', (e) => handleEliminar(e.currentTarget.dataset.componentId, e.currentTarget.dataset.imageId));
@@ -82,11 +88,8 @@ async function handleSubir(componentId, files) {
         if (!currentImages[componentId]) currentImages[componentId] = [];
         currentImages[componentId].push(...resultados);
         
-        // Re-renderizar solo este grid
         document.getElementById(`galeria-${componentId}`).innerHTML = renderImagenesGrid(currentImages[componentId], componentId);
-        
-        // Re-attach listeners solo para este bloque (o re-setup todo para simplificar)
-        setupGaleriaEvents(); 
+        setupGaleriaEvents(); // Re-attach listeners to new buttons
         statusEl.textContent = 'Subida completada.';
     } catch (error) {
         statusEl.textContent = `Error: ${error.message}`;
