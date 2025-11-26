@@ -1,7 +1,7 @@
 // backend/services/aiContentService.js
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// Cargar dotenv solo si no estamos en producción
+// Load dotenv only if not in production
 if (!process.env.RENDER) {
     require('dotenv').config();
 }
@@ -12,13 +12,13 @@ if (!API_KEY) {
     console.warn("¡ADVERTENCIA! No se encontró la GEMINI_API_KEY. Las funciones de IA usarán respuestas simuladas.");
 }
 
-// Inicializar el cliente
+// Initialize the client
 const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
 
-// Usamos el modelo gemini-2.5-flash que funciona para texto e imágenes
+// Use the model gemini-2.5-flash which works for both text and images
 const model = genAI ? genAI.getGenerativeModel({ model: "models/gemini-2.5-flash" }) : null;
 
-// --- Función Placeholder (Respaldo por si falla la API) ---
+// --- Placeholder Function (Fallback if API fails) ---
 async function llamarIASimulada(prompt) {
     console.log("--- Usando respuesta de respaldo (Fallback) ---");
     if (prompt.includes("generar metadatos SEO")) {
@@ -41,7 +41,7 @@ async function llamarIASimulada(prompt) {
     return "Contenido generado automáticamente.";
 }
 
-// --- Función Principal de Llamada a la API ---
+// --- Main API Call Function ---
 async function llamarGeminiAPI(prompt, imageBuffer = null) {
     if (!model) return llamarIASimulada(prompt);
     
@@ -52,7 +52,7 @@ async function llamarGeminiAPI(prompt, imageBuffer = null) {
             const imagePart = {
                 inlineData: {
                     data: imageBuffer.toString("base64"),
-                    mimeType: "image/webp" // Asumimos WebP ya que sharp lo convierte antes
+                    mimeType: "image/webp" // Assuming WebP as sharp converts it before
                 },
             };
             result = await model.generateContent([prompt, imagePart]);
@@ -64,7 +64,7 @@ async function llamarGeminiAPI(prompt, imageBuffer = null) {
         const response = await result.response;
         let text = response.text();
         
-        // Limpieza de formato Markdown que a veces añade la IA
+        // Clean Markdown formatting that AI sometimes adds
         return text.replace(/```json/g, '').replace(/```/g, '').trim();
 
     } catch (error) {
@@ -113,7 +113,7 @@ const generarDescripcionAlojamiento = async (desc, nombre, empresa, ubicacion, t
     return await llamarGeminiAPI(prompt);
 };
 
-// 4. Metadata Imagen (CON AUDITOR VISUAL)
+// 4. Metadata Imagen (WITH VISUAL AUDITOR)
 const generarMetadataImagen = async (empresa, propiedad, desc, componente, tipo, imageBuffer) => {
     const prompt = `
         Actúa como un Auditor de Calidad Visual para hoteles y experto SEO.
@@ -139,11 +139,11 @@ const generarMetadataImagen = async (empresa, propiedad, desc, componente, tipo,
     `;
     
     try {
-        // Pasamos el buffer para que el modelo "vea"
+        // Pass the buffer for the model to "see"
         const raw = await llamarGeminiAPI(prompt, imageBuffer);
         const json = JSON.parse(raw);
         
-        // Validación básica de la respuesta
+        // Basic response validation
         if (!json.altText || !json.title) throw new Error("JSON incompleto");
         
         return json;
