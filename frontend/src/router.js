@@ -11,6 +11,7 @@ const views = {
     '/cliente/:id': () => import('./views/perfilCliente.js'),
     '/agregar-propuesta': () => import('./views/agregarPropuesta.js'),
     '/generar-presupuesto': () => import('./views/generadorPresupuestos.js'),
+    '/gestionar-tipos-componente': () => import('./views/gestionarTiposComponente.js'), // <-- NUEVA RUTA
     '/gestionar-alojamientos': () => import('./views/gestionarAlojamientos.js'),
     '/gestionar-canales': () => import('./views/gestionarCanales.js'),
     '/gestionar-tarifas': () => import('./views/gestionarTarifas.js'),
@@ -35,7 +36,7 @@ const views = {
     '/sincronizar-ical': () => import('./views/sincronizarCalendarios.js'),
     '/crm-promociones': () => import('./views/crmPromociones.js'),
     '/historial-campanas': () => import('./views/historialCampanas.js'),
-    '/configurar-web-publica': () => import('./views/configurarWebPublica.js'), // <-- NUEVA VISTA
+    '/configurar-web-publica': () => import('./views/configurarWebPublica.js'),
 };
 
 const menuConfig = [
@@ -65,11 +66,12 @@ const menuConfig = [
             { name: '🏨 Gestionar Reservas', path: '/gestionar-reservas', id: 'gestionar-reservas' },
             { name: '📈 Gestionar Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' },
             { name: '📈 Gestionar Valor Dólar', path: '/gestionar-dolar', id: 'gestionar-dolar' },
+            { name: '🏗️ Tipos de Componente', path: '/gestionar-tipos-componente', id: 'gestionar-tipos-componente' }, // <-- NUEVO ITEM
             { name: '🏡 Gestionar Alojamientos', path: '/gestionar-alojamientos', id: 'gestionar-alojamientos' },
             { name: '📡 Gestionar Canales', path: '/gestionar-canales', id: 'gestionar-canales' },
             { name: '🏷️ Tipos de Plantilla', path: '/gestionar-tipos-plantilla', id: 'gestionar-tipos-plantilla' },
             { name: '✉️ Gestionar Plantillas', path: '/gestionar-plantillas', id: 'gestionar-plantillas' },
-            { name: '🌐 Configurar Web Pública', path: '/configurar-web-publica', id: 'config-web-publica' }, // <-- NUEVO ENLACE
+            { name: '🌐 Configurar Web Pública', path: '/configurar-web-publica', id: 'config-web-publica' },
         ]
     },
     {
@@ -90,10 +92,6 @@ const menuConfig = [
     }
 ];
 
-// --- Resto del archivo router.js sin cambios ---
-// (Funciones updatePendingProposalsCount, handleNavigation, loadView, renderMenu, updateActiveLink, listeners...)
-// ...
-
 async function updatePendingProposalsCount() {
     try {
         const { count } = await fetchAPI('/gestion-propuestas/count');
@@ -108,7 +106,7 @@ async function updatePendingProposalsCount() {
 
             if (count > 0) {
                 badge.textContent = count;
-                badge.style.display = 'flex'; // Usar flex para centrar el número
+                badge.style.display = 'flex';
             } else {
                 badge.style.display = 'none';
             }
@@ -117,7 +115,6 @@ async function updatePendingProposalsCount() {
         console.error("Error al obtener el contador de propuestas:", error);
     }
 }
-
 
 export async function handleNavigation(path) {
     if (path !== '/login') sessionStorage.setItem('lastPath', path);
@@ -140,7 +137,7 @@ async function loadView(path) {
         renderLogin(appRoot);
     } else {
         if (!document.getElementById('view-content')) {
-            // Este bloque puede ser innecesario si renderAppLayout siempre se llama antes
+            // Layout handling if needed
         }
 
         let cleanPath = path.split('?')[0];
@@ -158,9 +155,8 @@ async function loadView(path) {
 
         const viewContentEl = document.getElementById('view-content');
         if (viewContentEl) {
-           viewContentEl.innerHTML = await viewModule.render();
+            viewContentEl.innerHTML = await viewModule.render();
         }
-
 
         if (viewModule.afterRender && typeof viewModule.afterRender === 'function') {
             viewModule.afterRender();

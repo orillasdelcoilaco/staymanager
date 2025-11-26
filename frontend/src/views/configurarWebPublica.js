@@ -5,6 +5,7 @@ import { initPropiedad, renderPropiedadSettings, setupPropiedadEvents } from './
 import { initGaleria, renderGaleria, setupGaleriaEvents } from './components/configurarWebPublica/webPublica.galeria.js';
 
 let todasLasPropiedades = [];
+let todosLosTipos = []; // Nueva variable para la ontología
 let empresaInfo = {};
 
 export async function render() {
@@ -36,18 +37,21 @@ export async function render() {
 
 export async function afterRender() {
     try {
-        // Ejecutar configuración de CORS en segundo plano (Fire & Forget)
+        // Ejecutar configuración de CORS en segundo plano
         fetchAPI('/website-config/fix-storage-cors', { method: 'POST' })
-            .catch(err => console.warn("CORS Auto-fix warning (non-blocking):", err));
+            .catch(err => console.warn("CORS Auto-fix warning:", err));
 
-        const [empresa, propiedades, configWeb] = await Promise.all([
+        // 1. Carga de datos (Incluyendo /componentes para la IA)
+        const [empresa, propiedades, configWeb, tipos] = await Promise.all([
             fetchAPI('/empresa'),
             fetchAPI('/propiedades'),
-            fetchAPI('/website-config/configuracion-web')
+            fetchAPI('/website-config/configuracion-web'),
+            fetchAPI('/componentes') // Traemos la inteligencia
         ]);
         
         empresaInfo = empresa;
         todasLasPropiedades = propiedades;
+        todosLosTipos = tipos;
 
         const containerGeneral = document.getElementById('contenedor-general');
         if (containerGeneral) {
@@ -94,7 +98,11 @@ async function handlePropiedadChange(propiedadId) {
         initGaleria(propiedadId, websiteData.images);
 
         propContainer.innerHTML = renderPropiedadSettings();
-        galContainer.innerHTML = renderGaleria(propiedad.componentes);
+        
+        // *** AQUÍ ESTÁ LA MAGIA DE LA INTEGRACIÓN ***
+        // Pasamos los componentes de la propiedad y la lista maestra de tipos
+        // para que la galería pueda cruzar datos y mostrar el Shot List.
+        galContainer.innerHTML = renderGaleria(propiedad.componentes, todosLosTipos);
 
         setupPropiedadEvents();
         setupGaleriaEvents();

@@ -39,6 +39,7 @@ const estadosRoutes = require('./routes/estados.js');
 const websiteConfigRoutes = require('./routes/websiteConfigRoutes.js');
 // --- INICIO DE LA MODIFICACIÓN (Importar nueva ruta) ---
 const comentariosRoutes = require('./routes/comentarios.js');
+const componentesRoutes = require('./routes/componentes.js');
 // --- FIN DE LA MODIFICACIÓN ---
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 const { createTenantResolver } = require('./middleware/tenantResolver.js');
@@ -108,6 +109,7 @@ try {
     apiRouter.use('/website-config', websiteConfigRoutes(db));
     // --- INICIO DE LA MODIFICACIÓN (Montar nueva ruta) ---
     apiRouter.use('/comentarios', comentariosRoutes(db));
+    apiRouter.use('/componentes', componentesRoutes(db));
 
     // --- FIN DE LA MODIFICACIÓN ---
     apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
