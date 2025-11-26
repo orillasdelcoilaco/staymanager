@@ -1,5 +1,6 @@
 // frontend/src/views/components/configurarWebPublica/webPublica.general.js
 import { fetchAPI } from '../../../api.js';
+import { openEditor } from '../../../utils/imageEditorModal.js';
 
 let settings = { seo: {}, content: {}, theme: {}, general: {} };
 
@@ -72,30 +73,32 @@ export function renderGeneral(datosSettings) {
 }
 
 export function setupGeneralEvents() {
-    // Función helper para adjuntar eventos de forma segura
     const attach = (id, handler) => {
         const el = document.getElementById(id);
         if (el) {
-            // Reemplazar el elemento para limpiar listeners previos (evita duplicados)
             const newEl = el.cloneNode(true);
             el.parentNode.replaceChild(newEl, el);
             newEl.addEventListener('click', handler);
-        } else {
-            console.warn(`[ConfigWeb] Botón no encontrado en DOM: ${id}`);
         }
     };
 
     attach('btn-generar-home-seo', () => generarTextosHomeIA('seo'));
     attach('btn-generar-home-content', () => generarTextosHomeIA('content'));
     attach('save-empresa-config-btn', guardarTextosHome);
-    // CAMBIO AQUÍ: En lugar de handleSubirHeroImage directo, abrimos el editor
+    
+    // Botón Subir Nuevo
     attach('upload-hero-image-btn', () => {
         const input = document.getElementById('upload-hero-image-input');
         const file = input.files?.[0];
         if (!file) return alert('Selecciona una imagen primero.');
-        
-        // Abrir el editor y pasar la función que maneja la subida del blob resultante
         openEditor(file, (editedBlob) => handleSubirHeroImage(editedBlob));
+    });
+
+    // Botón Editar Existente
+    attach('edit-existing-hero-btn', () => {
+        const currentUrl = settings.theme?.heroImageUrl;
+        if (!currentUrl) return;
+        openEditor(currentUrl, (editedBlob) => handleSubirHeroImage(editedBlob));
     });
 }
 
@@ -171,31 +174,25 @@ async function guardarTextosHome() {
 }
 
 async function handleSubirHeroImage(imageBlob) {
-    const btn = document.getElementById('upload-hero-image-btn');
     const statusEl = document.getElementById('upload-hero-status');
+    statusEl.textContent = 'Subiendo...';
     
-    if(btn) btn.disabled = true;
-    if(statusEl) statusEl.textContent = 'Subiendo y procesando...';
-
     const formData = new FormData();
-    // Añadimos el blob como si fuera un archivo, dándole un nombre
-    formData.append('heroImage', imageBlob, 'hero-image-edited.jpg');
+    formData.append('heroImage', imageBlob, 'hero.jpg');
     formData.append('altText', document.getElementById('upload-hero-alt-input').value);
     formData.append('titleText', document.getElementById('upload-hero-title-input').value);
 
     try {
         const result = await fetchAPI('/website-config/upload-hero-image', { method: 'POST', body: formData });
         const previewContainer = document.getElementById('hero-preview-container');
-        previewContainer.innerHTML = `
-            <p class="text-xs text-gray-600 mb-2 font-medium">Vista Previa Actual:</p>
-            <img src="${result['websiteSettings.theme.heroImageUrl']}" alt="Vista previa portada" class="w-full h-32 object-cover rounded-md border bg-gray-100">
-        `;
-        if(statusEl) statusEl.textContent = 'Imagen de portada subida con éxito.';
-        // Limpiar el input file original
-        document.getElementById('upload-hero-image-input').value = '';
+        previewContainer.innerHTML = `<img src="${result['websiteSettings.theme.heroImageUrl']}" class="w-full h-32 object-cover rounded-md border bg-gray-100">`;
+        statusEl.textContent = 'Imagen subida con éxito.';
+        // Actualizar referencia local
+        settings.theme = settings.theme || {};
+        settings.theme.heroImageUrl = result['websiteSettings.theme.heroImageUrl'];
+        // Re-renderizar o re-attach para que el botón "Editar Actual" funcione con la nueva imagen si se desea
+        setupGeneralEvents(); 
     } catch (error) {
-        if(statusEl) statusEl.textContent = `Error: ${error.message}`;
-    } finally {
-        if(btn) btn.disabled = false;
+        statusEl.textContent = `Error: ${error.message}`;
     }
 }

@@ -5,26 +5,26 @@ let modalContainer = null;
 let onConfirmCallback = null;
 
 const createModalHTML = () => `
-    <div id="image-editor-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+    <div id="image-editor-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden" style="z-index: 9999; display: none;">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white" style="margin-top: 5vh; max-height: 90vh;">
             <div class="mt-3 text-center">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Editar Imagen</h3>
-                <div class="mt-2 px-7 py-3">
-                    <div class="img-container h-96 bg-gray-100 rounded border flex justify-center items-center overflow-hidden">
-                        <img id="image-to-crop" src="" alt="Imagen para editar" style="max-width: 100%; display: block;">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Editar Imagen (Recortar/Rotar)</h3>
+                <div class="mt-2 px-1 py-3">
+                    <div class="img-container bg-gray-100 rounded border flex justify-center items-center overflow-hidden" style="height: 500px; max-height: 60vh;">
+                        <img id="image-to-crop" src="" alt="Imagen para editar" style="max-width: 100%; max-height: 100%; display: block;">
                     </div>
                 </div>
                 <div class="flex justify-center gap-4 mt-4 mb-4">
-                    <button type="button" id="btn-rotate-left" class="btn-secondary btn-sm" title="Rotar Izquierda -90°">🔄 Izq</button>
-                    <button type="button" id="btn-rotate-right" class="btn-secondary btn-sm" title="Rotar Derecha +90°">🔄 Der</button>
+                    <button type="button" id="btn-rotate-left" class="btn-secondary btn-sm" title="Rotar -90°">🔄 -90°</button>
+                    <button type="button" id="btn-rotate-right" class="btn-secondary btn-sm" title="Rotar +90°">🔄 +90°</button>
                     <button type="button" id="btn-reset" class="btn-secondary btn-sm" title="Reiniciar">Reiniciar</button>
                 </div>
-                <div class="items-center px-4 py-3">
-                    <button id="btn-cancel-crop" class="px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-300 mb-2">
+                <div class="items-center px-4 py-3 flex space-x-4">
+                    <button id="btn-cancel-crop" class="btn-secondary w-1/3">
                         Cancelar
                     </button>
-                    <button id="btn-confirm-crop" class="px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        Confirmar y Usar Imagen
+                    <button id="btn-confirm-crop" class="btn-primary w-2/3">
+                        ✂️ Confirmar Recorte y Usar
                     </button>
                 </div>
             </div>
@@ -33,60 +33,85 @@ const createModalHTML = () => `
 `;
 
 const initModal = () => {
-    if (document.getElementById('image-editor-modal')) return;
+    if (document.getElementById('image-editor-modal')) {
+        modalContainer = document.getElementById('image-editor-modal');
+        return;
+    }
+    
     document.body.insertAdjacentHTML('beforeend', createModalHTML());
     modalContainer = document.getElementById('image-editor-modal');
 
+    // Listeners
     document.getElementById('btn-cancel-crop').addEventListener('click', closeEditor);
-    document.getElementById('btn-rotate-left').addEventListener('click', () => cropper.rotate(-90));
-    document.getElementById('btn-rotate-right').addEventListener('click', () => cropper.rotate(90));
-    document.getElementById('btn-reset').addEventListener('click', () => cropper.reset());
+    document.getElementById('btn-rotate-left').addEventListener('click', () => cropper?.rotate(-90));
+    document.getElementById('btn-rotate-right').addEventListener('click', () => cropper?.rotate(90));
+    document.getElementById('btn-reset').addEventListener('click', () => cropper?.reset());
     
     document.getElementById('btn-confirm-crop').addEventListener('click', () => {
         if (!cropper) return;
-        // Obtener el canvas recortado y convertirlo a blob
-        cropper.getCroppedCanvas({
-            maxWidth: 1920, // Límite razonable para Full HD
+        
+        const canvas = cropper.getCroppedCanvas({
+            maxWidth: 1920, 
             maxHeight: 1920,
             fillColor: '#fff',
-        }).toBlob((blob) => {
+        });
+
+        canvas.toBlob((blob) => {
             if (onConfirmCallback) onConfirmCallback(blob);
             closeEditor();
-        }, 'image/jpeg', 0.9); // Exportar como JPEG de alta calidad
+        }, 'image/jpeg', 0.92);
     });
 };
 
-export const openEditor = (imageFile, onConfirm) => {
+export const openEditor = (imageSource, onConfirm) => {
+    if (typeof Cropper === 'undefined') {
+        alert('Error: La librería Cropper.js no está cargada. Revisa el index.html.');
+        return;
+    }
+
     initModal();
     onConfirmCallback = onConfirm;
     
     const imageElement = document.getElementById('image-to-crop');
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-        imageElement.src = e.target.result;
+    
+    const startCropper = (src) => {
+        imageElement.src = src;
+        // Mostrar modal (usando style para asegurar visibilidad)
         modalContainer.classList.remove('hidden');
+        modalContainer.style.display = 'block';
         
-        // Destruir instancia previa si existe
         if (cropper) cropper.destroy();
         
-        // Inicializar CropperJS
         cropper = new Cropper(imageElement, {
-            aspectRatio: NaN, // Permitir cualquier proporción (libre)
-            viewMode: 1,      // Restringir el cuadro de recorte dentro del canvas
-            autoCropArea: 1,  // El área de recorte cubre toda la imagen al inicio
+            viewMode: 1,
+            autoCropArea: 1,
             responsive: true,
+            background: false, // Mejor visualización
         });
     };
-    reader.readAsDataURL(imageFile);
+
+    if (imageSource instanceof File || imageSource instanceof Blob) {
+        const reader = new FileReader();
+        reader.onload = (e) => startCropper(e.target.result);
+        reader.readAsDataURL(imageSource);
+    } else if (typeof imageSource === 'string') {
+        // Es una URL (para editar imágenes existentes)
+        // Necesitamos 'crossOrigin' para evitar taint del canvas
+        imageElement.crossOrigin = 'anonymous'; 
+        startCropper(imageSource);
+    }
 };
 
 const closeEditor = () => {
-    modalContainer.classList.add('hidden');
+    if (modalContainer) {
+        modalContainer.classList.add('hidden');
+        modalContainer.style.display = 'none';
+    }
     if (cropper) {
         cropper.destroy();
         cropper = null;
     }
-    document.getElementById('image-to-crop').src = '';
+    const img = document.getElementById('image-to-crop');
+    if(img) img.src = '';
     onConfirmCallback = null;
 };

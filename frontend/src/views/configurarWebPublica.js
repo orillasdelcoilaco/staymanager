@@ -11,11 +11,9 @@ export async function render() {
     return `
         <div class="bg-white p-8 rounded-lg shadow space-y-6">
             <h2 class="text-2xl font-semibold text-gray-900">Configurar Contenido Web Público (SSR)</h2>
-            
             <div id="contenedor-general">
-                <p class="text-gray-500">Cargando configuración general...</p>
+                <div class="animate-pulse flex space-x-4"><div class="flex-1 space-y-4 py-1"><div class="h-4 bg-gray-200 rounded w-3/4"></div><div class="space-y-2"><div class="h-4 bg-gray-200 rounded"></div></div></div></div>
             </div>
-            
             <div class="border-t pt-6">
                 <h3 class="text-xl font-bold text-gray-800 mb-4">Contenido por Alojamiento</h3>
                  <div>
@@ -24,7 +22,6 @@ export async function render() {
                         <option value="">-- Cargando... --</option>
                     </select>
                 </div>
-
                 <div id="config-container-propiedad" class="hidden space-y-6 mt-4">
                     <div id="contenedor-propiedad"></div>
                     <div id="contenedor-galeria"></div>
@@ -36,9 +33,6 @@ export async function render() {
 
 export async function afterRender() {
     try {
-        console.log('[ConfigWeb] Iniciando carga de datos...');
-        
-        // 1. Carga Inicial Paralela
         const [empresa, propiedades, configWeb] = await Promise.all([
             fetchAPI('/empresa'),
             fetchAPI('/propiedades'),
@@ -48,16 +42,12 @@ export async function afterRender() {
         empresaInfo = empresa;
         todasLasPropiedades = propiedades;
 
-        console.log('[ConfigWeb] Datos cargados. Config:', configWeb);
-
-        // 2. Renderizar General
         const containerGeneral = document.getElementById('contenedor-general');
         if (containerGeneral) {
             containerGeneral.innerHTML = renderGeneral(configWeb || {});
-            setupGeneralEvents(); // Adjuntar eventos después de renderizar
+            setupGeneralEvents();
         }
 
-        // 3. Configurar Select de Propiedades
         const select = document.getElementById('propiedad-select');
         if (select) {
             select.innerHTML = '<option value="">-- Elige un alojamiento --</option>' +
@@ -65,12 +55,11 @@ export async function afterRender() {
                 .sort((a, b) => a.nombre.localeCompare(b.nombre))
                 .map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
 
-            // 4. Listener de Cambio de Propiedad
             select.addEventListener('change', async (e) => handlePropiedadChange(e.target.value));
         }
 
     } catch (error) {
-        console.error('[ConfigWeb] Error crítico:', error);
+        console.error(error); // Solo errores críticos
         const container = document.querySelector('.bg-white');
         if (container) container.innerHTML = `<p class="text-red-500">Error de carga: ${error.message}</p>`;
     }
@@ -86,29 +75,24 @@ async function handlePropiedadChange(propiedadId) {
         return;
     }
 
-    // UI de carga
     container.classList.remove('hidden');
-    propContainer.innerHTML = '<p class="text-gray-500">Cargando datos de la propiedad...</p>';
+    propContainer.innerHTML = '<p class="text-gray-500">Cargando...</p>';
     galContainer.innerHTML = '';
 
     try {
         const websiteData = await fetchAPI(`/website-config/propiedad/${propiedadId}`);
         const propiedad = todasLasPropiedades.find(p => p.id === propiedadId);
 
-        // Inicializar Componentes
         initPropiedad(propiedad, websiteData, empresaInfo.nombre);
         initGaleria(propiedadId, websiteData.images);
 
-        // Renderizar Componentes
         propContainer.innerHTML = renderPropiedadSettings();
         galContainer.innerHTML = renderGaleria(propiedad.componentes);
 
-        // Activar Eventos
         setupPropiedadEvents();
         setupGaleriaEvents();
 
     } catch (error) {
-        console.error('[ConfigWeb] Error al cargar propiedad:', error);
-        propContainer.innerHTML = `<p class="text-red-500">Error cargando propiedad: ${error.message}</p>`;
+        propContainer.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
     }
 }

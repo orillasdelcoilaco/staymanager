@@ -19,48 +19,39 @@ export function renderPropiedadSettings() {
     if (!currentPropiedad) return '';
     
     const cardImage = currentWebsiteData.cardImage;
-    const isListed = currentPropiedad.googleHotelData?.isListed || false;
-    let previewContent;
-
-    if (cardImage && cardImage.storagePath) {
-        previewContent = `
-            <p class="text-xs text-green-600 mb-2 font-medium">Imagen de tarjeta actual:</p>
-            <div class="relative w-48 border rounded-md overflow-hidden group">
-                <img src="${cardImage.storagePath}" 
-                     onerror="this.onerror=null; this.src='https://via.placeholder.com/100x60.png?text=Error';"
-                     alt="${clean(cardImage.altText) || 'Imagen Tarjeta'}" 
-                     class="w-full h-32 object-cover">
-            </div>`;
-    } else if (isListed) {
-        previewContent = `<p class="text-sm font-medium text-red-600 mb-2">⚠️ Esta propiedad está "Listada" y requiere una imagen principal.</p>`;
-    } else {
-        previewContent = `<p class="text-sm text-gray-500 mb-2">No se ha subido una imagen principal.</p>`;
-    }
+    const hasImage = cardImage && cardImage.storagePath;
 
     return `
         <fieldset class="p-4 rounded-md mb-4 border-indigo-500 border-2">
             <legend class="px-2 font-semibold text-indigo-700">Imagen Principal (Tarjeta/Home)</legend>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start mt-2">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Subir/Reemplazar Imagen</label>
+                    <label class="block text-sm font-medium text-gray-700">Subir/Reemplazar</label>
                     <input type="file" accept="image/*" id="subir-card-image-input" class="form-input-file mt-1">
                     <div id="upload-status-card-image" class="text-xs mt-1"></div>
+                    
                     <button type="button" id="upload-card-image-btn" class="btn-secondary btn-sm mt-2">Subir Imagen</button>
+                    ${hasImage ? `<button type="button" id="edit-existing-card-btn" class="btn-secondary btn-sm mt-2 ml-2 text-blue-600">Editar Actual</button>` : ''}
                 </div>
-                <div id="preview-card-image-container">${previewContent}</div>
+                <div id="preview-card-image-container">
+                    ${hasImage ? 
+                        `<div class="relative w-48 border rounded-md overflow-hidden">
+                            <img src="${cardImage.storagePath}" class="w-full h-32 object-cover">
+                        </div>` : 
+                        '<p class="text-sm text-gray-500">Sin imagen principal.</p>'
+                    }
+                </div>
             </div>
         </fieldset>
 
         <fieldset class="border p-4 rounded-md mb-4">
-            <legend class="px-2 font-semibold text-gray-700">Descripción Optimizada (IA)</legend>
-            <p class="text-xs text-gray-500 mt-1 mb-3">Descripción para la página pública.</p>
+            <legend class="px-2 font-semibold text-gray-700">Descripción IA</legend>
             <div class="space-y-2">
                 <textarea id="ai-description-textarea" rows="8" class="form-input w-full">${clean(currentWebsiteData.aiDescription)}</textarea>
-                <div class="flex flex-wrap gap-2">
+                <div class="flex gap-2">
                     <button type="button" id="btn-generar-ai-desc" class="btn-secondary btn-sm">Generar con IA</button>
-                    <button type="button" id="btn-guardar-ai-desc" class="btn-primary btn-sm">Guardar Descripción</button>
+                    <button type="button" id="btn-guardar-ai-desc" class="btn-primary btn-sm">Guardar</button>
                 </div>
-                <div id="save-ai-description-status" class="text-xs mt-1"></div>
             </div>
         </fieldset>
     `;
@@ -76,29 +67,28 @@ export function setupPropiedadEvents() {
         }
     };
 
-    // CAMBIO AQUÍ: Usar el editor
     attach('upload-card-image-btn', () => {
         const input = document.getElementById('subir-card-image-input');
         const file = input.files?.[0];
         if (!file) return alert('Selecciona un archivo.');
-        
-        openEditor(file, (editedBlob) => handleSubirCardImage(editedBlob));
+        openEditor(file, (blob) => handleSubirCardImage(blob));
     });
+
+    attach('edit-existing-card-btn', () => {
+        const url = currentWebsiteData.cardImage?.storagePath;
+        if(url) openEditor(url, (blob) => handleSubirCardImage(blob));
+    });
+
     attach('btn-generar-ai-desc', generarTextoDescripcionPropiedad);
     attach('btn-guardar-ai-desc', guardarTextoDescripcionPropiedad);
 }
 
-async function handleSubirCardImage() {
-const statusEl = document.getElementById('upload-status-card-image');
-    const btn = document.getElementById('upload-card-image-btn');
+async function handleSubirCardImage(imageBlob) {
+    const statusEl = document.getElementById('upload-status-card-image');
+    statusEl.textContent = 'Procesando...';
     
-    statusEl.textContent = 'Subiendo y optimizando...';
-    statusEl.className = 'text-xs mt-1';
-    btn.disabled = true;
-
     const formData = new FormData();
-    // Usar el blob editado
-    formData.append('cardImage', imageBlob, 'card-image-edited.jpg');
+    formData.append('cardImage', imageBlob, 'card.jpg');
 
     try {
         const result = await fetchAPI(`/website-config/propiedad/${currentPropiedad.id}/upload-card-image`, {
@@ -106,20 +96,15 @@ const statusEl = document.getElementById('upload-status-card-image');
             body: formData
         });
         currentWebsiteData.cardImage = result;
-        statusEl.textContent = '¡Imagen subida con éxito!';
-        statusEl.classList.add('text-green-500');
+        statusEl.textContent = 'Subida exitosa.';
         
         document.getElementById('preview-card-image-container').innerHTML = `
-            <p class="text-xs text-green-600 mb-2 font-medium">Imagen de tarjeta actual:</p>
-            <div class="relative w-48 border rounded-md overflow-hidden group">
+            <div class="relative w-48 border rounded-md overflow-hidden">
                 <img src="${result.storagePath}" class="w-full h-32 object-cover">
             </div>`;
-        document.getElementById('subir-card-image-input').value = '';
+        setupPropiedadEvents(); // Re-activar listener de editar
     } catch (error) {
         statusEl.textContent = `Error: ${error.message}`;
-        statusEl.classList.add('text-red-500');
-    } finally {
-        btn.disabled = false;
     }
 }
 
