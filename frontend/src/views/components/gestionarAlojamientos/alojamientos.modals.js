@@ -6,9 +6,7 @@ let onSaveCallback = null;
 let editandoPropiedad = null;
 let componentesTemporales = [];
 let canalesCache = []; 
-let tiposComponenteCache = []; // Cache para no llamar a la API cada vez que se abre el modal
-
-// --- Lógica Interna de Componentes ---
+let tiposComponenteCache = []; 
 
 function renderizarListaComponentes() {
     const container = document.getElementById('lista-componentes');
@@ -52,35 +50,28 @@ function handleAgregarComponente() {
         return;
     }
 
-    // Buscar metadata del tipo seleccionado para guardar el icono y nombre normalizado
     const tipoData = tiposComponenteCache.find(t => t.id === tipoId) || {};
 
     componentesTemporales.push({
         id: generarIdComponente(nombre),
-        nombre: nombre, // Ej: "Quincho del Sur"
-        tipo: tipoData.nombreNormalizado || 'Otro', // Ej: "Zona de Barbacoa"
+        nombre: nombre, 
+        tipo: tipoData.nombreNormalizado || 'Otro', 
         tipoId: tipoId,
         icono: tipoData.icono || '📦'
     });
 
     nombreInput.value = '';
-    // No reseteamos el select para facilitar agregar varios del mismo tipo
     renderizarListaComponentes();
 }
 
-// --- Renderizado del Modal ---
-
 export const renderModalAlojamiento = () => {
-    // El select se llenará dinámicamente al abrir el modal
     return `
         <div id="propiedad-modal" class="modal hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-40 flex items-center justify-center">
              <div class="modal-content relative bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 md:mx-auto my-10 flex flex-col max-h-[90vh]">
-                 
                  <div class="flex justify-between items-center p-5 border-b">
                     <h3 id="modal-title" class="text-xl font-semibold text-gray-800"></h3>
                     <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-2xl font-bold">&times;</button>
                 </div>
-
                 <div class="p-6 overflow-y-auto">
                     <form id="propiedad-form">
                         <fieldset class="border p-4 rounded-md mb-6">
@@ -117,10 +108,7 @@ export const renderModalAlojamiento = () => {
 
                         <fieldset class="border p-4 rounded-md mb-6 bg-indigo-50 border-indigo-100">
                             <legend class="px-2 font-semibold text-indigo-700 bg-white border border-indigo-100 rounded shadow-sm">Componentes (Espacios)</legend>
-                            <p class="text-xs text-gray-600 mt-2 mb-4">
-                                Define las áreas específicas para generar una galería de fotos organizada y optimizada para SEO.
-                                <br><em>(Ej: Agrega "Quincho", "Habitación Principal", "Terraza Norte")</em>
-                            </p>
+                            <p class="text-xs text-gray-600 mt-2 mb-4">Define las áreas específicas para generar una galería de fotos organizada y optimizada para SEO.</p>
                             
                             <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end mb-4">
                                 <div class="md:col-span-5">
@@ -139,19 +127,12 @@ export const renderModalAlojamiento = () => {
                                     </button>
                                 </div>
                             </div>
-
                             <div class="mt-2 border-t border-indigo-100 pt-4" id="lista-componentes"></div>
-                            
                             <div id="hint-tipos-vacios" class="hidden mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded">
-                                ⚠️ No hay tipos de espacios definidos. Ve a "Configuración > Tipos de Componentes" para crearlos con IA.
+                                ⚠️ No hay tipos de espacios definidos. Ve a "Tipos de Componente" para crearlos.
                             </div>
                         </fieldset>
 
-                        <fieldset class="border p-4 rounded-md mb-6">
-                            <legend class="px-2 font-semibold text-gray-700">Sincronización iCal</legend>
-                            <div id="ical-fields-container" class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4"></div>
-                        </fieldset>
-                        
                         <fieldset class="border p-4 rounded-md mb-6">
                             <legend class="px-2 font-semibold text-gray-700">Google Hotels & Web Pública</legend>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
@@ -164,10 +145,9 @@ export const renderModalAlojamiento = () => {
                                 <input type="hidden" id="googleHotelCountry" value="CL">
                             </div>
                         </fieldset>
-
+                        <div id="ical-fields-container" class="hidden"></div>
                     </form>
                 </div>
-
                 <div class="p-5 border-t bg-gray-50 rounded-b-lg flex justify-end gap-3">
                     <button type="button" id="cancel-btn" class="btn-secondary">Cancelar</button>
                     <button type="submit" form="propiedad-form" class="btn-primary">Guardar Propiedad</button>
@@ -176,8 +156,6 @@ export const renderModalAlojamiento = () => {
         </div>
     `;
 };
-
-// --- Gestión del Modal ---
 
 export const abrirModalAlojamiento = async (propiedad = null, canales = []) => {
     const modal = document.getElementById('propiedad-modal');
@@ -191,7 +169,7 @@ export const abrirModalAlojamiento = async (propiedad = null, canales = []) => {
 
     if (!modal || !form) return;
 
-    // 1. Cargar Tipos Dinámicos
+    // 1. Cargar Tipos Dinámicos (¡Esto es lo nuevo!)
     try {
         tiposComponenteCache = await fetchAPI('/componentes');
         
@@ -215,10 +193,7 @@ export const abrirModalAlojamiento = async (propiedad = null, canales = []) => {
     icalContainer.innerHTML = canales
         .filter(canal => canal.nombre.toLowerCase() !== 'app')
         .map(canal => `
-            <div>
-                <label for="ical-${canal.id}" class="block text-sm font-medium text-gray-700">iCal ${canal.nombre}</label>
-                <input type="url" id="ical-${canal.id}" data-canal-key="${canal.nombre.toLowerCase()}" class="form-input mt-1 ical-input text-xs">
-            </div>
+            <input type="url" id="ical-${canal.id}" data-canal-key="${canal.nombre.toLowerCase()}" class="ical-input">
         `).join('');
 
     if (propiedad) {
@@ -257,7 +232,6 @@ export const abrirModalAlojamiento = async (propiedad = null, canales = []) => {
         form.googleHotelIsListed.checked = propiedad.googleHotelData?.isListed || false;
         form.googleHotelStreet.value = propiedad.googleHotelData?.address?.street || '';
         form.googleHotelCity.value = propiedad.googleHotelData?.address?.city || '';
-        // País hardcodeado por ahora
     } else {
         editandoPropiedad = null;
         modalTitle.textContent = 'Crear Nuevo Alojamiento';
@@ -276,33 +250,25 @@ export const cerrarModalAlojamiento = () => {
     componentesTemporales = [];
 };
 
-// --- Configuración de Eventos ---
-
 export const setupModalAlojamiento = (callback) => {
     onSaveCallback = callback;
-
     const form = document.getElementById('propiedad-form');
     if (!form) return;
+    
+    // Listener simplificado (se monta en gestionarAlojamientos.js)
     const newForm = form.cloneNode(true);
     form.parentNode.replaceChild(newForm, form);
 
     document.getElementById('close-modal-btn').addEventListener('click', cerrarModalAlojamiento);
     document.getElementById('cancel-btn').addEventListener('click', cerrarModalAlojamiento);
-
-    const btnAgregar = document.getElementById('agregar-componente-btn');
-    const newBtnAgregar = btnAgregar.cloneNode(true);
-    btnAgregar.parentNode.replaceChild(newBtnAgregar, btnAgregar);
-    newBtnAgregar.addEventListener('click', handleAgregarComponente);
+    document.getElementById('agregar-componente-btn').addEventListener('click', handleAgregarComponente);
 
     newForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
         const icalInputs = newForm.querySelectorAll('.ical-input');
         const sincronizacionIcal = {};
         icalInputs.forEach(input => {
-            if (input.value) {
-                sincronizacionIcal[input.dataset.canalKey.toLowerCase()] = input.value;
-            }
+            if (input.value) sincronizacionIcal[input.dataset.canalKey.toLowerCase()] = input.value;
         });
 
         const datos = {
@@ -332,25 +298,16 @@ export const setupModalAlojamiento = (callback) => {
                 address: {
                     street: newForm.googleHotelStreet.value.trim(),
                     city: newForm.googleHotelCity.value.trim(),
-                    countryCode: 'CL' // Hardcodeado por simplicidad momentánea
+                    countryCode: 'CL' 
                 }
             },
             websiteData: editandoPropiedad?.websiteData || { aiDescription: '', images: {}, cardImage: null }
         };
 
-        // Validaciones mínimas
-        if (datos.googleHotelData.isListed) {
-            if (!datos.googleHotelData.hotelId || !datos.googleHotelData.address.street) {
-                alert('Si publicas en Google Hotels, el ID y la Dirección son obligatorios.');
-                return;
-            }
-        }
-
         try {
             const endpoint = editandoPropiedad ? `/propiedades/${editandoPropiedad.id}` : '/propiedades';
             const method = editandoPropiedad ? 'PUT' : 'POST';
             await fetchAPI(endpoint, { method: method, body: datos });
-
             cerrarModalAlojamiento();
             if (onSaveCallback) onSaveCallback();
         } catch (error) {
