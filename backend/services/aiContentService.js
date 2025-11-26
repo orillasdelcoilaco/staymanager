@@ -14,7 +14,7 @@ if (!API_KEY) {
 
 // Usamos gemini-1.5-flash por ser el estándar actual de velocidad/calidad
 const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
-const model = genAI ? genAI.getGenerativeModel({ model: "gemini-1.5-flash" }) : null;
+const model = genAI ? genAI.getGenerativeModel({  model: "models/gemini-2.5-flash" }) : null;
 
 // --- Función Placeholder (Respaldo) ---
 async function llamarIASimulada(prompt) {
