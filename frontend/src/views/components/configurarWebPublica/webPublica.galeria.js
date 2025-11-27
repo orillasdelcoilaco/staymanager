@@ -1,9 +1,10 @@
+// frontend/src/views/components/configurarWebPublica/webPublica.galeria.js
 import { fetchAPI } from '../../../api.js';
-// import { openEditor } from '../../../utils/imageEditorModal.js'; // Desactivamos editor en wizard por simplicidad
+import { openEditor } from '../../../utils/imageEditorModal.js';
 
 let currentPropiedadId = null;
 let currentImages = {};
-let activeWizard = null; // Estado del wizard activo
+let activeWizard = null;
 
 const clean = (val) => (val === undefined || val === null || val === 'undefined') ? '' : val;
 
@@ -12,7 +13,7 @@ const clean = (val) => (val === undefined || val === null || val === 'undefined'
 const startWizard = (componentId, shotList) => {
     activeWizard = {
         componentId,
-        shotList: shotList || ['Vista General'], // Fallback si no hay lista
+        shotList: shotList || ['Vista General'],
         currentStep: 0,
         uploadedInSession: []
     };
@@ -20,14 +21,18 @@ const startWizard = (componentId, shotList) => {
 };
 
 const closeWizard = () => {
-    activeWizard = null;
-    document.getElementById('wizard-modal').remove();
-    // Recargar la galería principal para mostrar las nuevas fotos
     const componentId = activeWizard?.componentId;
+    const modal = document.getElementById('wizard-modal');
+    if (modal) modal.remove();
+    
+    // CRÍTICO: Actualizar la UI con las nuevas fotos
     if (componentId) {
-         document.getElementById(`galeria-${componentId}`).innerHTML = renderImagenesGrid(currentImages[componentId], componentId);
-         document.getElementById(`ai-feedback-${componentId}`).classList.add('hidden'); // Limpiar feedback viejo
+         const container = document.getElementById(`galeria-${componentId}`);
+         if (container) {
+             container.innerHTML = renderImagenesGrid(currentImages[componentId], componentId);
+         }
     }
+    activeWizard = null;
 };
 
 const handleWizardUpload = async (file) => {
@@ -46,7 +51,7 @@ const handleWizardUpload = async (file) => {
 
     const formData = new FormData();
     formData.append('images', file);
-    formData.append('shotContext', stepData); // ¡Enviamos el contexto a la IA!
+    formData.append('shotContext', stepData);
 
     try {
         const resultados = await fetchAPI(`/website-config/propiedad/${currentPropiedadId}/upload-image/${activeWizard.componentId}`, {
@@ -56,17 +61,14 @@ const handleWizardUpload = async (file) => {
 
         const imagenSubida = resultados[0];
         
+        // Actualizar estado global INMEDIATAMENTE
+        if (!currentImages[activeWizard.componentId]) currentImages[activeWizard.componentId] = [];
+        currentImages[activeWizard.componentId].push(imagenSubida);
+
         if (imagenSubida.advertencia) {
-            // FALLÓ LA VALIDACIÓN
             renderWizardStep('error', imagenSubida);
         } else {
-            // ÉXITO
             activeWizard.uploadedInSession.push(imagenSubida);
-            
-            // Actualizar estado global de imágenes
-            if (!currentImages[activeWizard.componentId]) currentImages[activeWizard.componentId] = [];
-            currentImages[activeWizard.componentId].push(imagenSubida);
-
             activeWizard.currentStep++;
             if (activeWizard.currentStep >= activeWizard.shotList.length) {
                 renderWizardStep('finish');
@@ -87,7 +89,6 @@ const renderWizardStep = (state = 'upload', errorData = null) => {
     const totalSteps = activeWizard.shotList.length;
     const stepIndex = activeWizard.currentStep;
     
-    // Actualizar título y progreso
     document.getElementById('wizard-title').textContent = `Asistente de Fotos: Paso ${stepIndex + 1} de ${totalSteps}`;
     const progressPercent = ((stepIndex) / totalSteps) * 100;
     document.getElementById('wizard-progress-bar').style.width = `${progressPercent}%`;
@@ -99,16 +100,16 @@ const renderWizardStep = (state = 'upload', errorData = null) => {
                 <h4 class="text-xl font-bold text-gray-800 mb-2">Requisito: ${requirement}</h4>
                 <p class="text-sm text-gray-500 mb-6">Sube una foto que cumpla exactamente con esta descripción.</p>
                 
-                <label for="wizard-file-input" class="cursor-pointer flex flex-col items-center justify-center h-48 border-2 border-dashed border-indigo-300 rounded-lg hover:bg-indigo-50 transition-colors bg-white">
-                    <span class="text-4xl mb-2">📸</span>
-                    <span class="text-indigo-600 font-medium">Seleccionar foto para "${requirement}"</span>
+                <label for="wizard-file-input" class="cursor-pointer flex flex-col items-center justify-center h-32 border-2 border-dashed border-indigo-300 rounded-lg hover:bg-indigo-50 transition-colors bg-white max-w-sm mx-auto">
+                    <span class="text-3xl mb-2">📸</span>
+                    <span class="text-indigo-600 font-medium text-sm">Seleccionar foto</span>
                     <input type="file" id="wizard-file-input" accept="image/*" class="hidden">
                 </label>
             </div>
         `;
-        nextBtn.textContent = 'Omitir este paso (No recomendado)';
+        nextBtn.textContent = 'Saltar este paso';
         nextBtn.onclick = () => {
-            if(confirm('¿Seguro que quieres saltar este requisito? La IA podría penalizar el SEO.')){
+            if(confirm('¿Saltar requisito?')){
                  activeWizard.currentStep++;
                  renderWizardStep(activeWizard.currentStep >= totalSteps ? 'finish' : 'upload');
             }
@@ -120,39 +121,29 @@ const renderWizardStep = (state = 'upload', errorData = null) => {
 
     } else if (state === 'error') {
         wizardBody.innerHTML = `
-            <div class="text-center py-6 bg-red-50 rounded-lg border border-red-200 p-4">
-                <span class="text-5xl block mb-2">⚠️</span>
-                <h4 class="text-xl font-bold text-red-800 mb-2">La IA ha rechazado la imagen</h4>
-                <p class="text-md text-red-700 font-medium mb-4">${errorData.advertencia}</p>
-                
-                <div class="h-32 w-32 mx-auto mb-4 rounded-md overflow-hidden border-2 border-red-300">
-                    <img src="${errorData.storagePath}" class="w-full h-full object-cover grayscale opacity-75">
+            <div class="text-center py-4 bg-red-50 rounded-lg border border-red-200 p-4">
+                <h4 class="text-lg font-bold text-red-800 mb-2">⚠️ Rechazada por el Auditor</h4>
+                <p class="text-sm text-red-700 font-medium mb-4">${errorData.advertencia}</p>
+                <div class="h-24 w-24 mx-auto mb-4 rounded-md overflow-hidden border border-red-300">
+                    <img src="${errorData.storagePath}" class="w-full h-full object-cover grayscale">
                 </div>
-                
-                <p class="text-sm text-gray-600 mb-4">Esta imagen no se usará para este requisito. Por favor, intenta con otra.</p>
-                
-                <button id="retry-step-btn" class="btn-primary bg-red-600 hover:bg-red-700">Intentar de nuevo</button>
+                <button id="retry-step-btn" class="btn-primary bg-red-600 hover:bg-red-700 btn-sm">Intentar otra foto</button>
             </div>
         `;
-        // Borrar la imagen mala del estado global para que no salga en la galería final
-        if (currentImages[activeWizard.componentId]) {
-             currentImages[activeWizard.componentId] = currentImages[activeWizard.componentId].filter(img => img.imageId !== errorData.imageId);
-        }
-        // Eliminar del backend (opcional, para no llenar storage de basura, se puede implementar después)
-
+        // La imagen ya se guardó (con advertencia), pero la quitamos del wizard session para no contarla como éxito
         nextBtn.disabled = true;
         document.getElementById('retry-step-btn').addEventListener('click', () => renderWizardStep('upload'));
 
     } else if (state === 'finish') {
         document.getElementById('wizard-progress-bar').style.width = `100%`;
         wizardBody.innerHTML = `
-            <div class="text-center py-10">
-                <span class="text-6xl block mb-4">🎉</span>
-                <h4 class="text-2xl font-bold text-green-800 mb-2">¡Galería Completada con Éxito!</h4>
-                <p class="text-gray-600">Has subido ${activeWizard.uploadedInSession.length} fotos validadas por la IA para este espacio.</p>
+            <div class="text-center py-8">
+                <span class="text-5xl block mb-4">🎉</span>
+                <h4 class="text-xl font-bold text-green-800 mb-2">¡Excelente!</h4>
+                <p class="text-gray-600 text-sm">Has completado la sesión de fotos para este espacio.</p>
             </div>
         `;
-        nextBtn.textContent = 'Finalizar y Cerrar';
+        nextBtn.textContent = 'Finalizar';
         nextBtn.disabled = false;
         nextBtn.onclick = closeWizard;
     }
@@ -160,19 +151,18 @@ const renderWizardStep = (state = 'upload', errorData = null) => {
 
 const renderWizardModal = () => {
     const modalHtml = `
-        <div id="wizard-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 backdrop-blur-sm">
-            <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden">
-                <div class="bg-indigo-600 p-4 text-white flex justify-between items-center">
-                    <h3 id="wizard-title" class="text-lg font-bold">Asistente de Fotos</h3>
-                    <button id="wizard-close-btn" class="text-indigo-200 hover:text-white text-2xl">&times;</button>
+        <div id="wizard-modal" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-50 backdrop-blur-sm">
+            <div class="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+                <div class="bg-indigo-600 p-3 text-white flex justify-between items-center">
+                    <h3 id="wizard-title" class="text-md font-bold">Asistente</h3>
+                    <button id="wizard-close-btn" class="text-indigo-200 hover:text-white text-xl">&times;</button>
                 </div>
-                <div class="h-2 bg-indigo-100">
+                <div class="h-1 bg-indigo-100">
                     <div id="wizard-progress-bar" class="h-full bg-green-500 transition-all duration-500" style="width: 0%"></div>
                 </div>
-                <div id="wizard-body" class="p-6 min-h-[400px] flex flex-col justify-center">
-                    </div>
-                <div class="bg-gray-50 p-4 flex justify-end border-t">
-                    <button id="wizard-next-btn" class="btn-secondary">Omitir</button>
+                <div id="wizard-body" class="p-4 min-h-[300px] flex flex-col justify-center"></div>
+                <div class="bg-gray-50 p-3 flex justify-end border-t">
+                    <button id="wizard-next-btn" class="btn-secondary text-xs">Omitir</button>
                 </div>
             </div>
         </div>
@@ -182,8 +172,7 @@ const renderWizardModal = () => {
     renderWizardStep('upload');
 };
 
-
-// --- Funciones Principales de la Galería ---
+// --- Funciones Principales ---
 
 export function initGaleria(propiedadId, images) {
     currentPropiedadId = propiedadId;
@@ -197,28 +186,30 @@ export function renderGaleria(componentes, tiposMaestros = []) {
         </p>`;
     }
     return `
-        <div class="space-y-8">
-            ${componentes.map(comp => renderComponenteBloque(comp, tiposMaestros)).join('')}
+        <div class="space-y-6">
+            <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                Galería por Áreas 
+                <span class="text-xs font-normal bg-green-100 text-green-800 px-2 py-1 rounded-full">Auditor IA Activo</span>
+            </h3>
+            <div id="galerias-wrapper">
+                ${componentes.map(comp => renderComponenteBloque(comp, tiposMaestros)).join('')}
+            </div>
         </div>
     `;
 }
 
 function renderComponenteBloque(componente, tiposMaestros) {
     const imagenes = currentImages[componente.id] || [];
-    
-    // 1. Buscar definición y Shot List
     const tipoDefinicion = tiposMaestros.find(t => t.id === componente.tipoId) 
                         || tiposMaestros.find(t => t.nombreNormalizado === componente.tipo); 
     
     const hasShotList = tipoDefinicion && tipoDefinicion.shotList && tipoDefinicion.shotList.length > 0;
     const shotListJson = hasShotList ? JSON.stringify(tipoDefinicion.shotList).replace(/"/g, '&quot;') : '[]';
 
-    // 2. Renderizar guía visual (Shot List pasivo)
     let checklistHtml = '';
     if (hasShotList) {
         const itemsHtml = tipoDefinicion.shotList.map((req, idx) => {
-            // Verificar si ya tenemos una foto que cumpla este requisito (lógica simple por ahora)
-            const cumplido = imagenes.some(img => !img.advertencia && idx < imagenes.length); // Aproximación
+            const cumplido = imagenes.some(img => !img.advertencia && idx < imagenes.length);
             return `
             <li class="flex items-center gap-2 text-xs ${cumplido ? 'text-green-700 font-medium' : 'text-gray-600'}">
                 <span class="${cumplido ? 'text-green-500' : 'text-indigo-300'}">${cumplido ? '✓' : '○'}</span> ${req}
@@ -226,124 +217,193 @@ function renderComponenteBloque(componente, tiposMaestros) {
         }).join('');
         
         checklistHtml = `
-            <div class="bg-indigo-50 border border-indigo-100 rounded-md p-4">
-                <div class="flex justify-between items-start mb-3">
-                    <div>
-                         <h5 class="text-sm font-bold text-indigo-800 flex items-center gap-2">
-                            ${tipoDefinicion.icono || '📸'} Lista de Tomas Requeridas (IA)
-                         </h5>
-                        <p class="text-xs text-indigo-600 mt-1">Sigue esta guía para un SEO perfecto.</p>
-                    </div>
-                    <button class="start-wizard-btn btn-primary py-1.5 px-3 text-xs flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 shadow-sm" 
+            <div class="bg-indigo-50 border border-indigo-100 rounded-md p-3 mb-4">
+                <div class="flex justify-between items-center mb-2">
+                     <h5 class="text-xs font-bold text-indigo-800 flex items-center gap-1">
+                        ${tipoDefinicion.icono || '📸'} Requisitos
+                     </h5>
+                    <button class="start-wizard-btn btn-primary py-1 px-2 text-[10px] flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 shadow-sm h-6" 
                             data-component-id="${componente.id}" 
                             data-shot-list="${shotListJson}">
-                        <span>✨</span> Iniciar Asistente Guiado
+                        <span>✨</span> Iniciar Asistente
                     </button>
                 </div>
-                <ul class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                <ul class="grid grid-cols-1 sm:grid-cols-2 gap-1">
                     ${itemsHtml}
                 </ul>
             </div>
         `;
     }
 
-    // 3. Renderizar bloque principal
     return `
-        <fieldset class="border border-gray-200 p-5 rounded-lg bg-white shadow-sm relative">
-            <legend class="px-3 font-bold text-gray-800 text-lg flex items-center gap-2 bg-white border rounded-md shadow-sm py-1">
+        <fieldset class="border border-gray-200 p-4 rounded-lg bg-white shadow-sm relative">
+            <legend class="px-2 font-bold text-gray-700 text-sm flex items-center gap-2 bg-white border rounded-md shadow-sm py-1">
                 ${componente.nombre} 
-                <span class="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full uppercase tracking-wider">${componente.tipo}</span>
+                <span class="text-[10px] font-normal text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full uppercase tracking-wider">${componente.tipo}</span>
             </legend>
             
-            <div class="space-y-5 mt-2">
+            <div class="mt-2">
                 ${checklistHtml}
 
-                <div id="ai-feedback-${componente.id}" class="hidden p-4 bg-red-50 border-l-4 border-red-500 text-red-800 rounded shadow-sm"></div>
+                <div id="ai-feedback-${componente.id}" class="hidden p-3 mb-3 bg-red-50 border-l-4 border-red-500 text-red-800 text-xs rounded shadow-sm"></div>
 
-                <div id="galeria-${componente.id}" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <div id="galeria-${componente.id}" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                     ${renderImagenesGrid(imagenes, componente.id)}
                 </div>
 
-                <div class="mt-4 pt-4 border-t border-gray-100">
-                     <p class="text-xs text-gray-400 mb-2 text-center uppercase tracking-widest font-bold">O subida manual sin asistente</p>
-                    <label for="input-${componente.id}" class="group flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all cursor-pointer bg-gray-50">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-400 group-hover:text-indigo-600 transition-colors mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                        <span class="text-sm text-gray-600 group-hover:text-indigo-700 font-medium">Arrastra fotos aquí o haz click</span>
+                <div class="mt-3 pt-3 border-t border-gray-100">
+                    <label for="input-${componente.id}" class="group flex flex-row items-center justify-center gap-2 p-2 border-2 border-dashed border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all cursor-pointer bg-gray-50 h-16"> <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 group-hover:text-indigo-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                        <span class="text-xs text-gray-600 group-hover:text-indigo-700 font-medium">Subir fotos manualmente</span>
                         <input type="file" multiple accept="image/*" id="input-${componente.id}" data-component-id="${componente.id}" class="subir-imagenes-input hidden">
                     </label>
-                    <div id="upload-status-${componente.id}" class="text-center text-xs mt-2 text-gray-500 min-h-[20px]"></div>
+                    <div id="upload-status-${componente.id}" class="text-center text-[10px] mt-1 text-gray-500 min-h-[16px]"></div>
                 </div>
             </div>
         </fieldset>`;
 }
 
 function renderImagenesGrid(imagenes, componentId) {
-    if (imagenes.length === 0) return '<p class="text-sm text-gray-500 col-span-full py-8 text-center italic bg-gray-50 rounded border border-dashed">No hay imágenes. Usa el Asistente ✨ para empezar.</p>';
+    if (imagenes.length === 0) return '<p class="text-xs text-gray-400 col-span-full py-4 text-center italic">Sin imágenes.</p>';
     
     return imagenes.map(img => {
         const tieneAdvertencia = !!img.advertencia;
         const statusHtml = tieneAdvertencia
-            ? `<div class="absolute top-1 right-1 bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1 cursor-help z-10" title="${img.advertencia}">⚠️ Revisar</div>`
-            : `<div class="absolute top-1 right-1 bg-green-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1 z-10">✅ OK</div>`;
+            ? `<div class="absolute top-1 right-1 bg-red-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow flex items-center gap-1 cursor-help z-10" title="${img.advertencia}">⚠️ Alerta</div>`
+            : `<div class="absolute top-1 right-1 bg-green-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow flex items-center gap-1 z-10">✅</div>`;
 
-        const bordeClass = tieneAdvertencia ? "border-red-500 ring-2 ring-red-100" : "border-gray-200 hover:border-indigo-300";
+        const bordeClass = tieneAdvertencia ? "border-red-400 ring-2 ring-red-50" : "border-gray-200 hover:border-indigo-300";
 
-        // FIX CSS GRID: Usamos aspect-square en el contenedor
         return `
-        <div class="relative border-2 ${bordeClass} rounded-lg overflow-hidden group bg-white flex flex-col shadow-sm hover:shadow-lg transition-all duration-300">
-            ${statusHtml}
+        <div class="relative border ${bordeClass} rounded-md overflow-hidden group bg-white shadow-sm hover:shadow-md transition-all">
             <div class="relative w-full aspect-square bg-gray-100">
                 <img src="${img.storagePath}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
                 
-                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
-                    <button data-component-id="${componentId}" data-image-id="${img.imageId}" class="eliminar-imagen-btn bg-white text-red-600 p-2 rounded-full hover:bg-red-100 shadow-sm transition-transform hover:scale-110" title="Eliminar">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
+                    <button data-component-id="${componentId}" data-image-id="${img.imageId}" class="eliminar-imagen-btn bg-white text-red-600 p-1.5 rounded-full hover:bg-red-100 shadow-sm transition-transform hover:scale-110" title="Eliminar">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                    </button>
+                    <button data-component-id="${componentId}" data-image-url="${img.storagePath}" data-old-image-id="${img.imageId}" class="editar-existente-btn bg-white text-blue-600 p-1.5 rounded-full hover:bg-blue-100 shadow-sm transition-transform hover:scale-110" title="Recortar">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                     </button>
                 </div>
+                ${statusHtml}
             </div>
 
-            <div class="p-2 bg-white flex-grow flex flex-col justify-end border-t border-gray-50">
-                <p class="text-gray-900 font-semibold text-xs truncate leading-tight mb-0.5" title="${img.title}">${img.title || 'Sin Título'}</p>
-                <p class="text-gray-500 text-[10px] truncate" title="${clean(img.altText)}">${clean(img.altText) || '...'}</p>
+            <div class="px-2 py-1.5 border-t border-gray-50 bg-white">
+                <p class="text-gray-900 font-medium text-[10px] truncate" title="${img.title}">${img.title || 'Sin Título'}</p>
+                <p class="text-gray-400 text-[9px] truncate" title="${clean(img.altText)}">${clean(img.altText) || '...'}</p>
             </div>
         </div>
     `}).join('');
 }
 
 export function setupGaleriaEvents() {
-    // Eventos para el botón del Wizard
-    document.querySelectorAll('.start-wizard-btn').forEach(btn => {
-        // Clonar para evitar listeners duplicados si se renderiza varias veces
-        const newBtn = btn.cloneNode(true);
-        btn.parentNode.replaceChild(newBtn, btn);
-        newBtn.addEventListener('click', (e) => {
-            const componentId = e.currentTarget.dataset.componentId;
-            const shotList = JSON.parse(e.currentTarget.dataset.shotList);
-            startWizard(componentId, shotList);
-        });
-    });
+    // Delegación de eventos en el wrapper principal (MÁS ROBUSTO)
+    const wrapper = document.getElementById('galerias-wrapper');
+    if (wrapper) {
+        // Clonar para limpiar listeners viejos
+        const newWrapper = wrapper.cloneNode(true);
+        wrapper.parentNode.replaceChild(newWrapper, wrapper);
 
-    // Eventos de subida manual y eliminación (se mantienen igual)
-    document.querySelectorAll('.subir-imagenes-input').forEach(input => {
-        const newInput = input.cloneNode(true);
-        input.parentNode.replaceChild(newInput, input);
-        newInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) handleSubirMasivo(e.target.dataset.componentId, e.target.files);
-        });
-    });
+        newWrapper.addEventListener('click', (e) => {
+            // Wizard
+            const btnWizard = e.target.closest('.start-wizard-btn');
+            if (btnWizard) {
+                const componentId = btnWizard.dataset.componentId;
+                const shotList = JSON.parse(btnWizard.dataset.shotList);
+                startWizard(componentId, shotList);
+                return;
+            }
 
-    const contenedoresGaleria = document.querySelectorAll('[id^="galeria-"]');
-    contenedoresGaleria.forEach(container => {
-        const newContainer = container.cloneNode(true);
-        container.parentNode.replaceChild(newContainer, container);
-        newContainer.addEventListener('click', (e) => {
+            // Eliminar
             const btnEliminar = e.target.closest('.eliminar-imagen-btn');
-            if (btnEliminar) handleEliminar(btnEliminar.dataset.componentId, btnEliminar.dataset.imageId);
+            if (btnEliminar) {
+                handleEliminar(btnEliminar.dataset.componentId, btnEliminar.dataset.imageId);
+                return;
+            }
+            
+            // Editar
+            const btnEditar = e.target.closest('.editar-existente-btn');
+            if (btnEditar) {
+                openEditor(btnEditar.dataset.imageUrl, (blob) => handleReemplazarImagen(btnEditar.dataset.componentId, blob, btnEditar.dataset.oldImageId));
+                return;
+            }
         });
-    });
+
+        // Listeners para inputs de archivo (delegados o directos, aquí directos es más fácil por el change event)
+        newWrapper.querySelectorAll('.subir-imagenes-input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleSubirMasivo(e.target.dataset.componentId, e.target.files);
+                }
+            });
+        });
+    }
 }
 
-// ... (Funciones auxiliares mostrarFeedbackIA, handleSubirMasivo, handleEliminar se mantienen igual que en la versión anterior, si las necesitas te las paso, pero el foco era el wizard)
-async function mostrarFeedbackIA(componentId, resultados) { /* ... código anterior ... */ }
-async function handleSubirMasivo(componentId, files) { /* ... código anterior para subida manual ... */ }
-async function handleEliminar(componentId, imageId) { /* ... código anterior ... */ }
+async function mostrarFeedbackIA(componentId, resultados) {
+    const feedbackContainer = document.getElementById(`ai-feedback-${componentId}`);
+    if (!feedbackContainer) return;
+
+    const errores = resultados.filter(r => r.advertencia);
+    if (errores.length > 0) {
+        const listaErrores = errores.map(err => `<li class="mb-1">• ${err.advertencia}</li>`).join('');
+        feedbackContainer.innerHTML = `
+            <p class="font-bold mb-1">⚠️ Atención:</p>
+            <ul class="list-none pl-0">${listaErrores}</ul>
+        `;
+        feedbackContainer.classList.remove('hidden');
+    } else {
+        feedbackContainer.classList.add('hidden');
+    }
+}
+
+async function handleSubirMasivo(componentId, files) {
+    const statusEl = document.getElementById(`upload-status-${componentId}`);
+    statusEl.textContent = `Subiendo ${files.length}...`;
+    
+    const formData = new FormData();
+    for (const file of files) formData.append('images', file);
+
+    try {
+        const resultados = await fetchAPI(`/website-config/propiedad/${currentPropiedadId}/upload-image/${componentId}`, { method: 'POST', body: formData });
+        if (!currentImages[componentId]) currentImages[componentId] = [];
+        currentImages[componentId].push(...resultados);
+        
+        document.getElementById(`galeria-${componentId}`).innerHTML = renderImagenesGrid(currentImages[componentId], componentId);
+        mostrarFeedbackIA(componentId, resultados);
+        
+        statusEl.textContent = 'Listo.';
+        setTimeout(() => statusEl.textContent = '', 2000);
+        
+        const input = document.getElementById(`input-${componentId}`);
+        if(input) input.value = '';
+    } catch (error) {
+        statusEl.textContent = 'Error.';
+        alert(error.message);
+    }
+}
+
+async function handleReemplazarImagen(componentId, blob, oldImageId) {
+    // Lógica idéntica a la anterior
+    const formData = new FormData();
+    formData.append('images', blob, 'edited.jpg');
+    try {
+        const resultados = await fetchAPI(`/website-config/propiedad/${currentPropiedadId}/upload-image/${componentId}`, { method: 'POST', body: formData });
+        await fetchAPI(`/website-config/propiedad/${currentPropiedadId}/delete-image/${componentId}/${oldImageId}`, { method: 'DELETE' });
+        
+        currentImages[componentId] = currentImages[componentId].filter(img => img.imageId !== oldImageId);
+        currentImages[componentId].push(...resultados);
+        
+        document.getElementById(`galeria-${componentId}`).innerHTML = renderImagenesGrid(currentImages[componentId], componentId);
+    } catch (error) { alert(error.message); }
+}
+
+async function handleEliminar(componentId, imageId) {
+    if (!confirm('¿Eliminar imagen?')) return;
+    try {
+        await fetchAPI(`/website-config/propiedad/${currentPropiedadId}/delete-image/${componentId}/${imageId}`, { method: 'DELETE' });
+        currentImages[componentId] = currentImages[componentId].filter(img => img.imageId !== imageId);
+        document.getElementById(`galeria-${componentId}`).innerHTML = renderImagenesGrid(currentImages[componentId], componentId);
+    } catch (error) { alert(error.message); }
+}

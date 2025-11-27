@@ -65,7 +65,7 @@ module.exports = (db) => {
 
             // 2. Definir defaults
             const defaults = [
-                { nombreNormalizado: "Dormitorio", icono: "🛏️", descripcionBase: "Espacio para dormir.", shotList: ["Vista general", "Cama", "Guardado"] },
+                { nombreNormalizado: "Dormitorio", icono: "🛏️", descripcionBase: "Espacio para dormir.", shotList: ["Vista general", "Cama", "Closet"] },
                 { nombreNormalizado: "Baño", icono: "🚿", descripcionBase: "Cuarto de baño.", shotList: ["Vista general", "Ducha", "Lavabo"] },
                 { nombreNormalizado: "Cocina", icono: "🍳", descripcionBase: "Zona de cocina.", shotList: ["General", "Equipamiento"] },
                 { nombreNormalizado: "Sala de Estar", icono: "🛋️", descripcionBase: "Zona social.", shotList: ["General", "Vistas"] },
