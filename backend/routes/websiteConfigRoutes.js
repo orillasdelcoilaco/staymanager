@@ -134,8 +134,12 @@ module.exports = (db) => {
         try {
             const { empresaId, nombreEmpresa } = req.user;
             const { propiedadId, componentId } = req.params;
+            // Nuevo: Capturar el contexto del shot list si viene del wizard
+            const shotContext = req.body.shotContext || null; 
+
             if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files.' });
 
+            // ... (validaciones de propiedad y componente iguales) ...
             const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
             if (!propiedad) return res.status(404).json({ error: 'Propiedad no encontrada.' });
             const componente = propiedad.componentes?.find(c => c.id === componentId);
@@ -146,19 +150,16 @@ module.exports = (db) => {
 
             await Promise.all(req.files.map(async (file) => {
                 const imageId = uuidv4();
+                // ... (optimización sharp y subida storage iguales) ...
                 const outputFormat = 'webp';
-                const storagePathRelative = `empresas/${empresaId}/propiedades/${propiedadId}/images/${componentId}/${imageId}.${outputFormat}`;
-                
-                // 1. Optimizar y obtener Buffer
+                const storagePathRelative = `empresas/${empresaId}/propiedades/${propiedadId}/images/${componente.id}/${imageId}.${outputFormat}`;
                 const optimizedBuffer = await sharp(file.buffer)
                     .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
                     .toFormat(outputFormat, { quality: 80 })
                     .toBuffer();
-
-                // 2. Subir a Storage
                 const publicUrl = await uploadFile(optimizedBuffer, storagePathRelative, `image/${outputFormat}`);
                 
-                // 3. Generar Metadata con VISIÓN (Pasamos optimizedBuffer)
+                // 3. Generar Metadata con VISIÓN y CONTEXTO
                 let metadata = { altText: componente.nombre, title: componente.nombre };
                 try {
                     const descPropiedad = propiedad.websiteData?.aiDescription || propiedad.descripcion || '';
@@ -168,12 +169,14 @@ module.exports = (db) => {
                         descPropiedad,
                         componente.nombre, 
                         componente.tipo,
-                        optimizedBuffer // <--- ¡ESTO HACE QUE LA IA VEA LA FOTO!
+                        optimizedBuffer,
+                        shotContext // <--- ¡AQUÍ PASAMOS EL NUEVO PARÁMETRO!
                     );
                 } catch (aiError) {
                     console.warn("Fallo IA Visión:", aiError.message);
                 }
 
+                // ... (resto del guardado igual) ...
                 const imageData = { 
                     imageId, 
                     storagePath: publicUrl, 
@@ -181,12 +184,9 @@ module.exports = (db) => {
                     title: metadata.title,
                     advertencia: metadata.advertencia || null 
                 };
-
-                // 4. Guardar en BD
                 await propiedadRef.update({ 
                     [`websiteData.images.${componentId}`]: admin.firestore.FieldValue.arrayUnion(imageData) 
                 });
-                
                 resultadosParaFrontend.push(imageData);
             }));
 

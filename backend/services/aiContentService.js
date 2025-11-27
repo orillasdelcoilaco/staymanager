@@ -114,43 +114,60 @@ const generarDescripcionAlojamiento = async (desc, nombre, empresa, ubicacion, t
 };
 
 // 4. Metadata Imagen (STRICT VISUAL AUDITOR)
-const generarMetadataImagen = async (empresa, propiedad, desc, componente, tipo, imageBuffer) => {
+const generarMetadataImagen = async (empresa, propiedad, desc, componente, tipo, imageBuffer, contextoEsperado = null) => {
+    
+    // Si hay contexto específico del Wizard, lo añadimos al prompt
+    let instruccionAuditoria = '';
+    if (contextoEsperado) {
+        instruccionAuditoria = `
+            TAREA CRÍTICA DEL WIZARD: El usuario debe subir específicamente: "${contextoEsperado}".
+            Verifica si la imagen cumple con este requisito específico.
+            - Si se pide "Vista de la cama" y suben una vista general donde la cama apenas se ve: RECHÁZALO.
+            - Si se pide "Detalle del baño" y suben una foto panorámica: RECHÁZALO.
+            Si no cumple, el campo 'advertencia' debe decir: "No cumple con el requisito: ${contextoEsperado}".
+        `;
+    } else {
+        // Auditoría general si no es subida guiada
+        instruccionAuditoria = `
+            AUDITORÍA GENERAL: ¿La foto coincide con el tipo de espacio "${tipo}"?
+           - Si suben un baño y es "Dormitorio": DETECTARLO.
+           - Si suben un paisaje y es "Cocina": DETECTARLO.
+           - Si la foto es borrosa o mala: DETECTARLO.
+        `;
+    }
+
     const prompt = `
         Eres un Auditor de Calidad Hotelera estricto.
         
-        CONTEXTO: El usuario dice que esta foto es del espacio: "${componente}" (Categoría: ${tipo}).
+        CONTEXTO: Foto para el espacio: "${componente}" (Categoría: ${tipo}).
         PROPIEDAD: "${propiedad}".
+        
+        ${instruccionAuditoria}
 
-        TAREA DE ANÁLISIS VISUAL:
-        1. Identifica qué es realmente la imagen (ej: un baño, una cama, un paisaje, un perro, una cocina).
-        2. Compáralo con la Categoría Esperada ("${tipo}").
+        TAREAS ADICIONALES:
+        1. altText: Descripción visual detallada para SEO (máx 125 chars).
+        2. title: Título comercial corto (máx 60 chars).
 
-        FORMATO DE RESPUESTA (JSON ÚNICO):
+        Responde SOLO JSON:
         {
-            "altText": "Descripción visual atractiva y detallada para SEO de lo que REALMENTE se ve en la foto. (Máx 125 chars).",
-            "title": "Título comercial corto. (Máx 60 chars).",
-            "advertencia": "CAMPO CRÍTICO: Si la imagen NO coincide claramente con la categoría '${tipo}', escribe una advertencia directa y explicativa. 
-                            Ejemplo: 'CUIDADO: Has subido un paisaje exterior en la sección de Dormitorio'. 
-                            Ejemplo: 'ERROR: Esto parece un baño, no corresponde a Cocina'.
-                            Si la imagen coincide o es ambigua pero aceptable, pon null."
+            "altText": "...",
+            "title": "...",
+            "advertencia": "Mensaje corto de error si no cumple la auditoría. Si está bien, pon null."
         }
     `;
     
     try {
-        // Pass the buffer for the model to "see"
         const raw = await llamarGeminiAPI(prompt, imageBuffer);
         const json = JSON.parse(raw);
-        
-        // Basic response validation
         if (!json.altText || !json.title) throw new Error("JSON incompleto");
-        
         return json;
     } catch (e) {
         console.warn("Fallo generación metadata imagen:", e);
+        // Si falla la IA, si había un contexto esperado, asumimos que no se cumplió por seguridad
         return { 
-            altText: `${componente} en ${propiedad} - ${empresa}`, 
+            altText: `${componente} en ${propiedad}`, 
             title: componente, 
-            advertencia: null 
+            advertencia: contextoEsperado ? `Error de IA verificando: ${contextoEsperado}. Intente de nuevo.` : null
         };
     }
 };
