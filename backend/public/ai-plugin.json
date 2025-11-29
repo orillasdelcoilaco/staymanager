@@ -9,12 +9,12 @@
     },
     "api": {
         "type": "openapi",
-        "url": "/public/openapi.yaml",
+        "url": "https://suite-manager.onrender.com/public/openapi.yaml",
         "is_user_authenticated": false
     },
-    "logo_url": "/public/logo.png",
+    "logo_url": "https://suite-manager.onrender.com/public/logo.png",
     "contact_email": "support@staymanager.com",
-    "legal_info_url": "/public/legal",
+    "legal_info_url": "https://suite-manager.onrender.com/public/legal",
     "endpoints": [
         {
             "path": "/api/public/propiedades",

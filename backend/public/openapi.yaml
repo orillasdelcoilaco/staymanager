@@ -4,7 +4,7 @@ info:
   description: Public API for accessing vacation rental property data.
   version: 'v1'
 servers:
-  - url: https://test-ai.onrender.com
+  - url: https://suite-manager.onrender.com
 paths:
   /api/public/propiedades:
     get:
