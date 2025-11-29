@@ -1,0 +1,10 @@
+{
+    "propiedadId": "90qbyAodIhKPeVXdRt8T",
+    "fechaLlegada": "2025-12-01",
+    "fechaSalida": "2025-12-05",
+    "personas": 2,
+    "huesped": {
+        "nombre": "AI Agent",
+        "email": "ai@test.com"
+    }
+}

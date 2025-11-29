@@ -73,6 +73,21 @@ paths:
                         type: string
                       ai_context:
                         type: object
+                      images:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            url:
+                              type: string
+                            description:
+                              type: string
+                            tags:
+                              type: array
+                              items:
+                                type: string
+                            category:
+                              type: string
   /api/public/propiedad/{id}/calendar:
     get:
       operationId: getPropertyCalendar
@@ -105,3 +120,76 @@ paths:
                               type: string
                             end:
                               type: string
+  /api/public/reservar/intent:
+    post:
+      operationId: createBookingIntent
+      summary: Create a booking intent and generate payment link
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - propiedadId
+                - fechaLlegada
+                - fechaSalida
+                - personas
+                - huesped
+              properties:
+                propiedadId:
+                  type: string
+                fechaLlegada:
+                  type: string
+                  format: date
+                fechaSalida:
+                  type: string
+                  format: date
+                personas:
+                  type: integer
+                huesped:
+                  type: object
+                  required:
+                    - nombre
+                    - email
+                  properties:
+                    nombre:
+                      type: string
+                    email:
+                      type: string
+                    telefono:
+                      type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                  data:
+                    type: object
+                    properties:
+                      reserva_id:
+                        type: string
+                      estado:
+                        type: string
+                      desglose_financiero:
+                        type: object
+                        properties:
+                          moneda:
+                            type: string
+                          total_estadia:
+                            type: number
+                          monto_a_pagar_ahora:
+                            type: number
+                          saldo_al_checkin:
+                            type: number
+                          porcentaje_seña:
+                            type: string
+                      link_pago:
+                        type: string
+                      instrucciones:
+                        type: string

@@ -55,5 +55,8 @@ module.exports = (db) => {
     // GET /api/public/propiedad/:id/calendar
     router.get('/propiedad/:id/calendar', publicAiController.getPropertyCalendar);
 
+    // POST /api/public/reservar/intent
+    router.post('/reservar/intent', publicAiController.createBookingIntent);
+
     return router;
 };

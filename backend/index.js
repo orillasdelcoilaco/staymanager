@@ -68,6 +68,7 @@ try {
         });
     }
     db = admin.firestore();
+    db.settings({ ignoreUndefinedProperties: true });
     console.log('[Startup] ¡Éxito! Conexión a Firestore (db) establecida.');
 
     const app = express();

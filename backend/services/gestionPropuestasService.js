@@ -1,3 +1,4 @@
+
 // backend/services/gestionPropuestasService.js
 const admin = require('firebase-admin');
 const { getAvailabilityData } = require('./propuestasService');
@@ -10,19 +11,19 @@ const emailService = require('./emailService');
 const { registrarComunicacion } = require('./comunicacionesService');
 
 const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, idPropuestaExistente = null) => {
-    const { 
-        cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, 
-        canalId, canalNombre, moneda, valorDolarDia, valorOriginal, 
+    const {
+        cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches,
+        canalId, canalNombre, moneda, valorDolarDia, valorOriginal,
         origen, icalUid, idReservaCanal, codigoCupon, personas,
         descuentoPct, descuentoFijo, valorFinalFijado,
-        plantillaId, enviarEmail
+        plantillaId, enviarEmail, linkPago
     } = datos;
-    
+
     const idGrupo = idReservaCanal || idPropuestaExistente || db.collection('empresas').doc().id;
 
     let clienteId;
     let clienteData = cliente;
-    
+
     if (cliente.id) {
         clienteId = cliente.id;
     } else if (cliente.nombre && cliente.telefono) {
@@ -36,21 +37,21 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
         clienteId = resultadoCliente.cliente.id;
         clienteData = resultadoCliente.cliente;
     } else {
-        clienteId = null; 
+        clienteId = null;
     }
 
     const canalDoc = await db.collection('empresas').doc(empresaId).collection('canales').doc(canalId).get();
     if (!canalDoc.exists) throw new Error("El canal seleccionado no es válido.");
     const canalData = canalDoc.data();
     const configuracionIva = canalData.configuracionIva || 'incluido';
-    const comisionSumable_Orig = 0; 
+    const comisionSumable_Orig = 0;
 
     // 1. Asegurar que el ANCLA (valorOriginal) esté en USD
     let ancla_Subtotal_USD = valorOriginal;
     if (moneda === 'CLP' && valorDolarDia > 0) {
         ancla_Subtotal_USD = valorOriginal / valorDolarDia;
     } else if (moneda === 'CLP' && (!valorDolarDia || valorDolarDia === 0)) {
-        throw new Error("Se requiere un valor de dólar para convertir el ancla de CLP a USD.");
+        if (!valorDolarDia) throw new Error("Se requiere un valor de dólar para convertir el ancla de CLP a USD.");
     }
 
     let ancla_Iva_USD, ancla_TotalCliente_USD;
@@ -63,24 +64,19 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
     }
     const ancla_Payout_USD = ancla_Subtotal_USD - comisionSumable_Orig;
 
-
     // 2. Determinar el valor ACTUAL (el modificado) en USD
     let actual_TotalCliente_USD;
 
     if (valorFinalFijado && valorFinalFijado > 0) {
-        // valorFinalFijado es SIEMPRE CLP (desde el formulario)
         if (!valorDolarDia || valorDolarDia === 0) throw new Error("Se requiere un valor de dólar para convertir el Valor Final Fijo.");
         actual_TotalCliente_USD = valorFinalFijado / valorDolarDia;
     } else if (descuentoPct && descuentoPct > 0) {
-        // % se aplica sobre el ancla USD
         actual_TotalCliente_USD = ancla_TotalCliente_USD * (1 - (descuentoPct / 100));
     } else if (descuentoFijo && descuentoFijo > 0) {
-        // descuentoFijo es SIEMPRE CLP (desde el formulario)
         if (!valorDolarDia || valorDolarDia === 0) throw new Error("Se requiere un valor de dólar para convertir el Descuento Fijo.");
         const descuentoUSD = descuentoFijo / valorDolarDia;
         actual_TotalCliente_USD = ancla_TotalCliente_USD - descuentoUSD;
     } else {
-        // Sin modificación
         actual_TotalCliente_USD = ancla_TotalCliente_USD;
     }
 
@@ -89,16 +85,16 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
         configuracionIva,
         comisionSumable_Orig
     );
-    
+
     await db.runTransaction(async (transaction) => {
         const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
-        
+
         let idCargaParaPreservar = null;
 
         if (idPropuestaExistente) {
             const queryExistentes = reservasRef.where('idReservaCanal', '==', idPropuestaExistente).where('estado', '==', 'Propuesta');
             const snapshotExistentes = await transaction.get(queryExistentes);
-            
+
             if (!snapshotExistentes.empty) {
                 idCargaParaPreservar = snapshotExistentes.docs[0].data().idCarga;
             }
@@ -111,11 +107,9 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
         for (const prop of propiedades) {
             const nuevaReservaRef = reservasRef.doc();
             const idUnicoReserva = `${idGrupo}-${prop.id}`;
-            
+
             const proporcion = 1 / propiedades.length;
-            
-            // 'valoresActuales' contiene los valores en USD.
-            // Siempre multiplicamos por valorDolarDia para obtener el CLP.
+
             const valorHuespedCLP = Math.round((valoresActuales.valorHuespedOriginal * proporcion) * valorDolarDia);
             const valorTotalCLP = Math.round((valoresActuales.valorTotalOriginal * proporcion) * valorDolarDia);
             const comisionCLP = Math.round((comisionSumable_Orig * proporcion) * valorDolarDia);
@@ -152,33 +146,24 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
                 moneda,
                 valorDolarDia,
                 cuponUtilizado: codigoCupon || null,
-                
+
                 valores: {
-                    // --- Set "Actual" (CLP) ---
                     valorHuesped: valorHuespedCLP,
                     valorTotal: valorTotalCLP,
                     comision: comisionCLP,
                     costoCanal: 0,
                     iva: ivaCLP,
-                    
-                    // --- KPI (Precio Base) ---
-                    valorOriginal: valorOriginal, 
-
-                    // --- Set "Actual" (USD) ---
+                    valorOriginal: valorOriginal,
                     valorHuespedOriginal: valorHuespedUSD,
                     valorTotalOriginal: valorTotalUSD,
                     comisionOriginal: comisionUSD,
                     costoCanalOriginal: 0,
                     ivaOriginal: ivaUSD,
-
-                    // --- SET DE RESPALDO / "ANCLA" (USD) ---
                     valorHuespedCalculado: ancla_TotalCliente_USD * proporcion,
                     valorTotalCalculado: ancla_Payout_USD * proporcion,
                     comisionCalculado: comisionUSD,
                     costoCanalCalculado: 0,
                     ivaCalculado: ancla_Iva_USD * proporcion,
-
-                    // Campos de trazabilidad de Propuesta
                     descuentoPct: descuentoPct || 0,
                     descuentoFijo: descuentoFijo || 0,
                     valorFinalFijado: valorFinalFijado || 0
@@ -188,7 +173,7 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
                 fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
                 fechaActualizacion: new Date()
             };
-            
+
             transaction.set(nuevaReservaRef, datosReserva);
 
             const valorAnteriorUSD = ancla_TotalCliente_USD * proporcion;
@@ -204,7 +189,6 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
         }
     });
 
-    // --- ENVÍO DE EMAIL (después de la transacción) ---
     if (enviarEmail && plantillaId && clienteData?.email) {
         try {
             await enviarEmailPropuesta(db, empresaId, {
@@ -215,12 +199,12 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
                 fechaSalida,
                 noches,
                 personas,
-                precioFinal,
-                propuestaId: idGrupo
+                precioFinal: actual_TotalCliente_USD * valorDolarDia, // Approx
+                propuestaId: idGrupo,
+                linkPago
             });
             console.log(`✅ Email de propuesta enviado a ${clienteData.email}`);
         } catch (emailError) {
-            // No fallar la operación si el email falla
             console.error('❌ Error enviando email de propuesta:', emailError.message);
         }
     }
@@ -228,19 +212,16 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
     return { id: idGrupo };
 };
 
-// --- FUNCIÓN: Enviar email de propuesta ---
 const enviarEmailPropuesta = async (db, empresaId, datos) => {
-    const { plantillaId, cliente, propiedades, fechaLlegada, fechaSalida, noches, personas, precioFinal, propuestaId } = datos;
-    
+    const { plantillaId, cliente, propiedades, fechaLlegada, fechaSalida, noches, personas, precioFinal, propuestaId, linkPago } = datos;
+
     if (!cliente?.email) {
         throw new Error('El cliente no tiene email registrado');
     }
 
-    // Obtener datos de la empresa
     const empresaDoc = await db.collection('empresas').doc(empresaId).get();
     const empresaData = empresaDoc.data();
 
-    // Formatear datos para las etiquetas
     const formatearFecha = (fecha) => {
         const d = new Date(fecha + 'T00:00:00Z');
         return d.toLocaleDateString('es-CL', { timeZone: 'UTC' });
@@ -253,54 +234,37 @@ const enviarEmailPropuesta = async (db, empresaId, datos) => {
     const fechaLlegadaFormateada = formatearFecha(fechaLlegada);
     const fechaSalidaFormateada = formatearFecha(fechaSalida);
     const nombresPropiedades = propiedades.map(p => p.nombre).join(', ');
-    
-    // Calcular fecha de vencimiento (24 horas desde ahora)
+
     const fechaVencimiento = new Date();
     fechaVencimiento.setDate(fechaVencimiento.getDate() + 1);
-    
-    // Calcular monto de abono (50%)
+
     const montoAbono = precioFinal ? precioFinal * 0.5 : 0;
 
-    // Generar detalle de propiedades
     const detallePropiedades = propiedades.map(p => `• ${p.nombre}`).join('\n');
 
-    // Procesar plantilla con TODAS las etiquetas que usa la plantilla
     const { contenido, asunto } = await procesarPlantilla(db, empresaId, plantillaId, {
-        // Identificadores
         propuestaId: propuestaId,
         reservaId: propuestaId,
-        
-        // Cliente
         clienteNombre: cliente.nombre,
         nombreCliente: cliente.nombre,
-        
-        // Fechas
         fechaEmision: new Date().toLocaleDateString('es-CL'),
         fechaLlegada: fechaLlegadaFormateada,
         fechaSalida: fechaSalidaFormateada,
         fechasEstadiaTexto: `${fechaLlegadaFormateada} al ${fechaSalidaFormateada}`,
         fechaVencimiento: fechaVencimiento.toLocaleDateString('es-CL') + ' a las ' + fechaVencimiento.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
-        
-        // Estadía
         noches: noches?.toString() || '',
         totalNoches: noches?.toString() || '',
         personas: personas?.toString() || '',
         numeroHuespedes: personas?.toString() || '',
-        
-        // Propiedades
         nombrePropiedad: nombresPropiedades,
         propiedadesNombres: nombresPropiedades,
         detallePropiedades: detallePropiedades,
-        
-        // Valores
         precioFinal: formatearMoneda(precioFinal),
         saldoPendiente: formatearMoneda(precioFinal),
         montoTotal: formatearMoneda(precioFinal),
         resumenValores: `Total: ${formatearMoneda(precioFinal)}`,
         porcentajeAbono: '50%',
         montoAbono: formatearMoneda(montoAbono),
-        
-        // Empresa y usuario
         empresaNombre: empresaData?.nombre || '',
         empresaWebsite: empresaData?.website || '',
         contactoNombre: empresaData?.contactoNombre || '',
@@ -308,10 +272,10 @@ const enviarEmailPropuesta = async (db, empresaId, datos) => {
         contactoEmail: empresaData?.contactoEmail || '',
         usuarioEmail: empresaData?.contactoEmail || '',
         contactoTelefono: empresaData?.contactoTelefono || '',
-        usuarioTelefono: empresaData?.contactoTelefono || ''
+        usuarioTelefono: empresaData?.contactoTelefono || '',
+        linkPago: linkPago || ''
     });
 
-    // Enviar correo
     const resultado = await emailService.enviarCorreo(db, {
         to: cliente.email,
         subject: asunto,
@@ -351,7 +315,7 @@ const enviarEmailPropuesta = async (db, empresaId, datos) => {
 // --- FUNCIÓN: Enviar email de reserva confirmada ---
 const enviarEmailReservaConfirmada = async (db, empresaId, datosReserva) => {
     const { clienteId, reservaId, propiedades, fechaLlegada, fechaSalida, noches, personas, precioFinal } = datosReserva;
-    
+
     if (!clienteId) {
         console.warn('No se puede enviar email: no hay clienteId');
         return;
@@ -364,7 +328,7 @@ const enviarEmailReservaConfirmada = async (db, empresaId, datosReserva) => {
         return;
     }
     const cliente = clienteDoc.data();
-    
+
     if (!cliente.email) {
         console.warn('No se puede enviar email: cliente sin email');
         return;
@@ -475,10 +439,10 @@ ${empresaData?.website || ''}
 const guardarPresupuesto = async (db, empresaId, datos) => {
     const { id, cliente, fechaLlegada, fechaSalida, propiedades, precioFinal, noches, texto } = datos;
     const presupuestosRef = db.collection('empresas').doc(empresaId).collection('presupuestos');
-    
+
     let clienteId = cliente.id;
     if (!clienteId && cliente.nombre) {
-         const resultadoCliente = await crearOActualizarCliente(db, empresaId, {
+        const resultadoCliente = await crearOActualizarCliente(db, empresaId, {
             nombre: cliente.nombre,
             telefono: cliente.telefono,
             email: cliente.email
@@ -532,7 +496,7 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
             allPropiedadesIds.add(data.alojamientoId);
         }
     });
-    
+
     const fetchInBatches = async (collection, ids) => {
         const results = new Map();
         const idBatches = [];
@@ -547,17 +511,17 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
         }
         return results;
     };
-    
+
     const [clientesMap, propiedadesMap] = await Promise.all([
         fetchInBatches('clientes', Array.from(neededClientIds)),
         fetchInBatches('propiedades', Array.from(allPropiedadesIds)),
     ]);
-    
+
     const propuestasAgrupadas = new Map();
     allItems.filter(item => item.type === 'propuesta').forEach(item => {
         const data = item.doc.data();
         const id = data.idReservaCanal;
-        if (!id) return; 
+        if (!id) return;
 
         if (!propuestasAgrupadas.has(id)) {
             propuestasAgrupadas.set(id, {
@@ -582,9 +546,9 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
         grupo.monto += data.valores?.valorHuesped || 0;
         const propiedad = propiedadesMap.get(data.alojamientoId) || { nombre: data.alojamientoNombre, capacidad: 0 };
         grupo.propiedades.push({ id: data.alojamientoId, nombre: propiedad.nombre, capacidad: propiedad.capacidad });
-        
+
         grupo.idsReservas.push(item.doc.id);
-        
+
         grupo.personas += data.cantidadHuespedes || 0;
     });
 
@@ -595,27 +559,27 @@ const obtenerPropuestasYPresupuestos = async (db, empresaId) => {
             return { ...p, capacidad: propiedad ? propiedad.capacidad : 0 };
         });
         const cliente = clientesMap.get(data.clienteId);
-        
+
         const totalPersonas = propiedadesConCapacidad.reduce((sum, p) => sum + (p.capacidad || 0), 0);
 
-        return { 
-            id: item.doc.id, 
+        return {
+            id: item.doc.id,
             tipo: 'presupuesto',
-            ...data, 
-            propiedades: propiedadesConCapacidad, 
+            ...data,
+            propiedades: propiedadesConCapacidad,
             clienteNombre: cliente?.nombre || data.clienteNombre,
             personas: totalPersonas
         };
     });
 
     const resultado = [...propuestasAgrupadas.values(), ...presupuestos];
-    
+
     resultado.forEach(item => {
-        if(item.clienteId && clientesMap.has(item.clienteId)) {
+        if (item.clienteId && clientesMap.has(item.clienteId)) {
             item.clienteNombre = clientesMap.get(item.clienteId).nombre;
         }
         item.propiedadesNombres = item.propiedades.map(p => p.nombre).join(', ');
-        
+
     });
 
     return resultado;
@@ -626,7 +590,7 @@ const verificarDisponibilidadPropuesta = async (db, empresaId, idsReservas) => {
     if (!idsReservas || idsReservas.length === 0) {
         throw new Error("No se proporcionaron IDs de reserva para verificar.");
     }
-    
+
     const reservasRefs = idsReservas.map(id => db.collection('empresas').doc(empresaId).collection('reservas').doc(id));
     const reservasDocs = await db.getAll(...reservasRefs);
 
@@ -668,12 +632,12 @@ const aprobarPropuesta = async (db, empresaId, idsReservas) => {
     if (!idsReservas || idsReservas.length === 0) {
         throw new Error("No se proporcionaron IDs de reserva para aprobar.");
     }
-    
+
     const reservasRefs = idsReservas.map(id => db.collection('empresas').doc(empresaId).collection('reservas').doc(id));
-    
+
     // Variables para el envío de correo después de la transacción
     let datosParaEmail = null;
-    
+
     await db.runTransaction(async (transaction) => {
         const reservasDocs = await transaction.getAll(...reservasRefs);
 
@@ -686,10 +650,10 @@ const aprobarPropuesta = async (db, empresaId, idsReservas) => {
         const startDate = primeraReserva.fechaLlegada.toDate();
         const endDate = primeraReserva.fechaSalida.toDate();
         const codigoCupon = primeraReserva.cuponUtilizado;
-    
+
         const { availableProperties } = await getAvailabilityData(db, empresaId, startDate, endDate);
         const availableIds = new Set(availableProperties.map(p => p.id));
-    
+
         for (const reserva of propuestaReservas) {
             if (!availableIds.has(reserva.alojamientoId)) {
                 const reservasConflictivas = await db.collection('empresas').doc(empresaId).collection('reservas')
@@ -823,7 +787,7 @@ const aprobarPresupuesto = async (db, empresaId, presupuestoId) => {
         };
         batch.set(reservaRef, datosReserva);
     }
-    
+
     batch.update(presupuestoRef, { estado: 'Aprobado' });
     await batch.commit();
 };
