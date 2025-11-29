@@ -1,0 +1,107 @@
+openapi: 3.0.1
+info:
+  title: StayManager Public API
+  description: Public API for accessing vacation rental property data.
+  version: 'v1'
+servers:
+  - url: https://test-ai.onrender.com
+paths:
+  /api/public/propiedades:
+    get:
+      operationId: getProperties
+      summary: Get a list of properties
+      parameters:
+        - name: capacidad
+          in: query
+          description: Minimum capacity required (gte)
+          schema:
+            type: integer
+        - name: ubicacion
+          in: query
+          description: Partial match for location or name
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        nombre:
+                          type: string
+                        precioBase:
+                          type: number
+                        capacidad:
+                          type: number
+  /api/public/propiedad/{id}:
+    get:
+      operationId: getPropertyDetail
+      summary: Get property details
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      nombre:
+                        type: string
+                      ai_context:
+                        type: object
+  /api/public/propiedad/{id}/calendar:
+    get:
+      operationId: getPropertyCalendar
+      summary: Get property availability
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                  data:
+                    type: object
+                    properties:
+                      busyRanges:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            start:
+                              type: string
+                            end:
+                              type: string

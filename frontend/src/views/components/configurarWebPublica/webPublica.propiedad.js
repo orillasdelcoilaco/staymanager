@@ -17,7 +17,7 @@ export function initPropiedad(propiedad, websiteData, nombreEmpresa) {
 
 export function renderPropiedadSettings() {
     if (!currentPropiedad) return '';
-    
+
     const cardImage = currentWebsiteData.cardImage;
     const hasImage = cardImage && cardImage.storagePath;
 
@@ -34,12 +34,12 @@ export function renderPropiedadSettings() {
                     ${hasImage ? `<button type="button" id="edit-existing-card-btn" class="btn-secondary btn-sm mt-2 ml-2 text-blue-600">Editar Actual</button>` : ''}
                 </div>
                 <div id="preview-card-image-container">
-                    ${hasImage ? 
-                        `<div class="relative w-48 border rounded-md overflow-hidden">
+                    ${hasImage ?
+            `<div class="relative w-48 border rounded-md overflow-hidden">
                             <img src="${cardImage.storagePath}" class="w-full h-32 object-cover">
-                        </div>` : 
-                        '<p class="text-sm text-gray-500">Sin imagen principal.</p>'
-                    }
+                        </div>` :
+            '<p class="text-sm text-gray-500">Sin imagen principal.</p>'
+        }
                 </div>
             </div>
         </fieldset>
@@ -76,7 +76,7 @@ export function setupPropiedadEvents() {
 
     attach('edit-existing-card-btn', () => {
         const url = currentWebsiteData.cardImage?.storagePath;
-        if(url) openEditor(url, (blob) => handleSubirCardImage(blob));
+        if (url) openEditor(url, (blob) => handleSubirCardImage(blob));
     });
 
     attach('btn-generar-ai-desc', generarTextoDescripcionPropiedad);
@@ -86,18 +86,18 @@ export function setupPropiedadEvents() {
 async function handleSubirCardImage(imageBlob) {
     const statusEl = document.getElementById('upload-status-card-image');
     statusEl.textContent = 'Procesando...';
-    
+
     const formData = new FormData();
     formData.append('cardImage', imageBlob, 'card.jpg');
 
     try {
-        const result = await fetchAPI(`/website-config/propiedad/${currentPropiedad.id}/upload-card-image`, {
+        const result = await fetchAPI(`/website/propiedad/${currentPropiedad.id}/upload-card-image`, {
             method: 'POST',
             body: formData
         });
         currentWebsiteData.cardImage = result;
         statusEl.textContent = 'Subida exitosa.';
-        
+
         document.getElementById('preview-card-image-container').innerHTML = `
             <div class="relative w-48 border rounded-md overflow-hidden">
                 <img src="${result.storagePath}" class="w-full h-32 object-cover">
@@ -114,7 +114,7 @@ async function generarTextoDescripcionPropiedad() {
     btn.disabled = true;
     btn.textContent = 'Generando...';
     try {
-        const { texto } = await fetchAPI(`/website-config/propiedad/${currentPropiedad.id}/generate-ai-text`, { method: 'POST' });
+        const { texto } = await fetchAPI(`/website/propiedad/${currentPropiedad.id}/generate-ai-text`, { method: 'POST' });
         textarea.value = clean(texto);
     } catch (error) {
         alert(`Error: ${error.message}`);
@@ -138,7 +138,7 @@ async function guardarTextoDescripcionPropiedad() {
     statusEl.className = 'text-xs mt-1';
 
     try {
-        await fetchAPI(`/website-config/propiedad/${currentPropiedad.id}`, {
+        await fetchAPI(`/website/propiedad/${currentPropiedad.id}`, {
             method: 'PUT',
             body: { aiDescription }
         });

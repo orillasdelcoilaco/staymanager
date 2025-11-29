@@ -1,0 +1,38 @@
+{
+    "schema_version": "v1",
+    "name_for_human": "StayManager Public API",
+    "name_for_model": "staymanager_public_api",
+    "description_for_human": "Access public property data, including details, photos, and availability.",
+    "description_for_model": "Plugin for accessing vacation rental property data. Use this to search for properties, get detailed information including amenities and photos, and check availability calendars.",
+    "auth": {
+        "type": "none"
+    },
+    "api": {
+        "type": "openapi",
+        "url": "/public/openapi.yaml",
+        "is_user_authenticated": false
+    },
+    "logo_url": "/public/logo.png",
+    "contact_email": "support@staymanager.com",
+    "legal_info_url": "/public/legal",
+    "endpoints": [
+        {
+            "path": "/api/public/propiedades",
+            "method": "GET",
+            "description": "Get a list of all public properties with basic details (ID, name, price, capacity).",
+            "response_format": "json"
+        },
+        {
+            "path": "/api/public/propiedad/:id",
+            "method": "GET",
+            "description": "Get full details for a specific property, including hydrated inventory, amenities, and photos.",
+            "response_format": "json"
+        },
+        {
+            "path": "/api/public/propiedad/:id/calendar",
+            "method": "GET",
+            "description": "Get availability calendar for a property (list of occupied dates).",
+            "response_format": "json"
+        }
+    ]
+}

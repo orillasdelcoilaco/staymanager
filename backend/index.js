@@ -1,4 +1,5 @@
 // backend/index.js
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -37,8 +38,15 @@ const integrationsRoutes = require('./routes/integrations.js');
 const estadosRoutes = require('./routes/estados.js');
 const websiteConfigRoutes = require('./routes/websiteConfigRoutes.js');
 const comentariosRoutes = require('./routes/comentarios.js');
-// *** AGREGAR ESTO: Importar rutas de componentes ***
-const componentesRoutes = require('./routes/componentes.js'); 
+const aiRoutes = require('./routes/aiRoutes.js');
+
+// [NEW] Importar rutas públicas para IA
+const publicRoutes = require('./routes/publicRoutes.js');
+
+// [NEW] Importar rutas de componentes y amenidades
+const componentesRoutes = require('./routes/componentes.js');
+const amenidadesRoutes = require('./routes/amenidades.js');
+const tiposElementoRoutes = require('./routes/tiposElemento.js');
 
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 const { createTenantResolver } = require('./middleware/tenantResolver.js');
@@ -69,15 +77,26 @@ try {
     app.use(cors());
     app.use(express.json());
 
+    // **PRIORIDAD 0: Archivos Estáticos Públicos (CRÍTICO: Antes de Auth)**
+    const backendPublicPath = path.join(__dirname, 'public');
+    // Enable CORS for static files
+    app.use('/public', cors({ origin: '*' }), express.static(backendPublicPath));
+
     // --- ORDEN DE RUTAS ESTRATÉGICO ---
 
     // **PRIORIDAD 1: Rutas de la API (/api/...)**
     const apiRouter = express.Router();
+
+    // [NEW] Rutas Públicas (SIN Auth)
+    // Estas rutas deben ir ANTES del middleware de autenticación
+    // Enable CORS for public API
+    apiRouter.use('/public', cors({ origin: '*' }), publicRoutes(db));
+
     const authMiddleware = createAuthMiddleware(admin, db);
 
     apiRouter.use('/auth', authRoutes(admin, db));
     apiRouter.use(authMiddleware);
-    
+
     // ... Rutas existentes ...
     apiRouter.use('/propiedades', propiedadesRoutes(db));
     apiRouter.use('/canales', canalesRoutes(db));
@@ -90,40 +109,36 @@ try {
     apiRouter.use('/calendario', calendarioRoutes(db));
     apiRouter.use('/reparar', reparacionRoutes(db));
     apiRouter.use('/dolar', dolarRoutes(db));
-    apiRouter.use('/auth/google', authGoogleRoutes(db));
+
+    // [NEW] Rutas de Componentes y Amenidades
+    apiRouter.use('/componentes', componentesRoutes(db));
+    apiRouter.use('/amenidades', amenidadesRoutes(db));
+    apiRouter.use('/tipos-elemento', tiposElementoRoutes(db));
+
+    // Rutas faltantes agregadas
+    apiRouter.use('/kpis', kpiRoutes(db));
+    apiRouter.use('/crm', crmRoutes(db));
+    apiRouter.use('/gestion', gestionRoutes(db));
     apiRouter.use('/empresa', empresaRoutes(db));
     apiRouter.use('/usuarios', usuariosRoutes(db));
-    apiRouter.use('/gestion', gestionRoutes(db));
-    apiRouter.use('/historial-cargas', historialCargasRoutes(db));
     apiRouter.use('/plantillas', plantillasRoutes(db));
-    apiRouter.use('/mensajes', mensajesRoutes(db));
+    apiRouter.use('/website', websiteConfigRoutes(db));
+    apiRouter.use('/authGoogle', authGoogleRoutes(db));
+    apiRouter.use('/historial-cargas', historialCargasRoutes(db));
     apiRouter.use('/propuestas', propuestasRoutes(db));
     apiRouter.use('/presupuestos', presupuestosRoutes(db));
     apiRouter.use('/gestion-propuestas', gestionPropuestasRoutes(db));
     apiRouter.use('/reportes', reportesRoutes(db));
-    apiRouter.use('/kpis', kpiRoutes(db));
-    apiRouter.use('/crm', crmRoutes(db));
-    apiRouter.use('/estados', estadosRoutes(db));
-    apiRouter.use('/website-config', websiteConfigRoutes(db));
+    apiRouter.use('/mensajes', mensajesRoutes(db));
     apiRouter.use('/comentarios', comentariosRoutes(db));
-    
-    // *** AGREGAR ESTO: Conectar la ruta ***
-    apiRouter.use('/componentes', componentesRoutes(db)); 
+    apiRouter.use('/estados', estadosRoutes(db));
+    apiRouter.use('/ai', aiRoutes(db));
 
-    apiRouter.get('/dashboard', (req, res) => res.json({ success: true, message: `Respuesta para el Dashboard de la empresa ${req.user.empresaId}` }));
     app.use('/api', apiRouter);
-
-    // **PRIORIDAD 2: Rutas Públicas**
-    app.use('/ical', icalRoutes(db));
-    app.use('/integrations', integrationsRoutes(db));
 
     // **PRIORIDAD 3: Frontend Admin**
     const frontendPath = path.join(__dirname, '..', 'frontend');
     app.use('/admin-assets', express.static(frontendPath));
-
-    // **PRIORIDAD 4: Frontend Público**
-    const backendPublicPath = path.join(__dirname, 'public');
-    app.use('/public', express.static(backendPublicPath));
 
     // **PRIORIDAD 5: SSR Router**
     const tenantResolver = createTenantResolver(db);

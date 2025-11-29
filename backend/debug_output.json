@@ -1,0 +1,24 @@
+{
+  "comp_cocina": [
+    {
+      "shot": "Vista General",
+      "priority": "Alta",
+      "description": "Vista General. Asegúrate de incluir: Foto del refrigerador (cerrado), Foto del interior (opcional), Foto del horno, Foto del lavaplatos.",
+      "ai_generated": true
+    },
+    {
+      "shot": "Equipamiento",
+      "priority": "Alta",
+      "description": "Equipamiento",
+      "ai_generated": true
+    }
+  ],
+  "comp_dormitorio": [
+    {
+      "shot": "Vista General",
+      "priority": "Alta",
+      "description": "Vista General. Asegúrate de incluir: Foto frontal de la cama, Detalle de almohadas/cojines, Detalle del velador.",
+      "ai_generated": true
+    }
+  ]
+}

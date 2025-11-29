@@ -1,23 +1,16 @@
 // backend/services/propuestasService.js
 
 const admin = require('firebase-admin');
-// *** VERIFICACIÓN CRÍTICA: Asegurarse que esta línea esté presente y correcta ***
 const { parseISO, isValid, addDays, format } = require('date-fns');
 
-// --- Función getAvailabilityData (Sin cambios) ---
-// backend/services/propuestasService.js
-
-// --- INICIO DE LA CORRECCIÓN ---
-// Añadir 'idGrupoAExcluir' a la firma de la función
+// --- Función getAvailabilityData ---
 async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarotes = false, idGrupoAExcluir = null) {
-// --- FIN DE LA CORRECCIÓN ---
-
-     const [propiedadesSnapshot, tarifasSnapshot, reservasSnapshot] = await Promise.all([
+    const [propiedadesSnapshot, tarifasSnapshot, reservasSnapshot] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('propiedades').get(),
         db.collection('empresas').doc(empresaId).collection('tarifas').get(),
         db.collection('empresas').doc(empresaId).collection('reservas')
             .where('fechaLlegada', '<', admin.firestore.Timestamp.fromDate(endDate))
-            .where('estado', 'in', ['Confirmada', 'Propuesta']) // Asegurarse de que el query es correcto
+            .where('estado', 'in', ['Confirmada', 'Propuesta'])
             .get()
     ]);
 
@@ -25,8 +18,32 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
 
     if (sinCamarotes) {
         allProperties = allProperties.map(prop => {
+            let numCamarotes = 0;
+
+            // 1. Revisar estructura Legacy
             if (prop.camas && prop.camas.camarotes > 0) {
-                const capacidadReducida = prop.capacidad - (prop.camas.camarotes * 2);
+                numCamarotes += prop.camas.camarotes;
+            }
+
+            // 2. Revisar nueva estructura (Componentes -> Elementos)
+            if (prop.componentes && Array.isArray(prop.componentes)) {
+                prop.componentes.forEach(comp => {
+                    if (comp.elementos && Array.isArray(comp.elementos)) {
+                        comp.elementos.forEach(elem => {
+                            // Heurística: Buscar por nombre si es camarote/litera
+                            const nombre = (elem.nombre || '').toLowerCase();
+                            if (nombre.includes('camarote') || nombre.includes('litera')) {
+                                numCamarotes += (elem.cantidad || 1);
+                            }
+                        });
+                    }
+                });
+            }
+
+            if (numCamarotes > 0) {
+                // Asumimos que cada camarote aporta 2 plazas a la capacidad total.
+                // Si el cliente no quiere camarotes, restamos esas plazas.
+                const capacidadReducida = prop.capacidad - (numCamarotes * 2);
                 return { ...prop, capacidad: Math.max(0, capacidadReducida) };
             }
             return prop;
@@ -36,11 +53,11 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
     const allTarifas = tarifasSnapshot.docs.map(doc => {
         const data = doc.data();
         let fechaInicio, fechaTermino;
-         try {
+        try {
             fechaInicio = data.fechaInicio?.toDate ? data.fechaInicio.toDate() : (data.fechaInicio ? parseISO(data.fechaInicio + 'T00:00:00Z') : null);
             fechaTermino = data.fechaTermino?.toDate ? data.fechaTermino.toDate() : (data.fechaTermino ? parseISO(data.fechaTermino + 'T00:00:00Z') : null);
             if (!isValid(fechaInicio) || !isValid(fechaTermino)) throw new Error('Fecha inválida');
-         } catch(e) { return null; }
+        } catch (e) { return null; }
         return { ...data, id: doc.id, fechaInicio, fechaTermino };
     }).filter(Boolean);
 
@@ -53,14 +70,12 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
     const overlappingReservations = [];
     reservasSnapshot.forEach(doc => {
         const reserva = doc.data();
-        
-        // --- INICIO DE LA CORRECCIÓN ---
+
         // Si esta reserva pertenece al grupo que estamos editando,
         // no la contamos como "ocupada".
         if (idGrupoAExcluir && reserva.idReservaCanal === idGrupoAExcluir) {
-            return; 
+            return;
         }
-        // --- FIN DE LA CORRECCIÓN ---
 
         const fechaSalidaReserva = reserva.fechaSalida?.toDate ? reserva.fechaSalida.toDate() : (reserva.fechaSalida ? parseISO(reserva.fechaSalida + 'T00:00:00Z') : null);
         // Solo añadir si la fecha de salida es *después* del inicio de nuestra búsqueda
@@ -71,7 +86,7 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
 
     const availabilityMap = new Map();
     allProperties.forEach(prop => availabilityMap.set(prop.id, []));
-    
+
     // Poblar el mapa de disponibilidad con las reservas filtradas
     overlappingReservations.forEach(reserva => {
         if (availabilityMap.has(reserva.alojamientoId)) {
@@ -86,7 +101,6 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
     // Calcular las propiedades disponibles
     const availableProperties = propiedadesConTarifa.filter(prop => {
         const reservations = availabilityMap.get(prop.id) || [];
-        // (Lógica de 'some' sin cambios)
         return !reservations.some(res => startDate < res.end && endDate > res.start);
     });
 
@@ -94,10 +108,9 @@ async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarot
 }
 
 
-// --- Función findNormalCombination (Sin cambios) ---
+// --- Función findNormalCombination ---
 function findNormalCombination(availableProperties, requiredCapacity) {
-    // ... (Código completo de findNormalCombination) ...
-     const sortedCabanas = availableProperties.sort((a, b) => b.capacidad - a.capacidad);
+    const sortedCabanas = availableProperties.sort((a, b) => b.capacidad - a.capacidad);
 
     for (const prop of sortedCabanas) {
         if (prop.capacidad >= requiredCapacity) {
@@ -119,7 +132,7 @@ function findNormalCombination(availableProperties, requiredCapacity) {
     }
 
     if (currentCapacity >= requiredCapacity) {
-        console.log(`[findNormalCombination] Combinación final encontrada: ${currentCombination.map(p=>p.id).join(', ')} (Cap Total: ${currentCapacity})`);
+        console.log(`[findNormalCombination] Combinación final encontrada: ${currentCombination.map(p => p.id).join(', ')} (Cap Total: ${currentCapacity})`);
         return { combination: currentCombination, capacity: currentCapacity };
     }
 
@@ -128,9 +141,8 @@ function findNormalCombination(availableProperties, requiredCapacity) {
 }
 
 
-// --- Función findSegmentedCombination (Versión restaurada para SPA) ---
+// --- Función findSegmentedCombination ---
 function findSegmentedCombination(allProperties, allTarifas, availabilityMap, requiredCapacity, startDate, endDate) {
-    // ... (Código completo de findSegmentedCombination restaurado) ...
     const dailyOptions = []; // Array de { date: Date, option: Prop | Prop[] }
 
     for (let d = new Date(startDate); d < endDate; d = addDays(d, 1)) {
@@ -185,12 +197,6 @@ function findSegmentedCombination(allProperties, allTarifas, availabilityMap, re
     console.log(`[findSegmented] Opciones diarias encontradas: ${dailyOptions.length}`);
     return { combination: dailyOptions, capacity: requiredCapacity, dailyOptions: dailyOptions };
 }
-
-
-// --- Función calculatePrice (Sin cambios, verifica la llamada a obtenerValorDolar) ---
-// backend/services/propuestasService.js
-
-
 
 module.exports = {
     getAvailabilityData,

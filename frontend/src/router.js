@@ -11,17 +11,14 @@ const views = {
     '/cliente/:id': () => import('./views/perfilCliente.js'),
     '/agregar-propuesta': () => import('./views/agregarPropuesta.js'),
     '/generar-presupuesto': () => import('./views/generadorPresupuestos.js'),
-    '/gestionar-tipos-componente': () => import('./views/gestionarTiposComponente.js'), // <-- NUEVA RUTA
     '/gestionar-alojamientos': () => import('./views/gestionarAlojamientos.js'),
     '/gestionar-canales': () => import('./views/gestionarCanales.js'),
     '/gestionar-tarifas': () => import('./views/gestionarTarifas.js'),
-    '/gestionar-comentarios': () => import('./views/gestionarComentarios.js'),
     '/conversion-alojamientos': () => import('./views/conversionAlojamientos.js'),
     '/mapeo-reportes': () => import('./views/mapeoReportes.js'),
     '/procesar-y-consolidar': () => import('./views/procesarYConsolidar.js'),
     '/gestionar-reservas': () => import('./views/gestionarReservas.js'),
     '/gestionar-dolar': () => import('./views/gestionarDolar.js'),
-    '/gestionar-estados': () => import('./views/gestionarEstados.js'),
     '/reparar-dolar': () => import('./views/repararDolar.js'),
     '/reparar-fechas': () => import('./views/repararFechas.js'),
     '/autorizar-google': () => import('./views/autorizarGoogle.js'),
@@ -36,7 +33,13 @@ const views = {
     '/sincronizar-ical': () => import('./views/sincronizarCalendarios.js'),
     '/crm-promociones': () => import('./views/crmPromociones.js'),
     '/historial-campanas': () => import('./views/historialCampanas.js'),
-    '/configurar-web-publica': () => import('./views/configurarWebPublica.js'),
+
+    // --- NUEVAS VISTAS AGREGADAS ---
+    '/website-general': () => import('./views/websiteGeneral.js'),
+    '/website-alojamientos': () => import('./views/websiteAlojamientos.js'),
+    '/gestionar-tipos-componente': () => import('./views/gestionarTiposComponente.js'),
+    '/gestionar-tipos-elemento': () => import('./views/gestionarTiposElemento.js'),
+    '/gestionar-comentarios': () => import('./views/gestionarComentarios.js'),
 };
 
 const menuConfig = [
@@ -47,31 +50,35 @@ const menuConfig = [
         children: [
             { name: '☀️ Gestión Diaria', path: '/gestion-diaria', id: 'gestion-diaria' },
             { name: '📅 Calendario', path: '/calendario', id: 'calendario' },
-            { name: '🎯 CRM y Promociones', path: '/crm-promociones', id: 'crm-promociones' },
-            { name: '📈 Historial de Campañas', path: '/historial-campanas', id: 'historial-campanas' },
-            { name: '📄 Generar Reportes Rápidos', path: '/generar-reportes-rapidos', id: 'reportes-rapidos' },
+            { name: '📄 Reportes Rápidos', path: '/generar-reportes-rapidos', id: 'reportes-rapidos' },
             { name: '➕ Agregar Propuesta', path: '/agregar-propuesta', id: 'agregar-propuesta' },
-            { name: '💲 Generar Presupuestos', path: '/generar-presupuesto', id: 'generar-presupuestos' },
+            { name: '💲 Generar Presupuesto', path: '/generar-presupuesto', id: 'generar-presupuestos' },
             { name: '🗂️ Gestionar Propuestas', path: '/gestionar-propuestas', id: 'gestionar-propuestas' },
+            { name: '🎯 CRM y Promociones', path: '/crm-promociones', id: 'crm-promociones' },
+            { name: '📈 Historial Campañas', path: '/historial-campanas', id: 'historial-campanas' },
         ]
     },
     {
-        name: '🛠️ Herramientas',
-        id: 'herramientas',
+        name: '⚙️ Operaciones',
+        id: 'operaciones',
         children: [
-            { name: '⭐ Gestionar Comentarios', path: '/gestionar-comentarios', id: 'gestionar-comentarios' },
-            { name: '⚙️ Procesar y Consolidar', path: '/procesar-y-consolidar', id: 'procesar-consolidar' },
-            { name: '🗂️ Historial de Cargas', path: '/historial-cargas', id: 'historial-cargas' },
-            { name: '👥 Gestionar Clientes', path: '/clientes', id: 'clientes' },
-            { name: '🏨 Gestionar Reservas', path: '/gestionar-reservas', id: 'gestionar-reservas' },
-            { name: '📈 Gestionar Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' },
-            { name: '📈 Gestionar Valor Dólar', path: '/gestionar-dolar', id: 'gestionar-dolar' },
-            { name: '🏗️ Tipos de Componente', path: '/gestionar-tipos-componente', id: 'gestionar-tipos-componente' }, // <-- NUEVO ITEM
-            { name: '🏡 Gestionar Alojamientos', path: '/gestionar-alojamientos', id: 'gestionar-alojamientos' },
-            { name: '📡 Gestionar Canales', path: '/gestionar-canales', id: 'gestionar-canales' },
-            { name: '🏷️ Tipos de Plantilla', path: '/gestionar-tipos-plantilla', id: 'gestionar-tipos-plantilla' },
-            { name: '✉️ Gestionar Plantillas', path: '/gestionar-plantillas', id: 'gestionar-plantillas' },
-            { name: '🌐 Configurar Web Pública', path: '/configurar-web-publica', id: 'config-web-publica' },
+            { name: '💬 Comentarios', path: '/gestionar-comentarios', id: 'gestionar-comentarios' },
+            { name: '🏨 Reservas', path: '/gestionar-reservas', id: 'gestionar-reservas' },
+            { name: '👥 Clientes', path: '/clientes', id: 'clientes' },
+            { name: '📈 Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' },
+            { name: '📡 Canales', path: '/gestionar-canales', id: 'gestionar-canales' },
+            { name: '🗓️ Sincronizar iCal', path: '/sincronizar-ical', id: 'sincronizar-ical' },
+        ]
+    },
+    {
+        name: '🏡 Gestión de Propiedades',
+        id: 'gestion-propiedades',
+        children: [
+            { name: '🏨 Mis Propiedades', path: '/gestionar-alojamientos', id: 'gestionar-alojamientos' },
+            { name: '🧩 Inventario y Activos', path: '/gestionar-tipos-elemento', id: 'tipos-elemento' },
+            { name: '📦 Tipos de Espacio', path: '/gestionar-tipos-componente', id: 'tipos-componente' },
+            { name: '⚙️ Configuración Web', path: '/website-general', id: 'website-general' },
+            { name: '🖼️ Contenido Web', path: '/website-alojamientos', id: 'website-alojamientos' },
         ]
     },
     {
@@ -79,15 +86,18 @@ const menuConfig = [
         id: 'configuracion',
         children: [
             { name: '🏢 Empresa', path: '/empresa', id: 'config-empresa' },
-            { name: '👥 Gestionar Usuarios', path: '/gestionar-usuarios', id: 'config-usuarios' },
-            { name: '🗂️ Gestionar Estados', path: '/gestionar-estados', id: 'config-estados' },
-            { name: '🔄 Conversión Alojamientos', path: '/conversion-alojamientos', id: 'config-conversion' },
-            { name: '🗺️ Mapeo de Reportes', path: '/mapeo-reportes', id: 'mapeo-reportes' },
+            { name: '👥 Usuarios', path: '/gestionar-usuarios', id: 'config-usuarios' },
+            { name: '✉️ Plantillas', path: '/gestionar-plantillas', id: 'gestionar-plantillas' },
+            { name: '💵 Valor Dólar', path: '/gestionar-dolar', id: 'gestionar-dolar' },
+            { name: '🔧 Herramientas Avanzadas', path: '/procesar-y-consolidar', id: 'procesar-consolidar' },
+            { name: '🗂️ Historial Cargas', path: '/historial-cargas', id: 'historial-cargas' },
+            { name: '🔄 Conversión', path: '/conversion-alojamientos', id: 'config-conversion' },
+            { name: '🗺️ Mapeo Reportes', path: '/mapeo-reportes', id: 'mapeo-reportes' },
             { name: '👤 Autorizar Google Contacts', path: '/autorizar-google', id: 'config-google' },
             { name: '🔧 Reparar Fechas de Reservas', path: '/reparar-fechas', id: 'reparar-fechas' },
             { name: '📞 Reparar y Verificar Contactos', path: '/reparar-contactos', id: 'reparar-contactos' },
             { name: '🔧 Reparar Dólar Histórico', path: '/reparar-dolar', id: 'reparar-dolar' },
-            { name: '🗓️ Sincronizar Calendarios (iCal)', path: '/sincronizar-ical', id: 'sincronizar-ical' },
+            { name: '🏷️ Tipos de Plantilla', path: '/gestionar-tipos-plantilla', id: 'gestionar-tipos-plantilla' },
         ]
     }
 ];
@@ -106,7 +116,7 @@ async function updatePendingProposalsCount() {
 
             if (count > 0) {
                 badge.textContent = count;
-                badge.style.display = 'flex';
+                badge.style.display = 'flex'; // Usar flex para centrar el número
             } else {
                 badge.style.display = 'none';
             }
@@ -115,6 +125,7 @@ async function updatePendingProposalsCount() {
         console.error("Error al obtener el contador de propuestas:", error);
     }
 }
+
 
 export async function handleNavigation(path) {
     if (path !== '/login') sessionStorage.setItem('lastPath', path);
@@ -137,7 +148,7 @@ async function loadView(path) {
         renderLogin(appRoot);
     } else {
         if (!document.getElementById('view-content')) {
-            // Layout handling if needed
+            // Este bloque puede ser innecesario si renderAppLayout siempre se llama antes
         }
 
         let cleanPath = path.split('?')[0];
@@ -157,6 +168,7 @@ async function loadView(path) {
         if (viewContentEl) {
             viewContentEl.innerHTML = await viewModule.render();
         }
+
 
         if (viewModule.afterRender && typeof viewModule.afterRender === 'function') {
             viewModule.afterRender();
