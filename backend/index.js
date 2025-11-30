@@ -133,12 +133,28 @@ try {
     apiRouter.use('/gestion-propuestas', gestionPropuestasRoutes(db));
     apiRouter.use('/reportes', reportesRoutes(db));
     apiRouter.use('/mensajes', mensajesRoutes(db));
-    res.sendFile(path.join(frontendPath, 'index.html'));
-});
+    apiRouter.use('/comentarios', comentariosRoutes(db));
+    apiRouter.use('/estados', estadosRoutes(db));
+    apiRouter.use('/ai', aiRoutes(db));
 
-app.listen(PORT, () => {
-    console.log(`[Startup] Servidor de StayManager escuchando en http://localhost:${PORT}`);
-});
+    app.use('/api', apiRouter);
+
+    // **PRIORIDAD 3: Frontend Admin**
+    const frontendPath = path.join(__dirname, '..', 'frontend');
+    app.use('/admin-assets', express.static(frontendPath));
+
+    // **PRIORIDAD 5: SSR Router**
+    const tenantResolver = createTenantResolver(db);
+    app.use('/', tenantResolver, (req, res, next) => {
+        if (req.empresa) {
+            return websiteRoutes(db)(req, res, next);
+        }
+        res.sendFile(path.join(frontendPath, 'index.html'));
+    });
+
+    app.listen(PORT, () => {
+        console.log(`[Startup] Servidor de StayManager escuchando en http://localhost:${PORT}`);
+    });
 
 } catch (error) {
     console.error("--- ¡ERROR CRÍTICO DURANTE LA INICIALIZACIÓN! ---");
