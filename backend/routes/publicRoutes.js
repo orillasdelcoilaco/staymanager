@@ -23,27 +23,10 @@ module.exports = (db) => {
     // Apply Rate Limiter to all public routes
     router.use(apiLimiter);
 
-    // Middleware to attach db to req and resolve tenant
-    // Middleware to attach db to req and resolve tenant
+    // Middleware to attach db to req
     router.use(async (req, res, next) => {
         req.db = db;
-
-        // Resolve Tenant
-        try {
-            const hostname = req.hostname;
-            const empresa = await obtenerEmpresaPorDominio(db, hostname);
-
-            if (empresa) {
-                req.empresa = empresa;
-                next();
-            } else {
-                console.warn(`[Public API] Tenant not found for hostname: ${hostname}`);
-                res.status(404).json({ error: "Tenant not found" });
-            }
-        } catch (error) {
-            console.error("[Public API] Error resolving tenant:", error);
-            res.status(500).json({ error: "Internal Server Error" });
-        }
+        next();
     });
 
     // GET /api/public/propiedades

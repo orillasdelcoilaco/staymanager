@@ -1,29 +1,76 @@
 openapi: 3.0.1
 info:
   title: StayManager Public API
-  description: Public API for accessing vacation rental property data.
+  description: Public API for accessing vacation rental property data across all companies.
   version: 'v1'
 servers:
   - url: https://suite-manager.onrender.com
 paths:
   /api/public/propiedades:
     get:
-      operationId: getProperties
-      summary: Get a list of properties
+      summary: Global Property Search
+      description: Search for properties across all companies with intelligent filtering and sorting.
       parameters:
-        - name: capacidad
-          in: query
-          description: Minimum capacity required (gte)
-          schema:
-            type: integer
-        - name: ubicacion
-          in: query
-          description: Partial match for location or name
+        - in: query
+          name: ubicacion
           schema:
             type: string
+          description: Partial match for location or name.
+        - in: query
+          name: capacidad
+          schema:
+            type: integer
+          description: Minimum capacity (people).
+        - in: query
+          name: fechaLlegada
+          schema:
+            type: string
+            format: date
+          description: Check-in date (YYYY-MM-DD).
+        - in: query
+          name: fechaSalida
+          schema:
+            type: string
+            format: date
+          description: Check-out date (YYYY-MM-DD).
+        - in: query
+          name: precioMin
+          schema:
+            type: integer
+          description: Minimum price per night.
+        - in: query
+          name: precioMax
+          schema:
+            type: integer
+          description: Maximum price per night.
+        - in: query
+          name: amenidades
+          schema:
+            type: string
+          description: Comma-separated list of required amenities (e.g., "wifi,tinaja").
+        - in: query
+          name: ordenar
+          schema:
+            type: string
+            enum: [popularidad, rating, precio_asc, precio_desc]
+            default: popularidad
+          description: Sort order.
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+          description: Number of results to return.
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+          description: Pagination offset.
       responses:
-        "200":
-          description: OK
+        '200':
+          description: A list of properties matching the criteria.
           content:
             application/json:
               schema:
@@ -31,32 +78,35 @@ paths:
                 properties:
                   meta:
                     type: object
+                    properties:
+                      total:
+                        type: integer
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                      filtros:
+                        type: object
+                      ordenado_por:
+                        type: string
                   data:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                        nombre:
-                          type: string
-                        precioBase:
-                          type: number
-                        capacidad:
-                          type: number
+                      $ref: '#/components/schemas/PropertySummary'
   /api/public/propiedad/{id}:
     get:
-      operationId: getPropertyDetail
-      summary: Get property details
+      summary: Get Property Details
+      description: Get full details for a specific property by its global ID.
       parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: The global property ID.
       responses:
-        "200":
-          description: OK
+        '200':
+          description: Detailed property information.
           content:
             application/json:
               schema:
@@ -65,131 +115,234 @@ paths:
                   meta:
                     type: object
                   data:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      nombre:
-                        type: string
-                      ai_context:
-                        type: object
-                      images:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            url:
-                              type: string
-                            description:
-                              type: string
-                            tags:
-                              type: array
-                              items:
-                                type: string
-                            category:
-                              type: string
+                    $ref: '#/components/schemas/PropertyDetail'
   /api/public/propiedad/{id}/calendar:
     get:
-      operationId: getPropertyCalendar
-      summary: Get property availability
+      summary: Get Property Availability
+      description: Get availability calendar (busy ranges) for a property.
       parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
       responses:
-        "200":
-          description: OK
+        '200':
+          description: Availability data.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  meta:
-                    type: object
-                  data:
-                    type: object
-                    properties:
-                      busyRanges:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            start:
-                              type: string
-                            end:
-                              type: string
+                $ref: '#/components/schemas/AvailabilityCalendar'
   /api/public/reservar/intent:
     post:
-      operationId: createBookingIntent
-      summary: Create a booking intent and generate payment link
+      summary: Create Booking Intent
+      description: Initiate a booking process for a property.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - propiedadId
-                - fechaLlegada
-                - fechaSalida
-                - personas
-                - huesped
-              properties:
-                propiedadId:
-                  type: string
-                fechaLlegada:
-                  type: string
-                  format: date
-                fechaSalida:
-                  type: string
-                  format: date
-                personas:
-                  type: integer
-                huesped:
-                  type: object
-                  required:
-                    - nombre
-                    - email
-                  properties:
-                    nombre:
-                      type: string
-                    email:
-                      type: string
-                    telefono:
-                      type: string
+              $ref: '#/components/schemas/BookingIntentRequest'
       responses:
-        "200":
-          description: OK
+        '200':
+          description: Booking intent created successfully.
           content:
             application/json:
               schema:
+                $ref: '#/components/schemas/BookingIntentResponse'
+components:
+  schemas:
+    PropertySummary:
+      type: object
+      properties:
+        id:
+          type: string
+        empresa:
+          type: object
+          properties:
+            id:
+              type: string
+            nombre:
+              type: string
+            contacto:
+              type: string
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        ubicacion:
+          type: string
+        capacidad:
+          type: integer
+        habitaciones:
+          type: integer
+        banos:
+          type: integer
+        precioBase:
+          type: integer
+        moneda:
+          type: string
+        amenidades:
+          type: array
+          items:
+            type: string
+        imagenPrincipal:
+          type: string
+        imagenesCount:
+          type: integer
+        imagenesDestacadas:
+          type: array
+          items:
+            $ref: '#/components/schemas/Image'
+        rating:
+          type: number
+        totalReviews:
+          type: integer
+        disponible:
+          type: boolean
+        ai_context:
+          type: object
+    PropertyDetail:
+      allOf:
+        - $ref: '#/components/schemas/PropertySummary'
+        - type: object
+          properties:
+            images:
+              type: array
+              items:
+                $ref: '#/components/schemas/Image'
+            reviews:
+              type: array
+              items:
                 type: object
                 properties:
-                  meta:
-                    type: object
-                  data:
-                    type: object
-                    properties:
-                      reserva_id:
-                        type: string
-                      estado:
-                        type: string
-                      desglose_financiero:
-                        type: object
-                        properties:
-                          moneda:
-                            type: string
-                          total_estadia:
-                            type: number
-                          monto_a_pagar_ahora:
-                            type: number
-                          saldo_al_checkin:
-                            type: number
-                          porcentaje_seña:
-                            type: string
-                      link_pago:
-                        type: string
-                      instrucciones:
-                        type: string
+                  autor:
+                    type: string
+                  fecha:
+                    type: string
+                  rating:
+                    type: integer
+                  comentario:
+                    type: string
+            politicaCancelacion:
+              type: string
+            instruccionesCheckin:
+              type: string
+            reglas:
+              type: array
+              items:
+                type: string
+    Image:
+      type: object
+      properties:
+        url:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        category:
+          type: string
+    AvailabilityCalendar:
+      type: object
+      properties:
+        propertyId:
+          type: string
+        queryStartDate:
+          type: string
+        queryEndDate:
+          type: string
+        busyRanges:
+          type: array
+          items:
+            type: object
+            properties:
+              start:
+                type: string
+              end:
+                type: string
+              status:
+                type: string
+    BookingIntentRequest:
+      type: object
+      required:
+        - propiedadId
+        - fechaLlegada
+        - fechaSalida
+        - personas
+        - huesped
+      properties:
+        propiedadId:
+          type: string
+        fechaLlegada:
+          type: string
+          format: date
+        fechaSalida:
+          type: string
+          format: date
+        personas:
+          type: integer
+        huesped:
+          type: object
+          required:
+            - nombre
+            - email
+          properties:
+            nombre:
+              type: string
+            email:
+              type: string
+            telefono:
+              type: string
+    BookingIntentResponse:
+      type: object
+      properties:
+        meta:
+          type: object
+        data:
+          type: object
+          properties:
+            reserva_id:
+              type: string
+            empresa:
+              type: object
+              properties:
+                id:
+                  type: string
+                nombre:
+                  type: string
+            propiedad:
+              type: object
+              properties:
+                id:
+                  type: string
+                nombre:
+                  type: string
+            estado:
+              type: string
+            desglose_financiero:
+              type: object
+              properties:
+                moneda:
+                  type: string
+                total_estadia:
+                  type: number
+                monto_a_pagar_ahora:
+                  type: number
+                saldo_al_checkin:
+                  type: number
+                porcentaje_seña:
+                  type: string
+            link_pago:
+              type: string
+            instrucciones:
+              type: string
+            contacto_empresa:
+              type: object
+              properties:
+                whatsapp:
+                  type: string
+                email:
+                  type: string
