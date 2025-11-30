@@ -20,6 +20,7 @@
     "ejs": "^3.1.9",
     "express": "^4.19.2",
     "express-rate-limit": "^8.2.1",
+    "express-slow-down": "^3.0.1",
     "firebase-admin": "^12.1.0",
     "google-auth-library": "^9.4.1",
     "googleapis": "^128.0.0",

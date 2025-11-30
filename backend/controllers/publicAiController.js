@@ -541,9 +541,542 @@ const createBookingIntent = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/public/propiedades/:id/cotizar
+ * Cotizar precio para fechas específicas
+ */
+const quotePriceForDates = async (req, res) => {
+    try {
+        const db = require('firebase-admin').firestore();
+        const { id } = req.params;
+        const { fechaInicio, fechaFin } = req.query;
+
+        if (!fechaInicio || !fechaFin) {
+            return res.status(400).json({
+                error: 'Parámetros requeridos: fechaInicio (YYYY-MM-DD), fechaFin (YYYY-MM-DD)'
+            });
+        }
+
+        const inicio = parseISO(fechaInicio + 'T00:00:00Z');
+        const fin = parseISO(fechaFin + 'T00:00:00Z');
+
+        if (!isValid(inicio) || !isValid(fin) || inicio >= fin) {
+            return res.status(400).json({ error: 'Fechas inválidas' });
+        }
+
+        // Buscar propiedad
+        const propSnapshot = await db.collectionGroup('propiedades')
+            .where(require('firebase-admin').firestore.FieldPath.documentId(), '==', id)
+            .limit(1)
+            .get();
+
+        if (propSnapshot.empty) {
+            return res.status(404).json({ error: 'Propiedad no encontrada' });
+        }
+
+        const propDoc = propSnapshot.docs[0];
+        const propData = propDoc.data();
+        const empresaId = propDoc.ref.parent.parent.id;
+
+        // Verificar disponibilidad
+        const availabilityData = await getAvailabilityData(
+            db,
+            empresaId,
+            inicio,
+            fin,
+            false,
+            null
+        );
+
+        const isAvailable = availabilityData.availableProperties.some(p => p.id === id);
+
+        if (!isAvailable) {
+            return res.status(409).json({
+                error: 'Propiedad no disponible para las fechas solicitadas',
+                code: 'NOT_AVAILABLE'
+            });
+        }
+
+        // Obtener/crear canal IA
+        let canalesIA = await obtenerCanalesPorEmpresa(db, empresaId);
+        let canalIA = canalesIA.find(c => c.nombre === 'IA Reserva');
+
+        if (!canalIA) {
+            const nuevoCanalIA = await crearCanal(db, empresaId, {
+                nombre: 'IA Reserva',
+                moneda: 'CLP',
+                modificadorTipo: 'porcentaje',
+                modificadorValor: 0,
+                configuracionIva: 'incluido',
+                descripcion: 'Canal para reservas generadas por agentes IA'
+            });
+            canalIA = { id: nuevoCanalIA.id, ...nuevoCanalIA };
+        }
+
+        // Calcular precio
+        const valorDolar = await obtenerValorDolar(db, empresaId, inicio);
+
+        // Obtener tarifas
+        const tarifasSnapshot = await db.collection('empresas').doc(empresaId).collection('tarifas').get();
+        const allTarifas = tarifasSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                id: doc.id,
+                fechaInicio: data.fechaInicio?.toDate ? data.fechaInicio.toDate() : parseISO(data.fechaInicio + 'T00:00:00Z'),
+                fechaTermino: data.fechaTermino?.toDate ? data.fechaTermino.toDate() : parseISO(data.fechaTermino + 'T00:00:00Z'),
+                alojamientoId: data.alojamientoId
+            };
+        }).filter(Boolean);
+
+        const precioCalculado = await calculatePrice(
+            db,
+            empresaId,
+            [{ id: id, nombre: propData.nombre }],
+            inicio,
+            fin,
+            allTarifas,
+            canalIA.id,
+            valorDolar,
+            false
+        );
+
+        if (!precioCalculado || precioCalculado.totalPriceCLP === 0) {
+            return res.status(404).json({
+                error: 'No se pudo calcular el precio. Verifica que la propiedad tenga tarifas configuradas.',
+                code: 'NO_PRICING'
+            });
+        }
+
+        const valorTotal = precioCalculado.totalPriceCLP;
+        const senaPagar = Math.round(valorTotal * 0.10);
+        const saldoPendiente = valorTotal - senaPagar;
+
+        res.json(formatResponse({
+            disponible: true,
+            propiedad: {
+                id: id,
+                nombre: propData.nombre,
+                capacidad: propData.capacidad
+            },
+            cotizacion: {
+                moneda: 'CLP',
+                valorTotal: valorTotal,
+                desglose: {
+                    senaPagar: senaPagar,
+                    porcentajeSena: '10%',
+                    descripcionSena: 'Seña para confirmar reserva (pago con MercadoPago)',
+                    saldoPendiente: saldoPendiente,
+                    porcentajeSaldo: '90%',
+                    descripcionSaldo: 'Saldo a pagar al momento del check-in'
+                },
+                detalleCalculo: {
+                    precioPorNoche: Math.round(valorTotal / precioCalculado.nights),
+                    numeroNoches: precioCalculado.nights
+                }
+            },
+            instrucciones: [
+                `1. Paga seña de $${senaPagar.toLocaleString('es-CL')} CLP`,
+                `2. Recibirás confirmación por email`,
+                `3. Paga saldo de $${saldoPendiente.toLocaleString('es-CL')} CLP al check-in`
+            ]
+        }));
+
+    } catch (error) {
+        console.error('Error in quotePriceForDates:', error);
+        res.status(500).json({ error: 'Internal Server Error', message: error.message });
+    }
+};
+
+/**
+ * GET /api/public/propiedades/:id/disponibilidad
+ * Verificar disponibilidad para fechas específicas
+ */
+const checkAvailability = async (req, res) => {
+    try {
+        const db = require('firebase-admin').firestore();
+        const { id } = req.params;
+        const { fechaInicio, fechaFin } = req.query;
+
+        if (!fechaInicio || !fechaFin) {
+            return res.status(400).json({
+                error: 'Parámetros requeridos: fechaInicio, fechaFin',
+                example: '/api/public/propiedades/123/disponibilidad?fechaInicio=2025-12-01&fechaFin=2025-12-05'
+            });
+        }
+
+        const inicio = parseISO(fechaInicio + 'T00:00:00Z');
+        const fin = parseISO(fechaFin + 'T00:00:00Z');
+
+        if (!isValid(inicio) || !isValid(fin)) {
+            return res.status(400).json({
+                error: 'Formato de fecha inválido. Use YYYY-MM-DD'
+            });
+        }
+
+        if (inicio >= fin) {
+            return res.status(400).json({
+                error: 'fechaInicio debe ser anterior a fechaFin'
+            });
+        }
+
+        const propSnapshot = await db.collectionGroup('propiedades')
+            .where(require('firebase-admin').firestore.FieldPath.documentId(), '==', id)
+            .limit(1)
+            .get();
+
+        if (propSnapshot.empty) {
+            return res.status(404).json({
+                error: 'Propiedad no encontrada'
+            });
+        }
+
+        const propDoc = propSnapshot.docs[0];
+        const empresaId = propDoc.ref.parent.parent.id;
+
+        const reservasSnapshot = await db.collection('empresas')
+            .doc(empresaId)
+            .collection('reservas')
+            .where('alojamientoId', '==', id)
+            .where('estado', '==', 'Confirmada')
+            .where('fechaSalida', '>', require('firebase-admin').firestore.Timestamp.fromDate(inicio))
+            .get();
+
+        const conflictos = reservasSnapshot.docs
+            .filter(doc => doc.data().fechaLlegada.toDate() < fin)
+            .map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    fechaLlegada: data.fechaLlegada.toDate().toISOString().split('T')[0],
+                    fechaSalida: data.fechaSalida.toDate().toISOString().split('T')[0],
+                    estado: data.estado,
+                    origen: data.origen
+                };
+            });
+
+        const disponible = conflictos.length === 0;
+
+        res.json(formatResponse({
+            disponible: disponible,
+            conflictos: conflictos,
+            totalConflictos: conflictos.length,
+            mensaje: disponible
+                ? 'La propiedad está disponible para las fechas solicitadas'
+                : `Hay ${conflictos.length} reserva(s) que se solapan con las fechas solicitadas`
+        }));
+
+    } catch (error) {
+        console.error('Error in checkAvailability:', error);
+        res.status(500).json({
+            error: 'Internal Server Error'
+        });
+    }
+};
+
+/**
+ * GET /api/public/propiedades/:id/imagenes
+ * Obtener imágenes de una propiedad
+ */
+const getPropertyImages = async (req, res) => {
+    try {
+        const db = require('firebase-admin').firestore();
+        const { id } = req.params;
+
+        const propSnapshot = await db.collectionGroup('propiedades')
+            .where(require('firebase-admin').firestore.FieldPath.documentId(), '==', id)
+            .limit(1)
+            .get();
+
+        if (propSnapshot.empty) {
+            return res.status(404).json({
+                error: 'Propiedad no encontrada'
+            });
+        }
+
+        const propData = propSnapshot.docs[0].data();
+
+        const imagenesOrganizadas = {
+            destacada: propData.websiteData?.cardImage || null,
+            porComponente: propData.websiteData?.images || {},
+            total: 0
+        };
+
+        Object.values(imagenesOrganizadas.porComponente).forEach(componente => {
+            if (Array.isArray(componente)) {
+                imagenesOrganizadas.total += componente.length;
+            }
+        });
+
+        res.json(formatResponse(imagenesOrganizadas));
+
+    } catch (error) {
+        console.error('Error in getPropertyImages:', error);
+        res.status(500).json({
+            error: 'Internal Server Error'
+        });
+    }
+};
+
+/**
+ * POST /api/public/reservas
+ * Crear una reserva pública (propuesta con pago)
+ */
+const createPublicReservation = async (req, res) => {
+    try {
+        const db = require('firebase-admin').firestore();
+        const admin = require('firebase-admin');
+        const {
+            propiedadId,
+            fechaInicio,
+            fechaFin,
+            cliente,
+            numeroHuespedes,
+            notas,
+            agenteIA
+        } = req.body;
+
+        // Validaciones
+        if (!propiedadId || !fechaInicio || !fechaFin || !cliente?.email || !cliente?.nombre) {
+            return res.status(400).json({
+                error: 'Campos requeridos: propiedadId, fechaInicio, fechaFin, cliente.nombre, cliente.email'
+            });
+        }
+
+        const inicio = parseISO(fechaInicio + 'T00:00:00Z');
+        const fin = parseISO(fechaFin + 'T00:00:00Z');
+
+        if (!isValid(inicio) || !isValid(fin) || inicio >= fin) {
+            return res.status(400).json({ error: 'Fechas inválidas' });
+        }
+
+        // Buscar propiedad
+        const propSnapshot = await db.collectionGroup('propiedades')
+            .where(admin.firestore.FieldPath.documentId(), '==', propiedadId)
+            .limit(1)
+            .get();
+
+        if (propSnapshot.empty) {
+            return res.status(404).json({ error: 'Propiedad no encontrada' });
+        }
+
+        const propDoc = propSnapshot.docs[0];
+        const propData = propDoc.data();
+        const empresaId = propDoc.ref.parent.parent.id;
+
+        // Verificar disponibilidad
+        const availabilityData = await getAvailabilityData(db, empresaId, inicio, fin, false, null);
+        const isAvailable = availabilityData.availableProperties.some(p => p.id === propiedadId);
+
+        if (!isAvailable) {
+            return res.status(409).json({
+                error: 'Propiedad no disponible',
+                code: 'NOT_AVAILABLE'
+            });
+        }
+
+        // Obtener/crear canal IA
+        let canalesIA = await obtenerCanalesPorEmpresa(db, empresaId);
+        let canalIA = canalesIA.find(c => c.nombre === 'IA Reserva');
+
+        if (!canalIA) {
+            const nuevoCanalIA = await crearCanal(db, empresaId, {
+                nombre: 'IA Reserva',
+                moneda: 'CLP',
+                modificadorTipo: 'porcentaje',
+                modificadorValor: 0,
+                configuracionIva: 'incluido',
+                descripcion: 'Reservas de agentes IA'
+            });
+            canalIA = { id: nuevoCanalIA.id, ...nuevoCanalIA };
+        }
+
+        // Calcular precio
+        const valorDolar = await obtenerValorDolar(db, empresaId, inicio);
+
+        const tarifasSnapshot = await db.collection('empresas').doc(empresaId).collection('tarifas').get();
+        const allTarifas = tarifasSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                id: doc.id,
+                fechaInicio: data.fechaInicio?.toDate ? data.fechaInicio.toDate() : parseISO(data.fechaInicio + 'T00:00:00Z'),
+                fechaTermino: data.fechaTermino?.toDate ? data.fechaTermino.toDate() : parseISO(data.fechaTermino + 'T00:00:00Z'),
+                alojamientoId: data.alojamientoId
+            };
+        }).filter(Boolean);
+
+        const precioCalculado = await calculatePrice(
+            db,
+            empresaId,
+            [{ id: propiedadId, nombre: propData.nombre }],
+            inicio,
+            fin,
+            allTarifas,
+            canalIA.id,
+            valorDolar,
+            false
+        );
+
+        if (!precioCalculado || precioCalculado.totalPriceCLP === 0) {
+            return res.status(404).json({
+                error: 'No se pudo calcular precio',
+                code: 'NO_PRICING'
+            });
+        }
+
+        const valorTotal = precioCalculado.totalPriceCLP;
+        const senaPagar = Math.round(valorTotal * 0.10);
+        const saldoPendiente = valorTotal - senaPagar;
+
+        // Crear/actualizar cliente
+        const { crearOActualizarCliente } = require('../services/clientesService');
+        const resultadoCliente = await crearOActualizarCliente(db, empresaId, {
+            nombre: cliente.nombre,
+            email: cliente.email,
+            telefono: cliente.telefono || '',
+            canalNombre: 'IA Reserva',
+            idReservaCanal: null
+        });
+
+        const clienteId = resultadoCliente.cliente.id;
+
+        // Crear propuesta
+        const datosPropuesta = {
+            cliente: { id: clienteId, nombre: cliente.nombre, email: cliente.email, telefono: cliente.telefono },
+            fechaLlegada: fechaInicio,
+            fechaSalida: fechaFin,
+            propiedades: [{ id: propiedadId, nombre: propData.nombre }],
+            precioFinal: valorTotal,
+            noches: precioCalculado.nights,
+            canalId: canalIA.id,
+            canalNombre: 'IA Reserva',
+            moneda: 'CLP',
+            valorDolarDia: valorDolar,
+            valorOriginal: valorTotal,
+            origen: 'ia-reserva',
+            personas: numeroHuespedes || 2,
+            descuentoPct: 0,
+            descuentoFijo: 0,
+            valorFinalFijado: 0,
+            enviarEmail: false,
+            linkPago: null
+        };
+
+        const propuestaCreada = await guardarOActualizarPropuesta(
+            db,
+            empresaId,
+            'ai-agent@system',
+            datosPropuesta,
+            null
+        );
+
+        // Generar link de pago
+        const linkPago = await crearPreferencia(
+            empresaId,
+            propuestaCreada.id,
+            `Seña reserva ${propData.nombre} - ${precioCalculado.nights} noches`,
+            senaPagar,
+            'CLP'
+        );
+
+        // Actualizar propuesta con link de pago y metadata
+        const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
+        const reservasSnapshot = await reservasRef.where('idReservaCanal', '==', propuestaCreada.id).get();
+
+        const batch = db.batch();
+        reservasSnapshot.docs.forEach(doc => {
+            batch.update(doc.ref, {
+                linkPago: linkPago,
+                metadata: {
+                    origenIA: true,
+                    agenteIA: agenteIA || 'Desconocido',
+                    estadoPago: 'pendiente'
+                },
+                notas: `${notas || ''}\n\nCreado por: ${agenteIA || 'Agente IA'}`
+            });
+        });
+        await batch.commit();
+
+        console.log(`✅ [Reserva IA] Propuesta creada: ${propuestaCreada.id}`);
+        console.log(`📧 [Reserva IA] Email a enviar a: ${cliente.email}`);
+        console.log(`💳 [Reserva IA] Link de pago: ${linkPago}`);
+
+        res.status(201).json(formatResponse({
+            propuestaId: propuestaCreada.id,
+            estado: 'Propuesta',
+            estadoPago: 'Pendiente',
+            propiedad: {
+                id: propiedadId,
+                nombre: propData.nombre
+            },
+            fechas: {
+                llegada: fechaInicio,
+                salida: fechaFin,
+                noches: precioCalculado.nights
+            },
+            precios: {
+                moneda: 'CLP',
+                valorTotal: valorTotal,
+                senaPagar: senaPagar,
+                saldoPendiente: saldoPendiente
+            },
+            pago: {
+                linkPago: linkPago,
+                monto: senaPagar,
+                instrucciones: [
+                    'Completa el pago de la seña para confirmar tu reserva',
+                    'Recibirás confirmación por email',
+                    `Pagarás $${saldoPendiente.toLocaleString('es-CL')} CLP al check-in`
+                ],
+                expiraEn: '48 horas'
+            }
+        }));
+
+    } catch (error) {
+        console.error('Error in createPublicReservation:', error);
+        res.status(500).json({ error: 'Internal Server Error', message: error.message });
+    }
+};
+
+/**
+ * POST /api/public/webhooks/mercadopago
+ * Webhook para notificaciones de MercadoPago
+ */
+const webhookMercadoPago = async (req, res) => {
+    try {
+        const db = require('firebase-admin').firestore();
+        const { type, data } = req.body;
+
+        console.log('[Webhook MP] Recibido:', { type, data });
+
+        if (type !== 'payment' || !data?.id) {
+            return res.status(200).json({ received: true });
+        }
+
+        // Por ahora, solo loguear (implementar verificación real con MP después)
+        console.log(`[Webhook MP] Pago recibido: ${data.id}`);
+
+        // TODO: Implementar verificación real con MercadoPago API
+        // const mercadopagoService = require('../services/mercadopagoService');
+        // const paymentInfo = await mercadopagoService.verificarPago(data.id);
+
+        res.status(200).json({ received: true, message: 'Webhook procesado (modo simulado)' });
+
+    } catch (error) {
+        console.error('Error in webhookMercadoPago:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
 module.exports = {
     getProperties,
     getPropertyDetail,
     getPropertyCalendar,
-    createBookingIntent
+    createBookingIntent,
+    quotePriceForDates,
+    checkAvailability,
+    getPropertyImages,
+    createPublicReservation,
+    webhookMercadoPago
 };

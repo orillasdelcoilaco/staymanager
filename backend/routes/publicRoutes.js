@@ -1,72 +1,112 @@
 const express = require('express');
 const router = express.Router();
-const rateLimit = require('express-rate-limit');
 const publicAiController = require('../controllers/publicAiController');
-
-// Rate Limiter Configuration
-const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
-    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-    message: {
-        error: "Too many requests, please try again later.",
-        retry_after_seconds: 15 * 60
-    },
-    handler: (req, res, next, options) => {
-        res.status(options.statusCode).json(options.message);
-    }
-});
+const {
+    createReservationLimiter,
+    readLimiter,
+    speedLimiter,
+    validateHumanLike,
+    sanitizeInputs
+} = require('../middleware/publicApiSecurity');
 
 module.exports = (db) => {
-    // Apply Rate Limiter to all public routes
-    router.use(apiLimiter);
+    // Aplicar middlewares de seguridad a todas las rutas
+    router.use(validateHumanLike);
+    router.use(sanitizeInputs);
 
-    // Middleware to attach db to req
+    // Middleware para attach db al request
     router.use(async (req, res, next) => {
         req.db = db;
         next();
     });
 
-    // [DEBUG] Endpoint de diagnóstico temporal
-    router.get('/propiedades/debug', async (req, res) => {
-        try {
-            // Use the db instance passed to the router
-            const allSnapshot = await db.collectionGroup('propiedades').get();
-            const listedSnapshot = await db.collectionGroup('propiedades')
-                .where('isListed', '==', true)
-                .get();
+    // ===== ENDPOINTS DE CONSULTA (GET) =====
 
-            res.json({
-                total_propiedades: allSnapshot.size,
-                con_isListed_true: listedSnapshot.size,
-                con_isListed_false: allSnapshot.size - listedSnapshot.size,
-                muestra_primeras_3: allSnapshot.docs.slice(0, 3).map(d => ({
-                    id: d.id,
-                    nombre: d.data().nombre,
-                    isListed: d.data().isListed,
-                    empresaId: d.ref.parent.parent ? d.ref.parent.parent.id : 'unknown'
-                }))
-            });
-        } catch (error) {
-            res.status(500).json({
-                error: error.message,
-                code: error.code
-            });
-        }
-    });
+    // GET /api/public/propiedades - Listar propiedades públicas
+    router.get('/propiedades',
+        readLimiter,
+        speedLimiter,
+        publicAiController.getProperties
+    );
 
-    // GET /api/public/propiedades
-    router.get('/propiedades', publicAiController.getProperties);
+    // GET /api/public/propiedad/:id - Detalle de propiedad
+    router.get('/propiedad/:id',
+        readLimiter,
+        publicAiController.getPropertyDetail
+    );
 
-    // GET /api/public/propiedad/:id
-    router.get('/propiedad/:id', publicAiController.getPropertyDetail);
+    // GET /api/public/propiedad/:id/calendar - Calendario de disponibilidad
+    router.get('/propiedad/:id/calendar',
+        readLimiter,
+        publicAiController.getPropertyCalendar
+    );
 
-    // GET /api/public/propiedad/:id/calendar
-    router.get('/propiedad/:id/calendar', publicAiController.getPropertyCalendar);
+    // GET /api/public/propiedades/:id/cotizar - Cotizar precio para fechas
+    router.get('/propiedades/:id/cotizar',
+        readLimiter,
+        publicAiController.quotePriceForDates
+    );
 
-    // POST /api/public/reservar/intent
-    router.post('/reservar/intent', publicAiController.createBookingIntent);
+    // GET /api/public/propiedades/:id/disponibilidad - Verificar disponibilidad
+    router.get('/propiedades/:id/disponibilidad',
+        readLimiter,
+        publicAiController.checkAvailability
+    );
+
+    // GET /api/public/propiedades/:id/imagenes - Obtener imágenes
+    router.get('/propiedades/:id/imagenes',
+        readLimiter,
+        publicAiController.getPropertyImages
+    );
+
+    // ===== ENDPOINTS DE ACCIÓN (POST) =====
+
+    // POST /api/public/reservar/intent - Crear intención de reserva (legacy)
+    router.post('/reservar/intent',
+        createReservationLimiter,
+        publicAiController.createBookingIntent
+    );
+
+    // POST /api/public/reservas - Crear reserva pública (nuevo)
+    router.post('/reservas',
+        createReservationLimiter,
+        publicAiController.createPublicReservation
+    );
+
+    // POST /api/public/webhooks/mercadopago - Webhook de MercadoPago
+    router.post('/webhooks/mercadopago',
+        publicAiController.webhookMercadoPago
+    );
+
+    // ===== ENDPOINTS DE DEBUG (solo desarrollo) =====
+
+    if (process.env.NODE_ENV !== 'production') {
+        router.get('/propiedades/debug', async (req, res) => {
+            try {
+                const allSnapshot = await db.collectionGroup('propiedades').get();
+                const listedSnapshot = await db.collectionGroup('propiedades')
+                    .where('isListed', '==', true)
+                    .get();
+
+                res.json({
+                    total_propiedades: allSnapshot.size,
+                    con_isListed_true: listedSnapshot.size,
+                    con_isListed_false: allSnapshot.size - listedSnapshot.size,
+                    muestra_primeras_3: allSnapshot.docs.slice(0, 3).map(d => ({
+                        id: d.id,
+                        nombre: d.data().nombre,
+                        isListed: d.data().isListed,
+                        empresaId: d.ref.parent.parent ? d.ref.parent.parent.id : 'unknown'
+                    }))
+                });
+            } catch (error) {
+                res.status(500).json({
+                    error: error.message,
+                    code: error.code
+                });
+            }
+        });
+    }
 
     return router;
 };
