@@ -41,27 +41,151 @@ const formatResponse = (data) => {
             api_version: "v1-public-ai",
             ai_verification_mode: true
         },
-        filteredProperties = filteredProperties.filter(p =>
-            (p.ubicacionTexto && ubicacionRegex.test(p.ubicacionTexto)) ||
-            (p.direccion && ubicacionRegex.test(p.direccion)) ||
-            (p.nombre && ubicacionRegex.test(p.nombre)) // Also search in name for better UX
-        );
+        data: data
+    };
+};
+
+const getProperties = async (req, res) => {
+    try {
+        const db = require('firebase-admin').firestore();
+        const {
+            ubicacion,
+            capacidad,
+            fechaLlegada,
+            fechaSalida,
+            precioMin,
+            precioMax,
+            amenidades,
+            ordenar = 'popularidad',
+            limit = 20,
+            offset = 0
+        } = req.query;
+
+        let query = db.collectionGroup('propiedades').where('activa', '==', true);
+
+        if (precioMin) {
+            query = query.where('precioBase', '>=', parseInt(precioMin));
+        }
+        if (precioMax) {
+            query = query.where('precioBase', '<=', parseInt(precioMax));
+        }
+
+        // --- Sorting ---
+        if (ordenar === 'precio_asc') {
+            query = query.orderBy('precioBase', 'asc');
+        } else if (ordenar === 'precio_desc') {
+            query = query.orderBy('precioBase', 'desc');
+        } else if (ordenar === 'rating') {
+            query = query.orderBy('rating', 'desc');
+        } else {
+            query = query.orderBy('precioBase', 'asc');
+        }
+
+        // --- Execution ---
+        const snapshot = await query.limit(parseInt(limit) + parseInt(offset) + 50).get();
+
+        let properties = [];
+        for (const doc of snapshot.docs) {
+            const data = doc.data();
+            // Resolve parent company
+            const empresaRef = doc.ref.parent.parent;
+            const empresaDoc = await empresaRef.get();
+
+            if (!empresaDoc.exists || !empresaDoc.data().planActivo) continue;
+
+            const empresaData = empresaDoc.data();
+
+            // --- In-Memory Filtering ---
+
+            // 1. Location (Partial Match)
+            if (ubicacion && (!data.ubicacion || !data.ubicacion.toLowerCase().includes(ubicacion.toLowerCase()))) {
+                continue;
+            }
+
+            // 2. Capacity
+            if (capacidad && (data.capacidad < parseInt(capacidad))) {
+                continue;
+            }
+
+            // 3. Amenities (All required must be present)
+            if (amenidades) {
+                const requiredAmenities = amenidades.split(',').map(a => a.trim().toLowerCase());
+                const propertyAmenities = (data.amenidades || []).map(a => a.toLowerCase());
+                const hasAll = requiredAmenities.every(ra => propertyAmenities.includes(ra));
+                if (!hasAll) continue;
+            }
+
+            // 4. Availability (if dates provided)
+            let isAvailable = true;
+            if (fechaLlegada && fechaSalida) {
+                if (data.busyRanges) {
+                    const start = new Date(fechaLlegada);
+                    const end = new Date(fechaSalida);
+                    const hasConflict = data.busyRanges.some(range => {
+                        const rangeStart = range.start.toDate ? range.start.toDate() : new Date(range.start);
+                        const rangeEnd = range.end.toDate ? range.end.toDate() : new Date(range.end);
+                        return (start < rangeEnd && end > rangeStart);
+                    });
+                    if (hasConflict) isAvailable = false;
+                }
+            }
+
+            if (fechaLlegada && fechaSalida && !isAvailable) continue;
+
+
+            // --- Transformation ---
+            const sanitized = sanitizeProperty(data);
+
+            // Enrich images
+            let enrichedImages = [];
+            if (data.websiteData && data.websiteData.images) {
+                enrichedImages = Object.values(data.websiteData.images).map(img => ({
+                    url: img.storagePath || img.url || '',
+                    description: img.description || img.alt || '',
+                    tags: img.tags || [],
+                    category: img.category || 'general'
+                })).filter(img => img.url);
+            } else if (Array.isArray(data.imagenes)) {
+                enrichedImages = data.imagenes.map(url => ({
+                    url: url,
+                    description: '',
+                    tags: [],
+                    category: 'general'
+                }));
+            }
+
+            properties.push({
+                id: doc.id,
+                empresa: {
+                    id: empresaDoc.id,
+                    nombre: empresaData.nombreFantasia || empresaData.razonSocial || 'Empresa',
+                    contacto: empresaData.emailContacto || ''
+                },
+                ...sanitized,
+                imagenesDestacadas: enrichedImages.slice(0, 5), // Limit for list view
+                imagenesCount: enrichedImages.length,
+                disponible: (fechaLlegada && fechaSalida) ? true : undefined
+            });
+        }
+
+        // Apply pagination in memory since we filtered in memory
+        const paginatedProperties = properties.slice(parseInt(offset), parseInt(offset) + parseInt(limit));
+
+        res.json(formatResponse({
+            meta: {
+                total: properties.length,
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+                filtros: { ubicacion, capacidad, fechas: { llegada: fechaLlegada, salida: fechaSalida }, amenidades },
+                ordenado_por: ordenar
+            },
+            data: paginatedProperties
+        }));
+
+    } catch (error) {
+        console.error('Error in getProperties:', error);
+        res.status(500).json({ error: 'Internal Server Error', details: error.message });
     }
-
-    const lightweightProperties = filteredProperties.map(p => ({
-        id: p.id,
-        nombre: p.nombre,
-        fotoPrincipal: p.websiteData?.cardImage?.storagePath || p.fotoPrincipal || '',
-        precioBase: p.precioBase || 0, // Note: This might need more complex pricing logic if dynamic
-        capacidad: p.capacidad || 0,
-        ubicacion: p.ubicacionTexto || ''
-    }));
-
-    res.json(formatResponse(lightweightProperties));
-} catch (error) {
-    console.error("Error in getProperties:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-}
 };
 
 const getPropertyDetail = async (req, res) => {
