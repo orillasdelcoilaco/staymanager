@@ -49,13 +49,13 @@ const validateHumanLike = (req, res, next) => {
         });
     }
 
-    // Lista de bots sospechosos
-    const suspiciousBots = ['curl', 'wget', 'python-requests', 'scrapy', 'bot', 'spider'];
+    // Lista de bots maliciosos conocidos (scrapers, no navegadores legítimos)
+    const maliciousBots = ['scrapy', 'spider', 'crawler', 'scraper'];
 
-    // Lista de agentes IA legítimos
+    // Lista de agentes IA legítimos (para logging/analytics)
     const legitAIAgents = ['ChatGPT', 'Claude', 'GPT', 'Gemini', 'Anthropic', 'OpenAI'];
 
-    const isSuspicious = suspiciousBots.some(bot =>
+    const isMalicious = maliciousBots.some(bot =>
         userAgent.toLowerCase().includes(bot.toLowerCase())
     );
 
@@ -63,13 +63,18 @@ const validateHumanLike = (req, res, next) => {
         userAgent.toLowerCase().includes(ai.toLowerCase())
     );
 
-    // Bloquear bots sospechosos que no son agentes IA legítimos
-    if (isSuspicious && !isLegitAI) {
-        console.warn(`[Security] Blocked suspicious User-Agent: ${userAgent}`);
+    // Solo bloquear bots maliciosos conocidos
+    if (isMalicious) {
+        console.warn(`[Security] Blocked malicious bot: ${userAgent}`);
         return res.status(403).json({
             error: 'Solicitud no autorizada',
             code: 'FORBIDDEN'
         });
+    }
+
+    // Log si es un agente IA legítimo (para analytics)
+    if (isLegitAI) {
+        console.log(`[Security] AI Agent detected: ${userAgent}`);
     }
 
     next();
