@@ -120,9 +120,15 @@ const getProperties = async (req, res) => {
                 if (!tieneAmenidades) continue;
             }
 
-            // Verificar Plan Activo de la Empresa (Cachear esto sería ideal)
+            // Verificar que la Empresa exista
             const empresaDoc = await db.collection('empresas').doc(empresaId).get();
-            if (!empresaDoc.exists || !empresaDoc.data().planActivo) continue;
+            if (!empresaDoc.exists) continue;
+
+            // TODO: Restaurar validación de planActivo cuando se implemente el módulo de administración de SuiteManager
+            // El campo planActivo será parte del sistema de gestión global de empresas (super-admin)
+            // Por ahora, todas las empresas operan sin restricciones hasta que se desarrolle ese módulo
+            // if (!empresaDoc.data().planActivo) continue;
+
             const empresaData = empresaDoc.data();
 
             // Verificar Disponibilidad (Si se solicitan fechas)
