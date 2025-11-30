@@ -566,7 +566,7 @@ const quotePriceForDates = async (req, res) => {
 
         // Buscar propiedad
         const propSnapshot = await db.collectionGroup('propiedades')
-            .where(require('firebase-admin').firestore.FieldPath.documentId(), '==', id)
+            .where('id', '==', id)
             .limit(1)
             .get();
 
@@ -721,7 +721,7 @@ const checkAvailability = async (req, res) => {
         }
 
         const propSnapshot = await db.collectionGroup('propiedades')
-            .where(require('firebase-admin').firestore.FieldPath.documentId(), '==', id)
+            .where('id', '==', id)
             .limit(1)
             .get();
 
@@ -784,7 +784,7 @@ const getPropertyImages = async (req, res) => {
         const { id } = req.params;
 
         const propSnapshot = await db.collectionGroup('propiedades')
-            .where(require('firebase-admin').firestore.FieldPath.documentId(), '==', id)
+            .where('id', '==', id)
             .limit(1)
             .get();
 
@@ -852,7 +852,7 @@ const createPublicReservation = async (req, res) => {
 
         // Buscar propiedad
         const propSnapshot = await db.collectionGroup('propiedades')
-            .where(admin.firestore.FieldPath.documentId(), '==', propiedadId)
+            .where('id', '==', propiedadId)
             .limit(1)
             .get();
 
@@ -1080,3 +1080,4 @@ module.exports = {
     createPublicReservation,
     webhookMercadoPago
 };
+
