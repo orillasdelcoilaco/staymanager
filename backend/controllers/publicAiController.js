@@ -1,5 +1,5 @@
 const { obtenerPropiedadesPorEmpresa, obtenerPropiedadPorId } = require('../services/publicWebsiteService');
-const db = require('firebase-admin').firestore();
+// REMOVED: const db = require('firebase-admin').firestore();
 const { hydrateInventory, calcularCapacidad } = require('../services/propiedadLogicService');
 const { getAvailabilityData } = require('../services/propuestasService');
 const { obtenerCanalesPorEmpresa, crearCanal } = require('../services/canalesService');
@@ -48,158 +48,149 @@ const formatResponse = (data) => {
 
 const getProperties = async (req, res) => {
     try {
+        const db = require('firebase-admin').firestore();
         const { id } = req.params;
+        // ... rest of function ...
 
-        // Global lookup: Find property in any 'propiedades' collection
-        // Since we don't have the parent path, we query collectionGroup by ID (which is document ID)
-        // Note: collectionGroup queries usually filter by field, not document ID directly across all.
-        // However, we can use FieldPath.documentId() but it requires the full path or unique ID.
-        // If IDs are unique across the system (Auto ID), we can query:
-        // db.collectionGroup('propiedades').where(admin.firestore.FieldPath.documentId(), '==', id)
-        // But FieldPath.documentId() in collectionGroup queries matches the full path, not just the last segment.
-        // So we cannot easily find a document by ID globally without a field 'id' stored inside the document 
-        // OR iterating companies (expensive) OR maintaining a global index/map.
+        // RE-IMPLEMENTING LOGIC TO AVOID LOSING IT
+        const {
+            ubicacion,
+            capacidad,
+            fechaLlegada,
+            fechaSalida,
+            precioMin,
+            precioMax,
+            amenidades,
+            ordenar = 'popularidad',
+            limit = 20,
+            offset = 0
+        } = req.query;
 
-        // OPTIMIZATION: We assume 'id' is stored as a field in the document (common practice) OR we try to find it.
-        // If 'id' is NOT stored as a field, we have a problem.
-        // Let's assume for this refactor that we might need to query by a field if doc ID isn't enough.
-        // BUT, wait. If we use `getProperties` first, we get the ID.
-        // If we want to support direct access by ID, we really need a way to find the parent.
+        // 1. Filtrado Básico en DB (Global)
+        let query = db.collectionGroup('propiedades')
+            .where('googleHotelData.isListed', '==', true);
 
-        // Workaround for now: Query collectionGroup where 'id' field == param ID (if exists)
-        // OR since we are in a "Refactor Mayor", we should ensure 'id' is in the doc.
-        // If not, we might have to rely on the user passing company ID? No, requirement says "Eliminar dependencia".
+        if (precioMin) query = query.where('precioBase', '>=', parseInt(precioMin));
+        if (precioMax) query = query.where('precioBase', '<=', parseInt(precioMax));
 
-        // Let's try to query by `id` field. If it's not there, we might need to add it or use a different approach.
-        // Assuming standard Firestore structure where doc.id is the key.
-        // We can't query collectionGroup by doc.id easily without full path.
+        // Ordenamiento
+        if (ordenar === 'precio_asc') {
+            query = query.orderBy('precioBase', 'asc');
+        } else if (ordenar === 'precio_desc') {
+            query = query.orderBy('precioBase', 'desc');
+        } else if (ordenar === 'rating') {
+            query = query.orderBy('rating', 'desc');
+        }
 
-        // ALTERNATIVE: Use a global "directory" or search.
-        // For this implementation, let's assume we can query `collectionGroup('propiedades')` 
-        // but we need a field to filter on. 
-        // Let's try `where('id', '==', id)` assuming we sync doc ID to a field.
-        // If not, we might need to iterate companies? That's bad.
+        const snapshot = await query.get();
 
-        // Let's check if we can use `listDocuments` or similar? No.
+        // 2. Filtrado en Memoria (Lógica de Negocio Compleja)
+        const propiedades = [];
 
-        // BEST APPROACH for now without changing data structure:
-        // We will assume that the 'id' field IS stored in the document. 
-        // If not, we should probably add a migration step or update `getProperties` to ensure it's returned.
-        // (In `getProperties` we return `doc.id`).
+        for (const doc of snapshot.docs) {
+            const data = doc.data();
+            const empresaId = doc.ref.parent.parent.id; // empresas/{id}/propiedades/{id}
 
-        // Let's try to find it.
-        const snapshot = await db.collectionGroup('propiedades').get(); // This is VERY expensive in prod.
-        // We MUST filter.
-        // If we can't filter by ID, we are stuck.
-        // Let's assume we can filter by `activa` == true and then find in memory? 
-        // No, that's O(N).
+            // [HOTFIX] Construir dirección completa
+            const calle = data.googleHotelData?.address?.street || '';
+            const ciudad = data.googleHotelData?.address?.city || '';
+            const direccionCompleta = `${calle}, ${ciudad}`.replace(/^, /, '').replace(/, $/, '');
 
-        // Let's assume the user has `id` field in the doc.
-        // If not, I will add a fallback to search by iterating companies (limited set) or just fail.
-        // Actually, `collectionGroup` query on `__name__` (documentId) is not supported for suffix match.
+            // Filtro de Ubicación (Búsqueda parcial en calle o ciudad)
+            if (ubicacion) {
+                const term = ubicacion.toLowerCase();
+                const matchCalle = calle.toLowerCase().includes(term);
+                const matchCiudad = ciudad.toLowerCase().includes(term);
+                if (!matchCalle && !matchCiudad) continue;
+            }
 
-        // PROPOSAL: We will query `db.collectionGroup('propiedades')` but we need a filter.
-        // Maybe we can assume the ID is unique and we can just query `where('activa', '==', true)` 
-        // and find it? No.
+            // Filtro de Capacidad
+            if (capacidad && data.capacidad < parseInt(capacidad)) continue;
 
-        // Let's use the `inspect_images.js` knowledge. We saw `doc.data()` has fields.
-        // Does it have `id`? Usually not by default in Firestore unless saved.
+            // Filtro de Amenidades
+            if (amenidades) {
+                const amenidadesRequeridas = amenidades.split(',').map(a => a.trim().toLowerCase());
+                const tieneAmenidades = amenidadesRequeridas.every(req =>
+                    data.amenidades && data.amenidades.some(a => a.toLowerCase().includes(req))
+                );
+                if (!tieneAmenidades) continue;
+            }
 
-        // DECISION: I will implement a "smart" lookup.
-        // Since I can't change the DB structure easily right now without a migration script,
-        // and I need to support this NOW:
-        // I will fetch all companies (usually not that many) and query their properties?
-        // Or better: `db.collectionGroup('propiedades').where('id', '==', id).limit(1).get()`
-        // This assumes `id` IS in the doc.
-        // If not, I will try to find it by iterating companies (fallback).
+            // Verificar Plan Activo de la Empresa (Cachear esto sería ideal)
+            const empresaDoc = await db.collection('empresas').doc(empresaId).get();
+            if (!empresaDoc.exists || !empresaDoc.data().planActivo) continue;
+            const empresaData = empresaDoc.data();
 
-        let propertyDoc = null;
-        let empresaDoc = null;
-
-        // Try global search by field 'id'
-        let querySnapshot = await db.collectionGroup('propiedades').where('id', '==', id).limit(1).get();
-
-        if (!querySnapshot.empty) {
-            propertyDoc = querySnapshot.docs[0];
-            empresaDoc = await propertyDoc.ref.parent.parent.get();
-        } else {
-            // Fallback: Iterate companies (Not ideal but works for small SaaS)
-            const companiesSnap = await db.collection('empresas').where('planActivo', '==', true).get();
-            for (const company of companiesSnap.docs) {
-                const propRef = company.ref.collection('propiedades').doc(id);
-                const doc = await propRef.get();
-                if (doc.exists) {
-                    propertyDoc = doc;
-                    empresaDoc = company;
-                    break;
+            // Verificar Disponibilidad (Si se solicitan fechas)
+            let disponible = true;
+            if (fechaLlegada && fechaSalida) {
+                if (data.busyRanges) {
+                    const start = new Date(fechaLlegada);
+                    const end = new Date(fechaSalida);
+                    const hasConflict = data.busyRanges.some(range => {
+                        const rangeStart = range.start.toDate ? range.start.toDate() : new Date(range.start);
+                        const rangeEnd = range.end.toDate ? range.end.toDate() : new Date(range.end);
+                        return (start < rangeEnd && end > rangeStart);
+                    });
+                    if (hasConflict) disponible = false;
                 }
             }
+
+            if (fechaLlegada && fechaSalida && !disponible) continue;
+
+            // --- Transformation ---
+            const sanitized = sanitizeProperty(data);
+
+            // Enrich images
+            let enrichedImages = [];
+            if (data.websiteData && data.websiteData.images) {
+                enrichedImages = Object.values(data.websiteData.images).map(img => ({
+                    url: img.storagePath || img.url || '',
+                    description: img.description || img.alt || '',
+                    tags: img.tags || [],
+                    category: img.category || 'general'
+                })).filter(img => img.url);
+            } else if (Array.isArray(data.imagenes)) {
+                enrichedImages = data.imagenes.map(url => ({
+                    url: url,
+                    description: '',
+                    tags: [],
+                    category: 'general'
+                }));
+            }
+
+            propiedades.push({
+                id: doc.id,
+                empresa: {
+                    id: empresaDoc.id,
+                    nombre: empresaData.nombreFantasia || empresaData.razonSocial || 'Empresa',
+                    contacto: empresaData.emailContacto || ''
+                },
+                ...sanitized,
+                direccion: direccionCompleta, // [HOTFIX] Added direction
+                imagenesDestacadas: enrichedImages.slice(0, 5), // Limit for list view
+                imagenesCount: enrichedImages.length,
+                disponible: (fechaLlegada && fechaSalida) ? true : undefined
+            });
         }
 
-        if (!propertyDoc || !propertyDoc.exists) {
-            return res.status(404).json({ error: "Property not found" });
-        }
+        // Apply pagination in memory since we filtered in memory
+        const paginatedProperties = propiedades.slice(parseInt(offset), parseInt(offset) + parseInt(limit));
 
-        const rawProperty = propertyDoc.data();
-        const empresaData = empresaDoc.data();
-
-        // Hydrate inventory
-        const aiContext = hydrateInventory(rawProperty.componentes || []);
-
-        // Calculate capacity
-        const calculatedCapacity = calcularCapacidad(rawProperty.componentes || []);
-
-        // Semantic Summary
-        const currency = rawProperty.moneda || 'CLP';
-        const rules = Array.isArray(rawProperty.reglas) ? rawProperty.reglas.join('. ') : (rawProperty.reglas || 'No specific rules.');
-        const semanticSummary = `Tarifas en ${currency}. Reglas: ${rules}. Capacidad máxima: ${calculatedCapacity} personas.`;
-
-        aiContext.semantic_summary = semanticSummary;
-        aiContext.currency = currency;
-        aiContext.house_rules = rawProperty.reglas || [];
-
-        const sanitizedProperty = sanitizeProperty(rawProperty);
-
-        // Transform images
-        let enrichedImages = [];
-        if (rawProperty.websiteData && rawProperty.websiteData.images) {
-            enrichedImages = Object.values(rawProperty.websiteData.images).map(img => ({
-                url: img.storagePath || img.url || '',
-                description: img.description || img.alt || '',
-                tags: img.tags || [],
-                category: img.category || 'general'
-            })).filter(img => img.url);
-        } else if (Array.isArray(rawProperty.imagenes)) {
-            enrichedImages = rawProperty.imagenes.map(url => ({
-                url: url,
-                description: '',
-                tags: [],
-                category: 'general'
-            }));
-        }
-
-        const enrichedProperty = {
-            id: propertyDoc.id, // Ensure ID is returned
-            empresa: {
-                id: empresaDoc.id,
-                nombre: empresaData.nombreFantasia || empresaData.razonSocial || 'Empresa',
-                contacto: empresaData.emailContacto || '',
-                whatsapp: empresaData.telefonoContacto || ''
+        res.json(formatResponse({
+            meta: {
+                total: propiedades.length,
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+                filtros: { ubicacion, capacidad, fechas: { llegada: fechaLlegada, salida: fechaSalida }, amenidades },
+                ordenado_por: ordenar
             },
-            ...sanitizedProperty,
-            capacidadCalculada: calculatedCapacity,
-            ai_context: aiContext,
-            images: enrichedImages,
-            reviews: [], // TODO: Fetch real reviews if collection exists
-            politicaCancelacion: rawProperty.politicaCancelacion || "Consultar con el anfitrión.",
-            instruccionesCheckin: rawProperty.instruccionesCheckin || "Check-in desde las 15:00.",
-            schema_type: "VacationRental"
-        };
+            data: paginatedProperties
+        }));
 
-        res.json(formatResponse(enrichedProperty));
     } catch (error) {
-        console.error("Error in getPropertyDetail:", error);
-        res.status(500).json({ error: "Internal Server Error" });
+        console.error('Error in getProperties:', error);
+        res.status(500).json({ error: 'Internal Server Error', details: error.message });
     }
 };
 
