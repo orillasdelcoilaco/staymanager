@@ -1,4 +1,5 @@
 const { obtenerPropiedadesPorEmpresa, obtenerPropiedadPorId } = require('../services/publicWebsiteService');
+const db = require('firebase-admin').firestore();
 const { hydrateInventory, calcularCapacidad } = require('../services/propiedadLogicService');
 const { getAvailabilityData } = require('../services/propuestasService');
 const { obtenerCanalesPorEmpresa, crearCanal } = require('../services/canalesService');
