@@ -402,6 +402,9 @@ const getPropertyCalendar = async (req, res) => {
             busyRanges: busyRanges
         }));
 
+    } catch (error) {
+        console.error("Error in getPropertyCalendar:", error);
+        res.status(500).json({ error: "Internal Server Error" });
     }
 };
 
