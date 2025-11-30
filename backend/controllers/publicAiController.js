@@ -202,6 +202,102 @@ const getProperties = async (req, res) => {
     }
 };
 
+const getPropertyDetail = async (req, res) => {
+    try {
+        const db = require('firebase-admin').firestore();
+        const { id } = req.params;
+
+        // Global lookup: Find property in any 'propiedades' collection
+        let propertyDoc = null;
+        let empresaDoc = null;
+
+        // Try global search by field 'id'
+        let querySnapshot = await db.collectionGroup('propiedades').where('id', '==', id).limit(1).get();
+
+        if (!querySnapshot.empty) {
+            propertyDoc = querySnapshot.docs[0];
+            empresaDoc = await propertyDoc.ref.parent.parent.get();
+        } else {
+            // Fallback: Iterate companies (Not ideal but works for small SaaS)
+            const companiesSnap = await db.collection('empresas').where('planActivo', '==', true).get();
+            for (const company of companiesSnap.docs) {
+                const propRef = company.ref.collection('propiedades').doc(id);
+                const doc = await propRef.get();
+                if (doc.exists) {
+                    propertyDoc = doc;
+                    empresaDoc = company;
+                    break;
+                }
+            }
+        }
+
+        if (!propertyDoc || !propertyDoc.exists) {
+            return res.status(404).json({ error: "Property not found" });
+        }
+
+        const rawProperty = propertyDoc.data();
+        const empresaData = empresaDoc.data();
+
+        // Hydrate inventory
+        const aiContext = hydrateInventory(rawProperty.componentes || []);
+
+        // Calculate capacity
+        const calculatedCapacity = calcularCapacidad(rawProperty.componentes || []);
+
+        // Semantic Summary
+        const currency = rawProperty.moneda || 'CLP';
+        const rules = Array.isArray(rawProperty.reglas) ? rawProperty.reglas.join('. ') : (rawProperty.reglas || 'No specific rules.');
+        const semanticSummary = `Tarifas en ${currency}. Reglas: ${rules}. Capacidad máxima: ${calculatedCapacity} personas.`;
+
+        aiContext.semantic_summary = semanticSummary;
+        aiContext.currency = currency;
+        aiContext.house_rules = rawProperty.reglas || [];
+
+        const sanitizedProperty = sanitizeProperty(rawProperty);
+
+        // Transform images
+        let enrichedImages = [];
+        if (rawProperty.websiteData && rawProperty.websiteData.images) {
+            enrichedImages = Object.values(rawProperty.websiteData.images).map(img => ({
+                url: img.storagePath || img.url || '',
+                description: img.description || img.alt || '',
+                tags: img.tags || [],
+                category: img.category || 'general'
+            })).filter(img => img.url);
+        } else if (Array.isArray(rawProperty.imagenes)) {
+            enrichedImages = rawProperty.imagenes.map(url => ({
+                url: url,
+                description: '',
+                tags: [],
+                category: 'general'
+            }));
+        }
+
+        const enrichedProperty = {
+            id: propertyDoc.id, // Ensure ID is returned
+            empresa: {
+                id: empresaDoc.id,
+                nombre: empresaData.nombreFantasia || empresaData.razonSocial || 'Empresa',
+                contacto: empresaData.emailContacto || '',
+                whatsapp: empresaData.telefonoContacto || ''
+            },
+            ...sanitizedProperty,
+            capacidadCalculada: calculatedCapacity,
+            ai_context: aiContext,
+            images: enrichedImages,
+            reviews: [], // TODO: Fetch real reviews if collection exists
+            politicaCancelacion: rawProperty.politicaCancelacion || "Consultar con el anfitrión.",
+            instruccionesCheckin: rawProperty.instruccionesCheckin || "Check-in desde las 15:00.",
+            schema_type: "VacationRental"
+        };
+
+        res.json(formatResponse(enrichedProperty));
+    } catch (error) {
+        console.error("Error in getPropertyDetail:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
 const getPropertyCalendar = async (req, res) => {
     try {
         const db = require('firebase-admin').firestore();
