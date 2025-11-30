@@ -28,6 +28,34 @@ module.exports = (db) => {
         next();
     });
 
+    // [DEBUG] Endpoint de diagnóstico temporal
+    router.get('/propiedades/debug', async (req, res) => {
+        try {
+            // Use the db instance passed to the router
+            const allSnapshot = await db.collectionGroup('propiedades').get();
+            const listedSnapshot = await db.collectionGroup('propiedades')
+                .where('isListed', '==', true)
+                .get();
+
+            res.json({
+                total_propiedades: allSnapshot.size,
+                con_isListed_true: listedSnapshot.size,
+                con_isListed_false: allSnapshot.size - listedSnapshot.size,
+                muestra_primeras_3: allSnapshot.docs.slice(0, 3).map(d => ({
+                    id: d.id,
+                    nombre: d.data().nombre,
+                    isListed: d.data().isListed,
+                    empresaId: d.ref.parent.parent ? d.ref.parent.parent.id : 'unknown'
+                }))
+            });
+        } catch (error) {
+            res.status(500).json({
+                error: error.message,
+                code: error.code
+            });
+        }
+    });
+
     // GET /api/public/propiedades
     router.get('/propiedades', publicAiController.getProperties);
 
