@@ -23,20 +23,32 @@ async function verifyCollectionGroup() {
         }
 
         snapshot.docs.forEach(doc => {
-            console.log(`- ID: ${doc.id}, Path: ${doc.ref.path}`);
-            console.log(`  activa: ${doc.data().activa} (Type: ${typeof doc.data().activa})`);
+            console.log(`\n--- Property ID: ${doc.id} ---`);
+            const data = doc.data();
+
+            console.log('ALL KEYS:');
+            Object.keys(data).forEach(key => console.log(`- ${key}`));
+
+            console.log('\nSPECIFIC FIELDS:');
+            console.log('activa:', data.activa);
+            console.log('estado:', data.estado);
+            console.log('publicarWeb:', data.publicarWeb);
+            console.log('publicarGoogle:', data.publicarGoogle);
+            console.log('visible:', data.visible);
+
+            console.log('\nNESTED OBJECTS:');
+            if (data.websiteData) console.log('websiteData:', JSON.stringify(data.websiteData, null, 2));
+            if (data.configuracion) console.log('configuracion:', JSON.stringify(data.configuracion, null, 2));
+            if (data.googleHotelData) console.log('googleHotelData:', JSON.stringify(data.googleHotelData, null, 2));
+
+            console.log('\nLOCATION:');
+            console.log('ubicacion:', data.ubicacion);
+            console.log('direccion:', data.direccion);
+            console.log('ciudad:', data.ciudad);
+            console.log('comuna:', data.comuna);
+            console.log('region:', data.region);
+            console.log('pais:', data.pais);
         });
-
-        // 2. Check 'activa' field
-        const activeSnapshot = await db.collectionGroup('propiedades').where('activa', '==', true).limit(5).get();
-        console.log(`Found ${activeSnapshot.size} ACTIVE properties (limit 5).`);
-
-        if (activeSnapshot.empty) {
-            console.log('WARNING: No properties with activa == true found.');
-            // Check one doc to see if 'activa' exists
-            const sample = snapshot.docs[0].data();
-            console.log(`Sample 'activa' value: ${sample.activa} (Type: ${typeof sample.activa})`);
-        }
 
     } catch (error) {
         console.error('Error querying collectionGroup:', error);
