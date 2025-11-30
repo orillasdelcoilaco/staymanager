@@ -13,42 +13,33 @@ async function verifyCollectionGroup() {
     console.log('Verifying collectionGroup("propiedades")...');
 
     try {
-        // 1. Basic count
-        const snapshot = await db.collectionGroup('propiedades').limit(5).get();
-        console.log(`Found ${snapshot.size} properties in total (limit 5).`);
+        const snapshot = await db.collectionGroup('propiedades').limit(1).get();
 
         if (snapshot.empty) {
-            console.log('WARNING: No properties found in collectionGroup "propiedades". Check collection name.');
+            console.log('No matching documents.');
             return;
         }
 
-        snapshot.docs.forEach(doc => {
-            console.log(`\n--- Property ID: ${doc.id} ---`);
-            const data = doc.data();
+        const doc = snapshot.docs[0];
+        const data = doc.data();
+        console.log('--- Document Structure (Top Level) ---');
+        Object.keys(data).forEach(key => console.log(key));
 
-            console.log('ALL KEYS:');
-            Object.keys(data).forEach(key => console.log(`- ${key}`));
+        if (data.websiteData) {
+            console.log('--- websiteData ---');
+            Object.keys(data.websiteData).forEach(key => console.log(`websiteData.${key}`));
+        }
 
-            console.log('\nSPECIFIC FIELDS:');
-            console.log('activa:', data.activa);
-            console.log('estado:', data.estado);
-            console.log('publicarWeb:', data.publicarWeb);
-            console.log('publicarGoogle:', data.publicarGoogle);
-            console.log('visible:', data.visible);
+        if (data.googleHotelData) {
+            console.log('--- googleHotelData ---');
+            Object.keys(data.googleHotelData).forEach(key => console.log(`googleHotelData.${key}`));
+        }
 
-            console.log('\nNESTED OBJECTS:');
-            if (data.websiteData) console.log('websiteData:', JSON.stringify(data.websiteData, null, 2));
-            if (data.configuracion) console.log('configuracion:', JSON.stringify(data.configuracion, null, 2));
-            if (data.googleHotelData) console.log('googleHotelData:', JSON.stringify(data.googleHotelData, null, 2));
-
-            console.log('\nLOCATION:');
-            console.log('ubicacion:', data.ubicacion);
-            console.log('direccion:', data.direccion);
-            console.log('ciudad:', data.ciudad);
-            console.log('comuna:', data.comuna);
-            console.log('region:', data.region);
-            console.log('pais:', data.pais);
-        });
+        console.log('--- Values Check ---');
+        console.log('activa:', data.activa);
+        console.log('publicarWeb:', data.publicarWeb);
+        console.log('googleHotelData.isListed:', data.googleHotelData?.isListed);
+        console.log('websiteData.publicar:', data.websiteData?.publicar);
 
     } catch (error) {
         console.error('Error querying collectionGroup:', error);

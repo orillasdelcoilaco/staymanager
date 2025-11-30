@@ -67,8 +67,11 @@ const getProperties = async (req, res) => {
         } = req.query;
 
         // 1. Filtrado Básico en DB (Global)
+        console.log('🔍 [DEBUG] Iniciando query de propiedades...');
+        console.log('🔍 [DEBUG] Campo de filtro:', 'isListed');
+
         let query = db.collectionGroup('propiedades')
-            .where('googleHotelData.isListed', '==', true);
+            .where('isListed', '==', true);
 
         if (precioMin) query = query.where('precioBase', '>=', parseInt(precioMin));
         if (precioMax) query = query.where('precioBase', '<=', parseInt(precioMax));
@@ -83,6 +86,7 @@ const getProperties = async (req, res) => {
         }
 
         const snapshot = await query.get();
+        console.log(`✅ [DEBUG] Query exitosa: ${snapshot.size} documentos`);
 
         // 2. Filtrado en Memoria (Lógica de Negocio Compleja)
         const propiedades = [];
@@ -189,6 +193,11 @@ const getProperties = async (req, res) => {
         }));
 
     } catch (error) {
+        console.error('❌ [DEBUG] Error completo:', {
+            code: error.code,
+            message: error.message,
+            details: error.details
+        });
         console.error('Error in getProperties:', error);
         res.status(500).json({ error: 'Internal Server Error', details: error.message });
     }
