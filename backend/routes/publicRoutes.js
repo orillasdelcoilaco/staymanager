@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const publicAiController = require('../controllers/publicAiController');
-const { obtenerEmpresaPorDominio } = require('../services/empresaService');
 
 // Rate Limiter Configuration
 const apiLimiter = rateLimit({

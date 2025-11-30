@@ -67,21 +67,6 @@ try {
             storageBucket: 'suite-manager-app.firebasestorage.app'
         });
     }
-    db = admin.firestore();
-    db.settings({ ignoreUndefinedProperties: true });
-    console.log('[Startup] ¡Éxito! Conexión a Firestore (db) establecida.');
-
-    const app = express();
-    const PORT = process.env.PORT || 3001;
-    app.set('view engine', 'ejs');
-    app.set('views', path.join(__dirname, 'views'));
-    app.use(cors());
-    app.use(express.json());
-
-    // **PRIORIDAD 0: Archivos Estáticos Públicos (CRÍTICO: Antes de Auth)**
-    const backendPublicPath = path.join(__dirname, 'public');
-    // Enable CORS for static files
-    app.use('/public', cors({ origin: '*' }), express.static(backendPublicPath));
 
     // --- ORDEN DE RUTAS ESTRATÉGICO ---
 
