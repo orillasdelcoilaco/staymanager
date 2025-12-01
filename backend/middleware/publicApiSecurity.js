@@ -34,7 +34,7 @@ const readLimiter = rateLimit({
 const speedLimiter = slowDown({
     windowMs: 1 * 60 * 1000, // 1 minuto
     delayAfter: 20,
-    delayMs: 500 // Agregar 500ms de delay por cada request adicional
+    delayMs: () => 500 // Agregar 500ms de delay por cada request adicional (Fixed for v2)
 });
 
 // Validar que la solicitud parece venir de un agente legítimo

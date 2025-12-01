@@ -934,6 +934,19 @@ const createPublicReservation = async (req, res) => {
     }
 };
 
+const webhookMercadoPago = async (req, res) => {
+    try {
+        // TODO: Implementar lógica real de validación y confirmación de pago
+        console.log('🔔 [Webhook MercadoPago] Notificación recibida:', JSON.stringify(req.body, null, 2));
+
+        // Responder siempre 200 OK a MercadoPago para evitar reintentos
+        res.status(200).send('OK');
+    } catch (error) {
+        console.error('Error en webhookMercadoPago:', error);
+        res.status(500).send('Error');
+    }
+};
+
 module.exports = {
     getProperties,
     getPropertyDetail,
@@ -942,5 +955,6 @@ module.exports = {
     quotePriceForDates,
     checkAvailability,
     getPropertyImages,
-    createPublicReservation
+    createPublicReservation,
+    webhookMercadoPago
 };
