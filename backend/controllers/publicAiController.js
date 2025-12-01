@@ -956,6 +956,15 @@ const webhookMercadoPago = async (req, res) => {
     }
 };
 
+const getVersion = (req, res) => {
+    res.json({
+        version: '1.0.2-debug',
+        commit: 'e076274', // Commit del debug info
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV
+    });
+};
+
 module.exports = {
     getProperties,
     getPropertyDetail,
@@ -965,5 +974,6 @@ module.exports = {
     checkAvailability,
     getPropertyImages,
     createPublicReservation,
-    webhookMercadoPago
+    webhookMercadoPago,
+    getVersion
 };

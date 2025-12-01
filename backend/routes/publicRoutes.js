@@ -22,6 +22,15 @@ module.exports = (db) => {
 
     // ===== ENDPOINTS DE CONSULTA (GET) =====
 
+    // GET /api/public/version - Verificar versión desplegada
+    router.get('/version', (req, res) => {
+        res.json({
+            version: '1.0.2-debug',
+            timestamp: new Date().toISOString(),
+            deployed_at: '2025-12-01T22:20:00Z'
+        });
+    });
+
     // GET /api/public/propiedades - Listar propiedades públicas
     router.get('/propiedades',
         readLimiter,
