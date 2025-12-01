@@ -1,40 +1,5 @@
-const { obtenerPropiedadesPorEmpresa, obtenerPropiedadPorId } = require('../services/publicWebsiteService');
-// REMOVED: const db = require('firebase-admin').firestore();
-const { hydrateInventory, calcularCapacidad } = require('../services/propiedadLogicService');
-const { getAvailabilityData } = require('../services/propuestasService');
-const { obtenerCanalesPorEmpresa, crearCanal } = require('../services/canalesService');
-const { calculatePrice } = require('../services/utils/calculoValoresService');
-const { obtenerValorDolar } = require('../services/dolarService');
-const { guardarOActualizarPropuesta } = require('../services/gestionPropuestasService');
-const { crearPreferencia } = require('../services/mercadopagoService');
-const { obtenerPlantillasPorEmpresa } = require('../services/plantillasService');
-const { format, addDays, parseISO, isValid } = require('date-fns');
-
-const sanitizeProperty = (property) => {
-    if (!property) return null;
-
-    // Destructure to exclude sensitive fields
-    const {
-        comision,
-        costoLimpieza,
-        costoLavanderia,
-        datosBancarios,
-        emailPropietario,
-        telefonoPropietario,
-        rutPropietario,
-        contrato,
-        notasInternas,
-        ...safeData
-    } = property;
-
-    return safeData;
-};
-
-/**
- * Formats the response in the standard JSON structure.
- * @param {Object|Array} data - The data to return.
- * @returns {Object} - The formatted response.
- */
+costoLimpieza,
+    costoLavanderia,
 const formatResponse = (data) => {
     return {
         meta: {
@@ -564,17 +529,13 @@ const quotePriceForDates = async (req, res) => {
             return res.status(400).json({ error: 'Fechas inválidas' });
         }
 
-        // Buscar propiedad
-        const propSnapshot = await db.collectionGroup('propiedades')
-            .where('id', '==', id)
-            .limit(1)
-            .get();
+        // Buscar propiedad (Optimizado sin índices compuestos)
+        const propDoc = await findPropertyById(db, id);
 
-        if (propSnapshot.empty) {
+        if (!propDoc) {
             return res.status(404).json({ error: 'Propiedad no encontrada' });
         }
 
-        const propDoc = propSnapshot.docs[0];
         const propData = propDoc.data();
         const empresaId = propDoc.ref.parent.parent.id;
 
@@ -720,30 +681,34 @@ const checkAvailability = async (req, res) => {
             });
         }
 
-        const propSnapshot = await db.collectionGroup('propiedades')
-            .where('id', '==', id)
-            .limit(1)
-            .get();
+        // Buscar propiedad (Optimizado sin índices compuestos)
+        const propDoc = await findPropertyById(db, id);
 
-        if (propSnapshot.empty) {
+        if (!propDoc) {
             return res.status(404).json({
                 error: 'Propiedad no encontrada'
             });
         }
 
-        const propDoc = propSnapshot.docs[0];
         const empresaId = propDoc.ref.parent.parent.id;
 
+        // Optimización: Filtrar solo por alojamiento y estado (índice simple), filtrar fechas en memoria
+        // Esto evita el error FAILED_PRECONDITION por falta de índice compuesto
         const reservasSnapshot = await db.collection('empresas')
             .doc(empresaId)
             .collection('reservas')
             .where('alojamientoId', '==', id)
             .where('estado', '==', 'Confirmada')
-            .where('fechaSalida', '>', require('firebase-admin').firestore.Timestamp.fromDate(inicio))
             .get();
 
         const conflictos = reservasSnapshot.docs
-            .filter(doc => doc.data().fechaLlegada.toDate() < fin)
+            .filter(doc => {
+                const data = doc.data();
+                const rLlegada = data.fechaLlegada.toDate();
+                const rSalida = data.fechaSalida.toDate();
+                // Verificar solapamiento: (StartA < EndB) && (EndA > StartB)
+                return rLlegada < fin && rSalida > inicio;
+            })
             .map(doc => {
                 const data = doc.data();
                 return {
@@ -783,18 +748,16 @@ const getPropertyImages = async (req, res) => {
         const db = require('firebase-admin').firestore();
         const { id } = req.params;
 
-        const propSnapshot = await db.collectionGroup('propiedades')
-            .where('id', '==', id)
-            .limit(1)
-            .get();
+        // Buscar propiedad (Optimizado sin índices compuestos)
+        const propDoc = await findPropertyById(db, id);
 
-        if (propSnapshot.empty) {
+        if (!propDoc) {
             return res.status(404).json({
                 error: 'Propiedad no encontrada'
             });
         }
 
-        const propData = propSnapshot.docs[0].data();
+        const propData = propDoc.data();
 
         const imagenesOrganizadas = {
             destacada: propData.websiteData?.cardImage || null,
@@ -850,17 +813,13 @@ const createPublicReservation = async (req, res) => {
             return res.status(400).json({ error: 'Fechas inválidas' });
         }
 
-        // Buscar propiedad
-        const propSnapshot = await db.collectionGroup('propiedades')
-            .where('id', '==', propiedadId)
-            .limit(1)
-            .get();
+        // Buscar propiedad (Optimizado sin índices compuestos)
+        const propDoc = await findPropertyById(db, propiedadId);
 
-        if (propSnapshot.empty) {
+        if (!propDoc) {
             return res.status(404).json({ error: 'Propiedad no encontrada' });
         }
 
-        const propDoc = propSnapshot.docs[0];
         const propData = propDoc.data();
         const empresaId = propDoc.ref.parent.parent.id;
 
