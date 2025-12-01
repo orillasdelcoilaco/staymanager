@@ -254,7 +254,16 @@ const getPropertyDetail = async (req, res) => {
         const propertyDoc = await findPropertyById(db, id);
 
         if (!propertyDoc || !propertyDoc.exists) {
-            return res.status(404).json({ error: "Property not found" });
+            // DEBUG: Diagnóstico de fallo en búsqueda
+            const empresasCount = (await db.collection('empresas').get()).size;
+            return res.status(404).json({
+                error: "Property not found",
+                debug: {
+                    searchedId: id,
+                    companiesChecked: empresasCount,
+                    message: "Fallback search failed to find document in any company."
+                }
+            });
         }
 
         const empresaDoc = await propertyDoc.ref.parent.parent.get();
