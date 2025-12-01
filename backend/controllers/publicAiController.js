@@ -956,13 +956,26 @@ const webhookMercadoPago = async (req, res) => {
     }
 };
 
-const getVersion = (req, res) => {
-    res.json({
-        version: '1.0.2-debug',
-        commit: 'e076274', // Commit del debug info
-        timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV
-    });
+const getVersion = async (req, res) => {
+    try {
+        const db = require('firebase-admin').firestore();
+        const empresasSnap = await db.collection('empresas').get();
+        const empresasIds = empresasSnap.docs.map(d => d.id);
+
+        res.json({
+            version: '1.0.3-env-check',
+            commit: 'env-check',
+            timestamp: new Date().toISOString(),
+            environment: process.env.NODE_ENV,
+            firebase: {
+                projectId: require('firebase-admin').app().options.projectId || 'unknown',
+                companiesFound: empresasSnap.size,
+                companiesIds: empresasIds
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
 module.exports = {
