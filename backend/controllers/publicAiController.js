@@ -1,6 +1,7 @@
 const { obtenerPropiedadesPorEmpresa, obtenerPropiedadPorId } = require('../services/publicWebsiteService');
 const { hydrateInventory, calcularCapacidad } = require('../services/propiedadLogicService');
-const { getAvailabilityData, calculatePrice } = require('../services/propuestasService');
+const { getAvailabilityData } = require('../services/propuestasService');
+const { calculatePrice } = require('../services/utils/calculoValoresService');
 const { obtenerCanalesPorEmpresa, crearCanal } = require('../services/canalesService');
 const { obtenerValorDolar } = require('../services/dolarService');
 const { guardarOActualizarPropuesta } = require('../services/gestionPropuestasService');
