@@ -1,5 +1,39 @@
-costoLimpieza,
-    costoLavanderia,
+const { obtenerPropiedadesPorEmpresa, obtenerPropiedadPorId } = require('../services/publicWebsiteService');
+const { hydrateInventory, calcularCapacidad } = require('../services/propiedadLogicService');
+const { getAvailabilityData, calculatePrice } = require('../services/propuestasService');
+const { obtenerCanalesPorEmpresa, crearCanal } = require('../services/canalesService');
+const { obtenerValorDolar } = require('../services/dolarService');
+const { guardarOActualizarPropuesta } = require('../services/gestionPropuestasService');
+const { crearPreferencia } = require('../services/mercadopagoService');
+const { obtenerPlantillasPorEmpresa } = require('../services/plantillasService');
+const { format, addDays, parseISO, isValid } = require('date-fns');
+const { crearOActualizarCliente } = require('../services/clientesService');
+
+const sanitizeProperty = (property) => {
+    if (!property) return null;
+
+    // Destructure to exclude sensitive fields
+    const {
+        comision,
+        costoLimpieza,
+        costoLavanderia,
+        datosBancarios,
+        emailPropietario,
+        telefonoPropietario,
+        rutPropietario,
+        contrato,
+        notasInternas,
+        ...safeData
+    } = property;
+
+    return safeData;
+};
+
+/**
+ * Formats the response in the standard JSON structure.
+ * @param {Object|Array} data - The data to return.
+ * @returns {Object} - The formatted response.
+ */
 const formatResponse = (data) => {
     return {
         meta: {
@@ -11,13 +45,52 @@ const formatResponse = (data) => {
     };
 };
 
+// Helper para encontrar propiedad con estrategia híbrida (Escalabilidad + Robustez)
+// 1. Intenta usar collectionGroup (O(1)) para escalabilidad máxima (requiere índice).
+// 2. Si falla (por falta de índice), hace fallback a iteración (O(N)) para garantizar funcionamiento.
+const findPropertyById = async (db, propertyId) => {
+    try {
+        // ESTRATEGIA 1: Búsqueda Directa (Escalable a 1000+ empresas)
+        // Requiere índice: collectionGroup 'propiedades', campo 'id'
+        const snapshot = await db.collectionGroup('propiedades')
+            .where('id', '==', propertyId)
+            .limit(1)
+            .get();
+
+        if (!snapshot.empty) {
+            return snapshot.docs[0];
+        }
+
+    } catch (error) {
+        // Si falta el índice, Firestore lanza error. Capturamos y usamos fallback.
+        console.warn(`[Performance Notice] Búsqueda optimizada falló (posible falta de índice). Usando fallback iterativo. Error: ${error.message}`);
+        if (error.code === 9 || error.message.includes('index')) {
+            console.log(`[Action Required] Para escalabilidad óptima, crea el índice siguiendo el link en los logs de error de Firestore.`);
+        }
+    }
+
+    // ESTRATEGIA 2: Fallback Iterativo (Funciona siempre, O(N))
+    // Útil mientras se crean índices o para recuperación de errores.
+    console.log(`[Fallback Search] Buscando propiedad ${propertyId} iterando empresas...`);
+    const empresasSnapshot = await db.collection('empresas').get();
+
+    if (empresasSnapshot.empty) return null;
+
+    for (const empresaDoc of empresasSnapshot.docs) {
+        const propDoc = await empresaDoc.ref.collection('propiedades').doc(propertyId).get();
+        if (propDoc.exists) {
+            return propDoc;
+        }
+    }
+
+    return null;
+};
+
 const getProperties = async (req, res) => {
     try {
         const db = require('firebase-admin').firestore();
         const { id } = req.params;
-        // ... rest of function ...
 
-        // RE-IMPLEMENTING LOGIC TO AVOID LOSING IT
         const {
             ubicacion,
             capacidad,
@@ -33,7 +106,6 @@ const getProperties = async (req, res) => {
 
         // 1. Filtrado Básico en DB (Global)
         console.log('🔍 [DEBUG] Iniciando query de propiedades...');
-        console.log('🔍 [DEBUG] Campo de filtro:', 'isListed');
 
         let query = db.collectionGroup('propiedades')
             .where('isListed', '==', true);
@@ -50,7 +122,26 @@ const getProperties = async (req, res) => {
             query = query.orderBy('rating', 'desc');
         }
 
-        const snapshot = await query.get();
+        // Nota: Esta query collectionGroup también requiere índice si se combina con filtros.
+        // Si falla, deberíamos implementar fallback similar, pero para listado es más complejo.
+        // Por ahora asumimos que el índice básico de isListed existe o se creará.
+
+        let snapshot;
+        try {
+            snapshot = await query.get();
+        } catch (e) {
+            console.warn(`[Performance] Listado optimizado falló. Usando fallback iterativo.`);
+            // Fallback simple para listado: traer todas las empresas y sus propiedades listed
+            const empresas = await db.collection('empresas').get();
+            const todasProps = [];
+            for (const emp of empresas.docs) {
+                const props = await emp.ref.collection('propiedades').where('isListed', '==', true).get();
+                props.forEach(p => todasProps.push(p));
+            }
+            // Mock snapshot structure
+            snapshot = { docs: todasProps, size: todasProps.length };
+        }
+
         console.log(`✅ [DEBUG] Query exitosa: ${snapshot.size} documentos`);
 
         // 2. Filtrado en Memoria (Lógica de Negocio Compleja)
@@ -58,14 +149,12 @@ const getProperties = async (req, res) => {
 
         for (const doc of snapshot.docs) {
             const data = doc.data();
-            const empresaId = doc.ref.parent.parent.id; // empresas/{id}/propiedades/{id}
+            const empresaId = doc.ref.parent.parent.id;
 
-            // [HOTFIX] Construir dirección completa
             const calle = data.googleHotelData?.address?.street || '';
             const ciudad = data.googleHotelData?.address?.city || '';
             const direccionCompleta = `${calle}, ${ciudad}`.replace(/^, /, '').replace(/, $/, '');
 
-            // Filtro de Ubicación (Búsqueda parcial en calle o ciudad)
             if (ubicacion) {
                 const term = ubicacion.toLowerCase();
                 const matchCalle = calle.toLowerCase().includes(term);
@@ -73,10 +162,8 @@ const getProperties = async (req, res) => {
                 if (!matchCalle && !matchCiudad) continue;
             }
 
-            // Filtro de Capacidad
             if (capacidad && data.capacidad < parseInt(capacidad)) continue;
 
-            // Filtro de Amenidades
             if (amenidades) {
                 const amenidadesRequeridas = amenidades.split(',').map(a => a.trim().toLowerCase());
                 const tieneAmenidades = amenidadesRequeridas.every(req =>
@@ -85,18 +172,11 @@ const getProperties = async (req, res) => {
                 if (!tieneAmenidades) continue;
             }
 
-            // Verificar que la Empresa exista
             const empresaDoc = await db.collection('empresas').doc(empresaId).get();
             if (!empresaDoc.exists) continue;
 
-            // TODO: Restaurar validación de planActivo cuando se implemente el módulo de administración de SuiteManager
-            // El campo planActivo será parte del sistema de gestión global de empresas (super-admin)
-            // Por ahora, todas las empresas operan sin restricciones hasta que se desarrolle ese módulo
-            // if (!empresaDoc.data().planActivo) continue;
-
             const empresaData = empresaDoc.data();
 
-            // Verificar Disponibilidad (Si se solicitan fechas)
             let disponible = true;
             if (fechaLlegada && fechaSalida) {
                 if (data.busyRanges) {
@@ -113,10 +193,8 @@ const getProperties = async (req, res) => {
 
             if (fechaLlegada && fechaSalida && !disponible) continue;
 
-            // --- Transformation ---
             const sanitized = sanitizeProperty(data);
 
-            // Enrich images
             let enrichedImages = [];
             if (data.websiteData && data.websiteData.images) {
                 enrichedImages = Object.values(data.websiteData.images).map(img => ({
@@ -142,14 +220,13 @@ const getProperties = async (req, res) => {
                     contacto: empresaData.emailContacto || ''
                 },
                 ...sanitized,
-                direccion: direccionCompleta, // [HOTFIX] Added direction
-                imagenesDestacadas: enrichedImages.slice(0, 5), // Limit for list view
+                direccion: direccionCompleta,
+                imagenesDestacadas: enrichedImages.slice(0, 5),
                 imagenesCount: enrichedImages.length,
                 disponible: (fechaLlegada && fechaSalida) ? true : undefined
             });
         }
 
-        // Apply pagination in memory since we filtered in memory
         const paginatedProperties = propiedades.slice(parseInt(offset), parseInt(offset) + parseInt(limit));
 
         res.json(formatResponse({
@@ -164,11 +241,6 @@ const getProperties = async (req, res) => {
         }));
 
     } catch (error) {
-        console.error('❌ [DEBUG] Error completo:', {
-            code: error.code,
-            message: error.message,
-            details: error.details
-        });
         console.error('Error in getProperties:', error);
         res.status(500).json({ error: 'Internal Server Error', details: error.message });
     }
@@ -179,44 +251,19 @@ const getPropertyDetail = async (req, res) => {
         const db = require('firebase-admin').firestore();
         const { id } = req.params;
 
-        // Global lookup: Find property in any 'propiedades' collection
-        let propertyDoc = null;
-        let empresaDoc = null;
-
-        // Try global search by field 'id'
-        let querySnapshot = await db.collectionGroup('propiedades').where('id', '==', id).limit(1).get();
-
-        if (!querySnapshot.empty) {
-            propertyDoc = querySnapshot.docs[0];
-            empresaDoc = await propertyDoc.ref.parent.parent.get();
-        } else {
-            // Fallback: Iterate companies (Not ideal but works for small SaaS)
-            const companiesSnap = await db.collection('empresas').where('planActivo', '==', true).get();
-            for (const company of companiesSnap.docs) {
-                const propRef = company.ref.collection('propiedades').doc(id);
-                const doc = await propRef.get();
-                if (doc.exists) {
-                    propertyDoc = doc;
-                    empresaDoc = company;
-                    break;
-                }
-            }
-        }
+        const propertyDoc = await findPropertyById(db, id);
 
         if (!propertyDoc || !propertyDoc.exists) {
             return res.status(404).json({ error: "Property not found" });
         }
 
+        const empresaDoc = await propertyDoc.ref.parent.parent.get();
         const rawProperty = propertyDoc.data();
         const empresaData = empresaDoc.data();
 
-        // Hydrate inventory
         const aiContext = hydrateInventory(rawProperty.componentes || []);
-
-        // Calculate capacity
         const calculatedCapacity = calcularCapacidad(rawProperty.componentes || []);
 
-        // Semantic Summary
         const currency = rawProperty.moneda || 'CLP';
         const rules = Array.isArray(rawProperty.reglas) ? rawProperty.reglas.join('. ') : (rawProperty.reglas || 'No specific rules.');
         const semanticSummary = `Tarifas en ${currency}. Reglas: ${rules}. Capacidad máxima: ${calculatedCapacity} personas.`;
@@ -227,7 +274,6 @@ const getPropertyDetail = async (req, res) => {
 
         const sanitizedProperty = sanitizeProperty(rawProperty);
 
-        // Transform images
         let enrichedImages = [];
         if (rawProperty.websiteData && rawProperty.websiteData.images) {
             enrichedImages = Object.values(rawProperty.websiteData.images).map(img => ({
@@ -246,7 +292,7 @@ const getPropertyDetail = async (req, res) => {
         }
 
         const enrichedProperty = {
-            id: propertyDoc.id, // Ensure ID is returned
+            id: propertyDoc.id,
             empresa: {
                 id: empresaDoc.id,
                 nombre: empresaData.nombreFantasia || empresaData.razonSocial || 'Empresa',
@@ -257,7 +303,7 @@ const getPropertyDetail = async (req, res) => {
             capacidadCalculada: calculatedCapacity,
             ai_context: aiContext,
             images: enrichedImages,
-            reviews: [], // TODO: Fetch real reviews if collection exists
+            reviews: [],
             politicaCancelacion: rawProperty.politicaCancelacion || "Consultar con el anfitrión.",
             instruccionesCheckin: rawProperty.instruccionesCheckin || "Check-in desde las 15:00.",
             schema_type: "VacationRental"
@@ -275,44 +321,21 @@ const getPropertyCalendar = async (req, res) => {
         const db = require('firebase-admin').firestore();
         const { id } = req.params;
 
-        // Default to next 30 days if not specified
         const startDate = new Date();
         const endDate = addDays(startDate, 60);
 
-        // Global lookup (same logic as getPropertyDetail)
-        let propertyDoc = null;
-        let empresaDoc = null;
-
-        let querySnapshot = await db.collectionGroup('propiedades').where('id', '==', id).limit(1).get();
-
-        if (!querySnapshot.empty) {
-            propertyDoc = querySnapshot.docs[0];
-            empresaDoc = await propertyDoc.ref.parent.parent.get();
-        } else {
-            const companiesSnap = await db.collection('empresas').where('planActivo', '==', true).get();
-            for (const company of companiesSnap.docs) {
-                const propRef = company.ref.collection('propiedades').doc(id);
-                const doc = await propRef.get();
-                if (doc.exists) {
-                    propertyDoc = doc;
-                    empresaDoc = company;
-                    break;
-                }
-            }
-        }
+        const propertyDoc = await findPropertyById(db, id);
 
         if (!propertyDoc || !propertyDoc.exists) {
             return res.status(404).json({ error: "Property not found" });
         }
 
+        const empresaDoc = await propertyDoc.ref.parent.parent.get();
         const targetEmpresaId = empresaDoc.id;
 
-        // Reuse getAvailabilityData but filter for specific property
         const { availabilityMap } = await getAvailabilityData(db, targetEmpresaId, startDate, endDate);
-
         const propertyAvailability = availabilityMap.get(id) || [];
 
-        // Format for AI: List of busy ranges
         const busyRanges = propertyAvailability.map(range => ({
             start: format(range.start, 'yyyy-MM-dd'),
             end: format(range.end, 'yyyy-MM-dd'),
@@ -341,32 +364,13 @@ const createBookingIntent = async (req, res) => {
             return res.status(400).json({ error: "Missing required fields." });
         }
 
-        // Global lookup (same logic as getPropertyDetail)
-        let propertyDoc = null;
-        let empresaDoc = null;
-
-        let querySnapshot = await db.collectionGroup('propiedades').where('id', '==', propiedadId).limit(1).get();
-
-        if (!querySnapshot.empty) {
-            propertyDoc = querySnapshot.docs[0];
-            empresaDoc = await propertyDoc.ref.parent.parent.get();
-        } else {
-            const companiesSnap = await db.collection('empresas').where('planActivo', '==', true).get();
-            for (const company of companiesSnap.docs) {
-                const propRef = company.ref.collection('propiedades').doc(propiedadId);
-                const doc = await propRef.get();
-                if (doc.exists) {
-                    propertyDoc = doc;
-                    empresaDoc = company;
-                    break;
-                }
-            }
-        }
+        const propertyDoc = await findPropertyById(db, propiedadId);
 
         if (!propertyDoc || !propertyDoc.exists) {
             return res.status(404).json({ error: "Property not found" });
         }
 
+        const empresaDoc = await propertyDoc.ref.parent.parent.get();
         const targetEmpresaId = empresaDoc.id;
         const empresaData = empresaDoc.data();
 
@@ -377,27 +381,20 @@ const createBookingIntent = async (req, res) => {
             return res.status(400).json({ error: "Invalid dates." });
         }
 
-        // 1. Ensure 'ia-reserva' channel exists
         let canales = await obtenerCanalesPorEmpresa(db, targetEmpresaId);
         let iaChannel = canales.find(c => c.nombre === 'ia-reserva');
 
         if (!iaChannel) {
-            console.log("[Booking Intent] Creating 'ia-reserva' channel...");
             iaChannel = await crearCanal(db, targetEmpresaId, {
                 nombre: 'ia-reserva',
                 tipo: 'Directo',
                 comision: 0,
                 origen: 'ia',
-                moneda: 'CLP', // Default to CLP
-                color: '#8e44ad' // Purple for AI
+                moneda: 'CLP',
+                color: '#8e44ad'
             });
         }
 
-        if (!iaChannel || !iaChannel.id) {
-            throw new Error("Failed to obtain ia-reserva channel ID. Channel object is invalid.");
-        }
-
-        // 2. Calculate Price
         const tarifasSnapshot = await db.collection('empresas').doc(targetEmpresaId).collection('tarifas').get();
         const allTarifas = tarifasSnapshot.docs.map(doc => {
             const data = doc.data();
@@ -410,38 +407,25 @@ const createBookingIntent = async (req, res) => {
         }).filter(Boolean);
 
         const valorDolarDia = await obtenerValorDolar(db, targetEmpresaId, startDate);
-
-        // Fetch property details for name
         const rawProperty = propertyDoc.data();
         const propertyName = rawProperty ? rawProperty.nombre : 'Propiedad';
         const propertyObj = { id: propiedadId, nombre: propertyName };
 
         const pricing = await calculatePrice(db, targetEmpresaId, [propertyObj], startDate, endDate, allTarifas, iaChannel.id, valorDolarDia, false);
 
-        if (pricing.totalPriceCLP === 0 && pricing.nights > 0) {
-            console.warn("[Booking Intent] Price calculated as 0. Check tariffs.");
-        }
-
-        // 3. Financial Model (10/90 Rule)
         const totalEstadia = pricing.totalPriceCLP;
         const montoSeña = Math.round(totalEstadia * 0.10);
         const saldoPendiente = totalEstadia - montoSeña;
 
-        // 4. Create Proposal (Reserva)
-        // Generate ID manually to break circular dependency if needed, but service handles it.
-        // We need the ID for the link.
         const reservaId = db.collection('empresas').doc(targetEmpresaId).collection('reservas').doc().id;
-
-        // 5. Generate Payment Link (BEFORE saving proposal)
         const paymentLink = await crearPreferencia(targetEmpresaId, reservaId, `Reserva 10%: ${propertyName}`, montoSeña, 'CLP');
 
-        // Fetch Template
         const plantillas = await obtenerPlantillasPorEmpresa(db, targetEmpresaId);
         const plantilla = plantillas.find(p => p.nombre === 'Plantilla Predeterminada' && p.enviarPorEmail) || plantillas.find(p => p.enviarPorEmail);
         const plantillaId = plantilla ? plantilla.id : null;
 
         const proposalData = {
-            idReservaCanal: reservaId, // Use generated ID
+            idReservaCanal: reservaId,
             fechaLlegada: fechaLlegada,
             fechaSalida: fechaSalida,
             propiedades: [propertyObj],
@@ -471,7 +455,6 @@ const createBookingIntent = async (req, res) => {
             linkPago: paymentLink
         };
 
-        // We use a dummy user ID for the 'creadoPor' argument
         await guardarOActualizarPropuesta(db, targetEmpresaId, 'ai-agent@system', proposalData);
 
         res.json(formatResponse({
@@ -506,10 +489,6 @@ const createBookingIntent = async (req, res) => {
     }
 };
 
-/**
- * GET /api/public/propiedades/:id/cotizar
- * Cotizar precio para fechas específicas
- */
 const quotePriceForDates = async (req, res) => {
     try {
         const db = require('firebase-admin').firestore();
@@ -529,7 +508,6 @@ const quotePriceForDates = async (req, res) => {
             return res.status(400).json({ error: 'Fechas inválidas' });
         }
 
-        // Buscar propiedad (Optimizado sin índices compuestos)
         const propDoc = await findPropertyById(db, id);
 
         if (!propDoc) {
@@ -539,16 +517,7 @@ const quotePriceForDates = async (req, res) => {
         const propData = propDoc.data();
         const empresaId = propDoc.ref.parent.parent.id;
 
-        // Verificar disponibilidad
-        const availabilityData = await getAvailabilityData(
-            db,
-            empresaId,
-            inicio,
-            fin,
-            false,
-            null
-        );
-
+        const availabilityData = await getAvailabilityData(db, empresaId, inicio, fin, false, null);
         const isAvailable = availabilityData.availableProperties.some(p => p.id === id);
 
         if (!isAvailable) {
@@ -558,7 +527,6 @@ const quotePriceForDates = async (req, res) => {
             });
         }
 
-        // Obtener/crear canal IA
         let canalesIA = await obtenerCanalesPorEmpresa(db, empresaId);
         let canalIA = canalesIA.find(c => c.nombre === 'IA Reserva');
 
@@ -574,10 +542,8 @@ const quotePriceForDates = async (req, res) => {
             canalIA = { id: nuevoCanalIA.id, ...nuevoCanalIA };
         }
 
-        // Calcular precio
         const valorDolar = await obtenerValorDolar(db, empresaId, inicio);
 
-        // Obtener tarifas
         const tarifasSnapshot = await db.collection('empresas').doc(empresaId).collection('tarifas').get();
         const allTarifas = tarifasSnapshot.docs.map(doc => {
             const data = doc.data();
@@ -649,10 +615,6 @@ const quotePriceForDates = async (req, res) => {
     }
 };
 
-/**
- * GET /api/public/propiedades/:id/disponibilidad
- * Verificar disponibilidad para fechas específicas
- */
 const checkAvailability = async (req, res) => {
     try {
         const db = require('firebase-admin').firestore();
@@ -681,7 +643,6 @@ const checkAvailability = async (req, res) => {
             });
         }
 
-        // Buscar propiedad (Optimizado sin índices compuestos)
         const propDoc = await findPropertyById(db, id);
 
         if (!propDoc) {
@@ -692,8 +653,6 @@ const checkAvailability = async (req, res) => {
 
         const empresaId = propDoc.ref.parent.parent.id;
 
-        // Optimización: Filtrar solo por alojamiento y estado (índice simple), filtrar fechas en memoria
-        // Esto evita el error FAILED_PRECONDITION por falta de índice compuesto
         const reservasSnapshot = await db.collection('empresas')
             .doc(empresaId)
             .collection('reservas')
@@ -706,7 +665,6 @@ const checkAvailability = async (req, res) => {
                 const data = doc.data();
                 const rLlegada = data.fechaLlegada.toDate();
                 const rSalida = data.fechaSalida.toDate();
-                // Verificar solapamiento: (StartA < EndB) && (EndA > StartB)
                 return rLlegada < fin && rSalida > inicio;
             })
             .map(doc => {
@@ -739,16 +697,11 @@ const checkAvailability = async (req, res) => {
     }
 };
 
-/**
- * GET /api/public/propiedades/:id/imagenes
- * Obtener imágenes de una propiedad
- */
 const getPropertyImages = async (req, res) => {
     try {
         const db = require('firebase-admin').firestore();
         const { id } = req.params;
 
-        // Buscar propiedad (Optimizado sin índices compuestos)
         const propDoc = await findPropertyById(db, id);
 
         if (!propDoc) {
@@ -781,14 +734,9 @@ const getPropertyImages = async (req, res) => {
     }
 };
 
-/**
- * POST /api/public/reservas
- * Crear una reserva pública (propuesta con pago)
- */
 const createPublicReservation = async (req, res) => {
     try {
         const db = require('firebase-admin').firestore();
-        const admin = require('firebase-admin');
         const {
             propiedadId,
             fechaInicio,
@@ -799,7 +747,6 @@ const createPublicReservation = async (req, res) => {
             agenteIA
         } = req.body;
 
-        // Validaciones
         if (!propiedadId || !fechaInicio || !fechaFin || !cliente?.email || !cliente?.nombre) {
             return res.status(400).json({
                 error: 'Campos requeridos: propiedadId, fechaInicio, fechaFin, cliente.nombre, cliente.email'
@@ -813,7 +760,6 @@ const createPublicReservation = async (req, res) => {
             return res.status(400).json({ error: 'Fechas inválidas' });
         }
 
-        // Buscar propiedad (Optimizado sin índices compuestos)
         const propDoc = await findPropertyById(db, propiedadId);
 
         if (!propDoc) {
@@ -823,7 +769,6 @@ const createPublicReservation = async (req, res) => {
         const propData = propDoc.data();
         const empresaId = propDoc.ref.parent.parent.id;
 
-        // Verificar disponibilidad
         const availabilityData = await getAvailabilityData(db, empresaId, inicio, fin, false, null);
         const isAvailable = availabilityData.availableProperties.some(p => p.id === propiedadId);
 
@@ -834,7 +779,6 @@ const createPublicReservation = async (req, res) => {
             });
         }
 
-        // Obtener/crear canal IA
         let canalesIA = await obtenerCanalesPorEmpresa(db, empresaId);
         let canalIA = canalesIA.find(c => c.nombre === 'IA Reserva');
 
@@ -850,7 +794,6 @@ const createPublicReservation = async (req, res) => {
             canalIA = { id: nuevoCanalIA.id, ...nuevoCanalIA };
         }
 
-        // Calcular precio
         const valorDolar = await obtenerValorDolar(db, empresaId, inicio);
 
         const tarifasSnapshot = await db.collection('empresas').doc(empresaId).collection('tarifas').get();
@@ -888,8 +831,6 @@ const createPublicReservation = async (req, res) => {
         const senaPagar = Math.round(valorTotal * 0.10);
         const saldoPendiente = valorTotal - senaPagar;
 
-        // Crear/actualizar cliente
-        const { crearOActualizarCliente } = require('../services/clientesService');
         const resultadoCliente = await crearOActualizarCliente(db, empresaId, {
             nombre: cliente.nombre,
             email: cliente.email,
@@ -900,7 +841,6 @@ const createPublicReservation = async (req, res) => {
 
         const clienteId = resultadoCliente.cliente.id;
 
-        // Crear propuesta
         const datosPropuesta = {
             cliente: { id: clienteId, nombre: cliente.nombre, email: cliente.email, telefono: cliente.telefono },
             fechaLlegada: fechaInicio,
@@ -930,7 +870,6 @@ const createPublicReservation = async (req, res) => {
             null
         );
 
-        // Generar link de pago
         const linkPago = await crearPreferencia(
             empresaId,
             propuestaCreada.id,
@@ -939,7 +878,6 @@ const createPublicReservation = async (req, res) => {
             'CLP'
         );
 
-        // Actualizar propuesta con link de pago y metadata
         const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
         const reservasSnapshot = await reservasRef.where('idReservaCanal', '==', propuestaCreada.id).get();
 
@@ -958,8 +896,6 @@ const createPublicReservation = async (req, res) => {
         await batch.commit();
 
         console.log(`✅ [Reserva IA] Propuesta creada: ${propuestaCreada.id}`);
-        console.log(`📧 [Reserva IA] Email a enviar a: ${cliente.email}`);
-        console.log(`💳 [Reserva IA] Link de pago: ${linkPago}`);
 
         res.status(201).json(formatResponse({
             propuestaId: propuestaCreada.id,
@@ -998,36 +934,6 @@ const createPublicReservation = async (req, res) => {
     }
 };
 
-/**
- * POST /api/public/webhooks/mercadopago
- * Webhook para notificaciones de MercadoPago
- */
-const webhookMercadoPago = async (req, res) => {
-    try {
-        const db = require('firebase-admin').firestore();
-        const { type, data } = req.body;
-
-        console.log('[Webhook MP] Recibido:', { type, data });
-
-        if (type !== 'payment' || !data?.id) {
-            return res.status(200).json({ received: true });
-        }
-
-        // Por ahora, solo loguear (implementar verificación real con MP después)
-        console.log(`[Webhook MP] Pago recibido: ${data.id}`);
-
-        // TODO: Implementar verificación real con MercadoPago API
-        // const mercadopagoService = require('../services/mercadopagoService');
-        // const paymentInfo = await mercadopagoService.verificarPago(data.id);
-
-        res.status(200).json({ received: true, message: 'Webhook procesado (modo simulado)' });
-
-    } catch (error) {
-        console.error('Error in webhookMercadoPago:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-};
-
 module.exports = {
     getProperties,
     getPropertyDetail,
@@ -1036,7 +942,5 @@ module.exports = {
     quotePriceForDates,
     checkAvailability,
     getPropertyImages,
-    createPublicReservation,
-    webhookMercadoPago
+    createPublicReservation
 };
-
