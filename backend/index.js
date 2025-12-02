@@ -73,6 +73,27 @@ try {
     console.log('[Startup] ¡Éxito! Conexión a Firestore (db) establecida.');
 
     const app = express();
+
+    // Habilitar CORS solo para las rutas de OpenAPI
+    app.use('/openapi', cors(), express.static(path.join(__dirname, '../openapi'), {
+        setHeaders: (res, filePath) => {
+            if (filePath.endsWith('.json')) {
+                res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutos
+            }
+        }
+    }));
+
+    // Ruta directa a /openapi.json
+    app.get('/openapi.json', cors(), (req, res) => {
+        const file = path.join(__dirname, '../openapi', 'openapi.json');
+        res.sendFile(file, err => {
+            if (err) {
+                console.error('Error al servir openapi.json:', err);
+                res.status(500).send({ error: 'Error interno al leer openapi.json' });
+            }
+        });
+    });
     const PORT = process.env.PORT || 3001;
     app.set('view engine', 'ejs');
     app.set('views', path.join(__dirname, 'views'));
