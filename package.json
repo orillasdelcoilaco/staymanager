@@ -4,6 +4,7 @@
     "mcp": "node ./ai/openai/mcp-server/index.js"
   },
   "dependencies": {
+    "http-proxy-middleware": "^3.0.5",
     "node-fetch": "^3.3.2",
     "resend": "^6.5.2"
   }
