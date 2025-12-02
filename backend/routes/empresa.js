@@ -17,7 +17,7 @@ module.exports = (db) => {
     router.post('/upload-logo', upload.single('logoFile'), async (req, res) => {
         try {
             const { empresaId } = req.user;
-            
+
             if (!req.file) {
                 return res.status(400).json({ error: 'No se subió ningún archivo.' });
             }
@@ -40,22 +40,7 @@ module.exports = (db) => {
             const updatePayload = {
                 'websiteSettings.theme.logoUrl': publicUrl
             };
-            
-            // Usamos 'set' con 'merge' (que es lo que hace 'actualizarPropiedad')
-            // o 'update' (que es lo que hace 'actualizarDetallesEmpresa' si está bien configurado)
-            
-            // Asegurémonos de que 'actualizarDetallesEmpresa' use merge.
-            // (Revisando empresaService.js, vemos que SÍ usa { merge: true } en el set, así que esto es seguro)
-            await actualizarDetallesEmpresa(db, empresaId, updatePayload);
-
-            // Devolver la nueva URL al frontend
-            res.status(200).json({ logoUrl: publicUrl });
-
-        } catch (error) {
-             console.error("Error al subir el logo:", error);
-             res.status(500).json({ error: error.message || 'Error al procesar la subida del logo.' });
-        }
-    });
+        });
 
 
     // --- RUTAS EXISTENTES ---
@@ -77,7 +62,7 @@ module.exports = (db) => {
         try {
             const { empresaId } = req.user;
             const datosActualizados = req.body;
-            
+
             // Eliminar logoUrl si se envió accidentalmente con el formulario principal
             // (Se maneja por la ruta /upload-logo)
             if (datosActualizados.websiteSettings && datosActualizados.websiteSettings.theme) {
