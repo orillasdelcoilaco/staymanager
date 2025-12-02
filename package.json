@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "create-agent": "node ./ai/scripts/create-agent.js"
+  },
   "dependencies": {
     "resend": "^6.5.2"
   }
