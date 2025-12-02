@@ -1,3 +1,23 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const admin = require('firebase-admin');
+const sharp = require('sharp');
+const { spawn } = require('child_process');
+
+// Iniciar servidor MCP en segundo plano
+const mcpPath = path.join(__dirname, '..', 'ai', 'openai', 'mcp-server', 'index.js');
+const mcp = spawn('node', [mcpPath], { stdio: 'inherit' });
+
+mcp.on('close', () => console.log("MCP Server closed"));
+mcp.on('error', (err) => console.error("ERROR MCP:", err));
+
+// --- Importar Rutas y Middlewares ---
+const authRoutes = require('./routes/auth.js');
+const propiedadesRoutes = require('./routes/propiedades.js');
+const canalesRoutes = require('./routes/canales.js');
+const tarifasRoutes = require('./routes/tarifas.js');
 const conversionesRoutes = require('./routes/conversiones.js');
 const clientesRoutes = require('./routes/clientes.js');
 const reservasRoutes = require('./routes/reservas.js');
