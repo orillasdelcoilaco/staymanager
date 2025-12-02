@@ -3,6 +3,7 @@
     "create-agent": "node ./ai/scripts/create-agent.js"
   },
   "dependencies": {
+    "node-fetch": "^3.3.2",
     "resend": "^6.5.2"
   }
 }
