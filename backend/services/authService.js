@@ -1,6 +1,7 @@
 /**
  * Contiene la lógica de negocio para el registro y la autenticación.
  */
+const { generateAgentForCompany } = require('../ai/utils/generateAgentForCompany');
 
 /**
  * Registra una nueva empresa y su primer usuario (administrador).
@@ -35,6 +36,16 @@ const register = async (admin, db, { nombreEmpresa, email, password }) => {
     });
 
     console.log(`Nueva empresa "${nombreEmpresa}" y usuario admin "${email}" creados con éxito.`);
+
+    // [NEW] Generar agente de IA automáticamente (Fire-and-forget)
+    (async () => {
+        try {
+            await generateAgentForCompany(empresaRef.id, nombreEmpresa);
+            console.log(`✅ Agente generado automáticamente para ${nombreEmpresa}`);
+        } catch (err) {
+            console.error('❌ No se pudo generar el agente automáticamente:', err);
+        }
+    })();
 
     return {
         message: 'Empresa y usuario administrador creados con éxito.',
