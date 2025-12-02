@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "create-agent": "node ./ai/scripts/create-agent.js"
+    "create-agent": "node ./ai/scripts/create-agent.js",
+    "mcp": "node ./ai/openai/mcp-server/index.js"
   },
   "dependencies": {
     "node-fetch": "^3.3.2",
