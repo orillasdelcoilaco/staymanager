@@ -1,0 +1,181 @@
+[
+    {
+        "name": "buscar_empresa",
+        "description": "Busca empresas por nombre y devuelve instrucciones del agente interno.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "q": {
+                    "type": "string",
+                    "description": "Nombre de la empresa a buscar"
+                }
+            },
+            "required": [
+                "q"
+            ]
+        }
+    },
+    {
+        "name": "busqueda_general",
+        "description": "Búsqueda global de alojamientos (Marketplace).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "destino": {
+                    "type": "string"
+                },
+                "checkin": {
+                    "type": "string",
+                    "description": "YYYY-MM-DD"
+                },
+                "checkout": {
+                    "type": "string",
+                    "description": "YYYY-MM-DD"
+                },
+                "adultos": {
+                    "type": "integer"
+                },
+                "habitaciones": {
+                    "type": "integer"
+                }
+            }
+        }
+    },
+    {
+        "name": "consultar_disponibilidad",
+        "description": "Consulta disponibilidad específica de una empresa",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "empresa_id": {
+                    "type": "string"
+                },
+                "checkin": {
+                    "type": "string",
+                    "description": "YYYY-MM-DD"
+                },
+                "checkout": {
+                    "type": "string",
+                    "description": "YYYY-MM-DD"
+                },
+                "adultos": {
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "checkin",
+                "checkout"
+            ]
+        }
+    },
+    {
+        "name": "obtener_detalle_alojamiento",
+        "description": "Obtiene ficha completa del alojamiento",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "alojamiento_id": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "alojamiento_id"
+            ]
+        }
+    },
+    {
+        "name": "obtener_imagenes_alojamiento",
+        "description": "Obtiene imágenes categorizadas de un alojamiento",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "alojamiento_id": {
+                    "type": "string"
+                },
+                "empresa_id": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "alojamiento_id"
+            ]
+        }
+    },
+    {
+        "name": "obtener_alternativas",
+        "description": "Sugiere alojamientos alternativos cuando no hay disponibilidad",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "destino": {
+                    "type": "string"
+                },
+                "checkin": {
+                    "type": "string"
+                },
+                "checkout": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "destino",
+                "checkin",
+                "checkout"
+            ]
+        }
+    },
+    {
+        "name": "crear_reserva",
+        "description": "Crea una reserva",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "empresa_id": {
+                    "type": "string"
+                },
+                "alojamiento_id": {
+                    "type": "string"
+                },
+                "checkin": {
+                    "type": "string"
+                },
+                "checkout": {
+                    "type": "string"
+                },
+                "adultos": {
+                    "type": "integer"
+                },
+                "ninos": {
+                    "type": "integer"
+                },
+                "origen": {
+                    "type": "string",
+                    "default": "claude"
+                },
+                "huesped": {
+                    "type": "object",
+                    "properties": {
+                        "nombre": {
+                            "type": "string"
+                        },
+                        "apellido": {
+                            "type": "string"
+                        },
+                        "email": {
+                            "type": "string"
+                        },
+                        "telefono": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "required": [
+                "empresa_id",
+                "alojamiento_id",
+                "checkin",
+                "checkout"
+            ]
+        }
+    }
+]
