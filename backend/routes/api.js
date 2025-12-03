@@ -17,7 +17,7 @@ router.get("/alojamientos/imagenes", controller.imagenes);
 // crear reserva
 router.post("/reservas", controller.crearReserva);
 
-// [NEW] Buscador Global para Agentes IA
-router.get("/busqueda-general", controller.busquedaGeneral);
+// [NEW] Configuración de Agente
+router.get("/agent-config", controller.agentConfig);
 
 module.exports = router;

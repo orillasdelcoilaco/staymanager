@@ -31,6 +31,13 @@ module.exports = (db) => {
         });
     });
 
+    // GET /api/public/busqueda-general - Buscador Global IA
+    router.get('/busqueda-general',
+        readLimiter,
+        speedLimiter,
+        publicAiController.getProperties
+    );
+
     // GET /api/public/propiedades - Listar propiedades públicas
     router.get('/propiedades',
         readLimiter,

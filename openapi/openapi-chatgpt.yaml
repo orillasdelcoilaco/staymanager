@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SuiteManager Public API for ChatGPT
-  version: "1.0.0"
+  version: 1.1.0
 
 servers:
   - url: https://suite-manager.onrender.com
@@ -31,6 +31,75 @@ paths:
                   nombre: { type: string }
                   agentContent: { type: string }
 
+  /api/public/busqueda-general:
+    get:
+      operationId: busquedaGeneral
+      summary: Busca alojamientos en todas las empresas.
+      description: Busca en todas las empresas registradas aplicando filtros por texto, fechas y capacidad.
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: checkin
+          schema:
+            type: string
+        - in: query
+          name: checkout
+          schema:
+            type: string
+        - in: query
+          name: personas
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Resultados globales de búsqueda
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  total: { type: integer }
+                  resultados:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        empresa_id: { type: string }
+                        alojamiento_id: { type: string }
+                        nombre: { type: string }
+                        descripcion: { type: string }
+                        fotos:
+                          type: array
+                          items: { type: string }
+                        capacidad: { type: integer }
+
+  /api/agent-config:
+    get:
+      operationId: obtenerConfigAgente
+      summary: Devuelve las instrucciones personalizadas del agente para una empresa.
+      parameters:
+        - in: query
+          name: empresa_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Configuración del agente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  empresa_id: { type: string }
+                  nombre_empresa: { type: string }
+                  instrucciones: { type: string }
+                  manifiesto: { type: object }
+
   /api/disponibilidad:
     get:
       operationId: consultarDisponibilidad
@@ -38,18 +107,22 @@ paths:
       parameters:
         - in: query
           name: empresa_id
-          schema: { type: string }
+          schema:
+            type: string
         - in: query
           name: checkin
           required: true
-          schema: { type: string }
+          schema:
+            type: string
         - in: query
           name: checkout
           required: true
-          schema: { type: string }
+          schema:
+            type: string
         - in: query
           name: adultos
-          schema: { type: integer }
+          schema:
+            type: integer
       responses:
         "200":
           description: OK
@@ -71,20 +144,23 @@ paths:
   /api/alojamientos/alternativas:
     get:
       operationId: obtenerAlternativas
-      summary: Sugiere alojamientos alternativos cuando no hay disponibilidad
+      summary: Sugiere alojamientos alternativos
       parameters:
         - in: query
           name: destino
           required: true
-          schema: { type: string }
+          schema:
+            type: string
         - in: query
           name: checkin
           required: true
-          schema: { type: string }
+          schema:
+            type: string
         - in: query
           name: checkout
           required: true
-          schema: { type: string }
+          schema:
+            type: string
       responses:
         "200":
           description: OK
@@ -106,7 +182,9 @@ paths:
                 checkout: { type: string }
                 adultos: { type: integer }
                 ninos: { type: integer }
-                origen: { type: string, default: "chatgpt" }
+                origen:
+                  type: string
+                  default: chatgpt
                 huesped:
                   type: object
                   properties:

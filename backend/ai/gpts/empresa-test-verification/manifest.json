@@ -1,0 +1,10 @@
+{
+  "name": "Empresa de Prueba Verificación — Asistente IA",
+  "description": "Concierge virtual de Empresa de Prueba Verificación",
+  "visibility": "public",
+  "logo": "branding/logo.png",
+  "banner": "branding/banner.png",
+  "actions": {
+    "openapi_url": "https://suite-manager.onrender.com/openapi-chatgpt.yaml"
+  }
+}

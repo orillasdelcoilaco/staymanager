@@ -186,3 +186,59 @@ exports.imagenes = async (req, res) => {
 
     return publicAiController.getPropertyDetail(req, res);
 };
+
+exports.agentConfig = async (req, res) => {
+    // Endpoint: /api/agent-config
+    // Parámetros: empresa_id
+
+    const empresaId = req.query.empresa_id;
+    if (!empresaId) {
+        return res.status(400).json({ error: "Missing empresa_id" });
+    }
+
+    try {
+        const db = require('firebase-admin').firestore();
+        const { obtenerDetallesEmpresa } = require('./empresaService'); // Asegurar importación correcta o usar db directo
+
+        // Usamos db directo para evitar dependencias circulares si no están disponibles
+        const empresaDoc = await db.collection('empresas').doc(empresaId).get();
+
+        if (!empresaDoc.exists) {
+            return res.status(404).json({ error: "Empresa no encontrada" });
+        }
+
+        const empresaData = empresaDoc.data();
+        const nombreEmpresa = empresaData.nombreFantasia || empresaData.razonSocial || empresaData.nombre || 'Empresa';
+
+        // Generar instrucciones dinámicas
+        const instructions = `
+Eres el asistente oficial de ${nombreEmpresa}.
+Responde con tono cálido y profesional.
+Usa siempre las Actions de SuiteManager para consultar disponibilidad, precios y detalles.
+No inventes datos que no provengan de la API.
+Si el usuario pregunta por disponibilidad, usa getProperties con las fechas indicadas.
+Si el usuario quiere reservar, guíalo para obtener los datos necesarios y usa crearReserva.
+        `.trim();
+
+        // Generar manifiesto dinámico
+        const manifest = {
+            name: `${nombreEmpresa} — Asistente IA`,
+            description: `Concierge virtual de ${nombreEmpresa}`,
+            instructions: instructions,
+            actions: {
+                openapi_url: "https://suite-manager.onrender.com/openapi-chatgpt.yaml"
+            }
+        };
+
+        return res.json({
+            empresa_id: empresaId,
+            nombre_empresa: nombreEmpresa,
+            instrucciones: instructions,
+            manifiesto: manifest
+        });
+
+    } catch (error) {
+        console.error("Error in agentConfig:", error);
+        return res.status(500).json({ error: "Internal Server Error" });
+    }
+};

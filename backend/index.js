@@ -145,20 +145,6 @@ try {
 
     // **PRIORIDAD 1: Rutas de la API (/api/...)**
     const apiRouter = express.Router();
-
-    // [NEW] Rutas Públicas (SIN Auth)
-    // Estas rutas deben ir ANTES del middleware de autenticación
-    // Enable CORS for public API
-    apiRouter.use('/public', cors({ origin: '*' }), publicRoutes(db));
-
-    // [NEW] Rutas para Agentes IA (ChatGPT Actions)
-    apiRouter.use("/ai", agentesRoutes);
-
-    // [NEW] Ruta para Búsqueda General IA (Marketplace)
-    app.use("/ia", cors({ origin: '*' }), iaRoutes);
-
-    // [NEW] Rutas REST para ChatGPT (SIN Auth)
-    // Se montan en /api/... (ej: /api/disponibilidad)
     apiRouter.use(cors({ origin: '*' }), apiRoutes);
 
     const authMiddleware = createAuthMiddleware(admin, db);

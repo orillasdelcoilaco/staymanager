@@ -1,0 +1,9 @@
+{
+    "name": "SuiteManager Marketplace IA",
+    "description": "Asistente global de reservas para todas las empresas SuiteManager",
+    "visibility": "public",
+    "author": "SuiteManager",
+    "actions": {
+        "openapi_url": "https://suite-manager.onrender.com/openapi-chatgpt.yaml"
+    }
+}

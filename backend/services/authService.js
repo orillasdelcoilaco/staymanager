@@ -1,7 +1,7 @@
 /**
  * Contiene la lógica de negocio para el registro y la autenticación.
  */
-const { generateAgentForCompany } = require('../ai/utils/generateAgentForCompany');
+const createCompanyGPT = require('../ai/scripts/create-company-gpt');
 
 /**
  * Registra una nueva empresa y su primer usuario (administrador).
@@ -20,11 +20,15 @@ const register = async (admin, db, { nombreEmpresa, email, password }) => {
 
     // 2. Crear el documento de la empresa en Firestore
     const empresaRef = db.collection('empresas').doc(); // Firestore genera un ID único
-    await empresaRef.set({
+    const empresaData = {
+        id: empresaRef.id,
         nombre: nombreEmpresa,
+        plan: 'premium', // [NEW] Default a Premium para generar GPT
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
         propietarioUid: userRecord.uid
-    });
+    };
+
+    await empresaRef.set(empresaData);
 
     // 3. Crear el documento del usuario dentro de la subcolección de la empresa
     const userRef = empresaRef.collection('users').doc(userRecord.uid);
@@ -40,8 +44,15 @@ const register = async (admin, db, { nombreEmpresa, email, password }) => {
     // [NEW] Generar agente de IA automáticamente (Fire-and-forget)
     (async () => {
         try {
+            // Generar contenido del agente interno (existente)
             await generateAgentForCompany(empresaRef.id, nombreEmpresa);
-            console.log(`✅ Agente generado automáticamente para ${nombreEmpresa}`);
+
+            // [NEW] Generar GPT Premium (nuevo script)
+            if (empresaData.plan === 'premium') {
+                createCompanyGPT(empresaData);
+            }
+
+            console.log(`✅ Agente y GPT Premium generados automáticamente para ${nombreEmpresa}`);
         } catch (err) {
             console.error('❌ No se pudo generar el agente automáticamente:', err);
         }
