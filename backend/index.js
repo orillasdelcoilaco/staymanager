@@ -1,4 +1,3 @@
-// backend/index.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -86,7 +85,6 @@ try {
     const app = express();
 
     // [PROXY] Redirigir tráfico MCP al subproceso en puerto 4002
-    // Esto expone /.well-known/ai-mcp y /mcp/* públicamente
     app.use(['/.well-known/ai-mcp', '/mcp'], createProxyMiddleware({
         target: 'http://localhost:4002',
         changeOrigin: true,
@@ -138,13 +136,24 @@ try {
 
     // **PRIORIDAD 0: Archivos Estáticos Públicos (CRÍTICO: Antes de Auth)**
     const backendPublicPath = path.join(__dirname, 'public');
-    // Enable CORS for static files
     app.use('/public', cors({ origin: '*' }), express.static(backendPublicPath));
 
     // --- ORDEN DE RUTAS ESTRATÉGICO ---
 
     // **PRIORIDAD 1: Rutas de la API (/api/...)**
     const apiRouter = express.Router();
+
+    // [NEW] Rutas Públicas (SIN Auth)
+    apiRouter.use('/public', cors({ origin: '*' }), publicRoutes(db));
+
+    // [NEW] Rutas para Agentes IA (ChatGPT Actions)
+    // Se monta en /ai para coincidir con OpenAPI (/ai/buscar-empresa)
+    app.use("/ai", cors({ origin: '*' }), agentesRoutes);
+
+    // [NEW] Ruta para Búsqueda General IA (Marketplace)
+    app.use("/ia", cors({ origin: '*' }), iaRoutes);
+
+    // [NEW] Rutas REST para ChatGPT (SIN Auth)
     apiRouter.use(cors({ origin: '*' }), apiRoutes);
 
     const authMiddleware = createAuthMiddleware(admin, db);
@@ -194,6 +203,10 @@ try {
     // **PRIORIDAD 3: Frontend Admin**
     const frontendPath = path.join(__dirname, '..', 'frontend');
     app.use('/admin-assets', express.static(frontendPath));
+
+    // **PRIORIDAD 4: Páginas Legales Globales**
+    const legalRoutes = require('./routes/legal.js');
+    app.use('/legal', legalRoutes);
 
     // **PRIORIDAD 5: SSR Router**
     const tenantResolver = createTenantResolver(db);
