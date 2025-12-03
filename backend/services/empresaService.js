@@ -17,11 +17,11 @@ const obtenerDetallesEmpresa = async (db, empresaId) => {
 };
 
 const actualizarDetallesEmpresa = async (db, empresaId, datos) => {
-     if (!empresaId) {
+    if (!empresaId) {
         throw new Error('El ID de la empresa es requerido.');
     }
     const empresaRef = db.collection('empresas').doc(empresaId);
-    
+
     // *** INICIO DE LA CORRECCIÓN P1 ***
     // Usar .update() en lugar de .set() con merge.
     // .update() maneja correctamente la fusión de campos anidados 
@@ -52,7 +52,7 @@ const obtenerProximoIdNumericoCarga = async (db, empresaId) => {
 const obtenerEmpresaPorDominio = async (db, hostname) => {
     const empresasRef = db.collection('empresas');
 
-    if (hostname.endsWith('.onrender.com')) {
+    if (hostname.endsWith('.onrender.com') || hostname.endsWith('.suitemanager.com')) {
         const subdomain = hostname.split('.')[0];
         console.log(`[TenantResolver] Buscando empresa por subdominio Render: ${subdomain}`);
         const qSubdomain = empresasRef.where('websiteSettings.subdomain', '==', subdomain).limit(1);
@@ -71,7 +71,7 @@ const obtenerEmpresaPorDominio = async (db, hostname) => {
 
     if (!domainSnapshot.empty) {
         const doc = domainSnapshot.docs[0];
-         console.log(`[TenantResolver] Empresa encontrada por dominio principal: ${doc.id}`);
+        console.log(`[TenantResolver] Empresa encontrada por dominio principal: ${doc.id}`);
         return { id: doc.id, ...doc.data() };
     }
 
