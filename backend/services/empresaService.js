@@ -63,9 +63,10 @@ const obtenerProximoIdNumericoCarga = async (db, empresaId) => {
 const obtenerEmpresaPorDominio = async (db, hostname) => {
     const empresasRef = db.collection('empresas');
 
-    if (hostname.endsWith('.onrender.com') || hostname.endsWith('.suitemanager.com')) {
+    // [FIX] Soportar tanto singular (suitemanager.com) como plural (suitemanagers.com)
+    if (hostname.endsWith('.onrender.com') || hostname.endsWith('.suitemanager.com') || hostname.endsWith('.suitemanagers.com')) {
         const subdomain = hostname.split('.')[0];
-        console.log(`[TenantResolver] Buscando empresa por subdominio Render: ${subdomain}`);
+        console.log(`[TenantResolver] Buscando empresa por subdominio Render/App: ${subdomain}`);
         const qSubdomain = empresasRef.where('websiteSettings.subdomain', '==', subdomain).limit(1);
         const subdomainSnapshot = await qSubdomain.get();
         if (!subdomainSnapshot.empty) {
@@ -73,7 +74,7 @@ const obtenerEmpresaPorDominio = async (db, hostname) => {
             console.log(`[TenantResolver] Empresa encontrada por subdominio: ${doc.id}`);
             return { id: doc.id, ...doc.data() };
         }
-        console.log(`[TenantResolver] No se encontró empresa para el subdominio Render: ${subdomain}`);
+        console.log(`[TenantResolver] No se encontró empresa para el subdominio: ${subdomain}`);
     }
 
     console.log(`[TenantResolver] Buscando empresa por dominio principal: ${hostname}`);
