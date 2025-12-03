@@ -52,14 +52,19 @@ export function renderGeneral(empresaData) {
                     <div>
                         <label class="block text-sm font-medium">Subdominio (Render)</label>
                         <div class="flex items-center mt-1">
-                            <input type="text" id="config-subdomain" class="form-input rounded-r-none" value="${clean(general.subdomain)}" placeholder="ej: miempresa">
+                            <!-- [MOD] Subdominio generado automáticamente y readonly -->
+                            <input type="text" id="config-subdomain" class="form-input rounded-r-none bg-gray-100 text-gray-500 cursor-not-allowed" 
+                                   value="${clean(general.subdomain) || clean(fullEmpresaData.nombre).toLowerCase().replace(/[^a-z0-9]/g, '')}" 
+                                   readonly>
                             <span class="inline-flex items-center px-3 text-sm text-gray-500 bg-gray-100 border border-l-0 border-gray-300 rounded-r-md h-10">.onrender.com</span>
                         </div>
+                        <p class="text-xs text-gray-500 mt-1">Generado automáticamente a partir del nombre de tu empresa.</p>
                     </div>
                     
                     <div>
                         <label class="block text-sm font-medium">Dominio Personalizado</label>
                         <input type="text" id="config-domain" class="form-input mt-1" value="${clean(general.domain)}" placeholder="ej: www.miempresa.com">
+                        <p class="text-xs text-gray-500 mt-1">Si no tienes uno, usaremos: <span class="font-mono text-xs">${clean(general.subdomain) || clean(fullEmpresaData.nombre).toLowerCase().replace(/[^a-z0-9]/g, '')}.suitemanager.com</span></p>
                     </div>
 
                     <div><label class="block text-sm font-medium">Color Primario</label><input type="color" id="config-color-primary" class="form-input h-10 p-1 mt-1" value="${clean(theme.primaryColor) || '#000000'}"></div>

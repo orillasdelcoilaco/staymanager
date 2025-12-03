@@ -22,15 +22,26 @@ const actualizarDetallesEmpresa = async (db, empresaId, datos) => {
     }
     const empresaRef = db.collection('empresas').doc(empresaId);
 
-    // *** INICIO DE LA CORRECCIÓN P1 ***
-    // Usar .update() en lugar de .set() con merge.
+    // [LOGICA DOMINIO AUTOMATICO]
+    // Si viene websiteSettings.general.subdomain, aseguramos que exista un dominio asociado
+    let datosFinales = { ...datos };
+
+    if (datos.websiteSettings && datos.websiteSettings.general && datos.websiteSettings.general.subdomain) {
+        const sub = datos.websiteSettings.general.subdomain;
+        // Si no trae dominio personalizado o está vacío, forzamos el de suitemanager
+        if (!datos.websiteSettings.general.domain) {
+            datosFinales.websiteSettings.general.domain = `${sub}.suitemanager.com`;
+        }
+        // También actualizamos los campos raíz de websiteSettings para compatibilidad con el resolver
+        datosFinales['websiteSettings.subdomain'] = sub;
+        datosFinales['websiteSettings.domain'] = datosFinales.websiteSettings.general.domain;
+    }
+
     // .update() maneja correctamente la fusión de campos anidados 
-    // (ej. 'websiteSettings.seo.homeTitle') sin borrar otros campos en 'websiteSettings'.
     await empresaRef.update({
-        ...datos, // Propaga todos los campos (incluyendo los de notación de puntos)
+        ...datosFinales,
         fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
     });
-    // *** FIN DE LA CORRECCIÓN P1 ***
 };
 
 const obtenerProximoIdNumericoCarga = async (db, empresaId) => {
