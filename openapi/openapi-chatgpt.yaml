@@ -1,0 +1,119 @@
+openapi: 3.1.0
+info:
+  title: SuiteManager Public API for ChatGPT
+  version: "1.0.0"
+
+servers:
+  - url: https://suite-manager.onrender.com
+
+paths:
+  /ai/buscar-empresa:
+    get:
+      operationId: buscarEmpresa
+      summary: Busca empresas por nombre y devuelve ID e instrucciones del agente.
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+          required: true
+      responses:
+        "200":
+          description: Resultado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  empresaId: { type: string }
+                  nombre: { type: string }
+                  agentContent: { type: string }
+
+  /api/public/disponibilidad:
+    get:
+      operationId: consultarDisponibilidad
+      summary: Consulta disponibilidad
+      parameters:
+        - in: query
+          name: empresa_id
+          schema: { type: string }
+        - in: query
+          name: checkin
+          required: true
+          schema: { type: string }
+        - in: query
+          name: checkout
+          required: true
+          schema: { type: string }
+        - in: query
+          name: adultos
+          schema: { type: integer }
+        - in: query
+          name: ninos
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+
+  /api/public/reservas:
+    post:
+      operationId: crearReserva
+      summary: Crea una reserva
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                empresa_id: { type: string }
+                alojamiento_id: { type: string }
+                checkin: { type: string }
+                checkout: { type: string }
+                adultos: { type: integer }
+                ninos: { type: integer }
+                origen: { type: string, default: "chatgpt" }
+                huesped:
+                  type: object
+                  properties:
+                    nombre: { type: string }
+                    apellido: { type: string }
+                    email: { type: string }
+                    telefono: { type: string }
+      responses:
+        "201":
+          description: Creada
+
+  /api/public/propiedades/{id}:
+    get:
+      operationId: obtenerDetalleAlojamiento
+      summary: Obtiene ficha completa
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+
+  /api/public/alternativas:
+    get:
+      operationId: obtenerAlternativas
+      summary: Sugiere alojamientos alternativos
+      parameters:
+        - in: query
+          name: destino
+          required: true
+          schema: { type: string }
+        - in: query
+          name: checkin
+          required: true
+          schema: { type: string }
+        - in: query
+          name: checkout
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK

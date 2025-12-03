@@ -57,6 +57,9 @@ const componentesRoutes = require('./routes/componentes.js');
 const amenidadesRoutes = require('./routes/amenidades.js');
 const tiposElementoRoutes = require('./routes/tiposElemento.js');
 
+// [NEW] Rutas para Agentes IA (ChatGPT Actions)
+const agentesRoutes = require("./routes/agentes");
+
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 const { createTenantResolver } = require('./middleware/tenantResolver.js');
 
@@ -111,6 +114,12 @@ try {
             }
         });
     });
+
+    // Ruta para openapi-chatgpt.yaml
+    app.get("/openapi-chatgpt.yaml", cors(), (req, res) => {
+        res.sendFile(path.join(__dirname, "../openapi/openapi-chatgpt.yaml"));
+    });
+
     const PORT = process.env.PORT || 3001;
     app.set('view engine', 'ejs');
     app.set('views', path.join(__dirname, 'views'));
@@ -132,6 +141,9 @@ try {
     // Estas rutas deben ir ANTES del middleware de autenticación
     // Enable CORS for public API
     apiRouter.use('/public', cors({ origin: '*' }), publicRoutes(db));
+
+    // [NEW] Rutas para Agentes IA (ChatGPT Actions)
+    apiRouter.use("/ai", agentesRoutes);
 
     const authMiddleware = createAuthMiddleware(admin, db);
 
