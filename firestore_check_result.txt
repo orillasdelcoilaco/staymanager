@@ -1,0 +1,4 @@
+Checking path: empresas/90qbyAodIhKPeVXdRt8T/propiedades/DfJH8dbK
+❌ Document does NOT exist at this path.
+Searching via collectionGroup...
+⚠️ CollectionGroup query failed: 9 FAILED_PRECONDITION: 

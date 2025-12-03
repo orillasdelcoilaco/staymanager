@@ -91,7 +91,6 @@ const getProperties = async (req, res) => {
     try {
         const db = require('firebase-admin').firestore();
         const { id } = req.params;
-
         const {
             ubicacion,
             capacidad,
@@ -102,14 +101,24 @@ const getProperties = async (req, res) => {
             amenidades,
             ordenar = 'popularidad',
             limit = 20,
-            offset = 0
+            offset = 0,
+            empresaId // [NEW] Support for filtering by company via query param
         } = req.query;
 
-        // 1. Filtrado Básico en DB (Global)
-        console.log('🔍 [DEBUG] Iniciando query de propiedades...');
+        // Determine target company ID (params takes precedence if route uses it, otherwise query)
+        const targetEmpresaId = id || empresaId;
 
-        let query = db.collectionGroup('propiedades')
-            .where('isListed', '==', true);
+        // 1. Filtrado en DB (Global o Específico)
+        let query;
+        if (targetEmpresaId) {
+            console.log(`🔍 [DEBUG] Buscando propiedades para empresa: ${targetEmpresaId}`);
+            query = db.collection('empresas').doc(targetEmpresaId).collection('propiedades')
+                .where('isListed', '==', true);
+        } else {
+            console.log('🔍 [DEBUG] Iniciando query GLOBAL de propiedades...');
+            query = db.collectionGroup('propiedades')
+                .where('isListed', '==', true);
+        }
 
         if (precioMin) query = query.where('precioBase', '>=', parseInt(precioMin));
         if (precioMax) query = query.where('precioBase', '<=', parseInt(precioMax));

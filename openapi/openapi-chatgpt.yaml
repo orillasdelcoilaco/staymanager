@@ -7,18 +7,20 @@ servers:
   - url: https://suite-manager.onrender.com
 
 paths:
+
   /ai/buscar-empresa:
     get:
       operationId: buscarEmpresa
-      summary: Busca empresas por nombre y devuelve ID e instrucciones del agente.
+      summary: Busca empresas por nombre y devuelve instrucciones del agente interno.
       parameters:
         - in: query
           name: q
-          schema: { type: string }
           required: true
+          schema:
+            type: string
       responses:
         "200":
-          description: Resultado
+          description: Resultados
           content:
             application/json:
               schema:
@@ -29,7 +31,7 @@ paths:
                   nombre: { type: string }
                   agentContent: { type: string }
 
-  /api/public/disponibilidad:
+  /api/disponibilidad:
     get:
       operationId: consultarDisponibilidad
       summary: Consulta disponibilidad
@@ -48,14 +50,46 @@ paths:
         - in: query
           name: adultos
           schema: { type: integer }
-        - in: query
-          name: ninos
-          schema: { type: integer }
       responses:
         "200":
           description: OK
 
-  /api/public/reservas:
+  /api/alojamientos/detalle:
+    get:
+      operationId: obtenerDetalleAlojamiento
+      summary: Obtiene ficha completa del alojamiento
+      parameters:
+        - in: query
+          name: alojamiento_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+
+  /api/alojamientos/alternativas:
+    get:
+      operationId: obtenerAlternativas
+      summary: Sugiere alojamientos alternativos cuando no hay disponibilidad
+      parameters:
+        - in: query
+          name: destino
+          required: true
+          schema: { type: string }
+        - in: query
+          name: checkin
+          required: true
+          schema: { type: string }
+        - in: query
+          name: checkout
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+
+  /api/reservas:
     post:
       operationId: crearReserva
       summary: Crea una reserva
@@ -82,38 +116,4 @@ paths:
                     telefono: { type: string }
       responses:
         "201":
-          description: Creada
-
-  /api/public/propiedades/{id}:
-    get:
-      operationId: obtenerDetalleAlojamiento
-      summary: Obtiene ficha completa
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          description: OK
-
-  /api/public/alternativas:
-    get:
-      operationId: obtenerAlternativas
-      summary: Sugiere alojamientos alternativos
-      parameters:
-        - in: query
-          name: destino
-          required: true
-          schema: { type: string }
-        - in: query
-          name: checkin
-          required: true
-          schema: { type: string }
-        - in: query
-          name: checkout
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
           description: OK

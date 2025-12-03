@@ -1,17 +1,20 @@
 const express = require("express");
 const router = express.Router();
 const { detectEmpresaIdFromText } = require("../../ai/router/empresaNameDetector");
+const controller = require("../services/suitemanagerApiController"); // Importar controlador
 const fs = require("fs");
 const path = require("path");
 
+// Endpoint Marketplace Global
+router.get("/busqueda-general", controller.busquedaGeneral);
+
 router.get("/buscar-empresa", async (req, res) => {
     try {
-        const query = req.query.q;
+        const query = req.query.q?.trim();
         if (!query) {
             return res.status(400).json({ error: "Missing q parameter" });
         }
 
-        // El modulo exporta detectEmpresaIdFromText, no la funcion por defecto
         const empresaId = detectEmpresaIdFromText(query);
 
         if (empresaId) {

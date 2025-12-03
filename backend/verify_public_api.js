@@ -1,7 +1,7 @@
 const https = require('https');
 
 const BASE_URL = 'https://suite-manager.onrender.com/api/public';
-const PROPERTY_ID = '90qbyAodIhKPeVXdRt8T'; // ID válido conocido
+const PROPERTY_ID = '7lzqGKUxuQK0cttYeH0y'; // ID válido en Render (Empresa: cv1Lb4HLBLvWvSyqYfRW)
 const DATES = {
     inicio: '2025-12-20',
     fin: '2025-12-25'
@@ -29,7 +29,7 @@ function makeRequest(path, method = 'GET', body = null) {
                     const json = JSON.parse(data);
                     resolve({ status: res.statusCode, data: json });
                 } catch (e) {
-                    console.log('   Response (raw):', data); // Mostrar TODO el error para ver el link
+                    console.log('   Response (raw):', data);
                     resolve({ status: res.statusCode, data: data });
                 }
             });
@@ -49,8 +49,10 @@ function makeRequest(path, method = 'GET', body = null) {
 
 async function runTests() {
     try {
+        console.log(`✅ Usando ID: ${PROPERTY_ID}`);
+
         // 1. Test Disponibilidad
-        console.log('--- 1. Testing Disponibilidad ---');
+        console.log('\n--- 1. Testing Disponibilidad ---');
         const dispRes = await makeRequest(`/propiedades/${PROPERTY_ID}/disponibilidad?fechaInicio=${DATES.inicio}&fechaFin=${DATES.fin}`);
         console.log('   Result:', dispRes.status === 200 ? '✅ OK' : '❌ FAIL');
         if (dispRes.status !== 200) console.log('   Error:', JSON.stringify(dispRes.data, null, 2));
@@ -82,9 +84,9 @@ async function runTests() {
             agenteIA: "ChatGPT"
         };
         const bookRes = await makeRequest('/reservas', 'POST', bookingBody);
-        console.log('   Result:', bookRes.status === 200 ? '✅ OK' : '❌ FAIL');
-        if (bookRes.status !== 200) console.log('   Error:', JSON.stringify(bookRes.data, null, 2));
-        else console.log('   Propuesta creada:', bookRes.data.propuesta?.id);
+        console.log('   Result:', bookRes.status === 200 || bookRes.status === 201 ? '✅ OK' : '❌ FAIL');
+        if (bookRes.status !== 200 && bookRes.status !== 201) console.log('   Error:', JSON.stringify(bookRes.data, null, 2));
+        else console.log('   Propuesta creada:', bookRes.data.data?.propuestaId || bookRes.data.propuestaId);
 
     } catch (error) {
         console.error('❌ Fatal Error:', error);

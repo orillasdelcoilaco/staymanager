@@ -60,6 +60,9 @@ const tiposElementoRoutes = require('./routes/tiposElemento.js');
 // [NEW] Rutas para Agentes IA (ChatGPT Actions)
 const agentesRoutes = require("./routes/agentes");
 
+// [NEW] Rutas REST para ChatGPT (SIN Auth)
+const apiRoutes = require("./routes/api");
+
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 const { createTenantResolver } = require('./middleware/tenantResolver.js');
 
@@ -144,6 +147,10 @@ try {
 
     // [NEW] Rutas para Agentes IA (ChatGPT Actions)
     apiRouter.use("/ai", agentesRoutes);
+
+    // [NEW] Rutas REST para ChatGPT (SIN Auth)
+    // Se montan en /api/... (ej: /api/disponibilidad)
+    apiRouter.use(cors({ origin: '*' }), apiRoutes);
 
     const authMiddleware = createAuthMiddleware(admin, db);
 
