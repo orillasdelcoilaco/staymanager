@@ -1,17 +1,5 @@
 // backend/index.js
 require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const admin = require('firebase-admin');
-const sharp = require('sharp');
-const { spawn } = require('child_process');
-const { createProxyMiddleware } = require('http-proxy-middleware');
-const tarifasRoutes = require('./routes/tarifas.js');
-const conversionesRoutes = require('./routes/conversiones.js');
-const clientesRoutes = require('./routes/clientes.js');
-const reservasRoutes = require('./routes/reservas.js');
-const sincronizacionRoutes = require('./routes/sincronizacion.js');
 const mapeosRoutes = require('./routes/mapeos.js');
 const calendarioRoutes = require('./routes/calendario.js');
 const reparacionRoutes = require('./routes/reparacion.js');
