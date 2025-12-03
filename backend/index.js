@@ -63,6 +63,9 @@ const agentesRoutes = require("./routes/agentes");
 // [NEW] Rutas REST para ChatGPT (SIN Auth)
 const apiRoutes = require("./routes/api");
 
+// [NEW] Ruta para Búsqueda General IA (Marketplace)
+const iaRoutes = require("./routes/ia");
+
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 const { createTenantResolver } = require('./middleware/tenantResolver.js');
 
@@ -112,94 +115,122 @@ try {
         const file = path.join(__dirname, '../openapi', 'openapi.json');
         res.sendFile(file, err => {
             if (err) {
-                app.use(cors());
-                app.use(express.json());
-
-                // **PRIORIDAD 0: Archivos Estáticos Públicos (CRÍTICO: Antes de Auth)**
-                const backendPublicPath = path.join(__dirname, 'public');
-                // Enable CORS for static files
-                app.use('/public', cors({ origin: '*' }), express.static(backendPublicPath));
-
-                // --- ORDEN DE RUTAS ESTRATÉGICO ---
-
-                // **PRIORIDAD 1: Rutas de la API (/api/...)**
-                const apiRouter = express.Router();
-
-                // [NEW] Rutas Públicas (SIN Auth)
-                // Estas rutas deben ir ANTES del middleware de autenticación
-                // Enable CORS for public API
-                apiRouter.use('/public', cors({ origin: '*' }), publicRoutes(db));
-
-                // [NEW] Rutas para Agentes IA (ChatGPT Actions)
-                apiRouter.use("/ai", agentesRoutes);
-
-                // [NEW] Rutas REST para ChatGPT (SIN Auth)
-                // Se montan en /api/... (ej: /api/disponibilidad)
-                apiRouter.use(cors({ origin: '*' }), apiRoutes);
-
-                const authMiddleware = createAuthMiddleware(admin, db);
-
-                apiRouter.use('/auth', authRoutes(admin, db));
-                apiRouter.use(authMiddleware);
-
-                // ... Rutas existentes ...
-                apiRouter.use('/propiedades', propiedadesRoutes(db));
-                apiRouter.use('/canales', canalesRoutes(db));
-                apiRouter.use('/tarifas', tarifasRoutes(db));
-                apiRouter.use('/conversiones', conversionesRoutes(db));
-                apiRouter.use('/clientes', clientesRoutes(db));
-                apiRouter.use('/reservas', reservasRoutes(db));
-                apiRouter.use('/sincronizar', sincronizacionRoutes(db));
-                apiRouter.use('/mapeos', mapeosRoutes(db));
-                apiRouter.use('/calendario', calendarioRoutes(db));
-                apiRouter.use('/reparar', reparacionRoutes(db));
-                apiRouter.use('/dolar', dolarRoutes(db));
-
-                // [NEW] Rutas de Componentes y Amenidades
-                apiRouter.use('/componentes', componentesRoutes(db));
-                apiRouter.use('/amenidades', amenidadesRoutes(db));
-                apiRouter.use('/tipos-elemento', tiposElementoRoutes(db));
-
-                // Rutas faltantes agregadas
-                apiRouter.use('/kpis', kpiRoutes(db));
-                apiRouter.use('/crm', crmRoutes(db));
-                apiRouter.use('/gestion', gestionRoutes(db));
-                apiRouter.use('/empresa', empresaRoutes(db));
-                apiRouter.use('/usuarios', usuariosRoutes(db));
-                apiRouter.use('/plantillas', plantillasRoutes(db));
-                apiRouter.use('/website', websiteConfigRoutes(db));
-                apiRouter.use('/authGoogle', authGoogleRoutes(db));
-                apiRouter.use('/historial-cargas', historialCargasRoutes(db));
-                apiRouter.use('/propuestas', propuestasRoutes(db));
-                apiRouter.use('/presupuestos', presupuestosRoutes(db));
-                apiRouter.use('/gestion-propuestas', gestionPropuestasRoutes(db));
-                apiRouter.use('/reportes', reportesRoutes(db));
-                apiRouter.use('/mensajes', mensajesRoutes(db));
-                apiRouter.use('/comentarios', comentariosRoutes(db));
-                apiRouter.use('/estados', estadosRoutes(db));
-                apiRouter.use('/ai', aiRoutes(db));
-
-                app.use('/api', apiRouter);
-
-                // **PRIORIDAD 3: Frontend Admin**
-                const frontendPath = path.join(__dirname, '..', 'frontend');
-                app.use('/admin-assets', express.static(frontendPath));
-
-                // **PRIORIDAD 5: SSR Router**
-                const tenantResolver = createTenantResolver(db);
-                app.use('/', tenantResolver, (req, res, next) => {
-                    if (req.empresa) {
-                        return websiteRoutes(db)(req, res, next);
-                    }
-                    res.sendFile(path.join(frontendPath, 'index.html'));
-                });
-
-                app.listen(PORT, () => {
-                    console.log(`[Startup] Servidor de StayManager escuchando en http://localhost:${PORT}`);
-                });
-
-            } catch (error) {
-                console.error("--- ¡ERROR CRÍTICO DURANTE LA INICIALIZACIÓN! ---");
-                console.error("Detalle del error:", error.message);
-                process.exit(1);
+                console.error('Error al servir openapi.json:', err);
+                res.status(500).send({ error: 'Error interno al leer openapi.json' });
             }
+        });
+    });
+
+    // Ruta para openapi-chatgpt.yaml
+    app.get("/openapi-chatgpt.yaml", cors(), (req, res) => {
+        res.sendFile(path.join(__dirname, "../openapi/openapi-chatgpt.yaml"));
+    });
+
+    // [NEW] Ruta para openapi-gemini.yaml
+    app.get("/openapi-gemini.yaml", cors(), (req, res) => {
+        res.sendFile(path.join(__dirname, "../openapi/openapi-gemini.yaml"));
+    });
+
+    // [NEW] Ruta para claude-tools.json
+    app.get("/claude-tools.json", cors(), (req, res) => {
+        res.sendFile(path.join(__dirname, "../openapi/claude-tools.json"));
+    });
+
+    const PORT = process.env.PORT || 3001;
+    app.set('view engine', 'ejs');
+    app.set('views', path.join(__dirname, 'views'));
+    app.set('trust proxy', 1); // Fix for rate limiter on Render/Proxy
+    app.use(cors());
+    app.use(express.json());
+
+    // **PRIORIDAD 0: Archivos Estáticos Públicos (CRÍTICO: Antes de Auth)**
+    const backendPublicPath = path.join(__dirname, 'public');
+    // Enable CORS for static files
+    app.use('/public', cors({ origin: '*' }), express.static(backendPublicPath));
+
+    // --- ORDEN DE RUTAS ESTRATÉGICO ---
+
+    // **PRIORIDAD 1: Rutas de la API (/api/...)**
+    const apiRouter = express.Router();
+
+    // [NEW] Rutas Públicas (SIN Auth)
+    // Estas rutas deben ir ANTES del middleware de autenticación
+    // Enable CORS for public API
+    apiRouter.use('/public', cors({ origin: '*' }), publicRoutes(db));
+
+    // [NEW] Rutas para Agentes IA (ChatGPT Actions)
+    apiRouter.use("/ai", agentesRoutes);
+
+    // [NEW] Ruta para Búsqueda General IA (Marketplace)
+    app.use("/ia", cors({ origin: '*' }), iaRoutes);
+
+    // [NEW] Rutas REST para ChatGPT (SIN Auth)
+    // Se montan en /api/... (ej: /api/disponibilidad)
+    apiRouter.use(cors({ origin: '*' }), apiRoutes);
+
+    const authMiddleware = createAuthMiddleware(admin, db);
+
+    apiRouter.use('/auth', authRoutes(admin, db));
+    apiRouter.use(authMiddleware);
+
+    // ... Rutas existentes ...
+    apiRouter.use('/propiedades', propiedadesRoutes(db));
+    apiRouter.use('/canales', canalesRoutes(db));
+    apiRouter.use('/tarifas', tarifasRoutes(db));
+    apiRouter.use('/conversiones', conversionesRoutes(db));
+    apiRouter.use('/clientes', clientesRoutes(db));
+    apiRouter.use('/reservas', reservasRoutes(db));
+    apiRouter.use('/sincronizar', sincronizacionRoutes(db));
+    apiRouter.use('/mapeos', mapeosRoutes(db));
+    apiRouter.use('/calendario', calendarioRoutes(db));
+    apiRouter.use('/reparar', reparacionRoutes(db));
+    apiRouter.use('/dolar', dolarRoutes(db));
+
+    // [NEW] Rutas de Componentes y Amenidades
+    apiRouter.use('/componentes', componentesRoutes(db));
+    apiRouter.use('/amenidades', amenidadesRoutes(db));
+    apiRouter.use('/tipos-elemento', tiposElementoRoutes(db));
+
+    // Rutas faltantes agregadas
+    apiRouter.use('/kpis', kpiRoutes(db));
+    apiRouter.use('/crm', crmRoutes(db));
+    apiRouter.use('/gestion', gestionRoutes(db));
+    apiRouter.use('/empresa', empresaRoutes(db));
+    apiRouter.use('/usuarios', usuariosRoutes(db));
+    apiRouter.use('/plantillas', plantillasRoutes(db));
+    apiRouter.use('/website', websiteConfigRoutes(db));
+    apiRouter.use('/authGoogle', authGoogleRoutes(db));
+    apiRouter.use('/historial-cargas', historialCargasRoutes(db));
+    apiRouter.use('/propuestas', propuestasRoutes(db));
+    apiRouter.use('/presupuestos', presupuestosRoutes(db));
+    apiRouter.use('/gestion-propuestas', gestionPropuestasRoutes(db));
+    apiRouter.use('/reportes', reportesRoutes(db));
+    apiRouter.use('/mensajes', mensajesRoutes(db));
+    apiRouter.use('/comentarios', comentariosRoutes(db));
+    apiRouter.use('/estados', estadosRoutes(db));
+    apiRouter.use('/ai', aiRoutes(db));
+
+    app.use('/api', apiRouter);
+
+    // **PRIORIDAD 3: Frontend Admin**
+    const frontendPath = path.join(__dirname, '..', 'frontend');
+    app.use('/admin-assets', express.static(frontendPath));
+
+    // **PRIORIDAD 5: SSR Router**
+    const tenantResolver = createTenantResolver(db);
+    app.use('/', tenantResolver, (req, res, next) => {
+        if (req.empresa) {
+            return websiteRoutes(db)(req, res, next);
+        }
+        res.sendFile(path.join(frontendPath, 'index.html'));
+    });
+
+    app.listen(PORT, () => {
+        console.log(`[Startup] Servidor de StayManager escuchando en http://localhost:${PORT}`);
+    });
+
+} catch (error) {
+    console.error("--- ¡ERROR CRÍTICO DURANTE LA INICIALIZACIÓN! ---");
+    console.error("Detalle del error:", error.message);
+    process.exit(1);
+}
