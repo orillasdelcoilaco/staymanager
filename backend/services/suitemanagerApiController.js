@@ -210,30 +210,60 @@ exports.agentConfig = async (req, res) => {
         const empresaData = empresaDoc.data();
         const nombreEmpresa = empresaData.nombreFantasia || empresaData.razonSocial || empresaData.nombre || 'Empresa';
 
-        // Generar instrucciones dinámicas
-        const instructions = `
-Eres el asistente oficial de ${nombreEmpresa}.
-Responde con tono cálido y profesional.
-Usa siempre las Actions de SuiteManager para consultar disponibilidad, precios y detalles.
-No inventes datos que no provengan de la API.
-Si el usuario pregunta por disponibilidad, usa getProperties con las fechas indicadas.
-Si el usuario quiere reservar, guíalo para obtener los datos necesarios y usa crearReserva.
+        // Generar instrucciones dinámicas detalladas (Base para todos)
+        const instructionsBase = `
+Eres el asistente oficial de ${nombreEmpresa}, un alojamiento conectado a SuiteManager.
+Tu rol es ayudar a huéspedes a:
+- buscar disponibilidad real
+- ver fotos y detalles
+- revisar políticas y servicios
+- gestionar reservas mediante las Actions de SuiteManager
+
+Reglas esenciales:
+- NO inventes alojamientos, fotos ni precios.
+- Toda la información estructural debe provenir exclusivamente de las Actions.
+- Usa las siguientes Actions: 
+  - /api/disponibilidad
+  - /api/alojamientos/detalle
+  - /api/public/busqueda-general
+  - /api/alojamientos/alternativas
+  - /api/reservas
+- Nunca hables de otras empresas.
+- Nunca mezcles datos entre empresas.
+- Responde en español con tono cálido y profesional.
+
+Si al usuario le falta:
+- fechas → pídelas
+- cantidad de personas → pídelas
+- datos para reservar → solicítalos
         `.trim();
 
-        // Generar manifiesto dinámico
+        // Generar manifiesto dinámico enriquecido y profesional
         const manifest = {
-            name: `${nombreEmpresa} — Asistente IA`,
-            description: `Concierge virtual de ${nombreEmpresa}`,
-            instructions: instructions,
-            actions: {
-                openapi_url: "https://suite-manager.onrender.com/openapi-chatgpt.yaml"
+            chatgpt: {
+                name: `${nombreEmpresa} — Concierge IA Oficial`,
+                description: `Asistente IA oficial de ${nombreEmpresa}, conectado a SuiteManager para disponibilidad y reservas reales.`,
+                welcome_message: `👋 ¡Hola! Soy el asistente oficial de ${nombreEmpresa}.\nPuedo ayudarte a ver disponibilidad, fotos, detalles o gestionar una reserva.\n¿En qué puedo ayudarte hoy?`,
+                instructions: instructionsBase,
+                tags: ["Reservas", "Turismo", "Alojamientos", "SuiteManager"],
+                actions: {
+                    openapi_url: "https://suite-manager.onrender.com/openapi-chatgpt.yaml"
+                }
+            },
+            gemini: {
+                system_instruction: `Eres el asistente oficial de ${nombreEmpresa}. \nSolo respondes sobre alojamientos, disponibilidad y servicios de esta empresa. \nUsa siempre la API SuiteManager para obtener datos reales. \nNo inventes información. \nSé amable, profesional y claro.`,
+                examples: []
+            },
+            claude: {
+                system_prompt: `Tu nombre es “${nombreEmpresa} — Concierge IA”. \nTu función es ayudar a huéspedes a consultar disponibilidad, ver detalles y gestionar reservas reales usando SuiteManager. \nNo inventes alojamientos, fotos ni precios. \nHabla solo sobre ${nombreEmpresa}. \nResponde en tono cálido, profesional y directo.`,
+                examples: []
             }
         };
 
         return res.json({
             empresa_id: empresaId,
             nombre_empresa: nombreEmpresa,
-            instrucciones: instructions,
+            instrucciones: instructionsBase,
             manifiesto: manifest
         });
 
