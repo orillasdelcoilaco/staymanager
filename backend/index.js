@@ -37,7 +37,7 @@ const crmRoutes = require('./routes/crm.js');
 const websiteRoutes = require('./routes/website.js');
 const integrationsRoutes = require('./routes/integrations.js');
 const estadosRoutes = require('./routes/estados.js');
-const websiteConfigRoutes = require('./routes/websiteConfigRoutes.js');
+const websiteConfigRoutes = require('./api/ssr/config.routes.js');
 const comentariosRoutes = require('./routes/comentarios.js');
 const aiRoutes = require('./routes/aiRoutes.js');
 
@@ -146,6 +146,21 @@ try {
     // [NEW] Rutas Públicas (SIN Auth)
     apiRouter.use('/public', cors({ origin: '*' }), publicRoutes(db));
 
+    // [NEW] Concierge AI Module (Publico)
+    const conciergeChatRoutes = require('./api/concierge/chat.routes.js');
+    const conciergeGalleryRoutes = require('./api/concierge/gallery.routes.js');
+    const intentRoutes = require('./api/concierge/intention.routes.js');
+    const availRoutes = require('./api/concierge/availability.routes.js');
+    const photoActionRoutes = require('./api/concierge/photos.routes.js');
+    const queryRoutes = require('./api/concierge/query.routes.js');
+
+    apiRouter.use('/concierge', cors({ origin: '*' }), conciergeChatRoutes(db));
+    apiRouter.use('/concierge', cors({ origin: '*' }), conciergeGalleryRoutes(db));
+    apiRouter.use('/concierge', cors({ origin: '*' }), intentRoutes(db));
+    apiRouter.use('/concierge', cors({ origin: '*' }), availRoutes(db));
+    apiRouter.use('/concierge', cors({ origin: '*' }), photoActionRoutes(db));
+    apiRouter.use('/concierge', cors({ origin: '*' }), queryRoutes(db));
+
     // [NEW] Rutas para Agentes IA (ChatGPT Actions)
     // Se monta en /ai para coincidir con OpenAPI (/ai/buscar-empresa)
     app.use("/ai", cors({ origin: '*' }), agentesRoutes);
@@ -199,7 +214,7 @@ try {
     apiRouter.use('/ai', aiRoutes(db));
 
     // [NEW] Content Factory Routes (SSR Generation Pipeline)
-    const contentFactoryRoutes = require('./routes/contentFactoryRoutes');
+    const contentFactoryRoutes = require('./api/ssr/content.routes.js');
     apiRouter.use('/content-factory', contentFactoryRoutes(db));
 
     app.use('/api', apiRouter);

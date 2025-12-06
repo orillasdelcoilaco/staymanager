@@ -6,6 +6,7 @@
     "test:ssr": "node backend/scripts/verify_ssr_integrity.js"
   },
   "dependencies": {
+    "date-fns": "^4.1.0",
     "http-proxy-middleware": "^3.0.5",
     "node-fetch": "^3.3.2",
     "resend": "^6.5.2",
