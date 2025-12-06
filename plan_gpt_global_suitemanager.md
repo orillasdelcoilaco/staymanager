@@ -291,11 +291,11 @@ Asignar dueños, orden de ejecución y fechas claras por etapa.
 | 2 | Etapa 2 (pruebas en vivo) + Etapa 3 (estilo) + activación inicial Sales Mode (14) |
 | 3 | Etapas 6 y 7 (privados y multiempresa) + privacidad/aislamiento (15) |
 | 4 | Etapa 5 y 13 (dashboard/observabilidad) + operación/flags/rollback (16) |
-| 5 | Etapa 8 (simulaciones) + Etapa 9 (checklist final) + A/B de Sales Mode |
-
-#### Datos de Contacto
-- **PM**: Equipo SuiteManager
-- **Eng Lead**: Lead Developer
+#### Datos de Contacto y RACI
+- **PM / Eng Lead**: Equipo SuiteManager & Lead Developer
+- **DS/ML**: N/A (Lógica Heurística en Backend - `intention.js`)
+- **CS/Operaciones**: Soporte SuiteManager
+- **Dirección**: Administración General
 - **Cadencia**: Weekly Sync (Lunes 10am)
 - **Canal**: Slack #dev-ai
 - **Go/No-Go**: Validado el 05/12/2025 (Ready)
@@ -327,45 +327,20 @@ Documentar y validar los contratos de Actions y el prefiltrado para evitar error
 * Timeouts y retries definidos (p. ej. 10s, 1 retry)
 * Prefiltrado evita fugas de multiempresa y respeta límites
 
-#### Draft de contratos (ajustar a API real)
-- `/availability` (Global):
-  - Request (JSON):
-    ```json
-    {
-      "check_in": "2024-06-14",
-      "check_out": "2024-06-16",
-      "guests": 4,
-      "location": "Bariloche",
-      "max_price": 300,
-      "min_bedrooms": 2,
-      "limit": 5,
-      "offset": 0
-    }
-    ```
-  - Response 200:
-    ```json
-    {
-      "results": [
-        {
-          "id": "stay_123",
-          "name": "Cabaña Lago",
-          "price_total": 240,
-          "currency": "USD",
-          "bedrooms": 2,
-          "guests": 4,
-          "photos": ["https://.../1.jpg", "https://.../2.jpg"],
-          "availability_source": "global"
-        }
-      ],
-      "has_more": false
-    }
-    ```
-  - Errores: 400 (falta campo), 404 (sin resultados), 408/5xx (timeout/backend); fallback: “No pude consultar disponibilidad ahora, ¿te aviso cuando recupere conexión?”.
+#### Detalles Técnicos de la API
+- **Base URL**: `https://suitemanagers.com`
+- **Rate Limit**: 60 requests/min (Public).
+- **Headers**:
+  - `Content-Type: application/json`
+  - `x-empresa-id`: Opcional para Global (Marketplace), Obligatorio para Private GPTs.
 
-- `/availability_private` (Privado):
-  - Request añade `company_id` obligatorio y elimina filtros globales no permitidos.
-  - Response igual formato pero con `availability_source: "private"`.
-  - Guardrail: nunca usar datos de otra empresa; si falta `company_id`, abortar con copy seguro.
+#### Códigos de Estado
+| Código | Descripción | Acción del GPT |
+|---|---|---|
+| `200` | OK | Procesar respuesta JSON. |
+| `400` | Bad Request | Faltan campos (ej. `mensaje` vacío). Pedir al usuario que repita. |
+| `405` | Method Not Allowed | Usar POST en vez de GET. |
+| `500` | Server Error | Responder: "Lo siento, tuve un error técnico momentáneo." |
 
 #### Contratos Validados (API Real)
 - **Base URL**: `https://suitemanagers.com`
@@ -466,10 +441,10 @@ Medir salud, costos y decisiones del router con alertas accionables.
 - Incidentes y acciones tomadas (enlazar a tickets).
 
 #### Instrumentación Actual
-- **Fuente de métricas**: `backend/services/ai/router.js` (logs en consola/Render).
-- **Cálculo de Tokens**: Estimación simple por caracteres (4 chars = 1 token).
-- **Dashboard**: Logs de Render (Filtrar por "[Query]").
-- **Alertas**: Notificaciones nativas de Render para errores 5xx.
+- **Fuente de métricas**: `backend/services/ai/router.js` (logs estructurados `[Query]`).
+- **Cálculo de Tokens**: Estimación simple por caracteres (4 chars = 1 token). Futuro: Librería `tiktoken`.
+- **Dashboard**: Consola de Render (Filtrar logs). Futuro: Integración con Datadog/Grafana.
+- **Alertas**: Notificaciones nativas de Render para errores 5xx (Email). Futuro: Webhook a Slack #alerts.
 
 ---
 
