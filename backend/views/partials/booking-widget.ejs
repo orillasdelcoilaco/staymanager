@@ -1,7 +1,7 @@
 <% const widgetConfig={ propiedadId: propiedad.id, defaultPrice: typeof defaultPriceData !=='undefined' ?
     defaultPriceData : null }; %>
     <div class="sticky top-8 self-start" id="booking-widget-container"
-        data-booking-config="<%= JSON.stringify(widgetConfig) %>">
+        data-booking-config='<%= JSON.stringify(widgetConfig) %>'>
         <div class="bg-white p-6 rounded-lg shadow-lg border">
             <div id="price-display" class="mb-4 text-gray-900">
                 <span class="text-2xl font-bold" id="price-total-display">
@@ -42,14 +42,14 @@
                 </div>
 
                 <button type="submit" id="submit-button"
-                    class="btn w-full bg-pink-600 hover:bg-pink-700 text-white rounded-lg py-3 text-base font-semibold mt-4"
+                    class="btn w-full btn-primary hover:opacity-90 text-white rounded-lg py-3 text-base font-semibold mt-4 transition-opacity"
                     disabled>
                     Reservar
                 </button>
 
                 <div id="deposit-info" class="text-sm text-gray-700 text-center mt-2">
                     <% if (defaultPriceData.totalPriceCLP> 0) { %>
-                        Reserva abonando solo <strong class="text-indigo-600">$<%=
+                        Reserva abonando solo <strong class="text-primary">$<%=
                                 Math.round(defaultPriceData.totalPriceCLP * 0.10).toLocaleString('es-CL') %></strong>
                         <% } else { %>
                             Ingresa tus fechas para ver el abono.

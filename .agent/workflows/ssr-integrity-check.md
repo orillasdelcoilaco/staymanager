@@ -28,3 +28,15 @@ Run this workflow after making changes to:
    - Click a property.
    - Verify image stability (no jump).
    - Verify "Reservar" button is clickable.
+
+## Configuration Rules (Guardian)
+Any changes to "Configuración Web" must adhere to:
+1.  **Domain Generation**:
+    - Default domain MUST be `[subdomain].suitemanagers.com` (Plural).
+    - Logic located in `backend/services/empresaService.js`.
+2.  **Visual Identity**:
+    - `propiedad.ejs` must define `--primary-color` and `--secondary-color`.
+    - Buttons must use `.btn-primary` or `.btn-secondary` classes, NOT hardcoded Tailwind colors (e.g., `bg-pink-600`).
+3.  **AI Image Pipeline**:
+    - All image uploads (Hero, Cards, Gallery) MUST go through `optimizeImage` (Sharp) + `generarMetadataImagen` (Gemini).
+

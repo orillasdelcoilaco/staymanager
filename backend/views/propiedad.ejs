@@ -41,6 +41,34 @@
                                                 height: 400px;
                                             }
                                         }
+
+                                        :root {
+                                            --primary-color: <%=empresa.websiteSettings?.theme?.primaryColor || '#4f46e5' %>;
+                                            /* default indigo-600 */
+                                            --secondary-color: <%=empresa.websiteSettings?.theme?.secondaryColor || '#10b981' %>;
+                                            /* default green-500 */
+                                        }
+
+                                        .btn-primary {
+                                            background-color: var(--primary-color) !important;
+                                            color: white !important;
+                                        }
+
+                                        .btn-secondary {
+                                            background-color: var(--secondary-color) !important;
+                                            color: white !important;
+                                        }
+
+                                        .text-primary {
+                                            color: var(--primary-color) !important;
+                                        }
+
+                                        /* Override common icon colors if needed */
+                                        .fa-solid,
+                                        .fa-regular,
+                                        .fa-brands {
+                                            color: var(--primary-color);
+                                        }
                                     </style>
         </head>
 
@@ -599,7 +627,7 @@
                             const mensajeEspecifico = `Hola ${nombreAnfitrion}, necesito ayuda para reservar el alojamiento "${propiedad.nombre}".`;
                             const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeEspecifico)}`;
                         %>
-                        <a href="<%= whatsappUrl %>" target="_blank" class="btn-whatsapp w-full mb-6 block text-center py-2 px-4 bg-green-500 text-white rounded hover:bg-green-600 transition">
+                        <a href="<%= whatsappUrl %>" target="_blank" class="btn-whatsapp w-full mb-6 block text-center py-2 px-4 btn-secondary rounded hover:opacity-90 transition">
                             <i class="fa-brands fa-whatsapp w-5 h-5 mr-2 text-white"></i>
                             ¿Necesitas ayuda? Hablemos
                         </a>

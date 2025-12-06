@@ -30,7 +30,7 @@ const actualizarDetallesEmpresa = async (db, empresaId, datos) => {
         const sub = datos.websiteSettings.general.subdomain;
         // Si no trae dominio personalizado o está vacío, forzamos el de suitemanager
         if (!datos.websiteSettings.general.domain) {
-            datosFinales.websiteSettings.general.domain = `${sub}.suitemanager.com`;
+            datosFinales.websiteSettings.general.domain = `${sub}.suitemanagers.com`;
         }
         // También actualizamos los campos raíz de websiteSettings para compatibilidad con el resolver
         datosFinales['websiteSettings.subdomain'] = sub;
