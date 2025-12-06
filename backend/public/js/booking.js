@@ -4,16 +4,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // *** CAMBIO: Usar 10% de abono ***
     const DEPOSIT_PERCENTAGE = 0.10;
 
-    if (!window.initialBookingData) {
-        console.error("Error: No se encontraron los datos iniciales de booking (initialBookingData).");
+    // Intentar leer configuración desde el atributo de datos (Más robusto)
+    const widgetContainer = document.getElementById('booking-widget-container');
+    let configData = null;
+
+    if (widgetContainer && widgetContainer.dataset.bookingConfig) {
+        try {
+            configData = JSON.parse(widgetContainer.dataset.bookingConfig);
+            console.log("Booking configuration loaded from data attribute:", configData);
+        } catch (e) {
+            console.error("Error parsing booking config from data attribute:", e);
+        }
+    }
+
+    // Fallback a variable global (Legacy/Backup)
+    if (!configData && window.initialBookingData) {
+        configData = window.initialBookingData;
+        console.log("Booking configuration loaded from window global.");
+    }
+
+    if (!configData) {
+        console.error("Error: No se encontraron los datos iniciales de booking (ni en data attr ni en window).");
         const priceDisplay = document.getElementById('price-display');
         if (priceDisplay) {
             priceDisplay.innerHTML = '<span class="text-red-500 font-bold">Error al cargar (B01)</span>';
         }
         return;
     }
-    
-    const { propiedadId, defaultPrice } = window.initialBookingData;
+
+    const { propiedadId, defaultPrice } = configData;
     let defaultPriceData = defaultPrice || { totalPriceCLP: 0, nights: 0, formattedTotalPrice: 'Error' };
 
     // Obtener elementos del DOM
@@ -63,11 +82,11 @@ document.addEventListener('DOMContentLoaded', () => {
             submitButton.disabled = true;
 
             // *** CAMBIO: Actualizar texto de abono (Error/Default) ***
-             if (priceData && priceData.totalPrice === 0) {
-                 depositInfoEl.innerHTML = 'Estadía no disponible para estas fechas.';
-             } else {
-                 depositInfoEl.innerHTML = 'Ingresa tus fechas para ver el abono.';
-             }
+            if (priceData && priceData.totalPrice === 0) {
+                depositInfoEl.innerHTML = 'Estadía no disponible para estas fechas.';
+            } else {
+                depositInfoEl.innerHTML = 'Ingresa tus fechas para ver el abono.';
+            }
             // *** FIN CAMBIO ***
         }
         priceLoader.classList.add('hidden');
@@ -80,12 +99,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const today = new Date().toISOString().split('T')[0];
         if (!fechaLlegada || !fechaSalida || fechaSalida <= fechaLlegada) {
-             updatePriceDisplay(null);
-             if (fechaLlegada && fechaLlegada < today) fechaLlegadaInput.value = today;
-             if (fechaSalida && fechaSalida <= fechaLlegada) fechaSalidaInput.value = '';
+            updatePriceDisplay(null);
+            if (fechaLlegada && fechaLlegada < today) fechaLlegadaInput.value = today;
+            if (fechaSalida && fechaSalida <= fechaLlegada) fechaSalidaInput.value = '';
             return;
         }
-        
+
         if (fechaLlegada < today) {
             fechaLlegadaInput.value = today;
         }
@@ -147,9 +166,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Handle form submission
     bookingForm.addEventListener('submit', (e) => {
         e.preventDefault();
+        console.log("Booking form submitted");
 
         const personas = parseInt(personasInput.value, 10);
         const capacidadMax = parseInt(personasInput.max, 10);
+
+        console.log(`Personas: ${personas}, Capacidad: ${capacidadMax}, Price: ${currentPriceCLP}, Nights: ${currentNights}`);
 
         if (currentPriceCLP === null || currentNights <= 0) {
             alert('Por favor, selecciona fechas válidas para calcular el precio antes de reservar.');
@@ -159,8 +181,8 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Por favor, indica cuántos huéspedes serán.');
             return;
         }
-         if (personas > capacidadMax) {
-             alert(`El número de huéspedes (${personas}) excede la capacidad máxima (${capacidadMax}).`);
+        if (personas > capacidadMax) {
+            alert(`El número de huéspedes (${personas}) excede la capacidad máxima (${capacidadMax}).`);
             return;
         }
 
@@ -176,6 +198,8 @@ document.addEventListener('DOMContentLoaded', () => {
             precioFinal: currentPriceCLP
         });
 
-        window.location.href = `/reservar?${params.toString()}`;
+        const redirectUrl = `/reservar?${params.toString()}`;
+        console.log(`Redirecting to: ${redirectUrl}`);
+        window.location.href = redirectUrl;
     });
 });

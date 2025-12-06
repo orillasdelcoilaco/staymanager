@@ -178,6 +178,9 @@ module.exports = (db) => {
 
     // Ruta /propiedad/:id
     router.get('/propiedad/:id', async (req, res) => {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
         const empresaCompleta = req.empresaCompleta;
         const empresaId = empresaCompleta.id;
         const propiedadId = req.params.id;

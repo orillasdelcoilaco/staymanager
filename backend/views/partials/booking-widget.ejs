@@ -1,0 +1,60 @@
+<% const widgetConfig={ propiedadId: propiedad.id, defaultPrice: typeof defaultPriceData !=='undefined' ?
+    defaultPriceData : null }; %>
+    <div class="sticky top-8 self-start" id="booking-widget-container"
+        data-booking-config="<%= JSON.stringify(widgetConfig) %>">
+        <div class="bg-white p-6 rounded-lg shadow-lg border">
+            <div id="price-display" class="mb-4 text-gray-900">
+                <span class="text-2xl font-bold" id="price-total-display">
+                    <%= defaultPriceData.formattedTotalPrice %>
+                </span>
+                <span class="text-sm text-gray-600" id="price-label-display">
+                    <% if(defaultPriceData.nights> 0) { %> / por <%= defaultPriceData.nights %> noche<%=
+                                defaultPriceData.nights !==1 ? 's' : '' %>
+                                <% } %>
+                </span>
+            </div>
+
+            <form id="booking-form" class="space-y-4">
+                <input type="hidden" name="propiedadId" value="<%= propiedad.id %>">
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label for="fechaLlegada"
+                            class="block text-xs font-medium text-gray-700 uppercase">Llegada</label>
+                        <input type="date" name="fechaLlegada" id="fechaLlegada" class="form-input mt-1 text-sm"
+                            required value="<%= prefill.fechaLlegada %>">
+                    </div>
+                    <div>
+                        <label for="fechaSalida"
+                            class="block text-xs font-medium text-gray-700 uppercase">Salida</label>
+                        <input type="date" name="fechaSalida" id="fechaSalida" class="form-input mt-1 text-sm" required
+                            value="<%= prefill.fechaSalida %>">
+                    </div>
+                </div>
+                <div>
+                    <label for="personas" class="block text-xs font-medium text-gray-700 uppercase">Huéspedes</label>
+                    <input type="number" name="personas" id="personas" min="1" max="<%= propiedad.capacidad %>"
+                        class="form-input mt-1 text-sm" required value="<%= prefill.personas %>">
+                </div>
+
+                <div id="price-loader" class="text-center py-2 hidden">
+                    <p class="text-sm text-gray-500">Actualizando precio...</p>
+                </div>
+
+                <button type="submit" id="submit-button"
+                    class="btn w-full bg-pink-600 hover:bg-pink-700 text-white rounded-lg py-3 text-base font-semibold mt-4"
+                    disabled>
+                    Reservar
+                </button>
+
+                <div id="deposit-info" class="text-sm text-gray-700 text-center mt-2">
+                    <% if (defaultPriceData.totalPriceCLP> 0) { %>
+                        Reserva abonando solo <strong class="text-indigo-600">$<%=
+                                Math.round(defaultPriceData.totalPriceCLP * 0.10).toLocaleString('es-CL') %></strong>
+                        <% } else { %>
+                            Ingresa tus fechas para ver el abono.
+                            <% } %>
+                </div>
+            </form>
+        </div>
+    </div>

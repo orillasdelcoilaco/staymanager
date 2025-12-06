@@ -32,13 +32,35 @@ const crearPropiedad = async (db, empresaId, datosPropiedad) => {
         camas: datosPropiedad.camas || {},
         equipamiento: datosPropiedad.equipamiento || {},
         sincronizacionIcal: datosPropiedad.sincronizacionIcal || {},
+        // LEGACY: Mantener arrays por compatibilidad temporal
         componentes: componentes,
+        amenidades: datosPropiedad.amenidades || [],
+
         googleHotelData: datosPropiedad.googleHotelData || {},
         websiteData: datosPropiedad.websiteData || { aiDescription: '', images: {}, cardImage: null },
-        amenidades: datosPropiedad.amenidades || [],
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
     };
+
+    // 1. Guardar documento principal
     await propiedadRef.set(nuevaPropiedad);
+
+    // 2. Guardar en Subcolecciones (Nuevo Modelo)
+    const batch = db.batch();
+
+    // Componentes
+    componentes.forEach(comp => {
+        const compRef = propiedadRef.collection('componentes').doc();
+        batch.set(compRef, comp);
+    });
+
+    // Amenidades
+    const amenidades = datosPropiedad.amenidades || [];
+    amenidades.forEach(amenidad => {
+        const amRef = propiedadRef.collection('amenidades').doc();
+        batch.set(amRef, amenidad);
+    });
+
+    await batch.commit();
 
     // [AI-CONTEXT] Hidratar respuesta para uso inmediato
     const aiContext = hydrateInventory(componentes);
@@ -91,14 +113,14 @@ const obtenerPropiedadPorId = async (db, empresaId, propiedadId) => {
 const actualizarPropiedad = async (db, empresaId, propiedadId, datosActualizados) => {
     const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
 
-    // Si se actualizan componentes, recalcular derivados
+    // Si se actualizan componentes, recalcular derivados y sincronizar subcolección
     if (datosActualizados.componentes) {
         const componentesRaw = Array.isArray(datosActualizados.componentes) ? datosActualizados.componentes : [];
         const componentes = componentesRaw.map(c => ({
             ...c,
             elementos: Array.isArray(c.elementos) ? c.elementos : []
         }));
-        datosActualizados.componentes = componentes;
+        datosActualizados.componentes = componentes; // LEGACY
 
         // Recalcular
         const { numPiezas, numBanos } = contarDistribucion(componentes);
@@ -108,14 +130,36 @@ const actualizarPropiedad = async (db, empresaId, propiedadId, datosActualizados
         datosActualizados.numBanos = numBanos;
         datosActualizados.calculated_capacity = capacidadCalculada;
 
-        // Solo actualizar capacidad principal si no viene explícita en el update
         if (!datosActualizados.capacidad) {
             datosActualizados.capacidad = capacidadCalculada;
         }
+
+        // Sincronizar Subcolección Componentes (Estrategia: Eliminar y Recrear para garantizar consistencia)
+        const batch = db.batch();
+        const existingComps = await propiedadRef.collection('componentes').get();
+        existingComps.forEach(doc => batch.delete(doc.ref));
+
+        componentes.forEach(comp => {
+            const newDoc = propiedadRef.collection('componentes').doc();
+            batch.set(newDoc, comp);
+        });
+        await batch.commit();
     }
 
-    if (datosActualizados.amenidades && !Array.isArray(datosActualizados.amenidades)) {
-        datosActualizados.amenidades = [];
+    if (datosActualizados.amenidades) {
+        if (!Array.isArray(datosActualizados.amenidades)) {
+            datosActualizados.amenidades = [];
+        }
+        // Sincronizar Subcolección Amenidades
+        const batch = db.batch();
+        const existingAmens = await propiedadRef.collection('amenidades').get();
+        existingAmens.forEach(doc => batch.delete(doc.ref));
+
+        datosActualizados.amenidades.forEach(am => {
+            const newDoc = propiedadRef.collection('amenidades').doc();
+            batch.set(newDoc, am);
+        });
+        await batch.commit();
     }
 
     await propiedadRef.update({

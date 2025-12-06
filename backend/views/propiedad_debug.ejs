@@ -1,0 +1,51 @@
+<%- /* backend/views/propiedad.ejs */ %>
+    <% locals.paginaPropiedad=true; %>
+
+        <!DOCTYPE html>
+        <html lang="es">
+
+        <head>
+            <meta charset="UTF-8">
+            <title>Debug</title>
+        </head>
+
+        <body class="bg-gray-50">
+            <%- include('partials/header') %>
+                <main>
+                    <% const imagenes=propiedad.websiteData?.images || {}; const
+                        todasLasImagenesRaw=Object.values(imagenes).flat(); const
+                        todasLasImagenesValidas=todasLasImagenesRaw.filter(img=> img && img.storagePath);
+                        const cardImage = (propiedad.websiteData?.cardImage &&
+                        propiedad.websiteData.cardImage.storagePath) ? propiedad.websiteData.cardImage : null;
+
+                        let imagenesParaGaleria = todasLasImagenesValidas;
+                        if (cardImage) {
+                        imagenesParaGaleria = imagenesParaGaleria.filter(img => img?.imageId !== cardImage.imageId);
+                        imagenesParaGaleria.unshift(cardImage);
+                        }
+
+                        const imagenPrincipalMosaic = imagenesParaGaleria[0];
+                        const imagenesDerechaMosaic = imagenesParaGaleria.slice(1, 5);
+                        const restoImagenesGaleria = imagenesParaGaleria.slice(5);
+                        %>
+
+                        <form id="booking-form">
+                            <input type="hidden" name="propiedadId" value="<%= propiedad.id %>">
+                            <input type="date" name="fechaLlegada" value="<%= prefill.fechaLlegada %>">
+                            <input type="date" name="fechaSalida" value="<%= prefill.fechaSalida %>">
+                            <input type="number" name="personas" value="<%= prefill.personas %>">
+                            <button type="submit">Reserva</button>
+                        </form>
+                </main>
+                <%- include('partials/footer') %>
+
+                    <script>
+                        window.allPropertyImages = <% - JSON.stringify(imagenesParaGaleria || []) %>;
+                        window.initialBookingData = {
+                            propiedadId: "<%= propiedad.id %>",
+                            defaultPrice: <% - JSON.stringify(defaultPriceData || null) %>
+      };
+                    </script>
+        </body>
+
+        </html>

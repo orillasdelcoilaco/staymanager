@@ -6,46 +6,777 @@
 
         <head>
             <meta charset="UTF-8">
-            <title>Debug</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <% const pageTitle=`${propiedad.nombre} | ${empresa.nombre}`; %>
+                <% const pageDescription=(propiedad.websiteData?.aiDescription || propiedad.descripcion || `Descubre
+                    ${propiedad.nombre}`).substring(0, 155); %>
+                    <title>
+                        <%= pageTitle %>
+                    </title>
+                    <meta name="description" content="<%= pageDescription %>">
+
+                    <%# --- INICIO: Script JSON-LD (Propiedad) --- %>
+                        <% if (locals.schemaData) { %>
+                            <script type="application/ld+json">
+        <%- JSON.stringify(schemaData, null, 2) %>
+    </script>
+                            <% } %>
+                                <%# --- FIN: Script JSON-LD (Propiedad) --- %>
+
+                                    <link rel="stylesheet" href="/public/css/website.css">
+                                    <link rel="preconnect" href="https://fonts.googleapis.com">
+                                    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                                    <link
+                                        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+                                        rel="stylesheet">
+                                    <link rel="stylesheet"
+                                        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+                                    <style>
+                                        .custom-gallery-height {
+                                            height: 250px;
+                                        }
+
+                                        @media (min-width: 768px) {
+                                            .custom-gallery-height {
+                                                height: 400px;
+                                            }
+                                        }
+                                    </style>
         </head>
 
-        <body class="bg-gray-50">
+        <body class="bg-gray-50 flex flex-col min-h-screen">
             <%- include('partials/header') %>
-                <main>
-                    <% const imagenes=propiedad.websiteData?.images || {}; const
-                        todasLasImagenesRaw=Object.values(imagenes).flat(); const
-                        todasLasImagenesValidas=todasLasImagenesRaw.filter(img=> img && img.storagePath);
-                        const cardImage = (propiedad.websiteData?.cardImage &&
-                        propiedad.websiteData.cardImage.storagePath) ? propiedad.websiteData.cardImage : null;
+                <main class="flex-grow container mx-auto px-4 py-8 md:py-12">
 
-                        let imagenesParaGaleria = todasLasImagenesValidas;
-                        if (cardImage) {
-                        imagenesParaGaleria = imagenesParaGaleria.filter(img => img?.imageId !== cardImage.imageId);
-                        imagenesParaGaleria.unshift(cardImage);
-                        }
+                    <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+                        <%= propiedad.nombre %>
+                    </h1>
+                    <p class="text-sm text-gray-600 mb-6">Capacidad: hasta <%= propiedad.capacidad %> personas</p>
 
-                        const imagenPrincipalMosaic = imagenesParaGaleria[0];
-                        const imagenesDerechaMosaic = imagenesParaGaleria.slice(1, 5);
-                        const restoImagenesGaleria = imagenesParaGaleria.slice(5);
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
+                        <%# --- COLUMNA IZQUIERDA: Galería y Detalles --- %>
+                            <div class="lg:col-span-2 space-y-8">
+
+                                <% const imagenes=propiedad.websiteData?.images || {}; const
+                                    todasLasImagenesRaw=Object.values(imagenes).flat(); const
+                                    todasLasImagenesValidas=todasLasImagenesRaw.filter(img=> img && img.storagePath);
+                                    const cardImage = (propiedad.websiteData?.cardImage &&
+                                    propiedad.websiteData.cardImage.storagePath) ? propiedad.websiteData.cardImage :
+                                    null;
+
+                                    let imagenesParaGaleria = todasLasImagenesValidas;
+                                    if (cardImage) {
+                                    imagenesParaGaleria = imagenesParaGaleria.filter(img => img?.imageId !==
+                                    cardImage.imageId);
+                                    imagenesParaGaleria.unshift(cardImage);
+                                    }
+
+                                    const imagenPrincipalMosaic = imagenesParaGaleria[0];
+                                    const imagenesDerechaMosaic = imagenesParaGaleria.slice(1, 5);
+                                    const restoImagenesGaleria = imagenesParaGaleria.slice(5);
+                                    %>
+
+                                    <% if (imagenPrincipalMosaic) { %>
+                                        <div
+                                            class="grid grid-cols-2 grid-rows-2 gap-2 rounded-lg overflow-hidden shadow-lg custom-gallery-height">
+                                            <div class="col-span-1 row-span-2 gallery-image-trigger" data-index="0">
+                                                <picture>
+                                                    <source srcset="<%= imagenPrincipalMosaic.storagePath %>"
+                                                        type="image/webp">
+                                                    <img src="<%= imagenPrincipalMosaic.storagePath %>"
+                                                        alt="<%= imagenPrincipalMosaic.altText %>"
+                                                        title="<%= imagenPrincipalMosaic.title || '' %>"
+                                                        class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                                        style="height: 100%; object-fit: cover;">
+                                                </picture>
+                                            </div>
+                                            <% imagenesDerechaMosaic.forEach((img, index)=> { %>
+                                                <div class="col-span-1 row-span-1 relative gallery-image-trigger"
+                                                    data-index="<%= index + 1 %>">
+                                                    <picture>
+                                                        <source srcset="<%= img.storagePath %>" type="image/webp">
+                                                        <img src="<%= img.storagePath %>" alt="<%= img.altText %>"
+                                                            title="<%= img.title || '' %>"
+                                                            class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                                            style="height: 100%; object-fit: cover;">
+                                                    </picture>
+                                                    <% if (index===3 && restoImagenesGaleria.length> 0) { %>
+                                                        <button
+                                                            class="gallery-image-trigger absolute inset-0 bg-black bg-opacity-50 text-white flex items-center justify-center text-sm font-semibold hover:bg-opacity-70 transition-opacity"
+                                                            data-index="<%= index + 1 %>">
+                                                            +<%= restoImagenesGaleria.length %> fotos
+                                                        </button>
+                                                        <% } %>
+                                                </div>
+                                                <% }) %>
+                                                    <% if (imagenesDerechaMosaic.length < 4) { %>
+                                                        <% for(let i=0; i < (4 - imagenesDerechaMosaic.length); i++) {
+                                                            %>
+                                                            <div class="col-span-1 row-span-1 bg-gray-200"></div>
+                                                            <% } %>
+                                                                <% } %>
+                                        </div>
+                                        <% } else { %>
+                                            <div
+                                                class="w-full h-96 bg-gray-200 flex items-center justify-center rounded-lg shadow-lg text-gray-500">
+                                                Imágenes No Disponibles
+                                            </div>
+                                            <% } %>
+
+                                                <div class="prose max-w-none pt-4 border-t">
+                                                    <h2 class="text-xl font-semibold mb-2">Descripción</h2>
+                                                    <p>
+                                                        <%= propiedad.websiteData?.aiDescription ||
+                                                            propiedad.descripcion || 'No hay descripción disponible.' %>
+                                                    </p>
+                                                </div>
+
+                                                <div class="pt-4 border-t">
+                                                    <div class="flex items-center mb-4">
+                                                        <div
+                                                            class="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center mr-4 text-gray-500 text-lg">
+                                                            <i class="fa-solid fa-user-circle"></i>
+                                                        </div>
+                                                        <div>
+                                                            <h2 class="text-lg font-semibold text-gray-900">Anfitrión:
+                                                                <%= empresa.contactoNombre || empresa.nombre %>
+                                                            </h2>
+                                                            <p class="text-sm text-gray-600">
+                                                                <%= locals.hostingDuration %>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <% if (empresa.contactoTelefono && empresa.contactoNombre) { %>
+                                                        <% const
+                                                            telefonoLimpio=empresa.contactoTelefono.replace(/\D/g, '' );
+                                                            const nombreAnfitrion=empresa.contactoNombre.split(' ')[0];
+                            const mensajeEspecifico = `Hola ${nombreAnfitrion}, necesito ayuda para reservar el alojamiento "${propiedad.nombre}".`;
+                            const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeEspecifico)}`;
                         %>
+                        <a href="<%= whatsappUrl %>" target="_blank" class="btn-whatsapp w-full mb-6 block text-center py-2 px-4 bg-green-500 text-white rounded hover:bg-green-600 transition">
+                            <i class="fa-brands fa-whatsapp w-5 h-5 mr-2 text-white"></i>
+                            ¿Necesitas ayuda? Hablemos
+                        </a>
+                    <% } %>
 
-                        <form id="booking-form">
-                            <input type="hidden" name="propiedadId" value="<%= propiedad.id %>">
-                            <input type="date" name="fechaLlegada" value="<%= prefill.fechaLlegada %>">
-                            <input type="date" name="fechaSalida" value="<%= prefill.fechaSalida %>">
-                            <input type="number" name="personas" value="<%= prefill.personas %>">
-                            <button type="submit">Reserva</button>
-                        </form>
+                    <div class="space-y-4 mt-6">
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-star text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Experiencia Destacada</h3>
+                                <p class="text-sm text-gray-600">Nuestros huéspedes aman la atención y el entorno.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-house-chimney-medical text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Ambientes Acogedores</h3>
+                                <p class="text-sm text-gray-600">Disfruta de espacios amplios y bien equipados.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-calendar-check text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Cancelación Flexible</h3>
+                                <p class="text-sm text-gray-600">Cancela gratis hasta 3 días antes del check-in para un reembolso total.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t">
+                    <h2 class="text-xl font-semibold mb-4">Comodidades</h2>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-bed w-5 mr-2 text-indigo-600"></i> <%= propiedad.numPiezas || ' ?' %>
+                                                            Dormitorios
+                                                </div>
+                                                <div class="flex items-center">
+                                                    <i class="fa-solid fa-bath w-5 mr-2 text-indigo-600"></i>
+                                                    <%= propiedad.numBanos || '?' %> Baños
+                                                </div>
+                                                <div class="flex items-center">
+                                                    <i class="fa-solid fa-users w-5 mr-2 text-indigo-600"></i> Capacidad
+                                                    <%= propiedad.capacidad %> personas
+                                                </div>
+                                                <% if (propiedad.equipamiento?.tinaja) { %>
+                                                    <div class="flex items-center"><i
+                                                            class="fa-solid fa-hot-tub-person w-5 mr-2 text-indigo-600"></i>
+                                                        Tinaja Privada</div>
+                                                    <% } %>
+                                                        <% if (propiedad.equipamiento?.parrilla) { %>
+                                                            <div class="flex items-center"><i
+                                                                    class="fa-solid fa-burger w-5 mr-2 text-indigo-600"></i>
+                                                                Parrilla</div>
+                                                            <% } %>
+                                                                <% if (propiedad.equipamiento?.terrazaTechada) { %>
+                                                                    <div class="flex items-center"><i
+                                                                            class="fa-solid fa-campground w-5 mr-2 text-indigo-600"></i>
+                                                                        Terraza Techada</div>
+                                                                    <% } %>
+                                                                        <% if (propiedad.equipamiento?.juegoDeTerraza) {
+                                                                            %>
+                                                                            <div class="flex items-center"><i
+                                                                                    class="fa-solid fa-chair w-5 mr-2 text-indigo-600"></i>
+                                                                                Juego de Terraza</div>
+                                                                            <% } %>
+                                                                                <% if
+                                                                                    (propiedad.equipamiento?.piezaEnSuite)
+                                                                                    { %>
+                                                                                    <div class="flex items-center"><i
+                                                                                            class="fa-solid fa-person-booth w-5 mr-2 text-indigo-600"></i>
+                                                                                        Pieza en Suite</div>
+                                                                                    <% } %>
+                                                                                        <% if
+                                                                                            (propiedad.equipamiento?.dosPisos)
+                                                                                            { %>
+                                                                                            <div
+                                                                                                class="flex items-center">
+                                                                                                <i
+                                                                                                    class="fa-solid fa-building w-5 mr-2 text-indigo-600"></i>
+                                                                                                Dos Pisos
+                                                                                            </div>
+                                                                                            <% } %>
+                            </div>
+                    </div>
+
+                    </div>
+                    <%# --- FIN COLUMNA IZQUIERDA --- %>
+
+                        <%# --- COLUMNA DERECHA: Widget de Reserva --- %>
+                            <div class="lg:col-span-1 relative">
+                                <div class="sticky top-4">
+                                    <%- include('partials/booking-widget') %>
+                                </div>
+                            </div>
+                            <%# --- FIN COLUMNA DERECHA --- %>
+
+                                </div>
                 </main>
+
                 <%- include('partials/footer') %>
 
-                    <script>
-                        window.allPropertyImages = <% - JSON.stringify(imagenesParaGaleria || []) %>;
-                        window.initialBookingData = {
-                            propiedadId: "<%= propiedad.id %>",
-                            defaultPrice: <% - JSON.stringify(defaultPriceData || null) %>
-      };
-                    </script>
+                    <%# --- Lightbox Modal --- %>
+                        <div id="lightbox-modal"
+                            class="lightbox-modal hidden fixed inset-0 z-50 flex items-center justify-center">
+                            <div class="lightbox-overlay absolute inset-0 bg-black bg-opacity-90">
+                            </div>
+                            <button id="lightbox-close"
+                                class="lightbox-close absolute top-4 right-4 text-white text-4xl">&times;</button>
+                            <button id="lightbox-prev"
+                                class="lightbox-prev absolute left-4 text-white text-4xl">&#10094;</button>
+                            <button id="lightbox-next"
+                                class="lightbox-next absolute right-4 text-white text-4xl">&#10095;</button>
+                            <div class="lightbox-content relative z-10 max-w-4xl max-h-[90vh]">
+                                <div id="lightbox-loader"
+                                    class="lightbox-loader hidden absolute inset-0 flex items-center justify-center text-white">
+                                    Cargando...
+                                </div>
+                                <img id="lightbox-image" src="" alt="Imagen de galería"
+                                    class="lightbox-image max-w-full max-h-[85vh] object-contain">
+                                <% if (imagenPrincipalMosaic) { %>
+                                    <div
+                                        class="grid grid-cols-2 grid-rows-2 gap-2 rounded-lg overflow-hidden shadow-lg h-[50vh] md:h-[60vh]">
+                                        <div class="col-span-1 row-span-2 gallery-image-trigger" data-index="0">
+                                            <picture>
+                                                <source srcset="<%= imagenPrincipalMosaic.storagePath %>"
+                                                    type="image/webp">
+                                                <img src="<%= imagenPrincipalMosaic.storagePath %>"
+                                                    alt="<%= imagenPrincipalMosaic.altText %>"
+                                                    title="<%= imagenPrincipalMosaic.title || '' %>"
+                                                    class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity">
+                                            </picture>
+                                        </div>
+                                        <% imagenesDerechaMosaic.forEach((img, index)=>
+                                            { %>
+                                            <div class="col-span-1 row-span-1 relative gallery-image-trigger"
+                                                data-index="<%= index + 1 %>">
+                                                <picture>
+                                                    <source srcset="<%= img.storagePath %>" type="image/webp">
+                                                    <img src="<%= img.storagePath %>" alt="<%= img.altText %>"
+                                                        title="<%= img.title || '' %>"
+                                                        class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity">
+                                                </picture>
+                                                <% if (index===3 && restoImagenesGaleria.length>
+                                                    0)
+                                                    {
+                                                    %>
+                                                    <button
+                                                        class="gallery-image-trigger absolute inset-0 bg-black bg-opacity-50 text-white flex items-center justify-center text-sm font-semibold hover:bg-opacity-70 transition-opacity"
+                                                        data-index="<%= index + 1 %>">
+                                                        +
+                                                        <%= restoImagenesGaleria.length %>
+                                                            fotos
+                                                    </button>
+                                                    <% } %>
+                                            </div>
+                                            <% }) %>
+                                                <% if (imagenesDerechaMosaic.length < 4) { %>
+                                                    <% for(let i=0; i < (4 - imagenesDerechaMosaic.length); i++) { %>
+                                                        <div class="col-span-1 row-span-1 bg-gray-200">
+                                                        </div>
+                                                        <% } %>
+                                                            <% } %>
+                                    </div>
+                                    <% } else { %>
+                                        <div
+                                            class="w-full h-96 bg-gray-200 flex items-center justify-center rounded-lg shadow-lg text-gray-500">
+                                            Imágenes
+                                            No
+                                            Disponibles
+                                        </div>
+                                        <% } %>
+
+                                            <div class="prose max-w-none pt-4 border-t">
+                                                <h2 class="text-xl font-semibold mb-2">
+                                                    Descripción
+                                                </h2>
+                                                <p>
+                                                    <%= propiedad.websiteData?.aiDescription || propiedad.descripcion
+                                                        || 'No hay descripción disponible.' %>
+                                                </p>
+                                            </div>
+
+                                            <div class="pt-4 border-t">
+                                                <div class="flex items-center mb-4">
+                                                    <div
+                                                        class="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center mr-4 text-gray-500 text-lg">
+                                                        <i class="fa-solid fa-user-circle"></i>
+                                                    </div>
+                                                    <div>
+                                                        <h2 class="text-lg font-semibold text-gray-900">
+                                                            Anfitrión:
+                                                            <%= empresa.contactoNombre || empresa.nombre %>
+                                                        </h2>
+                                                        <p class="text-sm text-gray-600">
+                                                            <%= locals.hostingDuration %>
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <% if (empresa.contactoTelefono && empresa.contactoNombre) { %>
+                                                    <% const telefonoLimpio=empresa.contactoTelefono.replace(/\D/g, ''
+                                                        ); const nombreAnfitrion=empresa.contactoNombre.split(' ')[0];
+                            const mensajeEspecifico = `Hola ${nombreAnfitrion}, necesito ayuda para reservar el alojamiento "${propiedad.nombre}".`;
+                            const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeEspecifico)}`;
+                        %>
+                        <a href="<%= whatsappUrl %>" target="_blank" class="btn-whatsapp w-full mb-6 block text-center py-2 px-4 bg-green-500 text-white rounded hover:bg-green-600 transition">
+                            <i class="fa-brands fa-whatsapp w-5 h-5 mr-2 text-white"></i>
+                            ¿Necesitas ayuda? Hablemos
+                        </a>
+                    <% } %>
+
+                    <div class="space-y-4 mt-6">
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-star text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Experiencia Destacada</h3>
+                                <p class="text-sm text-gray-600">Nuestros huéspedes aman la atención y el entorno.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-house-chimney-medical text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Ambientes Acogedores</h3>
+                                <p class="text-sm text-gray-600">Disfruta de espacios amplios y bien equipados.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-calendar-check text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Cancelación Flexible</h3>
+                                <p class="text-sm text-gray-600">Cancela gratis hasta 3 días antes del check-in para un reembolso total.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t">
+                    <h2 class="text-xl font-semibold mb-4">Comodidades</h2>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-bed w-5 mr-2 text-indigo-600"></i> <%= propiedad.numPiezas || ' ?' %>
+                                                        Dormitorios
+                                            </div>
+                                            <div class="flex items-center">
+                                                <i class="fa-solid fa-bath w-5 mr-2 text-indigo-600"></i>
+                                                <%= propiedad.numBanos || '?' %>
+                                                    Baños
+                                            </div>
+                                            <div class="flex items-center">
+                                                <i class="fa-solid fa-users w-5 mr-2 text-indigo-600"></i>
+                                                Capacidad
+                                                <%= propiedad.capacidad %>
+                                                    personas
+                                            </div>
+                                            <% if (propiedad.equipamiento?.tinaja) { %>
+                                                <div class="flex items-center">
+                                                    <i class="fa-solid fa-hot-tub-person w-5 mr-2 text-indigo-600"></i>
+                                                    Tinaja
+                                                    Privada
+                                                </div>
+                                                <% } %>
+                                                    <% if (propiedad.equipamiento?.parrilla) { %>
+                                                        <div class="flex items-center">
+                                                            <i class="fa-solid fa-burger w-5 mr-2 text-indigo-600"></i>
+                                                            Parrilla
+                                                        </div>
+                                                        <% } %>
+                                                            <% if (propiedad.equipamiento?.terrazaTechada) { %>
+                                                                <div class="flex items-center">
+                                                                    <i
+                                                                        class="fa-solid fa-campground w-5 mr-2 text-indigo-600"></i>
+                                                                    Terraza
+                                                                    Techada
+                                                                </div>
+                                                                <% } %>
+                                                                    <% if (propiedad.equipamiento?.juegoDeTerraza) { %>
+                                                                        <div class="flex items-center">
+                                                                            <i
+                                                                                class="fa-solid fa-chair w-5 mr-2 text-indigo-600"></i>
+                                                                            Juego
+                                                                            de
+                                                                            Terraza
+                                                                        </div>
+                                                                        <% } %>
+                                                                            <% if (propiedad.equipamiento?.piezaEnSuite)
+                                                                                { %>
+                                                                                <div class="flex items-center">
+                                                                                    <i
+                                                                                        class="fa-solid fa-person-booth w-5 mr-2 text-indigo-600"></i>
+                                                                                    Pieza
+                                                                                    en
+                                                                                    Suite
+                                                                                </div>
+                                                                                <% } %>
+                                                                                    <% if
+                                                                                        (propiedad.equipamiento?.dosPisos)
+                                                                                        { %>
+                                                                                        <div class="flex items-center">
+                                                                                            <i
+                                                                                                class="fa-solid fa-building w-5 mr-2 text-indigo-600"></i>
+                                                                                            Dos
+                                                                                            Pisos
+                                                                                        </div>
+                                                                                        <% } %>
+                            </div>
+                        </div>
+
+                        </div>
+                        <%# --- FIN COLUMNA IZQUIERDA --- %>
+
+                            <%# --- COLUMNA DERECHA: Widget de Reserva --- %>
+                                <div class="lg:col-span-1 relative">
+                                    <div class="sticky top-4">
+                                        <%- include('partials/booking-widget') %>
+                                    </div>
+                                </div>
+                                <%# --- FIN COLUMNA DERECHA --- %>
+
+                                    </div>
+                                    </main>
+
+                                    <%- include('partials/footer') %>
+
+                                        <%# --- Lightbox Modal --- %>
+                                            <div id="lightbox-modal"
+                                                class="lightbox-modal hidden fixed inset-0 z-50 flex items-center justify-center">
+                                                <div class="lightbox-overlay absolute inset-0 bg-black bg-opacity-90">
+                                                </div>
+                                                <button id="lightbox-close"
+                                                    class="lightbox-close absolute top-4 right-4 text-white text-4xl">&times;</button>
+                                                <button id="lightbox-prev"
+                                                    class="lightbox-prev absolute left-4 text-white text-4xl">&#10094;</button>
+                                                <button id="lightbox-next"
+                                                    class="lightbox-next absolute right-4 text-white text-4xl">&#10095;</button>
+                                                <div class="lightbox-content relative z-10 max-w-4xl max-h-[90vh]">
+                                                    <div id="lightbox-loader"
+                                                        class="lightbox-loader hidden absolute inset-0 flex items-center justify-center text-white">
+                                                        Cargando...
+                                                    </div>
+                                                    <img id="lightbox-image" src="" alt="Imagen de galería"
+                                                        class="lightbox-image max-w-full max-h-[85vh] object-contain">
+                                                    <div id="lightbox-caption" Cargando...</div>
+                                                        <img id="lightbox-image" src="" alt="Imagen de galería"
+                                                            class="lightbox-image max-w-full max-h-[85vh] object-contain">
+                                                        <% if (imagenPrincipalMosaic) { %>
+                                                            <div
+                                                                class="grid grid-cols-2 grid-rows-2 gap-2 rounded-lg overflow-hidden shadow-lg h-[50vh] md:h-[60vh]">
+                                                                <div class="col-span-1 row-span-2 gallery-image-trigger"
+                                                                    data-index="0">
+                                                                    <picture>
+                                                                        <source
+                                                                            srcset="<%= imagenPrincipalMosaic.storagePath %>"
+                                                                            type="image/webp">
+                                                                        <img src="<%= imagenPrincipalMosaic.storagePath %>"
+                                                                            alt="<%= imagenPrincipalMosaic.altText %>"
+                                                                            title="<%= imagenPrincipalMosaic.title || '' %>"
+                                                                            class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity">
+                                                                    </picture>
+                                                                </div>
+                                                                <% imagenesDerechaMosaic.forEach((img, index)=>
+                                                                    {
+                                                                    %>
+                                                                    <div class="col-span-1 row-span-1 relative gallery-image-trigger"
+                                                                        data-index="<%= index + 1 %>">
+                                                                        <picture>
+                                                                            <source srcset="<%= img.storagePath %>"
+                                                                                type="image/webp">
+                                                                            <img src="<%= img.storagePath %>"
+                                                                                alt="<%= img.altText %>"
+                                                                                title="<%= img.title || '' %>"
+                                                                                class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity">
+                                                                        </picture>
+                                                                        <% if (index===3 && restoImagenesGaleria.length>
+                                                                            0)
+                                                                            {
+                                                                            %>
+                                                                            <button
+                                                                                class="gallery-image-trigger absolute inset-0 bg-black bg-opacity-50 text-white flex items-center justify-center text-sm font-semibold hover:bg-opacity-70 transition-opacity"
+                                                                                data-index="<%= index + 1 %>">
+                                                                                +
+                                                                                <%= restoImagenesGaleria.length %>
+                                                                                    fotos
+                                                                            </button>
+                                                                            <% } %>
+                                                                    </div>
+                                                                    <% }) %>
+                                                                        <% if (imagenesDerechaMosaic.length < 4) { %>
+                                                                            <% for(let i=0; i < (4 -
+                                                                                imagenesDerechaMosaic.length); i++) { %>
+                                                                                <div
+                                                                                    class="col-span-1 row-span-1 bg-gray-200">
+                                                                                </div>
+                                                                                <% } %>
+                                                                                    <% } %>
+                                                            </div>
+                                                            <% } else { %>
+                                                                <div
+                                                                    class="w-full h-96 bg-gray-200 flex items-center justify-center rounded-lg shadow-lg text-gray-500">
+                                                                    Imágenes
+                                                                    No
+                                                                    Disponibles
+                                                                </div>
+                                                                <% } %>
+
+                                                                    <div class="prose max-w-none pt-4 border-t">
+                                                                        <h2 class="text-xl font-semibold mb-2">
+                                                                            Descripción
+                                                                        </h2>
+                                                                        <p>
+                                                                            <%= propiedad.websiteData?.aiDescription ||
+                                                                                propiedad.descripcion
+                                                                                || 'No hay descripción disponible.' %>
+                                                                        </p>
+                                                                    </div>
+
+                                                                    <div class="pt-4 border-t">
+                                                                        <div class="flex items-center mb-4">
+                                                                            <div
+                                                                                class="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center mr-4 text-gray-500 text-lg">
+                                                                                <i class="fa-solid fa-user-circle"></i>
+                                                                            </div>
+                                                                            <div>
+                                                                                <h2
+                                                                                    class="text-lg font-semibold text-gray-900">
+                                                                                    Anfitrión:
+                                                                                    <%= empresa.contactoNombre ||
+                                                                                        empresa.nombre %>
+                                                                                </h2>
+                                                                                <p class="text-sm text-gray-600">
+                                                                                    <%= locals.hostingDuration %>
+                                                                                </p>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <% if (empresa.contactoTelefono &&
+                                                                            empresa.contactoNombre) { %>
+                                                                            <% const
+                                                                                telefonoLimpio=empresa.contactoTelefono.replace(/\D/g, ''
+                                                                                ); const
+                                                                                nombreAnfitrion=empresa.contactoNombre.split(' ')[0];
+                            const mensajeEspecifico = `Hola ${nombreAnfitrion}, necesito ayuda para reservar el alojamiento "${propiedad.nombre}".`;
+                            const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeEspecifico)}`;
+                        %>
+                        <a href="<%= whatsappUrl %>" target="_blank" class="btn-whatsapp w-full mb-6 block text-center py-2 px-4 bg-green-500 text-white rounded hover:bg-green-600 transition">
+                            <i class="fa-brands fa-whatsapp w-5 h-5 mr-2 text-white"></i>
+                            ¿Necesitas ayuda? Hablemos
+                        </a>
+                    <% } %>
+
+                    <div class="space-y-4 mt-6">
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-star text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Experiencia Destacada</h3>
+                                <p class="text-sm text-gray-600">Nuestros huéspedes aman la atención y el entorno.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-house-chimney-medical text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Ambientes Acogedores</h3>
+                                <p class="text-sm text-gray-600">Disfruta de espacios amplios y bien equipados.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-calendar-check text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Cancelación Flexible</h3>
+                                <p class="text-sm text-gray-600">Cancela gratis hasta 3 días antes del check-in para un reembolso total.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t">
+                    <h2 class="text-xl font-semibold mb-4">Comodidades</h2>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-bed w-5 mr-2 text-indigo-600"></i> <%= propiedad.numPiezas || ' ?' %>
+                                                                                Dormitorios
+                                                                    </div>
+                                                                    <div class="flex items-center">
+                                                                        <i
+                                                                            class="fa-solid fa-bath w-5 mr-2 text-indigo-600"></i>
+                                                                        <%= propiedad.numBanos || '?' %>
+                                                                            Baños
+                                                                    </div>
+                                                                    <div class="flex items-center">
+                                                                        <i
+                                                                            class="fa-solid fa-users w-5 mr-2 text-indigo-600"></i>
+                                                                        Capacidad
+                                                                        <%= propiedad.capacidad %>
+                                                                            personas
+                                                                    </div>
+                                                                    <% if (propiedad.equipamiento?.tinaja) { %>
+                                                                        <div class="flex items-center">
+                                                                            <i
+                                                                                class="fa-solid fa-hot-tub-person w-5 mr-2 text-indigo-600"></i>
+                                                                            Tinaja
+                                                                            Privada
+                                                                        </div>
+                                                                        <% } %>
+                                                                            <% if (propiedad.equipamiento?.parrilla) {
+                                                                                %>
+                                                                                <div class="flex items-center">
+                                                                                    <i
+                                                                                        class="fa-solid fa-burger w-5 mr-2 text-indigo-600"></i>
+                                                                                    Parrilla
+                                                                                </div>
+                                                                                <% } %>
+                                                                                    <% if
+                                                                                        (propiedad.equipamiento?.terrazaTechada)
+                                                                                        { %>
+                                                                                        <div class="flex items-center">
+                                                                                            <i
+                                                                                                class="fa-solid fa-campground w-5 mr-2 text-indigo-600"></i>
+                                                                                            Terraza
+                                                                                            Techada
+                                                                                        </div>
+                                                                                        <% } %>
+                                                                                            <% if
+                                                                                                (propiedad.equipamiento?.juegoDeTerraza)
+                                                                                                { %>
+                                                                                                <div
+                                                                                                    class="flex items-center">
+                                                                                                    <i
+                                                                                                        class="fa-solid fa-chair w-5 mr-2 text-indigo-600"></i>
+                                                                                                    Juego
+                                                                                                    de
+                                                                                                    Terraza
+                                                                                                </div>
+                                                                                                <% } %>
+                                                                                                    <% if
+                                                                                                        (propiedad.equipamiento?.piezaEnSuite)
+                                                                                                        { %>
+                                                                                                        <div
+                                                                                                            class="flex items-center">
+                                                                                                            <i
+                                                                                                                class="fa-solid fa-person-booth w-5 mr-2 text-indigo-600"></i>
+                                                                                                            Pieza
+                                                                                                            en
+                                                                                                            Suite
+                                                                                                        </div>
+                                                                                                        <% } %>
+                                                                                                            <% if
+                                                                                                                (propiedad.equipamiento?.dosPisos)
+                                                                                                                { %>
+                                                                                                                <div
+                                                                                                                    class="flex items-center">
+                                                                                                                    <i
+                                                                                                                        class="fa-solid fa-building w-5 mr-2 text-indigo-600"></i>
+                                                                                                                    Dos
+                                                                                                                    Pisos
+                                                                                                                </div>
+                                                                                                                <% } %>
+                                                    </div>
+                                                </div>
+
+                                            </div>
+                                            <%# --- FIN COLUMNA IZQUIERDA --- %>
+
+                                                <%# --- COLUMNA DERECHA: Widget de Reserva --- %>
+                                                    <div class="lg:col-span-1 relative">
+                                                        <div class="sticky top-4">
+                                                            <%- include('partials/booking-widget') %>
+                                                        </div>
+                                                    </div>
+                                                    <%# --- FIN COLUMNA DERECHA --- %>
+
+                                                        </div>
+                                                        </main>
+
+                                                        <%- include('partials/footer') %>
+
+                                                            <%# --- Lightbox Modal --- %>
+                                                                <div id="lightbox-modal"
+                                                                    class="lightbox-modal hidden fixed inset-0 z-50 flex items-center justify-center">
+                                                                    <div
+                                                                        class="lightbox-overlay absolute inset-0 bg-black bg-opacity-90">
+                                                                    </div>
+                                                                    <button id="lightbox-close"
+                                                                        class="lightbox-close absolute top-4 right-4 text-white text-4xl">&times;</button>
+                                                                    <button id="lightbox-prev"
+                                                                        class="lightbox-prev absolute left-4 text-white text-4xl">&#10094;</button>
+                                                                    <button id="lightbox-next"
+                                                                        class="lightbox-next absolute right-4 text-white text-4xl">&#10095;</button>
+                                                                    <div
+                                                                        class="lightbox-content relative z-10 max-w-4xl max-h-[90vh]">
+                                                                        <div id="lightbox-loader"
+                                                                            class="lightbox-loader hidden absolute inset-0 flex items-center justify-center text-white">
+                                                                            Cargando...
+                                                                        </div>
+                                                                        <img id="lightbox-image" src=""
+                                                                            alt="Imagen de galería"
+                                                                            class="lightbox-image max-w-full max-h-[85vh] object-contain">
+                                                                        <div id="lightbox-caption"
+                                                                            class="lightbox-caption text-white text-center mt-2">
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <script>
+                                                                    // Inyectar JSON de forma segura en variables globales
+                                                                    window.allPropertyImages = [];
+                                                                    window.initialBookingData = null;
+                                                                    try {
+                                                                        window.allPropertyImages = <% - JSON.stringify(imagenesParaGaleria || []) %>;
+                                                                        const rawDefaultPrice = <% - JSON.stringify(typeof defaultPriceData !== 'undefined' ? defaultPriceData : null) %>;
+                                                                        window.initialBookingData = {
+                                                                            propiedadId: "<%= propiedad.id %>",
+                                                                            defaultPrice: rawDefaultPrice
+                                                                        };
+                                                                        console.log("Initial Booking Data Loaded (Success):", window.initialBookingData);
+                                                                    } catch (e) {
+                                                                        console.error("CRITICAL ERROR: Failed to inject initialBookingData.", e);
+                                                                        // Fallback for debugging
+                                                                        window.initialBookingDataError = e.message;
+                                                                    }
+                                                                </script>
+                                                                <script src="/public/js/booking.js" defer></script>
+                                                                <script src="/public/js/gallery.js" defer></script>
         </body>
 
         </html>

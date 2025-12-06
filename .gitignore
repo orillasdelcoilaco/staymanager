@@ -5,3 +5,4 @@ backend/google_credentials.json
 
 # Dependencias de Node.js
 backend/node_modules
+node_modules

@@ -1,0 +1,23 @@
+<%# backend/views/partials/search-bar.ejs %>
+    <div class="bg-white p-6 rounded-lg shadow-lg mb-12">
+        <form action="/" method="GET" class="flex flex-col md:flex-row gap-4 items-end">
+            <div class="flex-1">
+                <label for="fechaLlegada" class="block text-sm font-medium text-gray-700">Llegada</label>
+                <input type="date" name="fechaLlegada" id="fechaLlegada" class="form-input mt-1 w-full"
+                    value="<%= locals.query && query.fechaLlegada ? query.fechaLlegada : '' %>">
+            </div>
+            <div class="flex-1">
+                <label for="fechaSalida" class="block text-sm font-medium text-gray-700">Salida</label>
+                <input type="date" name="fechaSalida" id="fechaSalida" class="form-input mt-1 w-full"
+                    value="<%= locals.query && query.fechaSalida ? query.fechaSalida : '' %>">
+            </div>
+            <div class="flex-1">
+                <label for="personas" class="block text-sm font-medium text-gray-700">Huéspedes</label>
+                <input type="number" name="personas" id="personas" min="1" class="form-input mt-1 w-full"
+                    placeholder="Ej: 2" value="<%= locals.query && query.personas ? query.personas : '' %>">
+            </div>
+            <div class="flex-1">
+                <button type="submit" class="btn w-full">Buscar</button>
+            </div>
+        </form>
+    </div>

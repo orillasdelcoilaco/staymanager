@@ -3,7 +3,7 @@ const express = require('express');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
-const sharp = require('sharp');
+
 const admin = require('firebase-admin');
 
 const { obtenerPropiedadPorId, actualizarPropiedad } = require('../services/propiedadesService');
@@ -17,6 +17,7 @@ const {
 } = require('../services/aiContentService');
 const { uploadFile, deleteFileByPath } = require('../services/storageService');
 const { generarPlanFotos } = require('../services/propiedadLogicService');
+const { optimizeImage } = require('../services/imageProcessingService'); // [NEW] Centralized Service
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -71,10 +72,11 @@ module.exports = (db) => {
             const outputFormat = 'webp';
             const storagePath = `empresas/${empresaId}/website/hero-${imageId}.${outputFormat}`;
 
-            const optimizedBuffer = await sharp(req.file.buffer)
-                .resize({ width: 1920, height: 1080, fit: 'cover' })
-                .toFormat(outputFormat, { quality: 85 })
-                .toBuffer();
+            // 1. Procesar y subir imagen (Standardized)
+            const { buffer: optimizedBuffer, info } = await optimizeImage(req.file.buffer, {
+                maxWidth: 1920,
+                quality: 85
+            });
 
             const publicUrl = await uploadFile(optimizedBuffer, storagePath, `image/${outputFormat}`);
 
@@ -153,7 +155,10 @@ module.exports = (db) => {
             const imageId = `card-${uuidv4()}`;
             const outputFormat = 'webp';
             const storagePath = `empresas/${empresaId}/propiedades/${req.params.propiedadId}/images/${imageId}.${outputFormat}`;
-            const optimizedBuffer = await sharp(req.file.buffer).resize({ width: 800, height: 600, fit: 'cover' }).toFormat(outputFormat, { quality: 80 }).toBuffer();
+            const { buffer: optimizedBuffer } = await optimizeImage(req.file.buffer, {
+                maxWidth: 800,
+                quality: 80
+            });
             const publicUrl = await uploadFile(optimizedBuffer, storagePath, `image/${outputFormat}`);
 
             // Metadata IA
@@ -186,10 +191,10 @@ module.exports = (db) => {
                 const imageId = uuidv4();
                 const outputFormat = 'webp';
                 const storagePathRelative = `empresas/${empresaId}/propiedades/${propiedadId}/images/${componente.id}/${imageId}.${outputFormat}`;
-                const optimizedBuffer = await sharp(file.buffer)
-                    .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
-                    .toFormat(outputFormat, { quality: 80 })
-                    .toBuffer();
+                const { buffer: optimizedBuffer } = await optimizeImage(file.buffer, {
+                    maxWidth: 1200,
+                    quality: 80
+                });
                 const publicUrl = await uploadFile(optimizedBuffer, storagePathRelative, `image/${outputFormat}`);
 
                 let metadata = { altText: componente.nombre, title: componente.nombre };

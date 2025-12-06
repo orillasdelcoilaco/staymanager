@@ -198,6 +198,10 @@ try {
     apiRouter.use('/estados', estadosRoutes(db));
     apiRouter.use('/ai', aiRoutes(db));
 
+    // [NEW] Content Factory Routes (SSR Generation Pipeline)
+    const contentFactoryRoutes = require('./routes/contentFactoryRoutes');
+    apiRouter.use('/content-factory', contentFactoryRoutes(db));
+
     app.use('/api', apiRouter);
 
     // **PRIORIDAD 3: Frontend Admin**
