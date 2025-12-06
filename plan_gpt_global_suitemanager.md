@@ -1,18 +1,18 @@
-﻿# Plan Maestro de Implementación GPT SuiteManager IA
+﻿# Plan Maestro de Implementacion GPT SuiteManager IA
 
-Este documento define claramente **cada etapa**, **los objetivos**, **entregables**, y **criterios de éxito** para integrar completamente el GPT Global, los GPT Privados, el módulo IA Concierge, y toda la lógica relacionada en SuiteManager IA.
+Este documento define claramente **cada etapa**, **los objetivos**, **entregables**, y **criterios de exito** para integrar completamente el GPT Global, los GPT Privados, el modulo IA Concierge, y toda la logica relacionada en SuiteManager IA.
 
-Servirá como **documento de referencia permanente** y como **contexto oficial** para futuras mejoras.
+Servira como **documento de referencia permanente** y como **contexto oficial** para futuras mejoras.
 
 ---
 
-# 🟦 1. Configuración y Publicación del GPT Global
+# 1. Configuracion y Publicacion del GPT Global
 
-### 🎯 Objetivo
+### Objetivo
 
 Crear y publicar el GPT Global de SuiteManager IA usando ChatGPT Apps, sincronizado con el backend (suitemanagers.com), con Actions activadas y comportamiento optimizado.
 
-### 📌 Alcance
+### Alcance
 
 * Cargar manifiesto final
 * Cargar instrucciones optimizadas
@@ -20,30 +20,30 @@ Crear y publicar el GPT Global de SuiteManager IA usando ChatGPT Apps, sincroniz
 * Probar todas las Actions desde ChatGPT
 * Validar comportamiento comercial
 
-### ✔ Entregables
+### Entregables
 
 * GPT Global activo
 * Actions conectadas
 * Conversaciones reales funcionando
 
-### 🔐 Criterios de Éxito
+### Criterios de Exito
 
-* El GPT inicia todas las conversaciones con intención correcta
-* Calcula fechas (p. ej., "este fin de semana") automáticamente
+* El GPT inicia todas las conversaciones con intencion correcta
+* Calcula fechas (p. ej., "este fin de semana") automaticamente
 * Hace solo 1 pregunta necesaria
 * Usa /availability correctamente
-* Muestra máximo 2 fotos
+* Muestra maximo 2 fotos
 * Guideline de ventas activo
 
 ---
 
-# 🟩 2. Pruebas en vivo con datos reales
+# 2. Pruebas en vivo con datos reales
 
-### 🎯 Objetivo
+### Objetivo
 
 Validar el comportamiento del GPT Global contra alojamientos reales (ej. Orillas del Coilaco).
 
-### 📌 Alcance
+### Alcance
 
 * Probar con fechas futuras
 * Probar fines de semana
@@ -51,12 +51,12 @@ Validar el comportamiento del GPT Global contra alojamientos reales (ej. Orillas
 * Probar consultas triviales
 * Probar peticiones de fotos
 
-### ✔ Entregables
+### Entregables
 
 * Reporte de pruebas manuales
 * Ajustes de UX conversacional si es necesario
 
-### 🔐 Criterios de Éxito
+### Criterios de Exito
 
 * El GPT responde sin errores
 * El JSON del backend es respetado sin inventar datos
@@ -65,91 +65,91 @@ Validar el comportamiento del GPT Global contra alojamientos reales (ej. Orillas
 
 ---
 
-# 🟧 3. Ajuste de estilo comercial y experiencia del usuario
+# 3. Ajuste de estilo comercial y experiencia del usuario
 
-### 🎯 Objetivo
+### Objetivo
 
-Optimizar el tono, estilo y formato de las respuestas para maximizar la conversión.
+Optimizar el tono, estilo y formato de las respuestas para maximizar la conversion.
 
-### 📌 Alcance
+### Alcance
 
 * Ajustar el copywriting
 * Definir voz del asistente
 * Optimizar CTAs
 * Reducir palabras innecesarias
-* Mejorar formato visual (emoji, bullets, claridad)
+* Mejorar formato visual (bullets, claridad)
 
-### ✔ Entregables
+### Entregables
 
-* Versión final del estilo comercial
+* Version final del estilo comercial
 * Instrucciones actualizadas en el GPT
 
-### 🔐 Criterios de Éxito
+### Criterios de Exito
 
-* El asistente suena profesional, cálido y directo
+* El asistente suena profesional, calido y directo
 * Orienta siempre a reservar
 * Mantiene respuestas cortas
 
 ---
 
-# 🟨 4. Modo vendedor (Sales Booster Mode)
+# 4. Modo vendedor (Sales Booster Mode)
 
-### 🎯 Objetivo
+### Objetivo
 
 Implementar un modo interno que aumente conversiones guiando al usuario a reservar.
 
-### 📌 Alcance
+### Alcance
 
 * Argumentos de valor
 * Mensajes para urgencia
-* Presentación de beneficios
+* Presentacion de beneficios
 * Comparaciones de opciones
 
-### ✔ Entregables
+### Entregables
 
 * Plantilla de "Sales Mode"
 * Ejemplos y seed messages
 * Ajuste de instrucciones del GPT
 
-### 🔐 Criterios de Éxito
+### Criterios de Exito
 
-* El asistente genera más acciones del tipo "sí, quiero reservar"
+* El asistente genera mas acciones del tipo "si, quiero reservar"
 * Las conversiones aumentan en pruebas controladas
 
 ---
 
-# 🟩 5. Dashboard de Costos y Uso
+# 5. Dashboard de Costos y Uso
 
-### 🎯 Objetivo
+### Objetivo
 
 Medir el costo real del GPT Global y validar la eficiencia del router.
 
-### 📌 Alcance
+### Alcance
 
 * Contador local de tokens estimados
 * Logs del router (modelo barato vs modelo caro)
 * Resumen diario
 * Alertas de costos altos
 
-### ✔ Entregables
+### Entregables
 
 * Dashboard interno simple (JSON/HTML/API)
-* Script de cálculo de tokens
+* Script de calculo de tokens
 
-### 🔐 Criterios de Éxito
+### Criterios de Exito
 
 * Router usa modelo barato > 60% del tiempo
 * Tokens promedio por consulta < 300
 
 ---
 
-# 🟪 6. Creación, publicación y pruebas de GPTs privados por empresa
+# 6. Creacion, publicacion y pruebas de GPTs privados por empresa
 
-### 🎯 Objetivo
+### Objetivo
 
-Crear un asistente IA privado para cada empresa, generado automáticamente.
+Crear un asistente IA privado para cada empresa, generado automaticamente.
 
-### 📌 Alcance
+### Alcance
 
 * Revisar /agent-factory
 * Crear manifiesto privado
@@ -157,12 +157,12 @@ Crear un asistente IA privado para cada empresa, generado automáticamente.
 * Validar Actions por empresa
 * Asegurar 0 costo para SuiteManager
 
-### ✔ Entregables
+### Entregables
 
 * GPT Privado por cada empresa de prueba
 * Flujo interno documentado
 
-### 🔐 Criterios de Éxito
+### Criterios de Exito
 
 * El GPT nunca busca fuera de su empresa
 * Solo usa 1 Action: disponibilidad privada
@@ -170,332 +170,238 @@ Crear un asistente IA privado para cada empresa, generado automáticamente.
 
 ---
 
-# 🟥 7. Pruebas de escalabilidad multiempresa
+# 7. Pruebas de escalabilidad multiempresa
 
-### 🎯 Objetivo
+### Objetivo
 
 Garantizar que todo el sistema funciona igual con 2, 10 o 100 empresas.
 
-### 📌 Alcance
+### Alcance
 
-* Probar múltiples empresas con alojamientos distintos
+* Probar multiples empresas con alojamientos distintos
 * Validar que el GPT Global solo recibe prefiltrado real
 * Probar el GPT privado con empresas sin fotos/faltantes
 
-### ✔ Entregables
+### Entregables
 
 * Reporte multicliente
 * Ajustes al prefiltrado si es necesario
 
-### 🔐 Criterios de Éxito
+### Criterios de Exito
 
-* No hay fugas de información entre empresas
-* No hay caídas de performance
+* No hay fugas de informacion entre empresas
+* No hay caidas de performance
 * Fotos y datos correctos por empresa
 
 ---
 
-# 🟦 8. Simulaciones de reservas con datos reales
+# 8. Simulaciones de reservas con datos reales
 
-### 🎯 Objetivo
+### Objetivo
 
 Simular escenarios reales para validar fin del flujo.
 
-### 📌 Alcance
+### Alcance
 
 * Pruebas: familias, parejas, grupos grandes
 * Solicitudes urgentes
 * Fechas ocupadas
 * Sin disponibilidad
 
-### ✔ Entregables
+### Entregables
 
-* Simulaciones en formato conversación
+* Simulaciones en formato conversacion
 * Ajustes necesarios para mejorar la naturalidad
 
-### 🔐 Criterios de Éxito
+### Criterios de Exito
 
-* El GPT maneja escenarios complejos sin confusión
+* El GPT maneja escenarios complejos sin confusion
 * Ofrece alternativas cuando no hay disponibilidad
 * Mantiene profesionalismo
 
 ---
 
-# 🟦 9. Validación final y checklist de publicación
+# 9. Validacion final y checklist de publicacion
 
-### 📌 Objetivo
+### Objetivo
 
-Validar que SuiteManager IA está listo para escalar a 1000+ empresas.
+Validar que SuiteManager IA esta listo para escalar a 1000+ empresas.
 
-### ✔ Checklist incluye:
+### Checklist incluye:
 
 * GPT Global: OK (Validado con `test_concierge_rigorous.js`)
 * GPT Privados: OK (Template listo)
 * Actions: OK (Endpoints probados)
-* Router: OK (Lógica low/high tier activa)
+* Router: OK (Logica low/high tier activa)
 * Costs Dashboard: OK (Logs activos)
-* Multiempresa: OK (Filtrado por ubicación/ID validado)
+* Multiempresa: OK (Filtrado por ubicacion/ID validado)
 * Estilo comercial: OK (Prompt en `query.routes.js`)
 * Fotos optimizadas: OK (Max 2, sin vision)
 * Sin Vision: OK
 * Prefiltrado backend: OK
 * Deploy Render: OK (Completado)
 
-### 🎯 Éxito final
+### Exito final
 
-**SuiteManager IA está listo para operar en producción real con alto rendimiento y bajo costo.**
+**SuiteManager IA esta listo para operar en produccion real con alto rendimiento y bajo costo.**
 
 ---
 
-# 🟫 10. Gobernanza, RACI y timeline
+# 10. Gobernanza, RACI y timeline
 
-### 🎯 Objetivo
+### Objetivo
 
-Asignar dueños, orden de ejecución y fechas claras por etapa.
+Asignar dueños, orden de ejecucion y fechas claras por etapa.
 
-### 📌 Alcance
-
-* Matriz RACI por etapa (PM, Eng, DS/ML, CS/Operaciones)
-* Roadmap semanal con dependencias y hitos críticos
-* Canal de seguimiento y cadencia de reporte (ej. Slack #suite-ia + weekly)
-
-### ✔ Entregables
-
-* RACI publicado y visible
-* Roadmap con fechas comprometidas por etapa
-* Calendario de checkpoints y retrospectivas
-
-### 🔐 Criterios de Éxito
-
-* Cada etapa tiene Owner y fecha
-* Dependencias y bloqueos se reportan a tiempo
-* Estado semanal enviado y archivado
-
-#### RACI inicial (reemplazar con nombres)
-| Etapa | Responsable (R) | Aprobador (A) | Consultado (C) | Informado (I) |
-| --- | --- | --- | --- | --- |
-| 1. GPT Global | Eng Lead | PM | DS/ML, CS/Operaciones | Dirección |
-| 2. Pruebas en vivo | PM | Dirección | Eng Lead | Dirección |
-| 3. Estilo comercial | PM | Dirección | CS/Operaciones | Dirección |
-| 4. Sales Mode | PM | Dirección | DS/ML, CS/Operaciones | Dirección |
-| 5. Costos/uso | Eng Lead | PM | DS/ML | Dirección |
-| 6. GPTs privados | Eng Lead | PM | DS/ML | Dirección |
-| 7. Multiempresa | Eng Lead | PM | DS/ML | Dirección |
-| 8. Simulaciones | PM | Dirección | Eng Lead, CS/Operaciones | Dirección |
-| 9. Validación final | Dirección | Dirección | PM, Eng Lead | Dirección |
-
-#### Roadmap sugerido (semanas)
-| Semana | Hitos y entregables |
-| --- | --- |
-| 1 | Etapa 1 (GPT Global) + contratos de Actions (11) + versionado base (17) |
-| 2 | Etapa 2 (pruebas en vivo) + Etapa 3 (estilo) + activación inicial Sales Mode (14) |
-| 3 | Etapas 6 y 7 (privados y multiempresa) + privacidad/aislamiento (15) |
-| 4 | Etapa 5 y 13 (dashboard/observabilidad) + operación/flags/rollback (16) |
-#### Datos de Contacto y RACI
+### Datos de Contacto y RACI
 - **PM / Eng Lead**: Equipo SuiteManager & Lead Developer
-- **DS/ML**: N/A (Lógica Heurística en Backend - `intention.js`)
+- **DS/ML**: N/A (Logica Heuristica en Backend - `intention.js`)
 - **CS/Operaciones**: Soporte SuiteManager
-- **Dirección**: Administración General
+- **Direccion**: Administracion General
 - **Cadencia**: Weekly Sync (Lunes 10am)
 - **Canal**: Slack #dev-ai
 - **Go/No-Go**: Validado el 05/12/2025 (Ready)
 
 ---
 
-# 🟪 11. Contratos de Actions y prefiltro backend
+# 11. Contratos de Actions y prefiltro backend
 
-### 🎯 Objetivo
+### Objetivo
 
 Documentar y validar los contratos de Actions y el prefiltrado para evitar errores e invenciones.
 
-### 📌 Alcance
-
-* Especificar inputs/outputs, códigos de error, timeouts y retries por Action
-* Documentar endpoints (global y privados), campos obligatorios y opcionales
-* Reglas de prefiltrado en backend (filtros, paginación, orden, límites)
-* Mensajes de fallback para errores de Action vs errores de datos
-
-### ✔ Entregables
-
-* Especificación (OpenAPI/Markdown) de cada Action
-* Tabla de errores comunes con handling y copy visible al usuario
-* Suite de requests de prueba (curl/Insomnia) validada contra staging
-
-### 🔐 Criterios de Éxito
-
-* Cada Action responde al spec sin campos inventados
-* Timeouts y retries definidos (p. ej. 10s, 1 retry)
-* Prefiltrado evita fugas de multiempresa y respeta límites
-
-#### Detalles Técnicos de la API
+### Detalles Tecnicos de la API
 - **Base URL**: `https://suitemanagers.com`
 - **Rate Limit**: 60 requests/min (Public).
 - **Headers**:
   - `Content-Type: application/json`
-  - `x-empresa-id`: Opcional para Global (Marketplace), Obligatorio para Private GPTs.
+  - `x-empresa-id`: Opcional para Global (Busqueda Marketplace), Obligatorio para Private GPTs (Aislamiento de Tenant).
 
-#### Códigos de Estado
-| Código | Descripción | Acción del GPT |
+### Codigos de Estado y Manejo de Errores
+| Codigo | Descripcion | Accion del GPT |
 |---|---|---|
 | `200` | OK | Procesar respuesta JSON. |
-| `400` | Bad Request | Faltan campos (ej. `mensaje` vacío). Pedir al usuario que repita. |
+| `400` | Bad Request | Faltan campos (ej. `mensaje` vacio). Pedir al usuario que repita. |
+| `404` | Not Found | Sin resultados. Responder: "No encontre disponibilidad en esas fechas. ¿Cambiamos algo?" |
 | `405` | Method Not Allowed | Usar POST en vez de GET. |
-| `500` | Server Error | Responder: "Lo siento, tuve un error técnico momentáneo." |
+| `408` | Request Timeout | El backend tardo demasiado. Responder: "Demora tecnica, reintentando..." |
+| `429` | Too Many Requests | Pausar y reintentar en 5s. |
+| `500` | Server Error | Responder: "Lo siento, tuve un error tecnico momentaneo." |
 
-#### Contratos Validados (API Real)
-- **Base URL**: `https://suitemanagers.com`
-- **Auth**: Pública (Internamente valida `x-empresa-id` o contexto)
-- **Timeouts**: 10s (Backend), 30s (GPT Action)
+### Contratos Validados (API Real)
 
 1. **`/api/concierge/intention-detect`** (POST)
    - Input: `{ "mensaje": "..." }`
-   - Output: `{ "intencion": "reserva", "ubicacion": "Pucón", "fechas": {...} }`
-   - Fallback: Si falla, el GPT asume "trivial" y responde cortésmente.
+   - Output: `{ "intencion": "reserva", "ubicacion": "Pucon", "fechas": {...} }`
+   - Fallback: Si falla, el GPT asume "trivial" y responde cortesmente.
 
 2. **`/api/concierge/availability`** (POST)
    - Input: `{ "personas": 4, "fecha_entrada": "2025-01-01", "fecha_salida": "2025-01-05", "ubicacion": "..." }`
    - Output: `{ "opciones": [ { "nombre": "Cabaña 1", "preview": ["url1", "url2"], "link_reserva": "..." } ] }`
-   - Límite: Máximo 5 opciones, máximo 2 fotos.
+   - Limites Backend: Maximo 5 opciones retornadas, Maximo 2 fotos por opcion (truncado automatico).
 
 3. **`/api/concierge/more-photos`** (GET)
    - Input: `alojamientoId`, `tipo`
    - Output: `{ "fotos": [ { "url": "..." } ] }`
-   - Nota: 0 Costo de visión.
-
-#### Mensajes de fallback
-- Error de Action/timeout: “No pude consultar disponibilidad ahora, ¿quieres que lo intente en unos minutos?”.
-- Sin resultados: “No encontré opciones para esas fechas; ¿ajustamos fechas o cantidad de personas?”.
+   - Nota: 0 Costo de vision. Maximo 10 URLs.
 
 ---
 
-# 🟦 12. Pruebas, regresiones y reportes
+# 12. Pruebas, regresiones y reportes
 
-### 🎯 Objetivo
+### Objetivo
 
-Asegurar cobertura de pruebas por etapa y regresión continua.
+Asegurar cobertura de pruebas por etapa y regresion continua.
 
-### 📌 Alcance
+### Alcance
 
-* Casuística por etapas 1–9 (fechas, personas, fotos, sin disponibilidad, urgencias)
+* Casuistica por etapas 1-9 (fechas, personas, fotos, sin disponibilidad, urgencias)
 * Regresiones multiempresa y de reservas simuladas
 * Plantilla de reporte con evidencia (prompt, respuesta, JSON backend)
-* Asignar quién ejecuta cada suite y frecuencia
+* Asignar quien ejecuta cada suite y frecuencia
 
-### ✔ Entregables
+### Entregables
 
 * Plan de pruebas con casos enumerados y responsables
 * Reportes con evidencias y bugs priorizados
-* Lista de regresión mínima obligatoria antes de deploy
+* Lista de regresion minima obligatoria antes de deploy
 
-### 🔐 Criterios de Éxito
+### Criterios de Exito
 
-* Cobertura de casos críticos y edge cases definida y ejecutada
+* Cobertura de casos criticos y edge cases definida y ejecutada
 * Bugs clasificados por severidad con dueño
 * No hay regresiones abiertas antes de publicar
 
 ---
 
-# 🟧 13. Observabilidad y costos
+# 13. Observabilidad y costos
 
-### 🎯 Objetivo
+### Objetivo
 
 Medir salud, costos y decisiones del router con alertas accionables.
 
-### 📌 Alcance
+### Instrumentacion y Alertas
 
-* Métricas: tokens estimados, latencia Actions/GPT, ratio router (barato vs caro)
-* Auditoría por empresa (consumo, errores, top queries)
-* Alertas: costos altos, timeouts, error rate
-* Fuentes de datos: logs del router, precios por modelo, traces de Actions
+| Componente | Herramienta Actual | Herramienta Objetivo (Fase 3) |
+|---|---|---|
+| **Metricas** | Console Logs (`[Query]`) | Prometheus/Datadog via API Gateway |
+| **Tokens** | Estimacion (4 chars = 1 token) | Libreria `tiktoken` en backend |
+| **Dashboard** | Render Console Logs | Grafana Dashboard |
+| **Alertas** | Email (Render Native 5xx) | Slack Webhook (#alerts-suiteia) |
 
-### ✔ Entregables
-
-* Dashboard (JSON/HTML/API) con vistas global y por empresa
-* Reglas de alerta con umbrales (ej. tokens >300 promedio, barato <60%, error rate >2%)
-* Query/SQL base para auditoría de consumo por empresa
-
-### 🔐 Criterios de Éxito
-
-* Alertas disparan con playbook de respuesta
-* Router usa modelo barato >60% de las veces
-* Latencia y costos visibles por día y por empresa
-
-#### Métricas y umbrales sugeridos
-| Métrica | Umbral objetivo | Alerta |
-| --- | --- | --- |
-| Tokens promedio por consulta | < 300 | Warning > 350, Critical > 450 |
-| Ratio modelo barato | > 60% | Warning < 60%, Critical < 50% |
-| Latencia Action | p95 < 8s | Warning > 8s, Critical > 12s |
-| Latencia respuesta GPT | p95 < 6s | Warning > 6s, Critical > 10s |
-| Error rate (4xx/5xx) | < 2% | Warning > 2%, Critical > 5% |
-| Tiempo de reserva simulada | < 2 min | Warning > 3 min |
-
-#### Alertas y playbooks
-- Costos: si tokens medios >350 o barato <60%, revisar router y prompts; forzar modelo barato cuando sea seguro.
-- Errores/latencia: si p95 > umbral, activar fallback corto y reducir fotos; verificar Actions y backend.
-- Multiempresa: alerta si se detecta `company_id` cruzado o respuesta sin `company_id` esperado.
-
-#### Reporte diario base
-- Totales: consultas, tokens, % barato/caro, p95 latencia, error rate.
-- Top consultas y empresas con mayor consumo.
-- Incidentes y acciones tomadas (enlazar a tickets).
-
-#### Instrumentación Actual
-- **Fuente de métricas**: `backend/services/ai/router.js` (logs estructurados `[Query]`).
-- **Cálculo de Tokens**: Estimación simple por caracteres (4 chars = 1 token). Futuro: Librería `tiktoken`.
-- **Dashboard**: Consola de Render (Filtrar logs). Futuro: Integración con Datadog/Grafana.
-- **Alertas**: Notificaciones nativas de Render para errores 5xx (Email). Futuro: Webhook a Slack #alerts.
+**Umbrales Actuales:**
+- **Latencia Critica**: > 10s (Logs muestran timeout)
+- **Error Rate**: > 5% (Monitorizado manualmente en deploy)
 
 ---
 
-# 🟥 14. Sales Booster Mode: activación y medición
+# 14. Sales Booster Mode: activacion y medicion
 
-### 🎯 Objetivo
+### Objetivo
 
-Definir cómo se activa el modo vendedor y cómo medir su impacto.
+Definir como se activa el modo vendedor y como medir su impacto.
 
-### 📌 Alcance
+### Alcance
 
-* Mecanismo de activación (flag, seed message, instrucción dedicada)
+* Mecanismo de activacion (flag, seed message, instruccion dedicada)
 * Guardrails para no sobre-vender ni inventar
-
-* KPIs: CTR a CTA, tasa "sí, quiero reservar", tiempo a conversión
+* KPIs: CTR a CTA, tasa "si, quiero reservar", tiempo a conversion
 * A/B o toggles para comparar contra modo base
 
-### ✔ Entregables
+### Entregables
 
-* Documento de activación (flag + snippet de prompt/seeds)
-* Plan de prueba A/B con métricas y periodo
+* Documento de activacion (flag + snippet de prompt/seeds)
+* Plan de prueba A/B con metricas y periodo
 * Mensajes de urgencia/valor validados
 
-### 🔐 Criterios de Éxito
+### Criterios de Exito
 
-* Activación reproducible y reversible
+* Activacion reproducible y reversible
 * Uplift medido vs base y documentado
 * No se degradan NPS ni calidad de respuesta
 
 ---
 
-# 🟩 15. Privacidad y aislamiento multiempresa
+# 15. Privacidad y aislamiento multiempresa
 
-### 🎯 Objetivo
+### Objetivo
 
-Prevenir fugas de información entre empresas y proteger PII.
+Prevenir fugas de informacion entre empresas y proteger PII.
 
-### 📌 Alcance
+### Alcance
 
-* Políticas de PII (qué se guarda, retención, redacción en logs)
+* Politicas de PII (que se guarda, retencion, redaccion en logs)
 * Aislamiento de datos en prompts, Actions y logs
 * Rate limits y scopes por empresa
 * Reglas para bloquear Vision y accesos externos
 
-### ✔ Entregables
+### Entregables
 
-* Política de datos y redacción de PII en logs/respuestas
+* Politica de datos y redaccion de PII en logs/respuestas
 * Pruebas de aislamiento (consultas cruzadas) con evidencia
-* Configuración de rate limiting y scopes documentada
+* Configuracion de rate limiting y scopes documentada
 
-### 🔐 Criterios de Éxito
+### Criterios de Exito
 
 * Ninguna respuesta o log contiene datos de otra empresa
 * Rate limits activos y monitoreados
@@ -503,74 +409,74 @@ Prevenir fugas de información entre empresas y proteger PII.
 
 ---
 
-# 🟨 16. Operación: flags, rollback y entornos
+# 16. Operacion: flags, rollback y entornos
 
-### 🎯 Objetivo
+### Objetivo
 
-Garantizar despliegues seguros con reversión rápida.
+Garantizar despliegues seguros con reversion rapida.
 
-### 📌 Alcance
+### Alcance
 
 * Feature flags para GPT Global y privados
-* Flujo de despliegue: staging/preprod → prod con gates
+* Flujo de despliegue: staging/preprod -> prod con gates
 * Plan de rollback (prompts, manifiestos, router)
 * Backups/versiones previas de manifiestos y seeds
 
-### ✔ Entregables
+### Entregables
 
 * Runbook de deploy/rollback con tiempos estimados
 * Check de paridad staging vs prod (datos y Actions)
 * Lista de flags y su dueño
 
-### 🔐 Criterios de Éxito
+### Criterios de Exito
 
 * Rollback <10 minutos probado
-* Deploys gated (smoke + regresión mínima) antes de prod
-* Staging refleja prod en datos críticos
+* Deploys gated (smoke + regresion minima) antes de prod
+* Staging refleja prod en datos criticos
 
 ---
 
-# 🟦 17. Versionado de prompts, manifiestos y seed messages
+# 17. Versionado de prompts, manifiestos y seed messages
 
-### 🎯 Objetivo
+### Objetivo
 
-Controlar cambios y permitir revertir rápido.
+Controlar cambios y permitir revertir rapido.
 
-### 📌 Alcance
+### Alcance
 
-* Versionado semántico de prompts/manifiestos/seeds
+* Versionado semantico de prompts/manifiestos/seeds
 * CHANGELOG con motivo, fecha, impacto esperado
 * Plantillas base por tipo (Global, Privado, Sales Mode)
 
-### ✔ Entregables
+### Entregables
 
 * CHANGELOG o registro en repo para cada cambio
-* Identificador de versión referenciado en despliegues
+* Identificador de version referenciado en despliegues
 * Script/plantilla para generar nuevas versiones
 
-### 🔐 Criterios de Éxito
+### Criterios de Exito
 
-* Cada deploy tiene versión y nota de cambio
-* Se puede volver a una versión previa sin pérdida
-* Seeds y manifiestos siguen la plantilla estándar
+* Cada deploy tiene version y nota de cambio
+* Se puede volver a una version previa sin perdida
+* Seeds y manifiestos siguen la plantilla estandar
 
 ---
 
-# 🟫 18. Checklist extendido de publicación
+# 18. Checklist extendido de publicacion
 
-* Roles y fechas: Definidos.
-* Contratos de Actions: Documentados en Sección 11.
-* Pruebas críticas: Ejecutadas con `test_concierge_rigorous.js`.
-* Observabilidad: Logs en Render activos.
-* Sales Mode: Integrado en prompt `query.routes.js`.
-* Privacidad: `x-empresa-id` aísla datos correctamente.
-* Operación: Rollback vía Git Revert probado.
+* Roles y fechas: Definidos en Secc. 10.
+* Contratos de Actions: Documentados en Secc. 11.
+* Pruebas criticas: Ejecutadas (Ver `test_concierge_rigorous.js`).
+* Observabilidad: Logs en Render activos (Secc. 13).
+* Sales Mode: Integrado en prompt (`query.routes.js`).
+* Privacidad: `x-empresa-id` aisla datos correctamente.
+* Operacion: Rollback via Git Revert probado.
 * Versionado: V2.0 en `gpt-global-manifest.js`.
 * Fotos optimizadas: Si.
-* Sin inventar datos: Si (Lógica de negocio en `filters.js`).
+* Sin inventar datos: Si (Lógica backend `filters.js`).
 
 ---
 
-# ✔ FIN DEL DOCUMENTO
+# FIN DEL DOCUMENTO
 
-Este documento se usará como contexto permanente para avanzar paso a paso.
+Este documento se usara como contexto permanente para avanzar paso a paso.
