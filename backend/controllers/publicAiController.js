@@ -113,11 +113,11 @@ const getProperties = async (req, res) => {
         if (targetEmpresaId) {
             console.log(`🔍 [DEBUG] Buscando propiedades para empresa: ${targetEmpresaId}`);
             query = db.collection('empresas').doc(targetEmpresaId).collection('propiedades')
-                .where('isListed', '==', true);
+                .where('googleHotelData.isListed', '==', true);
         } else {
             console.log('🔍 [DEBUG] Iniciando query GLOBAL de propiedades...');
             query = db.collectionGroup('propiedades')
-                .where('isListed', '==', true);
+                .where('googleHotelData.isListed', '==', true);
         }
 
         if (precioMin) query = query.where('precioBase', '>=', parseInt(precioMin));
@@ -166,9 +166,12 @@ const getProperties = async (req, res) => {
             const direccionCompleta = `${calle}, ${ciudad}`.replace(/^, /, '').replace(/, $/, '');
 
             if (ubicacion) {
-                const term = ubicacion.toLowerCase();
-                const matchCalle = calle.toLowerCase().includes(term);
-                const matchCiudad = ciudad.toLowerCase().includes(term);
+                // Normalizar para ignorar acentos (Pucón matches Pucon)
+                const normalize = (str) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+                const term = normalize(ubicacion);
+                const matchCalle = normalize(calle).includes(term);
+                const matchCiudad = normalize(ciudad).includes(term);
                 if (!matchCalle && !matchCiudad) continue;
             }
 
