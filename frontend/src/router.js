@@ -1,6 +1,6 @@
 // frontend/src/router.js
 import { fetchAPI } from './api.js';
-import { checkAuthAndRender, renderAppLayout } from './app.js';
+import { checkAuthAndRender } from './app.js';
 
 const views = {
     '/login': () => import('./views/login.js'),
@@ -151,10 +151,6 @@ async function loadView(path) {
         const { renderLogin } = await views['/login']();
         renderLogin(appRoot);
     } else {
-        if (!document.getElementById('view-content')) {
-            // Este bloque puede ser innecesario si renderAppLayout siempre se llama antes
-        }
-
         let cleanPath = path.split('?')[0];
         if (cleanPath.length > 1 && cleanPath.endsWith('/')) {
             cleanPath = cleanPath.slice(0, -1);
@@ -165,17 +161,28 @@ async function loadView(path) {
             return regex.test(cleanPath);
         });
 
-        const viewLoader = views[dynamicRoute] || views['/'];
-        const viewModule = await viewLoader();
+        try {
+            const viewLoader = views[dynamicRoute] || views['/'];
+            const viewModule = await viewLoader();
 
-        const viewContentEl = document.getElementById('view-content');
-        if (viewContentEl) {
-            viewContentEl.innerHTML = await viewModule.render();
-        }
+            const viewContentEl = document.getElementById('view-content');
+            if (viewContentEl) {
+                viewContentEl.innerHTML = await viewModule.render();
+            }
 
-
-        if (viewModule.afterRender && typeof viewModule.afterRender === 'function') {
-            viewModule.afterRender();
+            if (viewModule.afterRender && typeof viewModule.afterRender === 'function') {
+                viewModule.afterRender();
+            }
+        } catch (err) {
+            console.error(`[Router] Error al cargar vista "${cleanPath}":`, err);
+            const viewContentEl = document.getElementById('view-content');
+            if (viewContentEl) {
+                viewContentEl.innerHTML = `
+                    <div class="p-8 text-center">
+                        <p class="text-red-600 font-semibold">Error al cargar la vista</p>
+                        <p class="text-sm text-gray-500 mt-1">${err.message}</p>
+                    </div>`;
+            }
         }
 
         updateActiveLink(cleanPath);
