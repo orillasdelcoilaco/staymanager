@@ -134,34 +134,83 @@ module.exports = (db) => {
         } catch (error) { next(error); }
     });
 
-    router.put('/propiedad/:propiedadId', async (req, res, next) => {
+    router.put('/propiedad/:propiedadId', upload.single('cardImage'), async (req, res, next) => {
         try {
-            if (!req.file) return res.status(400).json({ error: 'No file.' });
+            // [FIX] Validar si hay archivo para subir
+            if (req.file) {
+                const { empresaId, nombreEmpresa } = req.user;
+                const propiedad = await obtenerPropiedadPorId(db, empresaId, req.params.propiedadId);
 
-            const propiedad = await obtenerPropiedadPorId(db, empresaId, req.params.propiedadId);
+                if (propiedad.websiteData?.cardImage?.storagePath) {
+                    await deleteFileByPath(propiedad.websiteData.cardImage.storagePath);
+                }
+
+                const imageId = `card-${uuidv4()}`;
+                const outputFormat = 'webp';
+                const storagePath = `empresas/${empresaId}/propiedades/${req.params.propiedadId}/images/${imageId}.${outputFormat}`;
+                const { buffer: optimizedBuffer } = await optimizeImage(req.file.buffer, {
+                    maxWidth: 800,
+                    quality: 80
+                });
+                const publicUrl = await uploadFile(optimizedBuffer, storagePath, `image/${outputFormat}`);
+
+                const metadata = await generarMetadataImagen(nombreEmpresa, propiedad.nombre, propiedad.descripcion, 'Imagen Principal', 'Portada', optimizedBuffer);
+
+                const cardImageData = { imageId, storagePath: publicUrl, altText: metadata.altText, title: metadata.title };
+                await actualizarPropiedad(db, empresaId, req.params.propiedadId, { 'websiteData.cardImage': cardImageData });
+                return res.status(201).json(cardImageData);
+            }
+
+            // Si no es archivo, probablemente es un update normal (aunque este endpoint es PUT /propiedad/:id)
+            // Se mantiene lógica anterior por si acaso, pero el return arriba corta el flujo si hubo archivo.
+            next();
+        } catch (error) { next(error); }
+    });
+
+    // [NEW] Endpoint Específico para subir Card Image (Fixes 404 on frontend)
+    router.post('/propiedad/:propiedadId/upload-card-image', upload.any(), async (req, res, next) => {
+        try {
+            const { empresaId, nombreEmpresa } = req.user;
+            const { propiedadId } = req.params;
+
+            // Robust file handling: get first file regardless of field name
+            const file = req.files && req.files.length > 0 ? req.files[0] : req.file;
+
+            if (!file) return res.status(400).json({ error: 'No file uploaded.' });
+
+            const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
+            if (!propiedad) return res.status(404).json({ error: 'Propiedad no encontrada.' });
+
+            // Remove old image if exists
             if (propiedad.websiteData?.cardImage?.storagePath) {
                 await deleteFileByPath(propiedad.websiteData.cardImage.storagePath);
             }
 
             const imageId = `card-${uuidv4()}`;
             const outputFormat = 'webp';
-            const storagePath = `empresas/${empresaId}/propiedades/${req.params.propiedadId}/images/${imageId}.${outputFormat}`;
-            const { buffer: optimizedBuffer } = await optimizeImage(req.file.buffer, {
+            const storagePath = `empresas/${empresaId}/propiedades/${propiedadId}/images/${imageId}.${outputFormat}`;
+
+            const { buffer: optimizedBuffer } = await optimizeImage(file.buffer, {
                 maxWidth: 800,
                 quality: 80
             });
             const publicUrl = await uploadFile(optimizedBuffer, storagePath, `image/${outputFormat}`);
 
-            const { nombreEmpresa } = req.user;
             const metadata = await generarMetadataImagen(nombreEmpresa, propiedad.nombre, propiedad.descripcion, 'Imagen Principal', 'Portada', optimizedBuffer);
 
             const cardImageData = { imageId, storagePath: publicUrl, altText: metadata.altText, title: metadata.title };
-            await actualizarPropiedad(db, empresaId, req.params.propiedadId, { 'websiteData.cardImage': cardImageData });
+
+            await actualizarPropiedad(db, empresaId, propiedadId, { 'websiteData.cardImage': cardImageData });
+
             res.status(201).json(cardImageData);
-        } catch (error) { next(error); }
+        } catch (error) {
+            console.error("Error upload-card-image:", error);
+            next(error);
+        }
     });
 
-    router.post('/propiedad/:propiedadId/upload-image/:componentId', upload.array('images'), async (req, res, next) => {
+    router.post('/propiedad/:propiedadId/upload-image/:componentId', upload.any(), async (req, res, next) => {
+        console.log(`[DEBUG] POST upload-image hit! Propiedad: ${req.params.propiedadId}, Component: ${req.params.componentId}`);
         try {
             const { empresaId, nombreEmpresa } = req.user;
             const { propiedadId, componentId } = req.params;
@@ -278,6 +327,83 @@ module.exports = (db) => {
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
+    });
+
+    // [NEW] Endpoint para generar descripción de propiedad con IA
+    router.post('/propiedad/:propiedadId/generate-ai-text', async (req, res, next) => {
+        try {
+            const { empresaId, nombreEmpresa } = req.user;
+            const { propiedadId } = req.params;
+
+            const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
+            if (!propiedad) return res.status(404).json({ error: 'Propiedad no encontrada.' });
+
+            const empresaRef = await db.collection('empresas').doc(empresaId).get();
+            const empresaData = empresaRef.exists ? empresaRef.data() : {};
+            const websiteConfig = empresaData.websiteData || {};
+
+            const context = {
+                historia: websiteConfig.historiaOptimizada || websiteConfig.historia || '',
+                slogan: websiteConfig.slogan || '',
+                marketing: websiteConfig.enfoqueMarketing || 'General',
+                palabrasClave: websiteConfig.palabrasClaveAdicionales || '',
+                componentes: propiedad.componentes || []
+            };
+
+            const descripcionGenerada = await generarDescripcionAlojamiento(
+                propiedad.descripcion || '',
+                propiedad.nombre,
+                nombreEmpresa,
+                propiedad.direccion?.ciudad || '',
+                propiedad.tipo || 'Alojamiento',
+                context.marketing,
+                context
+            );
+
+            // Clean response just in case
+            const textoLimpio = typeof descripcionGenerada === 'string' ? descripcionGenerada : JSON.stringify(descripcionGenerada);
+
+            res.json({ texto: textoLimpio });
+
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    // [NEW] Eliminar Componente (Espacio) de una Propiedad
+    router.delete('/propiedad/:propiedadId/componente/:componentId', async (req, res, next) => {
+        try {
+            const { empresaId } = req.user;
+            const { propiedadId, componentId } = req.params;
+            const propRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
+            const doc = await propRef.get();
+
+            if (!doc.exists) return res.status(404).json({ error: 'No encontrada.' });
+
+            const data = doc.data();
+
+            // 1. Remover del array de Componentes
+            const nuevosComponentes = (data.componentes || []).filter(c => c.id !== componentId);
+
+            // 2. Borrar imágenes asociadas (Storage)
+            const images = data.websiteData?.images?.[componentId] || [];
+            if (images.length > 0) {
+                console.log(`[API] Eliminando ${images.length} imágenes del componente ${componentId}...`);
+                await Promise.all(images.map(img =>
+                    img.storagePath ? deleteFileByPath(img.storagePath).catch(e => console.warn("Ignored delete error:", e.message)) : Promise.resolve()
+                ));
+            }
+
+            // 3. Update DB (Componentes array + Delete image map key)
+            const updates = { componentes: nuevosComponentes };
+            // FieldValue.delete() elimina la Key del mapa
+            updates[`websiteData.images.${componentId}`] = admin.firestore.FieldValue.delete();
+
+            await propRef.update(updates);
+            console.log(`[API] Componente ${componentId} eliminado de Propiedad ${propiedadId}`);
+
+            res.status(200).json({ success: true });
+        } catch (error) { next(error); }
     });
 
     return router;

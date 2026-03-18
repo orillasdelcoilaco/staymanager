@@ -8,6 +8,7 @@ const {
     validateHumanLike,
     sanitizeInputs
 } = require('../middleware/publicApiSecurity');
+const { requireAgentKey } = require('../middleware/agentAuth');
 
 module.exports = (db) => {
     // Aplicar middlewares de seguridad a todas las rutas
@@ -80,12 +81,14 @@ module.exports = (db) => {
     // POST /api/public/reservar/intent - Crear intención de reserva (legacy)
     router.post('/reservar/intent',
         createReservationLimiter,
+        requireAgentKey,
         publicAiController.createBookingIntent
     );
 
     // POST /api/public/reservas - Crear reserva pública (nuevo)
     router.post('/reservas',
         createReservationLimiter,
+        requireAgentKey,
         publicAiController.createPublicReservation
     );
 

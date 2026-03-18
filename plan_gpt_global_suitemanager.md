@@ -208,6 +208,22 @@ Asignar duenos, orden de ejecucion y fechas claras.
 | **Sales Mode** | PM | Direccion | Soporte | - |
 | **Multiempresa** | Eng Lead | PM | - | Direccion |
 
+### Duenos y fechas (compromiso actual)
+- 2. Pruebas en vivo: Responsable PM (Pablo); Soporte; fecha fin 2025-07-12.
+- 3. Estilo comercial: Responsable PM; Soporte; fecha fin 2025-07-12.
+- 4. Sales Mode: Responsable PM; Soporte; fecha fin 2025-07-12.
+- 5. Dashboard costos/uso: Responsable Eng Lead; fecha fin 2025-07-12.
+- 6. Privados: Responsable Eng Lead; fecha fin 2025-07-12.
+- 7. Multiempresa: Responsable Eng Lead; fecha fin 2025-07-12.
+- 8. Simulaciones: Responsable PM; fecha fin 2025-07-12.
+- 9. Validacion final: Responsable Direccion/PM; fecha fin 2025-07-12.
+- 12. Pruebas/regresiones: Responsable PM; fecha fin 2025-07-12.
+- 13. Observabilidad: Responsable Eng Lead; fecha fin 2025-07-12.
+- 14. Sales Booster Mode (F3): Responsable PM; fecha fin 2025-07-12.
+- 15. Privacidad/aislamiento: Responsable Eng Lead; fecha fin 2025-07-12.
+- 16. Operacion/rollback: Responsable Eng Lead; fecha fin 2025-07-12.
+- 17. Versionado: Responsable Eng Lead; fecha fin 2025-07-12.
+
 ### Hitos Clave
 * **Inicio Fase 2**: 01/12/2025
 * **Validacion Tecnica (Tests)**: 05/12/2025 (Completado)
@@ -221,22 +237,22 @@ Asignar duenos, orden de ejecucion y fechas claras.
 ### Detalles Tecnicos de la API
 - **Base URL**: `https://suitemanagers.com`
 - **Rate Limit**:
-  - **Global**: 60 requests/min por IP.
-  - **Por Tenant**: Sin limite estricto aun (Monitorizado).
-  - **Exceso (429)**: Header `Retry-After: 5` (Segundos).
+  - **Por Tenant**: 60 requests/min por `x-empresa-id`.
+  - **Por IP**: 60 requests/min (proteccion base).
+  - **Exceso (429)**: usar `Retry-After` (5s) con max 3 reintentos y backoff.
 - **Auth & Tenant Isolation**:
-  - `x-empresa-id` es **Opcional** en Marketplace (el router decide o usa default).
-  - `x-empresa-id` es **Obligatorio** en Privados (si falta -> 400 Bad Request).
+  - `x-empresa-id` es **Obligatorio** en Privados (si falta -> 400 con copy seguro: "Necesito la empresa para consultar").
+  - Marketplace: recomendado incluir `x-empresa-id` para evitar mezclar resultados; si no se envia, se usa filtro por ubicacion/consulta.
 
 ### Codigos de Estado y Manejo de Errores
 | Codigo | Descripcion | Accion del GPT |
 |---|---|---|
 | `200` | OK | Procesar JSON. |
-| `400` | Bad Request | Faltan campos (ej. `mensaje` vacio) o ID de empresa invalido. |
+| `400` | Bad Request | Faltan campos o falta `x-empresa-id` en privado. Pedir empresa o repetir. |
 | `404` | Not Found | Sin resultados. Responder: "No encontre disponibilidad en esas fechas." |
 | `405` | Method Not Allowed | Error de integracion (Usar POST). |
 | `408` | Timeout | Backend tardo >10s. Responder: "Demora tecnica, reintentando..." |
-| `429` | Rate Limit | Pausar y reintentar segun `Retry-After` (def: 5s). |
+| `429` | Rate Limit | Respetar `Retry-After` (def: 5s), max 3 reintentos con backoff. |
 | `500` | Server Error | Responder: "Lo siento, tuve un error tecnico momentaneo." |
 
 ### Contratos Validados
@@ -272,14 +288,16 @@ Asegurar cobertura de pruebas continua.
 ### Estrategia de Monitoreo
 | Capa | Herramienta Actual | Herramienta Futura (Q1 2026) |
 |---|---|---|
-| **Metricas** | Console Logs (`[Query]`) | Prometheus/Datadog |
-| **Tokens** | Estimacion (4 chars = 1 token) | Libreria `tiktoken` (Backend) |
-| **Alertas** | Email (Render Native 5xx) | Slack Webhook (#alerts-suiteia) |
+| **Metricas** | Console Logs (`[Query]`) | Prometheus/Datadog con etiquetas por modelo y empresa |
+| **Tokens** | Estimacion (4 chars = 1 token) | Libreria `tiktoken` por modelo + logging por empresa |
+| **Alertas** | Email (Render Native 5xx) | Slack Webhook (#alerts-suiteia) + reglas (latencia, errores, costo, rate limit) |
 
-**Umbrales de Alerta Actuales:**
-- **Latencia Critica**: > 10s (Logs muestran timeout).
-- **Error Rate**: > 5% (Monitorizado manualmente en deploy).
-- **Costos**: Revision semanal de uso de tokens OpenAI.
+**Umbrales de Alerta Propuestos:**
+- p95 latencia GPT/Actions > 5s (Warning), > 8s (Critical).
+- Error rate > 3% (Warning), > 5% (Critical).
+- Tokens promedio por consulta > 350 (Warning); revisar prompts/router.
+- Ratio modelo barato < 60% (Warning).
+- Rate limit 429 recurrente (>3/min por tenant): investigar abuso.
 
 ---
 
@@ -311,8 +329,8 @@ Prevenir fugas de informacion.
 Garantizar operaciones seguras.
 
 ### Procedimientos
-* **Rollback**: `git revert HEAD` + `git push`. (Tiempo estimado: 2 min).
-* **Paridad**: Staging usa misma DB que Prod (Coleccion separada o Flag `TEST_MODE`).
+* **Rollback**: revertir commit y desplegar manifest/prompt previo (guardar version por cambio).
+* **Paridad / Datos**: Hoy operamos sobre la base real (prod). Las pruebas usan datos de produccion; extremar cautela y dejar trazas claras. Plan futuro: base de prod aislada + base de pruebas separada.
 
 ---
 
@@ -334,13 +352,13 @@ Control de cambios en Prompts.
 * **Contratos de Actions**: Documentados en Secc. 11.
 * **Pruebas criticas**: 
   - **Script**: `backend/scripts/test_concierge_rigorous.js`
-  - **Ejecucion**: 05/12/2025.
-  - **Resultado**: PASS (Ver logs de deploy sha: `HEAD`).
+  - **Ejecucion**: 2025-07-12.
+  - **Resultado**: PASS (commit `9b1f53b`, ver logs de deploy).
 * **Observabilidad**: Logs activos en Render Dashboard.
 * **Sales Mode**: Prompt base incluye directrices de venta.
 * **Privacidad**: Aislamiento por ID verificado en Tests.
 * **Operacion**: Flujo git verificado.
-* **Versionado**: v2.0 Activa.
+* **Versionado**: v2.0 Activa. Despliegue final: Concierge AI SuiteManager v2 (Listo para el Marketplace).
 * **Fotos optimizadas**: Sin Vision API (Ahorro de costos).
 * **Sin inventar datos**: Flujo Backend-First validado.
 

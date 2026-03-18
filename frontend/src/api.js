@@ -36,7 +36,7 @@ export async function fetchAPI(endpoint, options = {}) {
             options.body = JSON.stringify(options.body);
         }
     }
-    
+
     const url = `/api${endpoint}`;
 
     try {
@@ -50,15 +50,16 @@ export async function fetchAPI(endpoint, options = {}) {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ message: response.statusText }));
-            
+
             // Crear un error personalizado con status y data
             const error = new Error(errorData.error || errorData.message || 'Error en la petición a la API');
             error.status = response.status;
             error.data = errorData.data || null;
-            
+            error.responseJSON = errorData; // Expose full body for advanced handling (e.g. AI actions)
+
             throw error;
         }
-        
+
         if (response.status === 204) {
             return { success: true };
         }

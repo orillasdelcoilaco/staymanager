@@ -10,66 +10,115 @@
             <% const pageTitle=`${propiedad.nombre} | ${empresa.nombre}`; %>
                 <% const pageDescription=(propiedad.websiteData?.aiDescription || propiedad.descripcion || `Descubre
                     ${propiedad.nombre}`).substring(0, 155); %>
-                    <title>
-                        <%= pageTitle %>
-                    </title>
-                    <meta name="description" content="<%= pageDescription %>">
 
-                    <%# --- INICIO: Script JSON-LD (Propiedad) --- %>
-                        <% if (locals.schemaData) { %>
-                            <script type="application/ld+json">
+                    <%# --- SINGLE SOURCE OF TRUTH HELPER --- %>
+                        const hasFeature = (keywords) => {
+                        if (!propiedad.componentes) return false;
+                        const termArray = Array.isArray(keywords) ? keywords : [keywords];
+                        return propiedad.componentes.some(comp => {
+                        const compName = (comp.nombre || '').toLowerCase();
+                        const compType = (comp.tipo || '').toLowerCase();
+                        // Check Component Level
+                        if (termArray.some(t => compName.includes(t.toLowerCase()) ||
+                        compType.includes(t.toLowerCase()))) return true;
+
+                        // Check Element Level
+                        return (comp.elementos || []).some(el => {
+                        const name = (el.nombre || '').toLowerCase();
+                        const cat = (el.categoria || '').toLowerCase();
+                        return termArray.some(term => {
+                        const t = term.toLowerCase();
+                        return name.includes(t) || cat.includes(t);
+                        });
+                        });
+                        });
+                        };
+                        %>
+
+                        <title>
+                            <%= pageTitle %>
+                        </title>
+                        <meta name="description" content="<%= pageDescription %>">
+                        <link rel="canonical" href="<%= baseUrl %>/propiedad/<%= propiedad.id %>">
+
+                        <%# --- Open Graph --- %>
+                        <meta property="og:type" content="website">
+                        <meta property="og:locale" content="es_CL">
+                        <meta property="og:site_name" content="<%= empresa.nombre %>">
+                        <meta property="og:title" content="<%= pageTitle %>">
+                        <meta property="og:description" content="<%= pageDescription %>">
+                        <meta property="og:url" content="<%= baseUrl %>/propiedad/<%= propiedad.id %>">
+                        <% if (locals.ogImage && ogImage) { %>
+                        <meta property="og:image" content="<%= ogImage %>">
+                        <meta property="og:image:alt" content="<%= propiedad.nombre %> - <%= empresa.nombre %>">
+                        <meta property="og:image:width" content="1200">
+                        <meta property="og:image:height" content="630">
+                        <% } %>
+
+                        <%# --- Twitter Card --- %>
+                        <meta name="twitter:card" content="summary_large_image">
+                        <meta name="twitter:title" content="<%= pageTitle %>">
+                        <meta name="twitter:description" content="<%= pageDescription %>">
+                        <% if (locals.ogImage && ogImage) { %>
+                        <meta name="twitter:image" content="<%= ogImage %>">
+                        <meta name="twitter:image:alt" content="<%= propiedad.nombre %>">
+                        <% } %>
+
+                        <%# --- INICIO: Script JSON-LD (Propiedad) --- %>
+                            <% if (locals.schemaData) { %>
+                                <script type="application/ld+json">
         <%- JSON.stringify(schemaData, null, 2) %>
     </script>
-                            <% } %>
-                                <%# --- FIN: Script JSON-LD (Propiedad) --- %>
+                                <% } %>
+                                    <%# --- FIN: Script JSON-LD (Propiedad) --- %>
 
-                                    <link rel="stylesheet" href="/public/css/website.css">
-                                    <link rel="preconnect" href="https://fonts.googleapis.com">
-                                    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-                                    <link
-                                        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
-                                        rel="stylesheet">
-                                    <link rel="stylesheet"
-                                        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-                                    <style>
-                                        .custom-gallery-height {
-                                            height: 250px;
-                                        }
-
-                                        @media (min-width: 768px) {
+                                        <link rel="stylesheet" href="/public/css/website.css">
+                                        <link rel="preconnect" href="https://fonts.googleapis.com">
+                                        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                                        <link
+                                            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+                                            rel="stylesheet">
+                                        <link rel="stylesheet"
+                                            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+                                        <style>
                                             .custom-gallery-height {
-                                                height: 400px;
+                                                height: 250px;
                                             }
-                                        }
 
-                                        :root {
-                                            --primary-color: <%=empresa.websiteSettings?.theme?.primaryColor || '#4f46e5' %>;
-                                            /* default indigo-600 */
-                                            --secondary-color: <%=empresa.websiteSettings?.theme?.secondaryColor || '#10b981' %>;
-                                            /* default green-500 */
-                                        }
+                                            @media (min-width: 768px) {
+                                                .custom-gallery-height {
+                                                    height: 400px;
+                                                }
+                                            }
 
-                                        .btn-primary {
-                                            background-color: var(--primary-color) !important;
-                                            color: white !important;
-                                        }
+                                            :root {
+                                                --primary-color: <%=empresa.websiteSettings?.theme?.primaryColor || '#4f46e5' %>;
+                                                /* default indigo-600 */
+                                                --secondary-color: <%=empresa.websiteSettings?.theme?.secondaryColor || '#10b981' %>;
+                                                /* default green-500 */
+                                            }
 
-                                        .btn-secondary {
-                                            background-color: var(--secondary-color) !important;
-                                            color: white !important;
-                                        }
+                                            .btn-primary {
+                                                background-color: var(--primary-color) !important;
+                                                color: white !important;
+                                            }
 
-                                        .text-primary {
-                                            color: var(--primary-color) !important;
-                                        }
+                                            .btn-secondary {
+                                                background-color: var(--secondary-color) !important;
+                                                color: white !important;
+                                            }
 
-                                        /* Override common icon colors if needed */
-                                        .fa-solid,
-                                        .fa-regular,
-                                        .fa-brands {
-                                            color: var(--primary-color);
-                                        }
-                                    </style>
+                                            .text-primary {
+                                                color: var(--primary-color) !important;
+                                            }
+
+                                            /* Override common icon colors if needed */
+                                            .fa-solid,
+                                            .fa-regular,
+                                            .fa-brands {
+                                                color: var(--primary-color);
+                                            }
+                                        </style>
         </head>
 
         <body class="bg-gray-50 flex flex-col min-h-screen">
@@ -438,56 +487,65 @@
                                                 <%= propiedad.capacidad %>
                                                     personas
                                             </div>
-                                            <% if (propiedad.equipamiento?.tinaja) { %>
+                                            <% if (hasFeature(['tinaja', 'hot tub' , 'jacuzzi' ])) { %>
                                                 <div class="flex items-center">
                                                     <i class="fa-solid fa-hot-tub-person w-5 mr-2 text-indigo-600"></i>
-                                                    Tinaja
-                                                    Privada
+                                                    Tinaja Privada
                                                 </div>
                                                 <% } %>
-                                                    <% if (propiedad.equipamiento?.parrilla) { %>
+
+                                                    <% if (hasFeature(['parrilla', 'quincho' , 'asador' , 'bbq' ])) { %>
                                                         <div class="flex items-center">
                                                             <i class="fa-solid fa-burger w-5 mr-2 text-indigo-600"></i>
                                                             Parrilla
                                                         </div>
                                                         <% } %>
-                                                            <% if (propiedad.equipamiento?.terrazaTechada) { %>
+
+                                                            <% if (hasFeature(['terraza'])) { %>
                                                                 <div class="flex items-center">
                                                                     <i
                                                                         class="fa-solid fa-campground w-5 mr-2 text-indigo-600"></i>
                                                                     Terraza
-                                                                    Techada
                                                                 </div>
                                                                 <% } %>
-                                                                    <% if (propiedad.equipamiento?.juegoDeTerraza) { %>
+
+                                                                    <% if (hasFeature(['suite'])) { %>
                                                                         <div class="flex items-center">
                                                                             <i
-                                                                                class="fa-solid fa-chair w-5 mr-2 text-indigo-600"></i>
-                                                                            Juego
-                                                                            de
-                                                                            Terraza
+                                                                                class="fa-solid fa-person-booth w-5 mr-2 text-indigo-600"></i>
+                                                                            Pieza en Suite
                                                                         </div>
                                                                         <% } %>
-                                                                            <% if (propiedad.equipamiento?.piezaEnSuite)
-                                                                                { %>
+
+                                                                            <% if (hasFeature(['wifi', 'internet' ])) {
+                                                                                %>
                                                                                 <div class="flex items-center">
                                                                                     <i
-                                                                                        class="fa-solid fa-person-booth w-5 mr-2 text-indigo-600"></i>
-                                                                                    Pieza
-                                                                                    en
-                                                                                    Suite
+                                                                                        class="fa-solid fa-wifi w-5 mr-2 text-indigo-600"></i>
+                                                                                    WiFi
                                                                                 </div>
                                                                                 <% } %>
-                                                                                    <% if
-                                                                                        (propiedad.equipamiento?.dosPisos)
-                                                                                        { %>
+
+                                                                                    <% if (hasFeature(['tv', 'televisor'
+                                                                                        ])) { %>
                                                                                         <div class="flex items-center">
                                                                                             <i
-                                                                                                class="fa-solid fa-building w-5 mr-2 text-indigo-600"></i>
-                                                                                            Dos
-                                                                                            Pisos
+                                                                                                class="fa-solid fa-tv w-5 mr-2 text-indigo-600"></i>
+                                                                                            TV Cable / Smart TV
                                                                                         </div>
                                                                                         <% } %>
+
+                                                                                            <% if
+                                                                                                (hasFeature(['aire', 'ac'
+                                                                                                , 'climatizador' ])) {
+                                                                                                %>
+                                                                                                <div
+                                                                                                    class="flex items-center">
+                                                                                                    <i
+                                                                                                        class="fa-solid fa-snowflake w-5 mr-2 text-indigo-600"></i>
+                                                                                                    Aire Acondicionado
+                                                                                                </div>
+                                                                                                <% } %>
                             </div>
                         </div>
 

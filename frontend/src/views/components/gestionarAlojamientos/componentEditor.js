@@ -37,19 +37,68 @@ export function renderComponentList(componentes, tiposElemento) {
                     ${renderElementsList(comp.elementos, compIndex)}
                 </div>
 
-                <!-- Agregar Nuevo Elemento -->
-                <div class="flex gap-2 items-center border-t pt-3 mt-2 bg-gray-50 p-2 rounded-md">
-                    <select id="select-elemento-${compIndex}" class="form-select text-sm w-full border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
-                        <option value="">+ Agregar elemento...</option>
-                        ${renderOpcionesElementos(tiposElemento)}
-                    </select>
-                    <button type="button" onclick="window.agregarElemento(${compIndex})" class="bg-indigo-600 text-white px-3 py-2 rounded-md text-sm hover:bg-indigo-700 transition-colors shadow-sm whitespace-nowrap">
-                        Añadir
+                <!-- SECCIÓN: Guía de Fotos IA -->
+                ${renderPhotoRequirements(comp.requerimientosFotos)}
+
+                <!-- Agregar Nuevo Elemento (Bulk Selection) -->
+                <div class="border-t pt-3 mt-2 bg-gray-50 p-2 rounded-md">
+                    <button type="button" onclick="window.toggleBulkPanel(${compIndex})" class="w-full text-left flex justify-between items-center text-sm font-medium text-indigo-700 hover:text-indigo-900 focus:outline-none">
+                        <span>+ Agregar Activos (Selección Múltiple)</span>
+                        <span id="bulk-arrow-${compIndex}" class="transform transition-transform text-xs">▼</span>
                     </button>
+
+                    <!-- Panel de Selección Múltiple (Oculto por defecto) -->
+                    <div id="bulk-add-panel-${compIndex}" class="hidden mt-3 space-y-3 border-t border-indigo-100 pt-3">
+                        ${renderCheckboxList(tiposElemento, compIndex)}
+                        
+                        <div class="flex justify-end pt-2">
+                            <button type="button" onclick="window.agregarSeleccionados(${compIndex})" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700 shadow-sm">
+                                Agregar Seleccionados
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     `).join('');
+}
+
+/**
+ * Renderiza la sección de requerimientos de fotos sugeridos por IA.
+ * @param {Array} reqs - Lista de requerimientos de fotos.
+ */
+function renderPhotoRequirements(reqs) {
+    if (!reqs || !Array.isArray(reqs) || reqs.length === 0) return '';
+
+    return `
+        <div class="mb-4 bg-indigo-50/30 border border-indigo-100 rounded-md p-3">
+            <h5 class="text-xs font-bold text-indigo-800 uppercase mb-2 flex items-center gap-1">
+                📸 Fotos Sugeridas (IA)
+            </h5>
+            <div class="flex flex-wrap gap-2">
+                ${reqs.map(req => {
+        const isObligatory = req.obligatoria;
+        const badgeClass = isObligatory
+            ? 'bg-amber-50 text-amber-800 border-amber-200'
+            : 'bg-white text-gray-600 border-gray-200';
+        const icon = isObligatory ? '⚠️' : '📷';
+
+        return `
+                        <div class="group relative cursor-help flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${badgeClass} transition-colors hover:shadow-sm">
+                            <span>${icon}</span>
+                            <span>${req.activo}</span>
+                            
+                            <!-- Tooltip -->
+                            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-56 bg-gray-800 text-white text-[11px] leading-tight p-2.5 rounded shadow-xl z-50 text-center pointer-events-none">
+                                ${req.metadataSugerida}
+                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                            </div>
+                        </div>
+                    `;
+    }).join('')}
+            </div>
+        </div>
+    `;
 }
 
 function renderElementsList(elementos, compIndex) {
@@ -96,26 +145,101 @@ function renderElementsList(elementos, compIndex) {
 }
 
 function renderOpcionesElementos(tiposElemento) {
-    const categorias = { 'CAMA': [], 'BANO_ELEMENTO': [], 'EQUIPAMIENTO': [] };
+    const categorias = {};
 
-    // Clasificar
-    tiposElemento.forEach(t => {
-        if (categorias[t.categoria]) {
-            categorias[t.categoria].push(t);
-        } else {
-            // Fallback para categorías nuevas o desconocidas
-            if (!categorias['OTROS']) categorias['OTROS'] = [];
-            categorias['OTROS'].push(t);
+    // Clasificación dinámica con Normalización
+    (tiposElemento || []).forEach(t => {
+        const rawCat = t.categoria || 'OTROS';
+        // Normalizamos la clave para agrupar (Trim + Upper)
+        const key = rawCat.trim().toUpperCase();
+
+        if (!categorias[key]) {
+            categorias[key] = {
+                label: rawCat.trim(), // Guardamos la primera etiqueta encontrada como display
+                items: []
+            };
         }
+        categorias[key].items.push(t);
     });
 
+    // Ordenar claves alfabéticamente
+    const clavesOrdenadas = Object.keys(categorias).sort();
+
     let html = '';
-    for (const [cat, items] of Object.entries(categorias)) {
-        if (items && items.length > 0) {
-            html += `<optgroup label="${cat}">`;
-            html += items.map(i => `<option value="${i.id}">${i.icono || ''} ${i.nombre}</option>`).join('');
+    for (const key of clavesOrdenadas) {
+        const group = categorias[key];
+        if (group.items && group.items.length > 0) {
+            // Capitalizar etiqueta para visualización consistente (Primera mayúscula)
+            const label = group.label.charAt(0).toUpperCase() + group.label.slice(1);
+
+            html += `<optgroup label="${label}">`;
+            html += group.items.map(i => `<option value="${i.id}">${i.icono || ''} ${i.nombre}</option>`).join('');
             html += `</optgroup>`;
         }
     }
+    return html;
+}
+
+/**
+ * Genera el HTML de la lista de checkboxes agrupada por categoría.
+ */
+function renderCheckboxList(tiposElemento, compIndex) {
+    const categorias = {};
+
+    // Clasificación dinámica
+    (tiposElemento || []).forEach(t => {
+        const rawCat = t.categoria || 'OTROS';
+        const key = rawCat.trim().toUpperCase();
+        if (!categorias[key]) {
+            categorias[key] = { label: rawCat.trim(), items: [] };
+        }
+        categorias[key].items.push(t);
+    });
+
+    const clavesOrdenadas = Object.keys(categorias).sort();
+
+    // Contenedor con scroll
+    let html = '<div class="space-y-4 max-h-60 overflow-y-auto pr-1 custom-scrollbar">';
+
+    for (const key of clavesOrdenadas) {
+        const group = categorias[key];
+
+        if (group.items && group.items.length > 0) {
+            const label = group.label.charAt(0).toUpperCase() + group.label.slice(1);
+
+            html += `
+                <div class="bg-white border border-gray-200 rounded-md overflow-hidden">
+                    <!-- Header Categoría con Checkbox 'Select All' -->
+                    <div class="bg-gray-100 px-3 py-2 flex items-center justify-between sticky top-0 z-10">
+                        <label class="flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" 
+                                class="form-checkbox text-indigo-600 rounded border-gray-400 focus:ring-indigo-500 h-4 w-4"
+                                onchange="window.toggleCategoryGroup(${compIndex}, '${key}', this.checked)"
+                            >
+                            <span class="text-xs font-bold text-gray-700 uppercase tracking-wide">${label}</span>
+                        </label>
+                        <span class="text-[10px] bg-gray-200 text-gray-600 px-1.5 rounded-full">${group.items.length}</span>
+                    </div>
+                    
+                    <!-- Grid de Items -->
+                    <div class="p-2 grid grid-cols-2 gap-2">
+                        ${group.items.map(i => `
+                            <label class="flex items-center gap-2 p-1.5 hover:bg-gray-50 rounded cursor-pointer border border-transparent hover:border-gray-100 transition-colors">
+                                <input type="checkbox" 
+                                    name="bulk-check-${compIndex}" 
+                                    value="${i.id}" 
+                                    data-category="${key}"
+                                    class="form-checkbox text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 h-4 w-4"
+                                >
+                                <span class="text-lg">${i.icono || '🔹'}</span>
+                                <span class="text-xs text-gray-700 truncate" title="${i.nombre}">${i.nombre}</span>
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+    }
+    html += '</div>';
     return html;
 }

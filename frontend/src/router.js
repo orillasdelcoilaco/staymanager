@@ -38,8 +38,10 @@ const views = {
     '/website-general': () => import('./views/websiteGeneral.js'),
     '/website-alojamientos': () => import('./views/websiteAlojamientos.js'),
     '/gestionar-tipos-componente': () => import('./views/gestionarTiposComponente.js'),
-    '/gestionar-tipos-elemento': () => import('./views/gestionarTiposElemento.js'),
+    '/gestionar-tipos-elemento': () => import('./views/gestionarTiposElemento.js?v=1.7'),
     '/gestionar-comentarios': () => import('./views/gestionarComentarios.js'),
+    '/importador-magico': () => import('./views/importadorMagico.js?v=1.2'),
+    '/galeria-propiedad': () => import('./views/galeriaPropiedad.js'),
 };
 
 const menuConfig = [
@@ -74,11 +76,12 @@ const menuConfig = [
         name: '🏡 Gestión de Propiedades',
         id: 'gestion-propiedades',
         children: [
-            { name: '🏨 Mis Propiedades', path: '/gestionar-alojamientos', id: 'gestionar-alojamientos' },
-            { name: '🧩 Inventario y Activos', path: '/gestionar-tipos-elemento', id: 'tipos-elemento' },
-            { name: '📦 Tipos de Espacio', path: '/gestionar-tipos-componente', id: 'tipos-componente' },
-            { name: '⚙️ Configuración Web', path: '/website-general', id: 'website-general' },
+            { name: '🧩 Activos', path: '/gestionar-tipos-elemento', id: 'tipos-elemento' },
+            { name: '📦 Espacios', path: '/gestionar-tipos-componente', id: 'tipos-componente' },
+            { name: '🏨 Alojamientos', path: '/gestionar-alojamientos', id: 'gestionar-alojamientos' },
             { name: '🖼️ Contenido Web', path: '/website-alojamientos', id: 'website-alojamientos' },
+            { name: '📷 Galería de Fotos', path: '/galeria-propiedad', id: 'galeria-propiedad' },
+            { name: '⚙️ Configuración Web', path: '/website-general', id: 'website-general' },
         ]
     },
     {
@@ -98,6 +101,7 @@ const menuConfig = [
             { name: '📞 Reparar y Verificar Contactos', path: '/reparar-contactos', id: 'reparar-contactos' },
             { name: '🔧 Reparar Dólar Histórico', path: '/reparar-dolar', id: 'reparar-dolar' },
             { name: '🏷️ Tipos de Plantilla', path: '/gestionar-tipos-plantilla', id: 'gestionar-tipos-plantilla' },
+            { name: '✨ Importador Mágico', path: '/importador-magico', id: 'importador-magico' },
         ]
     }
 ];

@@ -58,6 +58,12 @@ const apiRoutes = require("./routes/api");
 // [NEW] Ruta para Búsqueda General IA (Marketplace)
 const iaRoutes = require("./routes/ia");
 
+// [NEW] Importador Mágico (análisis de web + creación de empresa)
+const importerRoutes = require('./routes/importerRoutes');
+
+// [NEW] Galería de fotos por propiedad (revisión manual + sync SSR)
+const galeriaRoutes = require('./routes/galeriaRoutes');
+
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 const { createTenantResolver } = require('./middleware/tenantResolver.js');
 
@@ -134,6 +140,12 @@ try {
     app.use(cors());
     app.use(express.json());
 
+    // [DEBUG] Global Request Logger
+    app.use((req, res, next) => {
+        console.log(`[INCOMING] ${req.method} ${req.url} | Content-Type: ${req.headers['content-type']}`);
+        next();
+    });
+
     // **PRIORIDAD 0: Archivos Estáticos Públicos (CRÍTICO: Antes de Auth)**
     const backendPublicPath = path.join(__dirname, 'public');
     app.use('/public', cors({ origin: '*' }), express.static(backendPublicPath));
@@ -174,6 +186,8 @@ try {
     const authMiddleware = createAuthMiddleware(admin, db);
 
     apiRouter.use('/auth', authRoutes(admin, db));
+    // [NEW] Importador Mágico (SIN authMiddleware — crea su propio usuario)
+    apiRouter.use('/importer', importerRoutes(admin, db));
     apiRouter.use(authMiddleware);
 
     // ... Rutas existentes ...
@@ -190,6 +204,7 @@ try {
     apiRouter.use('/dolar', dolarRoutes(db));
 
     // [NEW] Rutas de Componentes y Amenidades
+    apiRouter.use('/galeria', galeriaRoutes(db));
     apiRouter.use('/componentes', componentesRoutes(db));
     apiRouter.use('/amenidades', amenidadesRoutes(db));
     apiRouter.use('/tipos-elemento', tiposElementoRoutes(db));
@@ -236,7 +251,7 @@ try {
         res.sendFile(path.join(frontendPath, 'index.html'));
     });
 
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
         console.log(`[Startup] Servidor de StayManager escuchando en http://localhost:${PORT}`);
     });
 

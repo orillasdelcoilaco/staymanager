@@ -40,12 +40,14 @@ export async function renderAppLayout(dollarInfo) {
     `;
     
     const authInfo = document.getElementById('auth-info');
-    const formattedDate = new Date(dollarInfo.fecha + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' });
+    const dolarHtml = dollarInfo?.fecha
+        ? `<span class="font-semibold text-blue-600 flex-shrink-0">Dólar ${new Date(dollarInfo.fecha + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' })}: $${(dollarInfo.valor || 0).toLocaleString('es-CL')}</span>`
+        : '';
 
     authInfo.innerHTML = `
         <span class="font-semibold text-gray-700 truncate">Empresa: ${currentUser.nombreEmpresa}</span>
         <span class="text-gray-600 hidden sm:block">Usuario: ${currentUser.email}</span>
-        <span class="font-semibold text-blue-600 flex-shrink-0">Dólar ${formattedDate}: $${dollarInfo.valor.toLocaleString('es-CL')}</span>
+        ${dolarHtml}
     `;
     document.getElementById('logout-btn').addEventListener('click', () => {
         logout();
@@ -71,11 +73,13 @@ export async function checkAuthAndRender() {
         
         const authInfo = document.getElementById('auth-info');
         if (authInfo) {
-            const formattedDate = new Date(dollarInfo.fecha + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' });
+            const dolarHtml = dollarInfo?.fecha
+                ? `<span class="font-semibold text-blue-600 flex-shrink-0">Dólar ${new Date(dollarInfo.fecha + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' })}: $${(dollarInfo.valor || 0).toLocaleString('es-CL')}</span>`
+                : '';
             authInfo.innerHTML = `
                 <span class="font-semibold text-gray-700 truncate">Empresa: ${currentUser.nombreEmpresa}</span>
                 <span class="text-gray-600 hidden sm:block">Usuario: ${currentUser.email}</span>
-                <span class="font-semibold text-blue-600 flex-shrink-0">Dólar ${formattedDate}: $${dollarInfo.valor.toLocaleString('es-CL')}</span>
+                ${dolarHtml}
             `;
         } else {
             renderAppLayout(dollarInfo);

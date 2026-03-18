@@ -32,16 +32,19 @@ module.exports = (db) => {
                 try {
                     // 1. Obtener contexto (Categorías existentes)
                     const tiposExistentes = await tiposElementoService.obtenerTipos(db, empresaId);
-                    const categoriasUnicas = [...new Set(tiposExistentes.map(t => t.categoria).filter(Boolean))];
+                    const categoriasDB = tiposExistentes.map(t => t.categoria).filter(Boolean);
+                    const defaults = ['Dormitorio', 'Baño', 'Cocina', 'Estar', 'Exterior', 'Equipamiento', 'Tecnología'];
+                    const categoriasUnicas = [...new Set([...categoriasDB, ...defaults])];
 
                     console.log(`🤖 Analizando activo "${datos.nombre}" con contexto:`, categoriasUnicas);
 
                     const aiResult = await aiContentService.analizarMetadataActivo(datos.nombre, categoriasUnicas);
 
                     if (aiResult) {
-                        // CHECK: Low Confidence
+                        // CHECK: Low Confidence (Case Insensitive)
                         // Si la IA duda y no hay flag de "force_creation", pedimos confirmación.
-                        if (aiResult.confidence === 'low' && !datos.force_creation) {
+                        const confidence = (aiResult.confidence || '').toLowerCase();
+                        if (confidence === 'low' && !datos.force_creation) {
                             return res.status(422).json({
                                 message: `Ambiguity Detected for "${datos.nombre}"`,
                                 ai_result: aiResult,
@@ -69,6 +72,19 @@ module.exports = (db) => {
                     }
                 } catch (error) {
                     console.error("⚠️ Error consultando servicio AI:", error.message);
+
+                    // CRITICAL: If Quota Exceeded, don't fallback silently to 'OTROS'. Stop.
+                    if (error.code === 'AI_QUOTA_EXCEEDED') {
+                        return res.status(422).json({
+                            message: error.message,
+                            action_required: 'manual_classification',
+                            ai_result: {
+                                category: 'OTROS',
+                                icon: '❓',
+                                confidence: 'Low'
+                            }
+                        });
+                    }
                 }
             }
 

@@ -232,12 +232,77 @@ module.exports = (db) => {
             if (empresaCompleta.fechaCreacion && empresaCompleta.fechaCreacion.toDate) { const c = empresaCompleta.fechaCreacion.toDate(); const n = new Date(); const y = differenceInYears(n, c); const m = differenceInMonths(n, c) % 12; let d = []; if (y > 0) d.push(`${y} año${y !== 1 ? 's' : ''}`); if (m > 0) d.push(`${m} mes${m !== 1 ? 'es' : ''}`); if (d.length > 0) hostingDuration = `${d.join(' y ')} como anfitrión`; else hostingDuration = 'Recién comenzando'; }
             let propertyPriceRange = "";
             if (canalPorDefectoId && allTarifas.length > 0) { const basePrices = allTarifas.filter(t => t.alojamientoId === propiedad.id).map(tarifa => tarifa.precios?.[canalPorDefectoId]).filter(precio => typeof precio === 'number' && precio > 0); if (basePrices.length > 0) { const minPrice = Math.min(...basePrices); const maxPrice = Math.max(...basePrices); if (minPrice === maxPrice) { propertyPriceRange = `${minPrice.toFixed(0)} CLP`; } else { propertyPriceRange = `${minPrice.toFixed(0)} - ${maxPrice.toFixed(0)} CLP`; } } }
-            const propertySchemaData = { "@context": "https://schema.org", "@type": "LodgingBusiness", "name": empresaCompleta.nombre || "Alojamiento", "url": req.baseUrl || '#', "image": empresaCompleta.websiteSettings?.theme?.heroImageUrl || (propiedad.websiteData?.cardImage?.storagePath || ''), "telephone": empresaCompleta.contactoTelefono || '', ...(propertyPriceRange && { "priceRange": propertyPriceRange }), ...(empresaCompleta.ubicacionTexto && { "address": { "@type": "PostalAddress", "addressLocality": empresaCompleta.ubicacionTexto, "addressCountry": "CL" } }), "makesOffer": { "@type": "Offer", "itemOffered": { "@type": "HotelRoom", "name": propiedad.nombre, "description": propiedad.websiteData?.aiDescription || propiedad.descripcion || '', "image": propiedad.websiteData?.cardImage?.storagePath || '', "occupancy": { "@type": "QuantitativeValue", "maxValue": propiedad.capacidad || 1 }, "url": `${req.baseUrl}/propiedad/${propiedad.id}` }, ...(priceData.totalPriceCLP > 0 && { "priceSpecification": { "@type": "PriceSpecification", "price": priceData.totalPriceCLP.toFixed(2), "priceCurrency": "CLP" } }) } };
+            // --- SINGLE SOURCE OF TRUTH: SEO AMENITIES ---
+            const amenitiesList = [];
+            if (propiedad.componentes && Array.isArray(propiedad.componentes)) {
+                const uniqueNames = new Set();
+                propiedad.componentes.forEach(comp => {
+                    if (comp.elementos && Array.isArray(comp.elementos)) {
+                        comp.elementos.forEach(el => {
+                            if (el.nombre && !uniqueNames.has(el.nombre)) {
+                                uniqueNames.add(el.nombre);
+                                amenitiesList.push({
+                                    "@type": "LocationFeatureSpecification",
+                                    "name": el.nombre,
+                                    "value": "true"
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+
+            const propertySchemaData = {
+                "@context": "https://schema.org",
+                "@type": "LodgingBusiness",
+                "name": empresaCompleta.nombre || "Alojamiento",
+                "url": req.baseUrl || '#',
+                "image": empresaCompleta.websiteSettings?.theme?.heroImageUrl || (propiedad.websiteData?.cardImage?.storagePath || ''),
+                "telephone": empresaCompleta.contactoTelefono || '',
+                "amenityFeature": amenitiesList,
+                ...(propertyPriceRange && { "priceRange": propertyPriceRange }),
+                ...(empresaCompleta.ubicacionTexto && {
+                    "address": {
+                        "@type": "PostalAddress",
+                        "addressLocality": empresaCompleta.ubicacionTexto,
+                        "addressCountry": "CL"
+                    }
+                }),
+                "makesOffer": {
+                    "@type": "Offer",
+                    "itemOffered": {
+                        "@type": "HotelRoom",
+                        "name": propiedad.nombre,
+                        "description": propiedad.websiteData?.aiDescription || propiedad.descripcion || '',
+                        "image": propiedad.websiteData?.cardImage?.storagePath || '',
+                        "occupancy": {
+                            "@type": "QuantitativeValue",
+                            "maxValue": propiedad.capacidad || 1
+                        },
+                        "amenityFeature": amenitiesList,
+                        "url": `${req.baseUrl}/propiedad/${propiedad.id}`
+                    },
+                    ...(priceData.totalPriceCLP > 0 && {
+                        "priceSpecification": {
+                            "@type": "PriceSpecification",
+                            "price": priceData.totalPriceCLP.toFixed(2),
+                            "priceCurrency": "CLP"
+                        }
+                    })
+                }
+            };
+
+            const ogImage = propiedad.websiteData?.cardImage?.storagePath
+                || (propiedad.websiteData?.images && Object.values(propiedad.websiteData.images).flat().find(i => i?.storagePath)?.storagePath)
+                || '';
 
             res.render('propiedad', {
                 title: `${propiedad.nombre} | ${empresaCompleta.nombre}`,
                 description: (propiedad.websiteData?.aiDescription || propiedad.descripcion || `Descubre ${propiedad.nombre}`).substring(0, 155),
                 propiedad: propiedad,
+                empresa: empresaCompleta,
+                baseUrl: req.baseUrl || '',
+                ogImage: ogImage,
                 prefill: { fechaLlegada: formatDateForInput(checkinDate), fechaSalida: formatDateForInput(checkoutDate), personas: personas },
                 defaultPriceData: priceData,
                 hostingDuration: hostingDuration,

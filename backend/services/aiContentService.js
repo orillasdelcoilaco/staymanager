@@ -5,6 +5,9 @@ const aiConfig = require('../config/aiConfig');
 
 // Import Providers
 const GeminiProvider = require('./ai_providers/geminiProvider');
+const OpenAIProvider = require('./ai_providers/openaiProvider');
+const AnthropicProvider = require('./ai_providers/anthropicProvider');
+const DeepSeekProvider = require('./ai_providers/deepseekProvider');
 
 // Load dotenv only if not in production
 if (!process.env.RENDER) {
@@ -12,16 +15,63 @@ if (!process.env.RENDER) {
 }
 
 // --- FACTORY ---
-function getProvider() {
-    const providerType = aiConfig.provider;
+function getProvider(providerType) {
+    const type = providerType || aiConfig.provider;
 
-    switch (providerType) {
+    switch (type) {
+        case 'openai':
+            return new OpenAIProvider(aiConfig.openai);
+        case 'claude':
+            return new AnthropicProvider(aiConfig.claude);
+        case 'deepseek':
+            return new DeepSeekProvider(aiConfig.deepseek);
+        case 'siliconflow':
+            return new OpenAIProvider(aiConfig.siliconflow);
+        case 'moonshot':
+            return new OpenAIProvider(aiConfig.moonshot);
+        case 'groq':
+            return new OpenAIProvider(aiConfig.groq);
+        case 'openrouter':
+            return new OpenAIProvider(aiConfig.openrouter);
         case 'gemini':
-            return new GeminiProvider(aiConfig.gemini);
         default:
-            console.warn(`[AI Service] Unknown provider '${providerType}', falling back to Gemini.`);
+            if (type !== 'gemini') {
+                console.warn(`[AI Service] Unknown provider '${type}', falling back to Gemini.`);
+            }
             return new GeminiProvider(aiConfig.gemini);
     }
+}
+
+/**
+ * Intenta generar JSON con el proveedor principal.
+ * Si falla por cuota, prueba los proveedores de fallback en orden.
+ * Garantiza que una falla de cuota nunca detenga el flujo sin intentar alternativas.
+ */
+async function generateWithFallback(prompt) {
+    const providerChain = [aiConfig.provider, ...aiConfig.fallbackProviders];
+
+    for (const providerType of providerChain) {
+        try {
+            const provider = getProvider(providerType);
+            const result = await provider.generateJSON(prompt);
+            if (result) {
+                if (providerType !== aiConfig.provider) {
+                    console.log(`[AI Cascade] ✅ Éxito con proveedor fallback: ${providerType}`);
+                }
+                return result;
+            }
+        } catch (error) {
+            if (error.code === 'AI_QUOTA_EXCEEDED') {
+                console.warn(`[AI Cascade] ⚠️ Cuota excedida en '${providerType}'. Intentando siguiente proveedor...`);
+                continue;
+            }
+            // Error no relacionado a cuota: propagar
+            throw error;
+        }
+    }
+
+    console.error('[AI Cascade] ❌ Todos los proveedores fallaron o no tienen API key configurada.');
+    return null;
 }
 
 // --- LEGACY WRAPPER (To maintain backward compatibility with existing routes) ---
@@ -97,57 +147,137 @@ async function llamarGeminiAPI(prompt, imageBuffer = null) {
 
 // --- EXPORTED FUNCTIONS ---
 
-// 1. New Function: Analyze Asset Metadata (Taxonomy Evolution)
 const analizarMetadataActivo = async (nombreActivo, categoriasExistentes) => {
-    const provider = getProvider();
+    // 0. CATALOG LOOKUP (Level 1 Strategy)
+    const normalizedName = nombreActivo.toLowerCase().trim();
+    // Import inside function to avoid caching issues during dev, or top level is fine.
+    // Assuming file is in ../data/standardAssets.js relative to services/
+    let standardAssets = {};
+    try {
+        standardAssets = require('../data/standardAssets');
+    } catch (e) {
+        console.warn("Could not load standardAssets library:", e);
+    }
+
+    if (standardAssets[normalizedName]) {
+        console.log(`[AI Service] Instant Match in Catalog for: "${nombreActivo}"`);
+        const match = standardAssets[normalizedName];
+        return {
+            category: match.category,
+            is_new_category: false,
+            capacity: match.capacity || 0,
+            icon: match.icon,
+            countable: true,
+            confidence: "High",
+            reasoning: "Catalog Match: Standard Library"
+        };
+    }
 
     // Construct System Prompt
     const prompt = `
-        Actúa como un Arquitecto de Información experto en Hospitalidad y gestión de inventarios.
-        Tu tarea es analizar el activo: "${nombreActivo}".
-        
+        Actúa como un Arquitecto de Información experto en Hospitalidad, SEO y gestión de inventarios.
+        Tu tarea es analizar el activo de alojamiento: "${nombreActivo}".
+
         CONTEXTO:
         Categorías existentes en el sistema: ${JSON.stringify(categoriasExistentes)}.
-        
+
         OBJETIVO:
-        Determinar la mejor categoría para este activo y sus metadatos base.
-        
+        Generar el perfil completo del activo para usarlo en:
+        1. Gestión de inventario del alojamiento
+        2. SEO para motores de búsqueda (Google Hotels, Booking.com)
+        3. Contexto de venta para agentes IA (ChatGPT, Claude, Gemini, DeepSeek)
+        4. Schema.org para datos estructurados
+
         REGLAS:
-        1. Si el activo encaja claramente en una categoría existente, ÚSALA.
-        2. Si el activo NO encaja (es algo totalmente nuevo), propón una NUEVA categoría profesional y lógica.
-        3. Determina si es contable (se pueden tener varios) o si es binario (tiene/no tiene).
-        4. Sugiere un ícono de FontAwesome (v6) adecuado (ej: 'fa-bed').
-        
+        1. Si el activo encaja en una categoría existente, ÚSALA (Title Case).
+        2. Si no encaja, propón una categoría nueva profesional.
+        3. Determina si es contable (múltiples unidades) o binario (tiene/no tiene).
+        4. Usa un EMOJI representativo.
+        5. "sales_context" debe ser una frase corta en español que un agente IA puede decir al huésped
+           (ej: "Cama King para 2 personas con ropa de cama incluida").
+        6. "seo_tags" deben ser palabras clave en español que los huéspedes usan al buscar.
+        7. "schema_type" usa tipos de Schema.org para alojamientos (LocationFeatureSpecification, BedDetails, etc).
+
         Responde SOLO con un objeto JSON (sin markdown):
         {
-            "category": "String (nombre de categoría)",
+            "category": "String (Categoría, Title Case)",
             "is_new_category": Boolean,
-            "capacity": Number (0 si no aplica, o capacidad típica ej: cama=2),
-            "icon": "String (clase fa)",
-            "countable": Boolean,
+            "capacity": Number (personas que puede alojar, 0 si no aplica. Ej: cama king=2, sofa cama=2),
+            "icon": "String (Emoji representativo)",
+            "countable": Boolean (true si puede haber 2+ unidades, false si es único),
             "confidence": "High/Medium/Low",
-            "reasoning": "Breve explicación de tu decisión"
+            "reasoning": "Breve explicación",
+            "normalized_name": "Nombre correcto en Title Case (ej: Cama King, Toalla de Baño)",
+            "requires_photo": Boolean (true si es relevante fotografiar para la web),
+            "photo_quantity": Number (cantidad de fotos recomendadas, 0 si no aplica),
+            "photo_guidelines": "Instrucción breve para fotografiar (ej: Foto desde 45°, luz natural, cama tendida)",
+            "seo_tags": ["tag1", "tag2", "tag3"] (3-6 palabras clave en español),
+            "sales_context": "Frase corta para agentes IA de venta (ej: Cama King para 2 personas)",
+            "schema_type": "String (tipo Schema.org: LocationFeatureSpecification | BedDetails | FloorPlan)",
+            "schema_property": "String (propiedad Schema.org: amenityFeature | bed | occupancy)"
         }
     `;
 
     try {
-        const result = await provider.generateJSON(prompt);
-        if (!result) throw new Error("Empty result from provider");
+        const result = await generateWithFallback(prompt);
+        if (!result) throw new Error("Empty result from all providers");
         return result;
     } catch (error) {
         console.error("[AI Service] Error en analizarMetadataActivo:", error);
-        // Fallback simple
-        return {
-            category: "Otros",
-            is_new_category: false,
-            capacity: 0,
-            icon: "fa-box",
-            countable: true,
-            confidence: "Low",
-            reasoning: "Fallback parsing error."
-        };
+        if (error.code === 'AI_QUOTA_EXCEEDED') throw error; // propagate quota errors
+        console.warn("[AI Service] Falling back to Heuristic Classification for:", nombreActivo);
+        return classifyHeuristically(nombreActivo);
     }
 };
+
+/**
+ * Fallback heurístico para cuando la IA no está disponible.
+ * Garantiza que activos comunes tengan iconos y categorías decentes.
+ */
+function classifyHeuristically(nombre) {
+    const n = nombre.toLowerCase().trim();
+
+    // 1. DORMITORIOS
+    if (n.includes('cama') || n.includes('bed') || n.includes('colchon') || n.includes('almohada') || n.includes('sabana') || n.includes('closet') || n.includes('percha')) {
+        return { category: 'Dormitorio', icon: '🛏️', is_new_category: false, capacity: n.includes('cama') ? 1 : 0, countable: true, confidence: 'Medium', reasoning: 'Heuristic Match: Dormitorio' };
+    }
+
+    // 2. COCINA
+    if (n.includes('cocina') || n.includes('kitchen') || n.includes('microonda') || n.includes('refri') || n.includes('heladera') || n.includes('horno') || n.includes('paila') || n.includes('olla') || n.includes('cubierto') || n.includes('plato') || n.includes('vaso') || n.includes('taza') || n.includes('cafetera') || n.includes('tostadora') || n.includes('hervidor')) {
+        return { category: 'Cocina', icon: '🍳', is_new_category: false, capacity: 0, countable: true, confidence: 'Medium', reasoning: 'Heuristic Match: Cocina' };
+    }
+
+    // 3. BAÑO
+    if (n.includes('baño') || n.includes('ducha') || n.includes('toalla') || n.includes('jabon') || n.includes('shampoo') || n.includes('wc') || n.includes('inodoro') || n.includes('lavabo') || n.includes('secador') || n.includes('papel')) {
+        return { category: 'Baño', icon: '🚿', is_new_category: false, capacity: 0, countable: true, confidence: 'Medium', reasoning: 'Heuristic Match: Baño' };
+    }
+
+    // 4. ESTAR / LIVING
+    if (n.includes('sofa') || n.includes('sillon') || n.includes('mesa') || n.includes('silla') || n.includes('tv') || n.includes('tele') || n.includes('estufa')) {
+        return { category: 'Estar', icon: '🛋️', is_new_category: false, capacity: n.includes('sofa cama') ? 1 : 0, countable: true, confidence: 'Medium', reasoning: 'Heuristic Match: Estar' };
+    }
+
+    // 5. EXTERIOR
+    if (n.includes('piscina') || n.includes('terraza') || n.includes('parrilla') || n.includes('quincho') || n.includes('jardin') || n.includes('patio') || n.includes('tina') || n.includes('hot tub')) {
+        return { category: 'Exterior', icon: '🌲', is_new_category: false, capacity: 0, countable: true, confidence: 'Medium', reasoning: 'Heuristic Match: Exterior' };
+    }
+
+    // 6. TECNOLOGIA
+    if (n.includes('wifi') || n.includes('internet') || n.includes('alarma') || n.includes('camara') || n.includes('altavoz') || n.includes('parlante')) {
+        return { category: 'Tecnología', icon: '📶', is_new_category: false, capacity: 0, countable: true, confidence: 'Medium', reasoning: 'Heuristic Match: Tecnología' };
+    }
+
+    // Default Fallback
+    return {
+        category: "OTROS",
+        is_new_category: false,
+        capacity: 0,
+        icon: "🔹",
+        countable: true,
+        confidence: "Low",
+        reasoning: "Heuristic Fallback"
+    };
+}
 
 // 2. Existing Function Refactored: Generate SEO Home Page
 const generarSeoHomePage = async (empresaData, contextoExtra = {}) => {
@@ -321,12 +451,19 @@ const evaluarFotografiasConIA = async (prompt) => {
         return Array.isArray(resultado) ? resultado : (resultado.requerimientos || []);
 
     } catch (e) {
+        // CRITICAL: Propagate Quota Errors to UI
+        if (e.code === 'AI_QUOTA_EXCEEDED') {
+            console.error("[CS] Critical AI Quota Error:", e.message);
+            throw e; // Bubble up to controller -> Frontend
+        }
         console.warn("Fallo evaluación de fotos IA:", e.message);
         return [];
     }
 };
 
 module.exports = {
+    getProvider,
+    generateWithFallback,
     generarDescripcionAlojamiento,
     generarMetadataImagen,
     generarSeoHomePage,

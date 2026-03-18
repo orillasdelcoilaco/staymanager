@@ -1,0 +1,9 @@
+# Archivos de credenciales y secretos
+backend/serviceAccountKey.json
+backend/google_credentials.json
+backend/.env
+.env
+
+# Dependencias
+node_modules/
+backend/node_modules/

@@ -136,6 +136,83 @@ window.actualizarCapacidadManual = (compIndex, elemIndex, valor) => {
     }
 };
 
+window.toggleBulkPanel = (compIndex) => {
+    const panel = document.getElementById(`bulk-add-panel-${compIndex}`);
+    const arrow = document.getElementById(`bulk-arrow-${compIndex}`);
+    if (panel && arrow) {
+        if (panel.classList.contains('hidden')) {
+            panel.classList.remove('hidden');
+            arrow.style.transform = 'rotate(180deg)';
+        } else {
+            panel.classList.add('hidden');
+            arrow.style.transform = 'rotate(0deg)';
+        }
+    }
+};
+
+window.toggleCategoryGroup = (compIndex, categoryKey, isChecked) => {
+    const checkboxes = document.querySelectorAll(`input[name="bulk-check-${compIndex}"][data-category="${categoryKey}"]`);
+    checkboxes.forEach(cb => cb.checked = isChecked);
+};
+
+window.agregarSeleccionados = (compIndex) => {
+    const checkboxes = document.querySelectorAll(`input[name="bulk-check-${compIndex}"]:checked`);
+    if (checkboxes.length === 0) return;
+
+    if (!componentesTemporales[compIndex].elementos) {
+        componentesTemporales[compIndex].elementos = [];
+    }
+
+    let agregadosCount = 0;
+
+    checkboxes.forEach(cb => {
+        const tipoId = cb.value;
+        const tipoData = tiposElementoCache.find(t => t.id === tipoId);
+        if (!tipoData) return;
+
+        // Verificar si ya existe
+        const existente = componentesTemporales[compIndex].elementos.find(e => e.tipoId === tipoId);
+
+        if (existente && tipoData.permiteCantidad) {
+            // Si ya existe, NO lo duplicamos automáticamente, ni aumentamos cantidad por ahora.
+            // Decisión de diseño: Bulk add agrega items nuevos. Si ya está, lo ignoramos para no sumar doble inadvertidamente.
+            // O podríamos sumar +1. Por simplicidad y seguridad, solo agregamos si NO está.
+            // CAMBIO: Si ya existe, simplemente lo ignoramos. El usuario puede subir la cantidad manualmente.
+        } else if (!existente) {
+            componentesTemporales[compIndex].elementos.push({
+                tipoId: tipoData.id,
+                nombre: tipoData.nombre,
+                icono: tipoData.icono,
+                categoria: tipoData.categoria,
+                permiteCantidad: tipoData.permiteCantidad,
+                cantidad: 1, // Default to 1
+                capacity: tipoData.capacity !== undefined ? parseInt(tipoData.capacity) : 0,
+                amenity: '',
+                sales_context: tipoData.sales_context || ''
+            });
+            agregadosCount++;
+        }
+
+        // Uncheck after adding
+        cb.checked = false;
+    });
+
+    // Uncheck category headers
+    const headers = document.querySelectorAll(`#bulk-add-panel-${compIndex} input[type="checkbox"]`);
+    headers.forEach(h => h.checked = false);
+
+    if (agregadosCount > 0) {
+        renderizarListaComponentes();
+        // Mantener panel abierto
+        setTimeout(() => {
+            window.toggleComponente(compIndex); // Asegurar que el componente padre esté abierto
+            window.toggleBulkPanel(compIndex); // Reabrir panel de bulk
+        }, 0);
+    } else {
+        alert('Los elementos seleccionados ya estaban en la lista.');
+    }
+};
+
 // --- FUNCIONES INTERNAS ---
 
 function actualizarContadores() {
@@ -270,7 +347,7 @@ function getCategoryForSpaceType(tipoEspacio) {
 
     if (t.includes('DORMITORIO') || t.includes('HABITACION') || t.includes('PIEZA')) return 'DORMITORIO';
     if (t.includes('COCINA') || t.includes('KITCHEN')) return 'COCINA';
-    if (t.includes('BANO') || t.includes('BATH') || t.includes('TOILET')) return 'BAÑO'; // O 'BANIO' segun BBDD
+    if (t.includes('BAÑO') || t.includes('BANO') || t.includes('BATH') || t.includes('TOILET')) return 'BAÑO';
     if (t.includes('LIVING') || t.includes('ESTAR') || t.includes('SALA')) return 'LIVING';
     if (t.includes('COMEDOR') || t.includes('DINING')) return 'COMEDOR';
     if (t.includes('TERRAZA') || t.includes('PATIO') || t.includes('JARDIN') || t.includes('EXTERIOR') || t.includes('QUINCHO')) return 'EXTERIOR';
@@ -456,7 +533,7 @@ async function handleGenerarEstructuraIA() {
 // Refactor: Separamos la lógica de aplicación para reusarla
 function aplicarEstructuraIA(listaComponentes, ubicacionSugerida, marketingDescSugerida) {
     // Confirmar y aplicar cambios
-    showCustomConfirm(`La IA ha estructurado ${listaComponentes.length} espacios y validado el inventario. ¿Aplicar cambios?`, () => {
+    showCustomConfirm(`La IA ha sugerido agregar ${listaComponentes.length} nuevos espacios. ¿Deseas agregarlos a tu distribución actual?`, () => {
         try {
             // 1. Aplicar Ubicación si se detectó
             if (ubicacionSugerida) {
@@ -470,8 +547,8 @@ function aplicarEstructuraIA(listaComponentes, ubicacionSugerida, marketingDescS
                 console.log('[AI] Descripción de Marketing guardada temporalmente:', tempAiDescription);
             }
 
-            // 2. Mapeo directo usando los IDs retornados por el backend (que ya son válidos)
-            componentesTemporales = listaComponentes.map(comp => {
+            // 2. MERGE: Agregar nuevos a los existentes
+            const nuevosComponentes = listaComponentes.map(comp => {
                 // Buscar metadatos actualizados en la nueva cache
                 const metaTipo = tiposComponenteCache.find(t => t.id === comp.tipoId);
 
@@ -500,7 +577,10 @@ function aplicarEstructuraIA(listaComponentes, ubicacionSugerida, marketingDescS
                 };
             });
 
-            console.log('[DEBUG] Estructura aplicada:', componentesTemporales);
+            // APPEND to existing list
+            componentesTemporales = [...componentesTemporales, ...nuevosComponentes];
+
+            console.log('[DEBUG] Estructura aplicada (Merged):', componentesTemporales);
             renderizarListaComponentes();
 
         } catch (mapError) {

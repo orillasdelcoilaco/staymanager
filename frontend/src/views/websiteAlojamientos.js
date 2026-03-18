@@ -4,7 +4,6 @@ import { initPropiedad, renderPropiedadSettings, setupPropiedadEvents } from './
 import { initGaleria, renderGaleria, setupGaleriaEvents } from './components/configurarWebPublica/webPublica.galeria.js';
 
 let todasLasPropiedades = [];
-let todosLosTipos = [];
 let empresaInfo = {};
 
 export async function render() {
@@ -41,15 +40,13 @@ export async function render() {
 export async function afterRender() {
     try {
         // Carga de datos
-        const [empresa, propiedades, tipos] = await Promise.all([
+        const [empresa, propiedades] = await Promise.all([
             fetchAPI('/empresa'),
-            fetchAPI('/propiedades'),
-            fetchAPI('/componentes')
+            fetchAPI('/propiedades')
         ]);
 
         empresaInfo = empresa;
         todasLasPropiedades = propiedades;
-        todosLosTipos = tipos;
 
         const select = document.getElementById('propiedad-select');
         if (select) {
@@ -90,7 +87,7 @@ async function handlePropiedadChange(propiedadId) {
         await initGaleria(propiedadId, websiteData.images);
 
         propContainer.innerHTML = renderPropiedadSettings();
-        galContainer.innerHTML = renderGaleria(propiedad.componentes, todosLosTipos);
+        galContainer.innerHTML = renderGaleria(propiedad.componentes);
 
         setupPropiedadEvents();
         setupGaleriaEvents();

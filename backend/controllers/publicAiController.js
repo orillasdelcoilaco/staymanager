@@ -9,6 +9,7 @@ const { crearPreferencia } = require('../services/mercadopagoService');
 const { obtenerPlantillasPorEmpresa } = require('../services/plantillasService');
 const { format, addDays, parseISO, isValid } = require('date-fns');
 const { crearOActualizarCliente } = require('../services/clientesService');
+const aiContentService = require('../services/aiContentService');
 
 const sanitizeProperty = (property) => {
     if (!property) return null;
@@ -293,6 +294,37 @@ const getPropertyDetail = async (req, res) => {
         aiContext.semantic_summary = semanticSummary;
         aiContext.currency = currency;
         aiContext.house_rules = rawProperty.reglas || [];
+
+        // Inventario estructurado para agentes de venta IA
+        aiContext.sales_inventory = (rawProperty.componentes || []).map(comp => ({
+            espacio: comp.nombre,
+            tipo: comp.tipo || '',
+            icono: comp.icono || '',
+            elementos: (comp.elementos || []).map(el => ({
+                nombre: el.nombre,
+                cantidad: el.cantidad || 1,
+                categoria: el.categoria || '',
+                icono: el.icono || '',
+                capacidad: el.capacity || el.capacidad || 0,
+                sales_context: el.sales_context || '',
+                seo_tags: el.seo_tags || []
+            }))
+        }));
+
+        // Flujo de reserva para agentes IA
+        aiContext.booking_workflow = {
+            paso_1: `GET /api/public/propiedades/${propertyDoc.id}/disponibilidad?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD`,
+            paso_2: `GET /api/public/propiedades/${propertyDoc.id}/cotizar?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD`,
+            paso_3: `POST /api/public/reservas`,
+            paso_3_body: {
+                propiedadId: propertyDoc.id,
+                fechaInicio: 'YYYY-MM-DD',
+                fechaFin: 'YYYY-MM-DD',
+                cliente: { nombre: 'string', email: 'string', telefono: 'string (opcional)' },
+                numeroHuespedes: 'number',
+                agenteIA: 'nombre del agente (ChatGPT | Claude | Gemini | DeepSeek | otro)'
+            }
+        };
 
         const sanitizedProperty = sanitizeProperty(rawProperty);
 
@@ -766,8 +798,11 @@ const createPublicReservation = async (req, res) => {
             cliente,
             numeroHuespedes,
             notas,
-            agenteIA
+            agenteIA: agenteIABody
         } = req.body;
+
+        // Prioridad: header autenticado > body
+        const agenteIA = req.agentName || agenteIABody || 'Desconocido';
 
         if (!propiedadId || !fechaInicio || !fechaFin || !cliente?.email || !cliente?.nombre) {
             return res.status(400).json({
@@ -991,6 +1026,59 @@ const getVersion = async (req, res) => {
     }
 };
 
+const recalculatePhotos = async (req, res) => {
+    try {
+        const { nombreEspacio, activos } = req.body;
+        console.log(`[AI] Recalculando fotos para espacio: ${nombreEspacio} con ${activos?.length || 0} activos.`);
+
+        const prompt = `
+            Eres un fotógrafo experto en Real Estate y Airbnb.
+            Tengo un espacio llamado "${nombreEspacio}" que contiene los siguientes activos/muebles:
+            ${(activos || []).map(a => `- ${a.cantidad}x ${a.nombre}`).join('\n')}
+
+            Genera una lista de "shotList" (tiros de cámara obligatorios) y "requerimientosFotos" (si aplica configuración avanzada).
+
+            Devuelve JSON puro:
+            {
+                "shotList": ["Foto amplia desde la entrada", "Detalle de...", ...],
+                "requerimientosFotos": [
+                    { "activo": "Cama King", "obligatoria": true, "metadataSugerida": "Ángulo 45 grados, luz natural" }
+                ]
+            }
+        `;
+
+        try {
+            const provider = aiContentService.getProvider ? aiContentService.getProvider() : null;
+            let json = null;
+
+            if (provider) {
+                json = await provider.generateJSON(prompt);
+            }
+
+            if (json) {
+                return res.json({ meta: { ai_generated: true }, ...json });
+            }
+
+            res.json({
+                meta: { ai_generated: false },
+                shotList: ["Vista general", "Detalle de equipamiento"],
+                requerimientosFotos: []
+            });
+        } catch (iaError) {
+            console.error("[IA Error]", iaError);
+            res.json({
+                meta: { ai_generated: false },
+                shotList: ["Vista general (Fallback)", "Detalle (Fallback)"],
+                requerimientosFotos: []
+            });
+        }
+
+    } catch (error) {
+        console.error('[AI] Error recalculando fotos:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
 module.exports = {
     getProperties,
     getPropertyDetail,
@@ -1001,5 +1089,6 @@ module.exports = {
     getPropertyImages,
     createPublicReservation,
     webhookMercadoPago,
-    getVersion
+    getVersion,
+    recalculatePhotos
 };

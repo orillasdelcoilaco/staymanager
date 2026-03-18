@@ -8,7 +8,7 @@ let canales = [];
 async function cargarDatos() {
     try {
         [propiedades, canales] = await Promise.all([
-            fetchAPI('/propiedades'),
+            fetchAPI(`/propiedades?t=${Date.now()}`),
             fetchAPI('/canales')
         ]);
         const tbody = document.getElementById('propiedades-tbody');
@@ -27,7 +27,7 @@ async function cargarDatos() {
 export async function render() {
     try {
         [propiedades, canales] = await Promise.all([
-            fetchAPI('/propiedades'),
+            fetchAPI(`/propiedades?t=${Date.now()}`),
             fetchAPI('/canales')
         ]);
 
@@ -97,7 +97,6 @@ export function afterRender() {
                 e.stopPropagation();
 
                 if (target.classList.contains('edit-btn')) {
-                    // Fetch fresh data or use existing state
                     const propiedadAEditar = propiedades.find(p => p.id === id);
                     if (propiedadAEditar) {
                         abrirModalAlojamiento(propiedadAEditar, canales);
@@ -105,6 +104,31 @@ export function afterRender() {
                         console.error('Propiedad no encontrada en memoria:', id);
                         alert('Error: No se pudo encontrar la propiedad. Recargando datos...');
                         await cargarDatos();
+                    }
+                }
+
+                if (target.classList.contains('clone-btn')) {
+                    // Arquitectura: Prompt for Name to ensure clean ID generation
+                    const defaultName = `${target.closest('tr').children[2].textContent.trim()} (Copia)`;
+                    const newName = prompt('Ingresa el nombre para el nuevo alojamiento (esto definirá su ID):', defaultName);
+
+                    if (newName) {
+                        try {
+                            // Show loading cursor
+                            document.body.style.cursor = 'wait';
+                            // Pass name in body
+                            const res = await fetchAPI(`/propiedades/${id}/clonar`, {
+                                method: 'POST',
+                                body: { name: newName }
+                            });
+                            alert(`Propiedad clonada con éxito: ${res.nombre}`);
+                            await cargarDatos();
+                        } catch (error) {
+                            console.error("Error al clonar:", error);
+                            alert(`Error al clonar: ${error.message}`);
+                        } finally {
+                            document.body.style.cursor = 'default';
+                        }
                     }
                 }
 
