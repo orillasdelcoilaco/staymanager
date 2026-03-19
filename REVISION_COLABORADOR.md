@@ -3,6 +3,26 @@
 
 ---
 
+## ⚠️ LEER PRIMERO — Instrucciones de sincronización (2026-03-18)
+
+**Si no ves los últimos cambios en el código, hacer:**
+```bash
+git pull origin main
+```
+
+**Si no ves los datos en la app (fotos, espacios, websiteData):**
+
+El importador fue corrido desde la máquina local del dueño del proyecto. Toda la data se guarda en **Firestore en la nube** (compartido entre local y producción). Para ver los resultados:
+
+1. Abrir el panel admin: `http://localhost:3000` (o la IP de red si accedés desde otro equipo)
+2. Ir a `/gestionar-alojamientos` → verificar que las propiedades aparecen con sus espacios
+3. Ir a `/galeria-propiedad` → seleccionar una propiedad → verificar fotos con estado `auto`
+4. Ir a `/website-alojamientos` → verificar que cada alojamiento tiene título y descripción
+
+**Si el panel no carga o da error de autenticación:** asegurarse de tener el `.env` correcto con las credenciales de Firebase del proyecto.
+
+---
+
 ## ¿Qué es SuiteManager?
 
 SuiteManager es un **SaaS multi-tenant** para empresas que arriendan propiedades a corto plazo (cabañas, departamentos, suites). Permite a múltiples empresas — de forma completamente aislada entre sí — gestionar:
