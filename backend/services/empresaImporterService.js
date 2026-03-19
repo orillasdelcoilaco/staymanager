@@ -346,19 +346,22 @@ function buildComponentes(alojamiento, tiposCompMap, tiposElemMap) {
     let idx = 0;
 
     for (const espacioNombre of espaciosDetectados) {
-        const keyNorm = normalizeKey(espacioNombre);
+        // Normalizar nombres numerados ("Dormitorio 1", "Baño 2") → base ("Dormitorio", "Baño")
+        // para que el multiplicador `copias` los maneje y evitar componentes duplicados.
+        const baseName = espacioNombre.replace(/\s+\d+$/, '').trim();
+        const keyNorm = normalizeKey(baseName);
         if (visitados.has(keyNorm)) continue;
         visitados.add(keyNorm);
 
-        const tipo = tiposCompMap.get(keyNorm) || tiposCompMap.get(singularKey(espacioNombre));
+        const tipo = tiposCompMap.get(keyNorm) || tiposCompMap.get(singularKey(baseName));
         if (!tipo) continue;
 
         let copias = 1;
-        if (/dorm|bedroom|pieza|habitaci/i.test(espacioNombre)) copias = Math.max(1, numDormitorios || 1);
-        else if (/ba[ñn]o|bath|wc/i.test(espacioNombre)) copias = Math.max(1, numBanos || 1);
+        if (/dorm|bedroom|pieza|habitaci/i.test(baseName)) copias = Math.max(1, numDormitorios || 1);
+        else if (/ba[ñn]o|bath|wc/i.test(baseName)) copias = Math.max(1, numBanos || 1);
 
         for (let i = 0; i < copias; i++) {
-            const compNombre = copias > 1 ? `${espacioNombre} ${i + 1}` : espacioNombre;
+            const compNombre = copias > 1 ? `${baseName} ${i + 1}` : baseName;
             const activosClave = activosPorEspacio[keyNorm] || [];
 
             const elementos = activosClave
