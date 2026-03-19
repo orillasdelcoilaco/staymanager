@@ -511,7 +511,8 @@ async function createEmpresaFromImport(adminSdk, db, importData, credentials, wi
     if (empresa.direccion) empresaUpdate.direccion = empresa.direccion;
     if (empresa.ciudad)    empresaUpdate.ciudad = empresa.ciudad;
     if (Object.keys(empresaUpdate).length > 0) {
-        await empresaRef.update(empresaUpdate);
+        // set+merge en lugar de update: funciona tanto si el doc existe como si es nuevo
+        await empresaRef.set(empresaUpdate, { merge: true });
         console.log(`[Importer] ✅ Info empresa actualizada`);
     }
 
