@@ -418,25 +418,38 @@ async function findEmpresaByEmail(adminSdk, db, email) {
 // Se usa cuando el wizard se ejecuta con resetMode=true
 // ─────────────────────────────────────────────
 
+async function deleteBatch(db, docs) {
+    const chunks = [];
+    for (let i = 0; i < docs.length; i += 400) chunks.push(docs.slice(i, i + 400));
+    for (const chunk of chunks) {
+        const batch = db.batch();
+        chunk.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+    }
+}
+
 async function resetEmpresaData(db, empresaId) {
-    const SUBCOLLECTIONS = ['propiedades', 'tiposComponente', 'tiposElemento', 'canales', 'tarifas'];
     console.log(`[Importer] 🗑️  Iniciando reset de empresa ${empresaId}...`);
 
+    // 1. Borrar galería dentro de cada propiedad (Firestore no elimina subcollecciones automáticamente)
+    const propsSnap = await db.collection('empresas').doc(empresaId).collection('propiedades').get();
+    for (const propDoc of propsSnap.docs) {
+        const galeriaSnap = await propDoc.ref.collection('galeria').get();
+        if (!galeriaSnap.empty) {
+            await deleteBatch(db, galeriaSnap.docs);
+            console.log(`[Importer]   🗑️  galeria de "${propDoc.id}": ${galeriaSnap.docs.length} fotos eliminadas`);
+        }
+    }
+
+    // 2. Borrar subcollecciones principales
+    const SUBCOLLECTIONS = ['propiedades', 'tiposComponente', 'tiposElemento', 'canales', 'tarifas'];
     for (const colName of SUBCOLLECTIONS) {
         const snap = await db.collection('empresas').doc(empresaId).collection(colName).get();
         if (snap.empty) continue;
-
-        // Borrar en lotes de 400 (límite seguro de Firestore)
-        const chunks = [];
-        for (let i = 0; i < snap.docs.length; i += 400) chunks.push(snap.docs.slice(i, i + 400));
-
-        for (const chunk of chunks) {
-            const batch = db.batch();
-            chunk.forEach(doc => batch.delete(doc.ref));
-            await batch.commit();
-        }
+        await deleteBatch(db, snap.docs);
         console.log(`[Importer]   🗑️  ${colName}: ${snap.docs.length} documentos eliminados`);
     }
+
     console.log(`[Importer] ✅ Reset completado para empresa ${empresaId}`);
 }
 
@@ -745,7 +758,13 @@ async function createEmpresaFromImport(adminSdk, db, importData, credentials, wi
                 componentes,
                 amenidades,
                 estado: 'activo',
-                websiteData: { aiDescription: aloj.descripcionVisual || aloj.descripcion || '', images: {}, cardImage: null }
+                websiteData: {
+                    titulo: aloj.nombre,
+                    descripcion: aloj.descripcionVisual || aloj.descripcion || '',
+                    aiDescription: aloj.descripcionVisual || aloj.descripcion || '',
+                    images: {},
+                    cardImage: null
+                }
             });
 
             // Distribuir imágenes clasificadas por componente (para determinar confianza)
