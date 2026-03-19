@@ -206,11 +206,33 @@ websiteData.images se actualiza → sitio público muestra fotos correctas
 
 ---
 
-## Lo que se está Probando
+## Estado Actual — Última Actualización: 2026-03-18
+
+### Fixes aplicados en este push (commit `6c4978e`):
+
+1. **Reset limpia galerías correctamente** — `resetEmpresaData` ahora borra los documentos de `galeria/{fotoId}` dentro de cada propiedad antes de eliminar la propiedad. Firestore no elimina subcollecciones automáticamente; antes quedaban fotos y datos viejos acumulados tras cada reimportación.
+
+2. **websiteData con defaults al importar** — El importador ahora guarda `titulo` y `descripcion` al crear cada propiedad. Antes el sitio público quedaba vacío porque estos campos no se escribían durante la importación.
+
+3. **Componentes sin duplicados** — `buildComponentes` ahora normaliza nombres recibidos de Gemini Vision (ej. "Dormitorio 1", "Dormitorio 2" → se tratan como un solo tipo "Dormitorio" con 2 copias). Antes esto generaba 39-47 espacios por propiedad en vez de 5-8.
+
+### Cómo probar el Importador Mágico correctamente:
+
+> **IMPORTANTE**: Para un test limpio, usar el wizard desde la UI con el **checkbox "Reiniciar datos"** marcado. NO simular el POST directamente con `overwrite: true` — ese flag no activa el reset de galería.
+
+1. Ir a `/importador-magico` en el panel admin
+2. Ingresar la URL de una empresa de cabañas
+3. En el wizard, marcar **"Reiniciar datos"** si la empresa ya existía
+4. Completar el wizard hasta el final
+5. Verificar:
+   - Componentes por propiedad: debería haber **5-8** (no 39-47)
+   - En `/galeria-propiedad`: fotos con estado `auto` deben existir
+   - En `/website-alojamientos` (Contenido Web): los espacios deben mostrar fotos
+   - El sitio público SSR debe mostrar título y descripción de cada alojamiento
 
 ### Flujo principal a validar:
 
-1. **Importador Mágico** — ingresar URL de empresa, confirmar que crea todo correctamente (espacios, fotos clasificadas, sync inicial)
+1. **Importador Mágico** — ingresar URL de empresa con "Reiniciar datos" marcado, confirmar que crea todo correctamente (5-8 espacios, fotos clasificadas, sync inicial)
 2. **Galería de Fotos** (`/galeria-propiedad`) — reasignar fotos entre espacios, verificar que el sync actualiza el sitio público
 3. **Contenido Web** → botón **"🖼️ Galería"** — seleccionar fotos de la galería y asignarlas a un espacio sin necesidad de subir archivo nuevo
 4. **Subida directa en galería** — botón "📤 Subir fotos" en `/galeria-propiedad` agrega fotos nuevas como pendientes
@@ -220,6 +242,15 @@ websiteData.images se actualiza → sitio público muestra fotos correctas
 - Las fotos en **Contenido Web** solo se actualizan al hacer **"Sincronizar al sitio web"** en la galería — no es automático
 - El dropdown de espacios en la galería muestra los **componentes reales de esa propiedad** (Dormitorio 1, Dormitorio 2, Cocina, etc.) — si no aparece un espacio es porque no fue creado durante la importación
 - El valor guardado en `espacioId` debe ser el **ID real de Firestore del componente**, no un string genérico — esto es crítico para que el sync funcione
+
+### Sobre el router SPA — aclaración importante:
+
+El router usa **HTML5 pushState** (`window.history.pushState` + evento `popstate`). **No usa hash (`#`)** ni el evento `hashchange`. Cualquier sugerencia de cambiar a hashchange o `window.location.hash` es incorrecta y rompería toda la navegación. Si una vista no carga, el error ahora se muestra en pantalla (en rojo) gracias al try/catch agregado en `loadView` — revisar ahí primero antes de cambiar el router.
+
+### Si encuentras bugs o algo raro:
+
+- Anotar: ruta afectada, pasos para reproducir, mensaje de error exacto (consola del navegador + logs del servidor)
+- Crear rama `revision/nombre-descriptivo` y abrir PR — **nunca push directo a `main`** (auto-deploy a producción)
 
 ---
 
@@ -274,4 +305,4 @@ El backend sirve el frontend estático automáticamente. Acceder en: `http://loc
 
 ---
 
-*Generado el 2026-03-18 — Proyecto activo en desarrollo*
+*Generado el 2026-03-18 — Última actualización: 2026-03-18 (commit 6c4978e)*
