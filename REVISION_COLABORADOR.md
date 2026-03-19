@@ -5,21 +5,39 @@
 
 ## ⚠️ LEER PRIMERO — Instrucciones de sincronización (2026-03-18)
 
-**Si no ves los últimos cambios en el código, hacer:**
+### Paso 1: Actualizar el código
+
 ```bash
 git pull origin main
 ```
 
-**Si no ves los datos en la app (fotos, espacios, websiteData):**
+### Paso 2: Acceder al panel
 
-El importador fue corrido desde la máquina local del dueño del proyecto. Toda la data se guarda en **Firestore en la nube** (compartido entre local y producción). Para ver los resultados:
+Abrir en el navegador: `http://[IP-del-servidor]:3000`
 
-1. Abrir el panel admin: `http://localhost:3000` (o la IP de red si accedés desde otro equipo)
-2. Ir a `/gestionar-alojamientos` → verificar que las propiedades aparecen con sus espacios
-3. Ir a `/galeria-propiedad` → seleccionar una propiedad → verificar fotos con estado `auto`
-4. Ir a `/website-alojamientos` → verificar que cada alojamiento tiene título y descripción
+- Si corrés el backend vos mismo: `http://localhost:3000`
+- Si accedés al servidor del dueño del proyecto por red local, pedirle la IP (ej. `http://192.168.1.x:3000`)
 
-**Si el panel no carga o da error de autenticación:** asegurarse de tener el `.env` correcto con las credenciales de Firebase del proyecto.
+Iniciar sesión con las credenciales que te dio el dueño del proyecto.
+
+### Paso 3: Verificar los datos del último import
+
+El importador fue corrido desde la máquina del dueño. Los datos están en **Firestore en la nube** (compartido). Para verificar:
+
+1. `/gestionar-alojamientos` → confirmar que aparecen las propiedades
+2. `/galeria-propiedad` → seleccionar una propiedad → verificar fotos con estado `auto`
+3. `/website-alojamientos` → verificar que cada alojamiento tiene título y descripción
+
+### Nota importante sobre los datos duplicados
+
+Si encontrás datos duplicados (39+ espacios por propiedad) o `websiteData` vacío, es porque el importador se corrió con el **código viejo** (antes del `git pull`). El fix ya está en `main`. El dueño del proyecto necesita:
+
+1. Hacer `git pull` en su equipo
+2. Correr el importador nuevamente **con "Reiniciar datos" marcado** desde la UI (`/importador-magico`)
+
+### Fix aplicado en este push: redirect de login
+
+Se corrigió un bug en `api.js`: cuando el token expiraba, el redirect a `/login` usaba `window.location.hash` (que el router SPA ignora), dejando la app congelada. Ahora usa `window.location.replace('/login')` que funciona correctamente.
 
 ---
 

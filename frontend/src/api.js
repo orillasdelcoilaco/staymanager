@@ -44,7 +44,7 @@ export async function fetchAPI(endpoint, options = {}) {
 
         if (response.status === 401) {
             logout();
-            window.location.hash = '/login';
+            window.location.replace('/login');
             throw new Error('Sesión expirada o inválida.');
         }
 
