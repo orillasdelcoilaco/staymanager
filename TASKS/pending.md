@@ -21,4 +21,4 @@ Tipos válidos: `[BUG]`, `[MEJORA]`, `[CONSULTA]`, `[REVISIÓN]`
 
 ### [REVISIÓN] Test de notificación automática
 **Prioridad:** baja
-**Descripción:** Prueba del sistema de emails automáticos (v2 - SSL). Antigravity puede ignorar esta tarea.
+**Descripción:** Prueba del sistema de notificaciones via ntfy.sh. Antigravity puede ignorar esta tarea.
