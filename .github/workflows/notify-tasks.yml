@@ -11,21 +11,11 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     steps:
-      - name: Enviar email de notificación
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          secure: true
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
-          subject: "📋 [StayManager] OpenClaw actualizó las tareas pendientes"
-          to: orillasdelcoilaco@gmail.com
-          from: StayManager Tasks <${{ secrets.MAIL_USERNAME }}>
-          body: |
-            OpenClaw actualizó TASKS/pending.md en el repositorio staymanager.
-
-            Para procesar las tareas, abrí Claude Code (Antigravity) y escribí:
-            "revisar tareas pendientes"
-
-            Ver cambios: https://github.com/orillasdelcoilaco/staymanager/blob/main/TASKS/pending.md
+      - name: Enviar notificación push
+        run: |
+          curl -s \
+            -H "Title: StayManager - Nueva tarea de OpenClaw" \
+            -H "Priority: high" \
+            -H "Tags: clipboard" \
+            -d "OpenClaw actualizó TASKS/pending.md. Abrí Claude Code y escribí: revisar tareas pendientes" \
+            https://ntfy.sh/staymanager-pablo-tareas

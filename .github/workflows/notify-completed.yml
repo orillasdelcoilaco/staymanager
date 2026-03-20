@@ -11,22 +11,11 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     steps:
-      - name: Enviar email de notificación
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          secure: true
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
-          subject: "✅ [StayManager] Antigravity completó tareas — listo para revisión"
-          to: orillasdelcoilaco@gmail.com
-          from: StayManager Tasks <${{ secrets.MAIL_USERNAME }}>
-          body: |
-            Antigravity actualizó TASKS/completed.md — las tareas están implementadas.
-
-            OpenClaw puede revisar los cambios en:
-            https://github.com/orillasdelcoilaco/staymanager/blob/main/TASKS/completed.md
-
-            Para ver el diff completo del último commit:
-            https://github.com/orillasdelcoilaco/staymanager/commits/main
+      - name: Enviar notificación push
+        run: |
+          curl -s \
+            -H "Title: StayManager - Antigravity completó tareas" \
+            -H "Priority: high" \
+            -H "Tags: white_check_mark" \
+            -d "Antigravity actualizó TASKS/completed.md. OpenClaw puede revisar los cambios en GitHub." \
+            https://ntfy.sh/staymanager-pablo-tareas
