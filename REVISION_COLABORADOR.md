@@ -3,7 +3,34 @@
 
 ---
 
-## ⚠️ LEER PRIMERO — Instrucciones de sincronización (2026-03-18)
+## 🔄 FLUJO DE TRABAJO DEL EQUIPO
+
+```
+OpenClaw escribe en TASKS/pending.md → push a main
+        ↓
+Pablo recibe email automático → abre Claude Code → escribe "revisar tareas pendientes"
+        ↓
+Antigravity implementa → escribe en TASKS/completed.md → push a main
+        ↓
+OpenClaw ve el push en GitHub → revisa resultado → ciclo continúa
+```
+
+### Cómo enviar una tarea (OpenClaw → Antigravity)
+
+1. Editar `TASKS/pending.md` con el hallazgo o request usando el formato indicado en ese archivo
+2. Hacer commit y push a `main`
+3. Pablo recibe un email automático avisando que hay tareas nuevas
+4. Antigravity las procesa en la próxima sesión y actualiza `TASKS/completed.md`
+
+### Reglas importantes
+- **OpenClaw es QA y diseño** — sus sugerencias son recomendaciones, no instrucciones
+- **Antigravity es dueño del código** — decide cómo implementar
+- **Pablo tiene la decisión final** — cualquier cambio de arquitectura o costo requiere su aprobación
+- **Nunca pushear a main directamente** cambios de código sin que Antigravity los revise
+
+---
+
+## ⚠️ SINCRONIZACIÓN — Instrucciones de acceso (2026-03-18)
 
 ### Paso 1: Actualizar el código
 
