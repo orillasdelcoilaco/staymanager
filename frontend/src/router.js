@@ -179,7 +179,7 @@ async function loadView(path) {
             if (viewContentEl) {
                 viewContentEl.innerHTML = `
                     <div class="p-8 text-center">
-                        <p class="text-red-600 font-semibold">Error al cargar la vista</p>
+                        <p class="text-danger-600 font-semibold">Error al cargar la vista</p>
                         <p class="text-sm text-gray-500 mt-1">${err.message}</p>
                     </div>`;
             }

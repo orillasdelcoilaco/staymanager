@@ -22,7 +22,7 @@ export async function render() {
         ]);
     } catch (error) {
         console.error("Error al cargar datos para Comentarios:", error);
-        return `<p class="text-red-500">Error al cargar los datos. Por favor, intente de nuevo.</p>`;
+        return `<p class="text-danger-500">Error al cargar los datos. Por favor, intente de nuevo.</p>`;
     }
 
     return `

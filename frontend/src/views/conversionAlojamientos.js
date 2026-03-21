@@ -68,7 +68,7 @@ export async function render() {
             fetchAPI('/canales')
         ]);
     } catch (error) {
-        return `<p class="text-red-500">Error al cargar los datos necesarios. Por favor, intente de nuevo.</p>`;
+        return `<p class="text-danger-500">Error al cargar los datos necesarios. Por favor, intente de nuevo.</p>`;
     }
 
     return `

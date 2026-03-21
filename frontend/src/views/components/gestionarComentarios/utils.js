@@ -30,7 +30,7 @@ export async function handleSearchFormSubmit(fetchAPI) {
         const reservas = await fetchAPI(`/comentarios/buscar-reserva?canalId=${canalId}&termino=${termino}`);
         renderSearchResults(reservas, resultsContainer, canalId);
     } catch (error) {
-        resultsContainer.innerHTML = `<p class="text-red-500">Error al buscar: ${error.message}</p>`;
+        resultsContainer.innerHTML = `<p class="text-danger-500">Error al buscar: ${error.message}</p>`;
     }
 }
 
@@ -85,7 +85,7 @@ export function setupSearchResultsListener(containerId, formId) {
             form.idReservaCanal.value = data.idReservaCanal;
             
             // Limpiar resultados y hacer scroll
-            container.innerHTML = `<p class="text-green-600 font-medium">Reserva "${data.clienteNombre} - ${data.alojamientoNombre}" seleccionada.</p>`;
+            container.innerHTML = `<p class="text-success-600 font-medium">Reserva "${data.clienteNombre} - ${data.alojamientoNombre}" seleccionada.</p>`;
             form.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     });

@@ -77,7 +77,7 @@ function renderTabla(listaFiltrada = null) {
             }
 
             const iconHtml = (iconToUse && iconToUse.startsWith('fa-'))
-                ? `<i class="fa-solid ${iconToUse} text-xl text-blue-600"></i>`
+                ? `<i class="fa-solid ${iconToUse} text-xl text-primary-600"></i>`
                 : `<span class="text-2xl">${iconToUse || '📦'}</span>`; // Bigger Emojis
 
             const seoInfo = t.seo_tags ? t.seo_tags.join(', ') : '';
@@ -104,10 +104,10 @@ function renderTabla(listaFiltrada = null) {
                     ${photoInfo ? `<div class="text-amber-700 mt-1">📸 ${photoInfo.substring(0, 40)}...</div>` : ''}
                 </td>
                 <td class="p-3 text-right whitespace-nowrap">
-                    <button class="text-blue-600 hover:text-blue-800 edit-btn mr-3 font-medium transition-colors" data-id="${t.id}">
+                    <button class="text-primary-600 hover:text-primary-800 edit-btn mr-3 font-medium transition-colors" data-id="${t.id}">
                         Editar
                     </button>
-                    <button class="text-red-500 hover:text-red-700 delete-btn font-medium transition-colors" data-id="${t.id}">
+                    <button class="text-danger-500 hover:text-danger-700 delete-btn font-medium transition-colors" data-id="${t.id}">
                         Eliminar
                     </button>
                 </td>
@@ -197,7 +197,7 @@ export async function render() {
                     <!-- SEARCH BAR -->
                     <div class="relative">
                         <input type="text" id="filtro-activos" placeholder="🔍 Buscar activo o categoría..." 
-                            class="form-input pl-8 pr-4 py-2 w-full sm:w-64 text-sm border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                            class="form-input pl-8 pr-4 py-2 w-full sm:w-64 text-sm border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
                     </div>
                     <button id="btn-nuevo-tipo" class="btn-primary whitespace-nowrap">+ Nuevo Tipo</button>
                 </div>
@@ -205,7 +205,7 @@ export async function render() {
 
             <!-- FORMULARIO -->
             <div id="form-container" class="hidden bg-gray-50 p-6 rounded-lg border border-gray-200 mb-8 shadow-sm transition-all duration-300">
-                <div id="ai-help-banner" class="hidden mb-4 p-3 bg-indigo-50 text-indigo-800 text-sm rounded border border-indigo-200 flex items-center">
+                <div id="ai-help-banner" class="hidden mb-4 p-3 bg-primary-50 text-primary-800 text-sm rounded border border-primary-200 flex items-center">
                     <span class="mr-2 text-xl">🤖</span>
                     <div>
                         <strong>Ayuda requerida:</strong>
@@ -251,7 +251,7 @@ export async function render() {
 
                     <div class="flex items-center pt-8">
                          <label class="flex items-center space-x-2 text-sm cursor-pointer select-none">
-                            <input type="checkbox" name="permiteCantidad" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4">
+                            <input type="checkbox" name="permiteCantidad" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4">
                             <span>¿Es Multi-cantidad?</span>
                         </label>
                     </div>

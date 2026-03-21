@@ -31,7 +31,7 @@ export const ordenarPropiedades = (propiedades) => {
 export const renderCheckbox = (id, label) => {
     return `
         <label for="${id}" class="flex items-center space-x-2 text-sm">
-            <input type="checkbox" id="${id}" name="${id}" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+            <input type="checkbox" id="${id}" name="${id}" class="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-300 focus:ring focus:ring-primary-200 focus:ring-opacity-50">
             <span>${label}</span>
         </label>
     `;

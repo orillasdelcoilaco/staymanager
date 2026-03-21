@@ -23,7 +23,7 @@ export function renderComponentList(componentes, tiposElemento) {
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button type="button" onclick="window.eliminarComponente(${compIndex}, event)" class="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors" title="Eliminar Espacio">
+                    <button type="button" onclick="window.eliminarComponente(${compIndex}, event)" class="text-gray-400 hover:text-danger-600 p-1 rounded hover:bg-danger-50 transition-colors" title="Eliminar Espacio">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                     <span class="transform transition-transform duration-200 text-gray-400" id="arrow-${compIndex}">▼</span>
@@ -42,17 +42,17 @@ export function renderComponentList(componentes, tiposElemento) {
 
                 <!-- Agregar Nuevo Elemento (Bulk Selection) -->
                 <div class="border-t pt-3 mt-2 bg-gray-50 p-2 rounded-md">
-                    <button type="button" onclick="window.toggleBulkPanel(${compIndex})" class="w-full text-left flex justify-between items-center text-sm font-medium text-indigo-700 hover:text-indigo-900 focus:outline-none">
+                    <button type="button" onclick="window.toggleBulkPanel(${compIndex})" class="w-full text-left flex justify-between items-center text-sm font-medium text-primary-700 hover:text-primary-900 focus:outline-none">
                         <span>+ Agregar Activos (Selección Múltiple)</span>
                         <span id="bulk-arrow-${compIndex}" class="transform transition-transform text-xs">▼</span>
                     </button>
 
                     <!-- Panel de Selección Múltiple (Oculto por defecto) -->
-                    <div id="bulk-add-panel-${compIndex}" class="hidden mt-3 space-y-3 border-t border-indigo-100 pt-3">
+                    <div id="bulk-add-panel-${compIndex}" class="hidden mt-3 space-y-3 border-t border-primary-100 pt-3">
                         ${renderCheckboxList(tiposElemento, compIndex)}
                         
                         <div class="flex justify-end pt-2">
-                            <button type="button" onclick="window.agregarSeleccionados(${compIndex})" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700 shadow-sm">
+                            <button type="button" onclick="window.agregarSeleccionados(${compIndex})" class="bg-primary-600 text-white px-4 py-2 rounded-md text-sm hover:bg-primary-700 shadow-sm">
                                 Agregar Seleccionados
                             </button>
                         </div>
@@ -71,8 +71,8 @@ function renderPhotoRequirements(reqs) {
     if (!reqs || !Array.isArray(reqs) || reqs.length === 0) return '';
 
     return `
-        <div class="mb-4 bg-indigo-50/30 border border-indigo-100 rounded-md p-3">
-            <h5 class="text-xs font-bold text-indigo-800 uppercase mb-2 flex items-center gap-1">
+        <div class="mb-4 bg-primary-50/30 border border-primary-100 rounded-md p-3">
+            <h5 class="text-xs font-bold text-primary-800 uppercase mb-2 flex items-center gap-1">
                 📸 Fotos Sugeridas (IA)
             </h5>
             <div class="flex flex-wrap gap-2">
@@ -124,7 +124,7 @@ function renderElementsList(elementos, compIndex) {
                     placeholder="Detalle (ej: King, Con Vista)" 
                     value="${elem.amenity || ''}" 
                     onchange="window.actualizarAmenidad(${compIndex}, ${elemIndex}, this.value)"
-                    class="form-input text-xs py-1 px-2 w-32 border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                    class="form-input text-xs py-1 px-2 w-32 border-gray-300 rounded focus:ring-primary-500 focus:border-primary-500"
                     title="Detalle específico (ej: King Size, En suite)"
                 >
 
@@ -136,7 +136,7 @@ function renderElementsList(elementos, compIndex) {
                     </div>
                 ` : ''}
                 
-                <button type="button" onclick="window.eliminarElemento(${compIndex}, ${elemIndex})" class="text-gray-400 hover:text-red-500 p-1 transition-colors" title="Quitar elemento">
+                <button type="button" onclick="window.eliminarElemento(${compIndex}, ${elemIndex})" class="text-gray-400 hover:text-danger-500 p-1 transition-colors" title="Quitar elemento">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
@@ -213,7 +213,7 @@ function renderCheckboxList(tiposElemento, compIndex) {
                     <div class="bg-gray-100 px-3 py-2 flex items-center justify-between sticky top-0 z-10">
                         <label class="flex items-center gap-2 cursor-pointer select-none">
                             <input type="checkbox" 
-                                class="form-checkbox text-indigo-600 rounded border-gray-400 focus:ring-indigo-500 h-4 w-4"
+                                class="form-checkbox text-primary-600 rounded border-gray-400 focus:ring-primary-500 h-4 w-4"
                                 onchange="window.toggleCategoryGroup(${compIndex}, '${key}', this.checked)"
                             >
                             <span class="text-xs font-bold text-gray-700 uppercase tracking-wide">${label}</span>
@@ -229,7 +229,7 @@ function renderCheckboxList(tiposElemento, compIndex) {
                                     name="bulk-check-${compIndex}" 
                                     value="${i.id}" 
                                     data-category="${key}"
-                                    class="form-checkbox text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 h-4 w-4"
+                                    class="form-checkbox text-primary-600 rounded border-gray-300 focus:ring-primary-500 h-4 w-4"
                                 >
                                 <span class="text-lg">${i.icono || '🔹'}</span>
                                 <span class="text-xs text-gray-700 truncate" title="${i.nombre}">${i.nombre}</span>

@@ -73,7 +73,7 @@ function createPropertyCheckbox(prop, isSuggested) {
     return `
     <div class="p-2 border rounded-md flex items-center justify-between bg-white">
         <div>
-            <input type="checkbox" id="cb-${prop.id}" data-id="${prop.id}" class="propiedad-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded" ${isSuggested ? 'checked' : ''}>
+            <input type="checkbox" id="cb-${prop.id}" data-id="${prop.id}" class="propiedad-checkbox h-4 w-4 text-primary-600 border-gray-300 rounded" ${isSuggested ? 'checked' : ''}>
             <label for="cb-${prop.id}" class="ml-2 font-medium">${prop.nombre}</label>
             <span class="ml-2 text-sm text-gray-500">(Cap: ${prop.capacidad})</span>
         </div>
@@ -210,7 +210,7 @@ export function render() {
                         <input type="number" id="personas" min="1" class="form-input mt-1">
                     </div>
                     <div class="flex items-center">
-                        <input id="sin-camarotes" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                        <input id="sin-camarotes" type="checkbox" class="h-4 w-4 text-primary-600 border-gray-300 rounded">
                         <label for="sin-camarotes" class="ml-2 block text-sm font-medium">Sin Camarotes</label>
                     </div>
                     <button id="generar-propuesta-btn" class="btn-primary">Generar Propuesta</button>

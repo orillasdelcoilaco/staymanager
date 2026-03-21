@@ -9,9 +9,9 @@ function showStatus(message, type = 'info', containerId = 'upload-status') {
     if (!statusEl) return;
     let bgColor, textColor;
     switch (type) {
-        case 'error': bgColor = 'bg-red-100'; textColor = 'text-red-800'; break;
-        case 'success': bgColor = 'bg-green-100'; textColor = 'text-green-800'; break;
-        default: bgColor = 'bg-blue-100'; textColor = 'text-blue-800';
+        case 'error': bgColor = 'bg-danger-100'; textColor = 'text-danger-800'; break;
+        case 'success': bgColor = 'bg-success-100'; textColor = 'text-success-800'; break;
+        default: bgColor = 'bg-primary-100'; textColor = 'text-primary-800';
     }
     statusEl.innerHTML = message;
     statusEl.className = `mt-4 p-3 rounded-md text-sm ${bgColor} ${textColor}`;
@@ -51,7 +51,7 @@ async function fetchAndRenderMonth() {
         valoresDelMes = await fetchAPI(`/dolar/valores/${year}/${month}`);
         renderTabla();
     } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-red-500">Error: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-danger-500">Error: ${error.message}</td></tr>`;
     }
 }
 

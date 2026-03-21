@@ -45,19 +45,19 @@ export async function handleCuponChange(updateSummaryCallback, currentPricing, o
     cuponAplicado = await fetchAPI(`/crm/cupones/validar/${codigo}`);
     
     statusEl.textContent = `✅ Cupón válido: ${cuponAplicado.porcentajeDescuento}% OFF`;
-    statusEl.className = 'text-xs mt-1 text-green-600 font-medium';
+    statusEl.className = 'text-xs mt-1 text-success-600 font-medium';
     
     updateSummaryCallback(currentPricing);
 
   } catch (error) {
     cuponAplicado = null;
-    statusEl.className = 'text-xs mt-1 text-red-600';
+    statusEl.className = 'text-xs mt-1 text-danger-600';
     
     // Detectamos si es un error de "No encontrado"
     if (onNotFoundAction && (error.status === 404 || error.message.toLowerCase().includes('no existe'))) {
         statusEl.innerHTML = `
             <span>🚫 ${error.message}</span>
-            <button id="btn-crear-cupon-rapido" class="ml-1 text-indigo-600 hover:underline font-bold focus:outline-none">
+            <button id="btn-crear-cupon-rapido" class="ml-1 text-primary-600 hover:underline font-bold focus:outline-none">
                 ¿Crearlo?
             </button>
         `;

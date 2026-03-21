@@ -19,7 +19,7 @@ async function cargarDatos() {
         console.error("Error al cargar datos:", error);
         const container = document.querySelector('.table-container');
         if (container) {
-            container.innerHTML = `<p class="text-red-500 p-4">Error al cargar los datos. Por favor, intente de nuevo.</p>`;
+            container.innerHTML = `<p class="text-danger-500 p-4">Error al cargar los datos. Por favor, intente de nuevo.</p>`;
         }
     }
 }
@@ -35,7 +35,7 @@ export async function render() {
             <div class="container mx-auto px-4 py-8">
                 <div class="flex justify-between items-center mb-6">
                     <h1 class="text-2xl font-bold text-gray-800">Gestionar Alojamientos</h1>
-                    <button id="add-propiedad-btn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">
+                    <button id="add-propiedad-btn" class="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700 transition-colors">
                         + Agregar Alojamiento
                     </button>
                 </div>
@@ -62,7 +62,7 @@ export async function render() {
         `;
     } catch (error) {
         console.error("Error rendering alojamientos:", error);
-        return `<p class="text-red-500 p-8">Error crítico de conexión. Por favor, recargue la página.</p>`;
+        return `<p class="text-danger-500 p-8">Error crítico de conexión. Por favor, recargue la página.</p>`;
     }
 }
 

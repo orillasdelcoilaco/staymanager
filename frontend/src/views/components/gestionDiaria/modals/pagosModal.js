@@ -72,11 +72,11 @@ function showActionForm() {
             <div class="mt-4">
                 <label class="block text-sm">Comprobante (Opcional)</label>
                 <input type="file" id="documento-input" class="hidden"/>
-                <div id="paste-zone" class="mt-1 p-4 border-2 border-dashed rounded-md text-center cursor-pointer text-gray-500 hover:border-indigo-500 hover:text-indigo-500"><p>Selecciona o pega una imagen</p></div>
+                <div id="paste-zone" class="mt-1 p-4 border-2 border-dashed rounded-md text-center cursor-pointer text-gray-500 hover:border-primary-500 hover:text-primary-500"><p>Selecciona o pega una imagen</p></div>
                 <div id="preview-container" class="mt-2 hidden"><p class="text-sm">Vista Previa:</p><img id="thumbnail" class="w-24 h-24 object-cover rounded-md"></div>
                 <div class="flex items-center mt-3"><input id="sin-documento-checkbox" type="checkbox" class="h-4 w-4"><label for="sin-documento-checkbox" class="ml-2 text-sm">Registrar sin documento</label></div>
             </div>
-            <div id="modal-status" class="mt-2 text-sm text-red-600"></div>
+            <div id="modal-status" class="mt-2 text-sm text-danger-600"></div>
             <div class="mt-5 flex justify-end space-x-2">
                 <button type="button" id="form-cancel-btn" class="btn-secondary">Cancelar</button>
                 <button type="submit" id="modal-save-btn" class="btn-primary">Guardar Pago</button>
@@ -122,8 +122,8 @@ async function renderPagosList() {
 
         summaryEl.innerHTML = `
             <div><span class="text-gray-500 font-medium">Total Cliente:</span> ${formatCurrency(currentGrupo.valorTotalHuesped)}</div>
-            <div class="text-green-600"><span class="text-gray-500 font-medium">Abonado:</span> ${formatCurrency(totalAbonado)}</div>
-            <div class="text-red-600"><span class="text-gray-500 font-medium">Saldo:</span> ${formatCurrency(saldo)}</div>`;
+            <div class="text-success-600"><span class="text-gray-500 font-medium">Abonado:</span> ${formatCurrency(totalAbonado)}</div>
+            <div class="text-danger-600"><span class="text-gray-500 font-medium">Saldo:</span> ${formatCurrency(saldo)}</div>`;
         
         if (allTransacciones.length === 0) {
             listaPagosEl.innerHTML = '<p class="text-sm text-center text-gray-500 p-4">No hay pagos registrados.</p>';
@@ -137,8 +137,8 @@ async function renderPagosList() {
                     <p class="text-xs text-gray-500">Fecha: ${new Date(p.fecha).toLocaleString('es-CL')}</p>
                 </div>
                 <div class="flex items-center space-x-4">
-                    ${p.enlaceComprobante && p.enlaceComprobante !== 'SIN_DOCUMENTO' ? `<a href="${p.enlaceComprobante}" target="_blank" class="text-xs text-blue-600 hover:underline">Ver Comp.</a>` : '<span class="text-xs text-gray-400">Sin Comp.</span>'}
-                    <button data-id="${p.id}" class="delete-pago-btn text-xs text-red-600 hover:text-red-900">Eliminar</button>
+                    ${p.enlaceComprobante && p.enlaceComprobante !== 'SIN_DOCUMENTO' ? `<a href="${p.enlaceComprobante}" target="_blank" class="text-xs text-primary-600 hover:underline">Ver Comp.</a>` : '<span class="text-xs text-gray-400">Sin Comp.</span>'}
+                    <button data-id="${p.id}" class="delete-pago-btn text-xs text-danger-600 hover:text-danger-900">Eliminar</button>
                 </div>
             </div>`).join('');
 
@@ -146,7 +146,7 @@ async function renderPagosList() {
             btn.addEventListener('click', (e) => handleDeleteTransaction(e.target.dataset.id));
         });
     } catch (error) {
-        listaPagosEl.innerHTML = `<p class="text-red-500 text-center p-4">Error al cargar los pagos: ${error.message}</p>`;
+        listaPagosEl.innerHTML = `<p class="text-danger-500 text-center p-4">Error al cargar los pagos: ${error.message}</p>`;
     }
 }
 

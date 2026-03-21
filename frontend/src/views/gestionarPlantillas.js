@@ -17,7 +17,7 @@ async function fetchAndRender() {
     } catch (error) {
         console.error("Error al cargar datos:", error);
         const container = document.querySelector('.table-container');
-        if(container) container.innerHTML = `<p class="text-red-500 p-4">Error al cargar los datos.</p>`;
+        if(container) container.innerHTML = `<p class="text-danger-500 p-4">Error al cargar los datos.</p>`;
     }
 }
 
@@ -28,7 +28,7 @@ export async function render() {
             fetchAPI('/plantillas/tipos')
         ]);
     } catch (error) {
-        return `<p class="text-red-500">Error crítico de conexión.</p>`;
+        return `<p class="text-danger-500">Error crítico de conexión.</p>`;
     }
 
     return `

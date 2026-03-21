@@ -99,7 +99,7 @@ export function renderDocumentoModal(tipo, grupo, callback) {
             <div class="border rounded-md p-4">
                 <p class="font-semibold">Documento Actual:</p>
                 <img src="${enlaceExistente}" alt="Vista previa del documento" class="mt-2 max-w-full h-auto max-h-60 object-contain cursor-pointer view-image-btn">
-                <a href="${enlaceExistente}" target="_blank" class="text-blue-600 hover:underline text-sm">Abrir en nueva pestaña</a>
+                <a href="${enlaceExistente}" target="_blank" class="text-primary-600 hover:underline text-sm">Abrir en nueva pestaña</a>
                 <div class="text-right mt-2">
                     <button id="eliminar-doc-btn" class="btn-danger text-xs">Eliminar Documento</button>
                 </div>
@@ -112,10 +112,10 @@ export function renderDocumentoModal(tipo, grupo, callback) {
             <div>
                 <label class="block text-sm">Documento</label>
                 <input type="file" id="documento-input" class="hidden"/>
-                <div id="paste-zone" class="mt-1 p-4 border-2 border-dashed rounded-md text-center cursor-pointer text-gray-500 hover:border-indigo-500 hover:text-indigo-500"><p>Selecciona o pega una imagen</p></div>
+                <div id="paste-zone" class="mt-1 p-4 border-2 border-dashed rounded-md text-center cursor-pointer text-gray-500 hover:border-primary-500 hover:text-primary-500"><p>Selecciona o pega una imagen</p></div>
                 <div id="preview-container" class="mt-2 hidden"><p class="text-sm">Vista Previa:</p><img id="thumbnail" class="w-24 h-24 object-cover rounded-md"></div>
             </div>
-            <div id="modal-status" class="mt-2 text-sm text-red-600"></div>
+            <div id="modal-status" class="mt-2 text-sm text-danger-600"></div>
             <div class="mt-5 flex justify-between items-center">
                 <button type="button" id="sin-documento-btn" class="btn-secondary">Declarar sin Documento</button>
                 <button type="submit" id="modal-save-btn" class="btn-primary">Guardar Archivo</button>

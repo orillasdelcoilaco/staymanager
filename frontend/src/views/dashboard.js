@@ -13,13 +13,13 @@ function displayKPIs(kpis) {
     if (!kpiCardsContainer) return;
 
     kpiCardsContainer.innerHTML = `
-        <div class="p-4 bg-green-100 rounded-lg"><div class="text-sm font-medium text-green-700">Ingreso Real (Facturado)</div><div class="text-2xl font-bold text-green-900">${formatCurrency(kpis.ingresoFacturado)}</div></div>
-        <div class="p-4 bg-green-100 rounded-lg"><div class="text-sm font-medium text-green-700">Payout Neto (Facturado)</div><div class="text-2xl font-bold text-green-900">${formatCurrency(kpis.payoutFacturado)}</div></div>
-        <div class="p-4 bg-green-100 rounded-lg"><div class="text-sm font-medium text-green-700">Costo de Canales (Fact.)</div><div class="text-2xl font-bold text-green-900">${formatCurrency(kpis.costoCanalFacturado)}</div></div>
+        <div class="p-4 bg-success-100 rounded-lg"><div class="text-sm font-medium text-success-700">Ingreso Real (Facturado)</div><div class="text-2xl font-bold text-success-900">${formatCurrency(kpis.ingresoFacturado)}</div></div>
+        <div class="p-4 bg-success-100 rounded-lg"><div class="text-sm font-medium text-success-700">Payout Neto (Facturado)</div><div class="text-2xl font-bold text-success-900">${formatCurrency(kpis.payoutFacturado)}</div></div>
+        <div class="p-4 bg-success-100 rounded-lg"><div class="text-sm font-medium text-success-700">Costo de Canales (Fact.)</div><div class="text-2xl font-bold text-success-900">${formatCurrency(kpis.costoCanalFacturado)}</div></div>
         
-        <div class="p-4 bg-blue-100 rounded-lg"><div class="text-sm font-medium text-blue-700">Ingreso Proyectado</div><div class="text-2xl font-bold text-blue-900">${formatCurrency(kpis.ingresoProyectado)}</div></div>
-        <div class="p-4 bg-red-100 rounded-lg"><div class="text-sm font-medium text-red-700">Dsctos. Canal Externo</div><div class="text-2xl font-bold text-red-900">${formatCurrency(kpis.descuentosDeCanalExterno)}</div></div>
-        <div class="p-4 bg-yellow-100 rounded-lg"><div class="text-sm font-medium text-yellow-700">Ajustes Internos</div><div class="text-2xl font-bold text-yellow-800">${formatCurrency(kpis.ajustesManualesInternos)}</div></div>
+        <div class="p-4 bg-primary-100 rounded-lg"><div class="text-sm font-medium text-primary-700">Ingreso Proyectado</div><div class="text-2xl font-bold text-primary-900">${formatCurrency(kpis.ingresoProyectado)}</div></div>
+        <div class="p-4 bg-danger-100 rounded-lg"><div class="text-sm font-medium text-danger-700">Dsctos. Canal Externo</div><div class="text-2xl font-bold text-danger-900">${formatCurrency(kpis.descuentosDeCanalExterno)}</div></div>
+        <div class="p-4 bg-warning-100 rounded-lg"><div class="text-sm font-medium text-warning-700">Ajustes Internos</div><div class="text-2xl font-bold text-warning-800">${formatCurrency(kpis.ajustesManualesInternos)}</div></div>
 
         <div class="p-4 bg-gray-100 rounded-lg"><div class="text-sm font-medium text-gray-600">Ocup. (Confirmada)</div><div class="text-2xl font-bold text-gray-900">${kpis.tasaOcupacionConfirmada.toFixed(1)}%</div></div>
         <div class="p-4 bg-gray-100 rounded-lg"><div class="text-sm font-medium text-gray-600">ADR (Facturado)</div><div class="text-2xl font-bold text-gray-900">${formatCurrency(kpis.adrFacturado)}</div></div>
@@ -61,11 +61,11 @@ function renderRankingFinancieroTable(data) {
         <tr class="hover:bg-gray-50">
             <td class="px-4 py-3 text-sm font-medium text-gray-900">${prop.nombre}</td>
             <td class="px-4 py-3 text-sm text-right font-bold">${formatCurrency(prop.ingresoTotalFacturado)}</td>
-            <td class="px-4 py-3 text-sm text-right text-green-700 font-semibold">${formatCurrency(prop.payoutTotalFacturado)}</td>
+            <td class="px-4 py-3 text-sm text-right text-success-700 font-semibold">${formatCurrency(prop.payoutTotalFacturado)}</td>
             <td class="px-4 py-3 text-sm text-right">${formatCurrency(prop.valorPromedioReserva)}</td>
             <td class="px-4 py-3 text-sm text-right">${formatCurrency(prop.adr)}</td>
-            <td class="px-4 py-3 text-sm text-right text-red-600">${formatCurrency(prop.descuentosDeCanalExterno)}</td>
-            <td class="px-4 py-3 text-sm text-right text-yellow-800">${formatCurrency(prop.ajustesManualesInternos)}</td>
+            <td class="px-4 py-3 text-sm text-right text-danger-600">${formatCurrency(prop.descuentosDeCanalExterno)}</td>
+            <td class="px-4 py-3 text-sm text-right text-warning-800">${formatCurrency(prop.ajustesManualesInternos)}</td>
         </tr>
     `).join('');
 }
@@ -85,9 +85,9 @@ function renderCanalTable(data) {
             <td class="px-4 py-3 text-sm text-center font-bold">${canal.numeroReservas}</td>
             <td class="px-4 py-3 text-sm text-center">${canal.nochesVendidas}</td>
             <td class="px-4 py-3 text-sm text-right font-semibold">${formatCurrency(canal.ingresoTotal)}</td>
-            <td class="px-4 py-3 text-sm text-right text-green-700">${formatCurrency(canal.payoutNeto)}</td>
+            <td class="px-4 py-3 text-sm text-right text-success-700">${formatCurrency(canal.payoutNeto)}</td>
             <td class="px-4 py-3 text-sm text-right">${formatCurrency(canal.ingresoPromedioPorReserva)}</td>
-            <td class="px-4 py-3 text-sm text-right text-red-600">${formatCurrency(canal.costoPromedioPorReserva)}</td>
+            <td class="px-4 py-3 text-sm text-right text-danger-600">${formatCurrency(canal.costoPromedioPorReserva)}</td>
         </tr>
     `).join('');
 }
@@ -261,7 +261,7 @@ export function afterRender() {
         } catch (error) {
             statusContainer.textContent = `Error al calcular KPIs: ${error.message}`;
             statusContainer.classList.remove('text-gray-500');
-            statusContainer.classList.add('text-red-500');
+            statusContainer.classList.add('text-danger-500');
         } finally {
             calculateBtn.disabled = false;
         }

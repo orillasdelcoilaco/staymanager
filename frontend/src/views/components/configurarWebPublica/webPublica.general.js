@@ -72,8 +72,8 @@ export function renderGeneral(empresaData) {
                 </div>
             </fieldset>
 
-            <fieldset class="border p-4 rounded-md bg-indigo-50 border-indigo-100 mb-4">
-                <legend class="px-2 font-semibold text-indigo-800 flex items-center gap-2">
+            <fieldset class="border p-4 rounded-md bg-primary-50 border-primary-100 mb-4">
+                <legend class="px-2 font-semibold text-primary-800 flex items-center gap-2">
                     ✨ Identidad y Optimización IA
                 </legend>
                 <div class="mt-4">
@@ -81,7 +81,7 @@ export function renderGeneral(empresaData) {
                     <p class="text-xs text-gray-500 mb-2">Cuéntanos sobre tu empresa: ¿Qué la hace única? ¿A quién está dirigida? ¿Dónde está ubicada? (La IA usará esto para optimizar tu perfil).</p>
                     <div class="flex gap-2">
                         <textarea id="historiaEmpresa" name="historiaEmpresa" rows="4" class="form-input flex-1" placeholder="Ej: Somos un complejo de cabañas familiar ubicado a orillas del lago...">${clean(fullEmpresaData.historiaEmpresa)}</textarea>
-                        <button type="button" id="btn-optimizar-ia" class="btn-secondary flex flex-col items-center justify-center px-4 py-2 h-auto gap-1 bg-white border-indigo-200 hover:bg-indigo-50 text-indigo-700">
+                        <button type="button" id="btn-optimizar-ia" class="btn-secondary flex flex-col items-center justify-center px-4 py-2 h-auto gap-1 bg-white border-primary-200 hover:bg-primary-50 text-primary-700">
                             <span class="text-xl">✨</span>
                             <span class="text-xs font-bold">Optimizar</span>
                         </button>
@@ -237,8 +237,8 @@ export function setupGeneralEvents() {
                 // 5. Historia Optimizada
                 if (optimizedData.historiaOptimizada) {
                     historiaInput.value = optimizedData.historiaOptimizada;
-                    historiaInput.classList.add('bg-green-50', 'transition-colors', 'duration-500');
-                    setTimeout(() => historiaInput.classList.remove('bg-green-50'), 2000);
+                    historiaInput.classList.add('bg-success-50', 'transition-colors', 'duration-500');
+                    setTimeout(() => historiaInput.classList.remove('bg-success-50'), 2000);
                 }
 
                 if (optimizedData.error) {
@@ -263,7 +263,7 @@ async function handleSubirLogo(file) {
     const hiddenInput = document.getElementById('config-logo');
 
     statusDiv.textContent = 'Subiendo logo...';
-    statusDiv.className = 'text-xs mt-1 text-blue-600';
+    statusDiv.className = 'text-xs mt-1 text-primary-600';
 
     const formData = new FormData();
     formData.append('logoFile', file);
@@ -279,11 +279,11 @@ async function handleSubirLogo(file) {
         hiddenInput.value = resultado.logoUrl; // Actualizamos el input oculto
 
         statusDiv.textContent = '¡Logo actualizado! No olvides guardar cambios generales.';
-        statusDiv.className = 'text-xs mt-1 text-green-600';
+        statusDiv.className = 'text-xs mt-1 text-success-600';
 
     } catch (error) {
         statusDiv.textContent = `Error al subir: ${error.message}`;
-        statusDiv.className = 'text-xs mt-1 text-red-600';
+        statusDiv.className = 'text-xs mt-1 text-danger-600';
     }
 }
 

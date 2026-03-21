@@ -231,7 +231,7 @@
                             const mensajeEspecifico = `Hola ${nombreAnfitrion}, necesito ayuda para reservar el alojamiento "${propiedad.nombre}".`;
                             const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeEspecifico)}`;
                         %>
-                        <a href="<%= whatsappUrl %>" target="_blank" class="btn-whatsapp w-full mb-6 block text-center py-2 px-4 bg-green-500 text-white rounded hover:bg-green-600 transition">
+                        <a href="<%= whatsappUrl %>" target="_blank" class="btn-whatsapp w-full mb-6 block text-center py-2 px-4 bg-success-500 text-white rounded hover:bg-success-600 transition">
                             <i class="fa-brands fa-whatsapp w-5 h-5 mr-2 text-white"></i>
                             ¿Necesitas ayuda? Hablemos
                         </a>
@@ -239,21 +239,21 @@
 
                     <div class="space-y-4 mt-6">
                         <div class="flex items-center">
-                            <i class="fa-solid fa-star text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <i class="fa-solid fa-star text-primary-600 text-xl w-6 text-center mr-3"></i>
                             <div>
                                 <h3 class="font-semibold text-gray-900">Experiencia Destacada</h3>
                                 <p class="text-sm text-gray-600">Nuestros huéspedes aman la atención y el entorno.</p>
                             </div>
                         </div>
                         <div class="flex items-center">
-                            <i class="fa-solid fa-house-chimney-medical text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <i class="fa-solid fa-house-chimney-medical text-primary-600 text-xl w-6 text-center mr-3"></i>
                             <div>
                                 <h3 class="font-semibold text-gray-900">Ambientes Acogedores</h3>
                                 <p class="text-sm text-gray-600">Disfruta de espacios amplios y bien equipados.</p>
                             </div>
                         </div>
                         <div class="flex items-center">
-                            <i class="fa-solid fa-calendar-check text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <i class="fa-solid fa-calendar-check text-primary-600 text-xl w-6 text-center mr-3"></i>
                             <div>
                                 <h3 class="font-semibold text-gray-900">Cancelación Flexible</h3>
                                 <p class="text-sm text-gray-600">Cancela gratis hasta 3 días antes del check-in para un reembolso total.</p>
@@ -266,43 +266,43 @@
                     <h2 class="text-xl font-semibold mb-4">Comodidades</h2>
                     <div class="grid grid-cols-2 gap-4 text-sm">
                         <div class="flex items-center">
-                            <i class="fa-solid fa-bed w-5 mr-2 text-indigo-600"></i> <%= propiedad.numPiezas || ' ?' %>
+                            <i class="fa-solid fa-bed w-5 mr-2 text-primary-600"></i> <%= propiedad.numPiezas || ' ?' %>
                                                             Dormitorios
                                                 </div>
                                                 <div class="flex items-center">
-                                                    <i class="fa-solid fa-bath w-5 mr-2 text-indigo-600"></i>
+                                                    <i class="fa-solid fa-bath w-5 mr-2 text-primary-600"></i>
                                                     <%= propiedad.numBanos || '?' %> Baños
                                                 </div>
                                                 <div class="flex items-center">
-                                                    <i class="fa-solid fa-users w-5 mr-2 text-indigo-600"></i> Capacidad
+                                                    <i class="fa-solid fa-users w-5 mr-2 text-primary-600"></i> Capacidad
                                                     <%= propiedad.capacidad %> personas
                                                 </div>
                                                 <% if (propiedad.equipamiento?.tinaja) { %>
                                                     <div class="flex items-center"><i
-                                                            class="fa-solid fa-hot-tub-person w-5 mr-2 text-indigo-600"></i>
+                                                            class="fa-solid fa-hot-tub-person w-5 mr-2 text-primary-600"></i>
                                                         Tinaja Privada</div>
                                                     <% } %>
                                                         <% if (propiedad.equipamiento?.parrilla) { %>
                                                             <div class="flex items-center"><i
-                                                                    class="fa-solid fa-burger w-5 mr-2 text-indigo-600"></i>
+                                                                    class="fa-solid fa-burger w-5 mr-2 text-primary-600"></i>
                                                                 Parrilla</div>
                                                             <% } %>
                                                                 <% if (propiedad.equipamiento?.terrazaTechada) { %>
                                                                     <div class="flex items-center"><i
-                                                                            class="fa-solid fa-campground w-5 mr-2 text-indigo-600"></i>
+                                                                            class="fa-solid fa-campground w-5 mr-2 text-primary-600"></i>
                                                                         Terraza Techada</div>
                                                                     <% } %>
                                                                         <% if (propiedad.equipamiento?.juegoDeTerraza) {
                                                                             %>
                                                                             <div class="flex items-center"><i
-                                                                                    class="fa-solid fa-chair w-5 mr-2 text-indigo-600"></i>
+                                                                                    class="fa-solid fa-chair w-5 mr-2 text-primary-600"></i>
                                                                                 Juego de Terraza</div>
                                                                             <% } %>
                                                                                 <% if
                                                                                     (propiedad.equipamiento?.piezaEnSuite)
                                                                                     { %>
                                                                                     <div class="flex items-center"><i
-                                                                                            class="fa-solid fa-person-booth w-5 mr-2 text-indigo-600"></i>
+                                                                                            class="fa-solid fa-person-booth w-5 mr-2 text-primary-600"></i>
                                                                                         Pieza en Suite</div>
                                                                                     <% } %>
                                                                                         <% if
@@ -311,7 +311,7 @@
                                                                                             <div
                                                                                                 class="flex items-center">
                                                                                                 <i
-                                                                                                    class="fa-solid fa-building w-5 mr-2 text-indigo-600"></i>
+                                                                                                    class="fa-solid fa-building w-5 mr-2 text-primary-600"></i>
                                                                                                 Dos Pisos
                                                                                             </div>
                                                                                             <% } %>
@@ -438,7 +438,7 @@
                             const mensajeEspecifico = `Hola ${nombreAnfitrion}, necesito ayuda para reservar el alojamiento "${propiedad.nombre}".`;
                             const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeEspecifico)}`;
                         %>
-                        <a href="<%= whatsappUrl %>" target="_blank" class="btn-whatsapp w-full mb-6 block text-center py-2 px-4 bg-green-500 text-white rounded hover:bg-green-600 transition">
+                        <a href="<%= whatsappUrl %>" target="_blank" class="btn-whatsapp w-full mb-6 block text-center py-2 px-4 bg-success-500 text-white rounded hover:bg-success-600 transition">
                             <i class="fa-brands fa-whatsapp w-5 h-5 mr-2 text-white"></i>
                             ¿Necesitas ayuda? Hablemos
                         </a>
@@ -446,21 +446,21 @@
 
                     <div class="space-y-4 mt-6">
                         <div class="flex items-center">
-                            <i class="fa-solid fa-star text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <i class="fa-solid fa-star text-primary-600 text-xl w-6 text-center mr-3"></i>
                             <div>
                                 <h3 class="font-semibold text-gray-900">Experiencia Destacada</h3>
                                 <p class="text-sm text-gray-600">Nuestros huéspedes aman la atención y el entorno.</p>
                             </div>
                         </div>
                         <div class="flex items-center">
-                            <i class="fa-solid fa-house-chimney-medical text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <i class="fa-solid fa-house-chimney-medical text-primary-600 text-xl w-6 text-center mr-3"></i>
                             <div>
                                 <h3 class="font-semibold text-gray-900">Ambientes Acogedores</h3>
                                 <p class="text-sm text-gray-600">Disfruta de espacios amplios y bien equipados.</p>
                             </div>
                         </div>
                         <div class="flex items-center">
-                            <i class="fa-solid fa-calendar-check text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <i class="fa-solid fa-calendar-check text-primary-600 text-xl w-6 text-center mr-3"></i>
                             <div>
                                 <h3 class="font-semibold text-gray-900">Cancelación Flexible</h3>
                                 <p class="text-sm text-gray-600">Cancela gratis hasta 3 días antes del check-in para un reembolso total.</p>
@@ -473,30 +473,30 @@
                     <h2 class="text-xl font-semibold mb-4">Comodidades</h2>
                     <div class="grid grid-cols-2 gap-4 text-sm">
                         <div class="flex items-center">
-                            <i class="fa-solid fa-bed w-5 mr-2 text-indigo-600"></i> <%= propiedad.numPiezas || ' ?' %>
+                            <i class="fa-solid fa-bed w-5 mr-2 text-primary-600"></i> <%= propiedad.numPiezas || ' ?' %>
                                                         Dormitorios
                                             </div>
                                             <div class="flex items-center">
-                                                <i class="fa-solid fa-bath w-5 mr-2 text-indigo-600"></i>
+                                                <i class="fa-solid fa-bath w-5 mr-2 text-primary-600"></i>
                                                 <%= propiedad.numBanos || '?' %>
                                                     Baños
                                             </div>
                                             <div class="flex items-center">
-                                                <i class="fa-solid fa-users w-5 mr-2 text-indigo-600"></i>
+                                                <i class="fa-solid fa-users w-5 mr-2 text-primary-600"></i>
                                                 Capacidad
                                                 <%= propiedad.capacidad %>
                                                     personas
                                             </div>
                                             <% if (hasFeature(['tinaja', 'hot tub' , 'jacuzzi' ])) { %>
                                                 <div class="flex items-center">
-                                                    <i class="fa-solid fa-hot-tub-person w-5 mr-2 text-indigo-600"></i>
+                                                    <i class="fa-solid fa-hot-tub-person w-5 mr-2 text-primary-600"></i>
                                                     Tinaja Privada
                                                 </div>
                                                 <% } %>
 
                                                     <% if (hasFeature(['parrilla', 'quincho' , 'asador' , 'bbq' ])) { %>
                                                         <div class="flex items-center">
-                                                            <i class="fa-solid fa-burger w-5 mr-2 text-indigo-600"></i>
+                                                            <i class="fa-solid fa-burger w-5 mr-2 text-primary-600"></i>
                                                             Parrilla
                                                         </div>
                                                         <% } %>
@@ -504,7 +504,7 @@
                                                             <% if (hasFeature(['terraza'])) { %>
                                                                 <div class="flex items-center">
                                                                     <i
-                                                                        class="fa-solid fa-campground w-5 mr-2 text-indigo-600"></i>
+                                                                        class="fa-solid fa-campground w-5 mr-2 text-primary-600"></i>
                                                                     Terraza
                                                                 </div>
                                                                 <% } %>
@@ -512,7 +512,7 @@
                                                                     <% if (hasFeature(['suite'])) { %>
                                                                         <div class="flex items-center">
                                                                             <i
-                                                                                class="fa-solid fa-person-booth w-5 mr-2 text-indigo-600"></i>
+                                                                                class="fa-solid fa-person-booth w-5 mr-2 text-primary-600"></i>
                                                                             Pieza en Suite
                                                                         </div>
                                                                         <% } %>
@@ -521,7 +521,7 @@
                                                                                 %>
                                                                                 <div class="flex items-center">
                                                                                     <i
-                                                                                        class="fa-solid fa-wifi w-5 mr-2 text-indigo-600"></i>
+                                                                                        class="fa-solid fa-wifi w-5 mr-2 text-primary-600"></i>
                                                                                     WiFi
                                                                                 </div>
                                                                                 <% } %>
@@ -530,7 +530,7 @@
                                                                                         ])) { %>
                                                                                         <div class="flex items-center">
                                                                                             <i
-                                                                                                class="fa-solid fa-tv w-5 mr-2 text-indigo-600"></i>
+                                                                                                class="fa-solid fa-tv w-5 mr-2 text-primary-600"></i>
                                                                                             TV Cable / Smart TV
                                                                                         </div>
                                                                                         <% } %>
@@ -542,7 +542,7 @@
                                                                                                 <div
                                                                                                     class="flex items-center">
                                                                                                     <i
-                                                                                                        class="fa-solid fa-snowflake w-5 mr-2 text-indigo-600"></i>
+                                                                                                        class="fa-solid fa-snowflake w-5 mr-2 text-primary-600"></i>
                                                                                                     Aire Acondicionado
                                                                                                 </div>
                                                                                                 <% } %>
@@ -693,21 +693,21 @@
 
                     <div class="space-y-4 mt-6">
                         <div class="flex items-center">
-                            <i class="fa-solid fa-star text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <i class="fa-solid fa-star text-primary-600 text-xl w-6 text-center mr-3"></i>
                             <div>
                                 <h3 class="font-semibold text-gray-900">Experiencia Destacada</h3>
                                 <p class="text-sm text-gray-600">Nuestros huéspedes aman la atención y el entorno.</p>
                             </div>
                         </div>
                         <div class="flex items-center">
-                            <i class="fa-solid fa-house-chimney-medical text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <i class="fa-solid fa-house-chimney-medical text-primary-600 text-xl w-6 text-center mr-3"></i>
                             <div>
                                 <h3 class="font-semibold text-gray-900">Ambientes Acogedores</h3>
                                 <p class="text-sm text-gray-600">Disfruta de espacios amplios y bien equipados.</p>
                             </div>
                         </div>
                         <div class="flex items-center">
-                            <i class="fa-solid fa-calendar-check text-indigo-600 text-xl w-6 text-center mr-3"></i>
+                            <i class="fa-solid fa-calendar-check text-primary-600 text-xl w-6 text-center mr-3"></i>
                             <div>
                                 <h3 class="font-semibold text-gray-900">Cancelación Flexible</h3>
                                 <p class="text-sm text-gray-600">Cancela gratis hasta 3 días antes del check-in para un reembolso total.</p>
@@ -720,18 +720,18 @@
                     <h2 class="text-xl font-semibold mb-4">Comodidades</h2>
                     <div class="grid grid-cols-2 gap-4 text-sm">
                         <div class="flex items-center">
-                            <i class="fa-solid fa-bed w-5 mr-2 text-indigo-600"></i> <%= propiedad.numPiezas || ' ?' %>
+                            <i class="fa-solid fa-bed w-5 mr-2 text-primary-600"></i> <%= propiedad.numPiezas || ' ?' %>
                                                                                 Dormitorios
                                                                     </div>
                                                                     <div class="flex items-center">
                                                                         <i
-                                                                            class="fa-solid fa-bath w-5 mr-2 text-indigo-600"></i>
+                                                                            class="fa-solid fa-bath w-5 mr-2 text-primary-600"></i>
                                                                         <%= propiedad.numBanos || '?' %>
                                                                             Baños
                                                                     </div>
                                                                     <div class="flex items-center">
                                                                         <i
-                                                                            class="fa-solid fa-users w-5 mr-2 text-indigo-600"></i>
+                                                                            class="fa-solid fa-users w-5 mr-2 text-primary-600"></i>
                                                                         Capacidad
                                                                         <%= propiedad.capacidad %>
                                                                             personas
@@ -739,7 +739,7 @@
                                                                     <% if (propiedad.equipamiento?.tinaja) { %>
                                                                         <div class="flex items-center">
                                                                             <i
-                                                                                class="fa-solid fa-hot-tub-person w-5 mr-2 text-indigo-600"></i>
+                                                                                class="fa-solid fa-hot-tub-person w-5 mr-2 text-primary-600"></i>
                                                                             Tinaja
                                                                             Privada
                                                                         </div>
@@ -748,7 +748,7 @@
                                                                                 %>
                                                                                 <div class="flex items-center">
                                                                                     <i
-                                                                                        class="fa-solid fa-burger w-5 mr-2 text-indigo-600"></i>
+                                                                                        class="fa-solid fa-burger w-5 mr-2 text-primary-600"></i>
                                                                                     Parrilla
                                                                                 </div>
                                                                                 <% } %>
@@ -757,7 +757,7 @@
                                                                                         { %>
                                                                                         <div class="flex items-center">
                                                                                             <i
-                                                                                                class="fa-solid fa-campground w-5 mr-2 text-indigo-600"></i>
+                                                                                                class="fa-solid fa-campground w-5 mr-2 text-primary-600"></i>
                                                                                             Terraza
                                                                                             Techada
                                                                                         </div>
@@ -768,7 +768,7 @@
                                                                                                 <div
                                                                                                     class="flex items-center">
                                                                                                     <i
-                                                                                                        class="fa-solid fa-chair w-5 mr-2 text-indigo-600"></i>
+                                                                                                        class="fa-solid fa-chair w-5 mr-2 text-primary-600"></i>
                                                                                                     Juego
                                                                                                     de
                                                                                                     Terraza
@@ -780,7 +780,7 @@
                                                                                                         <div
                                                                                                             class="flex items-center">
                                                                                                             <i
-                                                                                                                class="fa-solid fa-person-booth w-5 mr-2 text-indigo-600"></i>
+                                                                                                                class="fa-solid fa-person-booth w-5 mr-2 text-primary-600"></i>
                                                                                                             Pieza
                                                                                                             en
                                                                                                             Suite
@@ -792,7 +792,7 @@
                                                                                                                 <div
                                                                                                                     class="flex items-center">
                                                                                                                     <i
-                                                                                                                        class="fa-solid fa-building w-5 mr-2 text-indigo-600"></i>
+                                                                                                                        class="fa-solid fa-building w-5 mr-2 text-primary-600"></i>
                                                                                                                     Dos
                                                                                                                     Pisos
                                                                                                                 </div>

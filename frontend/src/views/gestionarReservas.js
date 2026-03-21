@@ -35,7 +35,7 @@ export async function render() {
             fetchAPI('/canales')
         ]);
     } catch (error) {
-        return `<p class="text-red-500">Error al cargar los datos. Por favor, intente de nuevo.</p>`;
+        return `<p class="text-danger-500">Error al cargar los datos. Por favor, intente de nuevo.</p>`;
     }
 
     const opcionesCarga = historialCargas.map(h => `<option value="${h.id}">#${h.idNumerico} - ${h.nombreArchivo}</option>`).join('');
@@ -221,7 +221,7 @@ export async function render() {
 
         <div id="modal-confirmar-borrado-grupo" class="modal hidden">
             <div class="modal-content !max-w-lg">
-                <h3 class="text-xl font-semibold text-red-700 mb-4">⚠️ ¡Advertencia! Reserva con Datos Vinculados</h3>
+                <h3 class="text-xl font-semibold text-danger-700 mb-4">⚠️ ¡Advertencia! Reserva con Datos Vinculados</h3>
                 <div id="borrado-grupo-info" class="text-sm space-y-3 mb-6">
                     <p>Esta reserva tiene pagos y/o notas asociadas. No se puede borrar individualmente sin corromper los datos financieros.</p>
                     <p class="font-semibold">Si continúas, se borrará el GRUPO COMPLETO y todos sus datos en cascada.</p>

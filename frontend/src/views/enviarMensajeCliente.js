@@ -50,7 +50,7 @@ export async function render() {
         reserva = cliente.reservas.find(r => r.id === reservaId);
         if (!reserva) throw new Error('Reserva no encontrada para este cliente.');
     } catch (error) {
-        return `<p class="text-red-500">Error al cargar datos: ${error.message}</p>`;
+        return `<p class="text-danger-500">Error al cargar datos: ${error.message}</p>`;
     }
 
     return `

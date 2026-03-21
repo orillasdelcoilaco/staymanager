@@ -20,10 +20,10 @@ export async function render() {
             </div>
             <div id="diagnostico-container"></div>
             <div id="revision-container" class="hidden"><h3 class="text-xl font-bold text-amber-600 mb-4 border-b pb-2">⚠️ Requiere Revisión Manual</h3><div id="revision-list" class="space-y-4"></div></div>
-            <div id="hoy-container" class="mt-8 hidden"><h3 class="text-xl font-bold text-red-600 mb-4 border-b pb-2">Requiere Acción Inmediata (Llegadas de hoy o pasadas)</h3><div id="hoy-list" class="space-y-4"></div></div>
-            <div id="proximas-container" class="mt-8 hidden"><h3 class="text-xl font-semibold text-blue-600 mb-4 border-b pb-2">Próximas Llegadas</h3><div id="proximas-list" class="space-y-4"></div></div>
+            <div id="hoy-container" class="mt-8 hidden"><h3 class="text-xl font-bold text-danger-600 mb-4 border-b pb-2">Requiere Acción Inmediata (Llegadas de hoy o pasadas)</h3><div id="hoy-list" class="space-y-4"></div></div>
+            <div id="proximas-container" class="mt-8 hidden"><h3 class="text-xl font-semibold text-primary-600 mb-4 border-b pb-2">Próximas Llegadas</h3><div id="proximas-list" class="space-y-4"></div></div>
             <div id="loading-state" class="text-center py-8"><p class="text-gray-500">Cargando tareas pendientes...</p></div>
-            <div id="no-pendientes" class="text-center py-12 hidden"><p class="text-2xl font-semibold text-green-600">¡Todo al día!</p><p class="text-gray-500 mt-2">No hay reservas con gestiones pendientes.</p></div>
+            <div id="no-pendientes" class="text-center py-12 hidden"><p class="text-2xl font-semibold text-success-600">¡Todo al día!</p><p class="text-gray-500 mt-2">No hay reservas con gestiones pendientes.</p></div>
         </div>
         
         <div id="gestion-modal" class="modal hidden">
@@ -87,8 +87,8 @@ async function loadAndRender() {
         noPendientesEl.classList.toggle('hidden', allGrupos.length > 0);
 
     } catch(error) {
-        document.getElementById('diagnostico-container').innerHTML = `<p class="text-red-500">Error al cargar las gestiones: ${error.message}</p>`;
-        loadingState.innerHTML = `<p class="text-red-500">Error al cargar las gestiones: ${error.message}</p>`;
+        document.getElementById('diagnostico-container').innerHTML = `<p class="text-danger-500">Error al cargar las gestiones: ${error.message}</p>`;
+        loadingState.innerHTML = `<p class="text-danger-500">Error al cargar las gestiones: ${error.message}</p>`;
     } finally {
         isLoading = false;
         loadingState.classList.add('hidden');
@@ -144,13 +144,13 @@ async function handleEstadoReservaChange(e) {
         
         grupo.estado = nuevoEstadoReserva;
         
-        select.classList.remove('bg-gray-100', 'bg-green-100', 'bg-red-100', 'bg-yellow-100');
+        select.classList.remove('bg-gray-100', 'bg-success-100', 'bg-danger-100', 'bg-warning-100');
         if (nuevoEstadoReserva === 'Confirmada') {
-            select.classList.add('bg-green-100');
+            select.classList.add('bg-success-100');
         } else if (nuevoEstadoReserva === 'Cancelada' || nuevoEstadoReserva === 'No Presentado') {
-            select.classList.add('bg-red-100');
+            select.classList.add('bg-danger-100');
         } else if (nuevoEstadoReserva === 'Propuesta' || nuevoEstadoReserva === 'Desconocido') {
-            select.classList.add('bg-yellow-100');
+            select.classList.add('bg-warning-100');
         } else {
             select.classList.add('bg-gray-100');
         }

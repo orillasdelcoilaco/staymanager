@@ -50,8 +50,8 @@ const handleWizardUpload = async (file) => {
     const wizardBody = document.getElementById('wizard-body');
     wizardBody.innerHTML = `
         <div class="flex flex-col items-center justify-center py-10 space-y-4">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-            <p class="text-lg text-indigo-800 font-medium">Analizando imagen...</p>
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+            <p class="text-lg text-primary-800 font-medium">Analizando imagen...</p>
             <p class="text-sm text-gray-600">Verificando cumplimiento: "${stepData}"</p>
             <p class="text-xs text-gray-400 mt-2">Optimizando y generando metadatos SEO...</p>
         </div>
@@ -112,7 +112,7 @@ const renderWizardStep = (state = 'upload', data = null) => {
     // Header Info
     document.getElementById('wizard-title').innerHTML = `
         <div class="flex flex-col">
-            <span class="text-xs uppercase tracking-wider text-indigo-200">${activeWizard.componentName} (${activeWizard.componentType})</span>
+            <span class="text-xs uppercase tracking-wider text-primary-200">${activeWizard.componentName} (${activeWizard.componentType})</span>
             <span>Paso ${stepIndex + 1} de ${totalSteps}</span>
         </div>
     `;
@@ -127,15 +127,15 @@ const renderWizardStep = (state = 'upload', data = null) => {
         wizardBody.innerHTML = `
             <div class="text-center py-4">
                 <div class="mb-6">
-                    <span class="inline-block px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-bold mb-2">Requisito Obligatorio</span>
+                    <span class="inline-block px-3 py-1 bg-primary-100 text-primary-800 rounded-full text-xs font-bold mb-2">Requisito Obligatorio</span>
                     <h4 class="text-2xl font-bold text-gray-800">"${currentRequirement}"</h4>
                 </div>
                 
-                <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 text-left max-w-sm mx-auto">
-                    <p class="text-xs font-bold text-blue-800 mb-1">💡 Guía para esta foto:</p>
+                <div class="bg-primary-50 border border-primary-100 rounded-lg p-4 mb-6 text-left max-w-sm mx-auto">
+                    <p class="text-xs font-bold text-primary-800 mb-1">💡 Guía para esta foto:</p>
                     ${currentShot?.guidelines
-                        ? `<p class="text-xs text-blue-700 leading-relaxed">${currentShot.guidelines}</p>`
-                        : `<ul class="text-xs text-blue-700 list-disc pl-4 space-y-1">
+                        ? `<p class="text-xs text-primary-700 leading-relaxed">${currentShot.guidelines}</p>`
+                        : `<ul class="text-xs text-primary-700 list-disc pl-4 space-y-1">
                             <li>Asegura buena iluminación (luz natural ideal).</li>
                             <li>El elemento principal debe ser el foco central.</li>
                             <li>Evita fotos borrosas o movidas.</li>
@@ -143,11 +143,11 @@ const renderWizardStep = (state = 'upload', data = null) => {
                     }
                 </div>
                 
-                <label for="wizard-file-input" class="cursor-pointer flex flex-col items-center justify-center h-40 border-2 border-dashed border-indigo-400 rounded-xl hover:bg-indigo-50 transition-all bg-white max-w-sm mx-auto shadow-sm group">
-                    <div class="p-3 bg-indigo-100 rounded-full mb-3 group-hover:scale-110 transition-transform">
+                <label for="wizard-file-input" class="cursor-pointer flex flex-col items-center justify-center h-40 border-2 border-dashed border-primary-400 rounded-xl hover:bg-primary-50 transition-all bg-white max-w-sm mx-auto shadow-sm group">
+                    <div class="p-3 bg-primary-100 rounded-full mb-3 group-hover:scale-110 transition-transform">
                         <span class="text-3xl">📸</span>
                     </div>
-                    <span class="text-indigo-700 font-bold text-sm">Subir Foto Requerida</span>
+                    <span class="text-primary-700 font-bold text-sm">Subir Foto Requerida</span>
                     <span class="text-gray-400 text-xs mt-1">Click para seleccionar</span>
                     <input type="file" id="wizard-file-input" accept="image/*" class="hidden">
                 </label>
@@ -177,12 +177,12 @@ const renderWizardStep = (state = 'upload', data = null) => {
         // Paso intermedio de éxito
         wizardBody.innerHTML = `
             <div class="text-center py-10 fade-in-up">
-                <div class="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div class="h-16 w-16 bg-success-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <span class="text-3xl">✅</span>
                 </div>
-                <h4 class="text-xl font-bold text-green-800 mb-2">¡Foto Aprobada!</h4>
+                <h4 class="text-xl font-bold text-success-800 mb-2">¡Foto Aprobada!</h4>
                 <p class="text-gray-600 mb-4">IA detectó correctamente: "${data.title}"</p>
-                <div class="h-48 w-full max-w-xs mx-auto rounded-lg overflow-hidden border-2 border-green-200 shadow-md bg-gray-100">
+                <div class="h-48 w-full max-w-xs mx-auto rounded-lg overflow-hidden border-2 border-success-200 shadow-md bg-gray-100">
                     <img src="${data.storagePath}" class="w-full h-full object-contain">
                 </div>
             </div>
@@ -197,15 +197,15 @@ const renderWizardStep = (state = 'upload', data = null) => {
         const errorMsg = data.advertencia || "La imagen no cumple con los requisitos mínimos de calidad o contenido.";
 
         wizardBody.innerHTML = `
-            <div class="text-center py-4 bg-red-50 rounded-xl border border-red-200 p-6 max-w-sm mx-auto">
-                <div class="h-16 w-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-red-200">
+            <div class="text-center py-4 bg-danger-50 rounded-xl border border-danger-200 p-6 max-w-sm mx-auto">
+                <div class="h-16 w-16 bg-danger-100 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-danger-200">
                     <span class="text-3xl">🛑</span>
                 </div>
-                <h4 class="text-lg font-bold text-red-800 mb-2">Imagen Rechazada</h4>
-                <p class="text-sm text-red-700 font-medium mb-4 bg-white p-3 rounded border border-red-100 shadow-sm text-left">
+                <h4 class="text-lg font-bold text-danger-800 mb-2">Imagen Rechazada</h4>
+                <p class="text-sm text-danger-700 font-medium mb-4 bg-white p-3 rounded border border-danger-100 shadow-sm text-left">
                     "${errorMsg}"
                 </p>
-                <div class="h-40 w-full mx-auto mb-6 rounded-md overflow-hidden border-2 border-red-300 relative bg-gray-100">
+                <div class="h-40 w-full mx-auto mb-6 rounded-md overflow-hidden border-2 border-danger-300 relative bg-gray-100">
                     <img src="${data.storagePath}" class="w-full h-full object-contain opacity-75 grayscale">
                     <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <span class="text-4xl drop-shadow-md">❌</span>
@@ -213,7 +213,7 @@ const renderWizardStep = (state = 'upload', data = null) => {
                 </div>
                 
                 <div class="space-y-2">
-                    <button id="retry-step-btn" class="w-full py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold shadow-md transition-colors flex items-center justify-center gap-2">
+                    <button id="retry-step-btn" class="w-full py-2 px-4 bg-danger-600 hover:bg-danger-700 text-white rounded-lg font-bold shadow-md transition-colors flex items-center justify-center gap-2">
                         <span>🔄</span> Intentar con otra foto
                     </button>
                     <button id="skip-error-btn" class="w-full py-2 px-4 bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 rounded-lg text-sm transition-colors">
@@ -238,14 +238,14 @@ const renderWizardStep = (state = 'upload', data = null) => {
         document.getElementById('wizard-progress-bar').style.width = `100%`;
         wizardBody.innerHTML = `
             <div class="text-center py-10">
-                <div class="h-20 w-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce-short">
+                <div class="h-20 w-20 bg-success-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce-short">
                     <span class="text-4xl">🎉</span>
                 </div>
-                <h4 class="text-2xl font-bold text-green-800 mb-2">¡Excelente Trabajo!</h4>
+                <h4 class="text-2xl font-bold text-success-800 mb-2">¡Excelente Trabajo!</h4>
                 <p class="text-gray-600 mb-6">Has completado la sesión de fotos para <strong>${activeWizard.componentName}</strong>.</p>
                 <p class="text-sm text-gray-500">Todas las fotos han sido optimizadas y etiquetadas para SEO.</p>
                 
-                <button id="finish-wizard-btn-center" class="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg font-bold shadow hover:bg-green-700 transition-colors">
+                <button id="finish-wizard-btn-center" class="mt-4 px-6 py-2 bg-success-600 text-white rounded-lg font-bold shadow hover:bg-success-700 transition-colors">
                     Finalizar y Ver Galería
                 </button>
             </div>
@@ -259,9 +259,9 @@ const renderWizardModal = () => {
     const modalHtml = `
         <div id="wizard-modal" class="fixed inset-0 bg-gray-900 bg-opacity-90 flex items-center justify-center z-50 backdrop-blur-sm transition-opacity duration-300">
             <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden transform transition-all scale-100">
-                <div class="bg-indigo-700 p-4 text-white flex justify-between items-center bg-pattern">
+                <div class="bg-primary-700 p-4 text-white flex justify-between items-center bg-pattern">
                     <h3 id="wizard-title" class="text-md font-bold leading-tight">Asistente de Carga</h3>
-                    <button id="wizard-close-btn" class="text-indigo-200 hover:text-white text-2xl hover:bg-indigo-600 rounded-full w-8 h-8 flex items-center justify-center transition-colors">&times;</button>
+                    <button id="wizard-close-btn" class="text-primary-200 hover:text-white text-2xl hover:bg-primary-600 rounded-full w-8 h-8 flex items-center justify-center transition-colors">&times;</button>
                 </div>
                 <div class="h-1.5 bg-gray-100 w-full">
                     <div id="wizard-progress-bar" class="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all duration-500 ease-out" style="width: 0%"></div>
@@ -294,7 +294,7 @@ export async function initGaleria(propiedadId, images) {
 
 export function renderGaleria(componentes) {
     if (!componentes || componentes.length === 0) {
-        return `<p class="text-sm text-gray-500 p-4 border border-yellow-200 bg-yellow-50 rounded">
+        return `<p class="text-sm text-gray-500 p-4 border border-warning-200 bg-warning-50 rounded">
             ⚠️ Esta propiedad no tiene componentes definidos.
         </p>`;
     }
@@ -303,7 +303,7 @@ export function renderGaleria(componentes) {
         <div class="space-y-6">
             <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
                 Galería por Áreas 
-                <span class="text-xs font-normal bg-green-100 text-green-800 px-2 py-1 rounded-full">Auditor IA Activo</span>
+                <span class="text-xs font-normal bg-success-100 text-success-800 px-2 py-1 rounded-full">Auditor IA Activo</span>
             </h3>
             <div id="galerias-wrapper" class="space-y-8">
                 ${componentes.map(comp => {
@@ -335,7 +335,7 @@ export function renderGaleria(componentes) {
                                     >
                                         🖼️ Galería
                                     </button>
-                                    <button class="eliminar-componente-btn text-xs bg-red-50 text-red-600 border border-red-200 p-1.5 rounded hover:bg-red-100 transition-colors"
+                                    <button class="eliminar-componente-btn text-xs bg-danger-50 text-danger-600 border border-danger-200 p-1.5 rounded hover:bg-danger-100 transition-colors"
                                         title="Eliminar Espacio Completo"
                                         data-component-id="${comp.id}"
                                     >
@@ -344,8 +344,8 @@ export function renderGaleria(componentes) {
                                 </div>
                             </div>
                             
-                            <div id="upload-status-${comp.id}" class="text-xs text-blue-600 mb-2 h-4"></div>
-                            <div id="ai-feedback-${comp.id}" class="hidden mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800"></div>
+                            <div id="upload-status-${comp.id}" class="text-xs text-primary-600 mb-2 h-4"></div>
+                            <div id="ai-feedback-${comp.id}" class="hidden mb-4 p-3 bg-warning-50 border border-warning-200 rounded text-sm text-warning-800"></div>
 
                             <div id="galeria-${comp.id}" class="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 ${renderSlotsGrid(images, comp.id)}
@@ -377,15 +377,15 @@ function renderSlotsGrid(images, componentId) {
         } else {
             // Slot Vacío
             html += `
-            <div class="relative border-2 border-dashed border-indigo-200 rounded-md bg-indigo-50 flex flex-col items-center justify-center p-4 text-center min-h-[160px] group hover:bg-indigo-100 transition-colors cursor-pointer start-single-slot-wizard"
+            <div class="relative border-2 border-dashed border-primary-200 rounded-md bg-primary-50 flex flex-col items-center justify-center p-4 text-center min-h-[160px] group hover:bg-primary-100 transition-colors cursor-pointer start-single-slot-wizard"
                  data-component-id="${componentId}"
                  data-requirement="${req.description}"
                  data-step-index="${index}"
             >
                 <div class="text-3xl mb-2 opacity-50 group-hover:opacity-100 transition-opacity">📸</div>
-                <p class="text-xs font-bold text-indigo-800 mb-1">Requerido</p>
-                <p class="text-xs text-indigo-600 leading-tight">${req.description}</p>
-                <button class="mt-3 text-[10px] bg-white border border-indigo-300 text-indigo-700 px-2 py-1 rounded shadow-sm hover:bg-indigo-50">
+                <p class="text-xs font-bold text-primary-800 mb-1">Requerido</p>
+                <p class="text-xs text-primary-600 leading-tight">${req.description}</p>
+                <button class="mt-3 text-[10px] bg-white border border-primary-300 text-primary-700 px-2 py-1 rounded shadow-sm hover:bg-primary-50">
                     Subir Foto
                 </button>
             </div>
@@ -409,10 +409,10 @@ function renderSlotsGrid(images, componentId) {
 function renderImageCard(img, componentId, label, isRequired) {
     const tieneAdvertencia = !!img.advertencia;
     const statusHtml = tieneAdvertencia
-        ? `<div class="absolute top-1 right-1 bg-red-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow flex items-center gap-1 cursor-help z-10" title="${img.advertencia}">⚠️ Alerta</div>`
-        : `<div class="absolute top-1 right-1 bg-green-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow flex items-center gap-1 z-10">✅</div>`;
+        ? `<div class="absolute top-1 right-1 bg-danger-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow flex items-center gap-1 cursor-help z-10" title="${img.advertencia}">⚠️ Alerta</div>`
+        : `<div class="absolute top-1 right-1 bg-success-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow flex items-center gap-1 z-10">✅</div>`;
 
-    const bordeClass = tieneAdvertencia ? "border-red-400 ring-2 ring-red-50" : (isRequired ? "border-indigo-200 ring-2 ring-indigo-50" : "border-gray-200");
+    const bordeClass = tieneAdvertencia ? "border-danger-400 ring-2 ring-danger-50" : (isRequired ? "border-primary-200 ring-2 ring-primary-50" : "border-gray-200");
 
     return `
     <div class="relative border ${bordeClass} rounded-md overflow-hidden group bg-white shadow-sm hover:shadow-md transition-all">
@@ -420,10 +420,10 @@ function renderImageCard(img, componentId, label, isRequired) {
             <img src="${img.storagePath}" class="w-full h-full object-contain">
             
             <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
-                <button data-component-id="${componentId}" data-image-id="${img.imageId}" class="eliminar-imagen-btn bg-white text-red-600 p-1.5 rounded-full hover:bg-red-100 shadow-sm transition-transform hover:scale-110" title="Eliminar Imagen">
+                <button data-component-id="${componentId}" data-image-id="${img.imageId}" class="eliminar-imagen-btn bg-white text-danger-600 p-1.5 rounded-full hover:bg-danger-100 shadow-sm transition-transform hover:scale-110" title="Eliminar Imagen">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
                 </button>
-                <button data-component-id="${componentId}" data-image-url="${img.storagePath}" data-old-image-id="${img.imageId}" class="editar-existente-btn bg-white text-blue-600 p-1.5 rounded-full hover:bg-blue-100 shadow-sm transition-transform hover:scale-110" title="Recortar">
+                <button data-component-id="${componentId}" data-image-url="${img.storagePath}" data-old-image-id="${img.imageId}" class="editar-existente-btn bg-white text-primary-600 p-1.5 rounded-full hover:bg-primary-100 shadow-sm transition-transform hover:scale-110" title="Recortar">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                 </button>
             </div>
@@ -431,7 +431,7 @@ function renderImageCard(img, componentId, label, isRequired) {
         </div>
 
         <div class="px-2 py-1.5 border-t border-gray-50 bg-white">
-            <p class="text-indigo-900 font-bold text-[10px] truncate" title="${label}">${label}</p>
+            <p class="text-primary-900 font-bold text-[10px] truncate" title="${label}">${label}</p>
             <p class="text-gray-400 text-[9px] truncate" title="${clean(img.altText)}">${clean(img.altText) || '...'}</p>
         </div>
     </div>
@@ -458,12 +458,12 @@ async function openGalleryPicker(componentId, componentName) {
         const imgSrc = f.thumbnailUrl || f.storageUrl || '';
         const conf = Math.round((f.confianza || 0) * 100);
         const isSelected = selectedIds.has(f.id);
-        const espacioLabel = f.espacio ? `<span class="text-[9px] text-blue-600 bg-blue-50 px-1 rounded">${f.espacio}</span>` : '';
+        const espacioLabel = f.espacio ? `<span class="text-[9px] text-primary-600 bg-primary-50 px-1 rounded">${f.espacio}</span>` : '';
         return `
-        <div class="gallery-pick-item relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${isSelected ? 'border-blue-500 ring-2 ring-blue-300' : 'border-transparent hover:border-gray-300'}"
+        <div class="gallery-pick-item relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${isSelected ? 'border-primary-500 ring-2 ring-primary-300' : 'border-transparent hover:border-gray-300'}"
              data-foto-id="${f.id}">
             <img src="${imgSrc}" alt="" class="w-full h-24 object-cover bg-gray-100">
-            ${isSelected ? '<div class="absolute top-1 right-1 bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">✓</div>' : ''}
+            ${isSelected ? '<div class="absolute top-1 right-1 bg-primary-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">✓</div>' : ''}
             <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-40 px-1 py-0.5 flex items-center gap-1">
                 <span class="text-white text-[9px]">${conf}%</span>
                 ${espacioLabel}
@@ -474,12 +474,12 @@ async function openGalleryPicker(componentId, componentName) {
     const modalHtml = `
     <div id="gallery-picker-modal" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-50 backdrop-blur-sm">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col max-h-[85vh]">
-            <div class="bg-indigo-700 p-4 text-white flex justify-between items-center flex-shrink-0">
+            <div class="bg-primary-700 p-4 text-white flex justify-between items-center flex-shrink-0">
                 <div>
                     <h3 class="font-bold text-md">Seleccionar desde Galería</h3>
-                    <p class="text-indigo-200 text-xs mt-0.5">Para: <strong>${componentName}</strong> — Elige las fotos a asignar</p>
+                    <p class="text-primary-200 text-xs mt-0.5">Para: <strong>${componentName}</strong> — Elige las fotos a asignar</p>
                 </div>
-                <button id="gp-close" class="text-indigo-200 hover:text-white text-2xl hover:bg-indigo-600 rounded-full w-8 h-8 flex items-center justify-center">&times;</button>
+                <button id="gp-close" class="text-primary-200 hover:text-white text-2xl hover:bg-primary-600 rounded-full w-8 h-8 flex items-center justify-center">&times;</button>
             </div>
             ${fotos.length === 0
                 ? `<div class="flex-1 flex items-center justify-center p-10 text-gray-400"><p>No hay fotos en la galería de esta propiedad.</p></div>`
@@ -489,7 +489,7 @@ async function openGalleryPicker(componentId, componentName) {
                 <span id="gp-count" class="text-xs text-gray-500">0 fotos seleccionadas</span>
                 <div class="flex gap-2">
                     <button id="gp-cancel" class="px-4 py-2 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200">Cancelar</button>
-                    <button id="gp-assign" class="px-4 py-2 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50" disabled>
+                    <button id="gp-assign" class="px-4 py-2 text-xs bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-semibold disabled:opacity-50" disabled>
                         Asignar a ${componentName}
                     </button>
                 </div>
@@ -505,13 +505,13 @@ async function openGalleryPicker(componentId, componentName) {
         document.getElementById('gp-grid')?.querySelectorAll('.gallery-pick-item').forEach(el => {
             const id = el.dataset.fotoId;
             const selected = selectedIds.has(id);
-            el.classList.toggle('border-blue-500', selected);
+            el.classList.toggle('border-primary-500', selected);
             el.classList.toggle('ring-2', selected);
-            el.classList.toggle('ring-blue-300', selected);
+            el.classList.toggle('ring-primary-300', selected);
             el.classList.toggle('border-transparent', !selected);
-            const check = el.querySelector('.bg-blue-500');
+            const check = el.querySelector('.bg-primary-500');
             if (selected && !check) {
-                el.insertAdjacentHTML('beforeend', '<div class="absolute top-1 right-1 bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold pointer-events-none">✓</div>');
+                el.insertAdjacentHTML('beforeend', '<div class="absolute top-1 right-1 bg-primary-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold pointer-events-none">✓</div>');
             } else if (!selected && check) {
                 check.remove();
             }

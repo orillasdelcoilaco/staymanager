@@ -1,8 +1,30 @@
 // frontend/src/api.js - REEMPLAZAR COMPLETO
+import { getAuth, onIdTokenChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// Mantener el token fresco automáticamente en background
+if (window.firebaseApp) {
+    const auth = getAuth(window.firebaseApp);
+    onIdTokenChanged(auth, async (user) => {
+        if (user) {
+            try {
+                const token = await user.getIdToken();
+                localStorage.setItem('idToken', token);
+            } catch (error) {
+                console.error("Error al refrescar token automáticamente", error);
+            }
+        } else {
+            localStorage.removeItem('idToken');
+        }
+    });
+}
 
 // --- Lógica de Sesión ---
 export function logout() {
     localStorage.removeItem('idToken');
+    if (window.firebaseApp) {
+        const auth = getAuth(window.firebaseApp);
+        auth.signOut().catch(() => {});
+    }
 }
 
 export async function register(data) {
@@ -43,6 +65,35 @@ export async function fetchAPI(endpoint, options = {}) {
         const response = await fetch(url, { ...options, headers });
 
         if (response.status === 401) {
+            // Intento de refrescar token manualmente por expiración
+            if (window.firebaseApp) {
+                try {
+                    const auth = getAuth(window.firebaseApp);
+                    
+                    // Esperar a que Firebase Auth haya restaurado la sesión desde IndexedDB
+                    if (auth.authStateReady) {
+                        await auth.authStateReady();
+                    }
+
+                    if (auth.currentUser) {
+                        const newToken = await auth.currentUser.getIdToken(true);
+                        localStorage.setItem('idToken', newToken);
+                        
+                        // Reintentar la petición original con el nuevo token
+                        headers['Authorization'] = `Bearer ${newToken}`;
+                        const retryResponse = await fetch(url, { ...options, headers });
+                        
+                        if (retryResponse.ok) {
+                            if (retryResponse.status === 204) return { success: true };
+                            return await retryResponse.json();
+                        }
+                    }
+                } catch (e) {
+                    console.error("Fallo al reintentar petición con token fresco:", e);
+                }
+            }
+
+            // Si falla el reintento o no hay usuario, forzar logout
             logout();
             window.location.replace('/login');
             throw new Error('Sesión expirada o inválida.');

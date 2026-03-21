@@ -22,8 +22,8 @@ export function renderPropiedadSettings() {
     const hasImage = cardImage && cardImage.storagePath;
 
     return `
-        <fieldset class="p-4 rounded-md mb-4 border-indigo-500 border-2">
-            <legend class="px-2 font-semibold text-indigo-700">Imagen Principal (Tarjeta/Home)</legend>
+        <fieldset class="p-4 rounded-md mb-4 border-primary-500 border-2">
+            <legend class="px-2 font-semibold text-primary-700">Imagen Principal (Tarjeta/Home)</legend>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start mt-2">
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Subir/Reemplazar</label>
@@ -31,7 +31,7 @@ export function renderPropiedadSettings() {
                     <div id="upload-status-card-image" class="text-xs mt-1"></div>
                     
                     <button type="button" id="upload-card-image-btn" class="btn-secondary btn-sm mt-2">Subir Imagen</button>
-                    ${hasImage ? `<button type="button" id="edit-existing-card-btn" class="btn-secondary btn-sm mt-2 ml-2 text-blue-600">Editar Actual</button>` : ''}
+                    ${hasImage ? `<button type="button" id="edit-existing-card-btn" class="btn-secondary btn-sm mt-2 ml-2 text-primary-600">Editar Actual</button>` : ''}
                 </div>
                 <div id="preview-card-image-container">
                     ${hasImage ?
@@ -146,6 +146,6 @@ async function guardarTextoDescripcionPropiedad() {
         currentWebsiteData.aiDescription = aiDescription;
     } catch (error) {
         statusEl.textContent = `Error: ${error.message}`;
-        statusEl.classList.add('text-red-500');
+        statusEl.classList.add('text-danger-500');
     }
 }

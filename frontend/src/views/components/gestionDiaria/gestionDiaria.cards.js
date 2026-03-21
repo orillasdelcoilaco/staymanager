@@ -16,14 +16,14 @@ function renderFinancialDetails(grupo) {
                     <div class="font-bold text-gray-500 mb-1">USD</div>
                     <div class="flex justify-between"><span>Total:</span> <span class="font-medium">${formatUSD(totalClienteUSD)}</span></div>
                     ${ivaUSD > 0 ? `<div class="flex justify-between"><span>IVA:</span> <span class="font-medium">${formatUSD(ivaUSD)}</span></div>` : ''}
-                    <div class="flex justify-between"><span>Costo Canal:</span> <span class="font-medium text-red-600">-${formatUSD(costoCanalUSD)}</span></div>
-                    <div class="flex justify-between border-t mt-1 pt-1"><span>Payout:</span> <span class="font-semibold text-green-700">${formatUSD(payoutFinalRealUSD)}</span></div>
+                    <div class="flex justify-between"><span>Costo Canal:</span> <span class="font-medium text-danger-600">-${formatUSD(costoCanalUSD)}</span></div>
+                    <div class="flex justify-between border-t mt-1 pt-1"><span>Payout:</span> <span class="font-semibold text-success-700">${formatUSD(payoutFinalRealUSD)}</span></div>
                 </div>
                 <div class="text-right">
                     <div class="font-bold text-gray-800 mb-1">CLP</div>
                     <div class="flex justify-between"><span>Total:</span> <span class="font-medium">${formatCurrency(grupo.valorTotalHuesped)}</span></div>
-                    <div class="flex justify-between"><span>Abonado:</span> <span class="font-medium text-green-600">${formatCurrency(grupo.abonoTotal)}</span></div>
-                    <div class="flex justify-between border-t mt-1 pt-1"><span class="font-bold">Saldo:</span> <span class="font-bold text-red-600">${formatCurrency(grupo.valorTotalHuesped - grupo.abonoTotal)}</span></div>
+                    <div class="flex justify-between"><span>Abonado:</span> <span class="font-medium text-success-600">${formatCurrency(grupo.abonoTotal)}</span></div>
+                    <div class="flex justify-between border-t mt-1 pt-1"><span class="font-bold">Saldo:</span> <span class="font-bold text-danger-600">${formatCurrency(grupo.valorTotalHuesped - grupo.abonoTotal)}</span></div>
                 </div>
             </div>
         `;
@@ -32,11 +32,11 @@ function renderFinancialDetails(grupo) {
     return `
         <div class="text-xs text-gray-500 space-y-1">
             <div class="flex justify-between"><span>Total Cliente:</span> <span class="font-semibold">${formatCurrency(grupo.valorTotalHuesped)}</span></div>
-            <div class="flex justify-between"><span>Costo Canal:</span> <span class="font-semibold text-red-600">-${formatCurrency(grupo.costoCanal)}</span></div>
-            <div class="flex justify-between font-bold border-t pt-1"><span>Payout:</span> <span class="text-green-700">${formatCurrency(grupo.payoutFinalReal)}</span></div>
+            <div class="flex justify-between"><span>Costo Canal:</span> <span class="font-semibold text-danger-600">-${formatCurrency(grupo.costoCanal)}</span></div>
+            <div class="flex justify-between font-bold border-t pt-1"><span>Payout:</span> <span class="text-success-700">${formatCurrency(grupo.payoutFinalReal)}</span></div>
             <hr class="my-1">
-            <div class="flex justify-between"><span>Abonado:</span> <span class="text-green-600">${formatCurrency(grupo.abonoTotal)}</span></div>
-            <div class="flex justify-between border-t border-gray-300 pt-1 mt-1"><span class="font-semibold">Saldo:</span> <span class="font-bold text-red-600">${formatCurrency(grupo.valorTotalHuesped - grupo.abonoTotal)}</span></div>
+            <div class="flex justify-between"><span>Abonado:</span> <span class="text-success-600">${formatCurrency(grupo.abonoTotal)}</span></div>
+            <div class="flex justify-between border-t border-gray-300 pt-1 mt-1"><span class="font-semibold">Saldo:</span> <span class="font-bold text-danger-600">${formatCurrency(grupo.valorTotalHuesped - grupo.abonoTotal)}</span></div>
         </div>`;
 }
 
@@ -60,7 +60,7 @@ function renderActionButtons(grupo) {
     }
 
     if (estadoInfo.level >= 4) {
-        const docStatusClass = boletaAdjunta ? 'bg-green-500 hover:bg-green-700' : 'bg-amber-500 hover:bg-amber-700';
+        const docStatusClass = boletaAdjunta ? 'bg-success-500 hover:bg-success-700' : 'bg-amber-500 hover:bg-amber-700';
         buttons += `<button class="gestion-btn btn-table-edit text-xs ${docStatusClass}" data-gestion="boleta">Boleta ${boletaAdjunta ? '✓' : ''}</button>`;
     }
     
@@ -87,20 +87,20 @@ function crearDropdownEstadosReserva(grupo) {
 
     let bgColorClass = 'bg-gray-100';
     if (grupo.estado === 'Confirmada') {
-        bgColorClass = 'bg-green-100';
+        bgColorClass = 'bg-success-100';
     } else if (grupo.estado === 'Cancelada' || grupo.estado === 'No Presentado') {
-        bgColorClass = 'bg-red-100';
+        bgColorClass = 'bg-danger-100';
     } else if (grupo.estado === 'Propuesta' || grupo.estado === 'Desconocido') {
-        bgColorClass = 'bg-yellow-100';
+        bgColorClass = 'bg-warning-100';
     }
 
     return `
         <div class="mb-3">
             <label class="block text-xs font-medium text-gray-500">Estado Reserva:</label>
-            <select data-reserva-id-canal="${grupo.reservaIdOriginal}" class="reserva-estado-select mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${bgColorClass}">
+            <select data-reserva-id-canal="${grupo.reservaIdOriginal}" class="reserva-estado-select mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm ${bgColorClass}">
                 ${opcionesReserva}
             </select>
-            <span id="loader-estado-reserva-${grupo.reservaIdOriginal}" class="text-xs text-blue-500 hidden">Guardando...</span>
+            <span id="loader-estado-reserva-${grupo.reservaIdOriginal}" class="text-xs text-primary-500 hidden">Guardando...</span>
         </div>
     `;
 }
@@ -126,7 +126,7 @@ function createCard(grupo, allEstados) {
                 <div class="flex items-center gap-3">
                     ${estadoBotonHtml}
                     <button 
-                        class="client-trigger text-lg font-bold text-blue-800 hover:underline focus:outline-none text-left" 
+                        class="client-trigger text-lg font-bold text-primary-800 hover:underline focus:outline-none text-left" 
                         data-cliente-id="${grupo.clienteId}"
                         title="Ver/Editar Cliente"
                     >

@@ -36,11 +36,11 @@ export async function render() {
     // --- FIN DE LA CORRECCIÓN 1 ---
 
     if (!canalPorDefecto) {
-      return `<div class="bg-red-100 p-4 rounded-md text-red-800"><b>Error de configuración:</b> No se ha definido un "Canal por Defecto". Por favor, ve a la sección de "Gestionar Canales" y marca uno con la estrella.</div>`;
+      return `<div class="bg-danger-100 p-4 rounded-md text-danger-800"><b>Error de configuración:</b> No se ha definido un "Canal por Defecto". Por favor, ve a la sección de "Gestionar Canales" y marca uno con la estrella.</div>`;
     }
   } catch (error) {
     console.error("Error al cargar datos para tarifas:", error);
-    return `<p class="text-red-500">Error al cargar los datos. Por favor, intente de nuevo.</p>`;
+    return `<p class="text-danger-500">Error al cargar los datos. Por favor, intente de nuevo.</p>`;
   }
 
   return `

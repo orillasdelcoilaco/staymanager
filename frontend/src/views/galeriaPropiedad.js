@@ -100,7 +100,7 @@ function renderSelector() {
     return `
     <div class="bg-white rounded-xl shadow p-8 max-w-lg mx-auto">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">Selecciona una propiedad</h2>
-        ${state.error ? `<div class="bg-red-50 text-red-700 rounded-lg p-3 mb-4 text-sm">${state.error}</div>` : ''}
+        ${state.error ? `<div class="bg-danger-50 text-danger-700 rounded-lg p-3 mb-4 text-sm">${state.error}</div>` : ''}
         <select id="sel-propiedad" class="form-input w-full mb-4">
             <option value="">— Elige una propiedad —</option>
             ${opts}
@@ -157,7 +157,7 @@ function renderGaleria() {
         </span>
     </div>
 
-    ${state.error ? `<div class="bg-red-50 text-red-700 rounded-lg p-3 mb-4 text-sm">${state.error}</div>` : ''}
+    ${state.error ? `<div class="bg-danger-50 text-danger-700 rounded-lg p-3 mb-4 text-sm">${state.error}</div>` : ''}
 
     <!-- Tabs -->
     <div class="flex gap-1 mb-6 border-b border-gray-200">
@@ -186,13 +186,13 @@ function renderGaleria() {
 
 function renderTab(key, label) {
     const active = state.tab === key;
-    return `<button class="tab-btn px-4 py-2 text-sm font-medium border-b-2 transition-colors ${active ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}" data-tab="${key}">${label}</button>`;
+    return `<button class="tab-btn px-4 py-2 text-sm font-medium border-b-2 transition-colors ${active ? 'border-primary-600 text-primary-700' : 'border-transparent text-gray-500 hover:text-gray-700'}" data-tab="${key}">${label}</button>`;
 }
 
 function renderFotoCard(foto) {
     const imgSrc = foto.thumbnailUrl || foto.storageUrl || '';
     const conf = Math.round((foto.confianza || 0) * 100);
-    const confColor = conf >= 80 ? 'bg-green-100 text-green-700' : conf >= 50 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700';
+    const confColor = conf >= 80 ? 'bg-success-100 text-success-700' : conf >= 50 ? 'bg-warning-100 text-warning-700' : 'bg-danger-100 text-danger-700';
 
     // Dropdown con componentes reales de la propiedad (Dormitorio 1, Dormitorio 2, etc.)
     const espacioOpts = state.componentes.map(c =>
@@ -215,10 +215,10 @@ function renderFotoCard(foto) {
             </select>
             <div class="flex gap-1">
                 ${foto.estado === 'pendiente' ? `
-                <button class="btn-confirmar flex-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg py-1 px-2 transition-colors" data-foto-id="${foto.id}">✓ Confirmar</button>` : ''}
+                <button class="btn-confirmar flex-1 text-xs bg-success-600 hover:bg-success-700 text-white rounded-lg py-1 px-2 transition-colors" data-foto-id="${foto.id}">✓ Confirmar</button>` : ''}
                 ${foto.estado !== 'descartada' ? `
-                <button class="btn-descartar ${foto.estado === 'pendiente' ? '' : 'flex-1'} text-xs bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 rounded-lg py-1 px-2 transition-colors" data-foto-id="${foto.id}" title="Descartar">✕</button>` : `
-                <button class="btn-restaurar flex-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg py-1 px-2 transition-colors" data-foto-id="${foto.id}">↩ Restaurar</button>`}
+                <button class="btn-descartar ${foto.estado === 'pendiente' ? '' : 'flex-1'} text-xs bg-gray-100 hover:bg-danger-100 text-gray-500 hover:text-danger-600 rounded-lg py-1 px-2 transition-colors" data-foto-id="${foto.id}" title="Descartar">✕</button>` : `
+                <button class="btn-restaurar flex-1 text-xs bg-primary-50 hover:bg-primary-100 text-primary-600 rounded-lg py-1 px-2 transition-colors" data-foto-id="${foto.id}">↩ Restaurar</button>`}
             </div>
         </div>
     </div>`;
@@ -334,7 +334,7 @@ async function handleSync() {
         const btn = document.getElementById('btn-sync');
         if (btn) {
             btn.textContent = `✅ ${result.total} fotos sincronizadas`;
-            btn.classList.add('bg-green-600');
+            btn.classList.add('bg-success-600');
             setTimeout(() => { state.syncing = false; renderRoot(); }, 3000);
             return;
         }

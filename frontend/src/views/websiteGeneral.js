@@ -12,7 +12,7 @@ export async function render() {
             
             <div id="contenedor-general">
                 <div class="flex justify-center p-8">
-                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
                 </div>
             </div>
         </div>
@@ -37,6 +37,6 @@ export async function afterRender() {
     } catch (error) {
         console.error('Error en carga inicial:', error);
         const container = document.getElementById('contenedor-general');
-        if (container) container.innerHTML = `<p class="text-red-500">Error de carga: ${error.message}</p>`;
+        if (container) container.innerHTML = `<p class="text-danger-500">Error de carga: ${error.message}</p>`;
     }
 }

@@ -32,7 +32,7 @@ export async function renderAppLayout(dollarInfo) {
                         <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                     </button>
                     <div id="auth-info" class="flex-grow flex items-center space-x-4 text-xs md:text-sm"></div>
-                    <button id="logout-btn" class="px-3 py-2 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 flex-shrink-0">Cerrar Sesión</button>
+                    <button id="logout-btn" class="px-3 py-2 bg-danger-600 text-white text-xs font-medium rounded-md hover:bg-danger-700 flex-shrink-0">Cerrar Sesión</button>
                 </div>
             </header>
             <main id="view-content"></main>
@@ -41,7 +41,7 @@ export async function renderAppLayout(dollarInfo) {
     
     const authInfo = document.getElementById('auth-info');
     const dolarHtml = dollarInfo?.fecha
-        ? `<span class="font-semibold text-blue-600 flex-shrink-0">Dólar ${new Date(dollarInfo.fecha + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' })}: $${(dollarInfo.valor || 0).toLocaleString('es-CL')}</span>`
+        ? `<span class="font-semibold text-primary-600 flex-shrink-0">Dólar ${new Date(dollarInfo.fecha + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' })}: $${(dollarInfo.valor || 0).toLocaleString('es-CL')}</span>`
         : '';
 
     authInfo.innerHTML = `
@@ -74,7 +74,7 @@ export async function checkAuthAndRender() {
         const authInfo = document.getElementById('auth-info');
         if (authInfo) {
             const dolarHtml = dollarInfo?.fecha
-                ? `<span class="font-semibold text-blue-600 flex-shrink-0">Dólar ${new Date(dollarInfo.fecha + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' })}: $${(dollarInfo.valor || 0).toLocaleString('es-CL')}</span>`
+                ? `<span class="font-semibold text-primary-600 flex-shrink-0">Dólar ${new Date(dollarInfo.fecha + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC' })}: $${(dollarInfo.valor || 0).toLocaleString('es-CL')}</span>`
                 : '';
             authInfo.innerHTML = `
                 <span class="font-semibold text-gray-700 truncate">Empresa: ${currentUser.nombreEmpresa}</span>

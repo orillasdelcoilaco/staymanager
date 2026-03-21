@@ -9,15 +9,15 @@ function mostrarResultados(resultados) {
     let erroresHtml = '';
     if (errores && errores.length > 0) {
         erroresHtml = `
-            <h4 class="font-semibold text-red-700 mt-4">Errores encontrados (${errores.length}):</h4>
-            <ul class="list-disc list-inside text-sm text-red-600 max-h-40 overflow-y-auto">
+            <h4 class="font-semibold text-danger-700 mt-4">Errores encontrados (${errores.length}):</h4>
+            <ul class="list-disc list-inside text-sm text-danger-600 max-h-40 overflow-y-auto">
                 ${errores.map(e => `<li>Reserva <strong>${e.fila}</strong>: ${e.error}</li>`).join('')}
             </ul>
         `;
     }
 
     container.innerHTML = `
-        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg relative" role="alert">
+        <div class="bg-success-100 border border-success-400 text-success-700 px-4 py-3 rounded-lg relative" role="alert">
             <strong class="font-bold">¡Proceso completado!</strong>
             <ul class="mt-2 list-disc list-inside">
                 <li>Total de filas leídas en el archivo: <strong>${totalFilas}</strong></li>
@@ -49,7 +49,7 @@ export async function render() {
     try {
         canales = await fetchAPI('/canales');
     } catch (error) {
-        return `<p class="text-red-500">Error al cargar los canales. Por favor, recarga la página.</p>`;
+        return `<p class="text-danger-500">Error al cargar los canales. Por favor, recarga la página.</p>`;
     }
 
     return `
@@ -74,13 +74,13 @@ export async function render() {
                                accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                                class="mt-1 block w-full text-sm text-gray-500
                                       file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0
-                                      file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700
-                                      hover:file:bg-indigo-100">
+                                      file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700
+                                      hover:file:bg-primary-100">
                     </div>
                 </div>
                 
                 <div class="flex justify-end">
-                    <button type="submit" id="submit-btn" class="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-400" disabled>
+                    <button type="submit" id="submit-btn" class="px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:bg-gray-400" disabled>
                         Subir y Procesar
                     </button>
                 </div>

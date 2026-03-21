@@ -18,7 +18,7 @@ function renderTabContent(tabName) {
 
             contentContainer.innerHTML = `
                 <p class="text-sm text-gray-600 mb-3">Registra el descuento total (%) que un canal aplicó para calcular y guardar su <strong>precio de venta original (Valor Potencial)</strong>. Esto es solo para fines de KPI y no altera el cobro.</p>
-                ${potencialGuardado > 0 ? `<div class="p-3 bg-blue-50 border border-blue-200 rounded-md"><p class="text-sm font-semibold text-blue-800">Valor Potencial Guardado: ${formatCurrency(potencialGuardado)}</p></div>` : ''}
+                ${potencialGuardado > 0 ? `<div class="p-3 bg-primary-50 border border-primary-200 rounded-md"><p class="text-sm font-semibold text-primary-800">Valor Potencial Guardado: ${formatCurrency(potencialGuardado)}</p></div>` : ''}
                 <div class="space-y-4 mt-4">
                     <div>
                         <label for="descuento-agregado-pct" class="block text-sm font-medium text-gray-700">Descuento Agregado del Canal (%)</label>
@@ -26,7 +26,7 @@ function renderTabContent(tabName) {
                     </div>
                     <div>
                         <p class="text-sm">Valor de Cobro (Total Cliente): <span class="font-semibold">${formatCurrency(valorHuespedActual)}</span></p>
-                        <p class="text-sm">Valor Potencial de Venta (Calculado): <span id="valor-potencial-preview" class="font-semibold text-blue-600"></span></p>
+                        <p class="text-sm">Valor Potencial de Venta (Calculado): <span id="valor-potencial-preview" class="font-semibold text-primary-600"></span></p>
                     </div>
                     <div id="potencial-status" class="text-sm"></div>
                     <div class="text-right"><button id="potencial-save-btn" class="btn-primary">Calcular y Guardar Potencial</button></div>
@@ -124,15 +124,15 @@ function renderSimuladorVentaDirecta() {
                 <dl class="mt-2 text-sm space-y-1">
                     <div class="flex justify-between text-gray-500"><dt>${totalClienteLabel}</dt><dd class="font-medium">${formatCurrency(totalClienteCLP)}</dd></div>
                     <div class="flex justify-between text-gray-500"><dt>${ivaLabel}</dt><dd class="font-medium">${formatCurrency(ivaCLP)}</dd></div>
-                    <div class="flex justify-between text-red-600"><dt>${costoCanalLabel}</dt><dd class="font-medium">${formatCurrency(costoCanalCLP)}</dd></div>
-                    <div class="flex justify-between border-t pt-1 mt-1 font-bold"><dt>${payoutFinalLabel}</dt><dd class="text-green-700">${formatCurrency(payoutFinalRealCLP)}</dd></div>
+                    <div class="flex justify-between text-danger-600"><dt>${costoCanalLabel}</dt><dd class="font-medium">${formatCurrency(costoCanalCLP)}</dd></div>
+                    <div class="flex justify-between border-t pt-1 mt-1 font-bold"><dt>${payoutFinalLabel}</dt><dd class="text-success-700">${formatCurrency(payoutFinalRealCLP)}</dd></div>
                 </dl>
             </div>
-            <div class="p-3 bg-blue-50 border border-blue-200 rounded-md">
-                 <h4 class="font-semibold text-blue-800">Potencial Venta Directa</h4>
+            <div class="p-3 bg-primary-50 border border-primary-200 rounded-md">
+                 <h4 class="font-semibold text-primary-800">Potencial Venta Directa</h4>
                  <dl class="mt-2 text-sm space-y-1">
                     <div class="flex justify-between"><dt>${tarifaBaseLabel}</dt><dd class="font-medium">${formatCurrency(tarifaBaseTotalCLP)}</dd></div>
-                    <div class="flex justify-between border-t pt-1 mt-1 font-semibold"><dt>Rentabilidad vs Tarifa:</dt><dd class="${rentabilidadVsTarifa >= 0 ? 'text-green-700' : 'text-red-600'}">${formatCurrency(rentabilidadVsTarifa)}</dd></div>
+                    <div class="flex justify-between border-t pt-1 mt-1 font-semibold"><dt>Rentabilidad vs Tarifa:</dt><dd class="${rentabilidadVsTarifa >= 0 ? 'text-success-700' : 'text-danger-600'}">${formatCurrency(rentabilidadVsTarifa)}</dd></div>
                 </dl>
             </div>
         </div>
@@ -149,15 +149,15 @@ function renderSimuladorVentaDirecta() {
                 <h4 class="font-semibold text-gray-800">Análisis Financiero</h4>
                 <dl class="mt-2 text-sm space-y-1">
                     <div class="flex justify-between text-gray-500"><dt>${totalClienteLabel}</dt><dd class="font-medium">${formatCurrency(totalClienteCLP)}</dd></div>
-                    <div class="flex justify-between text-red-600"><dt>${costoCanalLabel}</dt><dd class="font-medium">${formatCurrency(costoCanalCLP)}</dd></div>
-                    <div class="flex justify-between border-t pt-1 mt-1 font-bold"><dt>${payoutFinalLabel}</dt><dd class="text-green-700">${formatCurrency(payoutFinalRealCLP)}</dd></div>
+                    <div class="flex justify-between text-danger-600"><dt>${costoCanalLabel}</dt><dd class="font-medium">${formatCurrency(costoCanalCLP)}</dd></div>
+                    <div class="flex justify-between border-t pt-1 mt-1 font-bold"><dt>${payoutFinalLabel}</dt><dd class="text-success-700">${formatCurrency(payoutFinalRealCLP)}</dd></div>
                 </dl>
             </div>
-            <div class="p-3 bg-blue-50 border border-blue-200 rounded-md">
-                 <h4 class="font-semibold text-blue-800">Potencial Venta Directa</h4>
+            <div class="p-3 bg-primary-50 border border-primary-200 rounded-md">
+                 <h4 class="font-semibold text-primary-800">Potencial Venta Directa</h4>
                  <dl class="mt-2 text-sm space-y-1">
                     <div class="flex justify-between"><dt>${tarifaBaseLabel}</dt><dd class="font-medium">${formatCurrency(tarifaBaseTotalCLP)}</dd></div>
-                    <div class="flex justify-between border-t pt-1 mt-1 font-semibold"><dt>Rentabilidad vs Tarifa:</dt><dd class="${rentabilidadVsTarifa >= 0 ? 'text-green-700' : 'text-red-600'}">${formatCurrency(rentabilidadVsTarifa)}</dd></div>
+                    <div class="flex justify-between border-t pt-1 mt-1 font-semibold"><dt>Rentabilidad vs Tarifa:</dt><dd class="${rentabilidadVsTarifa >= 0 ? 'text-success-700' : 'text-danger-600'}">${formatCurrency(rentabilidadVsTarifa)}</dd></div>
                 </dl>
             </div>
         </div>
@@ -213,7 +213,7 @@ export function renderAjusteTarifaModal(grupo, callback) {
     contentContainer.innerHTML = `
         <div class="border-b border-gray-200">
             <nav id="modal-tabs" class="-mb-px flex space-x-6" aria-label="Tabs">
-                <button data-tab="simulador" class="modal-tab whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-indigo-500 text-indigo-600">Simulador de Rentabilidad</button>
+                <button data-tab="simulador" class="modal-tab whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-primary-500 text-primary-600">Simulador de Rentabilidad</button>
                 <button data-tab="potencial" class="modal-tab whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Calcular Potencial (KPI)</button>
                 <button data-tab="ajuste" class="modal-tab whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Ajustar Cobro</button>
             </nav>
@@ -224,8 +224,8 @@ export function renderAjusteTarifaModal(grupo, callback) {
     const tabs = contentContainer.querySelectorAll('.modal-tab');
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('border-indigo-500', 'text-indigo-600'));
-            tab.classList.add('border-indigo-500', 'text-indigo-600');
+            tabs.forEach(t => t.classList.remove('border-primary-500', 'text-primary-600'));
+            tab.classList.add('border-primary-500', 'text-primary-600');
             renderTabContent(tab.dataset.tab);
         });
     });

@@ -140,7 +140,7 @@ export async function renderMensajeModal(grupo, tipoMensaje, callback) {
         plantillasDisponibles = data.plantillas;
 
         if (plantillasDisponibles.length === 0) {
-            contentContainer.innerHTML = `<p class="text-center text-red-500">No se encontraron plantillas de tipo "${tipoMensaje}". Por favor, créalas en la sección de gestión de plantillas.</p>`;
+            contentContainer.innerHTML = `<p class="text-center text-danger-500">No se encontraron plantillas de tipo "${tipoMensaje}". Por favor, créalas en la sección de gestión de plantillas.</p>`;
             return;
         }
 
@@ -160,7 +160,7 @@ export async function renderMensajeModal(grupo, tipoMensaje, callback) {
                 <div class="flex flex-col md:flex-row justify-between items-center gap-3 pt-4 border-t">
                     <div class="flex gap-2">
                         <button id="copy-btn" class="btn-secondary">Copiar Mensaje</button>
-                        <button id="whatsapp-btn" class="btn-primary bg-green-600 hover:bg-green-700">Enviar por WhatsApp</button>
+                        <button id="whatsapp-btn" class="btn-primary bg-success-600 hover:bg-success-700">Enviar por WhatsApp</button>
                     </div>
                     <button id="avanzar-estado-btn" class="btn-primary w-full md:w-auto">Marcar como Enviado y Avanzar</button>
                 </div>
@@ -191,6 +191,6 @@ export async function renderMensajeModal(grupo, tipoMensaje, callback) {
         });
 
     } catch (error) {
-        contentContainer.innerHTML = `<p class="text-center text-red-500">Error al cargar datos del mensaje: ${error.message}</p>`;
+        contentContainer.innerHTML = `<p class="text-center text-danger-500">Error al cargar datos del mensaje: ${error.message}</p>`;
     }
 }

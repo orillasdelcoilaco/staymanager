@@ -6,7 +6,7 @@ import { formatDate, formatCurrency, formatStars, formatForeign, formatPercent }
 export function renderDocumentoLink(docUrl, defaultText = 'No adjunto') {
     if (!docUrl) return `<span class="text-gray-500">${defaultText}</span>`;
     if (docUrl === 'SIN_DOCUMENTO') return '<span class="font-semibold">Declarado sin documento</span>';
-    return `<a href="${docUrl}" target="_blank" class="text-blue-600 hover:underline">Ver Documento</a>`;
+    return `<a href="${docUrl}" target="_blank" class="text-primary-600 hover:underline">Ver Documento</a>`;
 }
 
 export async function abrirModalVer(reservaId) {
@@ -23,7 +23,7 @@ export async function abrirModalVer(reservaId) {
         const infoGrupoEl = document.getElementById('view-info-grupo');
         if (data.datosGrupo && data.datosGrupo.propiedades.length > 1) {
             infoGrupoEl.innerHTML = `
-                <div class="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm mb-4">
+                <div class="p-3 bg-primary-50 border border-primary-200 rounded-md text-sm mb-4">
                     <p>Esta reserva es parte de un grupo de <strong>${data.datosGrupo.propiedades.length} propiedades</strong> (${data.datosGrupo.propiedades.join(', ')}).</p>
                     <p class="font-semibold">Valor Total del Grupo: ${formatCurrency(data.datosGrupo.valorTotal)} | Abonado: ${formatCurrency(data.datosGrupo.abonoTotal)} | Saldo: ${formatCurrency(data.datosGrupo.saldo)}</p>
                 </div>`;
@@ -133,7 +133,7 @@ export async function abrirModalVer(reservaId) {
         
         kpiRows += createRow('(-) Total Cliente (A)', datosIndividuales.valorTotalHuesped, datosIndividuales.valorHuespedOriginal);
         kpiRows += createRow('Valor Potencial (Pérdida)', datosIndividuales.valorPotencial, (datosIndividuales.valorPotencial / (datosIndividuales.valorDolarUsado || 1)), true);
-        kpiRows += `<tr class="border-t"><td class="pt-2 text-gray-500" colspan="3">Descuento Potencial: <span class="font-bold text-red-600">${formatPercent(datosIndividuales.descuentoPotencialPct)}</span></td></tr>`;
+        kpiRows += `<tr class="border-t"><td class="pt-2 text-gray-500" colspan="3">Descuento Potencial: <span class="font-bold text-danger-600">${formatPercent(datosIndividuales.descuentoPotencialPct)}</span></td></tr>`;
 
         kpiEl.innerHTML = kpiHTML.replace('_HEADER_', createHeader()).replace('_ROWS_', kpiRows);
         
@@ -195,7 +195,7 @@ export async function abrirModalVer(reservaId) {
         } else {
             historialAjustes.forEach(log => {
                 const dolarParaCalculo = log.valorDolarUsado || 1;
-                const ajusteColor = log.ajusteUSD > 0 ? 'text-green-600' : 'text-red-600';
+                const ajusteColor = log.ajusteUSD > 0 ? 'text-success-600' : 'text-danger-600';
                 
                 if (esMonedaExtranjera) {
                     const anteriorCLP = log.valorAnteriorUSD * dolarParaCalculo;
@@ -277,7 +277,7 @@ export async function abrirModalVer(reservaId) {
 
         contentEl.classList.remove('hidden');
     } catch (error) {
-        document.getElementById('view-loading-state').innerHTML = `<p class="text-red-500 text-center">Error al cargar los detalles: ${error.message}</p>`;
+        document.getElementById('view-loading-state').innerHTML = `<p class="text-danger-500 text-center">Error al cargar los detalles: ${error.message}</p>`;
     } finally {
         if (!contentEl.classList.contains('hidden')) {
             document.getElementById('view-loading-state').classList.add('hidden');
@@ -320,9 +320,9 @@ export function renderizarGestorDocumento(form, tipo, docUrl) {
         if (docUrl === 'SIN_DOCUMENTO') {
             html = '<p class="text-sm font-semibold">Declarado sin documento.</p>';
         } else {
-            html = `<a href="${docUrl}" target="_blank" class="text-blue-600 hover:underline text-sm">Ver Documento Actual</a>`;
+            html = `<a href="${docUrl}" target="_blank" class="text-primary-600 hover:underline text-sm">Ver Documento Actual</a>`;
         }
-        html += `<button type="button" data-tipo="${tipo}" class="delete-doc-btn text-red-600 text-xs ml-4">Eliminar</button>`;
+        html += `<button type="button" data-tipo="${tipo}" class="delete-doc-btn text-danger-600 text-xs ml-4">Eliminar</button>`;
     }
 
     html += `<input type="file" data-tipo="${tipo}" class="doc-input mt-2 text-sm">`;
@@ -364,7 +364,7 @@ export function renderizarListaTransacciones(form, transacciones) {
             <span>${t.tipo}</span>
             <span class="font-semibold">${formatCurrency(t.monto)}</span>
             <span>${renderDocumentoLink(t.enlaceComprobante, 'Sin Comp.')}</span>
-            <button type="button" data-id="${t.id}" class="delete-pago-btn text-red-600 text-xs justify-self-end">Eliminar</button>
+            <button type="button" data-id="${t.id}" class="delete-pago-btn text-danger-600 text-xs justify-self-end">Eliminar</button>
         </div>
     `).join('');
 }
@@ -382,7 +382,7 @@ export async function abrirModalEditar(reservaId, alojamientos, clientes) {
         const resumenGrupoEl = document.getElementById('resumen-grupo-container');
         if (editandoReserva.datosGrupo.propiedades.length > 1) {
             resumenGrupoEl.innerHTML = `
-                <div class="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm">
+                <div class="p-3 bg-primary-50 border border-primary-200 rounded-md text-sm">
                     <p>Esta reserva es parte de un grupo de <strong>${editandoReserva.datosGrupo.propiedades.length} propiedades</strong> (${editandoReserva.datosGrupo.propiedades.join(', ')}).</p>
                     <p>Valor Total del Grupo: <strong>${formatCurrency(editandoReserva.datosGrupo.valorTotal)}</strong></p>
                 </div>`;

@@ -22,7 +22,7 @@ function showCustomConfirm(message, onConfirm) {
             <p class="text-gray-600 mb-6">${message}</p>
             <div class="flex justify-end gap-3">
                 <button id="custom-cancel-btn" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors">Cancelar</button>
-                <button id="custom-confirm-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">Confirmar</button>
+                <button id="custom-confirm-btn" class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors">Confirmar</button>
             </div>
         </div>
     `;
@@ -627,22 +627,22 @@ export const renderModalAlojamiento = () => {
                         </div>
 
                         <!-- SECCIÓN 2: CONSTRUCTOR DE ESPACIOS (CORE) -->
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-indigo-100">
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-primary-100">
                             <div class="flex justify-between items-center mb-4 border-b pb-2">
                                 <div>
-                                    <h4 class="text-lg font-semibold text-indigo-700">Distribución y Contenido</h4>
+                                    <h4 class="text-lg font-semibold text-primary-700">Distribución y Contenido</h4>
                                     <p class="text-sm text-gray-500">Define los espacios (dormitorios, baños) y qué hay dentro de ellos.</p>
                                 </div>
                             </div>
                             
                             <!-- Formulario Agregar Componente -->
-                            <div class="bg-indigo-50 p-4 rounded-lg mb-6 flex flex-col md:flex-row gap-4 items-end border border-indigo-100">
+                            <div class="bg-primary-50 p-4 rounded-lg mb-6 flex flex-col md:flex-row gap-4 items-end border border-primary-100">
                                 <div class="flex-grow">
-                                    <label class="block text-xs font-medium text-indigo-800 uppercase mb-1">Nombre del Espacio</label>
+                                    <label class="block text-xs font-medium text-primary-800 uppercase mb-1">Nombre del Espacio</label>
                                     <input type="text" id="nuevo-componente-nombre" placeholder="Ej: Dormitorio Principal" class="form-input w-full">
                                 </div>
                                 <div class="md:w-1/3">
-                                    <label class="block text-xs font-medium text-indigo-800 uppercase mb-1">Tipo</label>
+                                    <label class="block text-xs font-medium text-primary-800 uppercase mb-1">Tipo</label>
                                     <select id="nuevo-componente-tipo" class="form-select w-full">
                                         <option value="">Cargando...</option>
                                     </select>
@@ -665,7 +665,7 @@ export const renderModalAlojamiento = () => {
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Google Hotels & SEO</label>
                                     <div class="space-y-3">
                                         <div><label class="text-xs text-gray-500">ID Alojamiento</label><input type="text" id="googleHotelId" class="form-input w-full mt-1"></div>
-                                        <div><label class="flex items-center space-x-2"><input type="checkbox" id="googleHotelIsListed" class="rounded text-indigo-600"><span>Publicar en Web/Google</span></label></div>
+                                        <div><label class="flex items-center space-x-2"><input type="checkbox" id="googleHotelIsListed" class="rounded text-primary-600"><span>Publicar en Web/Google</span></label></div>
                                     </div>
                                 </div>
                                 <div>
@@ -678,7 +678,7 @@ export const renderModalAlojamiento = () => {
                                             <input type="text" id="googleHotelLng" placeholder="Longitud (ej: -71.9)" class="form-input w-1/2">
                                         </div>
                                         <div class="text-right">
-                                            <a href="#" class="text-xs text-indigo-600 hover:text-indigo-800 underline" onclick="const q = (document.getElementById('googleHotelStreet').value + ' ' + document.getElementById('googleHotelCity').value).trim(); window.open(q ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q) : 'https://www.google.com/maps', '_blank'); return false;">
+                                            <a href="#" class="text-xs text-primary-600 hover:text-primary-800 underline" onclick="const q = (document.getElementById('googleHotelStreet').value + ' ' + document.getElementById('googleHotelCity').value).trim(); window.open(q ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q) : 'https://www.google.com/maps', '_blank'); return false;">
                                                 📍 Buscar Coordenadas en Mapa
                                             </a>
                                         </div>

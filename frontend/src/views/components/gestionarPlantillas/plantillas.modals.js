@@ -26,10 +26,10 @@ function renderEtiquetasAyuda() {
     return ETIQUETAS_DISPONIBLES.map(tag => `
         <div class="flex items-center justify-between text-xs bg-gray-50 p-2 rounded border border-gray-200">
             <div>
-                <span class="font-mono font-bold text-indigo-700 select-all">${tag.etiqueta}</span>
+                <span class="font-mono font-bold text-primary-700 select-all">${tag.etiqueta}</span>
                 <span class="text-gray-500 ml-2">- ${tag.descripcion}</span>
             </div>
-            <button type="button" data-etiqueta="${tag.etiqueta}" class="copy-tag-btn text-gray-400 hover:text-indigo-600 ml-2" title="Copiar">
+            <button type="button" data-etiqueta="${tag.etiqueta}" class="copy-tag-btn text-gray-400 hover:text-primary-600 ml-2" title="Copiar">
                 📋
             </button>
         </div>

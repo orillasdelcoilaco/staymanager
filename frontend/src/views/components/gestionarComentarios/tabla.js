@@ -40,8 +40,8 @@ export function renderComentariosTabla(comentarios, container) {
                             <p class="truncate ...">${c.comentario}</p>
                         </td>
                         <td class="py-3 px-4">
-                            ${c.foto1Url ? `<a href="${c.foto1Url}" target="_blank" class="text-blue-500 hover:underline">Img 1</a>` : ''}
-                            ${c.foto2Url ? `<a href="${c.foto2Url}" target="_blank" class="text-blue-500 hover:underline ml-2">Img 2</a>` : ''}
+                            ${c.foto1Url ? `<a href="${c.foto1Url}" target="_blank" class="text-primary-500 hover:underline">Img 1</a>` : ''}
+                            ${c.foto2Url ? `<a href="${c.foto2Url}" target="_blank" class="text-primary-500 hover:underline ml-2">Img 2</a>` : ''}
                         </td>
                         <td class="py-3 px-4 whitespace-nowrap">
                             <button data-id="${c.id}" class="delete-btn btn-table-delete">Eliminar</button>

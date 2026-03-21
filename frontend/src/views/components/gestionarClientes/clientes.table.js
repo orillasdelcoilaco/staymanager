@@ -7,7 +7,7 @@ export const renderFilasTabla = (clientes) => {
 
     return clientes.map((c, index) => {
         const syncStatusHtml = c.googleContactSynced
-            ? '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800" title="Sincronizado con Google Contacts">Sincronizado</span>'
+            ? '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-success-100 text-success-800" title="Sincronizado con Google Contacts">Sincronizado</span>'
             : `<button data-id="${c.id}" class="sync-btn btn-table-sync">Sincronizar</button>`;
 
         return `
@@ -20,9 +20,9 @@ export const renderFilasTabla = (clientes) => {
             <td class="py-2 px-3">${c.pais || '-'}</td>
             <td class="py-2 px-3 whitespace-nowrap space-x-2">
                 <button data-id="${c.id}" class="view-btn btn-table-view" title="Ver Perfil">📄</button>
-                <button data-id="${c.id}" class="edit-btn btn-table-edit text-blue-600 hover:text-blue-800" title="Editar">✏️</button>
+                <button data-id="${c.id}" class="edit-btn btn-table-edit text-primary-600 hover:text-primary-800" title="Editar">✏️</button>
                 ${syncStatusHtml}
-                <button data-id="${c.id}" class="delete-btn btn-table-delete text-red-600 hover:text-red-800" title="Eliminar">🗑️</button>
+                <button data-id="${c.id}" class="delete-btn btn-table-delete text-danger-600 hover:text-danger-800" title="Eliminar">🗑️</button>
             </td>
         </tr>
     `}).join('');

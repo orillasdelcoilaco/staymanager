@@ -19,7 +19,7 @@ export async function render() {
                     <div class="relative flex-1 md:flex-initial">
                         <input type="text" id="input-busqueda-tipo" 
                             placeholder="🔍 Buscar activo..." 
-                            class="form-input w-full md:w-64 pl-8 text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                            class="form-input w-full md:w-64 pl-8 text-sm border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
                         >
                     </div>
                     <button id="btn-nuevo-tipo" class="btn-primary flex items-center gap-2 whitespace-nowrap">
@@ -158,7 +158,7 @@ async function cargarTipos() {
         filtrarYRenderizar('');
     } catch (error) {
         console.error('[Tipos] Error al cargar lista:', error);
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-red-500">Error de conexión: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-danger-500">Error de conexión: ${error.message}</td></tr>`;
     }
 }
 

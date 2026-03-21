@@ -123,11 +123,11 @@ function renderStepsBar() {
         const isActive = n === state.step;
         const isDone = n < state.step;
         const circleClass = isDone
-            ? 'bg-green-500 text-white'
+            ? 'bg-success-500 text-white'
             : isActive
-                ? 'bg-blue-600 text-white'
+                ? 'bg-primary-600 text-white'
                 : 'bg-gray-200 text-gray-500';
-        const textClass = isActive ? 'text-blue-700 font-semibold' : isDone ? 'text-green-600' : 'text-gray-400';
+        const textClass = isActive ? 'text-primary-700 font-semibold' : isDone ? 'text-success-600' : 'text-gray-400';
         return `
             ${i > 0 ? '<div class="flex-1 h-px bg-gray-200 mx-1 mt-3"></div>' : ''}
             <div class="flex flex-col items-center gap-1">
@@ -146,18 +146,18 @@ function renderStep1(container) {
         <h2 class="text-xl font-semibold text-gray-800 mb-2">Sitio web del cliente</h2>
         <p class="text-gray-500 mb-6">Ingresa la URL del sitio web de alojamiento a analizar. La IA navegará el sitio, leerá el contenido e identificará los alojamientos automáticamente.</p>
 
-        ${state.error ? `<div class="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-4">${state.error}</div>` : ''}
+        ${state.error ? `<div class="bg-danger-50 border border-danger-200 text-danger-700 rounded-lg p-4 mb-4">${state.error}</div>` : ''}
 
         <div class="space-y-4">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">URL del sitio web</label>
                 <input id="url-input" type="url" placeholder="https://www.ejemplo.cl o www.ejemplo.cl"
                     value="${state.url}"
-                    class="form-input w-full rounded-lg border-gray-300 text-base px-4 py-3 focus:ring-blue-500 focus:border-blue-500">
+                    class="form-input w-full rounded-lg border-gray-300 text-base px-4 py-3 focus:ring-primary-500 focus:border-primary-500">
             </div>
 
             <div class="flex items-center gap-3">
-                <input id="use-vision" type="checkbox" checked class="form-checkbox rounded text-blue-600">
+                <input id="use-vision" type="checkbox" checked class="form-checkbox rounded text-primary-600">
                 <label for="use-vision" class="text-sm text-gray-700">Usar visión IA (analizar fotos de los alojamientos) — requiere API Gemini</label>
             </div>
 
@@ -168,14 +168,14 @@ function renderStep1(container) {
             </div>
 
             <div class="border-t pt-4">
-                <label class="flex items-start gap-3 cursor-pointer p-3 rounded-lg border border-gray-200 hover:border-red-300 transition-colors ${state.resetMode ? 'bg-red-50 border-red-300' : 'bg-gray-50'}">
-                    <input id="reset-mode" type="checkbox" ${state.resetMode ? 'checked' : ''} class="form-checkbox mt-0.5 text-red-600 rounded">
+                <label class="flex items-start gap-3 cursor-pointer p-3 rounded-lg border border-gray-200 hover:border-danger-300 transition-colors ${state.resetMode ? 'bg-danger-50 border-danger-300' : 'bg-gray-50'}">
+                    <input id="reset-mode" type="checkbox" ${state.resetMode ? 'checked' : ''} class="form-checkbox mt-0.5 text-danger-600 rounded">
                     <div>
                         <span class="text-sm font-medium text-gray-700">Borrar todo y reimportar desde cero</span>
                         <p class="text-xs text-gray-400 mt-0.5">Si la empresa ya existe, elimina todos los alojamientos, espacios y activos antes de reimportar. La cuenta de usuario se conserva.</p>
                     </div>
                 </label>
-                <div id="reset-warning" class="${state.resetMode ? '' : 'hidden'} mt-2 bg-red-50 border border-red-300 text-red-700 rounded-lg p-3 text-sm">
+                <div id="reset-warning" class="${state.resetMode ? '' : 'hidden'} mt-2 bg-danger-50 border border-danger-300 text-danger-700 rounded-lg p-3 text-sm">
                     <strong>⚠️ Atención:</strong> Se eliminarán permanentemente todos los alojamientos, espacios y activos actuales. Esta acción no se puede deshacer.
                 </div>
             </div>
@@ -188,7 +188,7 @@ function renderStep1(container) {
         </div>
 
         <div id="loading-analyze" class="hidden mt-6">
-            <div class="flex items-center gap-2 text-blue-700 mb-2">
+            <div class="flex items-center gap-2 text-primary-700 mb-2">
                 <svg class="animate-spin h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
@@ -304,7 +304,7 @@ function renderStep2(container) {
             </div>
         </div>
 
-        <div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100 text-sm text-blue-700">
+        <div class="mt-4 p-4 bg-primary-50 rounded-lg border border-primary-100 text-sm text-primary-700">
             <strong>Detectado:</strong>
             ${state.importData.alojamientos?.length || 0} alojamientos ·
             ${state.importData.tiposEspacio?.length || 0} tipos de espacio ·
@@ -402,10 +402,10 @@ function renderAlojamientoCard(a, i) {
                 <input type="number" data-field="numBanos" data-idx="${i}" value="${a.numBanos || 1}" min="0" class="aloj-field form-input w-full text-sm mt-0.5">
             </div>
             <div class="md:col-span-2 flex items-end">
-                <span class="text-xs text-blue-600">${(a.espaciosDetectados || []).join(' · ') || 'Sin espacios detectados'}</span>
+                <span class="text-xs text-primary-600">${(a.espaciosDetectados || []).join(' · ') || 'Sin espacios detectados'}</span>
             </div>
         </div>
-        <button class="btn-remove-aloj text-red-400 hover:text-red-600 flex-shrink-0 self-start text-lg" data-idx="${i}" title="Eliminar">✕</button>
+        <button class="btn-remove-aloj text-danger-400 hover:text-danger-600 flex-shrink-0 self-start text-lg" data-idx="${i}" title="Eliminar">✕</button>
     </div>`;
 }
 
@@ -432,7 +432,7 @@ function renderStep4(container) {
         <p class="text-gray-500 mb-6">Define las credenciales de acceso y preferencias iniciales para la nueva empresa.</p>
 
         <div class="space-y-5">
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-700">
+            <div class="bg-primary-50 border border-primary-200 rounded-lg p-4 text-sm text-primary-700">
                 <strong>Modo inteligente:</strong> Si el email ya está registrado en SuiteManager, el wizard <strong>actualizará</strong> la empresa existente sin crear una nueva. La contraseña solo es necesaria para registros nuevos.
             </div>
 
@@ -452,7 +452,7 @@ function renderStep4(container) {
             <div class="flex gap-3">
                 ${['CLP', 'USD', 'ARS', 'EUR', 'MXN'].map(m => `
                 <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="moneda" value="${m}" ${m === moneda ? 'checked' : ''} class="form-radio text-blue-600">
+                    <input type="radio" name="moneda" value="${m}" ${m === moneda ? 'checked' : ''} class="form-radio text-primary-600">
                     <span class="text-sm font-medium">${m}</span>
                 </label>`).join('')}
             </div>
@@ -462,14 +462,14 @@ function renderStep4(container) {
             <div class="flex flex-wrap gap-3">
                 ${['Airbnb', 'Booking.com', 'Expedia', 'VRBO', 'Despegar'].map(canal => `
                 <label class="flex items-center gap-2 cursor-pointer bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                    <input type="checkbox" name="canal-ota" value="${canal}" class="form-checkbox text-blue-600">
+                    <input type="checkbox" name="canal-ota" value="${canal}" class="form-checkbox text-primary-600">
                     <span class="text-sm">${canal}</span>
                 </label>`).join('')}
             </div>
 
         </div>
 
-        <div id="step4-error" class="hidden mt-4 bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 text-sm"></div>
+        <div id="step4-error" class="hidden mt-4 bg-danger-50 border border-danger-200 text-danger-700 rounded-lg p-4 text-sm"></div>
 
         <div class="mt-8 flex justify-between">
             <button id="btn-back4" class="btn-secondary px-6 py-2 rounded-lg">← Volver</button>
@@ -479,7 +479,7 @@ function renderStep4(container) {
         </div>
 
         <div id="loading-create" class="hidden mt-6">
-            <div class="flex items-center gap-2 text-green-700 mb-2">
+            <div class="flex items-center gap-2 text-success-700 mb-2">
                 <svg class="animate-spin h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
@@ -572,7 +572,7 @@ function renderStep5(container) {
                 ${isUpdate ? '¡Empresa actualizada exitosamente!' : '¡Empresa creada exitosamente!'}
             </h2>
             <p class="text-gray-500">${message || ''}</p>
-            ${isUpdate ? `<span class="inline-block mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">Modo: Actualización</span>` : `<span class="inline-block mt-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">Modo: Creación nueva</span>`}
+            ${isUpdate ? `<span class="inline-block mt-2 px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium">Modo: Actualización</span>` : `<span class="inline-block mt-2 px-3 py-1 bg-success-100 text-success-700 rounded-full text-sm font-medium">Modo: Creación nueva</span>`}
         </div>
 
         <div class="mt-8 grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -585,16 +585,16 @@ function renderStep5(container) {
         </div>
 
         ${errores.length > 0 ? `
-        <div class="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <h3 class="font-semibold text-yellow-800 mb-2">⚠️ Advertencias (${errores.length})</h3>
-            <ul class="text-sm text-yellow-700 space-y-1">
+        <div class="mt-6 bg-warning-50 border border-warning-200 rounded-lg p-4">
+            <h3 class="font-semibold text-warning-800 mb-2">⚠️ Advertencias (${errores.length})</h3>
+            <ul class="text-sm text-warning-700 space-y-1">
                 ${errores.map(e => `<li>• ${e}</li>`).join('')}
             </ul>
         </div>` : ''}
 
-        <div class="mt-8 bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm">
-            <h3 class="font-semibold text-blue-800 mb-2">Próximos pasos recomendados:</h3>
-            <ol class="text-blue-700 space-y-1 list-decimal list-inside">
+        <div class="mt-8 bg-primary-50 border border-primary-100 rounded-lg p-4 text-sm">
+            <h3 class="font-semibold text-primary-800 mb-2">Próximos pasos recomendados:</h3>
+            <ol class="text-primary-700 space-y-1 list-decimal list-inside">
                 <li>Pedir al cliente que valide los alojamientos en el panel admin</li>
                 <li>Subir fotos reales a cada espacio (Galería Web)</li>
                 <li>Revisar y ajustar tarifas por temporada</li>

@@ -10,7 +10,7 @@ export const renderFilasTabla = (usuarios) => {
             <td class="py-3 px-4 text-center font-medium text-gray-500">${index + 1}</td>
             <td class="py-3 px-4 font-medium">${u.email}</td>
             <td class="py-3 px-4 text-center">
-                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-primary-100 text-primary-800">
                     ${u.rol || 'Admin'}
                 </span>
             </td>

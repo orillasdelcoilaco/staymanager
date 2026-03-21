@@ -23,7 +23,7 @@ export async function render() {
     try {
         clientes = await fetchAPI('/clientes');
     } catch (error) {
-        return `<p class="text-red-500">Error al cargar los clientes. Por favor, intente de nuevo.</p>`;
+        return `<p class="text-danger-500">Error al cargar los clientes. Por favor, intente de nuevo.</p>`;
     }
 
     return `

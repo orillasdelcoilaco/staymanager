@@ -143,7 +143,7 @@ function renderLista(categoria) {
                 <span class="text-xl">${item.icono}</span>
                 <span class="font-medium text-sm">${item.nombre}</span>
             </div>
-            <button class="btn-delete text-red-400 hover:text-red-600" data-id="${item.id}">
+            <button class="btn-delete text-danger-400 hover:text-danger-600" data-id="${item.id}">
                 &times;
             </button>
         </div>

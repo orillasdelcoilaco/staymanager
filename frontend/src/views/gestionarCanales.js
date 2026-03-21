@@ -11,7 +11,7 @@ async function cargarCanales() {
         document.getElementById('canales-tbody').innerHTML = renderFilasTabla(canales);
     } catch (error) {
         console.error("Error al cargar canales:", error);
-        document.querySelector('.table-container').innerHTML = `<p class="text-red-500 p-4">Error al cargar los datos.</p>`;
+        document.querySelector('.table-container').innerHTML = `<p class="text-danger-500 p-4">Error al cargar los datos.</p>`;
     }
 }
 
@@ -19,7 +19,7 @@ export async function render() {
     try {
         canales = await fetchAPI('/canales');
     } catch (error) {
-        return `<p class="text-red-500">Error al cargar los datos.</p>`;
+        return `<p class="text-danger-500">Error al cargar los datos.</p>`;
     }
 
     return `

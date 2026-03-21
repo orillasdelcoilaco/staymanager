@@ -48,9 +48,9 @@ function renderTabla() {
         const noches = Math.round((new Date(item.fechaSalida) - new Date(item.fechaLlegada)) / (1000 * 60 * 60 * 24));
 
         return `
-        <tr class="border-b text-sm hover:bg-gray-50 ${isIncomplete ? 'bg-yellow-50' : ''}">
+        <tr class="border-b text-sm hover:bg-gray-50 ${isIncomplete ? 'bg-warning-50' : ''}">
             <td class="p-2 text-center font-medium text-gray-500">${index + 1}</td>
-            <td class="p-2">${icalIndicator}${tipoTexto} ${isIncomplete ? '<span class="text-red-600 font-medium">(Incompleta)</span>' : ''}</td>
+            <td class="p-2">${icalIndicator}${tipoTexto} ${isIncomplete ? '<span class="text-danger-600 font-medium">(Incompleta)</span>' : ''}</td>
             <td class="p-2 font-medium">${item.canalNombre || 'N/A'}</td>
             <td class="p-2 font-medium truncate" style="max-width: 200px;" title="${clienteNombre}">${clienteNombre}</td>
             <td class="p-2">${formatDate(item.fechaLlegada)} al ${formatDate(item.fechaSalida)}</td>
@@ -84,7 +84,7 @@ async function fetchAndRender() {
         renderTabla();
     } catch (error) {
         const tbody = document.getElementById('propuestas-tbody');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="text-center text-red-500 py-4">Error al cargar: ${error.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger-500 py-4">Error al cargar: ${error.message}</td></tr>`;
     }
 }
 

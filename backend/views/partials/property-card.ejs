@@ -22,8 +22,8 @@
                 <div class="flex-grow">
                     <h3 class="text-lg font-bold text-gray-900 mb-1 line-clamp-1">
                         <a href="/propiedad/<%= prop.id %>?fechaLlegada=<%= query.fechaLlegada || '' %>&fechaSalida=<%= query.fechaSalida || '' %>&personas=<%= query.personas || '' %>"
-                            class="hover:text-indigo-600">
-                            <% if (tienePrecio) { %><span class="text-green-600 mr-1">✓</span>
+                            class="hover:text-primary-600">
+                            <% if (tienePrecio) { %><span class="text-success-600 mr-1">✓</span>
                                 <% } %>
                                     <%= prop.nombre %>
                         </a>
@@ -38,7 +38,7 @@
                                 <%= formatCurrency(prop.pricing.totalPriceCLP) %>
                             </p>
                             <% if (abono> 0) { %>
-                                <p class="text-indigo-600 font-semibold text-xs mt-1">Reserva con solo <%=
+                                <p class="text-primary-600 font-semibold text-xs mt-1">Reserva con solo <%=
                                         formatCurrency(abono) %>
                                 </p>
                                 <% } %>

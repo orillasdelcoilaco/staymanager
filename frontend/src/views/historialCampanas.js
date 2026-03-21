@@ -19,7 +19,7 @@ function renderTablaCampanas() {
             <td class="py-2 px-3">${formatDateTime(c.fechaCreacion)}</td>
             <td class="py-2 px-3">${c.segmento}</td>
             <td class="py-2 px-3 text-center">${c.totalEnviados}</td>
-            <td class="py-2 px-3 text-center font-bold text-green-600">${c.estados.Reservo || 0}</td>
+            <td class="py-2 px-3 text-center font-bold text-success-600">${c.estados.Reservo || 0}</td>
             <td class="py-2 px-3 text-center">
                 <button data-campana-id="${c.id}" class="ver-detalles-btn btn-table-view">Ver Detalles</button>
             </td>
@@ -57,7 +57,7 @@ async function abrirModalDetalles(campanaId) {
         `).join('');
 
     } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-red-500 py-4">Error: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger-500 py-4">Error: ${error.message}</td></tr>`;
     }
 }
 
@@ -111,7 +111,7 @@ export async function afterRender() {
         todasLasCampanas = await fetchAPI('/crm/campanas');
         renderTablaCampanas();
     } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-red-500 py-4">Error: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger-500 py-4">Error: ${error.message}</td></tr>`;
     }
 
     tbody.addEventListener('click', e => {

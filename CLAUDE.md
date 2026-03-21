@@ -32,6 +32,25 @@ El sistema divide su lógica estrictamente en dos mundos que **NO DEBEN MEZCLARS
 - **Fuente de la Verdad Financiera Inmutable**: Una vez que se registra un flujo financiero (`valores.valorHuesped` extraído desde un reporte CSV u OTA), este **NUNCA DEBE SER SUSTITUIDO** por cálculos de tarifas dinámicas. Los motores de cálculo solo generan referencias (KPIs) o presupuestos nuevos, sin alterar la fuente original.
 - **Reservas Sin Duplicados**: El flujo de integraciones (ej. sincronizaciones iCal contra CSV/Reportes), tiene dependencias unificadas (mediante `idReservaCanal`). Al modificar funciones de sincronización, priorizar completar datos contra crear reservas nuevas falsas.
 
+## 🎨 Design System — Convenciones de Color (OBLIGATORIO)
+El proyecto usa un sistema de tokens de color centralizado en `backend/tailwind.config.js`. **NUNCA uses colores Tailwind hardcodeados directamente.**
+
+| Color semántico | Token a usar | PROHIBIDO |
+|---|---|---|
+| Primario / Acciones | `primary-*` (ej: `bg-primary-600`) | `bg-blue-*`, `bg-indigo-*` |
+| Error / Eliminar | `danger-*` (ej: `bg-danger-600`) | `bg-red-*` |
+| Éxito / Confirmación | `success-*` (ej: `bg-success-600`) | `bg-green-*` |
+| Advertencia | `warning-*` (ej: `bg-warning-600`) | `bg-yellow-*` |
+| Botones | `.btn-primary`, `.btn-danger`, `.btn-success`, `.btn-outline`, `.btn-ghost` | Clases Tailwind ad-hoc en botones |
+
+**Al terminar cualquier tarea que toque el frontend, ejecutar siempre:**
+```bash
+node scripts/audit-ui.js
+```
+El resultado debe tener **0 problemas de alta prioridad** antes de hacer commit.
+Si hay problemas de alta prioridad, ejecutar `node scripts/migrate-colors.js` para corregirlos automáticamente.
+Luego reconstruir el CSS: `cd backend && npm run build`.
+
 ## 🔧 Flujo de Trabajo y Comandos
 - Todo el código backend reside en `backend/`.
 - Frontend SPA reside en `frontend/src/` (arquitectura de componentes de vistas).

@@ -58,11 +58,11 @@ export const renderModalCanal = () => {
                     </div>
                     <div class="space-y-2">
                         <label for="esCanalPorDefecto" class="flex items-center">
-                            <input type="checkbox" id="esCanalPorDefecto" name="esCanalPorDefecto" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                            <input type="checkbox" id="esCanalPorDefecto" name="esCanalPorDefecto" class="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-300 focus:ring focus:ring-primary-200 focus:ring-opacity-50">
                             <span class="ml-2 text-sm text-gray-600">⭐ Marcar como canal por defecto para la tarifa base.</span>
                         </label>
                         <label for="esCanalIcal" class="flex items-center">
-                            <input type="checkbox" id="esCanalIcal" name="esCanalIcal" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                            <input type="checkbox" id="esCanalIcal" name="esCanalIcal" class="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-300 focus:ring focus:ring-primary-200 focus:ring-opacity-50">
                             <span class="ml-2 text-sm text-gray-600">🗓️ Usar este canal para las reservas creadas desde la sincronización iCal.</span>
                         </label>
                     </div>

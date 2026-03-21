@@ -94,6 +94,6 @@ export async function afterRender() {
         });
 
     } catch (error) {
-        calendarEl.innerHTML = `<p class="text-red-500">Error al cargar el calendario: ${error.message}</p>`;
+        calendarEl.innerHTML = `<p class="text-danger-500">Error al cargar el calendario: ${error.message}</p>`;
     }
 }

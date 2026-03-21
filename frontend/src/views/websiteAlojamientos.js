@@ -61,7 +61,7 @@ export async function afterRender() {
     } catch (error) {
         console.error('Error en carga inicial:', error);
         const container = document.querySelector('.bg-white');
-        if (container) container.innerHTML += `<p class="text-red-500 mt-4">Error de carga: ${error.message}</p>`;
+        if (container) container.innerHTML += `<p class="text-danger-500 mt-4">Error de carga: ${error.message}</p>`;
     }
 }
 

@@ -20,7 +20,7 @@ export const renderFilasTabla = (propiedades) => {
             <td class="py-3 px-4 text-center">${p.numPiezas || 0}</td>
             <td class="py-3 px-4 text-center">${p.numBanos || 0}</td>
             <td class="py-3 px-4">
-                <button data-id="${p.id}" class="clone-btn btn-table-clone hover:text-green-600 mr-2" title="Clonar Alojamiento"><i class="fa-solid fa-copy"></i></button>
+                <button data-id="${p.id}" class="clone-btn btn-table-clone hover:text-success-600 mr-2" title="Clonar Alojamiento"><i class="fa-solid fa-copy"></i></button>
                 <button data-id="${p.id}" class="edit-btn btn-table-edit mr-2">Editar</button>
                 <button data-id="${p.id}" class="delete-btn btn-table-delete">Eliminar</button>
             </td>

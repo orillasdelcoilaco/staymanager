@@ -110,7 +110,7 @@ export async function afterRender() {
         });
 
     } catch (error) {
-        document.getElementById('export-loading').innerHTML = `<p class="text-red-500">Error al cargar los datos: ${error.message}</p>`;
+        document.getElementById('export-loading').innerHTML = `<p class="text-danger-500">Error al cargar los datos: ${error.message}</p>`;
     }
 
     const syncBtn = document.getElementById('sync-ical-btn');
@@ -119,7 +119,7 @@ export async function afterRender() {
     syncBtn.addEventListener('click', async () => {
         syncBtn.disabled = true;
         syncBtn.textContent = 'Sincronizando...';
-        syncStatus.className = 'mt-4 p-4 rounded-md text-sm bg-blue-100 text-blue-800';
+        syncStatus.className = 'mt-4 p-4 rounded-md text-sm bg-primary-100 text-primary-800';
         syncStatus.innerHTML = 'Iniciando proceso... Esto puede tardar unos segundos.';
         syncStatus.classList.remove('hidden');
         
@@ -144,15 +144,15 @@ export async function afterRender() {
             
             if (errores.length > 0) {
                 summaryHtml += `<p class="mt-2 font-semibold">Detalle de errores:</p><ul class="list-disc list-inside">${errores.map(e => `<li>${e}</li>`).join('')}</ul>`;
-                 syncStatus.className = 'mt-4 p-4 rounded-md text-sm bg-yellow-100 text-yellow-800';
+                 syncStatus.className = 'mt-4 p-4 rounded-md text-sm bg-warning-100 text-warning-800';
             } else {
-                 syncStatus.className = 'mt-4 p-4 rounded-md text-sm bg-green-100 text-green-800';
+                 syncStatus.className = 'mt-4 p-4 rounded-md text-sm bg-success-100 text-success-800';
             }
 
             syncStatus.innerHTML = summaryHtml;
             
         } catch (error) {
-            syncStatus.className = 'mt-4 p-4 rounded-md text-sm bg-red-100 text-red-800';
+            syncStatus.className = 'mt-4 p-4 rounded-md text-sm bg-danger-100 text-danger-800';
             syncStatus.innerHTML = `<strong>Error:</strong> ${error.message}`;
         } finally {
             syncBtn.disabled = false;

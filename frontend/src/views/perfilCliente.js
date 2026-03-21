@@ -79,10 +79,10 @@ function renderComunicaciones() {
 
     const getEventoBadge = (evento) => {
         const badges = {
-            'propuesta-enviada': { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Propuesta Enviada' },
-            'reserva-confirmada': { bg: 'bg-green-100', text: 'text-green-800', label: 'Reserva Confirmada' },
+            'propuesta-enviada': { bg: 'bg-primary-100', text: 'text-primary-800', label: 'Propuesta Enviada' },
+            'reserva-confirmada': { bg: 'bg-success-100', text: 'text-success-800', label: 'Reserva Confirmada' },
             'promocion': { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Promoción' },
-            'cancelacion': { bg: 'bg-red-100', text: 'text-red-800', label: 'Cancelación' },
+            'cancelacion': { bg: 'bg-danger-100', text: 'text-danger-800', label: 'Cancelación' },
             'general': { bg: 'bg-gray-100', text: 'text-gray-800', label: 'General' }
         };
         const badge = badges[evento] || badges['general'];
@@ -91,9 +91,9 @@ function renderComunicaciones() {
 
     const getEstadoBadge = (estado) => {
         if (estado === 'enviado') {
-            return '<span class="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">✓ Enviado</span>';
+            return '<span class="px-2 py-0.5 bg-success-100 text-success-800 text-xs rounded-full">✓ Enviado</span>';
         } else if (estado === 'fallido') {
-            return '<span class="px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded-full">✗ Fallido</span>';
+            return '<span class="px-2 py-0.5 bg-danger-100 text-danger-800 text-xs rounded-full">✗ Fallido</span>';
         }
         return '<span class="px-2 py-0.5 bg-gray-100 text-gray-800 text-xs rounded-full">Pendiente</span>';
     };
@@ -122,7 +122,7 @@ export async function render() {
             fetchAPI(`/clientes/${clienteId}/comunicaciones`).catch(() => [])
         ]);
     } catch (error) {
-        return `<p class="text-red-500">Error al cargar el perfil del cliente: ${error.message}</p>`;
+        return `<p class="text-danger-500">Error al cargar el perfil del cliente: ${error.message}</p>`;
     }
 
     const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
@@ -133,7 +133,7 @@ export async function render() {
                 <div>
                     <h2 class="text-2xl font-bold text-gray-900">${cliente.nombre}</h2>
                     <div class="flex items-center gap-4 mt-1">
-                        <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">${cliente.tipoCliente} (${cliente.numeroDeReservas})</span>
+                        <span class="px-2 py-1 bg-primary-100 text-primary-800 text-xs font-semibold rounded-full">${cliente.tipoCliente} (${cliente.numeroDeReservas})</span>
                         <span class="text-sm text-gray-600">${cliente.email || ''}</span>
                         <span class="text-sm text-gray-600">${cliente.telefono || ''} - ${cliente.pais || 'País no especificado'}</span>
                     </div>
@@ -149,10 +149,10 @@ export async function render() {
                     <h3 class="text-lg font-semibold text-gray-800 mb-2">Datos Adicionales</h3>
                     <dl>
                         <dt class="font-medium text-gray-600 text-sm">Valor Histórico Total</dt>
-                        <dd class="text-green-600 text-xl font-bold mb-3">${formatCurrency(cliente.totalGastado)}</dd>
+                        <dd class="text-success-600 text-xl font-bold mb-3">${formatCurrency(cliente.totalGastado)}</dd>
 
                         <dt class="font-medium text-gray-600 text-sm">Calificación</dt>
-                        <dd class="text-yellow-500 text-xl mb-3">${renderStars(cliente.calificacion)}</dd>
+                        <dd class="text-warning-500 text-xl mb-3">${renderStars(cliente.calificacion)}</dd>
                         
                         <dt class="font-medium text-gray-600 text-sm">Ubicación Geográfica</dt>
                         <dd class="text-gray-800 text-sm">${cliente.ubicacion || 'No especificada'}</dd>
@@ -171,7 +171,7 @@ export async function render() {
         <div class="bg-white rounded-lg shadow">
             <div class="border-b">
                 <nav class="flex -mb-px">
-                    <button id="tab-reservas" class="tab-btn active px-6 py-3 text-sm font-medium border-b-2 border-indigo-500 text-indigo-600">
+                    <button id="tab-reservas" class="tab-btn active px-6 py-3 text-sm font-medium border-b-2 border-primary-500 text-primary-600">
                         📋 Historial de Reservas (${cliente.reservas?.length || 0})
                     </button>
                     <button id="tab-comunicaciones" class="tab-btn px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
@@ -251,18 +251,18 @@ export function afterRender() {
 
     // Tabs
     document.getElementById('tab-reservas')?.addEventListener('click', () => {
-        document.getElementById('tab-reservas').classList.add('active', 'border-indigo-500', 'text-indigo-600');
+        document.getElementById('tab-reservas').classList.add('active', 'border-primary-500', 'text-primary-600');
         document.getElementById('tab-reservas').classList.remove('border-transparent', 'text-gray-500');
-        document.getElementById('tab-comunicaciones').classList.remove('active', 'border-indigo-500', 'text-indigo-600');
+        document.getElementById('tab-comunicaciones').classList.remove('active', 'border-primary-500', 'text-primary-600');
         document.getElementById('tab-comunicaciones').classList.add('border-transparent', 'text-gray-500');
         document.getElementById('panel-reservas').classList.remove('hidden');
         document.getElementById('panel-comunicaciones').classList.add('hidden');
     });
 
     document.getElementById('tab-comunicaciones')?.addEventListener('click', () => {
-        document.getElementById('tab-comunicaciones').classList.add('active', 'border-indigo-500', 'text-indigo-600');
+        document.getElementById('tab-comunicaciones').classList.add('active', 'border-primary-500', 'text-primary-600');
         document.getElementById('tab-comunicaciones').classList.remove('border-transparent', 'text-gray-500');
-        document.getElementById('tab-reservas').classList.remove('active', 'border-indigo-500', 'text-indigo-600');
+        document.getElementById('tab-reservas').classList.remove('active', 'border-primary-500', 'text-primary-600');
         document.getElementById('tab-reservas').classList.add('border-transparent', 'text-gray-500');
         document.getElementById('panel-comunicaciones').classList.remove('hidden');
         document.getElementById('panel-reservas').classList.add('hidden');

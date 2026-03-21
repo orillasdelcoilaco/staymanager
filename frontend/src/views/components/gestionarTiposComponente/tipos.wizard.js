@@ -39,23 +39,23 @@ export const renderWizardModal = () => `
 
                 <!-- LOADING -->
                 <div id="step-loading" class="hidden py-8 text-center">
-                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto mb-3"></div>
-                    <p class="text-indigo-600 font-medium animate-pulse">La IA está diseñando el perfil del espacio...</p>
+                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600 mx-auto mb-3"></div>
+                    <p class="text-primary-600 font-medium animate-pulse">La IA está diseñando el perfil del espacio...</p>
                     <p class="text-xs text-gray-400 mt-1">Definiendo inventario y tiros de cámara</p>
                 </div>
 
                 <!-- PASO 2 -->
                 <div id="step-2-review" class="hidden space-y-6">
                     <!-- Cabecera -->
-                    <div class="bg-indigo-50 p-4 rounded-md border border-indigo-100">
+                    <div class="bg-primary-50 p-4 rounded-md border border-primary-100">
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
                             <div class="md:col-span-1 text-center">
                                 <span id="review-icono" class="text-5xl">🏠</span>
                             </div>
                             <div class="md:col-span-3">
-                                <label class="block text-xs font-semibold text-indigo-600 uppercase tracking-wide">Nombre Normalizado</label>
-                                <input type="text" id="review-nombre-normalizado" class="w-full font-bold text-lg text-gray-900 bg-transparent border-b border-indigo-200 focus:outline-none focus:border-indigo-500 pb-1">
-                                <input type="text" id="review-descripcion" class="w-full text-sm text-gray-600 mt-1 bg-transparent border-b border-transparent focus:border-indigo-300 focus:outline-none" placeholder="Descripción...">
+                                <label class="block text-xs font-semibold text-primary-600 uppercase tracking-wide">Nombre Normalizado</label>
+                                <input type="text" id="review-nombre-normalizado" class="w-full font-bold text-lg text-gray-900 bg-transparent border-b border-primary-200 focus:outline-none focus:border-primary-500 pb-1">
+                                <input type="text" id="review-descripcion" class="w-full text-sm text-gray-600 mt-1 bg-transparent border-b border-transparent focus:border-primary-300 focus:outline-none" placeholder="Descripción...">
                             </div>
                         </div>
                     </div>
@@ -65,7 +65,7 @@ export const renderWizardModal = () => `
                         <div>
                             <h4 class="font-semibold text-gray-800 mb-2 flex items-center justify-between">
                                 <span class="flex items-center gap-2">📸 Guía de Fotos (IA)</span>
-                                <button id="btn-recalc-photos" class="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded border border-indigo-200 hover:bg-indigo-100 transition-colors" title="Recalcular basándose en el inventario actual">
+                                <button id="btn-recalc-photos" class="text-[10px] bg-primary-50 text-primary-600 px-2 py-1 rounded border border-primary-200 hover:bg-primary-100 transition-colors" title="Recalcular basándose en el inventario actual">
                                     ↻ Recalcular
                                 </button>
                             </h4>
@@ -90,17 +90,17 @@ export const renderWizardModal = () => `
                             <div class="space-y-3">
                                 <!-- Botones de Acción -->
                                 <div class="flex gap-2">
-                                    <button type="button" onclick="window.wizardToggleBulkPanel()" class="flex-1 bg-indigo-50 text-indigo-700 px-3 py-2 rounded-md text-sm border border-indigo-200 hover:bg-indigo-100 transition-colors flex justify-between items-center">
+                                    <button type="button" onclick="window.wizardToggleBulkPanel()" class="flex-1 bg-primary-50 text-primary-700 px-3 py-2 rounded-md text-sm border border-primary-200 hover:bg-primary-100 transition-colors flex justify-between items-center">
                                         <span>+ Agregar Activos (Masivo)</span>
                                         <span id="wizard-bulk-arrow" class="transform transition-transform text-xs">▼</span>
                                     </button>
                                 </div>
 
                                 <!-- Panel Bulk (Hidden) -->
-                                <div id="wizard-bulk-panel" class="hidden border border-indigo-100 rounded-md p-2 bg-white shadow-sm">
+                                <div id="wizard-bulk-panel" class="hidden border border-primary-100 rounded-md p-2 bg-white shadow-sm">
                                     <div id="wizard-bulk-list-container">Cargando...</div>
                                     <div class="flex justify-end pt-2 border-t mt-2">
-                                        <button type="button" onclick="window.wizardAgregarSeleccionados()" class="bg-indigo-600 text-white px-3 py-1.5 rounded text-xs hover:bg-indigo-700">
+                                        <button type="button" onclick="window.wizardAgregarSeleccionados()" class="bg-primary-600 text-white px-3 py-1.5 rounded text-xs hover:bg-primary-700">
                                             Agregar Seleccionados
                                         </button>
                                     </div>
@@ -236,7 +236,7 @@ const handleAnalizar = async () => {
         document.getElementById('review-descripcion').value = currentAnalisis.descripcionBase;
 
         const shotListHtml = currentAnalisis.shotList.map(item =>
-            `<li class="flex items-start gap-2"><span class="text-green-500 font-bold">✓</span> ${item}</li>`
+            `<li class="flex items-start gap-2"><span class="text-success-500 font-bold">✓</span> ${item}</li>`
         ).join('');
         document.getElementById('review-shotlist').innerHTML = shotListHtml;
 
@@ -321,11 +321,11 @@ function renderInventarioList() {
                 <li class="flex justify-between items-center bg-white p-2 rounded border border-gray-100 shadow-sm">
                     <span class="flex items-center gap-2">
                         <span>${item.icono || '🔹'}</span>
-                        <span class="font-medium ${item.isNew ? 'text-indigo-600' : ''}">${item.nombre}</span>
+                        <span class="font-medium ${item.isNew ? 'text-primary-600' : ''}">${item.nombre}</span>
                         <span class="text-xs text-gray-500 bg-gray-100 px-1 rounded">x${item.cantidad}</span>
-                        ${item.isNew ? '<span class="text-[10px] bg-indigo-100 text-indigo-700 px-1 rounded border border-indigo-200">Nuevo</span>' : ''}
+                        ${item.isNew ? '<span class="text-[10px] bg-primary-100 text-primary-700 px-1 rounded border border-primary-200">Nuevo</span>' : ''}
                     </span>
-                    <button class="text-red-400 hover:text-red-600 text-xs" onclick="document.getElementById('btn-del-inv-${index}').click()">✕</button>
+                    <button class="text-danger-400 hover:text-danger-600 text-xs" onclick="document.getElementById('btn-del-inv-${index}').click()">✕</button>
                     <!-- Hack para evento onclick simple sin exponer función a window -->
                     <button id="btn-del-inv-${index}" class="hidden" onclick="(function(){ 
                         const event = new CustomEvent('delete-inv', { detail: ${index} }); 
@@ -370,7 +370,7 @@ export const openWizardForEdit = (data) => {
 
     // Populate Shotlist
     const shotListHtml = (data.shotList || []).map(item =>
-        `<li class="flex items-start gap-2"><span class="text-green-500 font-bold">✓</span> ${item}</li>`
+        `<li class="flex items-start gap-2"><span class="text-success-500 font-bold">✓</span> ${item}</li>`
     ).join('');
     document.getElementById('review-shotlist').innerHTML = shotListHtml;
 
@@ -525,7 +525,7 @@ function renderWizardCheckboxList(tipos) {
                  <div class="bg-gray-100 px-3 py-2 flex items-center justify-between sticky top-0">
                     <label class="flex items-center gap-2 cursor-pointer select-none">
                         <input type="checkbox" name="wizard-bulk-check-header"
-                            class="form-checkbox text-indigo-600 h-3 w-3 rounded text-xs"
+                            class="form-checkbox text-primary-600 h-3 w-3 rounded text-xs"
                             onchange="window.wizardToggleCategoryGroup('${cat}', this.checked)"
                         >
                         <span class="text-xs font-bold text-gray-700 uppercase tracking-wide">${cat}</span>
@@ -534,7 +534,7 @@ function renderWizardCheckboxList(tipos) {
                 <div class="p-2 grid grid-cols-2 gap-1">
                     ${items.map(i => `
                         <label class="flex items-center gap-2 p-1 hover:bg-white rounded cursor-pointer border border-transparent hover:border-gray-200 transition-colors">
-                            <input type="checkbox" name="wizard-bulk-check" value="${i.id}" data-category="${cat}" class="form-checkbox text-indigo-600 h-3 w-3 rounded border-gray-300">
+                            <input type="checkbox" name="wizard-bulk-check" value="${i.id}" data-category="${cat}" class="form-checkbox text-primary-600 h-3 w-3 rounded border-gray-300">
                             <span class="text-xs truncate" title="${i.nombre}">${i.icono || ''} ${i.nombre}</span>
                         </label>
                     `).join('')}
@@ -575,7 +575,7 @@ const handleRecalculatePhotos = async () => {
 
         if (response.shotList) {
             const shotListHtml = response.shotList.map(item =>
-                `<li class="flex items-start gap-2"><span class="text-indigo-500 font-bold">★</span> ${item}</li>`
+                `<li class="flex items-start gap-2"><span class="text-primary-500 font-bold">★</span> ${item}</li>`
             ).join('');
             document.getElementById('review-shotlist').innerHTML = shotListHtml;
 

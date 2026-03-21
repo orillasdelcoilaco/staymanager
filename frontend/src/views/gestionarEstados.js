@@ -96,7 +96,7 @@ async function fetchAndRender() {
         estados = await fetchAPI('/estados');
         renderTabla();
     } catch (error) {
-        document.getElementById('estados-tbody').innerHTML = `<tr><td colspan="4" class="text-center text-red-500 py-4">Error al cargar datos: ${error.message}</td></tr>`;
+        document.getElementById('estados-tbody').innerHTML = `<tr><td colspan="4" class="text-center text-danger-500 py-4">Error al cargar datos: ${error.message}</td></tr>`;
     }
 }
 

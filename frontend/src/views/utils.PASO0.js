@@ -105,7 +105,7 @@ export function createPropertyCheckbox(prop, isSuggested) {
   return `
     <div class="p-2 border rounded-md flex items-center justify-between bg-white">
       <div>
-        <input type="checkbox" id="cb-${prop.id}" data-id="${prop.id}" class="propiedad-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded" ${isSuggested ? 'checked' : ''}>
+        <input type="checkbox" id="cb-${prop.id}" data-id="${prop.id}" class="propiedad-checkbox h-4 w-4 text-primary-600 border-gray-300 rounded" ${isSuggested ? 'checked' : ''}>
         <label for="cb-${prop.id}" class="ml-2 font-medium">${prop.nombre}</label>
         <span class="ml-2 text-sm text-gray-500">(Cap: ${prop.capacidad})</span>
       </div>
@@ -309,10 +309,10 @@ export function updateSummary(pricing) {
   if (currencyOriginal !== 'CLP') {
     summaryOriginalContainer.classList.remove('hidden');
     summaryOriginalContainer.innerHTML = `
-      <h4 class="font-bold text-blue-800 text-center mb-1">Valores en ${currencyOriginal}</h4>
+      <h4 class="font-bold text-primary-800 text-center mb-1">Valores en ${currencyOriginal}</h4>
       <div class="flex justify-between text-sm"><span class="text-gray-600">Precio de Lista:</span><span class="font-medium">${formatCurrency(precioLista, currencyOriginal)}</span></div>
-      <div class="flex justify-between text-sm text-red-600"><span class="font-medium">Descuento Total:</span><span class="font-medium">-${formatCurrency(descuentoTotalEnMonedaOriginal, currencyOriginal)}</span></div>
-      <div class="flex justify-between text-base font-bold border-t pt-2 mt-2"><span>Total (${currencyOriginal}):</span><span class="text-blue-600">${formatCurrency(precioFinalEnMonedaOriginal, currencyOriginal)}</span></div>
+      <div class="flex justify-between text-sm text-danger-600"><span class="font-medium">Descuento Total:</span><span class="font-medium">-${formatCurrency(descuentoTotalEnMonedaOriginal, currencyOriginal)}</span></div>
+      <div class="flex justify-between text-base font-bold border-t pt-2 mt-2"><span>Total (${currencyOriginal}):</span><span class="text-primary-600">${formatCurrency(precioFinalEnMonedaOriginal, currencyOriginal)}</span></div>
     `;
     summaryCLPContainer.classList.add('md:col-span-1');
     summaryCLPContainer.classList.remove('md:col-span-2');
@@ -328,8 +328,8 @@ export function updateSummary(pricing) {
     <h4 class="font-bold text-gray-800 text-center mb-1">Totales en CLP</h4>
     <div class="flex justify-between text-sm"><span class="text-gray-600">Noches Totales:</span><span id="summary-noches" class="font-medium">${nights || 0}</span></div>
     <div class="flex justify-between text-sm"><span class="text-gray-600">Precio Lista (CLP):</span><span class="font-medium">${formatCurrency(totalPriceCLP)}</span></div>
-    <div class="flex justify-between text-sm text-red-600"><span class="font-medium">Descuento Total (CLP):</span><span class="font-medium">-${formatCurrency(descuentoTotalCLP)}</span></div>
-    <div class="flex justify-between text-lg font-bold border-t pt-2 mt-2"><span>Precio Final a Cobrar:</span><span id="summary-precio-final" class="text-indigo-600">${formatCurrency(precioFinalCLP)}</span></div>
+    <div class="flex justify-between text-sm text-danger-600"><span class="font-medium">Descuento Total (CLP):</span><span class="font-medium">-${formatCurrency(descuentoTotalCLP)}</span></div>
+    <div class="flex justify-between text-lg font-bold border-t pt-2 mt-2"><span>Precio Final a Cobrar:</span><span id="summary-precio-final" class="text-primary-600">${formatCurrency(precioFinalCLP)}</span></div>
   `;
 }
 
@@ -443,12 +443,12 @@ export async function handleCuponChange() {
     statusEl.textContent = 'Validando...';
     cuponAplicado = await fetchAPI(`/crm/cupones/validar/${codigo}`);
     statusEl.textContent = `Cupón válido: ${cuponAplicado.porcentajeDescuento}% de descuento.`;
-    statusEl.className = 'text-xs mt-1 text-green-600';
+    statusEl.className = 'text-xs mt-1 text-success-600';
     updateSummary(currentPricing);
   } catch (error) {
     cuponAplicado = null;
     statusEl.textContent = `${error.message}`;
-    statusEl.className = 'text-xs mt-1 text-red-600';
+    statusEl.className = 'text-xs mt-1 text-danger-600';
     updateSummary(currentPricing);
   }
 }

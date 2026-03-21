@@ -7,7 +7,7 @@ export function createPropertyCheckbox(prop, isSuggested) {
     return `
       <div class="p-2 border rounded-md flex items-center justify-between bg-white">
         <div>
-          <input type="checkbox" id="cb-${prop.id}" data-id="${prop.id}" class="propiedad-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded" ${isSuggested ? 'checked' : ''}>
+          <input type="checkbox" id="cb-${prop.id}" data-id="${prop.id}" class="propiedad-checkbox h-4 w-4 text-primary-600 border-gray-300 rounded" ${isSuggested ? 'checked' : ''}>
           <label for="cb-${prop.id}" class="ml-2 font-medium">${prop.nombre}</label>
           <span class="ml-2 text-sm text-gray-500">(Cap: ${prop.capacidad})</span>
         </div>
@@ -92,11 +92,11 @@ export function renderPropuestaLayout() {
               <input type="number" id="personas" min="1" class="form-input mt-1">
             </div>
             <div class="flex items-center pt-6">
-              <input id="sin-camarotes" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+              <input id="sin-camarotes" type="checkbox" class="h-4 w-4 text-primary-600 border-gray-300 rounded">
               <label for="sin-camarotes" class="ml-2 block text-sm font-medium text-gray-700">Excluir Camarotes</label>
             </div>
             <div class="flex items-center pt-6">
-              <input id="permitir-cambios" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+              <input id="permitir-cambios" type="checkbox" class="h-4 w-4 text-primary-600 border-gray-300 rounded">
               <label for="permitir-cambios" class="ml-2 block text-sm font-medium text-gray-700">Permitir cambios de cabaña</label>
             </div>
             <button id="buscar-btn" class="btn-primary w-full md:w-auto">Buscar Disponibilidad</button>
@@ -140,7 +140,7 @@ export function renderPropuestaLayout() {
                   <select id="plantilla-select" class="form-select mt-1"></select>
                 </div>
                 <div class="mt-3 flex items-center">
-                  <input id="enviar-email-checkbox" type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded" checked>
+                  <input id="enviar-email-checkbox" type="checkbox" class="h-4 w-4 text-primary-600 border-gray-300 rounded" checked>
                   <label for="enviar-email-checkbox" class="ml-2 block text-sm font-medium text-gray-700">Enviar propuesta por correo</label>
                 </div>
                 <p id="email-warning" class="text-xs text-amber-600 mt-1 hidden">⚠️ El cliente no tiene email registrado</p>
@@ -153,7 +153,7 @@ export function renderPropuestaLayout() {
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
               
               <div class="space-y-4 md:col-span-1">
-                <div id="valor-dolar-container" class="hidden"><p id="valor-dolar-info" class="text-sm font-semibold text-blue-600"></p></div>
+                <div id="valor-dolar-container" class="hidden"><p id="valor-dolar-info" class="text-sm font-semibold text-primary-600"></p></div>
                 
                 <div>
                   <label for="valor-final-fijo" class="block text-sm font-medium text-gray-900">1. Valor Final Fijo (Prioritario)</label>
@@ -175,7 +175,7 @@ export function renderPropuestaLayout() {
                 </div>
                 </div>
               
-              <div id="summary-original-currency-container" class="p-4 bg-blue-50 border border-blue-200 rounded-md space-y-2 md:col-span-1 hidden"></div>
+              <div id="summary-original-currency-container" class="p-4 bg-primary-50 border border-primary-200 rounded-md space-y-2 md:col-span-1 hidden"></div>
               <div id="summary-clp-container" class="p-4 bg-white rounded-md border space-y-2 md:col-span-1"></div>
             </div>
           </div>

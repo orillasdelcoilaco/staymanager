@@ -6,9 +6,9 @@ function showStatus(message, type = 'info') {
     
     let bgColor, textColor;
     switch (type) {
-        case 'error': bgColor = 'bg-red-100'; textColor = 'text-red-800'; break;
-        case 'success': bgColor = 'bg-green-100'; textColor = 'text-green-800'; break;
-        default: bgColor = 'bg-blue-100'; textColor = 'text-blue-800';
+        case 'error': bgColor = 'bg-danger-100'; textColor = 'text-danger-800'; break;
+        case 'success': bgColor = 'bg-success-100'; textColor = 'text-success-800'; break;
+        default: bgColor = 'bg-primary-100'; textColor = 'text-primary-800';
     }
     
     statusEl.innerHTML = message;
@@ -29,7 +29,7 @@ export function render() {
                     Para cada día sin valor, el sistema buscará el valor del día anterior y del día siguiente, y usará el <strong>mayor de los dos</strong> para rellenar el vacío. Los valores rellenados se marcarán como "manuales" para protegerlos de futuras cargas de archivos.
                 </p>
                 <div class="mt-4">
-                    <button id="repair-btn" class="px-6 py-3 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700">
+                    <button id="repair-btn" class="px-6 py-3 bg-danger-600 text-white font-semibold rounded-md hover:bg-danger-700">
                         Iniciar Proceso de Reparación de Historial
                     </button>
                 </div>

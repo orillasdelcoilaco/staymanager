@@ -70,7 +70,7 @@ async function renderizarMapeoDeEstados(selectEstado) {
         `;
 
     } catch (error) {
-        container.innerHTML = `<p class="text-sm text-red-500">Error al analizar los valores: ${error.message}</p>`;
+        container.innerHTML = `<p class="text-sm text-danger-500">Error al analizar los valores: ${error.message}</p>`;
     }
 }
 
@@ -90,7 +90,7 @@ function renderizarCamposMapeo() {
         return `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                 <label for="campo-${campo.id}" class="text-sm font-medium text-gray-700 md:justify-self-end">
-                    ${campo.nombre} ${campo.requerido ? '<span class="text-red-500">*</span>' : ''}
+                    ${campo.nombre} ${campo.requerido ? '<span class="text-danger-500">*</span>' : ''}
                 </label>
                 <div>
                     <select id="campo-${campo.id}" data-campo-interno="${campo.id}" class="form-select mapeo-select" ${campo.esCampoDeEstado ? 'data-es-estado="true"' : ''}>
@@ -127,7 +127,7 @@ async function handleFileUpload(e) {
 
     const statusDiv = document.getElementById('upload-status');
     statusDiv.textContent = 'Analizando archivo...';
-    statusDiv.classList.remove('hidden', 'text-red-500');
+    statusDiv.classList.remove('hidden', 'text-danger-500');
 
     const formData = new FormData();
     formData.append('archivoMuestra', file);
@@ -141,7 +141,7 @@ async function handleFileUpload(e) {
         renderizarCamposMapeo();
     } catch (error) {
         statusDiv.textContent = `Error al leer el archivo: ${error.message}`;
-        statusDiv.classList.add('text-red-500');
+        statusDiv.classList.add('text-danger-500');
     }
 }
 
@@ -173,7 +173,7 @@ export async function render() {
     try {
         [mapeos, canales] = await Promise.all([fetchAPI('/mapeos'), fetchAPI('/canales')]);
     } catch (error) {
-        return `<p class="text-red-500">Error al cargar los datos.</p>`;
+        return `<p class="text-danger-500">Error al cargar los datos.</p>`;
     }
 
     return `
@@ -191,7 +191,7 @@ export async function render() {
                         <tr class="border-b">
                             <td class="py-3 px-4 font-medium">${c.nombre}</td>
                             <td class="py-3 px-4 text-center">
-                                <button data-id="${c.id}" class="edit-btn px-4 py-1 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 text-sm font-medium">
+                                <button data-id="${c.id}" class="edit-btn px-4 py-1 bg-primary-100 text-primary-700 rounded-md hover:bg-primary-200 text-sm font-medium">
                                     Configurar Mapeo
                                 </button>
                             </td>

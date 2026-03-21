@@ -10,13 +10,13 @@ function renderFormulario() {
 
     // --- Lógica para el estado de Google Auth ---
     const authStatusHtml = empresaInfo.googleRefreshToken
-        ? `<div class="p-4 bg-green-100 border border-green-300 rounded-md">
-               <p class="font-semibold text-green-800">Estado: Activa</p>
-               <p class="text-sm text-green-700 mt-1">La sincronización con Google Contacts está configurada.</p>
+        ? `<div class="p-4 bg-success-100 border border-success-300 rounded-md">
+               <p class="font-semibold text-success-800">Estado: Activa</p>
+               <p class="text-sm text-success-700 mt-1">La sincronización con Google Contacts está configurada.</p>
            </div>`
-        : `<div class="p-4 bg-yellow-100 border border-yellow-300 rounded-md">
-               <p class="font-semibold text-yellow-800">Estado: Inactiva</p>
-               <p class="text-sm text-yellow-700 mt-1">Autoriza la conexión en 'Configuración' para sincronizar contactos.</p>
+        : `<div class="p-4 bg-warning-100 border border-warning-300 rounded-md">
+               <p class="font-semibold text-warning-800">Estado: Inactiva</p>
+               <p class="text-sm text-warning-700 mt-1">Autoriza la conexión en 'Configuración' para sincronizar contactos.</p>
            </div>`;
 
     formContainer.innerHTML = `
@@ -64,7 +64,7 @@ function renderFormulario() {
                     
                     <div>
                         <p class="text-sm text-gray-600 mb-2">El logo se gestiona ahora desde la configuración del Sitio Web.</p>
-                        <button type="button" id="btn-ir-website" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium underline">
+                        <button type="button" id="btn-ir-website" class="text-primary-600 hover:text-primary-800 text-sm font-medium underline">
                             Ir a Configuración de Sitio Web &rarr;
                         </button>
                     </div>
@@ -163,6 +163,6 @@ export async function afterRender() {
 
     } catch (error) {
         const container = document.getElementById('form-container');
-        if (container) container.innerHTML = `<p class="text-red-500">Error al cargar la información: ${error.message}</p>`;
+        if (container) container.innerHTML = `<p class="text-danger-500">Error al cargar la información: ${error.message}</p>`;
     }
 }

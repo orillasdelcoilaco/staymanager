@@ -146,7 +146,7 @@ async function loadNotes() {
             `).join('');
         }
     } catch (error) {
-        listEl.innerHTML = `<p class="text-red-500">Error al cargar las notas.</p>`;
+        listEl.innerHTML = `<p class="text-danger-500">Error al cargar las notas.</p>`;
     }
 }
 

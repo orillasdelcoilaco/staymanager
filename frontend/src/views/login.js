@@ -9,30 +9,30 @@ export function renderLogin(container) {
                 <div>
                     <h2 id="form-title" class="text-2xl font-bold text-center text-gray-900">Iniciar Sesión</h2>
                     <p class="mt-2 text-sm text-center text-gray-600">
-                        O <a href="#" id="toggle-form" class="font-medium text-indigo-600 hover:text-indigo-500">crea una cuenta para tu empresa</a>
+                        O <a href="#" id="toggle-form" class="font-medium text-primary-600 hover:text-primary-500">crea una cuenta para tu empresa</a>
                     </p>
                 </div>
 
                 <form id="auth-form" class="space-y-6">
                     <div id="empresa-container" class="hidden">
                         <label for="empresa" class="block text-sm font-medium text-gray-700">Nombre de la Empresa</label>
-                        <input id="empresa" name="empresa" type="text" autocomplete="organization" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <input id="empresa" name="empresa" type="text" autocomplete="organization" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500">
                     </div>
                     <div>
                         <label for="email" class="block text-sm font-medium text-gray-700">Correo Electrónico</label>
-                        <input id="email" name="email" type="email" autocomplete="email" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <input id="email" name="email" type="email" autocomplete="email" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500">
                     </div>
                     <div>
                         <label for="password" class="block text-sm font-medium text-gray-700">Contraseña</label>
-                        <input id="password" name="password" type="password" autocomplete="current-password" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <input id="password" name="password" type="password" autocomplete="current-password" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500">
                     </div>
                     <div>
-                        <button type="submit" id="submit-btn" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        <button type="submit" id="submit-btn" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                             Iniciar Sesión
                         </button>
                     </div>
                 </form>
-                <p id="auth-error" class="text-sm text-center text-red-600"></p>
+                <p id="auth-error" class="text-sm text-center text-danger-600"></p>
             </div>
         </div>
     `;
