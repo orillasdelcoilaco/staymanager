@@ -4,6 +4,27 @@
 
 ---
 
+### ✅ 2026-03-20 — Design system foundation (Inter + tokens + variantes de botones)
+**Archivos modificados:** `tailwind.config.js`, `frontend/public/css/source.css`, `frontend/index.html`
+**Commit:** 64f1074
+
+**Qué se implementó:**
+1. **Inter font** cargada desde Google Fonts — estaba referenciada en el CSS pero nunca importada, caía al font del sistema
+2. **Tokens de color en tailwind.config.js:**
+   - `primary-*` (50→900) basado en indigo — el color que ya usa el proyecto
+   - `danger-*`, `success-*`, `warning-*` con variantes 50/500/600/700
+3. **Escala tipográfica en tailwind.config.js:** `display`, `heading`, `subhead`, `body`, `caption`
+4. **Token de sombra:** `shadow-card` para cards consistentes
+5. **Botones actualizados a tokens:** `btn-primary` y `btn-danger` usan `primary-600`/`danger-600` en vez de `indigo-600`/`red-600` hardcodeados
+6. **Nuevas variantes de botón:** `btn-success`, `btn-outline`, `btn-ghost`
+
+**Para OpenClaw — lo que queda pendiente (scope original demasiado amplio):**
+- Las 79 vistas no fueron tocadas — el sistema de clases `.btn-*` ya existía y es correcto. Las vistas que usan Tailwind ad-hoc en lugar de `.btn-*` son deuda técnica gradual, no un fix de un solo PR
+- Favicon: pendiente que OpenClaw entregue el asset SVG/PNG
+- Si querés proponer cambios en la paleta (otro color primario en vez de indigo), hacelo en `TASKS/pending.md` con el color específico en hex
+
+---
+
 ### ❌ 2026-03-20 — TAREA RECHAZADA: Implementar UI profesional (stack incorrecto)
 **Motivo del rechazo:** La tarea describe un stack que no corresponde a este proyecto.
 
