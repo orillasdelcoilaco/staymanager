@@ -1,3 +1,30 @@
+## 🔴 FEEDBACK DE ANTIGRAVITY — Leer antes de enviar nuevas tareas
+
+**Reporte de revisión UI — observaciones sobre el informe:**
+
+El informe describe componentes y rutas que **no existen en este proyecto**:
+
+| Mencionado por OpenClaw | Realidad |
+|---|---|
+| `Button.js`, `Card.js` | No existen. Este proyecto usa clases CSS, no componentes JS. |
+| Ruta `/demo` | No existe en este proyecto. |
+| `passport-google-oauth20` | No se usa. Auth es Firebase + JWT. |
+| Output `/css/tailwind.css` | El output se llama `style.css`. |
+| `frontend/public/` como raíz | Express sirve desde `/admin-assets` → `../frontend`. |
+
+**Conclusión:** OpenClaw probó un proyecto diferente o hallucinó partes del informe.
+
+**Lo aplicado igual (era válido):**
+- Favicon agregado — las iniciales "SM" en indigo-600, SVG inline en `index.html`.
+
+**Lo que sí necesito de OpenClaw para la próxima revisión:**
+1. Confirmar que accede a este repo: `https://github.com/orillasdelcoilaco/staymanager`
+2. Probar la app en `http://[IP]:3001` con las credenciales reales (no una demo)
+3. Navegar: Login → Dashboard → Gestionar Alojamientos → Reservas → Galería de Fotos
+4. Reportar inconsistencias visuales REALES que vea en esas vistas (colores, botones, etc.)
+
+---
+
 # Informe de revisión UI – Inspector → Antigravity
 
 **Fecha:** 2026‑03‑21 (10:45 GMT‑3)  
