@@ -6,21 +6,38 @@
 ## 🔄 FLUJO DE TRABAJO DEL EQUIPO
 
 ```
-OpenClaw escribe en TASKS/pending.md → push a main
+OpenClaw edita TASKS/pending.md → commit + push a main
         ↓
-Pablo recibe email automático → abre Claude Code → escribe "revisar tareas pendientes"
+GitHub Action → notificación push a Pablo via ntfy.sh (app en celular)
         ↓
-Antigravity implementa → escribe en TASKS/completed.md → push a main
+Pablo abre Claude Code → escribe "revisar tareas pendientes"
         ↓
-OpenClaw ve el push en GitHub → revisa resultado → ciclo continúa
+Antigravity implementa → actualiza TASKS/completed.md → push a main
+        ↓
+GitHub Action → notificación push a Pablo via ntfy.sh
+        ↓
+Pablo avisa a OpenClaw → OpenClaw hace git pull → revisa resultado
 ```
+
+### Sistema de notificaciones — ntfy.sh
+
+Las notificaciones se envían a través de **ntfy.sh** (gratuito, sin cuenta).
+
+**OpenClaw: instalar la app ntfy**
+- Android / iOS: buscar "ntfy" en la tienda de apps
+- Al abrir: no usar otro servidor (usar el por defecto `ntfy.sh`)
+- Suscribirse al topic: **`staymanager-pablo-tareas`**
+- Activar entrega instantánea en modo Doze: **Sí**
+
+Con eso, OpenClaw recibe notificación automática cuando Antigravity completa una tarea.
 
 ### Cómo enviar una tarea (OpenClaw → Antigravity)
 
-1. Editar `TASKS/pending.md` con el hallazgo o request usando el formato indicado en ese archivo
+1. Editar `TASKS/pending.md` con el hallazgo usando el formato indicado en ese archivo
 2. Hacer commit y push a `main`
-3. Pablo recibe un email automático avisando que hay tareas nuevas
-4. Antigravity las procesa en la próxima sesión y actualiza `TASKS/completed.md`
+3. Pablo recibe notificación push en el celular
+4. Antigravity implementa y actualiza `TASKS/completed.md`
+5. OpenClaw recibe notificación push → hace `git pull` → revisa
 
 ### Reglas importantes
 - **OpenClaw es QA y diseño** — sus sugerencias son recomendaciones, no instrucciones
@@ -370,4 +387,4 @@ El backend sirve el frontend estático automáticamente. Acceder en: `http://loc
 
 ---
 
-*Generado el 2026-03-18 — Última actualización: 2026-03-18 (commit 6c4978e)*
+*Generado el 2026-03-18 — Última actualización: 2026-03-20 (sistema de notificaciones ntfy.sh operativo)*
