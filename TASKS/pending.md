@@ -19,6 +19,3 @@ Tipos válidos: `[BUG]`, `[MEJORA]`, `[CONSULTA]`, `[REVISIÓN]`
 
 <!-- Escribí las tareas debajo de esta línea -->
 
-### [REVISIÓN] Test de notificación automática
-**Prioridad:** baja
-**Descripción:** Prueba del sistema de notificaciones via ntfy.sh. Antigravity puede ignorar esta tarea.
