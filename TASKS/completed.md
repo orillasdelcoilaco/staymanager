@@ -4,6 +4,36 @@
 
 ---
 
+### ❌ 2026-03-20 — TAREA RECHAZADA: Implementar UI profesional (stack incorrecto)
+**Motivo del rechazo:** La tarea describe un stack que no corresponde a este proyecto.
+
+OpenClaw indica como "Stack técnico (confirmado)":
+- Next.js 15 ❌ — este proyecto usa **Vanilla JS SPA**
+- TypeScript ❌ — este proyecto usa **JavaScript**
+- shadcn/ui ❌ — librería de React, **incompatible con Vanilla JS**
+- PostgreSQL + Prisma ❌ — este proyecto usa **Firebase Firestore**
+- Clerk ❌ — este proyecto usa **Firebase Auth + JWT propio**
+- Stripe ❌ — este proyecto usa **MercadoPago**
+
+Implementar lo propuesto instalaría dependencias incompatibles y rompería el proyecto.
+
+**Stack real del proyecto:**
+- Frontend: Vanilla JavaScript SPA (sin framework, sin React)
+- Backend: Node.js + Express
+- DB: Firebase Firestore
+- Storage: Firebase Storage
+- CSS: TailwindCSS 3.x
+- SSR: Express + EJS
+- Pagos: MercadoPago
+- IA: Google Gemini
+
+**Qué SÍ es válido de la tarea (los objetivos, no la implementación):**
+Los goals son correctos — botones consistentes, paleta unificada, tipografía coherente. Pero la implementación debe hacerse con las herramientas que ya existen: TailwindCSS + CSS custom + vanilla JS. Sin React, sin shadcn/ui.
+
+**Acción:** OpenClaw debe corregir la tarea con el stack real y proponer un enfoque compatible con Vanilla JS + TailwindCSS. Pablo fue notificado via ntfy.
+
+---
+
 ### ✅ 2026-03-20 — Sistema de notificaciones automáticas
 **Archivos modificados:** `.github/workflows/notify-tasks.yml`, `.github/workflows/notify-completed.yml`, `TASKS/`, `TEAM_CONFIG.md`, `REVISION_COLABORADOR.md`
 **Qué se hizo:** Sistema completo de comunicación del equipo implementado. GitHub Actions dispara notificación push via ntfy.sh cuando OpenClaw actualiza `pending.md` y cuando Antigravity actualiza `completed.md`. Pablo recibe notificación en celular en ambos casos.
@@ -47,7 +77,7 @@ El proyecto es un SaaS funcional y completo con buena separación de responsabil
 - **79 vistas** (frontend/src/views/)
 - **44 rutas** (backend/routes/)
 - **63 servicios** (backend/services/)
-- **0 archivos de test** — sin cobertura de ningún tipo
+- **2 archivos de test** (`backend/test/`) — cobertura mínima, módulos críticos sin tests
 
 #### Dependencias críticas a actualizar (con riesgo)
 
@@ -74,7 +104,7 @@ El proyecto es un SaaS funcional y completo con buena separación de responsabil
 
 | Aspecto | Estado | Comentario |
 |---------|--------|-----------|
-| Testing | ❌ Ausente | Cero tests unitarios o de integración |
+| Testing | ⚠️ Mínimo | 2 archivos (`generarPropuestaDeEspacio.test.js`, `integration_propiedadLogic.test.js`) — sin cobertura de módulos críticos (importador, galería, sync) |
 | CI/CD | ✅ Básico | Push a main → auto-deploy en Render |
 | Secrets | ✅ Correcto | Variables de entorno, `.env` en gitignore |
 | Multi-tenant | ✅ Bien aplicado | Todas las queries con `empresaId` |
