@@ -51,6 +51,27 @@ El resultado debe tener **0 problemas de alta prioridad** antes de hacer commit.
 Si hay problemas de alta prioridad, ejecutar `node scripts/migrate-colors.js` para corregirlos automáticamente.
 Luego reconstruir el CSS: `cd backend && npm run build`.
 
+## 🧩 Modularidad — Convenciones (OBLIGATORIO)
+El código debe ser modular. Un archivo que falla NO debe tumbar todo el sistema.
+
+**Reglas:**
+- **Máximo 400 líneas por archivo** (700 = crítico, refactorizar de inmediato)
+- **Máximo 60 líneas por función** (120 = crítico, extraer sub-funciones)
+- **Máximo 8 exports por archivo** (15 = crítico, dividir en sub-módulos)
+- **Un archivo = una responsabilidad** — si el nombre necesita "y" (ej: `calcularYEnviar`), dividirlo
+
+**Patrones de división:**
+- Services grandes → `service.read.js`, `service.write.js`, `service.calc.js`
+- Vistas grandes → extraer a `components/vista/vista.modals.js`, `vista.handlers.js`, `vista.render.js`
+- Funciones largas → extraer helpers con nombres descriptivos en el mismo archivo o en `utils/`
+
+**Al terminar cualquier tarea que toque el código, ejecutar:**
+```bash
+node scripts/audit-complexity.js
+```
+Si hay nuevos **críticos** (no existían antes), refactorizar antes de hacer commit.
+El pre-push hook avisa automáticamente si hay críticos al hacer push.
+
 ## 🔧 Flujo de Trabajo y Comandos
 - Todo el código backend reside en `backend/`.
 - Frontend SPA reside en `frontend/src/` (arquitectura de componentes de vistas).
