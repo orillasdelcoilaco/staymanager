@@ -73,7 +73,7 @@ module.exports = (db) => {
             if (pool) {
                 const { rows } = await pool.query(
                     'SELECT google_auth_date, google_business_account_id FROM empresas WHERE id = $1',
-                    [req.empresaId]
+                    [req.user.empresaId]
                 );
                 const row = rows[0];
                 res.json({

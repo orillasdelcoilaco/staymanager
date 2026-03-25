@@ -181,7 +181,7 @@ export async function render() {
                     </div>
                 </div>
                 <p class="text-xs text-gray-400 mt-2">
-                    Para activarlo: ve a <strong>Configuración → Empresa</strong> y configura el campo "Email IMAP reseñas".
+                    Configura tu cuenta de OTA para reenviar notificaciones a esa dirección.
                     Las reseñas se procesan automáticamente cada hora.
                 </p>
             </div>
@@ -215,7 +215,7 @@ export async function render() {
     return html;
 }
 
-export async function mount() {
+export async function afterRender() {
     await cargarResenas();
 
     document.getElementById('btn-filtrar')?.addEventListener('click', () => {
