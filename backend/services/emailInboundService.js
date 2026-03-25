@@ -50,7 +50,16 @@ function detectarCanal(from, asunto = '', cuerpo = '') {
     return null;
 }
 
-// Extrae el empresaId del campo To: → "reviews+cv1Lb4HL@gmail.com" → "cv1Lb4HL"
+// Convierte nombre de empresa a slug para el +tag del email
+// "Orillas del Coilaco" → "orillasdelcoilaco"
+function slugifyNombre(nombre) {
+    return (nombre || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '');
+}
+
+// Extrae el tag del campo To: → "reviews+orillasdelcoilaco@gmail.com" → "orillasdelcoilaco"
 function extraerEmpresaIdDelTo(toAddresses) {
     for (const addr of (toAddresses || [])) {
         const match = (addr.address || '').match(/\+([^@]+)@/);
@@ -59,11 +68,15 @@ function extraerEmpresaIdDelTo(toAddresses) {
     return null;
 }
 
-async function verificarEmpresa(empresaId) {
-    if (!pool || !empresaId) return null;
+// Busca empresa por ID (legacy) o por slug del nombre (nuevo formato)
+async function verificarEmpresa(tag) {
+    if (!pool || !tag) return null;
     const { rows } = await pool.query(
-        'SELECT id, nombre FROM empresas WHERE id = $1',
-        [empresaId]
+        `SELECT id, nombre FROM empresas
+         WHERE id = $1
+            OR LOWER(REGEXP_REPLACE(nombre, '[^a-zA-Z0-9]', '', 'g')) = LOWER($1)
+         LIMIT 1`,
+        [tag]
     );
     return rows[0] || null;
 }
@@ -220,10 +233,12 @@ async function ejecutarPollResenas() {
 }
 
 // Devuelve la dirección de reenvío que debe usar cada empresa
-function obtenerEmailReenvio(empresaId) {
+// Usa el slug del nombre para que sea legible (ej: reviews.suitemanagers+prueba1@gmail.com)
+function obtenerEmailReenvio(empresaId, nombre) {
     const base  = process.env.IMAP_EMAIL_USER || 'reviews@suitemanagers.app';
     const [user, domain] = base.split('@');
-    return `${user}+${empresaId}@${domain}`;
+    const tag = nombre ? slugifyNombre(nombre) : empresaId;
+    return `${user}+${tag}@${domain}`;
 }
 
 module.exports = { ejecutarPollResenas, obtenerEmailReenvio };

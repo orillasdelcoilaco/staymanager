@@ -8,13 +8,25 @@ const {
     cambiarEstado
 } = require('../services/resenasService');
 const { obtenerEmailReenvio } = require('../services/emailInboundService');
+const pool = require('../db/postgres');
 
 module.exports = (db) => {
     const router = express.Router();
 
     // GET /api/resenas/config — dirección de reenvío para esta empresa
-    router.get('/config', (req, res) => {
-        res.json({ emailReenvio: obtenerEmailReenvio(req.user.empresaId) });
+    router.get('/config', async (req, res) => {
+        try {
+            let nombre = req.user.nombreEmpresa || null;
+            if (!nombre && pool) {
+                const { rows } = await pool.query(
+                    'SELECT nombre FROM empresas WHERE id = $1', [req.user.empresaId]
+                );
+                nombre = rows[0]?.nombre || null;
+            }
+            res.json({ emailReenvio: obtenerEmailReenvio(req.user.empresaId, nombre) });
+        } catch {
+            res.json({ emailReenvio: obtenerEmailReenvio(req.user.empresaId) });
+        }
     });
 
     // GET /api/resenas — listado con filtros opcionales
