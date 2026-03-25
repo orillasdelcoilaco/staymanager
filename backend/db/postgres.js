@@ -15,6 +15,11 @@
  */
 
 const { Pool } = require('pg');
+const dns = require('dns');
+
+// Forzar IPv4 en resolución DNS — entornos cloud como Render resuelven
+// hostnames de Supabase a IPv6 por defecto, pero no tienen conectividad IPv6.
+dns.setDefaultResultOrder('ipv4first');
 
 if (!process.env.DATABASE_URL) {
     console.log('[PostgreSQL] DATABASE_URL no definida — modo Firestore activo.');
