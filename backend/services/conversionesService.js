@@ -45,9 +45,10 @@ const crearConversion = async (db, empresaId, datos) => {
 const obtenerConversionesPorEmpresa = async (db, empresaId) => {
     if (pool) {
         const { rows } = await pool.query(
-            `SELECT c.*, p.nombre AS alojamiento_nombre
+            `SELECT c.*, p.nombre AS alojamiento_nombre, ch.nombre AS canal_nombre
              FROM conversiones c
-             LEFT JOIN propiedades p ON p.id = c.propiedad_id AND p.empresa_id = c.empresa_id
+             LEFT JOIN propiedades p  ON p.id  = c.propiedad_id AND p.empresa_id  = c.empresa_id
+             LEFT JOIN canales     ch ON ch.id = c.canal_id     AND ch.empresa_id = c.empresa_id
              WHERE c.empresa_id = $1
              ORDER BY c.nombre_externo ASC`,
             [empresaId]
@@ -56,6 +57,7 @@ const obtenerConversionesPorEmpresa = async (db, empresaId) => {
             id: r.id,
             alojamientoId: r.propiedad_id,
             canalId: r.canal_id,
+            canalNombre: r.canal_nombre || null,
             nombreExterno: r.nombre_externo,
             alojamientoNombre: r.alojamiento_nombre || r.nombre_externo
         }));

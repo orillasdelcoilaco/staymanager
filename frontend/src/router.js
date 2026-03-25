@@ -19,12 +19,9 @@ const views = {
     '/procesar-y-consolidar': () => import('./views/procesarYConsolidar.js'),
     '/gestionar-reservas': () => import('./views/gestionarReservas.js'),
     '/gestionar-dolar': () => import('./views/gestionarDolar.js'),
-    '/reparar-dolar': () => import('./views/repararDolar.js'),
-    '/reparar-fechas': () => import('./views/repararFechas.js'),
-    '/autorizar-google': () => import('./views/autorizarGoogle.js'),
+    '/autorizar-google': () => import('./views/autorizarGoogle.js?v=2'),
     '/empresa': () => import('./views/empresa.js'),
     '/gestionar-usuarios': () => import('./views/gestionarUsuarios.js'),
-    '/reparar-contactos': () => import('./views/repararContactos.js'),
     '/historial-cargas': () => import('./views/historialCargas.js'),
     '/gestionar-tipos-plantilla': () => import('./views/gestionarTiposPlantilla.js'),
     '/gestionar-plantillas': () => import('./views/gestionarPlantillas.js'),
@@ -46,6 +43,7 @@ const views = {
     '/gestionar-estados': () => import('./views/gestionarEstados.js'),
     '/importador-historico': () => import('./views/importadorHistorico.js'),
     '/gestionar-bloqueos': () => import('./views/gestionarBloqueos.js'),
+    '/resenas': () => import('./views/resenas.js'),
 };
 
 const menuConfig = [
@@ -69,6 +67,7 @@ const menuConfig = [
         id: 'operaciones',
         children: [
             { name: '💬 Comentarios', path: '/gestionar-comentarios', id: 'gestionar-comentarios' },
+            { name: '⭐ Reseñas OTA', path: '/resenas', id: 'resenas' },
             { name: '🏨 Reservas', path: '/gestionar-reservas', id: 'gestionar-reservas' },
             { name: '👥 Clientes', path: '/clientes', id: 'clientes' },
             { name: '📈 Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' },
@@ -103,9 +102,6 @@ const menuConfig = [
             { name: '🗺️ Mapeo Reportes', path: '/mapeo-reportes', id: 'mapeo-reportes' },
             { name: '🌐 Mapeos OTA Centrales', path: '/mapeos-centrales', id: 'mapeos-centrales' },
             { name: '👤 Autorizar Google Contacts', path: '/autorizar-google', id: 'config-google' },
-            { name: '🔧 Reparar Fechas de Reservas', path: '/reparar-fechas', id: 'reparar-fechas' },
-            { name: '📞 Reparar y Verificar Contactos', path: '/reparar-contactos', id: 'reparar-contactos' },
-            { name: '🔧 Reparar Dólar Histórico', path: '/reparar-dolar', id: 'reparar-dolar' },
             { name: '🏷️ Tipos de Plantilla', path: '/gestionar-tipos-plantilla', id: 'gestionar-tipos-plantilla' },
             { name: '🔖 Estados de Gestión', path: '/gestionar-estados', id: 'gestionar-estados' },
             { name: '✨ Importador Mágico', path: '/importador-magico', id: 'importador-magico' },

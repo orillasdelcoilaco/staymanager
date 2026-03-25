@@ -3,12 +3,16 @@ import { fetchAPI } from '../api.js';
 export function render() {
     return `
         <div class="bg-white p-8 rounded-lg shadow max-w-2xl mx-auto">
-            <h2 class="text-2xl font-semibold text-gray-900 mb-2">Autorizar Conexión con Google Contacts</h2>
+            <h2 class="text-2xl font-semibold text-gray-900 mb-2">Autorizar Conexión con Google</h2>
             <p class="text-gray-600 mt-4">
-                Para que StayManager pueda crear y sincronizar contactos automáticamente en tu cuenta de Google, debes conceder permiso una única vez.
+                Al autorizar, StayManager podrá acceder a dos servicios de Google con un solo click:
             </p>
-            <p class="text-gray-600 mt-2">
-                Al hacer clic en el botón, serás redirigido a la pantalla de autorización de Google. Una vez que aceptes, la conexión quedará establecida.
+            <ul class="mt-3 space-y-1 text-gray-600 text-sm list-disc list-inside">
+                <li><strong>Google Contacts</strong> — sincroniza clientes automáticamente</li>
+                <li><strong>Google Business Profile</strong> — importa reseñas de Google Maps</li>
+            </ul>
+            <p class="text-gray-500 text-sm mt-3">
+                Solo necesitas autorizar una vez. Si ya autorizaste antes, vuelve a hacerlo para activar Google Business.
             </p>
             <div class="mt-6">
                 <button id="authorize-btn" class="btn-primary inline-flex items-center">
@@ -30,7 +34,7 @@ export function afterRender() {
         button.textContent = 'Redirigiendo...';
 
         try {
-            const response = await fetchAPI('/auth/google/authorize');
+            const response = await fetchAPI('/authGoogle/authorize');
             if (response.url) {
                 window.location.href = response.url;
             } else {

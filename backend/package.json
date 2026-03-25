@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
     "@google/generative-ai": "^0.24.1",
     "cheerio": "^1.2.0",
     "cors": "^2.8.5",
@@ -27,8 +28,10 @@
     "google-auth-library": "^9.4.1",
     "googleapis": "^128.0.0",
     "http-proxy-middleware": "^3.0.5",
+    "imapflow": "^1.2.18",
     "mercadopago": "^2.11.0",
     "multer": "^1.4.5-lts.1",
+    "node-cron": "^4.2.1",
     "node-fetch": "^2.7.0",
     "node-ical": "^0.16.0",
     "pg": "^8.20.0",
