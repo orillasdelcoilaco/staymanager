@@ -1,13 +1,13 @@
 # Reporte de Complejidad y Modularidad
-**Generado:** 2026-03-24 19:08
-**Archivos analizados:** 208
-**Críticos:** 32 | **Warnings:** 130
+**Generado:** 2026-03-25 21:17
+**Archivos analizados:** 220
+**Críticos:** 25 | **Warnings:** 135
 
 ---
 
 ## Resumen
 
-### 🔴 Críticos (32) — Requieren refactorización
+### 🔴 Críticos (25) — Requieren refactorización
 
 | Archivo | Problema | Detalle |
 |---------|---------|--------|
@@ -25,31 +25,24 @@
 | `frontend/src/views/gestionarTiposElemento.js` | function-size | función `afterRender` — 170 líneas (línea 290) |
 | `frontend/src/views/utils.PASO0.js` | file-size | 726 líneas (límite crítico: 700) |
 | `frontend/src/views/utils.PASO0.js` | too-many-exports | 18 funciones exportadas (límite crítico: 15) |
-| `backend/services/analisisFinancieroService.js` | function-size | función `actualizarValoresGrupo` — 160 líneas (línea 9) |
 | `backend/services/empresaImporterService.js` | file-size | 996 líneas (límite crítico: 700) |
 | `backend/services/empresaImporterService.js` | function-size | función `createEmpresaFromImport` — 487 líneas (línea 462) |
-| `backend/services/gestionPropuestasService.js` | file-size | 810 líneas (límite crítico: 700) |
-| `backend/services/gestionPropuestasService.js` | function-size | función `guardarOActualizarPropuesta` — 201 líneas (línea 13) |
-| `backend/services/gestionPropuestasService.js` | function-size | función `enviarEmailReservaConfirmada` — 122 líneas (línea 316) |
-| `backend/services/gestionService.js` | function-size | función `getReservasPendientes` — 217 líneas (línea 16) |
-| `backend/services/kpiService.js` | function-size | función `calculateKPIs` — 218 líneas (línea 9) |
-| `backend/services/mensajeService.js` | function-size | función `generarTextoPropuesta` — 183 líneas (línea 50) |
-| `backend/services/mensajeService.js` | function-size | función `generarTextoPresupuesto` — 134 líneas (línea 234) |
-| `backend/services/presupuestosService.js` | function-size | función `generarPresupuesto` — 127 líneas (línea 25) |
-| `backend/services/reservasService.js` | function-size | función `actualizarReservaManualmente` — 131 líneas (línea 80) |
-| `backend/services/reservasService.js` | function-size | función `obtenerReservaPorId` — 159 líneas (línea 256) |
-| `backend/services/reservasService.js` | function-size | función `eliminarGrupoReservasCascada` — 128 líneas (línea 504) |
-| `backend/services/sincronizacionService.js` | function-size | función `procesarArchivoReservas` — 200 líneas (línea 272) |
+| `backend/services/gestionService.js` | function-size | función `getReservasPendientes` — 194 líneas (línea 42) |
+| `backend/services/historicoImporterService.js` | function-size | función `runImport` — 132 líneas (línea 170) |
+| `backend/services/kpiService.js` | function-size | función `calculateKPIs` — 224 líneas (línea 28) |
+| `backend/services/mensajeService.js` | function-size | función `generarTextoPropuesta` — 183 líneas (línea 51) |
+| `backend/services/mensajeService.js` | function-size | función `generarTextoPresupuesto` — 158 líneas (línea 235) |
+| `backend/services/sincronizacionService.js` | function-size | función `procesarArchivoReservas` — 211 líneas (línea 150) |
 | `backend/services/utils/calculoValoresService.js` | function-size | función `calculatePrice` — 144 líneas (línea 156) |
 | `backend/services/webImporterService.js` | file-size | 726 líneas (límite crítico: 700) |
 | `backend/services/webImporterService.js` | function-size | función `analyzeWebsite` — 189 líneas (línea 419) |
 
-### 🟡 Warnings (130) — Monitorear
+### 🟡 Warnings (135) — Monitorear
 
 | Archivo | Problema | Detalle |
 |---------|---------|--------|
 | `frontend/src/api.js` | function-size | función `fetchAPI` — 80 líneas (línea 44) |
-| `frontend/src/router.js` | function-size | función `renderMenu` — 62 líneas (línea 200) |
+| `frontend/src/router.js` | function-size | función `renderMenu` — 62 líneas (línea 196) |
 | `frontend/src/views/components/agregarPropuesta/propuesta.handlers.js` | file-size | 450 líneas (límite warning: 400) |
 | `frontend/src/views/components/agregarPropuesta/propuesta.handlers.js` | function-size | función `runSearch` — 74 líneas (línea 122) |
 | `frontend/src/views/components/agregarPropuesta/propuesta.handlers.js` | function-size | función `handleGuardarPropuesta` — 103 líneas (línea 235) |
@@ -120,6 +113,7 @@
 | `frontend/src/views/mapeosCentrales.js` | function-size | función `afterRender` — 99 líneas (línea 216) |
 | `frontend/src/views/mapeosCentrales.js` | function-size | función `guardarMapeo` — 65 líneas (línea 474) |
 | `frontend/src/views/perfilCliente.js` | function-size | función `render` — 113 líneas (línea 94) |
+| `frontend/src/views/resenas.js` | function-size | función `render` — 104 líneas (línea 113) |
 | `frontend/src/views/sincronizarCalendarios.js` | function-size | función `afterRender` — 67 líneas (línea 96) |
 | `frontend/src/views/utils.PASO0.js` | function-size | función `renderSelectionUI` — 70 líneas (línea 117) |
 | `frontend/src/views/utils.PASO0.js` | function-size | función `updateSummary` — 103 líneas (línea 232) |
@@ -131,44 +125,48 @@
 | `backend/services/aiContentService.js` | file-size | 475 líneas (límite warning: 400) |
 | `backend/services/aiContentService.js` | function-size | función `analizarMetadataActivo` — 82 líneas (línea 150) |
 | `backend/services/aiContentService.js` | too-many-exports | 10 funciones exportadas (límite warning: 8) |
-| `backend/services/analisisFinancieroService.js` | function-size | función `nuevoTotalHuespedUSD` — 110 líneas (línea 57) |
+| `backend/services/analisisFinancieroService.js` | function-size | función `actualizarValoresGrupo` — 78 líneas (línea 34) |
 | `backend/services/authService.js` | function-size | función `register` — 89 líneas (línea 9) |
-| `backend/services/calendarioService.js` | function-size | función `obtenerDatosCalendario` — 72 líneas (línea 13) |
-| `backend/services/clientesService.js` | function-size | función `crearOActualizarCliente` — 72 líneas (línea 27) |
-| `backend/services/clientesService.js` | function-size | función `actualizarCliente` — 66 líneas (línea 133) |
-| `backend/services/clientesService.js` | function-size | función `recalcularEstadisticasClientes` — 88 líneas (línea 248) |
+| `backend/services/calendarioService.js` | function-size | función `obtenerDatosCalendario` — 71 líneas (línea 15) |
+| `backend/services/clientesService.js` | file-size | 553 líneas (límite warning: 400) |
+| `backend/services/clientesService.js` | function-size | función `crearOActualizarCliente` — 85 líneas (línea 90) |
+| `backend/services/clientesService.js` | function-size | función `actualizarCliente` — 65 líneas (línea 297) |
+| `backend/services/clientesService.js` | function-size | función `sincronizarClienteGoogle` — 65 líneas (línea 371) |
+| `backend/services/clientesService.js` | function-size | función `recalcularEstadisticasClientes` — 105 líneas (línea 437) |
 | `backend/services/clientesService.js` | too-many-exports | 8 funciones exportadas (límite warning: 8) |
-| `backend/services/componentesService.js` | function-size | función `analizarNuevoTipoConIA` — 70 líneas (línea 15) |
 | `backend/services/contentFactoryService.js` | function-size | función `optimizarPerfilAlojamiento` — 63 líneas (línea 59) |
 | `backend/services/empresaImporterService.js` | function-size | función `importarGaleriaPropiedad` — 109 líneas (línea 221) |
 | `backend/services/empresaImporterService.js` | function-size | función `buildComponentes` — 62 líneas (línea 331) |
 | `backend/services/empresaService.js` | function-size | función `actualizarDetallesEmpresa` — 60 líneas (línea 45) |
-| `backend/services/gestionPropuestasService.js` | function-size | función `enviarEmailPropuesta` — 99 líneas (línea 215) |
-| `backend/services/gestionPropuestasService.js` | function-size | función `obtenerPropuestasYPresupuestos` — 111 líneas (línea 476) |
-| `backend/services/gestionPropuestasService.js` | function-size | función `aprobarPropuesta` — 82 líneas (línea 631) |
-| `backend/services/gestionPropuestasService.js` | function-size | función `aprobarPresupuesto` — 68 líneas (línea 726) |
-| `backend/services/gestionPropuestasService.js` | too-many-exports | 9 funciones exportadas (límite warning: 8) |
+| `backend/services/gestionPropuestas.actions.js` | function-size | función `aprobarPropuesta` — 67 líneas (línea 71) |
+| `backend/services/gestionPropuestas.actions.js` | function-size | función `aprobarPresupuesto` — 77 líneas (línea 139) |
+| `backend/services/gestionPropuestas.email.js` | function-size | función `enviarEmailReservaConfirmada` — 76 líneas (línea 69) |
+| `backend/services/gestionPropuestasService.js` | too-many-exports | 8 funciones exportadas (límite warning: 8) |
+| `backend/services/gestionService.js` | file-size | 446 líneas (límite warning: 400) |
+| `backend/services/gestionService.js` | function-size | función `_agruparYProcesar` — 61 líneas (línea 237) |
 | `backend/services/googleHotelsService.js` | function-size | función `generateAriFeed` — 112 líneas (línea 53) |
-| `backend/services/historicoImporterService.js` | function-size | función `runImport` — 115 líneas (línea 159) |
-| `backend/services/icalService.js` | function-size | función `sincronizarCalendarios` — 109 líneas (línea 65) |
-| `backend/services/kpiService.js` | function-size | función `procesarReserva` — 65 líneas (línea 93) |
-| `backend/services/mensajeService.js` | file-size | 452 líneas (límite warning: 400) |
-| `backend/services/mensajeService.js` | function-size | función `generarTextoReporte` — 75 líneas (línea 370) |
+| `backend/services/historialCargasService.js` | function-size | función `eliminarReservasPorIdCarga` — 69 líneas (línea 77) |
+| `backend/services/historicoImporterService.js` | function-size | función `previewImport` — 68 líneas (línea 97) |
+| `backend/services/icalService.js` | function-size | función `_formatDateICal` — 65 líneas (línea 10) |
+| `backend/services/icalService.js` | function-size | función `_dtstamp` — 64 líneas (línea 11) |
+| `backend/services/icalService.js` | function-size | función `getICalForProperty` — 62 líneas (línea 13) |
+| `backend/services/icalService.js` | function-size | función `sincronizarCalendarios` — 92 líneas (línea 76) |
+| `backend/services/mensajeService.js` | file-size | 477 líneas (límite warning: 400) |
+| `backend/services/mensajeService.js` | function-size | función `generarTextoReporte` — 75 líneas (línea 395) |
 | `backend/services/plantillasService.js` | too-many-exports | 13 funciones exportadas (límite warning: 8) |
+| `backend/services/presupuestosService.js` | function-size | función `generarPresupuesto` — 118 líneas (línea 26) |
 | `backend/services/propiedadesService.js` | function-size | función `crearPropiedad` — 99 líneas (línea 40) |
 | `backend/services/propiedadesService.js` | function-size | función `actualizarPropiedad` — 86 líneas (línea 190) |
 | `backend/services/propiedadLogicService.js` | function-size | función `generarPlanFotos` — 76 líneas (línea 107) |
-| `backend/services/propuestasService.js` | function-size | función `getAvailabilityData` — 90 líneas (línea 31) |
-| `backend/services/publicWebsiteService.js` | function-size | función `getAvailabilityData` — 85 líneas (línea 203) |
-| `backend/services/publicWebsiteService.js` | function-size | función `calculatePrice` — 64 líneas (línea 314) |
+| `backend/services/publicWebsiteService.js` | file-size | 407 líneas (límite warning: 400) |
+| `backend/services/publicWebsiteService.js` | function-size | función `crearReservaPublica` — 62 líneas (línea 227) |
+| `backend/services/publicWebsiteService.js` | function-size | función `calculatePrice` — 64 líneas (línea 333) |
 | `backend/services/reparacionService.js` | function-size | función `repararFechasSODC` — 63 líneas (línea 5) |
 | `backend/services/reparacionService.js` | function-size | función `verificarSincronizacionContactos` — 66 líneas (línea 127) |
-| `backend/services/reportesService.js` | function-size | función `getActividadDiaria` — 90 líneas (línea 5) |
-| `backend/services/reportesService.js` | function-size | función `getDisponibilidadPeriodo` — 64 líneas (línea 97) |
-| `backend/services/reservasService.js` | file-size | 640 líneas (límite warning: 400) |
-| `backend/services/reservasService.js` | function-size | función `crearOActualizarReserva` — 70 líneas (línea 9) |
-| `backend/services/reservasService.js` | function-size | función `decidirYEliminarReserva` — 76 líneas (línea 416) |
-| `backend/services/sincronizacionService.js` | file-size | 477 líneas (límite warning: 400) |
+| `backend/services/reportesService.js` | function-size | función `getActividadDiaria` — 79 líneas (línea 79) |
+| `backend/services/reportesService.js` | function-size | función `getDisponibilidadPeriodo` — 114 líneas (línea 159) |
+| `backend/services/reservas.read.js` | function-size | función `obtenerReservasPorEmpresa` — 62 líneas (línea 36) |
+| `backend/services/reservas.read.js` | function-size | función `_obtenerReservaPorIdFirestore` — 81 líneas (línea 204) |
 | `backend/services/storageService.js` | too-many-exports | 10 funciones exportadas (límite warning: 8) |
 | `backend/services/tarifasService.js` | function-size | función `obtenerTarifasPorEmpresa` — 66 líneas (línea 56) |
 | `backend/services/utils/calculoValoresService.js` | function-size | función `getValoresCLP` — 70 líneas (línea 81) |
@@ -211,25 +209,7 @@
 - **función `abrirModalAlojamiento` — 115 líneas (línea 693)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
 
-### 3. `backend/services/gestionPropuestasService.js` 🔴
-- **810 líneas (límite crítico: 700)**
-  - Dividir en módulos por responsabilidad. Cada módulo debe tener una sola razón para cambiar.
-- **función `guardarOActualizarPropuesta` — 201 líneas (línea 13)**
-  - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
-- **función `enviarEmailReservaConfirmada` — 122 líneas (línea 316)**
-  - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
-- **función `enviarEmailPropuesta` — 99 líneas (línea 215)**
-  - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
-- **función `obtenerPropuestasYPresupuestos` — 111 líneas (línea 476)**
-  - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
-- **función `aprobarPropuesta` — 82 líneas (línea 631)**
-  - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
-- **función `aprobarPresupuesto` — 68 líneas (línea 726)**
-  - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
-- **9 funciones exportadas (límite warning: 8)**
-  - Revisar si puede dividirse por responsabilidad.
-
-### 4. `frontend/src/views/components/configurarWebPublica/webPublica.galeria.js` 🔴
+### 3. `frontend/src/views/components/configurarWebPublica/webPublica.galeria.js` 🔴
 - **762 líneas (límite crítico: 700)**
   - Dividir en módulos por responsabilidad. Cada módulo debe tener una sola razón para cambiar.
 - **función `renderWizardStep` — 153 líneas (línea 104)**
@@ -241,7 +221,7 @@
 - **función `setupGaleriaEvents` — 73 líneas (línea 591)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
 
-### 5. `frontend/src/views/utils.PASO0.js` 🔴
+### 4. `frontend/src/views/utils.PASO0.js` 🔴
 - **726 líneas (límite crítico: 700)**
   - Dividir en módulos por responsabilidad. Cada módulo debe tener una sola razón para cambiar.
 - **18 funciones exportadas (límite crítico: 15)**
@@ -257,7 +237,7 @@
 - **función `handleCargarPropuesta` — 90 líneas (línea 596)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
 
-### 6. `backend/services/webImporterService.js` 🔴
+### 5. `backend/services/webImporterService.js` 🔴
 - **726 líneas (límite crítico: 700)**
   - Dividir en módulos por responsabilidad. Cada módulo debe tener una sola razón para cambiar.
 - **función `analyzeWebsite` — 189 líneas (línea 419)**
@@ -271,21 +251,7 @@
 - **función `buildImportData` — 80 líneas (línea 644)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
 
-### 7. `backend/services/reservasService.js` 🔴
-- **función `actualizarReservaManualmente` — 131 líneas (línea 80)**
-  - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
-- **función `obtenerReservaPorId` — 159 líneas (línea 256)**
-  - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
-- **función `eliminarGrupoReservasCascada` — 128 líneas (línea 504)**
-  - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
-- **640 líneas (límite warning: 400)**
-  - Considerar dividir. Identificar grupos de funciones relacionadas.
-- **función `crearOActualizarReserva` — 70 líneas (línea 9)**
-  - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
-- **función `decidirYEliminarReserva` — 76 líneas (línea 416)**
-  - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
-
-### 8. `frontend/src/views/importadorMagico.js` 🟡
+### 6. `frontend/src/views/importadorMagico.js` 🟡
 - **636 líneas (límite warning: 400)**
   - Considerar dividir. Identificar grupos de funciones relacionadas.
 - **función `renderStep1` — 68 líneas (línea 144)**
@@ -297,7 +263,7 @@
 - **función `handleCreate` — 60 líneas (línea 498)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
 
-### 9. `frontend/src/views/components/gestionarTiposComponente/tipos.wizard.js` 🔴
+### 7. `frontend/src/views/components/gestionarTiposComponente/tipos.wizard.js` 🔴
 - **función `renderWizardModal` — 155 líneas (línea 10)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
 - **598 líneas (límite warning: 400)**
@@ -305,7 +271,21 @@
 - **función `handleAnalizar` — 60 líneas (línea 221)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
 
-### 10. `frontend/src/views/mapeosCentrales.js` 🟡
+### 8. `backend/services/clientesService.js` 🟡
+- **553 líneas (límite warning: 400)**
+  - Considerar dividir. Identificar grupos de funciones relacionadas.
+- **función `crearOActualizarCliente` — 85 líneas (línea 90)**
+  - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
+- **función `actualizarCliente` — 65 líneas (línea 297)**
+  - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
+- **función `sincronizarClienteGoogle` — 65 líneas (línea 371)**
+  - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
+- **función `recalcularEstadisticasClientes` — 105 líneas (línea 437)**
+  - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
+- **8 funciones exportadas (límite warning: 8)**
+  - Revisar si puede dividirse por responsabilidad.
+
+### 9. `frontend/src/views/mapeosCentrales.js` 🟡
 - **552 líneas (límite warning: 400)**
   - Considerar dividir. Identificar grupos de funciones relacionadas.
 - **función `render` — 94 líneas (línea 41)**
@@ -314,6 +294,10 @@
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
 - **función `guardarMapeo` — 65 líneas (línea 474)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
+
+### 10. `backend/routes/website.js` 🟡
+- **505 líneas (límite warning: 400)**
+  - Considerar dividir. Identificar grupos de funciones relacionadas.
 
 ---
 

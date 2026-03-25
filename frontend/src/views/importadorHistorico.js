@@ -80,14 +80,19 @@ function loadFile(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
         try {
-            importData = JSON.parse(e.target.result);
+            // Leer como ArrayBuffer y decodificar con Latin-1 para preservar
+            // bytes que serían inválidos en UTF-8 (ej: ñ codificada como F1).
+            // El backend tiene fixEncoding() que corrige el mojibake restante.
+            const bytes = new Uint8Array(e.target.result);
+            const text  = new TextDecoder('latin1').decode(bytes);
+            importData = JSON.parse(text);
             document.getElementById('file-name').textContent    = file.name;
             document.getElementById('file-summary').textContent =
                 `${importData.reservas?.length || 0} reservas · ${importData.clientes?.length || 0} clientes · ${importData.cabanas?.length || 0} cabañas`;
             document.getElementById('file-info').classList.remove('hidden');
         } catch { alert('El archivo no es un JSON válido.'); }
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
 }
 
 function renderPaso2(p) {

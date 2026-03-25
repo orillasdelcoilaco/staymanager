@@ -6,7 +6,9 @@
 //   2. runImport      → ejecuta el upsert con los mapeos confirmados por el usuario
 
 const admin = require('firebase-admin');
+const pool = require('../db/postgres');
 const { crearOActualizarCliente } = require('./clientesService');
+const { crearOActualizarReserva } = require('./reservasService');
 const { registrarCarga } = require('./historialCargasService');
 
 // ─────────────────────────────────────────────────────────────
@@ -93,13 +95,23 @@ function buildValores(reserva) {
 // ─────────────────────────────────────────────────────────────
 
 async function previewImport(db, empresaId, importData) {
-    const [propSnap, canalSnap] = await Promise.all([
-        db.collection('empresas').doc(empresaId).collection('propiedades').get(),
-        db.collection('empresas').doc(empresaId).collection('canales').get()
-    ]);
+    let alojamientos, canales;
 
-    const alojamientos = propSnap.docs.map(d => ({ id: d.id, nombre: d.data().nombre || '' }));
-    const canales      = canalSnap.docs.map(d => ({ id: d.id, nombre: d.data().nombre || '', moneda: d.data().moneda || 'CLP' }));
+    if (pool) {
+        const [propRows, canalRows] = await Promise.all([
+            pool.query('SELECT id, nombre FROM propiedades WHERE empresa_id = $1 ORDER BY nombre', [empresaId]),
+            pool.query(`SELECT id, nombre, metadata->>'moneda' AS moneda FROM canales WHERE empresa_id = $1 ORDER BY nombre`, [empresaId]),
+        ]);
+        alojamientos = propRows.rows.map(r => ({ id: r.id, nombre: r.nombre || '' }));
+        canales      = canalRows.rows.map(r => ({ id: r.id, nombre: r.nombre || '', moneda: r.moneda || 'CLP' }));
+    } else {
+        const [propSnap, canalSnap] = await Promise.all([
+            db.collection('empresas').doc(empresaId).collection('propiedades').get(),
+            db.collection('empresas').doc(empresaId).collection('canales').get()
+        ]);
+        alojamientos = propSnap.docs.map(d => ({ id: d.id, nombre: d.data().nombre || '' }));
+        canales      = canalSnap.docs.map(d => ({ id: d.id, nombre: d.data().nombre || '', moneda: d.data().moneda || 'CLP' }));
+    }
 
     const cabanas  = (importData.cabanas  || []).map(c => ({ ...c, nombre: fixEncoding(c.nombre) }));
     const reservas = (importData.reservas || []).map(fixReserva);
@@ -126,7 +138,6 @@ async function previewImport(db, empresaId, importData) {
     return {
         mapeoAlojamientos,
         mapeoCanales,
-        // Array ordenado con índice para que el frontend no dependa de nombres con encoding especial
         cabanas: cabanas.map((c, i) => ({
             index:               i,
             nombreOrigen:        c.nombre,
@@ -153,20 +164,75 @@ async function previewImport(db, empresaId, importData) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
+
+async function _importarTransacciones(db, empresaId, idReservaCanal, transacciones) {
+    let count = 0;
+    for (const t of transacciones) {
+        if (pool) {
+            const { rows: ex } = await pool.query(
+                `SELECT id FROM transacciones WHERE empresa_id = $1 AND metadata->>'idOrigenImport' = $2 LIMIT 1`,
+                [empresaId, t.id]
+            );
+            if (!ex[0]) {
+                await pool.query(
+                    `INSERT INTO transacciones (empresa_id, id_reserva_canal, tipo, monto, metadata)
+                     VALUES ($1, $2, $3, $4, $5)`,
+                    [
+                        empresaId, idReservaCanal, t.tipo || 'Abono', t.monto || 0,
+                        JSON.stringify({
+                            idOrigenImport:    t.id,
+                            medioDePago:       t.medioDePago,
+                            enlaceComprobante: t.enlaceComprobante || null,
+                            fecha:             t.fecha || null,
+                            origen:            'historico'
+                        })
+                    ]
+                );
+                count++;
+            }
+        } else {
+            const transRef = db.collection('empresas').doc(empresaId).collection('transacciones');
+            const tSnap = await transRef.where('idOrigenImport', '==', t.id).get();
+            if (tSnap.empty) {
+                await transRef.add({
+                    idOrigenImport:    t.id,
+                    reservaIdOriginal: idReservaCanal,
+                    monto:             t.monto,
+                    medioDePago:       t.medioDePago,
+                    tipo:              t.tipo,
+                    fecha:             admin.firestore.Timestamp.fromDate(new Date(t.fecha)),
+                    enlaceComprobante: t.enlaceComprobante || null,
+                    origen:            'historico'
+                });
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
+// ─────────────────────────────────────────────────────────────
 // PASO 2: IMPORTAR
 // ─────────────────────────────────────────────────────────────
 
 async function runImport(db, empresaId, importData, mapeoCabanas, mapeoCanales, meta = {}) {
     const resultado = { creadas: 0, actualizadas: 0, clientesCreados: 0, transacciones: 0, errores: [], idCarga: null };
 
-    // Registrar en historial de cargas (permite eliminar después)
     const nombreArchivo = meta.nombreArchivo || `historico_${new Date().toISOString().split('T')[0]}`;
     const idCarga = await registrarCarga(db, empresaId, null, nombreArchivo, meta.usuarioEmail || 'importador');
     resultado.idCarga = idCarga;
 
-    // Mapa de alojamiento id → nombre para almacenar en la reserva
-    const propSnap   = await db.collection('empresas').doc(empresaId).collection('propiedades').get();
-    const alojNombres = Object.fromEntries(propSnap.docs.map(d => [d.id, d.data().nombre || '']));
+    // Mapa alojamiento id → nombre
+    let alojNombres;
+    if (pool) {
+        const { rows } = await pool.query('SELECT id, nombre FROM propiedades WHERE empresa_id = $1', [empresaId]);
+        alojNombres = Object.fromEntries(rows.map(r => [r.id, r.nombre || '']));
+    } else {
+        const propSnap = await db.collection('empresas').doc(empresaId).collection('propiedades').get();
+        alojNombres = Object.fromEntries(propSnap.docs.map(d => [d.id, d.data().nombre || '']));
+    }
 
     const clientesMap = Object.fromEntries((importData.clientes || []).map(c => [c.id, c]));
 
@@ -196,72 +262,43 @@ async function runImport(db, empresaId, importData, mapeoCabanas, mapeoCanales, 
             // ── Valores ──────────────────────────────────────────
             const { moneda, valores } = buildValores(reserva);
 
-            // ── Doc reserva ──────────────────────────────────────
+            // ── Reserva (upsert dual-mode) ────────────────────────
             const idReservaCanal = reserva.reservaIdOriginal;
-            const idUnicoReserva = `${idReservaCanal}-${alojamientoId}`;
-            const totalNoches    = reserva.totalNoches || 1;
-
-            const docData = {
-                idUnicoReserva,
+            const { status } = await crearOActualizarReserva(db, empresaId, {
                 idReservaCanal,
-                idCarga,
-                canalId:          canalId || '',
-                canalNombre:      reserva.canal || '',
                 alojamientoId,
                 alojamientoNombre: alojNombres[alojamientoId] || '',
+                canalId:          canalId || null,
+                canalNombre:      reserva.canal || '',
                 clienteId:        cliente.id,
-                moneda,
+                nombreCliente:    reserva.clienteNombre,
+                totalNoches:      reserva.totalNoches || 1,
                 estado:           reserva.estado        || 'Confirmada',
                 estadoGestion:    reserva.estadoGestion || 'Pendiente Bienvenida',
-                fechaLlegada:     admin.firestore.Timestamp.fromDate(new Date(reserva.fechaLlegada)),
-                fechaSalida:      admin.firestore.Timestamp.fromDate(new Date(reserva.fechaSalida)),
-                fechaReserva:     reserva.fechaReserva
-                                      ? admin.firestore.Timestamp.fromDate(new Date(reserva.fechaReserva))
-                                      : null,
-                numHuespedes:     reserva.invitados || 1,
-                totalNoches,
+                moneda,
                 valores,
-                origen:           'historico',
-                boleta:           reserva.boleta  || false,
-                pagado:           reserva.pagado  || false,
                 documentos: {
                     enlaceReserva: reserva.documentos?.enlaceReserva || null,
                     enlaceBoleta:  reserva.documentos?.enlaceBoleta  || null
-                }
-            };
+                },
+                idCarga,
+                cantidadHuespedes: reserva.invitados || 1,
+                fechaLlegada:  reserva.fechaLlegada,
+                fechaSalida:   reserva.fechaSalida,
+                fechaReserva:  reserva.fechaReserva || null,
+                origen:        'historico',
+                boleta:        reserva.boleta  || false,
+                pagado:        reserva.pagado  || false,
+            });
 
-            // ── Upsert reserva ───────────────────────────────────
-            const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
-            const snap        = await reservasRef.where('idUnicoReserva', '==', idUnicoReserva).get();
+            if (status === 'creada') resultado.creadas++;
+            else if (status === 'actualizada') resultado.actualizadas++;
 
-            if (snap.empty) {
-                const ref = reservasRef.doc();
-                await ref.set({ id: ref.id, ...docData, fechaCreacion: admin.firestore.FieldValue.serverTimestamp() });
-                resultado.creadas++;
-            } else {
-                await snap.docs[0].ref.update({ ...docData, fechaActualizacion: admin.firestore.FieldValue.serverTimestamp() });
-                resultado.actualizadas++;
-            }
-
-            // ── Transacciones ────────────────────────────────────
+            // ── Transacciones ─────────────────────────────────────
             if (reserva.transacciones?.length) {
-                const transRef = db.collection('empresas').doc(empresaId).collection('transacciones');
-                for (const t of reserva.transacciones) {
-                    const tSnap = await transRef.where('idOrigenImport', '==', t.id).get();
-                    if (tSnap.empty) {
-                        await transRef.add({
-                            idOrigenImport:    t.id,
-                            reservaIdOriginal: idReservaCanal,
-                            monto:             t.monto,
-                            medioDePago:       t.medioDePago,
-                            tipo:              t.tipo,
-                            fecha:             admin.firestore.Timestamp.fromDate(new Date(t.fecha)),
-                            enlaceComprobante: t.enlaceComprobante || null,
-                            origen:            'historico'
-                        });
-                        resultado.transacciones++;
-                    }
-                }
+                resultado.transacciones += await _importarTransacciones(
+                    db, empresaId, idReservaCanal, reserva.transacciones
+                );
             }
 
         } catch (err) {

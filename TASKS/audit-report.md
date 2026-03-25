@@ -1,7 +1,7 @@
 # Reporte de Auditoría UI
-**Generado:** 2026-03-24 19:08
-**Archivos analizados:** 108
-**Problemas encontrados:** 88 (alta: 0 / media: 17 / baja: 71)
+**Generado:** 2026-03-25 21:14
+**Archivos analizados:** 109
+**Problemas encontrados:** 89 (alta: 0 / media: 18 / baja: 71)
 
 ---
 
@@ -9,12 +9,21 @@
 
 | Categoría | Severidad | Ocurrencias |
 |-----------|-----------|-------------|
+| Amarillo hardcodeado (debería usar warning-*) | media | 1 |
 | Botón con clases Tailwind directas (sin .btn-*) | media | 17 |
 | Color hexadecimal hardcodeado | baja | 71 |
 
 ---
 
 ## Detalle por categoría
+
+### Amarillo hardcodeado (debería usar warning-*) (1 ocurrencias)
+**Sugerencia:** Usar bg-warning-600 / text-warning-600  
+**Severidad:** media
+
+| Archivo | Línea | Clase detectada |
+|---------|-------|-----------------|
+| `frontend/src/views/resenas.js` | 56 | `text-yellow-400` |
 
 ### Botón con clases Tailwind directas (sin .btn-*) (17 ocurrencias)
 **Sugerencia:** Usar btn-primary / btn-danger / btn-success / btn-outline  
@@ -47,10 +56,10 @@
 | Archivo | Línea | Clase detectada |
 |---------|-------|-----------------|
 | `frontend/src/utils/imageEditorModal.js` | 55 | `#fff` |
-| `frontend/src/views/autorizarGoogle.js` | 15 | `#FFC107` |
-| `frontend/src/views/autorizarGoogle.js` | 15 | `#FF3D00` |
-| `frontend/src/views/autorizarGoogle.js` | 15 | `#4CAF50` |
-| `frontend/src/views/autorizarGoogle.js` | 15 | `#1976D2` |
+| `frontend/src/views/autorizarGoogle.js` | 19 | `#FFC107` |
+| `frontend/src/views/autorizarGoogle.js` | 19 | `#FF3D00` |
+| `frontend/src/views/autorizarGoogle.js` | 19 | `#4CAF50` |
+| `frontend/src/views/autorizarGoogle.js` | 19 | `#1976D2` |
 | `frontend/src/views/calendario.js` | 62 | `#8249` |
 | `frontend/src/views/calendario.js` | 64 | `#8250` |
 | `frontend/src/views/components/calendario/calendario.gantt.js` | 5 | `#3B82F6` |
