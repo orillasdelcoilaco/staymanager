@@ -191,3 +191,126 @@
 .status-error {
   border-color: #ef4444 !important;
 }
+/* ═══════════════════════════════════════════════════
+   CALENDARIO DE OCUPACIÓN — GANTT CUSTOM
+   ═══════════════════════════════════════════════════ */
+
+.cal-container { padding: 1.5rem; max-width: 100%; }
+.cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: .75rem; }
+.cal-titulo { font-size: 1.4rem; font-weight: 700; color: #1e293b; }
+
+.cal-metricas { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.cal-metrica-card { flex: 1; min-width: 120px; background: #fff; border: 1px solid #e2e8f0; border-radius: .75rem; padding: .875rem 1.25rem; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.cal-metrica-val { font-size: 1.75rem; font-weight: 700; color: #0f172a; line-height: 1; }
+.cal-metrica-label { font-size: .72rem; color: #64748b; margin-top: .25rem; text-transform: uppercase; letter-spacing: .04em; }
+
+.cal-nav { display: flex; align-items: center; gap: .5rem; }
+.cal-nav-btn { border: 1px solid #e2e8f0; background: #fff; border-radius: .5rem; padding: .35rem .75rem; cursor: pointer; font-size: 1.1rem; color: #475569; transition: background .15s; }
+.cal-nav-btn:hover { background: #f1f5f9; }
+.cal-nav-today { font-size: .82rem; font-weight: 600; }
+.cal-nav-titulo { font-size: 1.05rem; font-weight: 600; color: #1e293b; min-width: 160px; text-align: center; text-transform: capitalize; }
+
+.cal-leyenda { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.cal-leyenda-item { display: flex; align-items: center; gap: .35rem; font-size: .8rem; color: #374151; }
+.cal-leyenda-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+.cal-gantt-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: .875rem; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.gantt-wrap { display: flex; flex-direction: column; }
+
+.gantt-header-row { display: flex; border-bottom: 2px solid #e2e8f0; position: sticky; top: 0; z-index: 10; background: #f8fafc; }
+.gantt-header-nombre { background: #f8fafc; font-size: .72rem; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: .05em; border-right: 1px solid #e2e8f0; }
+.gantt-scroll-header { flex: 1; overflow: hidden; min-width: 0; }
+.gantt-dia-header { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: .5rem 0; border-right: 1px solid #f1f5f9; flex-shrink: 0; }
+.gantt-dia-letra { font-size: .65rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; }
+.gantt-dia-num { font-size: .85rem; font-weight: 700; color: #334155; line-height: 1; }
+.gantt-weekend .gantt-dia-letra, .gantt-weekend .gantt-dia-num { color: #f59e0b; }
+.gantt-hoy-header .gantt-dia-num { color: #fff; background: #4f46e5; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
+
+.gantt-body { overflow-x: auto; }
+.gantt-fila { display: flex; border-bottom: 1px solid #f1f5f9; min-height: 52px; }
+.gantt-fila:last-child { border-bottom: none; }
+
+.gantt-nombre { width: 190px; min-width: 190px; display: flex; align-items: center; gap: .5rem; padding: .5rem .75rem; border-right: 1px solid #e2e8f0; background: #fff; position: sticky; left: 0; z-index: 5; }
+.gantt-color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.gantt-nombre-texto { font-size: .83rem; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+.gantt-nombre-sub { font-size: .7rem; color: #94a3b8; margin-top: 1px; }
+
+.gantt-timeline { position: relative; flex-shrink: 0; }
+.gantt-fondo-dia { position: absolute; top: 0; bottom: 0; pointer-events: none; }
+.gantt-weekend-col { background: rgba(245,158,11,.06); }
+.gantt-hoy-col { background: rgba(79,70,229,.08); border-left: 2px solid rgba(79,70,229,.3); border-right: 2px solid rgba(79,70,229,.3); }
+
+.gantt-bloque { position: absolute; top: 7px; bottom: 7px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; padding: 0 8px; transition: filter .15s, transform .1s; overflow: hidden; z-index: 2; }
+.gantt-bloque:hover { filter: brightness(1.1); transform: scaleY(1.04); }
+.gantt-bloque-label { font-size: .73rem; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.gantt-bloque-bloqueado { background: #E5E7EB !important; border: 2px dashed #9CA3AF; }
+.gantt-bloque-bloqueado .gantt-bloque-label { color: #6B7280; text-shadow: none; font-style: italic; }
+
+.cal-tooltip { position: fixed; z-index: 9999; background: #1e293b; color: #f8fafc; border-radius: .625rem; padding: .75rem 1rem; min-width: 200px; font-size: .78rem; box-shadow: 0 8px 24px rgba(0,0,0,.2); pointer-events: none; }
+.cal-tooltip-nombre { font-weight: 700; font-size: .9rem; margin-bottom: .15rem; }
+.cal-tooltip-aloj { color: #94a3b8; font-size: .75rem; margin-bottom: .5rem; }
+.cal-tooltip-grid { display: grid; grid-template-columns: auto 1fr; gap: .2rem .75rem; }
+.cal-tooltip-grid span:nth-child(odd) { color: #94a3b8; }
+.cal-tooltip-grid span:nth-child(even) { font-weight: 500; }
+
+.cal-modal-dl { display: flex; flex-direction: column; gap: .5rem; }
+.cal-modal-dl > div { display: grid; grid-template-columns: 120px 1fr; gap: .5rem; }
+.cal-modal-dl dt { font-size: .8rem; font-weight: 600; color: #64748b; }
+.cal-modal-dl dd { font-size: .85rem; color: #1e293b; }
+
+/* ─── Chip Filters ──────────────────────────────────────────────────────────── */
+.chip-filter {
+    display: inline-flex; align-items: center; padding: .375rem .875rem;
+    border-radius: 9999px; font-size: .75rem; font-weight: 500;
+    border: 1px solid #e2e8f0; color: #475569; background: #fff;
+    cursor: pointer; transition: all .15s;
+}
+.chip-filter:hover { border-color: #a5b4fc; color: #4f46e5; }
+.chip-filter.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+
+/* ─── Stat Cards (Reservas) ─────────────────────────────────────────────────── */
+.stat-card {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: .875rem; padding: 1rem 1.25rem;
+}
+.stat-val  { font-size: 1.6rem; font-weight: 700; color: #0f172a; line-height: 1; }
+.stat-label { font-size: .72rem; color: #64748b; margin-top: .25rem; }
+
+/* ─── Reservation Cards ─────────────────────────────────────────────────────── */
+.reserva-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: .875rem; padding: 1rem;
+    transition: box-shadow .15s, border-color .15s;
+}
+.reserva-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08); border-color: #c7d2fe; }
+.reserva-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; margin-bottom: .75rem; }
+.reserva-card-guest  { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.reserva-avatar {
+    width: 2.25rem; height: 2.25rem; border-radius: 50%;
+    background: #e0e7ff; color: #4f46e5; font-weight: 700; font-size: .8rem;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.reserva-card-dates {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .5rem;
+    font-size: .72rem; margin-bottom: .75rem;
+    background: #f8fafc; border-radius: .5rem; padding: .5rem .75rem;
+}
+.reserva-card-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: .72rem; border-top: 1px solid #f1f5f9; padding-top: .5rem;
+}
+.reserva-card-actions {
+    display: flex; align-items: center; justify-content: space-between; margin-top: .5rem;
+}
+.badge-estado { font-size: .7rem; padding: .15rem .6rem; border-radius: 9999px; font-weight: 500; }
+.badge-canal  { font-size: .7rem; padding: .15rem .6rem; border-radius: 9999px; font-weight: 500; background: #ede9fe; color: #4f46e5; }
+
+@keyframes cardPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(79,70,229,.5); }
+    50%  { box-shadow: 0 0 0 10px rgba(79,70,229,.15); }
+    100% { box-shadow: 0 0 0 0 rgba(79,70,229,0); }
+}
+.card-highlight {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+    border-radius: .5rem;
+    animation: cardPulse 1s ease-out 2;
+}

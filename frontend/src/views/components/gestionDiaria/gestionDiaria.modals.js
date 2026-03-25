@@ -1,6 +1,7 @@
 // frontend/src/views/components/gestionDiaria/gestionDiaria.modals.js
 import { fetchAPI } from '../../../api.js';
 import { getStatusInfo } from './gestionDiaria.utils.js';
+import { getEstadosGestion } from '../estadosStore.js';
 import { renderAjusteTarifaModal } from './modals/ajusteTarifaModal.js';
 import { renderPagosModal } from './modals/pagosModal.js';
 import { renderDocumentoModal } from './modals/documentoModal.js';
@@ -10,6 +11,7 @@ import { handleNavigation } from '../../../router.js';
 import { abrirModalCliente } from '../gestionarClientes/clientes.modals.js';
 
 let currentGrupo = null;
+let currentAllEstados = [];
 let currentUserEmail = '';
 let onActionComplete = () => {};
 
@@ -36,24 +38,29 @@ async function abrirEdicionCliente(clienteId) {
     }
 }
 
-export function openManagementModal(type, grupo) {
+export function openManagementModal(type, grupo, allEstados = []) {
     currentGrupo = grupo;
+    currentAllEstados = allEstados;
     const modal = document.getElementById('gestion-modal');
     document.getElementById('modal-title').textContent = `${type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ')} (Reserva ${currentGrupo.reservaIdOriginal})`;
 
     const actionMap = {
-        'enviar_bienvenida': () => renderMensajeModal(grupo, 'bienvenida', onActionComplete),
-        'enviar_cobro': () => renderMensajeModal(grupo, 'cobro', onActionComplete),
+        'enviar_bienvenida': () => renderMensajeModal(grupo, 'bienvenida', onActionComplete, allEstados),
+        'enviar_cobro': () => renderMensajeModal(grupo, 'cobro', onActionComplete, allEstados),
+        'enviar_salida': () => renderMensajeModal(grupo, 'salida', onActionComplete, allEstados),
         'bitacora': () => openBitacoraModal(grupo),
         'ajuste_tarifa': () => renderAjusteTarifaModal(grupo, onActionComplete),
         'pagos': () => renderPagosModal(grupo, onActionComplete),
         'boleta': () => renderDocumentoModal('boleta', grupo, onActionComplete),
         'gestionar_reserva': () => renderDocumentoModal('reserva', grupo, onActionComplete),
         
-        // --- CAMBIO: Ahora 'gestionar_cliente' abre el modal de edición/calificación ---
         'gestionar_cliente': () => {
             abrirEdicionCliente(grupo.clienteId);
-            return false; // No abrir el modal genérico de gestión
+            fetchAPI('/gestion/marcar-cliente-gestionado', {
+                method: 'POST',
+                body: { reservaIdOriginal: grupo.reservaIdOriginal }
+            }).catch(e => console.warn('marcar-cliente-gestionado:', e.message));
+            return false;
         },
         
         'corregir_estado': () => {
@@ -69,24 +76,23 @@ export function openManagementModal(type, grupo) {
     }
 }
 
-export function openRevertModal(grupo) {
+export function openRevertModal(grupo, allEstados = []) {
     currentGrupo = grupo;
+    currentAllEstados = allEstados;
     const modal = document.getElementById('gestion-modal');
     const contentContainer = document.getElementById('modal-content-container');
     document.getElementById('modal-title').textContent = `Revertir Estado (Reserva ${grupo.reservaIdOriginal})`;
 
-    const estadosPosibles = [
-        { value: 'Pendiente Bienvenida', text: 'Pendiente Bienvenida' },
-        { value: 'Pendiente Cobro', text: 'Pendiente Cobro' },
-        { value: 'Pendiente Pago', text: 'Pendiente Pago' },
-        { value: 'Pendiente Boleta', text: 'Pendiente Boleta' },
-        { value: 'Pendiente Cliente', text: 'Pendiente Cliente' }
-    ];
-    const estadoActualInfo = getStatusInfo(grupo.estadoGestion);
-    const opcionesHtml = estadosPosibles
-        .filter(estado => getStatusInfo(estado.value).level < estadoActualInfo.level)
-        .map(estado => `<option value="${estado.value}">${estado.text}</option>`)
-        .join('');
+    const estadoActualInfo = getStatusInfo(grupo.estadoGestion, allEstados);
+    const estadosGestion = getEstadosGestion(allEstados);
+    // Si hay estados dinámicos configurados, filtrar por level; si no, usar nombres legacy
+    const candidatos = estadosGestion.length > 0
+        ? estadosGestion.filter(e => getStatusInfo(e.nombre, allEstados).level < estadoActualInfo.level)
+            .map(e => ({ value: e.nombre, text: e.nombre }))
+        : ['Pendiente Bienvenida','Pendiente Cobro','Pendiente Pago','Pendiente Boleta','Pendiente Cliente']
+            .filter(n => getStatusInfo(n, allEstados).level < estadoActualInfo.level)
+            .map(n => ({ value: n, text: n }));
+    const opcionesHtml = candidatos.map(c => `<option value="${c.value}">${c.text}</option>`).join('');
 
     contentContainer.innerHTML = `
         <p>Estado Actual: <strong class="font-semibold">${grupo.estadoGestion}</strong></p>

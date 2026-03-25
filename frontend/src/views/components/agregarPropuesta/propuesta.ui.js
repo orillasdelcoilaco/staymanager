@@ -120,6 +120,12 @@ export function renderPropuestaLayout() {
                 <label id="client-form-title" class="block text-sm font-medium text-gray-700">Buscar o Crear Cliente</label>
                 <input type="text" id="client-search" placeholder="Buscar por nombre o teléfono..." class="form-input mt-1">
                 <div id="client-results-list" class="hidden mt-1 border rounded-md max-h-32 overflow-y-auto bg-white z-10 absolute w-full max-w-sm"></div>
+                <div id="cliente-bloqueo-alert" class="hidden mt-2 p-3 rounded-lg border border-danger-300 bg-danger-50 text-xs">
+                    <p class="font-semibold text-danger-800 mb-1">🚫 Cliente Bloqueado</p>
+                    <p id="cliente-bloqueo-motivo" class="text-danger-700 mb-2"></p>
+                    <p class="text-danger-600 mb-2">Para poder crear una reserva, primero debes desbloquear al cliente desde su ficha.</p>
+                    <button id="ir-editar-cliente-btn" class="btn-outline text-xs py-1 px-2 border-danger-400 text-danger-700 hover:bg-danger-100">Ir a Editar Cliente →</button>
+                </div>
                 <input type="text" id="new-client-name" placeholder="Nombre completo" class="form-input mt-2">
                 <input type="tel" id="new-client-phone" placeholder="Teléfono" class="form-input mt-2">
                 <input type="email" id="new-client-email" placeholder="Email (opcional)" class="form-input mt-2">

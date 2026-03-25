@@ -60,9 +60,13 @@ const iaRoutes = require("./routes/ia");
 
 // [NEW] Importador Mágico (análisis de web + creación de empresa)
 const importerRoutes = require('./routes/importerRoutes');
+const historicoImporterRoutes = require('./routes/historicoImporterRoutes');
+const bloqueosRoutes = require('./routes/bloqueosRoutes');
 
 // [NEW] Galería de fotos por propiedad (revisión manual + sync SSR)
 const galeriaRoutes = require('./routes/galeriaRoutes');
+const mapeosCentralesRoutes = require('./routes/mapeosCentrales');
+const geocodeRoutes = require('./routes/geocode');
 
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
 const { createTenantResolver } = require('./middleware/tenantResolver.js');
@@ -138,7 +142,7 @@ try {
     app.set('views', path.join(__dirname, 'views'));
     app.set('trust proxy', 1); // Fix for rate limiter on Render/Proxy
     app.use(cors());
-    app.use(express.json());
+    app.use(express.json({ limit: '20mb' }));
 
     // [DEBUG] Global Request Logger
     app.use((req, res, next) => {
@@ -191,6 +195,8 @@ try {
     apiRouter.use(authMiddleware);
 
     // ... Rutas existentes ...
+    apiRouter.use('/historico-importer', historicoImporterRoutes(db));
+    apiRouter.use('/bloqueos', bloqueosRoutes(db));
     apiRouter.use('/propiedades', propiedadesRoutes(db));
     apiRouter.use('/canales', canalesRoutes(db));
     apiRouter.use('/tarifas', tarifasRoutes(db));
@@ -199,6 +205,8 @@ try {
     apiRouter.use('/reservas', reservasRoutes(db));
     apiRouter.use('/sincronizar', sincronizacionRoutes(db));
     apiRouter.use('/mapeos', mapeosRoutes(db));
+    apiRouter.use('/mapeos-centrales', mapeosCentralesRoutes(db));
+    apiRouter.use('/geocode', geocodeRoutes(db));
     apiRouter.use('/calendario', calendarioRoutes(db));
     apiRouter.use('/reparar', reparacionRoutes(db));
     apiRouter.use('/dolar', dolarRoutes(db));

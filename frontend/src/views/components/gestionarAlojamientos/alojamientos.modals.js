@@ -2,9 +2,11 @@
 import { fetchAPI } from '../../../api.js';
 import { generarIdComponente } from './alojamientos.utils.js';
 import { renderComponentList } from './componentEditor.js';
+import { renderUbicacionWidget, setupUbicacionWidget, getUbicacionData } from '../ubicacionWidget.js';
 
 let onSaveCallback = null;
 let editandoPropiedad = null;
+let tipoNegocioEmpresa = null;
 let componentesTemporales = []; // Array of { id, nombre, tipo, tipoId, icono, elementos: [] }
 let canalesCache = [];
 let tiposComponenteCache = [];
@@ -668,21 +670,10 @@ export const renderModalAlojamiento = () => {
                                         <div><label class="flex items-center space-x-2"><input type="checkbox" id="googleHotelIsListed" class="rounded text-primary-600"><span>Publicar en Web/Google</span></label></div>
                                     </div>
                                 </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Ubicación</label>
-                                    <div class="space-y-3">
-                                        <input type="text" id="googleHotelStreet" placeholder="Calle y Número (ej: Av. Costanera 123)" class="form-input w-full">
-                                        <input type="text" id="googleHotelCity" placeholder="Ciudad (ej: Pucón)" class="form-input w-full">
-                                        <div class="flex gap-2">
-                                            <input type="text" id="googleHotelLat" placeholder="Latitud (ej: -39.2)" class="form-input w-1/2">
-                                            <input type="text" id="googleHotelLng" placeholder="Longitud (ej: -71.9)" class="form-input w-1/2">
-                                        </div>
-                                        <div class="text-right">
-                                            <a href="#" class="text-xs text-primary-600 hover:text-primary-800 underline" onclick="const q = (document.getElementById('googleHotelStreet').value + ' ' + document.getElementById('googleHotelCity').value).trim(); window.open(q ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q) : 'https://www.google.com/maps', '_blank'); return false;">
-                                                📍 Buscar Coordenadas en Mapa
-                                            </a>
-                                        </div>
-                                    </div>
+                                <!-- Ubicación: se inyecta dinámicamente si tipoNegocio === 'cartera' -->
+                                <div id="ubicacion-propiedad-container" class="hidden">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Ubicación del Alojamiento</label>
+                                    <div id="ubicacion-propiedad-widget"></div>
                                 </div>
                             </div>
                         </div>
@@ -707,6 +698,14 @@ export const abrirModalAlojamiento = async (propiedad = null, canales = []) => {
     const tipoSelect = document.getElementById('nuevo-componente-tipo');
 
     canalesCache = canales;
+
+    // Cargar tipoNegocio de empresa (solo primera vez o si no está cacheado)
+    if (!tipoNegocioEmpresa) {
+        try {
+            const emp = await fetchAPI('/empresa');
+            tipoNegocioEmpresa = emp.tipoNegocio || '';
+        } catch { tipoNegocioEmpresa = ''; }
+    }
 
     if (!modal || !form) return;
 
@@ -765,10 +764,6 @@ export const abrirModalAlojamiento = async (propiedad = null, canales = []) => {
 
         form.googleHotelId.value = propiedad.googleHotelData?.hotelId || '';
         form.googleHotelIsListed.checked = propiedad.googleHotelData?.isListed || false;
-        form.googleHotelStreet.value = propiedad.googleHotelData?.address?.street || '';
-        form.googleHotelCity.value = propiedad.googleHotelData?.address?.city || '';
-        form.googleHotelLat.value = propiedad.googleHotelData?.address?.lat || '';
-        form.googleHotelLng.value = propiedad.googleHotelData?.address?.lng || '';
     } else {
         editandoPropiedad = null;
         modalTitle.textContent = 'Crear Nuevo Alojamiento';
@@ -793,6 +788,19 @@ export const abrirModalAlojamiento = async (propiedad = null, canales = []) => {
             });
         }
     });
+
+    // Ubicación por propiedad: solo visible para cartera dispersa
+    const ubicacionContainer = document.getElementById('ubicacion-propiedad-container');
+    const ubicacionWidgetEl = document.getElementById('ubicacion-propiedad-widget');
+    if (tipoNegocioEmpresa === 'cartera') {
+        const datosUbicacion = propiedad?.ubicacion || {};
+        ubicacionWidgetEl.innerHTML = renderUbicacionWidget('prop-ubicacion', datosUbicacion);
+        ubicacionContainer.classList.remove('hidden');
+        setupUbicacionWidget('prop-ubicacion');
+    } else {
+        ubicacionContainer.classList.add('hidden');
+        ubicacionWidgetEl.innerHTML = '';
+    }
 
     renderizarListaComponentes();
     modal.classList.remove('hidden');
@@ -826,31 +834,23 @@ export const setupModalAlojamiento = (callback) => {
             if (input.value) sincronizacionIcal[input.dataset.canalKey.toLowerCase()] = input.value;
         });
 
+        const ubicacion = tipoNegocioEmpresa === 'cartera' ? getUbicacionData('prop-ubicacion') : null;
+
         const datos = {
             nombre: newForm.nombre.value,
             capacidad: parseInt(newForm.capacidad.value),
             numPiezas: parseInt(newForm.numPiezas.value) || 0,
             numBanos: parseInt(newForm.numBanos.value) || 0,
-            numPiezas: parseInt(newForm.numPiezas.value) || 0,
-            numBanos: parseInt(newForm.numBanos.value) || 0,
-            descripcion: '', // Ya no se edita aquí, se gestiona en Contenido Web
-            // Legacy fields vacíos, ahora todo vive en componentes
-            // Legacy fields vacíos, ahora todo vive en componentes
+            descripcion: '',
             camas: {},
             equipamiento: {},
             amenidades: [],
-            componentes: componentesTemporales, // Aquí va toda la estructura jerárquica
+            componentes: componentesTemporales,
             sincronizacionIcal,
+            ...(ubicacion ? { ubicacion } : {}),
             googleHotelData: {
                 hotelId: document.getElementById('googleHotelId').value.trim(),
                 isListed: document.getElementById('googleHotelIsListed').checked,
-                address: {
-                    street: document.getElementById('googleHotelStreet').value.trim(),
-                    city: document.getElementById('googleHotelCity').value.trim(),
-                    lat: document.getElementById('googleHotelLat').value.trim(),
-                    lng: document.getElementById('googleHotelLng').value.trim(),
-                    countryCode: 'CL'
-                }
             },
             websiteData: {
                 ...(editandoPropiedad?.websiteData || {}),

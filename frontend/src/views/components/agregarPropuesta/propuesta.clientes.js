@@ -1,5 +1,6 @@
 // frontend/src/views/components/agregarPropuesta/propuesta.clientes.js
 import { fetchAPI } from '../../../api.js';
+import { handleNavigation } from '../../../router.js';
 import { state } from './propuesta.state.js';
 
 export function filterClients(e) {
@@ -28,7 +29,31 @@ export function filterClients(e) {
     });
 }
 
+function mostrarAlertaBloqueo(client) {
+    const alert = document.getElementById('cliente-bloqueo-alert');
+    const motivo = document.getElementById('cliente-bloqueo-motivo');
+    if (!alert) return;
+    motivo.textContent = `Motivo: "${client.motivoBloqueo || 'Sin motivo especificado'}"`;
+    alert.classList.remove('hidden');
+    const btn = document.getElementById('ir-editar-cliente-btn');
+    if (btn) {
+        btn.onclick = () => handleNavigation(`/clientes`);
+    }
+}
+
+function ocultarAlertaBloqueo() {
+    document.getElementById('cliente-bloqueo-alert')?.classList.add('hidden');
+}
+
 export function selectClient(client) {
+    ocultarAlertaBloqueo();
+    if (client.bloqueado) {
+        state.selectedClient = null;
+        document.getElementById('client-search').value = client.nombre;
+        document.getElementById('client-results-list').classList.add('hidden');
+        mostrarAlertaBloqueo(client);
+        return;
+    }
     state.selectedClient = client;
     document.getElementById('client-form-title').textContent = '... o actualiza los datos del cliente seleccionado';
     document.getElementById('client-search').value = client.nombre;
@@ -40,6 +65,7 @@ export function selectClient(client) {
 
 export function clearClientSelection() {
     state.selectedClient = null;
+    ocultarAlertaBloqueo();
     document.getElementById('client-form-title').textContent = '... o añade un cliente nuevo';
     ['new-client-name', 'new-client-phone', 'new-client-email'].forEach(id => {
         const el = document.getElementById(id);

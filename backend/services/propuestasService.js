@@ -1,110 +1,137 @@
 // backend/services/propuestasService.js
 
+const pool = require('../db/postgres');
 const admin = require('firebase-admin');
 const { parseISO, isValid, addDays, format } = require('date-fns');
+const { listarBloqueos } = require('./bloqueosService');
 
-// --- Función getAvailabilityData ---
-async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarotes = false, idGrupoAExcluir = null) {
-    const [propiedadesSnapshot, tarifasSnapshot, reservasSnapshot] = await Promise.all([
+// Reduce la capacidad de propiedades que tienen camarotes/literas cuando el filtro está activo
+function reducirCapacidadSinCamarotes(properties) {
+    return properties.map(prop => {
+        let numCamarotes = 0;
+        if (prop.camas && prop.camas.camarotes > 0) {
+            numCamarotes += prop.camas.camarotes;
+        }
+        if (prop.componentes && Array.isArray(prop.componentes)) {
+            prop.componentes.forEach(comp => {
+                (comp.elementos || []).forEach(elem => {
+                    const nombre = (elem.nombre || '').toLowerCase();
+                    if (nombre.includes('camarote') || nombre.includes('litera')) {
+                        numCamarotes += (elem.cantidad || 1);
+                    }
+                });
+            });
+        }
+        if (numCamarotes > 0) {
+            return { ...prop, capacidad: Math.max(0, prop.capacidad - numCamarotes * 2) };
+        }
+        return prop;
+    });
+}
+
+async function _fetchAvailabilityPG(empresaId, endDate) {
+    const endStr = endDate.toISOString().split('T')[0];
+    const [propRes, tarifaRes, reservaRes, bloqueos] = await Promise.all([
+        pool.query('SELECT * FROM propiedades WHERE empresa_id = $1 AND activo = true', [empresaId]),
+        pool.query('SELECT * FROM tarifas WHERE empresa_id = $1', [empresaId]),
+        pool.query(
+            `SELECT propiedad_id, id_reserva_canal, fecha_llegada, fecha_salida
+             FROM reservas WHERE empresa_id = $1 AND fecha_llegada < $2 AND estado = ANY($3)`,
+            [empresaId, endStr, ['Confirmada', 'Propuesta']]
+        ),
+        listarBloqueos(null, empresaId),
+    ]);
+    const allProperties = propRes.rows.map(r => ({ id: r.id, nombre: r.nombre, capacidad: r.capacidad, ...(r.metadata || {}) }));
+    const allTarifas = tarifaRes.rows.map(row => {
+        try {
+            const fi = parseISO((row.reglas?.fechaInicio || '') + 'T00:00:00Z');
+            const ft = parseISO((row.reglas?.fechaTermino || '') + 'T00:00:00Z');
+            if (!isValid(fi) || !isValid(ft)) return null;
+            return { ...row.reglas, alojamientoId: row.propiedad_id, fechaInicio: fi, fechaTermino: ft };
+        } catch { return null; }
+    }).filter(Boolean);
+    const allReservas = reservaRes.rows.map(r => ({
+        alojamientoId: r.propiedad_id, idReservaCanal: r.id_reserva_canal,
+        fechaLlegada: new Date(r.fecha_llegada), fechaSalida: new Date(r.fecha_salida),
+    }));
+    const allBloqueos = bloqueos.map(b => ({
+        todos: b.todos, alojamientoIds: b.alojamientoIds,
+        fechaInicio: new Date(b.fechaInicio + 'T00:00:00Z'),
+        fechaFin:    new Date(b.fechaFin    + 'T00:00:00Z'),
+    }));
+    return { allProperties, allTarifas, allReservas, allBloqueos };
+}
+
+async function _fetchAvailabilityFS(db, empresaId, startDate, endDate) {
+    const [propSnap, tarifaSnap, reservaSnap, bloqueoSnap] = await Promise.all([
         db.collection('empresas').doc(empresaId).collection('propiedades').get(),
         db.collection('empresas').doc(empresaId).collection('tarifas').get(),
         db.collection('empresas').doc(empresaId).collection('reservas')
             .where('fechaLlegada', '<', admin.firestore.Timestamp.fromDate(endDate))
-            .where('estado', 'in', ['Confirmada', 'Propuesta'])
-            .get()
+            .where('estado', 'in', ['Confirmada', 'Propuesta']).get(),
+        db.collection('empresas').doc(empresaId).collection('bloqueos')
+            .where('fechaFin', '>=', admin.firestore.Timestamp.fromDate(startDate)).get(),
     ]);
-
-    let allProperties = propiedadesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-    if (sinCamarotes) {
-        allProperties = allProperties.map(prop => {
-            let numCamarotes = 0;
-
-            // 1. Revisar estructura Legacy
-            if (prop.camas && prop.camas.camarotes > 0) {
-                numCamarotes += prop.camas.camarotes;
-            }
-
-            // 2. Revisar nueva estructura (Componentes -> Elementos)
-            if (prop.componentes && Array.isArray(prop.componentes)) {
-                prop.componentes.forEach(comp => {
-                    if (comp.elementos && Array.isArray(comp.elementos)) {
-                        comp.elementos.forEach(elem => {
-                            // Heurística: Buscar por nombre si es camarote/litera
-                            const nombre = (elem.nombre || '').toLowerCase();
-                            if (nombre.includes('camarote') || nombre.includes('litera')) {
-                                numCamarotes += (elem.cantidad || 1);
-                            }
-                        });
-                    }
-                });
-            }
-
-            if (numCamarotes > 0) {
-                // Asumimos que cada camarote aporta 2 plazas a la capacidad total.
-                // Si el cliente no quiere camarotes, restamos esas plazas.
-                const capacidadReducida = prop.capacidad - (numCamarotes * 2);
-                return { ...prop, capacidad: Math.max(0, capacidadReducida) };
-            }
-            return prop;
-        });
-    }
-
-    const allTarifas = tarifasSnapshot.docs.map(doc => {
+    const allProperties = propSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const allTarifas = tarifaSnap.docs.map(doc => {
         const data = doc.data();
-        let fechaInicio, fechaTermino;
         try {
-            fechaInicio = data.fechaInicio?.toDate ? data.fechaInicio.toDate() : (data.fechaInicio ? parseISO(data.fechaInicio + 'T00:00:00Z') : null);
-            fechaTermino = data.fechaTermino?.toDate ? data.fechaTermino.toDate() : (data.fechaTermino ? parseISO(data.fechaTermino + 'T00:00:00Z') : null);
-            if (!isValid(fechaInicio) || !isValid(fechaTermino)) throw new Error('Fecha inválida');
-        } catch (e) { return null; }
-        return { ...data, id: doc.id, fechaInicio, fechaTermino };
+            const fi = data.fechaInicio?.toDate ? data.fechaInicio.toDate() : parseISO(data.fechaInicio + 'T00:00:00Z');
+            const ft = data.fechaTermino?.toDate ? data.fechaTermino.toDate() : parseISO(data.fechaTermino + 'T00:00:00Z');
+            if (!isValid(fi) || !isValid(ft)) return null;
+            return { ...data, id: doc.id, fechaInicio: fi, fechaTermino: ft };
+        } catch { return null; }
     }).filter(Boolean);
-
-    const propiedadesConTarifa = allProperties.filter(prop => {
-        return allTarifas.some(tarifa => {
-            return tarifa.alojamientoId === prop.id && tarifa.fechaInicio <= endDate && tarifa.fechaTermino >= startDate;
-        });
+    const allReservas = reservaSnap.docs.map(d => {
+        const r = d.data();
+        return { alojamientoId: r.alojamientoId, idReservaCanal: r.idReservaCanal, fechaLlegada: r.fechaLlegada?.toDate?.() || null, fechaSalida: r.fechaSalida?.toDate?.() || null };
     });
-
-    const overlappingReservations = [];
-    reservasSnapshot.forEach(doc => {
-        const reserva = doc.data();
-
-        // Si esta reserva pertenece al grupo que estamos editando,
-        // no la contamos como "ocupada".
-        if (idGrupoAExcluir && reserva.idReservaCanal === idGrupoAExcluir) {
-            return;
-        }
-
-        const fechaSalidaReserva = reserva.fechaSalida?.toDate ? reserva.fechaSalida.toDate() : (reserva.fechaSalida ? parseISO(reserva.fechaSalida + 'T00:00:00Z') : null);
-        // Solo añadir si la fecha de salida es *después* del inicio de nuestra búsqueda
-        if (fechaSalidaReserva && isValid(fechaSalidaReserva) && fechaSalidaReserva > startDate) {
-            overlappingReservations.push(reserva);
-        }
+    const allBloqueos = bloqueoSnap.docs.map(d => {
+        const b = d.data();
+        return { todos: b.todos, alojamientoIds: b.alojamientoIds || [], fechaInicio: b.fechaInicio.toDate(), fechaFin: b.fechaFin.toDate() };
     });
+    return { allProperties, allTarifas, allReservas, allBloqueos };
+}
 
+function _buildAvailabilityResult(allProperties, allTarifas, allReservas, allBloqueos, startDate, endDate, idGrupoAExcluir) {
+    const propiedadesConTarifa = allProperties.filter(prop =>
+        allTarifas.some(t => t.alojamientoId === prop.id && t.fechaInicio <= endDate && t.fechaTermino >= startDate)
+    );
     const availabilityMap = new Map();
     allProperties.forEach(prop => availabilityMap.set(prop.id, []));
 
-    // Poblar el mapa de disponibilidad con las reservas filtradas
-    overlappingReservations.forEach(reserva => {
-        if (availabilityMap.has(reserva.alojamientoId)) {
-            const start = reserva.fechaLlegada?.toDate ? reserva.fechaLlegada.toDate() : (reserva.fechaLlegada ? parseISO(reserva.fechaLlegada + 'T00:00:00Z') : null);
-            const end = reserva.fechaSalida?.toDate ? reserva.fechaSalida.toDate() : (reserva.fechaSalida ? parseISO(reserva.fechaSalida + 'T00:00:00Z') : null);
-            if (start && end && isValid(start) && isValid(end)) {
-                availabilityMap.get(reserva.alojamientoId).push({ start, end });
-            }
+    for (const reserva of allReservas) {
+        if (idGrupoAExcluir && reserva.idReservaCanal === idGrupoAExcluir) continue;
+        const s = reserva.fechaSalida instanceof Date ? reserva.fechaSalida : null;
+        if (s && isValid(s) && s > startDate && availabilityMap.has(reserva.alojamientoId)) {
+            const st = reserva.fechaLlegada instanceof Date ? reserva.fechaLlegada : null;
+            if (st && isValid(st)) availabilityMap.get(reserva.alojamientoId).push({ start: st, end: s });
         }
-    });
-
-    // Calcular las propiedades disponibles
+    }
+    // fechaFin es inclusivo → +1 día
+    for (const b of allBloqueos) {
+        const bInicio = b.fechaInicio instanceof Date ? b.fechaInicio : new Date(b.fechaInicio);
+        const bFin    = new Date((b.fechaFin instanceof Date ? b.fechaFin : new Date(b.fechaFin)).getTime() + 86400000);
+        if (bInicio >= endDate) continue;
+        const ids = b.todos ? allProperties.map(p => p.id) : (b.alojamientoIds || []);
+        ids.forEach(id => { if (availabilityMap.has(id)) availabilityMap.get(id).push({ start: bInicio, end: bFin }); });
+    }
     const availableProperties = propiedadesConTarifa.filter(prop => {
         const reservations = availabilityMap.get(prop.id) || [];
         return !reservations.some(res => startDate < res.end && endDate > res.start);
     });
-
     return { availableProperties, allProperties, allTarifas, availabilityMap };
+}
+
+// --- Función getAvailabilityData ---
+async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarotes = false, idGrupoAExcluir = null) {
+    const fetched = pool
+        ? await _fetchAvailabilityPG(empresaId, endDate)
+        : await _fetchAvailabilityFS(db, empresaId, startDate, endDate);
+
+    let { allProperties, allTarifas, allReservas, allBloqueos } = fetched;
+    if (sinCamarotes) allProperties = reducirCapacidadSinCamarotes(allProperties);
+    return _buildAvailabilityResult(allProperties, allTarifas, allReservas, allBloqueos, startDate, endDate, idGrupoAExcluir);
 }
 
 

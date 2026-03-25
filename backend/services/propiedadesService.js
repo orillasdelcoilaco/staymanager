@@ -1,17 +1,14 @@
 // backend/services/propiedadesService.js
+const pool = require('../db/postgres');
 const admin = require('firebase-admin');
 const { calcularCapacidad, contarDistribucion, hydrateInventory } = require('./propiedadLogicService');
 
 const slugify = (text) => {
     return text.toString().toLowerCase()
-        .normalize('NFD') // Normaliza caracteres con acentos
-        .replace(/[\u0300-\u036f]/g, '') // Elimina acentos
-        .replace(/\s+/g, '') // Elimina espacios (Usuario pidió "casa1" para "Propiedad 1", sin guiones si es posible, o pegado)
-        // El usuario dijo "cabaña 1 deberia ser casa1". 
-        // Vamos a usar un slug más estándar: "cabana-1".
-        // Si prefiere sin guiones: .replace(/\s+/g, '')
-        // Voy a usar standard slug con guiones para legibilidad y SEO, pero removiendo chars especiales.
-        .replace(/[^a-z0-9]/g, '') // Solo alfanumérico (casa1 style)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, '')
+        .replace(/[^a-z0-9]/g, '');
 };
 
 const generarIdComponente = (nombre) => {
@@ -19,21 +16,92 @@ const generarIdComponente = (nombre) => {
     return `${slug}-${Date.now()}`;
 };
 
+function mapearPropiedad(row) {
+    if (!row) return null;
+    const meta = row.metadata || {};
+    const aiContext = hydrateInventory(meta.componentes || []);
+    return {
+        id: row.id,
+        nombre: row.nombre,
+        capacidad: row.capacidad,
+        numPiezas: row.num_piezas,
+        descripcion: row.descripcion,
+        activo: row.activo,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        ...meta,
+        ai_context: aiContext
+    };
+}
+
+// ─────────────────────────────────────────────
+// CREAR PROPIEDAD
+// ─────────────────────────────────────────────
 const crearPropiedad = async (db, empresaId, datosPropiedad) => {
-    // Se permite capacidad 0 (o nula) para guardar borradores, aunque se recomienda tener capacidad.
     if (!empresaId || !datosPropiedad.nombre) {
         throw new Error('El ID de la empresa y el nombre de la propiedad son requeridos.');
     }
 
-    // Generar ID legible
-    let baseId = slugify(datosPropiedad.nombre);
-    if (!baseId) baseId = 'propiedad-' + Date.now();
+    const componentesRaw = Array.isArray(datosPropiedad.componentes) ? datosPropiedad.componentes : [];
+    const componentes = componentesRaw.map(c => ({
+        ...c,
+        elementos: Array.isArray(c.elementos) ? c.elementos : []
+    }));
 
+    const { numPiezas: piezasCalculadas, numBanos: banosCalculados } = contarDistribucion(componentes);
+    const capacidadCalculada = calcularCapacidad(componentes);
+    const capacidadFinal = datosPropiedad.capacidad || datosPropiedad.capacidadMaxima || capacidadCalculada;
+    const numPiezasFinal = datosPropiedad.numDormitorios || datosPropiedad.numPiezas || piezasCalculadas;
+
+    if (pool) {
+        // Generar ID slug único
+        let baseId = slugify(datosPropiedad.nombre) || `propiedad-${Date.now()}`;
+        let docId = baseId;
+        let counter = 1;
+
+        while (true) {
+            const { rows } = await pool.query(
+                'SELECT id FROM propiedades WHERE id = $1 AND empresa_id = $2',
+                [docId, empresaId]
+            );
+            if (rows.length === 0) break;
+            docId = `${baseId}-${counter}`;
+            counter++;
+        }
+
+        const metadata = {
+            numBanos: datosPropiedad.numBanos || banosCalculados,
+            camas: datosPropiedad.camas || {},
+            equipamiento: datosPropiedad.equipamiento || {},
+            sincronizacionIcal: datosPropiedad.sincronizacionIcal || {},
+            componentes,
+            amenidades: datosPropiedad.amenidades || [],
+            googleHotelData: datosPropiedad.googleHotelData || {},
+            websiteData: datosPropiedad.websiteData || { aiDescription: '', images: {}, cardImage: null }
+        };
+
+        await pool.query(`
+            INSERT INTO propiedades (id, empresa_id, nombre, capacidad, num_piezas, descripcion, activo, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [
+            docId, empresaId,
+            datosPropiedad.nombre,
+            capacidadFinal,
+            numPiezasFinal,
+            datosPropiedad.descripcion || '',
+            true,
+            JSON.stringify(metadata)
+        ]);
+
+        const aiContext = hydrateInventory(componentes);
+        return { id: docId, nombre: datosPropiedad.nombre, capacidad: capacidadFinal, ...metadata, ai_context: aiContext };
+    }
+
+    // Firestore fallback
+    let baseId = slugify(datosPropiedad.nombre) || `propiedad-${Date.now()}`;
     let docId = baseId;
     let counter = 1;
     let propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(docId);
-
-    // Verificar colisión (simple check)
     let doc = await propiedadRef.get();
     while (doc.exists) {
         docId = `${baseId}-${counter}`;
@@ -42,113 +110,133 @@ const crearPropiedad = async (db, empresaId, datosPropiedad) => {
         counter++;
     }
 
-    // Sanitize componentes to ensure elementos is always an array
-    const componentesRaw = Array.isArray(datosPropiedad.componentes) ? datosPropiedad.componentes : [];
-    const componentes = componentesRaw.map(c => ({
-        ...c,
-        elementos: Array.isArray(c.elementos) ? c.elementos : []
-    }));
-
-    // Calcular campos derivados automáticamente
-    const { numPiezas: piezasCalculadas, numBanos: banosCalculados } = contarDistribucion(componentes);
-    const capacidadCalculada = calcularCapacidad(componentes);
-
-    // Prioridad: 1. Valor manual/importado, 2. Valor calculado desde componentes
-    const capacidadFinal = datosPropiedad.capacidad || datosPropiedad.capacidadMaxima || capacidadCalculada;
-    console.log(`[PropSvc] 💾 "${datosPropiedad.nombre}": capacidad=${capacidadFinal} (manual=${datosPropiedad.capacidad || datosPropiedad.capacidadMaxima}, calc=${capacidadCalculada}) | piezas=${datosPropiedad.numDormitorios || datosPropiedad.numPiezas || piezasCalculadas} | baños=${datosPropiedad.numBanos || banosCalculados}`);
-
     const nuevaPropiedad = {
         nombre: datosPropiedad.nombre,
         capacidad: capacidadFinal,
         calculated_capacity: capacidadCalculada,
         descripcion: datosPropiedad.descripcion || '',
-        numPiezas: datosPropiedad.numDormitorios || datosPropiedad.numPiezas || piezasCalculadas,
+        numPiezas: numPiezasFinal,
         numBanos: datosPropiedad.numBanos || banosCalculados,
         camas: datosPropiedad.camas || {},
         equipamiento: datosPropiedad.equipamiento || {},
         sincronizacionIcal: datosPropiedad.sincronizacionIcal || {},
-        // LEGACY: Mantener arrays por compatibilidad temporal
-        componentes: componentes,
+        componentes,
         amenidades: datosPropiedad.amenidades || [],
-
         googleHotelData: datosPropiedad.googleHotelData || {},
         websiteData: datosPropiedad.websiteData || { aiDescription: '', images: {}, cardImage: null },
         fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
     };
 
-    // 1. Guardar documento principal
     await propiedadRef.set(nuevaPropiedad);
-
-    // 2. Guardar en Subcolecciones (Nuevo Modelo)
     const batch = db.batch();
-
-    // Componentes
-    componentes.forEach(comp => {
-        const compRef = propiedadRef.collection('componentes').doc();
-        batch.set(compRef, comp);
-    });
-
-    // Amenidades
-    const amenidades = datosPropiedad.amenidades || [];
-    amenidades.forEach(amenidad => {
-        const amRef = propiedadRef.collection('amenidades').doc();
-        batch.set(amRef, amenidad);
-    });
-
+    componentes.forEach(comp => batch.set(propiedadRef.collection('componentes').doc(), comp));
+    (datosPropiedad.amenidades || []).forEach(am => batch.set(propiedadRef.collection('amenidades').doc(), am));
     await batch.commit();
 
-    // [AI-CONTEXT] Hidratar respuesta para uso inmediato
     const aiContext = hydrateInventory(componentes);
-
     return { id: propiedadRef.id, ...nuevaPropiedad, ai_context: aiContext };
 };
 
+// ─────────────────────────────────────────────
+// LISTAR PROPIEDADES
+// ─────────────────────────────────────────────
 const obtenerPropiedadesPorEmpresa = async (db, empresaId) => {
     if (!empresaId || typeof empresaId !== 'string' || empresaId.trim() === '') {
-        console.error(`[ERROR] obtenerPropiedadesPorEmpresa - empresaId es INVÁLIDO. No se puede continuar.`);
-        throw new Error(`Se intentó obtener propiedades con un empresaId inválido: '${empresaId}'`);
+        throw new Error(`empresaId inválido: '${empresaId}'`);
     }
 
-    const propiedadesSnapshot = await db.collection('empresas').doc(empresaId).collection('propiedades').orderBy('fechaCreacion', 'desc').get();
-
-    if (propiedadesSnapshot.empty) {
-        return [];
+    if (pool) {
+        const { rows } = await pool.query(
+            'SELECT * FROM propiedades WHERE empresa_id = $1 ORDER BY created_at DESC',
+            [empresaId]
+        );
+        return rows.map(mapearPropiedad);
     }
 
-    return propiedadesSnapshot.docs.map(doc => {
+    // Firestore fallback
+    const snap = await db.collection('empresas').doc(empresaId).collection('propiedades')
+        .orderBy('fechaCreacion', 'desc').get();
+    if (snap.empty) return [];
+    return snap.docs.map(doc => {
         const data = doc.data();
-        // [AI-CONTEXT] Hidratar inventario on-the-fly
-        const aiContext = hydrateInventory(data.componentes || []);
-        return {
-            ...data, // Spread data FIRST
-            id: doc.id, // Ensure Doc ID overwrites any internal 'id'
-            ai_context: aiContext
-        };
+        return { ...data, id: doc.id, ai_context: hydrateInventory(data.componentes || []) };
     });
 };
 
+// ─────────────────────────────────────────────
+// OBTENER PROPIEDAD POR ID
+// ─────────────────────────────────────────────
 const obtenerPropiedadPorId = async (db, empresaId, propiedadId) => {
-    if (!propiedadId || typeof propiedadId !== 'string' || propiedadId.trim() === '') {
-        console.error(`[propiedadesService] Error: Se llamó a obtenerPropiedadPorId con un ID inválido: '${propiedadId}'`);
-        return null;
-    }
-    const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
-    const doc = await propiedadRef.get();
-    if (!doc.exists) {
-        return null;
+    if (!propiedadId || typeof propiedadId !== 'string' || propiedadId.trim() === '') return null;
+
+    if (pool) {
+        const { rows } = await pool.query(
+            'SELECT * FROM propiedades WHERE id = $1 AND empresa_id = $2',
+            [propiedadId, empresaId]
+        );
+        return rows[0] ? mapearPropiedad(rows[0]) : null;
     }
 
+    // Firestore fallback
+    const doc = await db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId).get();
+    if (!doc.exists) return null;
     const data = doc.data();
-    // [AI-CONTEXT] Hidratar inventario on-the-fly
-    const aiContext = hydrateInventory(data.componentes || []);
-
-    return { ...data, id: doc.id, ai_context: aiContext };
+    return { ...data, id: doc.id, ai_context: hydrateInventory(data.componentes || []) };
 };
 
+// ─────────────────────────────────────────────
+// ACTUALIZAR PROPIEDAD
+// ─────────────────────────────────────────────
 const actualizarPropiedad = async (db, empresaId, propiedadId, datosActualizados) => {
+    if (pool) {
+        let componentesParaMeta = undefined;
+        let capacidadFinal = datosActualizados.capacidad;
+        let numPiezasFinal = datosActualizados.numPiezas;
+
+        if (datosActualizados.componentes) {
+            const componentesRaw = Array.isArray(datosActualizados.componentes) ? datosActualizados.componentes : [];
+            componentesParaMeta = componentesRaw.map(c => ({
+                ...c,
+                id: c.id || generarIdComponente(c.nombre),
+                elementos: Array.isArray(c.elementos) ? c.elementos : []
+            }));
+            const { numPiezas } = contarDistribucion(componentesParaMeta);
+            const capacidadCalculada = calcularCapacidad(componentesParaMeta);
+            numPiezasFinal = numPiezasFinal || numPiezas;
+            capacidadFinal = capacidadFinal || capacidadCalculada;
+        }
+
+        // Construir patch de metadata — solo los campos que vienen en datosActualizados
+        const { nombre, capacidad, numPiezas, descripcion, activo, ...restoMeta } = datosActualizados;
+        if (componentesParaMeta) restoMeta.componentes = componentesParaMeta;
+
+        await pool.query(`
+            UPDATE propiedades SET
+                nombre      = COALESCE($2, nombre),
+                capacidad   = COALESCE($3, capacidad),
+                num_piezas  = COALESCE($4, num_piezas),
+                descripcion = COALESCE($5, descripcion),
+                activo      = COALESCE($6, activo),
+                metadata    = metadata || $7::jsonb,
+                updated_at  = NOW()
+            WHERE id = $1 AND empresa_id = $8
+        `, [
+            propiedadId,
+            nombre || null,
+            capacidadFinal || null,
+            numPiezasFinal || null,
+            descripcion !== undefined ? descripcion : null,
+            activo !== undefined ? activo : null,
+            JSON.stringify(restoMeta),
+            empresaId
+        ]);
+
+        return obtenerPropiedadPorId(db, empresaId, propiedadId);
+    }
+
+    // Firestore fallback
     const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
 
-    // Si se actualizan componentes, recalcular derivados y sincronizar subcolección
     if (datosActualizados.componentes) {
         const componentesRaw = Array.isArray(datosActualizados.componentes) ? datosActualizados.componentes : [];
         const componentes = componentesRaw.map(c => ({
@@ -156,182 +244,90 @@ const actualizarPropiedad = async (db, empresaId, propiedadId, datosActualizados
             id: c.id || generarIdComponente(c.nombre),
             elementos: Array.isArray(c.elementos) ? c.elementos : []
         }));
-        datosActualizados.componentes = componentes; // LEGACY
-
-        // Recalcular
+        datosActualizados.componentes = componentes;
         const { numPiezas, numBanos } = contarDistribucion(componentes);
         const capacidadCalculada = calcularCapacidad(componentes);
-
         datosActualizados.numPiezas = numPiezas;
         datosActualizados.numBanos = numBanos;
         datosActualizados.calculated_capacity = capacidadCalculada;
+        if (!datosActualizados.capacidad) datosActualizados.capacidad = capacidadCalculada;
 
-        if (!datosActualizados.capacidad) {
-            datosActualizados.capacidad = capacidadCalculada;
-        }
-
-        // Sincronizar Subcolección Componentes (Estrategia: Eliminar y Recrear para garantizar consistencia)
         const batch = db.batch();
         const existingComps = await propiedadRef.collection('componentes').get();
         existingComps.forEach(doc => batch.delete(doc.ref));
-
-        componentes.forEach(comp => {
-            const newDoc = propiedadRef.collection('componentes').doc();
-            batch.set(newDoc, comp);
-        });
+        componentes.forEach(comp => batch.set(propiedadRef.collection('componentes').doc(), comp));
         await batch.commit();
     }
 
     if (datosActualizados.amenidades) {
-        if (!Array.isArray(datosActualizados.amenidades)) {
-            datosActualizados.amenidades = [];
-        }
-        // Sincronizar Subcolección Amenidades
+        if (!Array.isArray(datosActualizados.amenidades)) datosActualizados.amenidades = [];
         const batch = db.batch();
         const existingAmens = await propiedadRef.collection('amenidades').get();
         existingAmens.forEach(doc => batch.delete(doc.ref));
-
-        datosActualizados.amenidades.forEach(am => {
-            const newDoc = propiedadRef.collection('amenidades').doc();
-            batch.set(newDoc, am);
-        });
+        datosActualizados.amenidades.forEach(am => batch.set(propiedadRef.collection('amenidades').doc(), am));
         await batch.commit();
     }
 
-    await propiedadRef.update({
-        ...datosActualizados,
-        fechaActualizacion: admin.firestore.FieldValue.serverTimestamp()
-    });
+    await propiedadRef.update({ ...datosActualizados, fechaActualizacion: admin.firestore.FieldValue.serverTimestamp() });
     const docActualizado = await propiedadRef.get();
     const data = docActualizado.data();
-
-    // [AI-CONTEXT] Hidratar respuesta
-    const aiContext = hydrateInventory(data.componentes || []);
-
-    return { id: propiedadId, ...data, ai_context: aiContext };
+    return { id: propiedadId, ...data, ai_context: hydrateInventory(data.componentes || []) };
 };
 
+// ─────────────────────────────────────────────
+// ELIMINAR PROPIEDAD
+// ─────────────────────────────────────────────
 const eliminarPropiedad = async (db, empresaId, propiedadId) => {
-    // 1. Verificar Reservas dependientes (Integridad Referencial)
-    const reservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
-        .where('alojamientoId', '==', propiedadId)
-        .limit(1)
-        .get();
+    if (pool) {
+        const { rows: reservas } = await pool.query(
+            'SELECT id FROM reservas WHERE empresa_id = $1 AND propiedad_id = $2 LIMIT 1',
+            [empresaId, propiedadId]
+        );
+        if (reservas.length > 0) throw new Error(`No se puede eliminar: tiene reservas asociadas (Ej: ${reservas[0].id}).`);
 
-    if (!reservasSnapshot.empty) {
-        const resId = reservasSnapshot.docs[0].id;
-        throw new Error(`No se puede eliminar: Tiene reservas asociadas (Ej: ${resId}).`);
+        const { rows: tarifas } = await pool.query(
+            'SELECT id FROM tarifas WHERE empresa_id = $1 AND propiedad_id = $2 LIMIT 1',
+            [empresaId, propiedadId]
+        );
+        if (tarifas.length > 0) throw new Error(`No se puede eliminar: tiene tarifas configuradas (Ej: ${tarifas[0].id}).`);
+
+        await pool.query('DELETE FROM propiedades WHERE id = $1 AND empresa_id = $2', [propiedadId, empresaId]);
+        return;
     }
 
-    // 2. Verificar Tarifas dependientes
-    const tarifasSnapshot = await db.collection('empresas').doc(empresaId).collection('tarifas')
-        .where('alojamientoId', '==', propiedadId)
-        .limit(1)
-        .get();
+    // Firestore fallback
+    const reservasSnap = await db.collection('empresas').doc(empresaId).collection('reservas')
+        .where('alojamientoId', '==', propiedadId).limit(1).get();
+    if (!reservasSnap.empty) throw new Error(`No se puede eliminar: tiene reservas asociadas (Ej: ${reservasSnap.docs[0].id}).`);
 
-    if (!tarifasSnapshot.empty) {
-        const rateId = tarifasSnapshot.docs[0].id;
-        throw new Error(`No se puede eliminar: Tiene tarifas configuradas (Ej: ${rateId}).`);
-    }
+    const tarifasSnap = await db.collection('empresas').doc(empresaId).collection('tarifas')
+        .where('alojamientoId', '==', propiedadId).limit(1).get();
+    if (!tarifasSnap.empty) throw new Error(`No se puede eliminar: tiene tarifas configuradas (Ej: ${tarifasSnap.docs[0].id}).`);
 
-    // 3. Si paso las verificaciones, proceder a eliminar
-    const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
-    await propiedadRef.delete();
+    await db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId).delete();
 };
 
-/**
- * Clona una propiedad existente incluyendo sus subcolecciones.
- */
+// ─────────────────────────────────────────────
+// CLONAR PROPIEDAD
+// ─────────────────────────────────────────────
 const clonarPropiedad = async (db, empresaId, propiedadId, customName = null) => {
-    const sourceRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
-    const sourceDoc = await sourceRef.get();
+    const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
+    if (!propiedad) throw new Error('La propiedad original no existe.');
 
-    if (!sourceDoc.exists) {
-        throw new Error('La propiedad original no existe.');
-    }
-
-    const sourceData = sourceDoc.data();
-
-    // CRITICAL: Remove 'id' from source data to prevent overwriting the new document's ID
-    if (sourceData.id) delete sourceData.id;
-
-    const nuevoNombre = customName || `${sourceData.nombre} (Copia)`;
-
-    // Generar nuevo ID
-    let baseId = slugify(nuevoNombre);
-    if (!baseId) baseId = 'propiedad-copia-' + Date.now();
-
-    let docId = baseId;
-    let counter = 1;
-    let targetRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(docId);
-    let targetDoc = await targetRef.get();
-
-    while (targetDoc.exists) {
-        docId = `${baseId}-${counter}`;
-        targetRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(docId);
-        targetDoc = await targetRef.get();
-        counter++;
-    }
-
-    // Preparar objeto
-    // Preparar objeto
-    const nuevaPropiedad = {
-        ...sourceData,
+    const nuevoNombre = customName || `${propiedad.nombre} (Copia)`;
+    const datosClonados = {
+        ...propiedad,
         nombre: nuevoNombre,
-        fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
-        googleHotelData: {
-            ...sourceData.googleHotelData,
-            hotelId: baseId, // Auto-generate clean ID for Google Hotels
-            isListed: false
-        },
+        googleHotelData: { ...propiedad.googleHotelData, isListed: false },
         icalLink: '',
         sincronizacionIcal: {}
     };
+    delete datosClonados.id;
+    delete datosClonados.ai_context;
+    delete datosClonados.createdAt;
+    delete datosClonados.updatedAt;
 
-    const batch = db.batch();
-
-    // 1. Set main doc
-    batch.set(targetRef, nuevaPropiedad);
-
-    // 2. Clone Subcollections (Componentes)
-    const componentesSnap = await sourceRef.collection('componentes').get();
-
-    if (!componentesSnap.empty) {
-        // Source has subcollection -> Copy it
-        componentesSnap.forEach(doc => {
-            const newCompRef = targetRef.collection('componentes').doc(); // Auto-ID
-            batch.set(newCompRef, doc.data());
-        });
-    } else if (sourceData.componentes && Array.isArray(sourceData.componentes)) {
-        // FALLBACK: Source only has Legacy Array -> Create subcollection from it
-        sourceData.componentes.forEach(comp => {
-            const newCompRef = targetRef.collection('componentes').doc();
-            batch.set(newCompRef, comp);
-        });
-    }
-
-    // 3. Clone Subcollections (Amenidades)
-    const amenidadesSnap = await sourceRef.collection('amenidades').get();
-
-    if (!amenidadesSnap.empty) {
-        amenidadesSnap.forEach(doc => {
-            const newAmRef = targetRef.collection('amenidades').doc();
-            batch.set(newAmRef, doc.data());
-        });
-    } else if (sourceData.amenidades && Array.isArray(sourceData.amenidades)) {
-        // FALLBACK: Legacy Array
-        sourceData.amenidades.forEach(am => {
-            const newAmRef = targetRef.collection('amenidades').doc();
-            batch.set(newAmRef, am);
-        });
-    }
-
-    await batch.commit();
-
-    // Context for immediate return
-    const aiContext = hydrateInventory(nuevaPropiedad.componentes || []);
-
-    return { id: targetRef.id, ...nuevaPropiedad, ai_context: aiContext };
+    return crearPropiedad(db, empresaId, datosClonados);
 };
 
 module.exports = {

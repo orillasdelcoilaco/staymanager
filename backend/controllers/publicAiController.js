@@ -460,6 +460,19 @@ const createBookingIntent = async (req, res) => {
             return { ...data, id: doc.id, fechaInicio: inicio, fechaTermino: termino };
         }).filter(Boolean);
 
+        // Verificar bloqueos antes de crear la reserva
+        const bloqueosSnap = await db.collection('empresas').doc(targetEmpresaId).collection('bloqueos')
+            .where('fechaFin', '>=', require('firebase-admin').firestore.Timestamp.fromDate(startDate))
+            .get();
+        const bloqueado = bloqueosSnap.docs.some(doc => {
+            const b = doc.data();
+            if (b.fechaInicio.toDate() >= endDate) return false;
+            return b.todos || (b.alojamientoIds || []).includes(propiedadId);
+        });
+        if (bloqueado) {
+            return res.status(409).json({ error: 'La propiedad no está disponible en las fechas solicitadas.' });
+        }
+
         const valorDolarDia = await obtenerValorDolar(db, targetEmpresaId, startDate);
         const rawProperty = propertyDoc.data();
         const propertyName = rawProperty ? rawProperty.nombre : 'Propiedad';
@@ -707,12 +720,31 @@ const checkAvailability = async (req, res) => {
 
         const empresaId = propDoc.ref.parent.parent.id;
 
-        const reservasSnapshot = await db.collection('empresas')
-            .doc(empresaId)
-            .collection('reservas')
-            .where('alojamientoId', '==', id)
-            .where('estado', '==', 'Confirmada')
-            .get();
+        const [reservasSnapshot, bloqueosSnapshot] = await Promise.all([
+            db.collection('empresas').doc(empresaId).collection('reservas')
+                .where('alojamientoId', '==', id)
+                .where('estado', '==', 'Confirmada')
+                .get(),
+            db.collection('empresas').doc(empresaId).collection('bloqueos')
+                .where('fechaFin', '>=', require('firebase-admin').firestore.Timestamp.fromDate(inicio))
+                .get()
+        ]);
+
+        const bloqueado = bloqueosSnapshot.docs.some(doc => {
+            const b = doc.data();
+            const bInicio = b.fechaInicio.toDate();
+            if (bInicio >= fin) return false;
+            return b.todos || (b.alojamientoIds || []).includes(id);
+        });
+
+        if (bloqueado) {
+            return res.json(formatResponse({
+                disponible: false,
+                conflictos: [],
+                totalConflictos: 0,
+                mensaje: 'La propiedad está bloqueada por mantenimiento en las fechas solicitadas'
+            }));
+        }
 
         const conflictos = reservasSnapshot.docs
             .filter(doc => {

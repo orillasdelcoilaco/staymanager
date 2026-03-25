@@ -1,5 +1,6 @@
 // backend/services/mensajeService.js
 
+const pool = require('../db/postgres');
 const { obtenerPlantillasPorEmpresa, obtenerTiposPlantilla } = require('./plantillasService');
 const { obtenerDetallesEmpresa } = require('./empresaService');
 const { getActividadDiaria, getDisponibilidadPeriodo } = require('./reportesService');
@@ -58,12 +59,29 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
     ]);
 
     const tipoPropuesta = tipos.find(t => t.nombre.toLowerCase().includes('propuesta'));
-    if (!tipoPropuesta) throw new Error('No se encontró un "Tipo de Plantilla" llamado "Propuesta".');
+    const plantilla = tipoPropuesta ? plantillas.find(p => p.tipoId === tipoPropuesta.id) : null;
 
-    const plantilla = plantillas.find(p => p.tipoId === tipoPropuesta.id);
-    if (!plantilla) throw new Error('No se encontró ninguna plantilla de tipo "Propuesta".');
+    const TEXTO_PROPUESTA_DEFAULT = `🏡 PROPUESTA DE RESERVA [PROPUESTA_ID]
+Fecha de Emisión: [FECHA_EMISION] — Válida hasta: [FECHA_VENCIMIENTO_PROPUESTA]
 
-    let texto = plantilla.texto;
+Estimado/a [CLIENTE_NOMBRE], me complace presentarle la siguiente propuesta:
+
+📅 Fechas: [FECHAS_ESTADIA_TEXTO] ([TOTAL_NOCHES] noches)
+👥 Personas: [GRUPO_SOLICITADO]
+
+[DETALLE_PROPIEDADES_PROPUESTA]
+
+[RESUMEN_VALORES_PROPUESTA]
+
+Para confirmar la reserva, se solicita un abono del [PORCENTAJE_ABONO] ([MONTO_ABONO]).
+
+[CONDICIONES_RESERVA]
+
+Saludos cordiales,
+[USUARIO_NOMBRE] — [USUARIO_TELEFONO]
+[EMPRESA_NOMBRE] | [EMPRESA_WEBSITE]`;
+
+    let texto = plantilla ? plantilla.texto : TEXTO_PROPUESTA_DEFAULT;
 
     // --- INICIO DE LA CORRECCIÓN ---
     // Restaurar la definición local de formatCurrency
@@ -208,32 +226,39 @@ const generarTextoPropuesta = async (db, empresaId, datosPropuesta) => {
     };
     
     for (const [etiqueta, valor] of Object.entries(reemplazos)) {
-        texto = texto.replace(new RegExp(etiqueta.replace(/\[/g, '\\[').replace(/\]/g, '\\]'), 'g'), valor !== undefined && valor !== null ? valor : '');
+        texto = texto.replace(new RegExp(etiqueta.replace(/\[/g, '\\[').replace(/\]/g, '\\]'), 'g'), (valor !== undefined && valor !== null && valor !== '') ? valor : etiqueta);
     }
 
     return texto;
 };
 
 const generarTextoPresupuesto = async (db, empresaId, cliente, fechaLlegada, fechaSalida, propiedades, personas) => {
-    const [tipos, plantillas, empresaData, dolarHoy, canalesSnapshot] = await Promise.all([
+    const [tipos, plantillas, empresaData, dolarHoy] = await Promise.all([
         obtenerTiposPlantilla(db, empresaId),
         obtenerPlantillasPorEmpresa(db, empresaId),
         obtenerDetallesEmpresa(db, empresaId),
         obtenerValorDolarHoy(db, empresaId),
-        db.collection('empresas').doc(empresaId).collection('canales').get()
     ]);
 
     const tipoPresupuesto = tipos.find(t => t.nombre.toLowerCase().includes('presupuesto'));
-    if (!tipoPresupuesto) {
-        throw new Error('No se encontró un "Tipo de Plantilla" llamado "Presupuesto".');
-    }
+    const plantilla = tipoPresupuesto ? plantillas.find(p => p.tipoId === tipoPresupuesto.id) : null;
 
-    const plantilla = plantillas.find(p => p.tipoId === tipoPresupuesto.id);
-    if (!plantilla) {
-        throw new Error('No se encontró ninguna plantilla de tipo "Presupuesto".');
-    }
+    const TEXTO_PRESUPUESTO_DEFAULT = `💰 PRESUPUESTO DE ESTADÍA
+[EMPRESA_NOMBRE] | [EMPRESA_WEBSITE]
 
-    let texto = plantilla.texto;
+Cliente: [CLIENTE_NOMBRE]
+📅 Fechas: [FECHAS_ESTADIA] ([TOTAL_NOCHES] noches)
+👥 Personas: [GRUPO_HUESPEDES]
+
+🏡 Alojamientos:
+[DETALLE_PROPIEDADES_PRESUPUESTO]
+
+[RESUMEN_VALORES_PRESUPUESTO]
+
+Saludos,
+[USUARIO_NOMBRE] — [USUARIO_TELEFONO]`;
+
+    let texto = plantilla ? plantilla.texto : TEXTO_PRESUPUESTO_DEFAULT;
 
     const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
     const formatDate = (dateString) => {
@@ -245,18 +270,43 @@ const generarTextoPresupuesto = async (db, empresaId, cliente, fechaLlegada, fec
     const endDate = new Date(fechaSalida + 'T00:00:00Z');
     const noches = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
 
-    const tarifasSnapshot = await db.collection('empresas').doc(empresaId).collection('tarifas').get();
-     const allTarifas = tarifasSnapshot.docs.map(doc => {
-        const data = doc.data();
-        const inicio = data.fechaInicio?.toDate ? data.fechaInicio.toDate() : new Date(data.fechaInicio + 'T00:00:00Z');
-        const termino = data.fechaTermino?.toDate ? data.fechaTermino.toDate() : new Date(data.fechaTermino + 'T00:00:00Z');
-        return { ...data, id: doc.id, fechaInicio: inicio, fechaTermino: termino };
-    });
+    let allTarifas, allCanales;
+    if (pool) {
+        const [{ rows: tarifaRows }, { rows: canalRows }] = await Promise.all([
+            pool.query('SELECT * FROM tarifas WHERE empresa_id = $1', [empresaId]),
+            pool.query('SELECT * FROM canales WHERE empresa_id = $1', [empresaId]),
+        ]);
+        allTarifas = tarifaRows.map(row => ({
+            id: row.id,
+            alojamientoId: row.propiedad_id,
+            fechaInicio:   new Date((row.reglas?.fechaInicio  || '') + 'T00:00:00Z'),
+            fechaTermino:  new Date((row.reglas?.fechaTermino || '') + 'T00:00:00Z'),
+            precios:       row.reglas?.precios || {},
+            reglas:        row.reglas || {},
+        }));
+        allCanales = canalRows.map(row => ({
+            id: row.id,
+            nombre: row.nombre,
+            esCanalPorDefecto: row.metadata?.esCanalPorDefecto || false,
+            ...row.metadata,
+        }));
+    } else {
+        const [tarifasSnapshot, canalesSnapshot] = await Promise.all([
+            db.collection('empresas').doc(empresaId).collection('tarifas').get(),
+            db.collection('empresas').doc(empresaId).collection('canales').get(),
+        ]);
+        allTarifas = tarifasSnapshot.docs.map(doc => {
+            const data = doc.data();
+            const inicio   = data.fechaInicio?.toDate  ? data.fechaInicio.toDate()  : new Date(data.fechaInicio  + 'T00:00:00Z');
+            const termino  = data.fechaTermino?.toDate ? data.fechaTermino.toDate() : new Date(data.fechaTermino + 'T00:00:00Z');
+            return { ...data, id: doc.id, fechaInicio: inicio, fechaTermino: termino };
+        });
+        allCanales = canalesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
 
-    const allCanales = canalesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    const canalParaCalculo = allCanales.find(c => c.nombre.toLowerCase() === 'app') || allCanales.find(c => c.esCanalPorDefecto);
+    const canalParaCalculo = allCanales.find(c => c.esCanalPorDefecto);
     if (!canalParaCalculo) {
-        throw new Error("Se requiere un canal 'App' o un canal por defecto para calcular precios.");
+        throw new Error("No hay ningún canal marcado como canal por defecto. Configure uno en Gestionar Canales (⭐).");
     }
 
     const pricing = await calculatePrice(db, empresaId, propiedades, startDate, endDate, allTarifas, canalParaCalculo.id, dolarHoy.valor);
@@ -335,7 +385,7 @@ const generarTextoPresupuesto = async (db, empresaId, cliente, fechaLlegada, fec
     };
     
     for (const [etiqueta, valor] of Object.entries(reemplazos)) {
-         texto = texto.replace(new RegExp(etiqueta.replace(/\[/g, '\\[').replace(/\]/g, '\\]'), 'g'), valor !== undefined && valor !== null ? valor : '');
+         texto = texto.replace(new RegExp(etiqueta.replace(/\[/g, '\\[').replace(/\]/g, '\\]'), 'g'), (valor !== undefined && valor !== null && valor !== '') ? valor : etiqueta);
     }
 
     return texto;

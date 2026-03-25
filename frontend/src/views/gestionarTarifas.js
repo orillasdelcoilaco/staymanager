@@ -108,6 +108,10 @@ export async function render() {
             <label for="precioBase" class="block text-sm font-medium text-gray-700">Precio Base (${canalPorDefecto.moneda})</label>
             <input type="number" id="precioBase" name="precioBase" required class="form-input mt-1">
           </div>
+          <div>
+            <p class="text-sm font-medium text-gray-700 mb-2">Vista Previa de Precios por Canal</p>
+            <div id="precios-canales-preview" class="bg-gray-50 rounded-md p-3"></div>
+          </div>
           <div class="flex justify-end pt-4 border-t">
             <button type="button" id="cancel-edit-btn" class="btn-secondary mr-2">Cancelar</button>
             <button type="submit" class="btn-primary">Guardar Cambios</button>
@@ -149,7 +153,7 @@ export function afterRender() {
 
     if (target.classList.contains('edit-btn')) {
       editandoTarifa = tarifa;
-      abrirModalEditar(tarifa, canalPorDefecto);
+      abrirModalEditar(tarifa, canalPorDefecto, canales);
     }
 
     if (target.classList.contains('copy-btn')) {

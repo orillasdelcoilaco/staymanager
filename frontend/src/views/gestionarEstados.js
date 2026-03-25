@@ -1,5 +1,6 @@
 // frontend/src/views/gestionarEstados.js
 import { fetchAPI } from '../api.js';
+import { SEMANTICA_LABELS, invalidarCache } from './components/estadosStore.js';
 
 let estados = [];
 let editandoEstado = null;
@@ -16,6 +17,7 @@ function abrirModal(estado = null) {
         form.color.value = estado.color || '#cccccc';
         form.esEstadoDeGestion.checked = estado.esEstadoDeGestion || false;
         form.orden.value = estado.orden || 0;
+        form.semantica.value = estado.semantica || '';
     } else {
         editandoEstado = null;
         modalTitle.textContent = 'Nuevo Estado';
@@ -81,6 +83,14 @@ export async function render() {
                     <div><label for="color" class="label-form">Color</label><input type="color" name="color" required class="form-input"></div>
                     <div><label for="orden" class="label-form">Orden de Aparición</label><input type="number" name="orden" required class="form-input"></div>
                     <div class="flex items-center"><input type="checkbox" name="esEstadoDeGestion" class="h-4 w-4 rounded"><label for="esEstadoDeGestion" class="ml-2">Es un estado del flujo de Gestión Diaria</label></div>
+                    <div>
+                        <label for="semantica" class="label-form">Semántica del Sistema</label>
+                        <select name="semantica" class="form-select">
+                            <option value="">— Sin semántica asignada —</option>
+                            ${Object.entries(SEMANTICA_LABELS).map(([key, label]) => `<option value="${key}">${label}</option>`).join('')}
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Conecta este estado con el comportamiento del sistema (flujo de trabajo, disponibilidad, filtros).</p>
+                    </div>
                     <div class="flex justify-end pt-4 border-t">
                         <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
                         <button type="submit" class="btn-primary">Guardar</button>
@@ -113,8 +123,10 @@ export async function afterRender() {
             nombre: form.nombre.value,
             color: form.color.value,
             esEstadoDeGestion: form.esEstadoDeGestion.checked,
-            orden: parseInt(form.orden.value) || 0
+            orden: parseInt(form.orden.value) || 0,
+            semantica: form.semantica.value || null,
         };
+        invalidarCache();
 
         try {
             const endpoint = editandoEstado ? `/estados/${editandoEstado.id}` : '/estados';

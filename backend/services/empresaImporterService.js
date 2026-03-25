@@ -26,6 +26,8 @@ const { crearPropiedad } = require('./propiedadesService');
 const { crearCanal, obtenerCanalesPorEmpresa } = require('./canalesService');
 const { analizarMetadataActivo } = require('./aiContentService');
 const { uploadFile } = require('./storageService');
+const { crearTipoPlantilla, crearPlantilla, obtenerTiposPlantilla, obtenerPlantillasPorEmpresa } = require('./plantillasService');
+const { obtenerMapeoCentralPorNombre, aplicarMapeoCentralAEmpresa } = require('./mapeosCentralesService');
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -573,6 +575,13 @@ async function createEmpresaFromImport(adminSdk, db, importData, credentials, wi
         try {
             const canal = await crearCanal(db, empresaId, { nombre: nombreCanal, moneda, esCanalPorDefecto: false });
             result.canales.push(canal);
+            try {
+                const mapeoCentral = await obtenerMapeoCentralPorNombre(db, nombreCanal);
+                if (mapeoCentral) {
+                    await aplicarMapeoCentralAEmpresa(db, empresaId, canal.id, mapeoCentral);
+                    console.log(`[Importer]   ✅ Mapeo central aplicado a: ${nombreCanal}`);
+                }
+            } catch (e) { console.warn(`[Importer]   ⚠️ Sin mapeo central para: ${nombreCanal}`); }
             console.log(`[Importer] ✅ Canal OTA: ${nombreCanal}`);
             await sleep(200);
         } catch (err) {
@@ -802,6 +811,130 @@ async function createEmpresaFromImport(adminSdk, db, importData, credentials, wi
             result.errores.push(`Propiedad "${aloj.nombre}": ${err.message}`);
             console.error(`[Importer]   ❌ Error propiedad "${aloj.nombre}":`, err.message);
         }
+    }
+
+    // ── PASO 7: Tipos de Plantilla + Plantillas por defecto ──
+    console.log(`[Importer] 7️⃣  Verificando plantillas por defecto...`);
+    try {
+        const tiposExistentes = await obtenerTiposPlantilla(db, empresaId);
+        const plantillasExistentes = await obtenerPlantillasPorEmpresa(db, empresaId);
+        const tiposMap = new Map(tiposExistentes.map(t => [normalizeKey(t.nombre), t]));
+
+        const TIPOS_DEFAULT = [
+            { nombre: 'Propuesta', descripcion: 'Cotizaciones y propuestas de reserva' },
+            { nombre: 'Presupuesto', descripcion: 'Presupuestos informativos sin reserva' },
+            { nombre: 'Mensaje de Reserva', descripcion: 'Confirmaciones y seguimiento de reservas' },
+            { nombre: 'Mensaje de Salida', descripcion: 'Mensajes post-estadía y agradecimiento' },
+        ];
+
+        const PLANTILLAS_DEFAULT = {
+            'propuesta': {
+                nombre: 'Propuesta Estándar',
+                texto: `🏡 PROPUESTA DE RESERVA [PROPUESTA_ID]
+Fecha de Emisión: [FECHA_EMISION] — Válida hasta: [FECHA_VENCIMIENTO_PROPUESTA]
+
+Estimado/a [CLIENTE_NOMBRE], es un placer cotizarle la siguiente propuesta de estadía en [EMPRESA_NOMBRE]:
+
+📅 Fechas: [FECHAS_ESTADIA_TEXTO] ([TOTAL_NOCHES] noches)
+👥 Personas: [GRUPO_SOLICITADO]
+
+🏠 Detalle de Alojamiento:
+[DETALLE_PROPIEDADES_PROPUESTA]
+
+[RESUMEN_VALORES_PROPUESTA]
+
+📌 Para confirmar su reserva, se requiere un abono del [PORCENTAJE_ABONO] ([MONTO_ABONO]).
+
+[CONDICIONES_RESERVA]
+
+Saludos cordiales,
+[USUARIO_NOMBRE]
+📱 [USUARIO_TELEFONO]
+🌐 [EMPRESA_WEBSITE]`
+            },
+            'presupuesto': {
+                nombre: 'Presupuesto Estándar',
+                texto: `💰 PRESUPUESTO DE ESTADÍA
+[EMPRESA_NOMBRE] | [EMPRESA_WEBSITE]
+
+Cliente: [CLIENTE_NOMBRE]
+📅 Fechas: [FECHAS_ESTADIA] ([TOTAL_NOCHES] noches)
+👥 Personas: [GRUPO_HUESPEDES]
+
+🏡 Alojamientos disponibles:
+[DETALLE_PROPIEDADES_PRESUPUESTO]
+
+[RESUMEN_VALORES_PRESUPUESTO]
+
+Para más información:
+[USUARIO_NOMBRE] | [USUARIO_TELEFONO]
+[EMPRESA_WEBSITE]`
+            },
+            'mensaje de reserva': {
+                nombre: 'Confirmación de Reserva',
+                texto: `✅ RESERVA CONFIRMADA — [EMPRESA_NOMBRE]
+Reserva N°: [RESERVA_ID_CANAL]
+
+Estimado/a [CLIENTE_NOMBRE], su reserva ha sido confirmada.
+
+📅 Check-in:  [FECHA_LLEGADA] (desde las 15:00 hrs)
+📅 Check-out: [FECHA_SALIDA] (hasta las 11:00 hrs)
+🏠 Alojamiento: [ALOJAMIENTO_NOMBRE]
+👥 Huéspedes: [CANTIDAD_HUESPEDES]
+
+💳 Saldo pendiente: [SALDO_PENDIENTE]
+
+[CONDICIONES_RESERVA]
+
+¡Le esperamos!
+[USUARIO_NOMBRE] — 📱 [USUARIO_TELEFONO]
+[EMPRESA_NOMBRE] | [EMPRESA_WEBSITE]`
+            },
+            'mensaje de salida': {
+                nombre: 'Mensaje Post-Estadía',
+                texto: `🙏 ¡GRACIAS POR SU VISITA! — [EMPRESA_NOMBRE]
+
+Estimado/a [CLIENTE_NOMBRE], gracias por elegirnos.
+
+Esperamos que su estadía haya superado sus expectativas. Si tiene algún comentario o sugerencia, no dude en contactarnos.
+
+¡Hasta pronto y esperamos verle nuevamente!
+
+[USUARIO_NOMBRE]
+📱 [USUARIO_TELEFONO]
+[EMPRESA_NOMBRE] | [EMPRESA_WEBSITE]`
+            }
+        };
+
+        for (const tipoDef of TIPOS_DEFAULT) {
+            const key = normalizeKey(tipoDef.nombre);
+            let tipo = tiposMap.get(key);
+
+            if (!tipo) {
+                tipo = await crearTipoPlantilla(db, empresaId, tipoDef);
+                tiposMap.set(key, tipo);
+                console.log(`[Importer]   ✅ TipoPlantilla creado: "${tipoDef.nombre}"`);
+            } else {
+                result.omitidos.push(`TipoPlantilla "${tipoDef.nombre}" (ya existe)`);
+            }
+
+            // Crear plantilla por defecto si no hay ninguna de este tipo
+            const yaExistePlantilla = plantillasExistentes.some(p => p.tipoId === tipo.id);
+            if (!yaExistePlantilla && PLANTILLAS_DEFAULT[key]) {
+                const def = PLANTILLAS_DEFAULT[key];
+                await crearPlantilla(db, empresaId, {
+                    nombre: def.nombre,
+                    tipoId: tipo.id,
+                    texto: def.texto,
+                    enviarPorEmail: false,
+                    destinatarios: []
+                });
+                console.log(`[Importer]   ✅ Plantilla creada: "${def.nombre}"`);
+            }
+        }
+    } catch (err) {
+        result.errores.push(`Plantillas por defecto: ${err.message}`);
+        console.error(`[Importer]   ❌ Error creando plantillas:`, err.message);
     }
 
     // ── RESUMEN ──────────────────────────────────────────────

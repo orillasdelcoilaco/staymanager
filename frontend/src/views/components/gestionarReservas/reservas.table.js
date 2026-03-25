@@ -35,7 +35,7 @@ export function renderTabla(filtros, todasLasReservas, historialCargas) {
         const idNumericoCarga = reporte ? reporte.idNumerico : 'N/A';
 
         return `
-        <tr class="border-b text-xs hover:bg-gray-50">
+        <tr id="row-${r.id}" class="border-b text-xs hover:bg-gray-50">
             <td class="py-2 px-3 text-center font-medium text-gray-500">${index + 1}</td>
             <td class="py-2 px-3 font-mono">${r.idReservaCanal}</td>
             <td class="py-2 px-3 font-mono text-center font-bold">${idNumericoCarga}</td>

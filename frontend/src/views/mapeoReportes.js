@@ -1,7 +1,9 @@
 import { fetchAPI } from '../api.js';
+import { getEstados, getEstadosReserva } from './components/estadosStore.js';
 
 let mapeos = [];
 let canales = [];
+let allEstados = [];
 let canalSiendoEditado = null;
 let cabecerasArchivo = [];
 let archivoDeMuestra = null;
@@ -50,6 +52,14 @@ async function renderizarMapeoDeEstados(selectEstado) {
         });
 
         const mapeosGuardados = canalSiendoEditado.mapeosDeEstado || {};
+        const estadosReserva = getEstadosReserva(allEstados);
+        const nombresDeEstado = estadosReserva.length > 0
+            ? estadosReserva.map(e => e.nombre)
+            : ['Confirmada', 'Cancelada', 'No Presentado', 'Desconocido', 'Propuesta', 'Ignorar'];
+
+        const buildOpts = (valorGuardado) => nombresDeEstado
+            .map(n => `<option value="${n}" ${n === valorGuardado ? 'selected' : ''}>${n}</option>`)
+            .join('');
 
         container.innerHTML = `
             <label class="block text-sm font-medium text-gray-700 mt-4">4. Interpretar los Estados</label>
@@ -59,10 +69,7 @@ async function renderizarMapeoDeEstados(selectEstado) {
                     <div class="grid grid-cols-2 gap-4 items-center">
                         <span class="font-mono text-sm bg-gray-100 p-2 rounded-md justify-self-end">${valor}</span>
                         <select data-valor-original="${valor}" class="form-select estado-mapeo-select">
-                            <option value="Desconocido" ${mapeosGuardados[valor] === 'Desconocido' ? 'selected' : ''}>Revisión Manual (Desconocido)</option>
-                            <option value="Confirmada" ${mapeosGuardados[valor] === 'Confirmada' ? 'selected' : ''}>Confirmada</option>
-                            <option value="Cancelada" ${mapeosGuardados[valor] === 'Cancelada' ? 'selected' : ''}>Cancelada</option>
-                            <option value="Ignorar" ${mapeosGuardados[valor] === 'Ignorar' ? 'selected' : ''}>Ignorar Fila</option>
+                            ${buildOpts(mapeosGuardados[valor] || 'Desconocido')}
                         </select>
                     </div>
                 `).join('')}
@@ -149,13 +156,25 @@ function abrirModal(canal) {
     canalSiendoEditado = canal;
     cabecerasArchivo = [];
     archivoDeMuestra = null;
-    
+
     const modal = document.getElementById('mapeo-modal');
     document.getElementById('modal-title').textContent = `Configurar Mapeo para: ${canal.nombre}`;
     document.getElementById('upload-status').classList.add('hidden');
     document.getElementById('mapeo-editor').classList.add('hidden');
     document.getElementById('mapeo-estados-container').classList.add('hidden');
     document.getElementById('archivo-muestra-input').value = '';
+
+    const hintEl = document.getElementById('canal-descarga-hint');
+    const nombreNorm = (canal.nombre || '').toLowerCase();
+    if (nombreNorm.includes('airbnb')) {
+        hintEl.innerHTML = `📥 <strong>¿Dónde descargo el informe de Airbnb?</strong><br>
+            Ve a <a href="https://www.airbnb.cl/hosting/reservations/all" target="_blank" rel="noopener"
+               class="underline font-medium">airbnb.cl/hosting/reservations/all</a>,
+            filtra el período que necesitas y usa <em>Exportar CSV</em> en la esquina superior derecha.`;
+        hintEl.classList.remove('hidden');
+    } else {
+        hintEl.classList.add('hidden');
+    }
     
     document.getElementById('formato-fecha-select').value = canal.formatoFecha || 'DD/MM/YYYY';
     document.getElementById('separador-decimal-select').value = canal.separadorDecimal || ',';
@@ -171,7 +190,7 @@ function cerrarModal() {
 
 export async function render() {
     try {
-        [mapeos, canales] = await Promise.all([fetchAPI('/mapeos'), fetchAPI('/canales')]);
+        [mapeos, canales, allEstados] = await Promise.all([fetchAPI('/mapeos'), fetchAPI('/canales'), getEstados()]);
     } catch (error) {
         return `<p class="text-danger-500">Error al cargar los datos.</p>`;
     }
@@ -204,6 +223,7 @@ export async function render() {
         <div id="mapeo-modal" class="modal hidden">
             <div class="modal-content !max-w-4xl">
                 <h3 id="modal-title" class="text-xl font-semibold mb-4"></h3>
+                <div id="canal-descarga-hint" class="hidden mb-4 p-3 bg-primary-50 border border-primary-200 rounded-lg text-sm text-primary-800"></div>
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700">1. Sube un archivo de ejemplo</label>
@@ -216,7 +236,8 @@ export async function render() {
                         <div>
                             <label for="formato-fecha-select" class="block text-sm font-medium text-gray-700">2. Define el Formato de Fecha</label>
                             <select id="formato-fecha-select" class="mt-1 form-select w-full">
-                                <option value="DD/MM/YYYY">Día/Mes/Año (ej: 25/12/2025)</option>
+                                <option value="DD/MM/YYYY">Día/Mes/Año con cero (ej: 25/12/2025)</option>
+                                <option value="D/M/YYYY">Día/Mes/Año sin cero — Airbnb (ej: 5/2/2025)</option>
                                 <option value="MM/DD/YYYY">Mes/Día/Año (ej: 12/25/2025)</option>
                                 <option value="YYYY-MM-DD">Año-Mes-Día (ej: 2025-12-25)</option>
                             </select>

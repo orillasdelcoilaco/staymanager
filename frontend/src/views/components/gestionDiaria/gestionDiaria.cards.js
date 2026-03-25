@@ -1,9 +1,10 @@
 // frontend/src/views/components/gestionDiaria/gestionDiaria.cards.js
 import { getStatusInfo, formatCurrency, formatDate, formatUSD } from './gestionDiaria.utils.js';
+import { getEstadosReserva } from '../estadosStore.js';
 
 function renderFinancialDetails(grupo) {
     if (grupo.esUSD) {
-        const valorDolar = grupo.reservasIndividuales[0]?.valorDolarDia || 0;
+        const valorDolar = grupo.valoresUSD?.valorDolar || grupo.reservasIndividuales[0]?.valorDolarDia || 0;
         const totalClienteUSD = grupo.valoresUSD?.totalCliente || 0;
         const ivaUSD = grupo.valoresUSD?.iva || 0;
         const costoCanalCLP = grupo.costoCanal || 0;
@@ -28,7 +29,6 @@ function renderFinancialDetails(grupo) {
             </div>
         `;
     }
-    // Si es solo CLP
     return `
         <div class="text-xs text-gray-500 space-y-1">
             <div class="flex justify-between"><span>Total Cliente:</span> <span class="font-semibold">${formatCurrency(grupo.valorTotalHuesped)}</span></div>
@@ -40,12 +40,11 @@ function renderFinancialDetails(grupo) {
         </div>`;
 }
 
+function renderActionButtons(grupo, allEstados) {
+    const estadoInfo = getStatusInfo(grupo.estadoGestion, allEstados);
 
-function renderActionButtons(grupo) {
-    const estadoInfo = getStatusInfo(grupo.estadoGestion);
-    
     const ajusteRealizado = grupo.ajusteManualRealizado || grupo.potencialCalculado;
-    const pagoFinalRealizado = ['Pendiente Boleta', 'Pendiente Cliente', 'Facturado'].includes(grupo.estadoGestion);
+    const pagoFinalRealizado = estadoInfo.level >= 4;
     const boletaAdjunta = grupo.documentos && grupo.documentos.enlaceBoleta;
     const reservaAdjunta = grupo.documentos && grupo.documentos.enlaceReserva;
 
@@ -63,10 +62,9 @@ function renderActionButtons(grupo) {
         const docStatusClass = boletaAdjunta ? 'bg-success-500 hover:bg-success-700' : 'bg-amber-500 hover:bg-amber-700';
         buttons += `<button class="gestion-btn btn-table-edit text-xs ${docStatusClass}" data-gestion="boleta">Boleta ${boletaAdjunta ? '✓' : ''}</button>`;
     }
-    
+
     if (estadoInfo.level >= 5) {
-         // Aquí mantenemos el botón de gestión de cliente para el flujo final
-         buttons += `<button class="gestion-btn btn-table-edit text-xs" data-gestion="gestionar_cliente">Gestionar Cliente ${grupo.clienteGestionado ? '✓' : ''}</button>`;
+        buttons += `<button class="gestion-btn btn-table-edit text-xs" data-gestion="gestionar_cliente">Gestionar Cliente ${grupo.clienteGestionado ? '✓' : ''}</button>`;
     }
 
     if (estadoInfo.level > 1) {
@@ -76,21 +74,26 @@ function renderActionButtons(grupo) {
     return buttons;
 }
 
-function crearDropdownEstadosReserva(grupo) {
-    const estadosReserva = ['Confirmada', 'Cancelada', 'No Presentado', 'Desconocido', 'Propuesta'];
-    
-    const opcionesReserva = estadosReserva.map(estado =>
-        `<option value="${estado}" ${grupo.estado === estado ? 'selected' : ''}>
-            ${estado}
-        </option>`
-    ).join('');
+function crearDropdownEstadosReserva(grupo, allEstados) {
+    const estadosReserva = getEstadosReserva(allEstados);
+    const opcionesReserva = estadosReserva.length > 0
+        ? estadosReserva.map(e => `<option value="${e.nombre}" ${grupo.estado === e.nombre ? 'selected' : ''}>${e.nombre}</option>`).join('')
+        : ['Confirmada', 'Cancelada', 'No Presentado', 'Desconocido', 'Propuesta']
+            .map(n => `<option value="${n}" ${grupo.estado === n ? 'selected' : ''}>${n}</option>`).join('');
 
+    const estadoInfo = getStatusInfo(grupo.estado, allEstados);
     let bgColorClass = 'bg-gray-100';
-    if (grupo.estado === 'Confirmada') {
+    if (estadoInfo.semantica === 'confirmada') {
         bgColorClass = 'bg-success-100';
-    } else if (grupo.estado === 'Cancelada' || grupo.estado === 'No Presentado') {
+    } else if (estadoInfo.semantica === 'cancelada' || estadoInfo.semantica === 'no_show') {
         bgColorClass = 'bg-danger-100';
-    } else if (grupo.estado === 'Propuesta' || grupo.estado === 'Desconocido') {
+    } else if (estadoInfo.semantica === 'propuesta' || estadoInfo.semantica === 'desconocido') {
+        bgColorClass = 'bg-warning-100';
+    } else if (['Confirmada'].includes(grupo.estado)) {
+        bgColorClass = 'bg-success-100';
+    } else if (['Cancelada', 'No Presentado'].includes(grupo.estado)) {
+        bgColorClass = 'bg-danger-100';
+    } else if (['Propuesta', 'Desconocido'].includes(grupo.estado)) {
         bgColorClass = 'bg-warning-100';
     }
 
@@ -110,25 +113,24 @@ function createCard(grupo, allEstados) {
     today.setHours(0, 0, 0, 0);
     const checkinDate = new Date(grupo.fechaLlegada);
     const diasParaLlegada = Math.round((checkinDate - today) / (1000 * 60 * 60 * 24));
-    
+
     const estadoInfo = getStatusInfo(grupo.estadoGestion, allEstados);
     const alojamientosNombres = grupo.reservasIndividuales.map(r => r.alojamientoNombre).join(', ');
 
-    const estadoBotonHtml = estadoInfo.gestionType 
+    const estadoBotonHtml = estadoInfo.gestionType
         ? `<button class="gestion-btn px-2 py-1 text-xs font-semibold rounded-full" data-gestion="${estadoInfo.gestionType}" style="background-color: ${estadoInfo.color}; color: white;">${estadoInfo.text}</button>`
         : `<span class="px-2 py-1 text-xs font-semibold rounded-full" style="background-color: ${estadoInfo.color}; color: white;">${estadoInfo.text}</span>`;
 
-    // --- CAMBIO CLAVE: Botón en lugar de enlace para el nombre del cliente ---
     return `
     <div id="card-${grupo.reservaIdOriginal}" class="p-4 border rounded-lg bg-white shadow-sm flex flex-col md:flex-row gap-4">
         <div class="flex-grow">
             <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-3">
                     ${estadoBotonHtml}
-                    <button 
-                        class="client-trigger text-lg font-bold text-primary-800 hover:underline focus:outline-none text-left" 
+                    <button
+                        class="client-trigger text-lg font-bold text-primary-800 hover:underline focus:outline-none text-left"
                         data-cliente-id="${grupo.clienteId}"
-                        title="Ver/Editar Cliente"
+                        title="Ver perfil del cliente"
                     >
                         ${grupo.clienteNombre}
                     </button>
@@ -136,8 +138,13 @@ function createCard(grupo, allEstados) {
                 </div>
                 <span class="text-sm font-semibold text-gray-600">${diasParaLlegada > 0 ? `Llega en ${diasParaLlegada} día(s)` : (diasParaLlegada === 0 ? 'Llega HOY' : `Llegó hace ${-diasParaLlegada} día(s)`)}</span>
             </div>
-            
-            ${crearDropdownEstadosReserva(grupo)}
+
+            ${grupo.clienteBloqueado ? `
+            <div class="mx-[-1rem] px-4 py-2 bg-danger-50 border-y border-danger-200 flex items-start gap-2 text-xs">
+                <span class="text-danger-500 mt-0.5 flex-shrink-0">🚫</span>
+                <div><span class="font-semibold text-danger-700">Cliente Bloqueado:</span> <span class="text-danger-600">${grupo.motivoBloqueo || 'Sin motivo especificado'}</span></div>
+            </div>` : ''}
+            ${crearDropdownEstadosReserva(grupo, allEstados)}
             <div class="grid grid-cols-3 gap-4 text-sm">
                 <div><span class="font-medium text-gray-500">Check-in:</span> ${formatDate(grupo.fechaLlegada)}</div>
                 <div><span class="font-medium text-gray-500">Check-out:</span> ${formatDate(grupo.fechaSalida)}</div>
@@ -149,7 +156,7 @@ function createCard(grupo, allEstados) {
         <div class="flex-shrink-0 w-full md:w-96 space-y-3">
             ${renderFinancialDetails(grupo)}
             <div class="flex flex-wrap gap-2 justify-end pt-2 border-t">
-                ${renderActionButtons(grupo)}
+                ${renderActionButtons(grupo, allEstados)}
             </div>
         </div>
     </div>`;
@@ -170,8 +177,9 @@ export function renderGrupos(grupos, allEstados) {
     grupos.forEach(grupo => {
         const cardHtml = createCard(grupo, allEstados);
         const checkinDate = new Date(grupo.fechaLlegada);
+        const statusInfo = getStatusInfo(grupo.estadoGestion, allEstados);
 
-        if (grupo.estadoGestion === 'Desconocido') {
+        if (statusInfo.esRevision) {
             revisionList.innerHTML += cardHtml;
         } else if (checkinDate <= today) {
             hoyList.innerHTML += cardHtml;

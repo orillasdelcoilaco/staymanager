@@ -3,13 +3,15 @@ import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
 import { renderGrupos } from './components/gestionDiaria/gestionDiaria.cards.js';
 import { openManagementModal, initializeModals, openRevertModal } from './components/gestionDiaria/gestionDiaria.modals.js';
+import { getStatusInfo } from './components/estadosStore.js';
 // Importamos las utilidades del modal de clientes
-import { renderModalCliente, setupModalCliente, abrirModalCliente } from './components/gestionarClientes/clientes.modals.js';
+import { renderModalCliente, setupModalCliente } from './components/gestionarClientes/clientes.modals.js';
 
 let allGrupos = [];
 let allEstados = [];
 let currentUserEmail = '';
 let isLoading = false;
+let recargarCallback = null;
 
 export async function render() {
     return `
@@ -145,14 +147,20 @@ async function handleEstadoReservaChange(e) {
         grupo.estado = nuevoEstadoReserva;
         
         select.classList.remove('bg-gray-100', 'bg-success-100', 'bg-danger-100', 'bg-warning-100');
-        if (nuevoEstadoReserva === 'Confirmada') {
+        const estadoInfo = getStatusInfo(nuevoEstadoReserva, allEstados);
+        if (estadoInfo.semantica === 'confirmada' || nuevoEstadoReserva === 'Confirmada') {
             select.classList.add('bg-success-100');
-        } else if (nuevoEstadoReserva === 'Cancelada' || nuevoEstadoReserva === 'No Presentado') {
+        } else if (['cancelada', 'no_show'].includes(estadoInfo.semantica) || ['Cancelada', 'No Presentado'].includes(nuevoEstadoReserva)) {
             select.classList.add('bg-danger-100');
-        } else if (nuevoEstadoReserva === 'Propuesta' || nuevoEstadoReserva === 'Desconocido') {
+        } else if (['propuesta', 'desconocido'].includes(estadoInfo.semantica) || ['Propuesta', 'Desconocido'].includes(nuevoEstadoReserva)) {
             select.classList.add('bg-warning-100');
         } else {
             select.classList.add('bg-gray-100');
+        }
+
+        const infoPost = getStatusInfo(nuevoEstadoReserva, allEstados);
+        if ((['cancelada', 'no_show'].includes(infoPost.semantica) || ['Cancelada', 'No Presentado'].includes(nuevoEstadoReserva)) && recargarCallback) {
+            await recargarCallback();
         }
 
     } catch (error) {
@@ -169,15 +177,17 @@ export async function afterRender() {
 
     // Configuración del modal de cliente con recarga tras guardar
     setupModalCliente(async () => {
-        console.log('Cliente actualizado, recargando datos...');
         await loadAndRender();
+        const currentSearch = document.getElementById('search-input')?.value;
+        if (currentSearch) aplicarFiltro(currentSearch);
     });
 
     const searchInput = document.getElementById('search-input');
-    searchInput.addEventListener('input', () => {
-        const filtro = searchInput.value.toLowerCase();
+
+    const aplicarFiltro = (valor) => {
+        const filtro = valor.toLowerCase();
         if (filtro) {
-            const gruposFiltrados = allGrupos.filter(g => 
+            const gruposFiltrados = allGrupos.filter(g =>
                 (g.clienteNombre && g.clienteNombre.toLowerCase().includes(filtro)) ||
                 (g.reservaIdOriginal && g.reservaIdOriginal.toLowerCase().includes(filtro)) ||
                 (g.telefono && g.telefono.includes(filtro))
@@ -186,7 +196,17 @@ export async function afterRender() {
         } else {
             renderGrupos(allGrupos, allEstados);
         }
-    });
+    };
+
+    searchInput.addEventListener('input', () => aplicarFiltro(searchInput.value));
+
+    // Filtrado desde calendario: mostrar solo la reserva indicada
+    const highlightId = sessionStorage.getItem('highlightReserva');
+    if (highlightId) {
+        sessionStorage.removeItem('highlightReserva');
+        searchInput.value = highlightId;
+        aplicarFiltro(highlightId);
+    }
 
     const listsContainer = [
         document.getElementById('revision-list'),
@@ -200,14 +220,7 @@ export async function afterRender() {
             // 1. Manejo del clic en el NOMBRE DEL CLIENTE
             if (e.target.classList.contains('client-trigger')) {
                 const clienteId = e.target.dataset.clienteId;
-                if (clienteId) {
-                    try {
-                        const cliente = await fetchAPI(`/clientes/${clienteId}`);
-                        abrirModalCliente(cliente);
-                    } catch (error) {
-                        alert('Error al cargar datos del cliente: ' + error.message);
-                    }
-                }
+                if (clienteId) handleNavigation(`/cliente/${clienteId}`);
                 return;
             }
 
@@ -234,5 +247,12 @@ export async function afterRender() {
         });
     });
     
-    initializeModals(loadAndRender, currentUserEmail, () => allEstados);
+    const recargarYFiltrar = async () => {
+        await loadAndRender();
+        const currentSearch = searchInput.value;
+        if (currentSearch) aplicarFiltro(currentSearch);
+    };
+    recargarCallback = recargarYFiltrar;
+
+    initializeModals(recargarYFiltrar, currentUserEmail, () => allEstados);
 }

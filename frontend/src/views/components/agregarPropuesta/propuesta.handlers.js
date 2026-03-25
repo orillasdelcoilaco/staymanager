@@ -26,7 +26,7 @@ export async function initializeView() {
     const canalSelect = document.getElementById('canal-select');
     if (canalSelect) {
         canalSelect.innerHTML = state.allCanales.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
-        const appChannel = state.allCanales.find(c => c.nombre.toLowerCase() === 'app');
+        const appChannel = state.allCanales.find(c => c.esCanalPorDefecto);
         if (appChannel) canalSelect.value = appChannel.id;
     }
 
@@ -147,9 +147,10 @@ export async function runSearch() {
   
     try {
       resetSearchState();
+      document.getElementById('valor-final-fijo').value = '';
       document.getElementById('descuento-pct').value = '';
       document.getElementById('descuento-fijo-total').value = '';
-      
+
       clearCupon(updateSummary, state.currentPricing);
     } catch (e) {
       console.warn("Error al limpiar estado:", e);
@@ -236,7 +237,13 @@ export async function handleGuardarPropuesta() {
       alert('Primero realiza una búsqueda de disponibilidad.');
       return;
     }
-  
+
+    const alertaBloqueo = document.getElementById('cliente-bloqueo-alert');
+    if (alertaBloqueo && !alertaBloqueo.classList.contains('hidden')) {
+      alert('No se puede crear la propuesta: el cliente está bloqueado. Primero desbloquéalo desde su ficha.');
+      return;
+    }
+
     const cliente = await obtenerOcrearCliente();
     if (!cliente || !cliente.id) {
       alert('No se pudo procesar el cliente. Verifica los datos.');

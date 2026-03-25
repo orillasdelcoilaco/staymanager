@@ -42,6 +42,10 @@ const views = {
     '/gestionar-comentarios': () => import('./views/gestionarComentarios.js'),
     '/importador-magico': () => import('./views/importadorMagico.js?v=1.2'),
     '/galeria-propiedad': () => import('./views/galeriaPropiedad.js'),
+    '/mapeos-centrales': () => import('./views/mapeosCentrales.js'),
+    '/gestionar-estados': () => import('./views/gestionarEstados.js'),
+    '/importador-historico': () => import('./views/importadorHistorico.js'),
+    '/gestionar-bloqueos': () => import('./views/gestionarBloqueos.js'),
 };
 
 const menuConfig = [
@@ -70,6 +74,7 @@ const menuConfig = [
             { name: '📈 Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' },
             { name: '📡 Canales', path: '/gestionar-canales', id: 'gestionar-canales' },
             { name: '🗓️ Sincronizar iCal', path: '/sincronizar-ical', id: 'sincronizar-ical' },
+            { name: '🔒 Bloqueos', path: '/gestionar-bloqueos', id: 'gestionar-bloqueos' },
         ]
     },
     {
@@ -96,12 +101,15 @@ const menuConfig = [
             { name: '🗂️ Historial Cargas', path: '/historial-cargas', id: 'historial-cargas' },
             { name: '🔄 Conversión', path: '/conversion-alojamientos', id: 'config-conversion' },
             { name: '🗺️ Mapeo Reportes', path: '/mapeo-reportes', id: 'mapeo-reportes' },
+            { name: '🌐 Mapeos OTA Centrales', path: '/mapeos-centrales', id: 'mapeos-centrales' },
             { name: '👤 Autorizar Google Contacts', path: '/autorizar-google', id: 'config-google' },
             { name: '🔧 Reparar Fechas de Reservas', path: '/reparar-fechas', id: 'reparar-fechas' },
             { name: '📞 Reparar y Verificar Contactos', path: '/reparar-contactos', id: 'reparar-contactos' },
             { name: '🔧 Reparar Dólar Histórico', path: '/reparar-dolar', id: 'reparar-dolar' },
             { name: '🏷️ Tipos de Plantilla', path: '/gestionar-tipos-plantilla', id: 'gestionar-tipos-plantilla' },
+            { name: '🔖 Estados de Gestión', path: '/gestionar-estados', id: 'gestionar-estados' },
             { name: '✨ Importador Mágico', path: '/importador-magico', id: 'importador-magico' },
+            { name: '📥 Importador Histórico', path: '/importador-historico', id: 'importador-historico' },
         ]
     }
 ];

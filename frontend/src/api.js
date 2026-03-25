@@ -54,7 +54,7 @@ export async function fetchAPI(endpoint, options = {}) {
 
     if (!(options.body instanceof FormData)) {
         headers['Content-Type'] = 'application/json';
-        if (options.body) {
+        if (options.body && typeof options.body !== 'string') {
             options.body = JSON.stringify(options.body);
         }
     }

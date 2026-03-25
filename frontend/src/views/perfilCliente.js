@@ -1,5 +1,6 @@
 import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
+import { renderModalCliente, abrirModalCliente, setupModalCliente } from './components/gestionarClientes/clientes.modals.js';
 
 let cliente = null;
 let comunicaciones = [];
@@ -15,25 +16,6 @@ function renderStars(rating) {
     return stars || 'Sin calificar';
 }
 
-function abrirModalEditar() {
-    const modal = document.getElementById('cliente-modal-perfil');
-    const form = document.getElementById('cliente-form-perfil');
-    if (!modal || !form || !cliente) return;
-    
-    form.nombre.value = cliente.nombre || '';
-    form.email.value = cliente.email || '';
-    form.telefono.value = cliente.telefono || '';
-    form.pais.value = cliente.pais || '';
-    form.calificacion.value = cliente.calificacion || 0;
-    form.ubicacion.value = cliente.ubicacion || '';
-    form.notas.value = cliente.notas || '';
-    
-    modal.classList.remove('hidden');
-}
-
-function cerrarModalEditar() {
-    document.getElementById('cliente-modal-perfil').classList.add('hidden');
-}
 
 function renderHistorialReservas() {
     const tbody = document.getElementById('historial-tbody');
@@ -219,29 +201,7 @@ export async function render() {
             </div>
         </div>
         
-        <div id="cliente-modal-perfil" class="modal hidden">
-            <div class="modal-content">
-                <h3 class="text-xl font-semibold mb-4">Editar Cliente</h3>
-                <form id="cliente-form-perfil">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="mb-2"><label for="nombre" class="block text-sm font-medium text-gray-700">Nombre Completo</label><input type="text" name="nombre" required class="mt-1 form-input"></div>
-                        <div class="mb-2"><label for="telefono" class="block text-sm font-medium text-gray-700">Teléfono</label><input type="tel" name="telefono" required class="mt-1 form-input"></div>
-                        <div class="mb-2"><label for="email" class="block text-sm font-medium text-gray-700">Email</label><input type="email" name="email" class="mt-1 form-input"></div>
-                        <div class="mb-2"><label for="pais" class="block text-sm font-medium text-gray-700">País</label><input type="text" name="pais" class="mt-1 form-input"></div>
-                    </div>
-                    <hr class="my-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="mb-2"><label for="calificacion" class="block text-sm font-medium text-gray-700">Calificación</label><select name="calificacion" class="mt-1 form-select"><option value="0">Sin calificar</option><option value="1">⭐</option><option value="2">⭐⭐</option><option value="3">⭐⭐⭐</option><option value="4">⭐⭐⭐⭐</option><option value="5">⭐⭐⭐⭐⭐</option></select></div>
-                        <div class="mb-2"><label for="ubicacion" class="block text-sm font-medium text-gray-700">Ubicación</label><input type="text" name="ubicacion" class="mt-1 form-input"></div>
-                    </div>
-                    <div class="mb-2"><label for="notas" class="block text-sm font-medium text-gray-700">Notas</label><textarea name="notas" rows="3" class="mt-1 form-input"></textarea></div>
-                    <div class="flex justify-end pt-4 mt-4 border-t">
-                        <button type="button" id="cancel-btn-perfil" class="btn-secondary mr-2">Cancelar</button>
-                        <button type="submit" class="btn-primary">Guardar Cambios</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+        ${renderModalCliente()}
     `;
 }
 
@@ -275,47 +235,9 @@ export function afterRender() {
         handleNavigation(path);
     });
 
-    document.getElementById('edit-cliente-btn').addEventListener('click', abrirModalEditar);
-    document.getElementById('cancel-btn-perfil').addEventListener('click', cerrarModalEditar);
+    document.getElementById('edit-cliente-btn').addEventListener('click', () => abrirModalCliente(cliente));
 
-    document.getElementById('cliente-form-perfil').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const form = e.target;
-        const submitBtn = form.querySelector('button[type="submit"]');
-        const originalBtnText = submitBtn.textContent;
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Guardando...';
-
-        const datos = {
-            nombre: form.nombre.value,
-            telefono: form.telefono.value,
-            email: form.email.value,
-            pais: form.pais.value,
-            calificacion: parseInt(form.calificacion.value) || 0,
-            ubicacion: form.ubicacion.value,
-            notas: form.notas.value
-        };
-
-        try {
-            await fetchAPI(`/clientes/${cliente.id}`, { method: 'PUT', body: datos });
-            
-            if (reservaDeOrigenId) {
-                await fetchAPI('/gestion/marcar-cliente-gestionado', {
-                    method: 'POST',
-                    body: { reservaIdOriginal: reservaDeOrigenId }
-                });
-                handleNavigation('/gestion-diaria');
-            } else {
-                cliente = { ...cliente, ...datos };
-                cerrarModalEditar();
-                handleNavigation(window.location.pathname);
-            }
-
-        } catch (error) {
-            alert(`Error al guardar: ${error.message}`);
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalBtnText;
-        }
+    setupModalCliente(async () => {
+        handleNavigation(window.location.pathname);
     });
 }

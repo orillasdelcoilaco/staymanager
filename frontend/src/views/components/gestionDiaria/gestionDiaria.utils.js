@@ -1,3 +1,5 @@
+import { getStatusInfo as _getStatusInfo } from '../estadosStore.js';
+
 export function formatCurrency(value) { return `$${(Math.round(value) || 0).toLocaleString('es-CL')}`; }
 export function formatDate(dateString) { return dateString ? new Date(dateString).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : 'N/A'; }
 
@@ -10,29 +12,11 @@ export function formatUSD(value, { includeSymbol = true } = {}) {
     return includeSymbol ? `$${formattedValue}` : formattedValue;
 }
 
+// Re-exportado desde estadosStore para mantener compatibilidad con todos los importadores.
+// Incluye fallback legacy para empresas sin semántica configurada.
 export function getStatusInfo(statusName, allEstados = []) {
-    const estado = allEstados.find(e => e.nombre === statusName);
-    
-    const baseInfo = {
-        text: estado ? estado.nombre.toUpperCase() : (statusName ? statusName.toUpperCase() : 'DESCONOCIDO'),
-        color: estado ? estado.color : '#9ca3af' // bg-gray-400
-    };
-
-    // La lógica de negocio (qué acción dispara cada estado) se mantiene aquí
-    switch (statusName) {
-        case 'Pendiente Bienvenida': return { ...baseInfo, level: 1, gestionType: 'enviar_bienvenida' };
-        case 'Pendiente Cobro': return { ...baseInfo, level: 2, gestionType: 'enviar_cobro' };
-        case 'Pendiente Cliente': return { ...baseInfo, level: 5, gestionType: 'gestionar_cliente' };
-        case 'Desconocido': return { ...baseInfo, level: 0, gestionType: 'corregir_estado', color: '#f59e0b' }; // bg-amber-500
-        
-        // Estados sin acción directa en el tag
-        case 'Pendiente Pago': return { ...baseInfo, level: 3, gestionType: null };
-        case 'Pendiente Boleta': return { ...baseInfo, level: 4, gestionType: null };
-        case 'No Presentado': return { ...baseInfo, level: 100, gestionType: null };
-        default: return { ...baseInfo, level: 99, gestionType: null };
-    }
+    return _getStatusInfo(statusName, allEstados);
 }
-
 
 export function showPreview(file, thumb, container) {
     if (file && file.type.startsWith('image/')) {

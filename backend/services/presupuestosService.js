@@ -1,4 +1,5 @@
 // backend/services/presupuestosService.js
+const pool = require('../db/postgres');
 const { obtenerPropiedadPorId } = require('./propiedadesService');
 const { obtenerClientePorId } = require('./clientesService');
 const { obtenerTarifasParaRango } = require('./tarifasService');
@@ -103,38 +104,29 @@ async function generarPresupuesto(db, empresaId, datos) {
 
         const precioFinalUSD = precioFinalCLP / valorDolar;
 
-        // 6. Guardar en Firestore
-        const presupuestoRef = db.collection('empresas').doc(empresaId).collection('presupuestos').doc();
+        // 6. Guardar
         const nuevoPresupuesto = {
-            id: presupuestoRef.id,
-            clienteId: cliente.id,
-            clienteNombre: cliente.nombre,
-            clienteEmail: cliente.email,
-            fechaCreacion: new Date(),
-            fechaLlegada,
-            fechaSalida,
-            noches,
-            adultos,
-            ninos,
-            propiedades: propiedadesInfo,
-            serviciosAdicionales: serviciosAdicionales || [],
-            ajuste: {
-                monto: montoAjusteCLP,
-                tipo: tipoAjuste || null,
-                descripcion: datos.descripcionAjuste || '',
-                aplicadoAlTotal: aplicarAjusteTotal !== undefined ? aplicarAjusteTotal : true // Default a true
-            },
-            comisionAgencia: comisionAgencia || 0,
-            comisionTotalCalculada: comisionTotalConsolidadaCLP,
-            subtotalCLP: precioTotalConsolidadoCLP,
-            adicionalesCLP: totalAdicionalesCLP,
-            totalFinalCLP: precioFinalCLP,
-            totalFinalUSD: precioFinalUSD,
-            estado: 'pendiente',
-            enviadoPorEmail: enviarEmail || false
+            clienteId: cliente.id, clienteNombre: cliente.nombre, clienteEmail: cliente.email,
+            fechaCreacion: new Date(), fechaLlegada, fechaSalida, noches, adultos, ninos,
+            propiedades: propiedadesInfo, serviciosAdicionales: serviciosAdicionales || [],
+            ajuste: { monto: montoAjusteCLP, tipo: tipoAjuste || null, descripcion: datos.descripcionAjuste || '', aplicadoAlTotal: aplicarAjusteTotal !== undefined ? aplicarAjusteTotal : true },
+            comisionAgencia: comisionAgencia || 0, comisionTotalCalculada: comisionTotalConsolidadaCLP,
+            subtotalCLP: precioTotalConsolidadoCLP, adicionalesCLP: totalAdicionalesCLP,
+            totalFinalCLP: precioFinalCLP, totalFinalUSD: precioFinalUSD,
+            estado: 'pendiente', enviadoPorEmail: enviarEmail || false
         };
 
-        await presupuestoRef.set(nuevoPresupuesto);
+        if (pool) {
+            const { rows } = await pool.query(
+                `INSERT INTO presupuestos (empresa_id, cliente_id, estado, datos) VALUES ($1,$2,'pendiente',$3) RETURNING id`,
+                [empresaId, cliente.id, JSON.stringify(nuevoPresupuesto)]
+            );
+            nuevoPresupuesto.id = rows[0].id;
+        } else {
+            const presupuestoRef = db.collection('empresas').doc(empresaId).collection('presupuestos').doc();
+            nuevoPresupuesto.id = presupuestoRef.id;
+            await presupuestoRef.set(nuevoPresupuesto);
+        }
 
         // 7. Enviar email (si aplica)
         if (enviarEmail) {
@@ -151,30 +143,37 @@ async function generarPresupuesto(db, empresaId, datos) {
 }
 
 async function obtenerPresupuestos(db, empresaId) {
-    const snapshot = await db.collection('empresas').doc(empresaId).collection('presupuestos')
-        .orderBy('fechaCreacion', 'desc')
-        .limit(50)
-        .get();
-
-    if (snapshot.empty) return [];
-    return snapshot.docs.map(doc => doc.data());
+    if (pool) {
+        const { rows } = await pool.query(
+            `SELECT id, estado, datos, created_at FROM presupuestos WHERE empresa_id = $1 ORDER BY created_at DESC LIMIT 50`,
+            [empresaId]
+        );
+        return rows.map(r => ({ id: r.id, estado: r.estado, ...r.datos, fechaCreacion: r.created_at }));
+    }
+    const snap = await db.collection('empresas').doc(empresaId).collection('presupuestos').orderBy('fechaCreacion', 'desc').limit(50).get();
+    return snap.empty ? [] : snap.docs.map(d => d.data());
 }
 
 async function obtenerPresupuestoPorId(db, empresaId, presupuestoId) {
-     const doc = await db.collection('empresas').doc(empresaId).collection('presupuestos').doc(presupuestoId).get();
-     if (!doc.exists) {
-         throw new Error('Presupuesto no encontrado');
-     }
-     return doc.data();
+    if (pool) {
+        const { rows } = await pool.query('SELECT id, estado, datos, created_at FROM presupuestos WHERE id = $1 AND empresa_id = $2', [presupuestoId, empresaId]);
+        if (!rows[0]) throw new Error('Presupuesto no encontrado');
+        return { id: rows[0].id, estado: rows[0].estado, ...rows[0].datos, fechaCreacion: rows[0].created_at };
+    }
+    const doc = await db.collection('empresas').doc(empresaId).collection('presupuestos').doc(presupuestoId).get();
+    if (!doc.exists) throw new Error('Presupuesto no encontrado');
+    return doc.data();
 }
 
 async function actualizarEstadoPresupuesto(db, empresaId, presupuestoId, estado) {
-     if (!['pendiente', 'aceptado', 'rechazado'].includes(estado)) {
-         throw new Error('Estado no válido');
-     }
-     const ref = db.collection('empresas').doc(empresaId).collection('presupuestos').doc(presupuestoId);
-     await ref.update({ estado: estado });
-     return { id: presupuestoId, estado: estado };
+    if (!['pendiente', 'aceptado', 'rechazado'].includes(estado)) throw new Error('Estado no válido');
+    if (pool) {
+        await pool.query('UPDATE presupuestos SET estado = $1 WHERE id = $2 AND empresa_id = $3', [estado, presupuestoId, empresaId]);
+        return { id: presupuestoId, estado };
+    }
+    const ref = db.collection('empresas').doc(empresaId).collection('presupuestos').doc(presupuestoId);
+    await ref.update({ estado });
+    return { id: presupuestoId, estado };
 }
 
 

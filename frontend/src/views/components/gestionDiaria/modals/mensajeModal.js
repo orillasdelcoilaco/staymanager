@@ -1,8 +1,10 @@
 import { fetchAPI } from '../../../../api.js';
 import { formatCurrency, formatDate, formatUSD } from '../gestionDiaria.utils.js';
+import { getEstadosGestion } from '../../estadosStore.js';
 import { handleNavigation } from '../../../../router.js';
 
 let currentGrupo = null;
+let currentAllEstados = [];
 let onActionComplete = () => {};
 let plantillasDisponibles = [];
 let currentTipoMensaje = '';
@@ -75,17 +77,23 @@ async function handleAvanzarEstado() {
     btn.disabled = true;
     btn.textContent = 'Avanzando...';
 
+    // Determinar el próximo estado dinámicamente por orden
+    const estadosGestion = getEstadosGestion(currentAllEstados);
     let nuevoEstado = '';
-    switch(currentGrupo.estadoGestion) {
-        case 'Pendiente Bienvenida':
-            nuevoEstado = 'Pendiente Cobro';
-            break;
-        case 'Pendiente Cobro':
-            nuevoEstado = 'Pendiente Pago';
-            break;
-        case 'Pendiente Cliente': // El flujo de salida también avanza.
-            nuevoEstado = 'Facturado';
-            break;
+
+    if (estadosGestion.length > 0) {
+        const idxActual = estadosGestion.findIndex(e => e.nombre === currentGrupo.estadoGestion);
+        if (idxActual !== -1 && idxActual + 1 < estadosGestion.length) {
+            nuevoEstado = estadosGestion[idxActual + 1].nombre;
+        }
+    } else {
+        // Fallback legacy para empresas sin estados configurados
+        const legacyNext = {
+            'Pendiente Bienvenida': 'Pendiente Cobro',
+            'Pendiente Cobro':      'Pendiente Pago',
+            'Pendiente Cliente':    'Facturado',
+        };
+        nuevoEstado = legacyNext[currentGrupo.estadoGestion] || '';
     }
 
     if (!nuevoEstado) {
@@ -105,16 +113,7 @@ async function handleAvanzarEstado() {
         });
         
         document.getElementById('gestion-modal').classList.add('hidden');
-
-        if (currentTipoMensaje === 'salida') {
-            await fetchAPI('/gestion/marcar-cliente-gestionado', {
-                method: 'POST',
-                body: { reservaIdOriginal: currentGrupo.reservaIdOriginal }
-            });
-            handleNavigation(`/cliente/${currentGrupo.clienteId}?from-reserva=${currentGrupo.reservaIdOriginal}`);
-        } else {
-            await onActionComplete();
-        }
+        await onActionComplete();
 
     } catch (error) {
         alert(`Error al avanzar estado: ${error.message}`);
@@ -124,8 +123,9 @@ async function handleAvanzarEstado() {
 }
 
 
-export async function renderMensajeModal(grupo, tipoMensaje, callback) {
+export async function renderMensajeModal(grupo, tipoMensaje, callback, allEstados = []) {
     currentGrupo = grupo;
+    currentAllEstados = allEstados;
     onActionComplete = callback;
     currentTipoMensaje = tipoMensaje;
     const contentContainer = document.getElementById('modal-content-container');
@@ -162,7 +162,13 @@ export async function renderMensajeModal(grupo, tipoMensaje, callback) {
                         <button id="copy-btn" class="btn-secondary">Copiar Mensaje</button>
                         <button id="whatsapp-btn" class="btn-primary bg-success-600 hover:bg-success-700">Enviar por WhatsApp</button>
                     </div>
-                    <button id="avanzar-estado-btn" class="btn-primary w-full md:w-auto">Marcar como Enviado y Avanzar</button>
+                    ${currentTipoMensaje === 'salida' && !currentGrupo.clienteGestionado
+                        ? `<div class="text-right">
+                               <p class="text-xs text-warning-600 mb-1">Primero usa "Gestionar Cliente" para evaluar al huésped.</p>
+                               <button id="avanzar-estado-btn" class="btn-primary w-full md:w-auto opacity-50" disabled>Marcar como Enviado y Avanzar</button>
+                           </div>`
+                        : `<button id="avanzar-estado-btn" class="btn-primary w-full md:w-auto">Marcar como Enviado y Avanzar</button>`
+                    }
                 </div>
             </div>
         `;

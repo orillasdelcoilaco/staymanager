@@ -20,12 +20,12 @@ async function loadInitialData() {
             fetchAPI('/clientes'),
             fetchAPI('/canales')
         ]);
-        const appChannel = allCanales.find(c => c.nombre.toLowerCase() === 'app');
+        const appChannel = allCanales.find(c => c.esCanalPorDefecto);
         if (appChannel) {
             appCanalId = appChannel.id;
         } else {
-            console.error("No se encontró el canal 'App'. El generador de presupuestos podría no funcionar correctamente.");
-            alert("Advertencia: No se encontró un canal de venta llamado 'App'. Los cálculos de precios pueden fallar.");
+            console.error("No se encontró un canal marcado como 'por defecto'. El generador de presupuestos podría no funcionar correctamente.");
+            alert("Advertencia: No hay ningún canal marcado como canal por defecto (⭐) en Gestionar Canales. Los cálculos de precios pueden fallar.");
         }
     } catch (error) {
         console.error("No se pudieron cargar los datos iniciales:", error);
@@ -55,8 +55,18 @@ function filterClients(e) {
 }
 
 function selectClient(client) {
+    document.getElementById('cliente-bloqueo-alert')?.classList.add('hidden');
     document.getElementById('client-search').value = client.nombre;
     document.getElementById('client-results-list').classList.add('hidden');
+
+    if (client.bloqueado) {
+        const motivo = document.getElementById('cliente-bloqueo-motivo');
+        if (motivo) motivo.textContent = `Motivo: "${client.motivoBloqueo || 'Sin motivo especificado'}"`;
+        document.getElementById('cliente-bloqueo-alert')?.classList.remove('hidden');
+        document.getElementById('ir-editar-cliente-btn')?.addEventListener('click', () => handleNavigation('/clientes'), { once: true });
+        return;
+    }
+
     document.getElementById('new-client-name').value = client.nombre || '';
     document.getElementById('new-client-phone').value = client.telefono || '';
     document.getElementById('new-client-email').value = client.email || '';
@@ -181,6 +191,12 @@ export function render() {
                         <label for="client-search" class="block text-sm font-medium">Buscar cliente existente</label>
                         <input type="text" id="client-search" placeholder="Escribe para buscar..." class="form-input mt-1">
                         <div id="client-results-list" class="hidden mt-1 border rounded-md max-h-32 overflow-y-auto bg-white z-10 absolute w-full max-w-sm"></div>
+                        <div id="cliente-bloqueo-alert" class="hidden mt-2 p-3 rounded-lg border border-danger-300 bg-danger-50 text-xs">
+                            <p class="font-semibold text-danger-800 mb-1">🚫 Cliente Bloqueado</p>
+                            <p id="cliente-bloqueo-motivo" class="text-danger-700 mb-2"></p>
+                            <p class="text-danger-600 mb-2">Para poder generar un presupuesto, primero debes desbloquear al cliente desde su ficha.</p>
+                            <button id="ir-editar-cliente-btn" class="btn-outline text-xs py-1 px-2 border-danger-400 text-danger-700 hover:bg-danger-100">Ir a Editar Cliente →</button>
+                        </div>
                     </div>
                     <div>
                         <label class="block text-sm font-medium">... o añade/actualiza los datos del cliente</label>

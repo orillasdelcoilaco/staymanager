@@ -1,5 +1,6 @@
 // backend/services/sincronizacionService.js
 
+const pool = require('../db/postgres');
 const admin = require('firebase-admin');
 const xlsx = require('xlsx');
 const { crearOActualizarCliente, recalcularEstadisticasClientes } = require('./clientesService');
@@ -89,6 +90,137 @@ const parsearFecha = (dateValue, formatoFecha = 'DD/MM/YYYY') => {
             [_, month, day, year] = match.map(Number);
             break;
         case 'DD/MM/YYYY':
+        case 'D/M/YYYY':
+        default:
+            [_, day, month, year] = match.map(Number);
+            break;
+    }
+
+    if (year < 100) year += 2000;
+    
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (!isNaN(date) && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day) {
+        return date;
+    }
+
+    return null;
+};
+
+const normalizarString = (texto) => {
+// ... (Esta función no cambia) ...
+    if (!texto) return '';
+    return texto.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, ' ');
+};
+
+const ESTADO_CANONICAL = {
+    'confirmada': 'Confirmada', 'cancelada': 'Cancelada',
+    'pendiente': 'Pendiente',   'no_show':   'No Show',
+    'modificada': 'Modificada', 'ignorar':   'Ignorar',
+    'desconocido': 'Desconocido',
+};
+
+const determinarEstado = (estadoCrudo, mapeosDeEstado) => {
+    if (!estadoCrudo) return 'Desconocido';
+    const estadoNormalizado = normalizarString(estadoCrudo);
+    for (const [key, value] of Object.entries(mapeosDeEstado)) {
+        if (normalizarString(key) === estadoNormalizado) {
+            const canonical = value ? ESTADO_CANONICAL[value.toLowerCase()] : null;
+            return canonical || (value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Desconocido');
+        }
+    }
+    return 'Desconocido';
+};cionService.js
+
+const admin = require('firebase-admin');
+const xlsx = require('xlsx');
+const { crearOActualizarCliente, recalcularEstadisticasClientes } = require('./clientesService');
+const { crearOActualizarReserva } = require('./reservasService');
+const { obtenerConversionesPorEmpresa } = require('./conversionesService');
+const { obtenerCanalesPorEmpresa } = require('./canalesService');
+const { obtenerMapeosPorEmpresa } = require('./mapeosService');
+const { obtenerValorDolar, actualizarValorDolarApi } = require('./dolarService');
+const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
+const { registrarCarga } = require('./historialCargasService');
+
+// --- INICIO DE LA MODIFICACIÓN: Importar los servicios centrales ---
+// Importar 'calculatePrice' (KPI) y 'calcularValoresBaseDesdeReporte' (Fórmula)
+const { calculatePrice, calcularValoresBaseDesdeReporte } = require('./utils/calculoValoresService');
+// --- FIN DE LA MODIFICACIÓN ---
+
+
+const leerArchivo = (buffer, nombreArchivo) => {
+    const esCsv = nombreArchivo && nombreArchivo.toLowerCase().endsWith('.csv');
+    if (esCsv) {
+        const data = buffer.toString('utf8');
+        const workbook = xlsx.read(data, { type: 'string', cellDates: true, raw: true });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        return xlsx.utils.sheet_to_json(sheet, { header: 1 });
+    }
+    const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    return xlsx.utils.sheet_to_json(sheet, { header: 1, raw: false });
+};
+
+const analizarCabeceras = async (buffer, nombreArchivo) => {
+    const rows = leerArchivo(buffer, nombreArchivo);
+    return rows.length > 0 ? rows[0].filter(Boolean) : [];
+};
+
+const analizarValoresUnicosColumna = async (buffer, nombreArchivo, indiceColumna) => {
+    const rows = leerArchivo(buffer, nombreArchivo);
+    if (rows.length < 2) return [];
+    
+    const valores = new Set();
+    for (let i = 1; i < rows.length; i++) {
+        const valor = rows[i][indiceColumna];
+        if (valor !== undefined && valor !== null && valor.toString().trim() !== '') {
+            valores.add(valor.toString().trim());
+        }
+    }
+    return Array.from(valores);
+};
+
+const obtenerValorConMapeo = (fila, campoInterno, mapeosDelCanal) => {
+    const mapeo = mapeosDelCanal.find(m => m.campoInterno === campoInterno);
+    if (!mapeo || typeof mapeo.columnaIndex !== 'number' || mapeo.columnaIndex < 0) {
+        return undefined;
+    }
+    return fila[mapeo.columnaIndex];
+};
+
+const parsearFecha = (dateValue, formatoFecha = 'DD/MM/YYYY') => {
+// ... (Esta función no cambia) ...
+    if (!dateValue) return null;
+    if (dateValue instanceof Date && !isNaN(dateValue)) return dateValue;
+    if (typeof dateValue === 'number') {
+        return new Date(Date.UTC(1899, 11, 30, 0, 0, 0, 0) + dateValue * 86400000);
+    }
+    if (typeof dateValue !== 'string') return null;
+
+    const dateStr = dateValue.trim().split(' ')[0];
+    const match = dateStr.match(/^(\d{1,4})[\\/.-](\d{1,2})[\\/.-](\d{1,4})$/);
+
+    if (!match) {
+        const genericDate = new Date(dateStr);
+        if (!isNaN(genericDate.getTime())) {
+            return new Date(Date.UTC(genericDate.getFullYear(), genericDate.getMonth(), genericDate.getDate()));
+        }
+        return null;
+    }
+
+    let day, month, year;
+
+    switch (formatoFecha) {
+        case 'YYYY-MM-DD':
+            [_, year, month, day] = match.map(Number);
+            break;
+        case 'MM/DD/YYYY':
+            [_, month, day, year] = match.map(Number);
+            break;
+        case 'DD/MM/YYYY':
+        case 'D/M/YYYY':
         default:
             [_, day, month, year] = match.map(Number);
             break;
@@ -151,23 +283,56 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
     const cabeceras = rows[0];
     const datosJson = rows.slice(1);
 
-    const [conversionesAlojamiento, todosLosMapeos, canales, propiedades, tarifasSnapshot] = await Promise.all([
-        obtenerConversionesPorEmpresa(db, empresaId),
-        obtenerMapeosPorEmpresa(db, empresaId),
-        obtenerCanalesPorEmpresa(db, empresaId),
-        obtenerPropiedadesPorEmpresa(db, empresaId),
-        db.collection('empresas').doc(empresaId).collection('tarifas').get()
-    ]);
-    
-    const allTarifas = tarifasSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, fechaInicio: doc.data().fechaInicio.toDate(), fechaTermino: doc.data().fechaTermino.toDate() }));
+    const [conversionesAlojamiento, todosLosMapeos, canales, propiedades, tarifasResult] = await Promise.all([
+        obtenerConversionesPorEmpresa(db, empresaId),
+        obtenerMapeosPorEmpresa(db, empresaId),
+        obtenerCanalesPorEmpresa(db, empresaId),
+        obtenerPropiedadesPorEmpresa(db, empresaId),
+        pool
+            ? pool.query('SELECT * FROM tarifas WHERE empresa_id = $1', [empresaId])
+            : db.collection('empresas').doc(empresaId).collection('tarifas').get(),
+    ]);
+
+    const allTarifas = pool
+        ? tarifasResult.rows.map(row => ({
+            ...row.reglas,
+            id: row.id,
+            alojamientoId: row.propiedad_id,
+            fechaInicio:   new Date((row.reglas?.fechaInicio  || '') + 'T00:00:00Z'),
+            fechaTermino:  new Date((row.reglas?.fechaTermino || '') + 'T00:00:00Z'),
+            precios:       row.reglas?.precios || {},
+          }))
+        : tarifasResult.docs.map(doc => ({ ...doc.data(), id: doc.id, fechaInicio: doc.data().fechaInicio.toDate(), fechaTermino: doc.data().fechaTermino.toDate() }));
 
 
-    const mapeosDelCanal = todosLosMapeos.filter(m => m.canalId === canalId);
-    if (mapeosDelCanal.length === 0) throw new Error("No se ha configurado un mapeo para este canal.");
+    let mapeosDelCanal = todosLosMapeos.filter(m => m.canalId === canalId);
 
     const canal = canales.find(c => c.id === canalId);
     if (!canal) throw new Error(`El canal con ID ${canalId} no fue encontrado.`);
-    
+
+    // Fallback: si la empresa no tiene mapeo, usar el mapeo central por nombre de canal
+    if (mapeosDelCanal.length === 0) {
+        const { obtenerMapeoCentralPorNombre } = require('./mapeosCentralesService');
+        const mapeoCentral = await obtenerMapeoCentralPorNombre(db, canal.nombre);
+        if (mapeoCentral && mapeoCentral.mapeos && mapeoCentral.mapeos.length > 0) {
+            mapeosDelCanal = mapeoCentral.mapeos.map(m => ({
+                id: `${canalId}_${m.campoInterno}`,
+                canalId,
+                campoInterno: m.campoInterno,
+                columnaIndex: m.columnaIndex
+            }));
+            if (!canal.formatoFecha) canal.formatoFecha = mapeoCentral.formatoFecha;
+            if (!canal.separadorDecimal) canal.separadorDecimal = mapeoCentral.separadorDecimal;
+            if (!canal.configuracionIva) canal.configuracionIva = mapeoCentral.configuracionIva;
+            if (!canal.mapeosDeEstado || Object.keys(canal.mapeosDeEstado).length === 0) canal.mapeosDeEstado = mapeoCentral.mapeosDeEstado;
+            console.log(`[Sincronización] Mapeo central aplicado para "${canal.nombre}"`);
+        }
+    }
+
+    if (mapeosDelCanal.length === 0) {
+        throw new Error(`No hay mapeo configurado para "${canal.nombre}". Ve a Configuración > Mapeos Centrales para aplicarlo.`);
+    }
+
     const formatoFecha = canal.formatoFecha || 'DD/MM/YYYY';
     const separadorDecimal = canal.separadorDecimal || ',';
     const canalNombre = canal.nombre;
@@ -217,7 +382,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             const resultadoCliente = await crearOActualizarCliente(db, empresaId, datosParaCliente);
             if (resultadoCliente.status === 'creado') resultados.clientesCreados++;
             
-         const nombresExternosAlojamientos = (get('alojamientoNombre') || '').toString().split(',').map(s => s.trim()).filter(Boolean);
+         const nombresExternosAlojamientos = [(get('alojamientoNombre') || '').toString().trim()].filter(Boolean);
             if (nombresExternosAlojamientos.length === 0) {
                 throw new Error("La columna de alojamiento está vacía o es inválida.");
             }
@@ -228,12 +393,15 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
             for (const nombreExterno of nombresExternosAlojamientos) {
                 const nombreExternoNormalizado = normalizarString(nombreExterno);
                 const conversion = conversionesAlojamiento.find(c => c.canalId === canalId && c.nombreExterno.split(';').map(normalizarString).includes(nombreExternoNormalizado));
-                if (!conversion) {
-                    throw new Error(`No se encontró una conversión para el alojamiento "${nombreExterno}" en el canal ${canalNombre}.`);
-                }
-                const propiedad = propiedades.find(p => p.id === conversion.alojamientoId);
+                let propiedadId = conversion?.alojamientoId;
+                if (!propiedadId) {
+                    const directa = propiedades.find(p => normalizarString(p.nombre) === nombreExternoNormalizado);
+                    if (!directa) throw new Error(`No se encontró una conversión para el alojamiento "${nombreExterno}" en el canal ${canalNombre}.`);
+                    propiedadId = directa.id;
+                }
+                const propiedad = propiedades.find(p => p.id === propiedadId);
                if (!propiedad) {
-                    throw new Error(`La propiedad interna con ID ${conversion.alojamientoId} no fue encontrada.`);
+                    throw new Error(`La propiedad interna con ID ${propiedadId} no fue encontrada.`);
                 }
                 alojamientosDeReserva.push(propiedad);
             }
@@ -269,7 +437,10 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
                     estado: estadoFinal, estadoGestion: estadoFinal === 'Confirmada' ? 'Pendiente Bienvenida' : null,
                     fechaReserva: parsearFecha(get('fechaReserva'), formatoFecha), fechaLlegada, fechaSalida, totalNoches: totalNoches > 0 ? totalNoches : 1,
                     cantidadHuespedes: Math.ceil((parseInt(get('invitados')) || alojamiento.capacidad || 1) / alojamientosDeReserva.length),
-                    clienteId: resultadoCliente.cliente.id, alojamientoId: alojamiento.id, alojamientoNombre: alojamiento.nombre,
+                    clienteId: resultadoCliente.cliente.id,
+                    alertaBloqueo: resultadoCliente.cliente.bloqueado === true,
+                    motivoBloqueo: resultadoCliente.cliente.motivoBloqueo || '',
+                    alojamientoId: alojamiento.id, alojamientoNombre: alojamiento.nombre,
                     moneda: monedaCanal,
 
                     // --- INICIO DE LA MODIFICACIÓN: Guardar valores desde el servicio central ---

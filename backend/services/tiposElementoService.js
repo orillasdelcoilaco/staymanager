@@ -1,192 +1,184 @@
+// backend/services/tiposElementoService.js
+const pool = require('../db/postgres');
 const admin = require('firebase-admin');
 const { v4: uuidv4 } = require('uuid');
-const { analizarCapacidadDeActivo } = require('./aiContentService'); // AI Integration
+const Fuse = require('fuse.js');
 
-const COLLECTION_NAME = 'tiposElemento';
+const CACHE_TIPOS = {};
+const CACHE_TTL = 1000 * 60 * 5; // 5 minutos
 
-/**
- * Obtiene todos los tipos de elemento de una empresa.
- * @param {Object} db
- * @param {string} empresaId 
- * @returns {Promise<Array>}
- */
 async function obtenerTipos(db, empresaId) {
-    try {
-        const snapshot = await db.collection('empresas')
-            .doc(empresaId)
-            .collection(COLLECTION_NAME)
-            .get();
-
-        if (snapshot.empty) return [];
-
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    } catch (error) {
-        console.error("Error al obtener tipos de elemento:", error);
-        throw new Error("Error al obtener tipos de elemento.");
+    if (pool) {
+        const { rows } = await pool.query(
+            `SELECT id, nombre, categoria, icono, permite_cantidad, countable, count_value_default,
+                    capacity, requires_photo, photo_quantity, photo_guidelines,
+                    seo_tags, sales_context, schema_type, schema_property
+             FROM tipos_elemento WHERE empresa_id = $1 ORDER BY nombre`,
+            [empresaId]
+        );
+        return rows.map(r => ({
+            id: r.id, nombre: r.nombre, categoria: r.categoria, icono: r.icono,
+            permiteCantidad: r.permite_cantidad, countable: r.countable,
+            count_value_default: r.count_value_default, capacity: r.capacity,
+            requires_photo: r.requires_photo, photo_quantity: r.photo_quantity,
+            photo_guidelines: r.photo_guidelines, seo_tags: r.seo_tags || [],
+            sales_context: r.sales_context, schema_type: r.schema_type, schema_property: r.schema_property,
+        }));
     }
+    const snapshot = await db.collection('empresas').doc(empresaId).collection('tiposElemento').get();
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
-/**
- * Crea un nuevo tipo de elemento.
- * @param {Object} db
- * @param {string} empresaId 
- * @param {Object} datos - { nombre, categoria, icono, permiteCantidad }
- * @returns {Promise<Object>}
- */
 async function crearTipo(db, empresaId, datos) {
-    try {
+    const normalizeCategory = (cat) => {
+        const t = (cat || 'Otros').trim().toLowerCase();
+        return t.charAt(0).toUpperCase() + t.slice(1);
+    };
+
+    if (pool) {
         const id = uuidv4();
-
-        // Normalización de Texto (Title Case para Categorías)
-        const normalizeCategory = (cat) => {
-            const trimmed = (cat || 'OTROS').trim().toLowerCase();
-            return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-        };
-
-        const nuevoTipo = {
-            nombre: datos.nombre ? datos.nombre.trim() : 'Sin Nombre',
-            categoria: normalizeCategory(datos.categoria),
-            icono: datos.icono || '🔹',
-            permiteCantidad: datos.permiteCantidad !== false,
-            countable: datos.countable || false,
-            count_value_default: datos.count_value_default || 0,
-            capacity: datos.capacity || 0,
-            photo_requirements_default: Array.isArray(datos.photo_requirements_default) ? datos.photo_requirements_default : [],
-
-            // New AI Metadata
-            requires_photo: datos.requires_photo || false,
-            photo_quantity: datos.photo_quantity || 0,
-            seo_tags: datos.seo_tags || [],
-            sales_context: datos.sales_context || null,
-            photo_guidelines: datos.photo_guidelines || null,
-
-            // SEO Semántico (Schema.org)
-            schema_type: datos.schema_type || 'Thing', // ej: 'BedDetails', 'LocationFeatureSpecification'
-            schema_property: datos.schema_property || 'amenityFeature', // ej: 'bed', 'amenityFeature'
-
-            fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
-        };
-
-        await db.collection('empresas')
-            .doc(empresaId)
-            .collection(COLLECTION_NAME)
-            .doc(id)
-            .set(nuevoTipo);
-
-        return { id, ...nuevoTipo };
-    } catch (error) {
-        console.error("Error al crear tipo de elemento:", error);
-        throw new Error("Error al crear tipo de elemento.");
+        await pool.query(
+            `INSERT INTO tipos_elemento
+             (id, empresa_id, nombre, categoria, icono, permite_cantidad, countable, count_value_default,
+              capacity, requires_photo, photo_quantity, photo_guidelines, seo_tags, sales_context, schema_type, schema_property)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+            [
+                id, empresaId,
+                datos.nombre ? datos.nombre.trim() : 'Sin Nombre',
+                normalizeCategory(datos.categoria),
+                datos.icono || '🔹',
+                datos.permiteCantidad !== false,
+                datos.countable || false,
+                datos.count_value_default || 0,
+                datos.capacity || 0,
+                datos.requires_photo || false,
+                datos.photo_quantity || 0,
+                datos.photo_guidelines || null,
+                JSON.stringify(datos.seo_tags || []),
+                datos.sales_context || null,
+                datos.schema_type || 'Thing',
+                datos.schema_property || 'amenityFeature',
+            ]
+        );
+        CACHE_TIPOS[empresaId] = null;
+        return { id, nombre: datos.nombre?.trim() || 'Sin Nombre', categoria: normalizeCategory(datos.categoria) };
     }
+
+    const id = uuidv4();
+    const nuevoTipo = {
+        nombre: datos.nombre ? datos.nombre.trim() : 'Sin Nombre',
+        categoria: normalizeCategory(datos.categoria),
+        icono: datos.icono || '🔹',
+        permiteCantidad: datos.permiteCantidad !== false,
+        countable: datos.countable || false,
+        count_value_default: datos.count_value_default || 0,
+        capacity: datos.capacity || 0,
+        requires_photo: datos.requires_photo || false,
+        photo_quantity: datos.photo_quantity || 0,
+        seo_tags: datos.seo_tags || [],
+        sales_context: datos.sales_context || null,
+        photo_guidelines: datos.photo_guidelines || null,
+        schema_type: datos.schema_type || 'Thing',
+        schema_property: datos.schema_property || 'amenityFeature',
+        fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    await db.collection('empresas').doc(empresaId).collection('tiposElemento').doc(id).set(nuevoTipo);
+    CACHE_TIPOS[empresaId] = null;
+    return { id, ...nuevoTipo };
 }
 
-/**
- * Elimina un tipo de elemento.
- * @param {Object} db
- * @param {string} empresaId 
- * @param {string} tipoId 
- */
 async function eliminarTipo(db, empresaId, tipoId) {
-    // 1. Obtener datos del elemento para buscar por nombre/ID
-    const elementRef = db.collection('empresas').doc(empresaId).collection(COLLECTION_NAME).doc(tipoId);
-    const elementDoc = await elementRef.get();
-
-    if (!elementDoc.exists) {
-        throw new Error("El elemento no existe.");
+    if (pool) {
+        const { rows } = await pool.query(
+            'SELECT nombre FROM tipos_elemento WHERE id=$1 AND empresa_id=$2',
+            [tipoId, empresaId]
+        );
+        if (!rows[0]) throw new Error('El elemento no existe.');
+        const elementName = rows[0].nombre.toUpperCase().trim();
+        const { rows: enUso } = await pool.query(
+            `SELECT nombre FROM propiedades
+             WHERE empresa_id=$1
+               AND EXISTS (
+                   SELECT 1 FROM jsonb_array_elements(COALESCE(metadata->'componentes','[]')) comp,
+                                 jsonb_array_elements(COALESCE(comp->'elementos','[]')) elem
+                   WHERE upper(elem->>'nombre') = $2 OR elem->>'tipoId' = $3
+               ) LIMIT 1`,
+            [empresaId, elementName, tipoId]
+        );
+        if (enUso.length) throw new Error(`No se puede eliminar: El elemento '${rows[0].nombre}' está en uso en: ${enUso[0].nombre}. Elimínalo del inventario primero.`);
+        await pool.query('DELETE FROM tipos_elemento WHERE id=$1 AND empresa_id=$2', [tipoId, empresaId]);
+        CACHE_TIPOS[empresaId] = null;
+        return;
     }
 
-    const elementData = elementDoc.data();
-    const elementName = (elementData.nombre || '').toUpperCase().trim();
-
-    // 2. Verificar uso en Propiedades (Inventario Activo)
+    const elementRef = db.collection('empresas').doc(empresaId).collection('tiposElemento').doc(tipoId);
+    const elementDoc = await elementRef.get();
+    if (!elementDoc.exists) throw new Error('El elemento no existe.');
+    const elementName = (elementDoc.data().nombre || '').toUpperCase().trim();
     const propsSnapshot = await db.collection('empresas').doc(empresaId).collection('propiedades').get();
-
     let usoEncontrado = null;
-
     propsSnapshot.forEach(doc => {
         if (usoEncontrado) return;
-
         const prop = doc.data();
-        if (prop.componentes && Array.isArray(prop.componentes)) {
-            prop.componentes.forEach(comp => {
-                if (usoEncontrado) return;
-
-                if (comp.elementos && Array.isArray(comp.elementos)) {
-                    const match = comp.elementos.find(el => {
-                        const elNombre = (el.nombre || '').toUpperCase().trim();
-                        // Comparar por nombre (lo más común) o ID si existiera referencia
-                        return elNombre === elementName;
-                    });
-
-                    if (match) {
-                        usoEncontrado = `${prop.nombre} (en ${comp.nombre || comp.tipo})`;
-                    }
-                }
-            });
-        }
+        if (prop.componentes?.some(comp =>
+            comp.elementos?.some(el => (el.nombre || '').toUpperCase().trim() === elementName)
+        )) usoEncontrado = prop.nombre;
     });
-
-    if (usoEncontrado) {
-        throw new Error(`No se puede eliminar: El elemento '${elementData.nombre}' está en uso en: ${usoEncontrado}. Elimínalo del inventario primero.`);
-    }
-
-    // 3. (Opcional) Verificar uso en Plantillas/Tipos de Componente si existiera esa estructura
-    // Por ahora validamos contra lo que está vivo en propiedades.
-
+    if (usoEncontrado) throw new Error(`No se puede eliminar: El elemento '${elementDoc.data().nombre}' está en uso en: ${usoEncontrado}. Elimínalo del inventario primero.`);
     await elementRef.delete();
+    CACHE_TIPOS[empresaId] = null;
 }
 
-/**
- * Actualiza un tipo de elemento existente.
- */
 async function actualizarTipo(db, empresaId, tipoId, datos) {
-    const elementRef = db.collection('empresas').doc(empresaId).collection(COLLECTION_NAME).doc(tipoId);
+    const normalizeCategory = (c) => { const t = (c || '').trim().toLowerCase(); return t.charAt(0).toUpperCase() + t.slice(1); };
 
-    // Limpieza de datos (mismos campos que al crear, pero opcionales)
-    const datosActualizados = {};
-    if (datos.nombre) datosActualizados.nombre = datos.nombre.trim();
-    if (datos.categoria) {
-        const trimmed = datos.categoria.trim().toLowerCase();
-        datosActualizados.categoria = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+    if (pool) {
+        const sets = [], params = [];
+        if (datos.nombre)                          sets.push(`nombre=$${params.push(datos.nombre.trim())}`);
+        if (datos.categoria)                       sets.push(`categoria=$${params.push(normalizeCategory(datos.categoria))}`);
+        if (datos.icono)                           sets.push(`icono=$${params.push(datos.icono)}`);
+        if (datos.capacity !== undefined)          sets.push(`capacity=$${params.push(Number(datos.capacity))}`);
+        if (datos.permiteCantidad !== undefined)   sets.push(`permite_cantidad=$${params.push(Boolean(datos.permiteCantidad))}`);
+        if (datos.countable !== undefined)         sets.push(`countable=$${params.push(Boolean(datos.countable))}`);
+        if (datos.requires_photo !== undefined)    sets.push(`requires_photo=$${params.push(Boolean(datos.requires_photo))}`);
+        if (datos.photo_quantity !== undefined)    sets.push(`photo_quantity=$${params.push(Number(datos.photo_quantity))}`);
+        if (datos.seo_tags)                        sets.push(`seo_tags=$${params.push(JSON.stringify(datos.seo_tags))}`);
+        if (datos.sales_context)                   sets.push(`sales_context=$${params.push(datos.sales_context)}`);
+        if (datos.photo_guidelines)                sets.push(`photo_guidelines=$${params.push(datos.photo_guidelines)}`);
+        if (!sets.length) return { id: tipoId };
+        sets.push('updated_at=NOW()');
+        params.push(tipoId, empresaId);
+        await pool.query(
+            `UPDATE tipos_elemento SET ${sets.join(',')} WHERE id=$${params.length-1} AND empresa_id=$${params.length}`,
+            params
+        );
+        CACHE_TIPOS[empresaId] = null;
+        return { id: tipoId, ...datos };
     }
-    if (datos.icono) datosActualizados.icono = datos.icono;
-    if (datos.capacity !== undefined) datosActualizados.capacity = Number(datos.capacity);
-    if (datos.permiteCantidad !== undefined) datosActualizados.permiteCantidad = Boolean(datos.permiteCantidad);
-    if (datos.countable !== undefined) datosActualizados.countable = Boolean(datos.countable);
 
-    // New Metadata (SEO & Photos) - Only update if provided
-    if (datos.requires_photo !== undefined) datosActualizados.requires_photo = Boolean(datos.requires_photo);
-    if (datos.photo_quantity !== undefined) datosActualizados.photo_quantity = Number(datos.photo_quantity);
-    if (datos.seo_tags) datosActualizados.seo_tags = datos.seo_tags;
-    if (datos.sales_context) datosActualizados.sales_context = datos.sales_context;
-    if (datos.photo_guidelines) datosActualizados.photo_guidelines = datos.photo_guidelines;
-
-    // Timestamp update
+    const elementRef = db.collection('empresas').doc(empresaId).collection('tiposElemento').doc(tipoId);
+    const datosActualizados = {};
+    if (datos.nombre)                         datosActualizados.nombre = datos.nombre.trim();
+    if (datos.categoria)                      datosActualizados.categoria = normalizeCategory(datos.categoria);
+    if (datos.icono)                          datosActualizados.icono = datos.icono;
+    if (datos.capacity !== undefined)         datosActualizados.capacity = Number(datos.capacity);
+    if (datos.permiteCantidad !== undefined)  datosActualizados.permiteCantidad = Boolean(datos.permiteCantidad);
+    if (datos.countable !== undefined)        datosActualizados.countable = Boolean(datos.countable);
+    if (datos.requires_photo !== undefined)   datosActualizados.requires_photo = Boolean(datos.requires_photo);
+    if (datos.photo_quantity !== undefined)   datosActualizados.photo_quantity = Number(datos.photo_quantity);
+    if (datos.seo_tags)                       datosActualizados.seo_tags = datos.seo_tags;
+    if (datos.sales_context)                  datosActualizados.sales_context = datos.sales_context;
+    if (datos.photo_guidelines)               datosActualizados.photo_guidelines = datos.photo_guidelines;
     datosActualizados.fechaActualizacion = admin.firestore.FieldValue.serverTimestamp();
-
     await elementRef.update(datosActualizados);
-
-    // Retornar datos completos
-    const doc = await elementRef.get();
-    return { id: tipoId, ...doc.data() };
+    CACHE_TIPOS[empresaId] = null;
+    return { id: tipoId, ...datosActualizados };
 }
 
-module.exports = {
-    obtenerTipos,
-    crearTipo,
-    eliminarTipo,
-    actualizarTipo,
-    buscarTipoFuzzy
-};
-
-// --- CACHE & ZERO-SHOT LOGIC ---
-const Fuse = require('fuse.js');
-const CACHE_TIPOS = {}; // { empresaId: { data: [], timestamp: number } }
-const CACHE_TTL = 1000 * 60 * 5; // 5 minutos de cache
-
-async function getCachedTipos(db, empresaId) {
+async function _getCachedTipos(db, empresaId) {
     const now = Date.now();
-    if (CACHE_TIPOS[empresaId] && (now - CACHE_TIPOS[empresaId].timestamp < CACHE_TTL)) {
+    if (CACHE_TIPOS[empresaId]?.timestamp && (now - CACHE_TIPOS[empresaId].timestamp < CACHE_TTL)) {
         return CACHE_TIPOS[empresaId].data;
     }
     const data = await obtenerTipos(db, empresaId);
@@ -194,36 +186,14 @@ async function getCachedTipos(db, empresaId) {
     return data;
 }
 
-/**
- * Busca un tipo de elemento existente usando Fuzzy Matching (Fuse.js).
- * Evita llamar a la IA para duplicados o typos.
- * @returns {Promise<Object|null>} El match encontrado o null.
- */
 async function buscarTipoFuzzy(db, empresaId, query) {
     if (!query) return null;
-    const cleanQuery = query.toLowerCase().trim();
-
-    // 1. Cargar datos (Cache First)
-    const tipos = await getCachedTipos(db, empresaId);
-    if (tipos.length === 0) return null;
-
-    // 2. Configurar Fuse
-    const options = {
-        includeScore: true,
-        keys: ['nombre', 'seo_tags'], // Buscar en nombre y tags
-        threshold: 0.4, // 0.0 = match perfecto, 1.0 = match cualquiera. 0.4 es balanceado para "cama king" vs "king cama"
-    };
-
-    const fuse = new Fuse(tipos, options);
-    const result = fuse.search(cleanQuery);
-
-    if (result.length > 0) {
-        const bestMatch = result[0];
-        // Si el score es muy bueno (< 0.3), retornamos confianza alta
-        if (bestMatch.score < 0.3) {
-            console.log(`[FuzzyMatch] Encontrado: '${query}' -> '${bestMatch.item.nombre}' (Score: ${bestMatch.score})`);
-            return bestMatch.item;
-        }
-    }
+    const tipos = await _getCachedTipos(db, empresaId);
+    if (!tipos.length) return null;
+    const fuse = new Fuse(tipos, { includeScore: true, keys: ['nombre', 'seo_tags'], threshold: 0.4 });
+    const result = fuse.search(query.toLowerCase().trim());
+    if (result.length > 0 && result[0].score < 0.3) return result[0].item;
     return null;
 }
+
+module.exports = { obtenerTipos, crearTipo, eliminarTipo, actualizarTipo, buscarTipoFuzzy };

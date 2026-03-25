@@ -1,82 +1,104 @@
-const admin = require('firebase-admin');
+// backend/services/usuariosService.js
+const pool = require('../db/postgres');
+const adminFirebase = require('firebase-admin');
 
 const listarUsuariosPorEmpresa = async (db, empresaId) => {
-    const usersSnapshot = await db.collection('empresas').doc(empresaId).collection('users').get();
-    if (usersSnapshot.empty) {
-        return [];
+    if (pool) {
+        const { rows } = await pool.query(
+            'SELECT * FROM usuarios WHERE empresa_id = $1 ORDER BY created_at ASC',
+            [empresaId]
+        );
+        return rows.map(r => ({
+            uid: r.id,
+            email: r.email,
+            nombre: r.nombre,
+            rol: r.rol,
+            activo: r.activo,
+            fechaCreacion: r.created_at
+        }));
     }
-    return usersSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
+
+    // Firestore fallback
+    const snap = await db.collection('empresas').doc(empresaId).collection('users').get();
+    if (snap.empty) return [];
+    return snap.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
 };
 
 const crearUsuario = async (admin, db, { empresaId, email, password }) => {
-    if (!email || !password) {
-        throw new Error('Email y contraseña son requeridos.');
+    if (!email || !password) throw new Error('Email y contraseña son requeridos.');
+
+    const userRecord = await admin.auth().createUser({ email, password, displayName: email });
+
+    if (pool) {
+        await pool.query(
+            'INSERT INTO usuarios (id, empresa_id, email, rol) VALUES ($1, $2, $3, $4)',
+            [userRecord.uid, empresaId, userRecord.email, 'admin']
+        );
+        console.log(`Nuevo usuario "${email}" creado para empresa ${empresaId}.`);
+        return { uid: userRecord.uid, email: userRecord.email, rol: 'admin' };
     }
 
-    const userRecord = await admin.auth().createUser({
-        email: email,
-        password: password,
-        displayName: email,
-    });
-
+    // Firestore fallback
     const userRef = db.collection('empresas').doc(empresaId).collection('users').doc(userRecord.uid);
     const nuevoUsuario = {
         email: userRecord.email,
         rol: 'admin',
-        fechaCreacion: admin.firestore.FieldValue.serverTimestamp(),
+        fechaCreacion: adminFirebase.firestore.FieldValue.serverTimestamp(),
         uid: userRecord.uid
     };
     await userRef.set(nuevoUsuario);
-
-    console.log(`Nuevo usuario "${email}" creado para la empresa ${empresaId}.`);
+    console.log(`Nuevo usuario "${email}" creado para empresa ${empresaId}.`);
     return nuevoUsuario;
 };
 
-// --- NUEVA FUNCIÓN ---
 const actualizarUsuario = async (admin, db, { empresaId, uid, datos }) => {
-    if (!uid) {
-        throw new Error('El UID es obligatorio');
-    }
+    if (!uid) throw new Error('El UID es obligatorio.');
 
-    // 1. Actualizar en Firebase Auth (Contraseña)
     if (datos.password) {
-        await admin.auth().updateUser(uid, {
-            password: datos.password
-        });
-        console.log(`Contraseña actualizada para usuario ${uid}`);
+        await admin.auth().updateUser(uid, { password: datos.password });
     }
 
-    // 2. Actualizar en Firestore (Si hubiera otros campos como rol)
-    // Por ahora, el email es inmutable desde este panel y la contraseña no se guarda en BD.
-    // Pero mantenemos la estructura por si a futuro editamos el rol.
+    if (pool) {
+        if (datos.rol) {
+            await pool.query(
+                'UPDATE usuarios SET rol = $1, updated_at = NOW() WHERE id = $2 AND empresa_id = $3',
+                [datos.rol, uid, empresaId]
+            );
+        }
+        return { uid, message: 'Usuario actualizado correctamente.' };
+    }
+
+    // Firestore fallback
     const updates = {};
     if (datos.rol) updates.rol = datos.rol;
-
     if (Object.keys(updates).length > 0) {
-        const userRef = db.collection('empresas').doc(empresaId).collection('users').doc(uid);
-        await userRef.update(updates);
+        await db.collection('empresas').doc(empresaId).collection('users').doc(uid).update(updates);
     }
-
-    return { uid, message: 'Usuario actualizado correctamente' };
+    return { uid, message: 'Usuario actualizado correctamente.' };
 };
 
 const eliminarUsuario = async (admin, db, { empresaId, uid }) => {
-    if (!uid) {
-        throw new Error('Se requiere el UID del usuario a eliminar.');
-    }
-    
-    const userRef = db.collection('empresas').doc(empresaId).collection('users').doc(uid);
-    
+    if (!uid) throw new Error('Se requiere el UID del usuario a eliminar.');
+
     await admin.auth().deleteUser(uid);
-    await userRef.delete();
 
-    console.log(`Usuario con UID "${uid}" eliminado de la empresa ${empresaId}.`);
+    if (pool) {
+        await pool.query(
+            'DELETE FROM usuarios WHERE id = $1 AND empresa_id = $2',
+            [uid, empresaId]
+        );
+        console.log(`Usuario "${uid}" eliminado de empresa ${empresaId}.`);
+        return;
+    }
+
+    // Firestore fallback
+    await db.collection('empresas').doc(empresaId).collection('users').doc(uid).delete();
+    console.log(`Usuario "${uid}" eliminado de empresa ${empresaId}.`);
 };
-
 
 module.exports = {
     listarUsuariosPorEmpresa,
     crearUsuario,
-    actualizarUsuario, // Exportamos la nueva función
+    actualizarUsuario,
     eliminarUsuario
 };
