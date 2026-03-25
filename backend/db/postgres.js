@@ -31,7 +31,7 @@ if (!process.env.DATABASE_URL) {
         // port 6543 = PgBouncer (Supabase), port 5432 = PostgreSQL directo
         max: 10,
         idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 5000,
+        connectionTimeoutMillis: 15000,
         ssl: {
             rejectUnauthorized: false
         }
