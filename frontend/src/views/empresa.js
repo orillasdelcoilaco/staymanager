@@ -57,6 +57,11 @@ function renderInfoGeneral() {
                     <label for="website" class="block text-sm font-medium text-gray-700">Sitio Web (Informativo)</label>
                     <input type="url" id="website" name="website" value="${empresaInfo.website || ''}" class="mt-1 form-input">
                 </div>
+                <div>
+                    <label for="google_maps_url" class="block text-sm font-medium text-gray-700">Link de reseñas en Google Maps</label>
+                    <input type="url" id="google_maps_url" name="google_maps_url" value="${empresaInfo.google_maps_url || ''}" class="mt-1 form-input" placeholder="https://g.page/r/...">
+                    <p class="text-xs text-gray-400 mt-1">Se usa en el paso 2 del formulario de reseñas para invitar al huésped a opinar en Google.</p>
+                </div>
             </div>
         </fieldset>`;
 }
@@ -171,6 +176,7 @@ function renderFormulario() {
             contactoEmail:      form.contactoEmail.value,
             contactoTelefono:   form.contactoTelefono.value,
             website:            form.website.value,
+            google_maps_url:    form.google_maps_url.value || null,
             serviciosGenerales: form.serviciosGenerales.value,
             condicionesReserva: form.condicionesReserva.value,
             tipoNegocio: form.querySelector('input[name="tipoNegocio"]:checked')?.value || '',

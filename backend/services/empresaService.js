@@ -12,6 +12,7 @@ function mapearEmpresa(row) {
         plan: row.plan,
         dominio: row.dominio,
         subdominio: row.subdominio,
+        google_maps_url: row.google_maps_url || null,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         ...(row.configuracion || {})
@@ -47,7 +48,7 @@ const actualizarDetallesEmpresa = async (db, empresaId, datos) => {
 
     if (pool) {
         // Extraer campos estructurados; el resto va a configuracion JSONB
-        const { nombre, email, plan, dominio, subdominio, ...resto } = datos;
+        const { nombre, email, plan, dominio, subdominio, google_maps_url, ...resto } = datos;
 
         // Lógica de subdominio automático (igual que antes)
         let dominioFinal = dominio;
@@ -67,22 +68,24 @@ const actualizarDetallesEmpresa = async (db, empresaId, datos) => {
         // Merge de configuracion existente con los nuevos datos
         await pool.query(`
             UPDATE empresas SET
-                nombre        = COALESCE($2, nombre),
-                email         = COALESCE($3, email),
-                plan          = COALESCE($4, plan),
-                dominio       = COALESCE($5, dominio),
-                subdominio    = COALESCE($6, subdominio),
-                configuracion = configuracion || $7::jsonb,
-                updated_at    = NOW()
+                nombre          = COALESCE($2, nombre),
+                email           = COALESCE($3, email),
+                plan            = COALESCE($4, plan),
+                dominio         = COALESCE($5, dominio),
+                subdominio      = COALESCE($6, subdominio),
+                configuracion   = configuracion || $7::jsonb,
+                google_maps_url = COALESCE($8, google_maps_url),
+                updated_at      = NOW()
             WHERE id = $1
         `, [
             empresaId,
             nombre  || null,
             email   || null,
             plan    || null,
-            dominioFinal   || null,
+            dominioFinal    || null,
             subdominioFinal || null,
-            JSON.stringify(resto)
+            JSON.stringify(resto),
+            google_maps_url || null
         ]);
         return;
     }
