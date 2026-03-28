@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tu opinión sobre <%= resena.propiedad_nombre || resena.empresa_nombre %></title>
+    <link rel="stylesheet" href="/public/css/website.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f8fafc; }
+        .review-card { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,.08); overflow: hidden; }
+        .review-header { padding: 28px 32px 20px; border-bottom: 1px solid #f1f5f9; text-align: center; }
+        .review-body { padding: 28px 32px; }
+        .section-title { font-size: .75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #94a3b8; margin-bottom: 16px; }
+
+        /* Estrellas */
+        .star-group { display: flex; flex-direction: row-reverse; justify-content: flex-end; gap: 4px; }
+        .star-group input { display: none; }
+        .star-group label { font-size: 1.75rem; color: #e2e8f0; cursor: pointer; transition: color .15s; line-height: 1; }
+        .star-group input:checked ~ label,
+        .star-group label:hover,
+        .star-group label:hover ~ label { color: #f59e0b; }
+
+        .category-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f8fafc; }
+        .category-row:last-child { border-bottom: none; }
+        .category-label { font-size: .95rem; color: #374151; display: flex; align-items: center; gap: 8px; }
+        .star-sm label { font-size: 1.4rem; }
+
+        textarea { width: 100%; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; font-family: inherit; font-size: .95rem; resize: vertical; outline: none; transition: border-color .2s; }
+        textarea:focus { border-color: var(--color-primary, #6366f1); }
+
+        .btn-submit { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; color: #fff; cursor: pointer; background: var(--color-primary, #6366f1); transition: opacity .2s; }
+        .btn-submit:hover { opacity: .9; }
+        .btn-submit:disabled { opacity: .5; cursor: not-allowed; }
+
+        /* Paso 2 */
+        #step-2 { display: none; padding: 40px 32px; text-align: center; }
+        .checkmark { width: 64px; height: 64px; background: #d1fae5; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+        .btn-google { display: inline-flex; align-items: center; gap: 10px; padding: 14px 28px; border-radius: 10px; border: 2px solid #e2e8f0; background: #fff; font-size: 1rem; font-weight: 600; color: #374151; cursor: pointer; text-decoration: none; transition: border-color .2s, box-shadow .2s; margin-top: 20px; }
+        .btn-google:hover { border-color: #94a3b8; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+        .btn-google img { width: 22px; height: 22px; }
+        .skip-link { display: block; margin-top: 14px; font-size: .85rem; color: #94a3b8; text-decoration: none; }
+        .skip-link:hover { color: #64748b; }
+
+        #error-msg { color: #ef4444; font-size: .9rem; margin-top: 8px; display: none; }
+        .general-stars label { font-size: 2.2rem; }
+    </style>
+    <% if (resena.primary_color) { %>
+    <style>:root { --color-primary: <%= resena.primary_color %>; }</style>
+    <% } %>
+</head>
+<body class="py-8 px-4">
+
+<div class="review-card">
+
+    <!-- ENCABEZADO -->
+    <div class="review-header">
+        <% if (resena.logo_url) { %>
+            <img src="<%= resena.logo_url %>" alt="<%= resena.empresa_nombre %>" class="h-12 mx-auto mb-3 object-contain">
+        <% } %>
+        <h1 class="text-xl font-bold text-gray-900"><%= resena.empresa_nombre %></h1>
+        <% if (resena.propiedad_nombre) { %>
+            <p class="text-gray-500 mt-1">Opinión sobre <strong><%= resena.propiedad_nombre %></strong></p>
+        <% } %>
+        <% if (resena.nombre_huesped) { %>
+            <p class="text-sm text-gray-400 mt-1">Hola, <strong><%= resena.nombre_huesped %></strong> 👋</p>
+        <% } %>
+    </div>
+
+    <!-- PASO 1: FORMULARIO -->
+    <div id="step-1" class="review-body">
+
+        <p class="section-title">Calificación general</p>
+        <div class="star-group general-stars mb-6" id="stars-general">
+            <% for (let i = 5; i >= 1; i--) { %>
+            <input type="radio" name="punt_general" id="g<%= i %>" value="<%= i %>">
+            <label for="g<%= i %>">★</label>
+            <% } %>
+        </div>
+
+        <p class="section-title">Detalles de tu estadía</p>
+        <div class="mb-6">
+            <% const cats = [
+                { key: 'punt_limpieza',     icon: '🧹', label: 'Limpieza' },
+                { key: 'punt_ubicacion',    icon: '📍', label: 'Ubicación' },
+                { key: 'punt_llegada',      icon: '🛎️', label: 'Llegada / Check-in' },
+                { key: 'punt_comunicacion', icon: '💬', label: 'Comunicación' },
+                { key: 'punt_equipamiento', icon: '🏡', label: 'Equipamiento' },
+                { key: 'punt_valor',        icon: '💲', label: 'Relación calidad/precio' }
+            ]; %>
+            <% cats.forEach(function(cat) { %>
+            <div class="category-row">
+                <span class="category-label"><%= cat.icon %> <%= cat.label %></span>
+                <div class="star-group star-sm">
+                    <% for (let i = 5; i >= 1; i--) { %>
+                    <input type="radio" name="<%= cat.key %>" id="<%= cat.key %>_<%= i %>" value="<%= i %>">
+                    <label for="<%= cat.key %>_<%= i %>">★</label>
+                    <% } %>
+                </div>
+            </div>
+            <% }); %>
+        </div>
+
+        <p class="section-title">Tu experiencia en palabras</p>
+        <div class="space-y-3 mb-6">
+            <textarea id="texto-positivo" rows="3" placeholder="¿Qué fue lo mejor de tu estadía?"></textarea>
+            <textarea id="texto-negativo" rows="2" placeholder="¿Hay algo que podríamos mejorar? (opcional)"></textarea>
+        </div>
+
+        <p id="error-msg">Por favor, selecciona al menos la calificación general (★).</p>
+        <button class="btn-submit" id="btn-enviar">Enviar mi opinión →</button>
+    </div>
+
+    <!-- PASO 2: GRACIAS + GOOGLE -->
+    <div id="step-2">
+        <div class="checkmark">
+            <svg width="32" height="32" fill="none" stroke="#10b981" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <h2 class="text-2xl font-bold text-gray-900">¡Muchas gracias!</h2>
+        <p class="text-gray-500 mt-2">Tu opinión ha sido registrada y nos ayuda a seguir mejorando.</p>
+
+        <% if (resena.google_maps_url) { %>
+        <p class="text-gray-600 mt-6 font-medium">Un último paso (opcional):</p>
+        <p class="text-gray-500 text-sm mt-1">Ayúdanos a llegar a más viajeros compartiendo tu experiencia en Google.</p>
+        <a href="<%= resena.google_maps_url %>" target="_blank" rel="noopener" class="btn-google" id="btn-google">
+            <img src="https://www.google.com/favicon.ico" alt="Google">
+            Dejar reseña en Google Maps
+        </a>
+        <% } %>
+
+        <a href="/" class="skip-link">Volver al inicio →</a>
+    </div>
+
+</div>
+
+<script>
+    const TOKEN = '<%= resena.token %>';
+
+    document.getElementById('btn-enviar').addEventListener('click', async () => {
+        const general = document.querySelector('input[name="punt_general"]:checked');
+        const errorMsg = document.getElementById('error-msg');
+
+        if (!general) {
+            errorMsg.style.display = 'block';
+            return;
+        }
+        errorMsg.style.display = 'none';
+
+        const btn = document.getElementById('btn-enviar');
+        btn.disabled = true;
+        btn.textContent = 'Enviando...';
+
+        const datos = {
+            punt_general:     parseInt(general.value),
+            punt_limpieza:    parseInt(document.querySelector('input[name="punt_limpieza"]:checked')?.value || 0) || null,
+            punt_ubicacion:   parseInt(document.querySelector('input[name="punt_ubicacion"]:checked')?.value || 0) || null,
+            punt_llegada:     parseInt(document.querySelector('input[name="punt_llegada"]:checked')?.value || 0) || null,
+            punt_comunicacion:parseInt(document.querySelector('input[name="punt_comunicacion"]:checked')?.value || 0) || null,
+            punt_equipamiento:parseInt(document.querySelector('input[name="punt_equipamiento"]:checked')?.value || 0) || null,
+            punt_valor:       parseInt(document.querySelector('input[name="punt_valor"]:checked')?.value || 0) || null,
+            texto_positivo:   document.getElementById('texto-positivo').value.trim() || null,
+            texto_negativo:   document.getElementById('texto-negativo').value.trim() || null,
+        };
+
+        try {
+            const res = await fetch(`/api/resenas/submit/${TOKEN}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(datos)
+            });
+            if (!res.ok) throw new Error('Error al guardar');
+
+            document.getElementById('step-1').style.display = 'none';
+            document.getElementById('step-2').style.display = 'block';
+        } catch (e) {
+            btn.disabled = false;
+            btn.textContent = 'Enviar mi opinión →';
+            errorMsg.textContent = 'Hubo un error al enviar tu opinión. Por favor intenta nuevamente.';
+            errorMsg.style.display = 'block';
+        }
+    });
+
+    const btnGoogle = document.getElementById('btn-google');
+    if (btnGoogle) {
+        btnGoogle.addEventListener('click', () => {
+            fetch(`/api/resenas/google-click/${TOKEN}`, { method: 'POST' }).catch(() => {});
+        });
+    }
+</script>
+</body>
+</html>

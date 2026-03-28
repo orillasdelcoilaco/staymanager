@@ -62,6 +62,7 @@ const iaRoutes = require("./routes/ia");
 const importerRoutes = require('./routes/importerRoutes');
 const historicoImporterRoutes = require('./routes/historicoImporterRoutes');
 const bloqueosRoutes = require('./routes/bloqueosRoutes');
+const resenasRoutes = require('./routes/resenas');
 
 // [NEW] Galería de fotos por propiedad (revisión manual + sync SSR)
 const galeriaRoutes = require('./routes/galeriaRoutes');
@@ -236,6 +237,7 @@ try {
     apiRouter.use('/mensajes', mensajesRoutes(db));
     apiRouter.use('/comentarios', comentariosRoutes(db));
     apiRouter.use('/estados', estadosRoutes(db));
+    apiRouter.use('/resenas', resenasRoutes(db));
     apiRouter.use('/ai', aiRoutes(db));
 
     // [NEW] Content Factory Routes (SSR Generation Pipeline)
@@ -251,6 +253,46 @@ try {
     // **PRIORIDAD 4: Páginas Legales Globales**
     const legalRoutes = require('./routes/legal.js');
     app.use('/legal', legalRoutes);
+
+    // **PRIORIDAD 4.5: Formulario de Reseñas Público (sin auth, sin tenantResolver)**
+    const {
+        obtenerPorToken, marcarTokenUsado, guardarResena, registrarClickGoogle
+    } = require('./services/resenasService');
+
+    app.get('/r/:token', async (req, res) => {
+        try {
+            const resena = await obtenerPorToken(req.params.token);
+            if (!resena) return res.status(404).render('404', { empresa: { nombre: 'SuiteManager' } });
+            if (resena.punt_general) {
+                return res.send('<html><body style="font-family:sans-serif;text-align:center;padding:60px"><h2>Esta reseña ya fue enviada. ¡Gracias!</h2></body></html>');
+            }
+            await marcarTokenUsado(req.params.token);
+            res.render('review', { resena });
+        } catch (err) {
+            console.error('[review] GET /r/:token:', err.message);
+            res.status(500).send('Error al cargar el formulario.');
+        }
+    });
+
+    app.post('/api/resenas/submit/:token', express.json(), async (req, res) => {
+        try {
+            const result = await guardarResena(req.params.token, req.body);
+            if (!result) return res.status(409).json({ error: 'Ya enviada o token inválido' });
+            res.json({ ok: true });
+        } catch (err) {
+            console.error('[review] POST submit:', err.message);
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    app.post('/api/resenas/google-click/:token', async (req, res) => {
+        try {
+            await registrarClickGoogle(req.params.token);
+            res.json({ ok: true });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    });
 
     // **PRIORIDAD 5: SSR Router**
     const tenantResolver = createTenantResolver(db);

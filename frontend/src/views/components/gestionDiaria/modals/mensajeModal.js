@@ -8,6 +8,7 @@ let currentAllEstados = [];
 let onActionComplete = () => {};
 let plantillasDisponibles = [];
 let currentTipoMensaje = '';
+let reviewLink = '';
 
 function generarMensajePreview() {
     const plantillaSelect = document.getElementById('plantilla-select');
@@ -63,6 +64,7 @@ Saldo Pendiente: ${formatCurrency(saldoPendiente)}
         '[CANTIDAD_HUESPEDES]': totalHuespedes,
         '[SALDO_PENDIENTE]': formatCurrency(saldoPendiente),
         '[COBRO]': cobroTexto,
+        '[LINK_RESENA]': reviewLink,
     };
     
     for (const [etiqueta, valor] of Object.entries(reemplazos)) {
@@ -128,14 +130,30 @@ export async function renderMensajeModal(grupo, tipoMensaje, callback, allEstado
     currentAllEstados = allEstados;
     onActionComplete = callback;
     currentTipoMensaje = tipoMensaje;
+    reviewLink = '';
     const contentContainer = document.getElementById('modal-content-container');
     contentContainer.innerHTML = `<p class="text-center text-gray-500">Cargando plantillas...</p>`;
 
     try {
-        const data = await fetchAPI('/mensajes/preparar', {
-            method: 'POST',
-            body: { reservaIdOriginal: grupo.reservaIdOriginal, tipoMensaje }
-        });
+        const requests = [
+            fetchAPI('/mensajes/preparar', { method: 'POST', body: { reservaIdOriginal: grupo.reservaIdOriginal, tipoMensaje } })
+        ];
+
+        if (tipoMensaje === 'salida') {
+            requests.push(
+                fetchAPI('/resenas/generar-token', {
+                    method: 'POST',
+                    body: {
+                        reservaId: grupo.reservaIdOriginal,
+                        propiedadId: grupo.reservasIndividuales[0]?.propiedadId || null,
+                        nombreHuesped: grupo.clienteNombre || null
+                    }
+                }).catch(() => null)
+            );
+        }
+
+        const [data, tokenData] = await Promise.all(requests);
+        if (tokenData?.url) reviewLink = tokenData.url;
         
         plantillasDisponibles = data.plantillas;
 
