@@ -105,6 +105,9 @@ const eliminarReservasPorIdCarga = async (db, empresaId, idCarga) => {
             await pool.query('DELETE FROM transacciones WHERE empresa_id = $1 AND id_reserva_canal = ANY($2)', [empresaId, idsCanalUnicos]);
             await pool.query('DELETE FROM bitacora WHERE empresa_id = $1 AND id_reserva_canal = ANY($2)', [empresaId, idsCanalUnicos]);
         }
+        // INTENCIONAL: clientes, propuestas y presupuestos NO se eliminan.
+        // clientes: regla de negocio invariable.
+        // propuestas/presupuestos: vinculados al cliente, no a la carga — deben sobrevivir el reimport.
         const { rowCount } = await pool.query('DELETE FROM reservas WHERE empresa_id = $1 AND id_carga = $2', [empresaId, idCarga]);
         return { eliminadas: rowCount };
     }
