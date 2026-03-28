@@ -62,7 +62,6 @@ const iaRoutes = require("./routes/ia");
 const importerRoutes = require('./routes/importerRoutes');
 const historicoImporterRoutes = require('./routes/historicoImporterRoutes');
 const bloqueosRoutes = require('./routes/bloqueosRoutes');
-const resenasRoutes = require('./routes/resenas');
 
 // [NEW] Galería de fotos por propiedad (revisión manual + sync SSR)
 const galeriaRoutes = require('./routes/galeriaRoutes');
@@ -237,7 +236,6 @@ try {
     apiRouter.use('/mensajes', mensajesRoutes(db));
     apiRouter.use('/comentarios', comentariosRoutes(db));
     apiRouter.use('/estados', estadosRoutes(db));
-    apiRouter.use('/resenas', resenasRoutes(db));
     apiRouter.use('/ai', aiRoutes(db));
 
     // [NEW] Content Factory Routes (SSR Generation Pipeline)
@@ -262,26 +260,6 @@ try {
         }
         res.sendFile(path.join(frontendPath, 'index.html'));
     });
-
-    // Cron: reseñas IMAP (Airbnb, etc.) cada hora
-    const cron = require('node-cron');
-    const { ejecutarPollResenas } = require('./services/emailInboundService');
-    const { ejecutarPollGoogleReviews } = require('./services/googleBusinessService');
-
-    cron.schedule('0 * * * *', () => {
-        ejecutarPollResenas().catch(err =>
-            console.error('[cron:resenas] Error en poll IMAP:', err.message)
-        );
-    });
-
-    // Cron: reseñas Google Business una vez al día a las 7am
-    cron.schedule('0 7 * * *', () => {
-        ejecutarPollGoogleReviews().catch(err =>
-            console.error('[cron:google] Error en poll Google:', err.message)
-        );
-    });
-
-    console.log('[Startup] Crons de reseñas registrados (IMAP: cada hora | Google: diario 7am)');
 
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`[Startup] Servidor de StayManager escuchando en http://localhost:${PORT}`);

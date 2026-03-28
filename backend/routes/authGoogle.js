@@ -13,8 +13,7 @@ try {
 }
 
 const SCOPES = [
-    'https://www.googleapis.com/auth/contacts',
-    'https://www.googleapis.com/auth/business.manage'
+    'https://www.googleapis.com/auth/contacts'
 ];
 
 module.exports = (db) => {
@@ -72,14 +71,13 @@ module.exports = (db) => {
         try {
             if (pool) {
                 const { rows } = await pool.query(
-                    'SELECT google_auth_date, google_business_account_id FROM empresas WHERE id = $1',
+                    'SELECT google_auth_date FROM empresas WHERE id = $1',
                     [req.user.empresaId]
                 );
                 const row = rows[0];
                 res.json({
                     autorizado: !!row?.google_auth_date,
-                    fechaAuth: row?.google_auth_date || null,
-                    businessAccountId: row?.google_business_account_id || null
+                    fechaAuth: row?.google_auth_date || null
                 });
             } else {
                 res.json({ autorizado: false });

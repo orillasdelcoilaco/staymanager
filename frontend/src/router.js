@@ -43,7 +43,6 @@ const views = {
     '/gestionar-estados': () => import('./views/gestionarEstados.js'),
     '/importador-historico': () => import('./views/importadorHistorico.js'),
     '/gestionar-bloqueos': () => import('./views/gestionarBloqueos.js'),
-    '/resenas': () => import('./views/resenas.js'),
 };
 
 const menuConfig = [
@@ -67,7 +66,6 @@ const menuConfig = [
         id: 'operaciones',
         children: [
             { name: '💬 Comentarios', path: '/gestionar-comentarios', id: 'gestionar-comentarios' },
-            { name: '⭐ Reseñas OTA', path: '/resenas', id: 'resenas' },
             { name: '🏨 Reservas', path: '/gestionar-reservas', id: 'gestionar-reservas' },
             { name: '👥 Clientes', path: '/clientes', id: 'clientes' },
             { name: '📈 Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' },
