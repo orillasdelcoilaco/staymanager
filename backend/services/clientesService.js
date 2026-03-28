@@ -39,7 +39,7 @@ function mapearCliente(row) {
         bloqueado: row.bloqueado || false,
         motivoBloqueo: row.motivo_bloqueo || '',
         notas: row.notas || '',
-        telefonoNormalizado: m.telefonoNormalizado || null,
+        telefonoNormalizado: row.telefono_normalizado || m.telefonoNormalizado || null,
         idCompuesto: m.idCompuesto || null,
         origen: m.origen || 'Importado',
         googleContactSynced: m.googleContactSynced || false,
@@ -53,10 +53,16 @@ function mapearCliente(row) {
 }
 
 async function _buscarClientePG(empresaId, campo, valor, nombreNormalizado) {
-    const { rows } = await pool.query(
-        `SELECT * FROM clientes WHERE empresa_id = $1 AND metadata->>'${campo}' = $2 LIMIT 1`,
-        [empresaId, valor]
-    );
+    let query;
+    if (campo === 'telefonoNormalizado') {
+        // Buscar primero en columna real (rápido, indexado), luego en metadata como fallback
+        query = `SELECT * FROM clientes WHERE empresa_id = $1
+                 AND (telefono_normalizado = $2 OR metadata->>'telefonoNormalizado' = $2)
+                 LIMIT 1`;
+    } else {
+        query = `SELECT * FROM clientes WHERE empresa_id = $1 AND metadata->>'${campo}' = $2 LIMIT 1`;
+    }
+    const { rows } = await pool.query(query, [empresaId, valor]);
     if (!rows[0]) return null;
     const cliente = mapearCliente(rows[0]);
     if (cliente.nombre !== nombreNormalizado) {
@@ -78,11 +84,20 @@ async function _crearClientePG(empresaId, datosCliente, telefonoNormalizado, nom
         ubicacion: datosCliente.ubicacion || '',
     };
     const { rows } = await pool.query(
-        `INSERT INTO clientes (empresa_id, nombre, email, telefono, pais, calificacion, bloqueado, motivo_bloqueo, notas, metadata)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+        `INSERT INTO clientes
+             (empresa_id, nombre, email, telefono, pais, calificacion, bloqueado,
+              motivo_bloqueo, notas, metadata, telefono_normalizado)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         ON CONFLICT (empresa_id, telefono_normalizado)
+             WHERE telefono_normalizado IS NOT NULL
+         DO UPDATE SET
+             nombre = EXCLUDED.nombre,
+             updated_at = NOW()
+         RETURNING *`,
         [empresaId, nombreNormalizado || 'Cliente por Asignar', datosCliente.email || '',
          datosCliente.telefono || '56999999999', datosCliente.pais || '',
-         datosCliente.calificacion || 0, false, '', datosCliente.notas || '', JSON.stringify(metadata)]
+         datosCliente.calificacion || 0, false, '', datosCliente.notas || '',
+         JSON.stringify(metadata), telefonoNormalizado || null]
     );
     return mapearCliente(rows[0]);
 }
