@@ -18,6 +18,66 @@ let canales = [];
 let editandoTarifa = null;
 let canalPorDefecto = null;
 
+function renderModalEditarTarifa(moneda) {
+  return `
+    <div id="tarifa-modal-edit" class="modal hidden">
+      <div class="modal-content !max-w-lg">
+        <div class="flex items-center gap-4 mb-6 pb-5 border-b">
+          <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 text-xl flex-shrink-0">💲</div>
+          <div>
+            <h3 class="text-xl font-semibold text-gray-900">Editar Tarifa</h3>
+            <p id="modal-tarifa-subtitle" class="text-sm text-gray-500">Ajusta los valores de esta temporada</p>
+          </div>
+        </div>
+        <form id="tarifa-form-edit">
+          <div class="mb-4">
+            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Alojamiento</label>
+            <input type="text" id="alojamientoNombre" name="alojamientoNombre" disabled
+                   class="form-input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed">
+          </div>
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Temporada</p>
+          <div class="grid grid-cols-1 gap-3 mb-4">
+            <div>
+              <label class="label">Nombre <span class="text-danger-500">*</span></label>
+              <input type="text" id="temporada" name="temporada" placeholder="Ej: Alta 2026, Semana Santa…"
+                     required class="form-input mt-1">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="label">Fecha inicio <span class="text-danger-500">*</span></label>
+                <input type="date" id="fechaInicio" name="fechaInicio" required class="form-input mt-1">
+              </div>
+              <div>
+                <label class="label">Fecha término <span class="text-danger-500">*</span></label>
+                <input type="date" id="fechaTermino" name="fechaTermino" required class="form-input mt-1">
+              </div>
+            </div>
+          </div>
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Precio</p>
+          <div class="mb-5">
+            <label class="label" for="precioBase">Precio base por noche
+              <span class="ml-1 text-xs font-normal text-gray-400">(${moneda})</span>
+            </label>
+            <div class="relative mt-1">
+              <span class="absolute inset-y-0 left-3 flex items-center text-gray-400 font-medium pointer-events-none">$</span>
+              <input type="number" id="precioBase" name="precioBase" required class="form-input pl-7" placeholder="0">
+            </div>
+          </div>
+          <div class="bg-gray-50 rounded-xl border border-gray-100 overflow-hidden mb-5">
+            <div class="px-4 py-2.5 border-b border-gray-100 bg-white">
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Precios calculados por canal</p>
+            </div>
+            <div id="precios-canales-preview" class="divide-y divide-gray-100"></div>
+          </div>
+          <div class="flex justify-end gap-3 pt-4 border-t">
+            <button type="button" id="cancel-edit-btn" class="btn-outline">Cancelar</button>
+            <button type="submit" class="btn-primary">Guardar cambios</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+}
+
 export async function render() {
   try {
     [tarifas, alojamientos, canales] = await Promise.all([
@@ -96,29 +156,7 @@ export async function render() {
       </div>
     </div>
     
-    <div id="tarifa-modal-edit" class="modal hidden">
-      <div class="modal-content">
-        <h3 class="text-xl font-semibold mb-4">Editar Tarifa</h3>
-        <form id="tarifa-form-edit" class="space-y-4">
-          <input type="text" id="alojamientoNombre" name="alojamientoNombre" disabled class="form-input mt-1 bg-gray-100">
-          <input type="text" id="temporada" name="temporada" placeholder="Temporada" required class="form-input mt-1">
-          <input type="date" id="fechaInicio" name="fechaInicio" required class="form-input mt-1">
-          <input type="date" id="fechaTermino" name="fechaTermino" required class="form-input mt-1">
-          <div>
-            <label for="precioBase" class="block text-sm font-medium text-gray-700">Precio Base (${canalPorDefecto.moneda})</label>
-            <input type="number" id="precioBase" name="precioBase" required class="form-input mt-1">
-          </div>
-          <div>
-            <p class="text-sm font-medium text-gray-700 mb-2">Vista Previa de Precios por Canal</p>
-            <div id="precios-canales-preview" class="bg-gray-50 rounded-md p-3"></div>
-          </div>
-          <div class="flex justify-end pt-4 border-t">
-            <button type="button" id="cancel-edit-btn" class="btn-secondary mr-2">Cancelar</button>
-            <button type="submit" class="btn-primary">Guardar Cambios</button>
-          </div>
-        </form>
-      </div>
-    </div>
+    ${renderModalEditarTarifa(canalPorDefecto.moneda)}
   `;
 }
 

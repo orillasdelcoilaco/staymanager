@@ -29,10 +29,18 @@ function renderPreciosPreview(canales, canalPorDefecto, precioBase, valorDolarDi
       ? `USD ${valor.toFixed(2)}`
       : `CLP ${Math.round(valor).toLocaleString('es-CL')}`;
     const esBase = canal.id === canalPorDefecto.id;
+    const modificador = !esBase && canal.modificadorValor
+      ? canal.modificadorTipo === 'porcentaje'
+        ? `<span class="text-xs text-gray-400 ml-1">(+${canal.modificadorValor}%)</span>`
+        : `<span class="text-xs text-gray-400 ml-1">(+${canal.modificadorValor})</span>`
+      : '';
     return `
-      <div class="flex justify-between items-center py-1 border-b border-gray-100 text-sm last:border-0">
-        <span class="text-gray-600">${canal.nombre}${esBase ? ' ⭐' : ''}</span>
-        <span class="font-semibold ${esBase ? 'text-primary-700' : 'text-gray-800'}">${label}</span>
+      <div class="flex justify-between items-center px-4 py-2.5 text-sm ${esBase ? 'bg-primary-50' : ''}">
+        <span class="${esBase ? 'font-semibold text-primary-700' : 'text-gray-600'}">
+          ${canal.nombre}${esBase ? ' <span class="text-xs font-normal text-primary-400">(base)</span>' : ''}
+          ${modificador}
+        </span>
+        <span class="font-semibold tabular-nums ${esBase ? 'text-primary-700' : 'text-gray-800'}">${label}</span>
       </div>`;
   }).join('');
 }
@@ -46,6 +54,8 @@ export function abrirModalEditar(tarifa, canalPorDefecto, canales) {
   const precioBaseVal = precioBaseObj ? precioBaseObj.valorCLP : 0;
 
   form.alojamientoNombre.value = tarifa.alojamientoNombre;
+  const subtitle = document.getElementById('modal-tarifa-subtitle');
+  if (subtitle) subtitle.textContent = tarifa.alojamientoNombre;
   form.temporada.value = tarifa.temporada;
   form.fechaInicio.value = tarifa.fechaInicio;
   form.fechaTermino.value = tarifa.fechaTermino;
