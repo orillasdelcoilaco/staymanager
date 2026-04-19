@@ -1,0 +1,42 @@
+---
+description: Estandar backend para modo dual PostgreSQL/Firestore
+globs: backend/**/*.js
+alwaysApply: false
+---
+
+# Backend Modo Dual - StayManager
+
+## Patron obligatorio en servicios
+
+```javascript
+const pool = require('../db/postgres');
+
+const ejecutar = async (db, empresaId) => {
+  if (pool) {
+    // PostgreSQL
+  } else {
+    // Firestore fallback
+  }
+};
+```
+
+## Reglas de implementacion
+
+- SQL siempre con `WHERE empresa_id = $1` (o equivalente con mismo aislamiento).
+- Definir `mapear(row)` local por servicio para `snake_case -> camelCase`.
+- No usar helper global de mapeo para todas las tablas.
+- Normalizar fechas `DATE` de PostgreSQL con helper local (ej. `_pgDateToUTC`).
+- Preservar compatibilidad del modo dual salvo instruccion explicita de migracion cerrada.
+
+## Regla de arquitectura de dominio
+
+- `SPA` y `SSR` son mundos separados; no cruzar responsabilidades.
+- Empresas son totalmente independientes entre si.
+- Solo clientes pueden ser compartidos de forma global.
+
+## Checklist minimo al cerrar cambio backend
+
+- Querys auditadas por tenant.
+- Mapeos aplicados en todas las respuestas.
+- Fallback validado (si aplica).
+- Fechas normalizadas.

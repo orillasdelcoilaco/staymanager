@@ -1,0 +1,30 @@
+---
+description: Convenciones frontend para design system y separacion SPA/SSR
+globs: frontend/**/*.js,frontend/**/*.css,backend/views/**/*.ejs
+alwaysApply: false
+---
+
+# Frontend Design System - StayManager
+
+## Tokens y estilos
+
+- Usar solo tokens semanticos (`primary-*`, `danger-*`, `success-*`, `warning-*`).
+- No usar colores Tailwind hardcodeados (`blue-*`, `red-*`, `green-*`, etc).
+- Botones con clases estandar (`btn-primary`, `btn-danger`, `btn-success`, `btn-outline`, `btn-ghost`).
+
+## Arquitectura de UI
+
+- `SPA` y `SSR` no se mezclan: componentes y flujos deben permanecer separados.
+- Cambios en `frontend/src` no deben inyectar logica de `backend/views` y viceversa.
+
+## Multiempresa
+
+- Toda vista debe representar datos del tenant actual.
+- No mostrar ni combinar datos de empresas distintas.
+- Recordatorio de dominio: unica entidad compartida global permitida son clientes.
+
+## Validacion post-cambio
+
+- Ejecutar `node scripts/audit-ui-monitored.js`.
+- Si hay alta prioridad, ejecutar `node scripts/migrate-colors.js`.
+- Reconstruir CSS cuando corresponda (`backend` -> `npm run build`).

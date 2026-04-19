@@ -33,6 +33,9 @@ module.exports = (db) => {
             res.json({ token, url: `${baseUrl}/r/${token}` });
         } catch (err) {
             console.error('[resenas] generar-token:', err.message);
+            if (err.code === 'CLIENTE_BLOQUEADO') {
+                return res.status(403).json({ error: err.message });
+            }
             res.status(500).json({ error: err.message });
         }
     });
@@ -62,6 +65,9 @@ module.exports = (db) => {
                 res.status(201).json(result);
             } catch (err) {
                 console.error('[resenas] manual:', err.message);
+                if (err.code === 'CLIENTE_BLOQUEADO') {
+                    return res.status(403).json({ error: err.message });
+                }
                 res.status(err.message.includes('requeridos') ? 400 : 500).json({ error: err.message });
             }
         }
