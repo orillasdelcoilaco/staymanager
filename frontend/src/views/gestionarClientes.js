@@ -8,11 +8,11 @@ import { renderModalCliente, setupModalCliente, abrirModalCliente, getIniciales,
 let clientes = [];
 let chipActivo = 'todos';
 
-const TIPO_BADGE = {
-    'Cliente Premium':   'bg-warning-100 text-warning-800',
-    'Cliente Frecuente': 'bg-primary-100 text-primary-800',
-    'Cliente Nuevo':     'bg-gray-100 text-gray-700',
-    'Sin Reservas':      'bg-gray-100 text-gray-500',
+const TIPO_BADGE_CLASS = {
+    'Cliente Premium':   'badge-cliente-tipo-premium',
+    'Cliente Frecuente': 'badge-cliente-tipo-frecuente',
+    'Cliente Nuevo':     'badge-cliente-tipo-nuevo',
+    'Sin Reservas':      'badge-cliente-tipo-sin-reservas',
 };
 
 function renderStars(rating) {
@@ -40,7 +40,7 @@ function renderCards(lista) {
     grid.innerHTML = lista.map(c => {
         const iniciales  = getIniciales(c.nombre);
         const color      = getColorAvatar(c.nombre);
-        const tipoBadge  = TIPO_BADGE[c.tipoCliente] || 'bg-gray-100 text-gray-600';
+        const tipoBadge  = TIPO_BADGE_CLASS[c.tipoCliente] || 'badge-cliente-tipo-nuevo';
         const tipoLabel  = c.tipoCliente?.replace('Cliente ', '') || 'Nuevo';
         const syncColor  = c.googleContactSynced ? 'text-success-600' : 'text-gray-400';
         const syncLabel  = c.googleContactSynced ? 'Sincronizado' : 'Sin sincronizar';
@@ -59,8 +59,8 @@ function renderCards(lista) {
                         </div>
                     </div>
                     <div class="flex flex-col items-end gap-1">
-                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${tipoBadge}">${tipoLabel}</span>
-                        ${c.bloqueado ? `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-danger-100 text-danger-700">🚫 Bloqueado</span>` : ''}
+                        <span class="${tipoBadge}">${tipoLabel}</span>
+                        ${c.bloqueado ? '<span class="badge-soft-danger-sm">🚫 Bloqueado</span>' : ''}
                     </div>
                 </div>
 

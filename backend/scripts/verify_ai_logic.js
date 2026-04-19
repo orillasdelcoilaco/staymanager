@@ -1,5 +1,3 @@
-
-const admin = require('firebase-admin');
 const path = require('path');
 const { generarDescripcionAlojamiento, generarMetadataImagen } = require('../services/aiContentService');
 // .env is in backend/, this script is in backend/scripts/
@@ -27,8 +25,14 @@ async function verifyAI() {
                 componentes: [{ nombre: "Dormitorio Principal", tipo: "Dormitorio" }]
             }
         );
-        console.log("SUCCESS Description Generated:");
-        console.log(desc.substring(0, 100) + "...");
+        const texto =
+            typeof desc === 'string' ? desc : (desc?.descripcion || JSON.stringify(desc || {}));
+        const preview = texto.length > 120 ? `${texto.slice(0, 120)}...` : texto;
+        console.log('SUCCESS Description Generated:');
+        console.log(preview);
+        if (desc && typeof desc === 'object' && Array.isArray(desc.puntosFuertes) && desc.puntosFuertes.length) {
+            console.log('puntosFuertes (muestra):', desc.puntosFuertes.slice(0, 5));
+        }
     } catch (e) {
         console.error("FAIL Description Generation:", e);
     }

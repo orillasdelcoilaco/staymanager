@@ -1,11 +1,9 @@
 // frontend/src/views/components/calendario/calendario.gantt.js
 // Renderiza la grilla Gantt del calendario de ocupación.
 
-const COLORES = [
-    '#3B82F6', '#10B981', '#F59E0B', '#EF4444',
-    '#8B5CF6', '#EC4899', '#06B6D4', '#F97316',
-    '#84CC16', '#14B8A6',
-];
+import { GANTT_STROKE_RGB } from '../../../shared/chartPaletteRgb.js';
+
+const COLORES = GANTT_STROKE_RGB;
 
 const DIAS_SEMANA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
 const DIA_WIDTH = 44; // px por día

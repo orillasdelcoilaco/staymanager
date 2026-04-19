@@ -59,9 +59,9 @@ function renderLeyenda() {
 function renderNavegacion() {
     return `
         <div class="cal-nav">
-            <button id="cal-prev" class="cal-nav-btn">&#8249;</button>
-            <button id="cal-hoy" class="cal-nav-btn cal-nav-today">Hoy</button>
-            <button id="cal-next" class="cal-nav-btn">&#8250;</button>
+            <button id="cal-prev" class="cal-nav-btn" type="button" aria-label="Mes anterior">‹</button>
+            <button id="cal-hoy" class="cal-nav-btn cal-nav-today" type="button">Hoy</button>
+            <button id="cal-next" class="cal-nav-btn" type="button" aria-label="Mes siguiente">›</button>
             <h3 id="cal-mes-label" class="cal-nav-titulo">${nombreMes(mesActual)}</h3>
         </div>`;
 }
@@ -113,7 +113,7 @@ function adjuntarEventosGantt() {
                 const fmt = iso => new Date(iso + 'T00:00:00').toLocaleDateString('es-CL');
                 if (data.tipo === 'bloqueo') {
                     tooltip.innerHTML = `
-                        <p class="cal-tooltip-nombre">🔒 Alojamiento Bloqueado</p>
+                        <p class="cal-tooltip-nombre"><i class="fa-solid fa-lock mr-1"></i>Alojamiento Bloqueado</p>
                         <p class="cal-tooltip-aloj">${data.motivo || 'Sin motivo especificado'}</p>
                         <div class="cal-tooltip-grid">
                             <span>Desde</span><span>${fmt(data.start)}</span>
@@ -168,8 +168,8 @@ function abrirModal(data) {
             <div><dt>Estado Gestión</dt><dd>${data.estadoGestion || 'N/A'}</dd></div>
         </dl>
         <div class="mt-5 pt-4 border-t flex justify-end">
-            <button id="cal-modal-ir-reserva" class="btn-primary text-sm">
-                Ver Reserva →
+            <button id="cal-modal-ir-reserva" class="btn-primary text-sm flex items-center gap-1.5">
+                Ver Reserva <i class="fa-solid fa-arrow-right"></i>
             </button>
         </div>`;
 
@@ -208,9 +208,12 @@ export async function render() {
         <!-- Modal detalle -->
         <div id="cal-modal" class="modal hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900">Detalle de Reserva</h3>
-                    <button id="cal-modal-close" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+                <div class="flex items-center gap-3 mb-4 pb-4 border-b">
+                    <div class="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 flex-shrink-0"><i class="fa-solid fa-house"></i></div>
+                    <div class="flex-1">
+                        <h3 class="text-base font-semibold text-gray-900">Detalle de Reserva</h3>
+                    </div>
+                    <button id="cal-modal-close" class="text-gray-400 hover:text-gray-700 text-xl leading-none">&times;</button>
                 </div>
                 <div id="cal-modal-body"></div>
             </div>

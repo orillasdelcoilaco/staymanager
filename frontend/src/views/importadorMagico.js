@@ -53,7 +53,7 @@ function appendLog(panelId, msg, type = 'log') {
     const panel = document.getElementById(panelId);
     if (!panel) return;
 
-    const colors = { error: '#f87171', done: '#4ade80', info: '#60a5fa', log: '#e5e7eb' };
+    const colors = { error: 'rgb(248 113 113)', done: 'rgb(74 222 128)', info: 'rgb(96 165 250)', log: 'rgb(229 231 235)' };
     const color = colors[type] || colors.log;
 
     // Limpiar prefijos de debug verbosos para mejor legibilidad
@@ -196,7 +196,7 @@ function renderStep1(container) {
                 <span class="text-sm font-medium">Analizando sitio web...</span>
             </div>
             <div id="log-panel-analyze"
-                style="background:#111827;border-radius:8px;padding:10px 14px;font-family:monospace;font-size:11px;line-height:1.6;height:220px;overflow-y:auto;border:1px solid #374151;">
+                style="background:rgb(17 24 39);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:11px;line-height:1.6;height:220px;overflow-y:auto;border:1px solid rgb(55 65 81);">
             </div>
         </div>`;
 
@@ -487,7 +487,7 @@ function renderStep4(container) {
                 <span class="text-sm font-medium">Creando empresa en Firestore...</span>
             </div>
             <div id="log-panel-create"
-                style="background:#111827;border-radius:8px;padding:10px 14px;font-family:monospace;font-size:11px;line-height:1.6;height:220px;overflow-y:auto;border:1px solid #374151;">
+                style="background:rgb(17 24 39);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:11px;line-height:1.6;height:220px;overflow-y:auto;border:1px solid rgb(55 65 81);">
             </div>
         </div>`;
 

@@ -1,299 +1,410 @@
-<%- /* backend/views/home.ejs */ %>
-    <!DOCTYPE html>
-    <html lang="es">
+<%- /* backend/views/home.ejs — Rediseño Airbnb-style */ %>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <%
+        const _pageTitle    = corporateContent?.hero?.title || empresa.websiteSettings?.seo?.homeTitle || empresa.nombre;
+        const _pageDesc     = corporateContent?.hero?.subtitle || empresa.websiteSettings?.seo?.homeDescription || `Reservas directas en ${empresa.nombre}`;
+        const _pageUrl      = baseUrl || '';
+        const _heroImage    = empresa.websiteSettings?.theme?.heroImageUrl || '';
+        const _logoUrl      = locals.brandIdentity?.logoUrl || empresa.websiteSettings?.theme?.logoUrl || '';
+        const _keywords     = [
+            empresaContext?.ubicacion?.ciudad,
+            empresaContext?.ubicacion?.region,
+            empresa.nombre,
+            empresa.websiteSettings?.general?.palabrasClaveAdicionales
+        ].filter(Boolean).join(', ');
 
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>
-            <%= empresa.websiteSettings?.seo?.homeTitle || empresa.nombre %>
-        </title>
-        <meta name="description"
-            content="<%= empresa.websiteSettings?.seo?.homeDescription || `Reservas en ${empresa.nombre}` %>">
+        const _ciudad       = locals.ubicacion?.ciudad || empresaContext?.ubicacion?.ciudad || '';
+        const _region       = locals.ubicacion?.region || empresaContext?.ubicacion?.region || '';
+        const _descripcion  = corporateContent?.about?.description
+                           || corporateContent?.hero?.subtitle
+                           || empresa.websiteSettings?.content?.homeIntro
+                           || empresa.slogan || '';
 
-        <%# --- INICIO: Script JSON-LD (Home) --- %>
-            <% if (locals.schemaData) { %>
-                <script type="application/ld+json">
-        <%- JSON.stringify(schemaData, null, 2) %>
-    </script>
+        const _telefono     = locals.contacto?.telefonoPrincipal || empresa.contactoTelefono || '';
+        const _telefonoWA   = _telefono.replace(/\D/g, '');
+        const _waLink       = _telefonoWA ? `https://wa.me/${_telefonoWA.startsWith('56') ? _telefonoWA : '56' + _telefonoWA}` : '';
+
+        const _mapSearch    = encodeURIComponent(`${empresa.nombre}${_ciudad ? ', ' + _ciudad : ''}`);
+        const _mapSrc       = `https://maps.google.com/maps?q=${_mapSearch}&output=embed&z=14`;
+
+        const _propCount    = resultados.filter(r => !r.isGroup).length;
+        const _maxCap       = resultados.filter(r => !r.isGroup).reduce((m, p) => m + (p.capacidad || 0), 0);
+        const _rating       = resenasResumen?.total >= 3 ? resenasResumen.promedio_general?.toFixed(1) : null;
+        const _totalResenas = resenasResumen?.total || 0;
+        const _fmtCLP       = (v) => `$${Math.round(v || 0).toLocaleString('es-CL')}`;
+
+        // Amenidades únicas top 8 para la sección About
+        const _amenTop = (() => {
+            const set = new Set();
+            resultados.filter(r => !r.isGroup).forEach(p => {
+                const arr = Array.isArray(p.amenidades) ? p.amenidades
+                    : (p.amenidades && typeof p.amenidades === 'object' ? Object.values(p.amenidades) : []);
+                arr.forEach(a => {
+                    const n = typeof a === 'string' ? a : (a?.nombre || a?.name || '');
+                    if (n) set.add(n);
+                });
+            });
+            return [...set].slice(0, 8);
+        })();
+
+        const _iconoAmenidad = (nombre) => {
+            const n = nombre.toLowerCase();
+            if (n.includes('wifi') || n.includes('internet')) return 'fa-wifi';
+            if (n.includes('piscina') || n.includes('pileta')) return 'fa-swimming-pool';
+            if (n.includes('estacionamiento') || n.includes('parking')) return 'fa-car';
+            if (n.includes('cocina') || n.includes('kitchen')) return 'fa-utensils';
+            if (n.includes('tv') || n.includes('televisión')) return 'fa-tv';
+            if (n.includes('bbq') || n.includes('parrilla') || n.includes('asado')) return 'fa-fire';
+            if (n.includes('lavadora') || n.includes('lavar')) return 'fa-tshirt';
+            if (n.includes('aire') || n.includes('climatiz')) return 'fa-snowflake';
+            if (n.includes('calefac') || n.includes('heating')) return 'fa-temperature-high';
+            if (n.includes('gym') || n.includes('gimnasio')) return 'fa-dumbbell';
+            if (n.includes('mascota') || n.includes('pet')) return 'fa-paw';
+            return 'fa-check-circle';
+        };
+    %>
+
+    <title><%= _pageTitle %></title>
+    <meta name="description" content="<%= _pageDesc %>">
+    <% if (_keywords) { %><meta name="keywords" content="<%= _keywords %>"><% } %>
+    <link rel="canonical" href="<%= _pageUrl %>">
+    <meta property="og:type"        content="website">
+    <meta property="og:locale"      content="es_CL">
+    <meta property="og:site_name"   content="<%= empresa.nombre %>">
+    <meta property="og:title"       content="<%= _pageTitle %>">
+    <meta property="og:description" content="<%= _pageDesc %>">
+    <meta property="og:url"         content="<%= _pageUrl %>">
+    <% if (_heroImage) { %>
+    <meta property="og:image"       content="<%= _heroImage %>">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <% } %>
+    <meta name="twitter:card"        content="summary_large_image">
+    <meta name="twitter:title"       content="<%= _pageTitle %>">
+    <meta name="twitter:description" content="<%= _pageDesc %>">
+    <% if (_heroImage) { %><meta name="twitter:image" content="<%= _heroImage %>"><% } %>
+    <% if (locals.schemaData) { %>
+    <script type="application/ld+json"><%- JSON.stringify(schemaData) %></script>
+    <% } %>
+    <link rel="stylesheet" href="/public/css/website.css">
+    <% if (locals.customCSS && locals.customCSS.trim().length > 0) { %><style><%= locals.customCSS %></style><% } %>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <% if (_logoUrl) { %><link rel="icon" href="<%= _logoUrl %>" type="image/png"><% } %>
+
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        .hero-search-input { background: transparent; outline: none; width: 100%; font-size: 0.875rem; color: rgb(34 34 34); }
+        .hero-search-input::placeholder { color: rgb(156 163 175); }
+        .prop-card-img { transition: transform 0.5s ease; }
+        .prop-card:hover .prop-card-img { transform: scale(1.04); }
+        .divider-v { width: 1px; background: rgb(229 231 235); align-self: stretch; margin: 8px 0; display: none; }
+        @media (min-width: 768px) { .divider-v { display: block; } }
+    </style>
+</head>
+
+<body class="bg-white flex flex-col min-h-screen text-gray-900">
+
+    <%- include('partials/header') %>
+
+    <main class="flex-grow">
+
+        <%# ═══════════════════════════════════════════════════════ %>
+        <%# HERO — imagen cinematográfica + buscador flotante      %>
+        <%# ═══════════════════════════════════════════════════════ %>
+        <section class="relative overflow-hidden flex flex-col" style="min-height: 520px;">
+
+            <% if (_heroImage) { %>
+            <img src="<%= _heroImage %>" alt="<%= empresa.nombre %>"
+                 class="absolute inset-0 w-full h-full object-cover">
+            <% } else { %>
+            <div class="absolute inset-0 bg-gradient-to-br from-primary-800 via-primary-700 to-primary-600"></div>
+            <% } %>
+            <div class="absolute inset-0 bg-gradient-to-b from-black/25 via-black/20 to-black/70"></div>
+
+            <%# Texto hero – centrado %>
+            <div class="relative z-10 flex-1 flex flex-col justify-center items-center text-center text-white px-4 pt-24 pb-10">
+                <% if (_logoUrl) { %>
+                <img src="<%= _logoUrl %>" alt="<%= empresa.nombre %>" class="h-14 w-auto mb-5 drop-shadow-lg object-contain">
                 <% } %>
-                    <%# --- FIN: Script JSON-LD (Home) --- %>
+                <h1 class="text-4xl md:text-6xl font-extrabold leading-tight drop-shadow-lg mb-3 max-w-3xl">
+                    <%= corporateContent?.hero?.title || empresa.websiteSettings?.content?.homeH1 || empresa.nombre %>
+                </h1>
+                <% const _subtitulo = corporateContent?.hero?.subtitle || empresa.websiteSettings?.content?.homeIntro || empresa.slogan; %>
+                <% if (_subtitulo) { %>
+                <p class="text-lg md:text-2xl max-w-2xl opacity-90 drop-shadow font-medium">
+                    <%= _subtitulo %>
+                </p>
+                <% } %>
+                <% if (_ciudad) { %>
+                <p class="mt-3 text-sm opacity-75 flex items-center gap-1.5">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span><%= _ciudad %><% if (_region) { %>, <%= _region %><% } %></span>
+                </p>
+                <% } %>
+            </div>
 
-                        <link rel="stylesheet" href="/public/css/website.css">
-                        <link rel="preconnect" href="https://fonts.googleapis.com">
-                        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-                        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
-                            rel="stylesheet">
-                        <link rel="stylesheet"
-                            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    </head>
-
-    <body class="bg-gray-50 flex flex-col min-h-screen">
-
-        <%- include('partials/header') %>
-
-            <main class="flex-grow overflow-hidden">
-                <%# Sección Hero %>
-                    <% if (empresa.websiteSettings?.theme?.heroImageUrl) { %>
-                        <div class="relative h-[50vh] min-h-[400px] w-full overflow-hidden">
-                            <picture>
-                                <source srcset="<%= empresa.websiteSettings.theme.heroImageUrl %>" type="image/webp">
-                                <img src="<%= empresa.websiteSettings.theme.heroImageUrl %>"
-                                    alt="<%= empresa.websiteSettings.theme.heroImageAlt || 'Imagen de portada' %>"
-                                    title="<%= empresa.websiteSettings.theme.heroImageTitle || empresa.nombre %>"
-                                    class="w-full h-full object-cover">
-                            </picture>
-                            <div class="absolute inset-0 bg-black bg-opacity-40"></div>
-                            <div
-                                class="absolute inset-0 flex flex-col justify-center items-start px-4 md:px-12 text-white container mx-auto">
-                                <h1 class="text-4xl md:text-6xl font-bold drop-shadow-lg mb-4">
-                                    <%= empresa.websiteSettings?.content?.homeH1 || empresa.nombre %>
-                                </h1>
-                                <p class="text-lg md:text-2xl max-w-2xl drop-shadow-md">
-                                    <%= empresa.websiteSettings?.content?.homeIntro || empresa.slogan
-                                        || 'Tu mejor opción para descansar.' %>
-                                </p>
-                            </div>
+            <%# Buscador flotante %>
+            <div class="relative z-20 px-4 pb-10">
+                <% if (isSearchResult) { %>
+                <div class="max-w-3xl mx-auto bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-1 text-sm text-gray-600 flex items-center gap-3 px-4 py-3">
+                    <i class="fas fa-search text-gray-400"></i>
+                    <span class="flex-1">
+                        <% if (query.fechaLlegada) { %><strong><%= query.fechaLlegada %></strong> → <strong><%= query.fechaSalida %></strong><% } %>
+                        <% if (query.personas) { %> · <strong><%= query.personas %> huéspedes</strong><% } %>
+                    </span>
+                    <a href="/" class="text-primary-600 font-semibold hover:underline whitespace-nowrap">Modificar</a>
+                </div>
+                <% } else { %>
+                <form action="/" method="GET" class="max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
+                    <div class="flex flex-col md:flex-row">
+                        <div class="flex-1 px-5 pt-4 pb-3 border-b md:border-b-0 md:border-r border-gray-200">
+                            <label for="fechaLlegada" class="block text-xs font-bold text-gray-800 mb-1 tracking-wide">LLEGADA</label>
+                            <input type="date" name="fechaLlegada" id="fechaLlegada" class="hero-search-input"
+                                   value="<%= query.fechaLlegada || '' %>">
                         </div>
-                        <% } else { %>
-                            <div
-                                class="bg-primary-700 text-white py-12 px-4 text-center h-64 md:h-80 flex items-center justify-center">
-                                <div>
-                                    <h1 class="text-4xl md:text-5xl font-bold">
-                                        <%= empresa.websiteSettings?.content?.homeH1 || empresa.nombre %>
-                                    </h1>
-                                    <p class="mt-4 text-lg md:text-xl max-w-2xl">
-                                        <%= empresa.websiteSettings?.content?.homeIntro || empresa.slogan
-                                            || 'Tu mejor opción para descansar.' %>
-                                    </p>
+                        <div class="divider-v"></div>
+                        <div class="flex-1 px-5 pt-4 pb-3 border-b md:border-b-0 md:border-r border-gray-200">
+                            <label for="fechaSalida" class="block text-xs font-bold text-gray-800 mb-1 tracking-wide">SALIDA</label>
+                            <input type="date" name="fechaSalida" id="fechaSalida" class="hero-search-input"
+                                   value="<%= query.fechaSalida || '' %>">
+                        </div>
+                        <div class="divider-v"></div>
+                        <div class="flex-1 px-5 pt-4 pb-3 border-b md:border-b-0 border-gray-200">
+                            <label for="personas" class="block text-xs font-bold text-gray-800 mb-1 tracking-wide">HUÉSPEDES</label>
+                            <input type="number" name="personas" id="personas" min="1" placeholder="Agregar huéspedes"
+                                   class="hero-search-input" value="<%= query.personas || '' %>">
+                        </div>
+                        <div class="flex items-center p-2">
+                            <button type="submit"
+                                    class="btn-primary w-full md:w-auto rounded-xl px-6 py-3.5 text-sm font-bold flex items-center justify-center gap-2">
+                                <i class="fas fa-search"></i>
+                                <span>Buscar</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                <% } %>
+            </div>
+        </section>
+
+        <%# ═══════════════════════════════════════════════════════════ %>
+        <%# STRIP DE IDENTIDAD (solo en vista general, no en búsqueda) %>
+        <%# ═══════════════════════════════════════════════════════════ %>
+        <% if (!isSearchResult) { %>
+        <div class="border-b border-gray-100 bg-white">
+            <div class="container mx-auto px-4 py-4">
+                <div class="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-gray-600">
+                    <% if (_rating) { %>
+                    <div class="flex items-center gap-1.5">
+                        <i class="fas fa-star text-warning-400 text-xs"></i>
+                        <span class="font-bold text-gray-900"><%= _rating %></span>
+                        <span class="text-gray-400">·</span>
+                        <span><%= _totalResenas %> reseñas</span>
+                    </div>
+                    <span class="text-gray-200 hidden sm:block">|</span>
+                    <% } %>
+                    <% if (_propCount > 0) { %>
+                    <div class="flex items-center gap-1.5">
+                        <i class="fas fa-home text-gray-400 text-xs"></i>
+                        <span><strong class="text-gray-900"><%= _propCount %></strong> alojamiento<%= _propCount > 1 ? 's' : '' %></span>
+                    </div>
+                    <span class="text-gray-200 hidden sm:block">|</span>
+                    <% } %>
+                    <% if (_maxCap > 0) { %>
+                    <div class="flex items-center gap-1.5">
+                        <i class="fas fa-users text-gray-400 text-xs"></i>
+                        <span>Hasta <strong class="text-gray-900"><%= _maxCap %></strong> personas</span>
+                    </div>
+                    <span class="text-gray-200 hidden sm:block">|</span>
+                    <% } %>
+                    <% if (_ciudad) { %>
+                    <div class="flex items-center gap-1.5">
+                        <i class="fas fa-map-marker-alt text-gray-400 text-xs"></i>
+                        <span><%= _ciudad %><% if (_region) { %>, <%= _region %><% } %></span>
+                    </div>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+        <% } %>
+
+        <%# ═══════════════════════════════════════════════════════ %>
+        <%# GRID DE PROPIEDADES                                    %>
+        <%# ═══════════════════════════════════════════════════════ %>
+        <div class="container mx-auto px-4 py-10 pb-16" id="propiedades">
+
+            <% if (isSearchResult) { %>
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900">
+                        <%= resultados.filter(r => !r.isGroup).length %> alojamiento<%= resultados.filter(r => !r.isGroup).length !== 1 ? 's' : '' %> disponible<%= resultados.filter(r => !r.isGroup).length !== 1 ? 's' : '' %>
+                    </h2>
+                    <% if (query.fechaLlegada && query.fechaSalida) { %>
+                    <p class="text-sm text-gray-500 mt-0.5">
+                        <%= query.fechaLlegada %> → <%= query.fechaSalida %>
+                        <% if (query.personas) { %> · <%= query.personas %> huéspedes<% } %>
+                    </p>
+                    <% } %>
+                </div>
+                <a href="/" class="text-sm text-primary-600 font-medium hover:underline">
+                    <i class="fas fa-times mr-1"></i>Limpiar búsqueda
+                </a>
+            </div>
+            <% } %>
+
+            <% if (resultados.length > 0) { %>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+
+                <% resultados.forEach(item => { %>
+                <% if (item.isGroup) { %>
+
+                <%# ── Tarjeta de grupo (span completo) ── %>
+                <%
+                    const _g = item;
+                    const _tG = _g.combinedPricing && _g.combinedPricing.totalPriceCLP > 0;
+                    const _aG = _tG ? _g.combinedPricing.totalPriceCLP * 0.10 : 0;
+                    const _idsG = _g.properties.map(p => p.id).join(',');
+                    const _linkG = `/reservar?propiedadId=${_idsG}&fechaLlegada=${query.fechaLlegada||''}&fechaSalida=${query.fechaSalida||''}&personas=${query.personas||''}&noches=${_g.combinedPricing.nights||''}&precioFinal=${_tG ? _g.combinedPricing.totalPriceCLP : ''}`;
+                %>
+                <div class="col-span-1 sm:col-span-2 lg:col-span-3 xl:col-span-4 bg-white rounded-2xl border-2 border-primary-500 shadow-lg overflow-hidden">
+                    <div class="p-6">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="bg-primary-100 text-primary-700 text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">Recomendado</span>
+                            <h3 class="text-lg font-bold text-gray-900">¡Grupo para <%= query.personas %> personas!</h3>
+                        </div>
+                        <p class="text-sm text-gray-500 mb-5">Combinación de <%= _g.properties.length %> alojamientos · capacidad total <%= _g.combinedCapacity %> personas.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-2">
+                                <% _g.properties.forEach(prop => { %>
+                                <div class="flex items-center gap-3 p-2.5 bg-gray-50 rounded-xl">
+                                    <img src="<%= prop.websiteData?.cardImage?.storagePath || 'https://placehold.co/80x60/e5e7eb/9ca3af?text=+' %>"
+                                         alt="<%= prop.nombre %>" class="w-20 h-14 object-cover rounded-lg flex-shrink-0">
+                                    <div>
+                                        <p class="font-semibold text-sm text-gray-800"><%= prop.nombre %></p>
+                                        <p class="text-xs text-gray-500"><%= prop.capacidad %> personas</p>
+                                    </div>
                                 </div>
+                                <% }) %>
+                            </div>
+                            <% if (_tG) { %>
+                            <div class="flex flex-col justify-between">
+                                <div class="space-y-2 text-sm bg-gray-50 rounded-xl p-4">
+                                    <div class="flex justify-between"><span class="text-gray-500">Noches</span><span class="font-semibold"><%= _g.combinedPricing.nights %></span></div>
+                                    <div class="flex justify-between border-t border-gray-200 pt-2 text-base font-bold text-gray-900"><span>Total estadía</span><span><%= _fmtCLP(_g.combinedPricing.totalPriceCLP) %></span></div>
+                                    <div class="flex justify-between text-primary-600 font-semibold text-sm"><span>Abono (10%)</span><span><%= _fmtCLP(_aG) %></span></div>
+                                </div>
+                                <a href="<%= _linkG %>" class="btn-primary mt-4 w-full text-center rounded-xl py-3 font-bold text-sm">
+                                    Reservar grupo completo
+                                </a>
                             </div>
                             <% } %>
+                        </div>
+                    </div>
+                </div>
 
-                                <div class="container mx-auto px-4 py-12">
-                                    <%# Formulario de Búsqueda (Partial) %>
-                                        <%- include('partials/search-bar') %>
+                <% } else { %>
+                <%- include('partials/property-card', { prop: item, query: query, isSearchResult: isSearchResult }) %>
+                <% } %>
+                <% }) %>
 
-                                            <div id="propiedades">
-                                                <h2 class="text-3xl font-bold text-gray-900 mb-8">
-                                                    <% if (isSearchResult) { %>Resultados de la Búsqueda<% } else { %>
-                                                            Nuestras Propiedades<% } %>
-                                                </h2>
-                                                <% const formatCurrency=(value)=> `$${(Math.round(value) ||
-                                                    0).toLocaleString('es-CL')}`; %>
+            </div>
 
-                                                    <% if (resultados.length> 0) { %>
-                                                        <div
-                                                            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-6">
-                                                            <% resultados.forEach(item=> { %>
-                                                                <% if (item.isGroup) { %>
-                                                                    <%# --- Tarjeta de Grupo --- %>
-                                                                        <% const grupo=item; const
-                                                                            tienePrecioGrupo=grupo.combinedPricing &&
-                                                                            typeof
-                                                                            grupo.combinedPricing.totalPriceCLP==='number'
-                                                                            && grupo.combinedPricing.totalPriceCLP> 0;
-                                                                            let abonoGrupo = tienePrecioGrupo ?
-                                                                            grupo.combinedPricing.totalPriceCLP * 0.10 :
-                                                                            0;
-                                                                            const idsPropiedades =
-                                                                            grupo.properties.map(p => p.id).join(',');
-                                                                            const linkReservaGrupo =
-                                                                            `/reservar?propiedadId=${idsPropiedades}&fechaLlegada=${query.fechaLlegada||''}&fechaSalida=${query.fechaSalida||''}&personas=${query.personas||''}&noches=${grupo.combinedPricing.nights||''}&precioFinal=${tienePrecioGrupo?grupo.combinedPricing.totalPriceCLP:''}`;
-                                                                            %>
-                                                                            <div
-                                                                                class="bg-white rounded-lg shadow-xl border-2 border-primary-600 overflow-hidden col-span-1 sm:col-span-2 lg:col-span-4 xl:col-span-6">
-                                                                                <div class="p-4 md:p-6">
-                                                                                    <h3
-                                                                                        class="text-2xl font-bold text-gray-900 mb-2">
-                                                                                        <span
-                                                                                            class="text-success-600 mr-1">✓</span>¡Grupo
-                                                                                        Sugerido para <%= query.personas
-                                                                                            %> personas!
-                                                                                    </h3>
-                                                                                    <p
-                                                                                        class="text-sm text-gray-600 mb-4">
-                                                                                        Encontramos la combinación
-                                                                                        perfecta de <%=
-                                                                                            grupo.properties.length %>
-                                                                                            propiedades para tu estadía.
-                                                                                    </p>
-                                                                                    <div
-                                                                                        class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                                                                        <div
-                                                                                            class="md:col-span-1 border-r-0 md:border-r md:pr-6">
-                                                                                            <h4
-                                                                                                class="text-lg font-semibold mb-2">
-                                                                                                Resumen del Grupo</h4>
-                                                                                            <% if (tienePrecioGrupo) {
-                                                                                                %>
-                                                                                                <div class="space-y-2">
-                                                                                                    <div
-                                                                                                        class="flex justify-between text-sm">
-                                                                                                        <span>Capacidad
-                                                                                                            Total:</span>
-                                                                                                        <span
-                                                                                                            class="font-semibold">
-                                                                                                            <%= grupo.combinedCapacity
-                                                                                                                %>
-                                                                                                                personas
-                                                                                                        </span>
-                                                                                                    </div>
-                                                                                                    <div
-                                                                                                        class="flex justify-between text-sm">
-                                                                                                        <span>Total
-                                                                                                            Noches:</span>
-                                                                                                        <span
-                                                                                                            class="font-semibold">
-                                                                                                            <%= grupo.combinedPricing.nights
-                                                                                                                %>
-                                                                                                        </span>
-                                                                                                    </div>
-                                                                                                    <div
-                                                                                                        class="border-t pt-2 mt-2">
-                                                                                                        <div
-                                                                                                            class="flex justify-between text-lg font-bold text-gray-900">
-                                                                                                            <span>Total
-                                                                                                                Estadía:</span>
-                                                                                                            <span>
-                                                                                                                <%= formatCurrency(grupo.combinedPricing.totalPriceCLP)
-                                                                                                                    %>
-                                                                                                            </span>
-                                                                                                        </div>
-                                                                                                        <div
-                                                                                                            class="flex justify-between text-primary-600 font-semibold text-sm">
-                                                                                                            <span>Abono
-                                                                                                                (10%):</span>
-                                                                                                            <span>
-                                                                                                                <%= formatCurrency(abonoGrupo)
-                                                                                                                    %>
-                                                                                                            </span>
-                                                                                                        </div>
-                                                                                                    </div>
-                                                                                                    <a href="<%= linkReservaGrupo %>"
-                                                                                                        class="btn w-full mt-4">Reservar
-                                                                                                        Grupo</a>
-                                                                                                </div>
-                                                                                                <% } else { %>
-                                                                                                    <p
-                                                                                                        class="text-danger-500">
-                                                                                                        Error al
-                                                                                                        calcular precio.
-                                                                                                    </p>
-                                                                                                    <% } %>
-                                                                                        </div>
-                                                                                        <div class="md:col-span-2">
-                                                                                            <h4
-                                                                                                class="text-lg font-semibold mb-3">
-                                                                                                Propiedades Incluidas
-                                                                                            </h4>
-                                                                                            <div class="space-y-3">
-                                                                                                <%
-                                                                                                    grupo.properties.forEach(prop=>
-                                                                                                    { %>
-                                                                                                    <% const
-                                                                                                        imgUrl=prop.websiteData?.cardImage?.storagePath
-                                                                                                        || 'https://via.placeholder.com/150x100.png?text=Sin+Imagen'
-                                                                                                        ; %>
-                                                                                                        <div
-                                                                                                            class="flex items-center space-x-3 p-2 bg-gray-50 rounded-lg">
-                                                                                                            <img src="<%= imgUrl %>"
-                                                                                                                alt="<%= prop.nombre %>"
-                                                                                                                class="w-20 h-14 object-cover rounded-md flex-shrink-0">
-                                                                                                            <div>
-                                                                                                                <h5
-                                                                                                                    class="font-semibold text-sm text-gray-800">
-                                                                                                                    <%= prop.nombre
-                                                                                                                        %>
-                                                                                                                </h5>
-                                                                                                                <p
-                                                                                                                    class="text-xs text-gray-600">
-                                                                                                                    Capacidad:
-                                                                                                                    <%= prop.capacidad
-                                                                                                                        %>
-                                                                                                                        personas
-                                                                                                                </p>
-                                                                                                                <p
-                                                                                                                    class="card-description text-xs text-gray-600 mt-1">
-                                                                                                                    <%= (prop.websiteData?.aiDescription
-                                                                                                                        ||
-                                                                                                                        prop.descripcion
-                                                                                                                        || ''
-                                                                                                                        ).substring(0,
-                                                                                                                        100)
-                                                                                                                        %>
-                                                                                                                        ...
-                                                                                                                </p>
-                                                                                                            </div>
-                                                                                                        </div>
-                                                                                                        <% }) %>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </div>
-                                                                            </div>
-                                                                            <% } else { %>
-                                                                                <%# --- Tarjeta Individual (Partial) ---
-                                                                                    %>
-                                                                                    <%- include('partials/property-card',
-                                                                                        { prop: item, query: query,
-                                                                                        isSearchResult: isSearchResult
-                                                                                        }) %>
-                                                                                        <% } %>
-                                                                                            <% }) %>
-                                                        </div>
-                                                        <% } else { %>
-                                                            <%# Mensaje "No encontrado" %>
-                                                                <div
-                                                                    class="text-center py-12 px-4 border-2 border-dashed rounded-lg">
-                                                                    <h3 class="text-xl font-semibold text-gray-700">No
-                                                                        se encontraron propiedades</h3>
-                                                                    <p class="mt-2 text-sm text-gray-500">
-                                                                        <% if (isSearchResult) { %>
-                                                                            No hay propiedades disponibles que cumplan
-                                                                            los criterios. Intenta con otras fechas o
-                                                                            menos huéspedes.
-                                                                            <% } else { %>
-                                                                                <% const
-                                                                                    propiedadesListadasConImagen=resultados.some(p=>
-                                                                                    !p.isGroup &&
-                                                                                    p.googleHotelData?.isListed &&
-                                                                                    p.websiteData?.cardImage?.storagePath);
-                                                                                    const algunaPropiedadListada =
-                                                                                    resultados.some(p => !p.isGroup &&
-                                                                                    p.googleHotelData?.isListed);
-                                                                                    %>
-                                                                                    <% if (algunaPropiedadListada &&
-                                                                                        !propiedadesListadasConImagen) {
-                                                                                        %>
-                                                                                        No hay propiedades configuradas
-                                                                                        con "Imagen Principal
-                                                                                        (Tarjeta/Home)" para mostrar.
-                                                                                        Revisa "Configurar Web Pública".
-                                                                                        <% } else if
-                                                                                            (!algunaPropiedadListada &&
-                                                                                            !isSearchResult) { %>
-                                                                                            Actualmente no hay
-                                                                                            propiedades marcadas para
-                                                                                            mostrarse en la web pública.
-                                                                                            Revisa "Gestionar
-                                                                                            Alojamientos".
-                                                                                            <% } else if
-                                                                                                (!isSearchResult) { %>
-                                                                                                Parece que no hay
-                                                                                                propiedades configuradas
-                                                                                                para mostrar.
-                                                                                                <% } %>
-                                                                                                    <% } %>
-                                                                    </p>
-                                                                </div>
-                                                                <% } %>
-                                            </div>
-                                </div>
-            </main>
+            <% } else { %>
+            <div class="text-center py-20 px-4 border-2 border-dashed border-gray-200 rounded-2xl">
+                <i class="fas fa-calendar-xmark text-4xl text-gray-300 mb-4"></i>
+                <h3 class="text-xl font-semibold text-gray-700 mb-2">
+                    <%= isSearchResult ? 'Sin disponibilidad para esas fechas' : 'Sin alojamientos publicados' %>
+                </h3>
+                <p class="text-sm text-gray-500 max-w-sm mx-auto">
+                    <%= isSearchResult ? 'Intenta con otras fechas o menos huéspedes.' : 'Aún no hay alojamientos marcados para mostrar en la web pública.' %>
+                </p>
+                <% if (isSearchResult) { %>
+                <a href="/" class="mt-5 inline-block btn-outline rounded-xl px-5 py-2.5 text-sm font-semibold">Ver todos los alojamientos</a>
+                <% } %>
+            </div>
+            <% } %>
 
-            <%- include('partials/footer') %>
+        </div>
 
-    </body>
+        <%# ═══════════════════════════════════════════════════════ %>
+        <%# SECCIÓN ABOUT + MAPA (solo en vista general)          %>
+        <%# ═══════════════════════════════════════════════════════ %>
+        <% if (!isSearchResult && (_descripcion || _ciudad)) { %>
+        <section class="bg-gray-50 border-t border-gray-100 py-16 px-4">
+            <div class="container mx-auto">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start">
 
-    </html>
+                    <%# Columna izquierda: descripción + amenidades + CTA %>
+                    <div>
+                        <h2 class="text-3xl font-extrabold text-gray-900 mb-1">
+                            <%= empresa.nombre %>
+                        </h2>
+                        <% if (_ciudad) { %>
+                        <p class="text-primary-600 font-medium mb-5 flex items-center gap-1.5">
+                            <i class="fas fa-map-marker-alt text-sm"></i>
+                            <%= _ciudad %><% if (_region) { %>, <%= _region %><% } %>
+                        </p>
+                        <% } %>
+                        <% if (_descripcion) { %>
+                        <p class="text-gray-600 leading-relaxed text-base mb-8 max-w-lg"><%= _descripcion %></p>
+                        <% } %>
+
+                        <% if (_amenTop.length > 0) { %>
+                        <h3 class="text-sm font-bold text-gray-700 uppercase tracking-widest mb-4">Lo que ofrecemos</h3>
+                        <div class="grid grid-cols-2 gap-3 mb-8">
+                            <% _amenTop.forEach(amenidad => { %>
+                            <div class="flex items-center gap-2.5 text-sm text-gray-700">
+                                <i class="fas <%= _iconoAmenidad(amenidad) %> text-primary-500 w-4 text-center flex-shrink-0"></i>
+                                <span class="line-clamp-1"><%= amenidad %></span>
+                            </div>
+                            <% }) %>
+                        </div>
+                        <% } %>
+
+                        <div class="flex flex-wrap gap-3">
+                            <a href="#propiedades" class="btn-primary rounded-xl px-6 py-3 text-sm font-bold flex items-center gap-2">
+                                <i class="fas fa-home"></i>
+                                Ver alojamientos
+                            </a>
+                            <% if (_waLink) { %>
+                            <a href="<%= _waLink %>" target="_blank" rel="noopener"
+                               class="flex items-center gap-2 bg-success-600 hover:bg-success-700 text-white font-bold text-sm px-6 py-3 rounded-xl transition-colors">
+                                <i class="fab fa-whatsapp text-lg"></i>
+                                WhatsApp
+                            </a>
+                            <% } %>
+                        </div>
+                    </div>
+
+                    <%# Columna derecha: mapa %>
+                    <div class="rounded-2xl overflow-hidden shadow-lg border border-gray-200" style="height: 400px;">
+                        <iframe
+                            src="<%= _mapSrc %>"
+                            width="100%" height="100%"
+                            style="border: 0;"
+                            allowfullscreen=""
+                            loading="lazy"
+                            referrerpolicy="no-referrer-when-downgrade"
+                            title="Ubicación de <%= empresa.nombre %>">
+                        </iframe>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+        <% } %>
+
+    </main>
+
+    <%- include('partials/footer') %>
+
+</body>
+</html>

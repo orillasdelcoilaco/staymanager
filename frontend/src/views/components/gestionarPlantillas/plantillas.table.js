@@ -14,7 +14,7 @@ export const renderFilasTabla = (plantillas, tipos) => {
             <td class="py-3 px-4 text-center font-medium text-gray-500">${index + 1}</td>
             <td class="py-3 px-4 font-medium">${p.nombre}</td>
             <td class="py-3 px-4">
-                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-primary-100 text-primary-800">
+                <span class="badge-soft-primary">
                     ${nombreTipo}
                 </span>
             </td>

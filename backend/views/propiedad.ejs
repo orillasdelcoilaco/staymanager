@@ -1,868 +1,846 @@
-<%- /* backend/views/propiedad.ejs */ %>
-    <% locals.paginaPropiedad=true; %>
+<%- /* backend/views/propiedad.ejs — Airbnb-style property detail */ %>
+<% locals.paginaPropiedad = true; %>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <%
+        const _ctxPub = propiedad.buildContext?.publicacion || {};
+        const _wizTitle = (_ctxPub.metaTitle && String(_ctxPub.metaTitle).trim()) ? String(_ctxPub.metaTitle).trim() : '';
+        const _wizDesc = (_ctxPub.metaDescription && String(_ctxPub.metaDescription).trim()) ? String(_ctxPub.metaDescription).trim() : '';
+        const _pageTitle = _wizTitle ? `${_wizTitle} | ${empresa.nombre}` : `${propiedad.nombre} | ${empresa.nombre}`;
+        const _pageDesc = (_wizDesc || propiedad.websiteData?.aiDescription || propiedad.buildContext?.narrativa?.descripcionComercial || propiedad.descripcion || `Descubre ${propiedad.nombre}`).substring(0, 155);
+        const _kwParts = [
+            ...(_ctxPub.keywords && Array.isArray(_ctxPub.keywords) ? _ctxPub.keywords : []),
+            ...(Array.isArray(propiedad.buildContext?.narrativa?.puntosFuertes) ? propiedad.buildContext.narrativa.puntosFuertes : []),
+            locals.ubicacion?.ciudad,
+            empresa.nombre
+        ].filter(Boolean);
+        const _kwStr = [...new Set(_kwParts.map((k) => String(k).trim()).filter(Boolean))].slice(0, 40).join(', ');
+    %>
+    <title><%= _pageTitle %></title>
+    <meta name="description" content="<%= _pageDesc %>">
+    <% if (_kwStr) { %><meta name="keywords" content="<%= _kwStr %>"><% } %>
+    <link rel="canonical" href="<%= baseUrl %>/propiedad/<%= propiedad.id %>">
+    <meta property="og:type"        content="website">
+    <meta property="og:locale"      content="es_CL">
+    <meta property="og:site_name"   content="<%= empresa.nombre %>">
+    <meta property="og:title"       content="<%= _pageTitle %>">
+    <meta property="og:description" content="<%= _pageDesc %>">
+    <meta property="og:url"         content="<%= baseUrl %>/propiedad/<%= propiedad.id %>">
+    <% if (locals.ogImage && ogImage) { %>
+    <meta property="og:image"       content="<%= ogImage %>">
+    <meta property="og:image:alt"   content="<%= propiedad.nombre %>">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <% } %>
+    <meta name="twitter:card"        content="summary_large_image">
+    <meta name="twitter:title"       content="<%= _pageTitle %>">
+    <meta name="twitter:description" content="<%= _pageDesc %>">
+    <% if (locals.ogImage && ogImage) { %><meta name="twitter:image" content="<%= ogImage %>"><% } %>
+    <% if (locals.schemaData) { %><script type="application/ld+json"><%- JSON.stringify(schemaData, null, 2) %></script><% } %>
+    <link rel="stylesheet" href="/public/css/website.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <% if (locals.customCSS && locals.customCSS.trim().length > 0) { %><style><%= locals.customCSS %></style><% } %>
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        .desc-clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+        .desc-open  { display: block; }
+        #modal-amenidades { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:60; align-items:center; justify-content:center; }
+        #modal-amenidades.open { display:flex; }
+        .modal-box { border-radius:16px; max-width:600px; width:92%; max-height:82vh; overflow-y:auto; }
+        /* Galería móvil — carrusel tipo marketplace */
+        .sm-gallery-track { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; -ms-overflow-style:none; }
+        .sm-gallery-track::-webkit-scrollbar { display:none; }
+        .sm-gallery-slide { flex:0 0 100%; width:100%; scroll-snap-align:center; scroll-snap-stop:always; }
+        .sm-gallery-dot { width:6px; height:6px; border-radius:9999px; background:rgba(255,255,255,.45); transition:transform .2s,background .2s; }
+        .sm-gallery-dot.is-active { background:#fff; transform:scale(1.25); }
+        .sm-gallery-nav { position:absolute; top:50%; transform:translateY(-50%); z-index:5; width:36px; height:36px; border-radius:9999px; background:rgba(255,255,255,.92); border:1px solid rgba(0,0,0,.06); box-shadow:0 2px 8px rgba(0,0,0,.12); display:flex; align-items:center; justify-content:center; color:#222; font-size:1.25rem; line-height:1; }
+        .sm-gallery-nav:active { transform:translateY(-50%) scale(.96); }
+        .sm-gallery-prev { left:10px; }
+        .sm-gallery-next { right:10px; }
+        /* Dónde dormirás — scroll horizontal en móvil */
+        .sm-sleep-scroll { display:flex; gap:12px; overflow-x:auto; padding-bottom:6px; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:thin; }
+        .sm-sleep-card { flex:0 0 min(260px, 78vw); scroll-snap-align:start; }
+    </style>
+</head>
 
-        <!DOCTYPE html>
-        <html lang="es">
+<body class="bg-white flex flex-col min-h-screen" style="padding-bottom:72px">
 
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <% const pageTitle=`${propiedad.nombre} | ${empresa.nombre}`; %>
-                <% const pageDescription=(propiedad.websiteData?.aiDescription || propiedad.descripcion || `Descubre
-                    ${propiedad.nombre}`).substring(0, 155); %>
+    <%- include('partials/header') %>
 
-                    <%# --- SINGLE SOURCE OF TRUTH HELPER --- %>
-                        const hasFeature = (keywords) => {
-                        if (!propiedad.componentes) return false;
-                        const termArray = Array.isArray(keywords) ? keywords : [keywords];
-                        return propiedad.componentes.some(comp => {
-                        const compName = (comp.nombre || '').toLowerCase();
-                        const compType = (comp.tipo || '').toLowerCase();
-                        // Check Component Level
-                        if (termArray.some(t => compName.includes(t.toLowerCase()) ||
-                        compType.includes(t.toLowerCase()))) return true;
+    <%
+        /* ── Galería ── */
+        const _imgs     = propiedad.websiteData?.images || {};
+        const _fromWSD  = Object.values(_imgs).flat().filter(img => img && img.storagePath);
+        const _cardImg  = propiedad.websiteData?.cardImage?.storagePath ? propiedad.websiteData.cardImage : null;
+        // Fallback: si websiteData no tiene fotos, usar las de la tabla galeria
+        const _allImgs  = _fromWSD.length > 0 ? _fromWSD : (galeriaFotos || []);
+        let _galeria    = _allImgs.slice();
+        if (_cardImg) {
+            _galeria = _galeria.filter(img => img?.imageId !== _cardImg.imageId && img?.id !== _cardImg.imageId);
+            _galeria.unshift(_cardImg);
+        }
+        if (_galeria.length === 0 && _cardImg) _galeria = [_cardImg];
+        const _imgP  = _galeria[0];
+        const _imgs4 = _galeria.slice(1, 5);
+        const _resto = _galeria.slice(5);
 
-                        // Check Element Level
-                        return (comp.elementos || []).some(el => {
-                        const name = (el.nombre || '').toLowerCase();
-                        const cat = (el.categoria || '').toLowerCase();
-                        return termArray.some(term => {
-                        const t = term.toLowerCase();
-                        return name.includes(t) || cat.includes(t);
-                        });
-                        });
-                        });
-                        };
-                        %>
+        /* ── hasFeature ── */
+        const hasFeature = (kw) => {
+            const terms = Array.isArray(kw) ? kw : [kw];
+            const hit = (s) => terms.some(t => (s||'').toLowerCase().includes(t.toLowerCase()));
+            if ((propiedad.componentes||[]).some(c =>
+                hit(c.nombre) || hit(c.tipo) ||
+                (c.elementos||[]).some(e => hit(e.nombre) || hit(e.categoria))
+            )) return true;
+            const arr = Array.isArray(propiedad.amenidades) ? propiedad.amenidades
+                : (propiedad.amenidades && typeof propiedad.amenidades === 'object'
+                    ? Object.values(propiedad.amenidades) : []);
+            return arr.some(a => hit(typeof a === 'string' ? a : (a?.nombre||'')));
+        };
 
-                        <title>
-                            <%= pageTitle %>
-                        </title>
-                        <meta name="description" content="<%= pageDescription %>">
-                        <link rel="canonical" href="<%= baseUrl %>/propiedad/<%= propiedad.id %>">
+        /* ── Ícono de elemento ── */
+        const _ico = (n) => {
+            n = (n||'').toLowerCase();
+            if (n.includes('wifi')||n.includes('internet')) return 'fa-wifi';
+            if (n.includes('tv')||n.includes('televisor')) return 'fa-tv';
+            if (n.includes('cocina')) return 'fa-utensils';
+            if (n.includes('cama')) return 'fa-bed';
+            if (n.includes('baño')||n.includes('bano')) return 'fa-bath';
+            if (n.includes('ducha')) return 'fa-shower';
+            if (n.includes('parrilla')||n.includes('bbq')||n.includes('quincho')||n.includes('asador')) return 'fa-fire';
+            if (n.includes('tinaja')||n.includes('jacuzzi')||n.includes('hot tub')) return 'fa-hot-tub-person';
+            if (n.includes('piscina')||n.includes('pool')) return 'fa-water-ladder';
+            if (n.includes('estacionamiento')||n.includes('parking')) return 'fa-car';
+            if (n.includes('terraza')||n.includes('balcon')) return 'fa-chair';
+            if (n.includes('lavadora')) return 'fa-jug-detergent';
+            if (n.includes('aire')||n.includes('climatiz')) return 'fa-snowflake';
+            if (n.includes('calefac')) return 'fa-temperature-high';
+            if (n.includes('refrigerador')||n.includes('nevera')) return 'fa-box';
+            return 'fa-check';
+        };
 
-                        <%# --- Open Graph --- %>
-                        <meta property="og:type" content="website">
-                        <meta property="og:locale" content="es_CL">
-                        <meta property="og:site_name" content="<%= empresa.nombre %>">
-                        <meta property="og:title" content="<%= pageTitle %>">
-                        <meta property="og:description" content="<%= pageDescription %>">
-                        <meta property="og:url" content="<%= baseUrl %>/propiedad/<%= propiedad.id %>">
-                        <% if (locals.ogImage && ogImage) { %>
-                        <meta property="og:image" content="<%= ogImage %>">
-                        <meta property="og:image:alt" content="<%= propiedad.nombre %> - <%= empresa.nombre %>">
-                        <meta property="og:image:width" content="1200">
-                        <meta property="og:image:height" content="630">
-                        <% } %>
+        /* ── Todos los elementos únicos ── */
+        const _elSet = new Set();
+        const _todosEls = [];
+        (propiedad.componentes||[]).forEach(comp => {
+            (comp.elementos||[]).forEach(el => {
+                if (el.nombre && !_elSet.has(el.nombre)) {
+                    _elSet.add(el.nombre);
+                    _todosEls.push({ nombre: el.nombre, comp: comp.nombre });
+                }
+            });
+        });
+        const _amenArr = Array.isArray(propiedad.amenidades) ? propiedad.amenidades
+            : (propiedad.amenidades && typeof propiedad.amenidades === 'object'
+                ? Object.values(propiedad.amenidades) : []);
+        _amenArr.forEach(a => {
+            const n = typeof a === 'string' ? a : (a?.nombre||a?.name||'');
+            if (n && !_elSet.has(n)) { _elSet.add(n); _todosEls.push({ nombre: n, comp: '' }); }
+        });
 
-                        <%# --- Twitter Card --- %>
-                        <meta name="twitter:card" content="summary_large_image">
-                        <meta name="twitter:title" content="<%= pageTitle %>">
-                        <meta name="twitter:description" content="<%= pageDescription %>">
-                        <% if (locals.ogImage && ogImage) { %>
-                        <meta name="twitter:image" content="<%= ogImage %>">
-                        <meta name="twitter:image:alt" content="<%= propiedad.nombre %>">
-                        <% } %>
+        const _wsImagesRaw = propiedad.websiteData?.images || {};
+        const _pickCompPhotoUrl = (compId) => {
+            if (!compId) return '';
+            const bag = _wsImagesRaw[compId];
+            const arr = Array.isArray(bag) ? bag : (bag && typeof bag === 'object' ? [bag] : []);
+            const hit = arr.find((i) => i && (i.storagePath || i.storage_url || i.url));
+            if (hit) return String(hit.storagePath || hit.storage_url || hit.url || '');
+            const g = (typeof galeriaFotos !== 'undefined' ? galeriaFotos : []) || [];
+            const row = g.find((f) => f && (f.espacioId === compId || f.espacio_id === compId) && (f.storagePath || f.storage_url));
+            return row ? String(row.storagePath || row.storage_url || '') : '';
+        };
+        const _isSleepComponent = (comp) => {
+            const blob = `${comp?.tipo || ''} ${comp?.nombre || ''} ${comp?.categoria || ''}`.toLowerCase();
+            return /(dormitorio|bedroom|suite|habitaci|recámara|recamara)/.test(blob);
+        };
+        const _sleepRooms = (propiedad.componentes || []).filter(_isSleepComponent);
+        const _bedLabelForComp = (comp) => {
+            const els = comp.elementos || [];
+            let n = 0;
+            els.forEach((e) => {
+                const nm = String(e.nombre || '').toLowerCase();
+                if (/(cama|bed|litera|bunk|matrimonial|king|queen|sofacama|sofá|sofa)/.test(nm)) {
+                    n += parseInt(e.cantidad, 10) || 1;
+                }
+            });
+            if (n === 0) return 'Espacio de descanso';
+            if (n === 1) return '1 cama';
+            return `${n} camas`;
+        };
+        const _amenSortKey = (el) => {
+            const c = String(el.comp || '').trim();
+            return c ? c.toLowerCase() : 'zzz_sin_espacio';
+        };
+        const _todosElsSorted = [..._todosEls].sort((a, b) => {
+            const ca = _amenSortKey(a);
+            const cb = _amenSortKey(b);
+            if (ca !== cb) return ca.localeCompare(cb);
+            return String(a.nombre || '').localeCompare(String(b.nombre || ''));
+        });
 
-                        <%# --- INICIO: Script JSON-LD (Propiedad) --- %>
-                            <% if (locals.schemaData) { %>
-                                <script type="application/ld+json">
-        <%- JSON.stringify(schemaData, null, 2) %>
-    </script>
-                                <% } %>
-                                    <%# --- FIN: Script JSON-LD (Propiedad) --- %>
+        /* ── Highlights (3 top) ── */
+        const _hs = [];
+        if (hasFeature(['tinaja','jacuzzi','hot tub'])) _hs.push({ ico:'fa-hot-tub-person', t:'Tinaja privada',      s:'Relájate bajo las estrellas' });
+        if (hasFeature(['piscina','pool']))             _hs.push({ ico:'fa-water-ladder',   t:'Piscina',             s:'Disponible para huéspedes' });
+        if (hasFeature(['parrilla','quincho','bbq']))   _hs.push({ ico:'fa-fire',            t:'Quincho / Parrilla',  s:'Para asados en familia' });
+        if (hasFeature(['vista','lago','mar','rio','cerro','panoram'])) _hs.push({ ico:'fa-mountain-sun', t:'Vista privilegiada', s:'Naturaleza en tu ventana' });
+        if (hasFeature(['wifi','internet']))            _hs.push({ ico:'fa-wifi',            t:'WiFi incluido',       s:'Conexión en todo el espacio' });
+        if (hasFeature(['estacionamiento','parking']))  _hs.push({ ico:'fa-car',             t:'Estacionamiento',     s:'Sin costo adicional' });
+        _hs.push({ ico:'fa-house-user', t:'Reserva directa', s:'Sin comisiones de intermediario' });
+        const _narr = propiedad.buildContext?.narrativa || {};
+        const _usp = Array.isArray(_narr.uniqueSellingPoints)
+            ? _narr.uniqueSellingPoints.filter((x) => typeof x === 'string' && x.trim())
+            : [];
+        const _destacados = [];
+        _usp.slice(0, 3).forEach((t) => {
+            _destacados.push({ ico: 'fa-wand-magic-sparkles', t: t.trim(), s: 'Destacado por IA desde el wizard de alojamiento' });
+        });
+        for (const h of _hs) {
+            if (_destacados.length >= 3) break;
+            if (!_destacados.some((d) => d.t === h.t)) _destacados.push(h);
+        }
 
-                                        <link rel="stylesheet" href="/public/css/website.css">
-                                        <link rel="preconnect" href="https://fonts.googleapis.com">
-                                        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-                                        <link
-                                            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
-                                            rel="stylesheet">
-                                        <link rel="stylesheet"
-                                            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-                                        <style>
-                                            .custom-gallery-height {
-                                                height: 250px;
-                                            }
+        /* ── Precios ── */
+        const _fmtCLP = (v) => `$${Math.round(v||0).toLocaleString('es-CL')}`;
+        const _precioNoche = (defaultPriceData.totalPriceCLP > 0 && defaultPriceData.nights > 0)
+            ? Math.round(defaultPriceData.totalPriceCLP / defaultPriceData.nights)
+            : (precioBaseNoche || 0);
 
-                                            @media (min-width: 768px) {
-                                                .custom-gallery-height {
-                                                    height: 400px;
-                                                }
-                                            }
+        /* ── Rating ── */
+        const _nResenas  = resenasResumen?.total || 0;
+        const _ratingDiez = (resenasResumen?.promedio_general != null)
+            ? (parseFloat(resenasResumen.promedio_general) * 2).toFixed(1)
+            : null;
+        const _rating    = (_nResenas >= 3 && _ratingDiez) ? _ratingDiez : null;
 
-                                            :root {
-                                                --primary-color: <%=empresa.websiteSettings?.theme?.primaryColor || '#4f46e5' %>;
-                                                /* default indigo-600 */
-                                                --secondary-color: <%=empresa.websiteSettings?.theme?.secondaryColor || '#10b981' %>;
-                                                /* default green-500 */
-                                            }
+        /* ── Ubicación / Mapa ── */
+        const _ciudad = (locals.ubicacion?.ciudad || '');
+        const _region = (locals.ubicacion?.region || '');
+        const _geoLat = propiedad.buildContext?.publicacion?.jsonLd?.geo?.latitude;
+        const _geoLng = propiedad.buildContext?.publicacion?.jsonLd?.geo?.longitude;
+        const _mapSrc = (_geoLat && _geoLng)
+            ? `https://maps.google.com/maps?q=${_geoLat},${_geoLng}&output=embed&z=15`
+            : `https://maps.google.com/maps?q=${encodeURIComponent(empresa.nombre + (_ciudad ? ', '+_ciudad : ''))}&output=embed&z=14`;
 
-                                            .btn-primary {
-                                                background-color: var(--primary-color) !important;
-                                                color: white !important;
-                                            }
+        /* ── Descripción (wizard narrativa + SPA websiteData) ── */
+        const _desc = propiedad.websiteData?.aiDescription
+            || _narr.descripcionComercial
+            || propiedad.descripcion
+            || '';
 
-                                            .btn-secondary {
-                                                background-color: var(--secondary-color) !important;
-                                                color: white !important;
-                                            }
+        /* ── WhatsApp ── */
+        const _waTel = ((empresa.contactoTelefono||locals.contacto?.telefonoPrincipal||'').replace(/\D/g,''));
+        const _waNum = _waTel ? (_waTel.startsWith('56') ? _waTel : '56'+_waTel) : '';
+        const _waMsg = encodeURIComponent(`Hola, me interesa reservar ${propiedad.nombre}.`);
+        const _waUrl = _waNum ? `https://wa.me/${_waNum}?text=${_waMsg}` : '';
 
-                                            .text-primary {
-                                                color: var(--primary-color) !important;
-                                            }
+        /* ── Políticas ── */
+        const _checkin  = empresa.horaCheckIn  || empresa.websiteSettings?.normas?.checkin  || '15:00';
+        const _checkout = empresa.horaCheckOut || empresa.websiteSettings?.normas?.checkout || '11:00';
+        const _minNoches = Math.max(1, parseInt(String(empresa.websiteSettings?.booking?.minNoches ?? propiedad.websiteData?.booking?.minNoches ?? '1'), 10) || 1);
+    %>
 
-                                            /* Override common icon colors if needed */
-                                            .fa-solid,
-                                            .fa-regular,
-                                            .fa-brands {
-                                                color: var(--primary-color);
-                                            }
-                                        </style>
-        </head>
+    <main class="flex-grow">
+        <div class="container mx-auto px-4 pt-6 pb-8 md:pb-10 max-w-6xl">
 
-        <body class="bg-gray-50 flex flex-col min-h-screen">
-            <%- include('partials/header') %>
-                <main class="flex-grow container mx-auto px-4 py-8 md:py-12">
+            <%# ── Título + Compartir (encima del mosaico, estilo Airbnb) ── %>
+            <div class="flex items-start justify-between gap-4 mb-4">
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-900 leading-tight flex-1">
+                    <%= propiedad.websiteData?.h1 || propiedad.buildContext?.narrativa?.homeH1 || propiedad.nombre %>
+                </h1>
+                <button onclick="(navigator.share||0)?navigator.share({title:'<%= propiedad.nombre %>',url:location.href}):navigator.clipboard.writeText(location.href).then(()=>alert('Enlace copiado'))"
+                        class="flex items-center gap-1.5 text-sm text-gray-700 underline font-medium hover:text-gray-900 flex-shrink-0 mt-1">
+                    <i class="fas fa-share-from-square text-xs"></i>
+                    <span class="hidden sm:inline">Compartir</span>
+                </button>
+            </div>
 
-                    <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-                        <%= propiedad.nombre %>
-                    </h1>
-                    <p class="text-sm text-gray-600 mb-6">Capacidad: hasta <%= propiedad.capacidad %> personas</p>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
-                        <%# --- COLUMNA IZQUIERDA: Galería y Detalles --- %>
-                            <div class="lg:col-span-2 space-y-8">
-
-                                <% const imagenes=propiedad.websiteData?.images || {}; const
-                                    todasLasImagenesRaw=Object.values(imagenes).flat(); const
-                                    todasLasImagenesValidas=todasLasImagenesRaw.filter(img=> img && img.storagePath);
-                                    const cardImage = (propiedad.websiteData?.cardImage &&
-                                    propiedad.websiteData.cardImage.storagePath) ? propiedad.websiteData.cardImage :
-                                    null;
-
-                                    let imagenesParaGaleria = todasLasImagenesValidas;
-                                    if (cardImage) {
-                                    imagenesParaGaleria = imagenesParaGaleria.filter(img => img?.imageId !==
-                                    cardImage.imageId);
-                                    imagenesParaGaleria.unshift(cardImage);
-                                    }
-
-                                    const imagenPrincipalMosaic = imagenesParaGaleria[0];
-                                    const imagenesDerechaMosaic = imagenesParaGaleria.slice(1, 5);
-                                    const restoImagenesGaleria = imagenesParaGaleria.slice(5);
-                                    %>
-
-                                    <% if (imagenPrincipalMosaic) { %>
-                                        <div
-                                            class="grid grid-cols-2 grid-rows-2 gap-2 rounded-lg overflow-hidden shadow-lg custom-gallery-height">
-                                            <div class="col-span-1 row-span-2 gallery-image-trigger" data-index="0">
-                                                <picture>
-                                                    <source srcset="<%= imagenPrincipalMosaic.storagePath %>"
-                                                        type="image/webp">
-                                                    <img src="<%= imagenPrincipalMosaic.storagePath %>"
-                                                        alt="<%= imagenPrincipalMosaic.altText %>"
-                                                        title="<%= imagenPrincipalMosaic.title || '' %>"
-                                                        class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                                        style="height: 100%; object-fit: cover;">
-                                                </picture>
-                                            </div>
-                                            <% imagenesDerechaMosaic.forEach((img, index)=> { %>
-                                                <div class="col-span-1 row-span-1 relative gallery-image-trigger"
-                                                    data-index="<%= index + 1 %>">
-                                                    <picture>
-                                                        <source srcset="<%= img.storagePath %>" type="image/webp">
-                                                        <img src="<%= img.storagePath %>" alt="<%= img.altText %>"
-                                                            title="<%= img.title || '' %>"
-                                                            class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                                            style="height: 100%; object-fit: cover;">
-                                                    </picture>
-                                                    <% if (index===3 && restoImagenesGaleria.length> 0) { %>
-                                                        <button
-                                                            class="gallery-image-trigger absolute inset-0 bg-black bg-opacity-50 text-white flex items-center justify-center text-sm font-semibold hover:bg-opacity-70 transition-opacity"
-                                                            data-index="<%= index + 1 %>">
-                                                            +<%= restoImagenesGaleria.length %> fotos
-                                                        </button>
-                                                        <% } %>
-                                                </div>
-                                                <% }) %>
-                                                    <% if (imagenesDerechaMosaic.length < 4) { %>
-                                                        <% for(let i=0; i < (4 - imagenesDerechaMosaic.length); i++) {
-                                                            %>
-                                                            <div class="col-span-1 row-span-1 bg-gray-200"></div>
-                                                            <% } %>
-                                                                <% } %>
-                                        </div>
-                                        <% } else { %>
-                                            <div
-                                                class="w-full h-96 bg-gray-200 flex items-center justify-center rounded-lg shadow-lg text-gray-500">
-                                                Imágenes No Disponibles
-                                            </div>
-                                            <% } %>
-
-                                                <div class="prose max-w-none pt-4 border-t">
-                                                    <h2 class="text-xl font-semibold mb-2">Descripción</h2>
-                                                    <p>
-                                                        <%= propiedad.websiteData?.aiDescription ||
-                                                            propiedad.descripcion || 'No hay descripción disponible.' %>
-                                                    </p>
-                                                </div>
-
-                                                <div class="pt-4 border-t">
-                                                    <div class="flex items-center mb-4">
-                                                        <div
-                                                            class="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center mr-4 text-gray-500 text-lg">
-                                                            <i class="fa-solid fa-user-circle"></i>
-                                                        </div>
-                                                        <div>
-                                                            <h2 class="text-lg font-semibold text-gray-900">Anfitrión:
-                                                                <%= empresa.contactoNombre || empresa.nombre %>
-                                                            </h2>
-                                                            <p class="text-sm text-gray-600">
-                                                                <%= locals.hostingDuration %>
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    <% if (empresa.contactoTelefono && empresa.contactoNombre) { %>
-                                                        <% const
-                                                            telefonoLimpio=empresa.contactoTelefono.replace(/\D/g, '' );
-                                                            const nombreAnfitrion=empresa.contactoNombre.split(' ')[0];
-                            const mensajeEspecifico = `Hola ${nombreAnfitrion}, necesito ayuda para reservar el alojamiento "${propiedad.nombre}".`;
-                            const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeEspecifico)}`;
-                        %>
-                        <a href="<%= whatsappUrl %>" target="_blank" class="btn-whatsapp w-full mb-6 block text-center py-2 px-4 bg-success-500 text-white rounded hover:bg-success-600 transition">
-                            <i class="fa-brands fa-whatsapp w-5 h-5 mr-2 text-white"></i>
-                            ¿Necesitas ayuda? Hablemos
-                        </a>
-                    <% } %>
-
-                    <div class="space-y-4 mt-6">
-                        <div class="flex items-center">
-                            <i class="fa-solid fa-star text-primary-600 text-xl w-6 text-center mr-3"></i>
-                            <div>
-                                <h3 class="font-semibold text-gray-900">Experiencia Destacada</h3>
-                                <p class="text-sm text-gray-600">Nuestros huéspedes aman la atención y el entorno.</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fa-solid fa-house-chimney-medical text-primary-600 text-xl w-6 text-center mr-3"></i>
-                            <div>
-                                <h3 class="font-semibold text-gray-900">Ambientes Acogedores</h3>
-                                <p class="text-sm text-gray-600">Disfruta de espacios amplios y bien equipados.</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fa-solid fa-calendar-check text-primary-600 text-xl w-6 text-center mr-3"></i>
-                            <div>
-                                <h3 class="font-semibold text-gray-900">Cancelación Flexible</h3>
-                                <p class="text-sm text-gray-600">Cancela gratis hasta 3 días antes del check-in para un reembolso total.</p>
-                            </div>
-                        </div>
+            <%# ── MOSAICO DE FOTOS (contenido, bordes redondeados) ── %>
+            <% if (_imgP) { %>
+            <div class="relative rounded-xl overflow-hidden mb-8 bg-gray-200">
+                <%# Desktop: layout adaptativo según cantidad de fotos %>
+                <% if (_galeria.length === 1) { %>
+                <div class="hidden md:block" style="height:480px">
+                    <img src="<%= _imgP.storagePath %>" alt="<%= _imgP.altText || propiedad.nombre %>"
+                         class="w-full h-full object-cover cursor-pointer gallery-image-trigger hover:brightness-90 transition-all duration-200" data-index="0">
+                </div>
+                <% } else if (_galeria.length === 2) { %>
+                <div class="hidden md:grid grid-cols-2 gap-0.5" style="height:480px">
+                    <div class="overflow-hidden cursor-pointer gallery-image-trigger" data-index="0">
+                        <img src="<%= _imgP.storagePath %>" alt="<%= _imgP.altText || propiedad.nombre %>"
+                             class="w-full h-full object-cover hover:brightness-90 transition-all duration-200">
+                    </div>
+                    <div class="overflow-hidden cursor-pointer gallery-image-trigger" data-index="1">
+                        <img src="<%= _imgs4[0].storagePath %>" alt="<%= _imgs4[0].altText || propiedad.nombre %>"
+                             class="w-full h-full object-cover hover:brightness-90 transition-all duration-200">
                     </div>
                 </div>
-
-                <div class="pt-4 border-t">
-                    <h2 class="text-xl font-semibold mb-4">Comodidades</h2>
-                    <div class="grid grid-cols-2 gap-4 text-sm">
-                        <div class="flex items-center">
-                            <i class="fa-solid fa-bed w-5 mr-2 text-primary-600"></i> <%= propiedad.numPiezas || ' ?' %>
-                                                            Dormitorios
-                                                </div>
-                                                <div class="flex items-center">
-                                                    <i class="fa-solid fa-bath w-5 mr-2 text-primary-600"></i>
-                                                    <%= propiedad.numBanos || '?' %> Baños
-                                                </div>
-                                                <div class="flex items-center">
-                                                    <i class="fa-solid fa-users w-5 mr-2 text-primary-600"></i> Capacidad
-                                                    <%= propiedad.capacidad %> personas
-                                                </div>
-                                                <% if (propiedad.equipamiento?.tinaja) { %>
-                                                    <div class="flex items-center"><i
-                                                            class="fa-solid fa-hot-tub-person w-5 mr-2 text-primary-600"></i>
-                                                        Tinaja Privada</div>
-                                                    <% } %>
-                                                        <% if (propiedad.equipamiento?.parrilla) { %>
-                                                            <div class="flex items-center"><i
-                                                                    class="fa-solid fa-burger w-5 mr-2 text-primary-600"></i>
-                                                                Parrilla</div>
-                                                            <% } %>
-                                                                <% if (propiedad.equipamiento?.terrazaTechada) { %>
-                                                                    <div class="flex items-center"><i
-                                                                            class="fa-solid fa-campground w-5 mr-2 text-primary-600"></i>
-                                                                        Terraza Techada</div>
-                                                                    <% } %>
-                                                                        <% if (propiedad.equipamiento?.juegoDeTerraza) {
-                                                                            %>
-                                                                            <div class="flex items-center"><i
-                                                                                    class="fa-solid fa-chair w-5 mr-2 text-primary-600"></i>
-                                                                                Juego de Terraza</div>
-                                                                            <% } %>
-                                                                                <% if
-                                                                                    (propiedad.equipamiento?.piezaEnSuite)
-                                                                                    { %>
-                                                                                    <div class="flex items-center"><i
-                                                                                            class="fa-solid fa-person-booth w-5 mr-2 text-primary-600"></i>
-                                                                                        Pieza en Suite</div>
-                                                                                    <% } %>
-                                                                                        <% if
-                                                                                            (propiedad.equipamiento?.dosPisos)
-                                                                                            { %>
-                                                                                            <div
-                                                                                                class="flex items-center">
-                                                                                                <i
-                                                                                                    class="fa-solid fa-building w-5 mr-2 text-primary-600"></i>
-                                                                                                Dos Pisos
-                                                                                            </div>
-                                                                                            <% } %>
+                <% } else if (_galeria.length <= 4) { %>
+                <div class="hidden md:grid gap-0.5" style="height:480px; grid-template-columns:3fr 2fr">
+                    <div class="overflow-hidden cursor-pointer gallery-image-trigger" data-index="0">
+                        <img src="<%= _imgP.storagePath %>" alt="<%= _imgP.altText || propiedad.nombre %>"
+                             class="w-full h-full object-cover hover:brightness-90 transition-all duration-200">
+                    </div>
+                    <% const _rowsCls = _imgs4.length <= 2 ? 'grid-rows-2' : 'grid-rows-3'; %>
+                    <div class="grid gap-0.5 h-full <%= _rowsCls %>">
+                        <% _imgs4.forEach((img, i) => { %>
+                        <div class="overflow-hidden cursor-pointer gallery-image-trigger" data-index="<%= i+1 %>">
+                            <img src="<%= img.storagePath %>" alt="<%= img.altText || propiedad.nombre %>"
+                                 class="w-full h-full object-cover hover:brightness-90 transition-all duration-200">
+                        </div>
+                        <% }) %>
+                    </div>
+                </div>
+                <% } else { %>
+                <%# 5+ fotos: 1 grande + 2×2 (Airbnb clásico) %>
+                <div class="hidden md:flex gap-0.5" style="height:480px">
+                    <div class="overflow-hidden cursor-pointer gallery-image-trigger" style="flex:0 0 55%" data-index="0">
+                        <img src="<%= _imgP.storagePath %>" alt="<%= _imgP.altText || propiedad.nombre %>"
+                             class="w-full h-full object-cover hover:brightness-90 transition-all duration-200">
+                    </div>
+                    <div class="flex-1 grid grid-cols-2 gap-0.5" style="grid-template-rows:239px 239px">
+                        <% for (let i = 0; i < 4; i++) { %>
+                        <div class="overflow-hidden relative cursor-pointer gallery-image-trigger" data-index="<%= i+1 %>">
+                            <img src="<%= _imgs4[i].storagePath %>" alt="<%= _imgs4[i].altText || propiedad.nombre %>"
+                                 class="w-full h-full object-cover hover:brightness-90 transition-all duration-200">
+                            <% if (i === 3 && _resto.length > 0) { %>
+                            <div class="gallery-image-trigger absolute inset-0 bg-black/40 hover:bg-black/55 transition-colors flex items-center justify-center cursor-pointer" data-index="4">
+                                <span class="text-white font-semibold text-sm bg-black/50 px-3 py-1 rounded-lg">+<%= _resto.length+1 %> fotos</span>
                             </div>
+                            <% } %>
+                        </div>
+                        <% } %>
+                    </div>
+                </div>
+                <% } %>
+                <%# Móvil: carrusel horizontal (scroll-snap) + dots + flechas %>
+                <% if (_galeria.length > 1) { %>
+                <div class="md:hidden relative rounded-xl overflow-hidden bg-black/5" style="height:300px">
+                    <div class="sm-gallery-track h-full" id="sm-gallery-track" role="region" aria-label="Galería de fotos">
+                        <% _galeria.forEach((img, idx) => { %>
+                        <div class="sm-gallery-slide h-full relative">
+                            <img src="<%= img.storagePath %>" alt="<%= img.altText || propiedad.nombre %>"
+                                 class="w-full h-full object-cover gallery-image-trigger cursor-pointer" data-index="<%= idx %>">
+                        </div>
+                        <% }) %>
+                    </div>
+                    <div class="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 pointer-events-none z-[2]" id="sm-gallery-dots" aria-hidden="true">
+                        <% _galeria.forEach((_, idx) => { %>
+                        <span class="sm-gallery-dot<%= idx === 0 ? ' is-active' : '' %>" data-dot="<%= idx %>"></span>
+                        <% }) %>
+                    </div>
+                    <button type="button" class="sm-gallery-nav sm-gallery-prev" id="sm-gallery-prev" aria-label="Foto anterior">‹</button>
+                    <button type="button" class="sm-gallery-nav sm-gallery-next" id="sm-gallery-next" aria-label="Foto siguiente">›</button>
+                    <span class="absolute top-3 right-3 z-[2] bg-black/55 text-white text-xs font-semibold px-2 py-0.5 rounded-full pointer-events-none" id="sm-gallery-counter">1 / <%= _galeria.length %></span>
+                </div>
+                <% } else { %>
+                <div class="md:hidden relative" style="height:260px">
+                    <img src="<%= _imgP.storagePath %>" alt="<%= _imgP.altText || propiedad.nombre %>"
+                         class="w-full h-full object-cover gallery-image-trigger cursor-pointer" data-index="0">
+                </div>
+                <% } %>
+                <%# Botón "Ver todas las fotos" (desktop) %>
+                <% if (_galeria.length > 1) { %>
+                <button class="gallery-image-trigger hidden md:flex absolute bottom-4 right-4 bg-white text-gray-800 text-sm font-semibold px-4 py-2 rounded-xl shadow-md border border-gray-200 hover:bg-gray-50 transition items-center gap-2" data-index="0">
+                    <i class="fas fa-images text-gray-600"></i>
+                    Ver las <%= _galeria.length %> fotos
+                </button>
+                <% } %>
+            </div>
+            <% } %>
+
+            <%# ── Grid de contenido ── %>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-14">
+
+                <%# ── COLUMNA IZQUIERDA ── %>
+                <div class="lg:col-span-2 divide-y divide-gray-200 space-y-0">
+
+                    <%# 1. CABECERA (subtitle + rating — el h1 está sobre el mosaico) %>
+                    <div class="pb-8">
+                        <% if (_rating) { %>
+                        <p class="text-sm font-semibold text-gray-800 mb-1">
+                            <i class="fas fa-star text-warning-400 text-xs"></i>
+                            <span class="ml-0.5 tabular-nums"><%= _rating %><span class="text-gray-500 font-normal">/10</span></span>
+                            <span class="text-gray-400 mx-1">·</span>
+                            <span class="underline text-gray-700 font-normal cursor-pointer"><%= _nResenas %> reseña<%= _nResenas!==1?'s':'' %></span>
+                        </p>
+                        <% } %>
+                        <p class="text-sm text-gray-600">
+                            <%= propiedad.capacidad %> huéspedes
+                            <% if (propiedad.numPiezas) { %> · <%= propiedad.numPiezas %> habitaci<%= propiedad.numPiezas!==1?'ones':'ón' %><% } %>
+                            <% if (propiedad.camas?.total) { %> · <%= propiedad.camas.total %> cama<%= propiedad.camas.total!==1?'s':'' %><% } %>
+                            <% if (propiedad.numBanos) { %> · <%= propiedad.numBanos %> baño<%= propiedad.numBanos!==1?'s':'' %><% } %>
+                            <% if (_ciudad) { %> · <span class="underline cursor-pointer"><%= _ciudad %></span><% } %>
+                        </p>
                     </div>
 
+                    <%# 2. ANFITRIÓN %>
+                    <div class="py-8">
+                        <div class="flex items-center gap-4">
+                            <div class="h-14 w-14 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0 text-xl font-bold text-primary-700">
+                                <%= (empresa.contactoNombre||empresa.nombre||'A').charAt(0).toUpperCase() %>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-gray-900 text-base">
+                                    Alojamiento gestionado por <span class="text-primary-700"><%= empresa.contactoNombre||empresa.nombre %></span>
+                                </p>
+                                <p class="text-sm text-gray-500"><%= hostingDuration %></p>
+                            </div>
+                        </div>
                     </div>
-                    <%# --- FIN COLUMNA IZQUIERDA --- %>
 
-                        <%# --- COLUMNA DERECHA: Widget de Reserva --- %>
-                            <div class="lg:col-span-1 relative">
-                                <div class="sticky top-4">
-                                    <%- include('partials/booking-widget') %>
+                    <%# 2b. Franja de confianza (compacta, estilo marketplace) %>
+                    <div class="py-4 -mt-2 border-b border-gray-200">
+                        <div class="flex flex-wrap gap-2 text-xs">
+                            <span class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-gray-700 font-medium">
+                                <i class="fas fa-shield-halved text-primary-600"></i> Reserva directa
+                            </span>
+                            <% if (_waUrl) { %>
+                            <span class="inline-flex items-center gap-1.5 rounded-full border border-success-200 bg-success-50 px-3 py-1.5 text-gray-700 font-medium">
+                                <i class="fab fa-whatsapp text-success-600"></i> Atención por WhatsApp
+                            </span>
+                            <% } %>
+                            <% if (_nResenas > 0) { %>
+                            <span class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-gray-700 font-medium">
+                                <i class="fas fa-comment-dots text-primary-500"></i> <%= _nResenas %> reseña<%= _nResenas !== 1 ? 's' : '' %> verificada<%= _nResenas !== 1 ? 's' : '' %>
+                            </span>
+                            <% } %>
+                            <% if (_ciudad) { %>
+                            <span class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-gray-700 font-medium">
+                                <i class="fas fa-location-dot text-gray-500"></i> <%= _ciudad %><% if (_region) { %>, <%= _region %><% } %>
+                            </span>
+                            <% } %>
+                        </div>
+                    </div>
+
+                    <%# 3. HIGHLIGHTS STRIP %>
+                    <div class="py-8">
+                        <div class="space-y-5">
+                            <% _destacados.forEach(h => { %>
+                            <div class="flex items-start gap-5">
+                                <i class="fas <%= h.ico %> text-xl w-6 text-center text-gray-700 mt-0.5 flex-shrink-0"></i>
+                                <div>
+                                    <p class="font-semibold text-gray-900 text-sm"><%= h.t %></p>
+                                    <p class="text-xs text-gray-500 mt-0.5 leading-relaxed"><%= h.s %></p>
                                 </div>
                             </div>
-                            <%# --- FIN COLUMNA DERECHA --- %>
+                            <% }) %>
+                        </div>
+                    </div>
 
-                                </div>
-                </main>
-
-                <%- include('partials/footer') %>
-
-                    <%# --- Lightbox Modal --- %>
-                        <div id="lightbox-modal"
-                            class="lightbox-modal hidden fixed inset-0 z-50 flex items-center justify-center">
-                            <div class="lightbox-overlay absolute inset-0 bg-black bg-opacity-90">
-                            </div>
-                            <button id="lightbox-close"
-                                class="lightbox-close absolute top-4 right-4 text-white text-4xl">&times;</button>
-                            <button id="lightbox-prev"
-                                class="lightbox-prev absolute left-4 text-white text-4xl">&#10094;</button>
-                            <button id="lightbox-next"
-                                class="lightbox-next absolute right-4 text-white text-4xl">&#10095;</button>
-                            <div class="lightbox-content relative z-10 max-w-4xl max-h-[90vh]">
-                                <div id="lightbox-loader"
-                                    class="lightbox-loader hidden absolute inset-0 flex items-center justify-center text-white">
-                                    Cargando...
-                                </div>
-                                <img id="lightbox-image" src="" alt="Imagen de galería"
-                                    class="lightbox-image max-w-full max-h-[85vh] object-contain">
-                                <% if (imagenPrincipalMosaic) { %>
-                                    <div
-                                        class="grid grid-cols-2 grid-rows-2 gap-2 rounded-lg overflow-hidden shadow-lg h-[50vh] md:h-[60vh]">
-                                        <div class="col-span-1 row-span-2 gallery-image-trigger" data-index="0">
-                                            <picture>
-                                                <source srcset="<%= imagenPrincipalMosaic.storagePath %>"
-                                                    type="image/webp">
-                                                <img src="<%= imagenPrincipalMosaic.storagePath %>"
-                                                    alt="<%= imagenPrincipalMosaic.altText %>"
-                                                    title="<%= imagenPrincipalMosaic.title || '' %>"
-                                                    class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity">
-                                            </picture>
-                                        </div>
-                                        <% imagenesDerechaMosaic.forEach((img, index)=>
-                                            { %>
-                                            <div class="col-span-1 row-span-1 relative gallery-image-trigger"
-                                                data-index="<%= index + 1 %>">
-                                                <picture>
-                                                    <source srcset="<%= img.storagePath %>" type="image/webp">
-                                                    <img src="<%= img.storagePath %>" alt="<%= img.altText %>"
-                                                        title="<%= img.title || '' %>"
-                                                        class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity">
-                                                </picture>
-                                                <% if (index===3 && restoImagenesGaleria.length>
-                                                    0)
-                                                    {
-                                                    %>
-                                                    <button
-                                                        class="gallery-image-trigger absolute inset-0 bg-black bg-opacity-50 text-white flex items-center justify-center text-sm font-semibold hover:bg-opacity-70 transition-opacity"
-                                                        data-index="<%= index + 1 %>">
-                                                        +
-                                                        <%= restoImagenesGaleria.length %>
-                                                            fotos
-                                                    </button>
-                                                    <% } %>
-                                            </div>
-                                            <% }) %>
-                                                <% if (imagenesDerechaMosaic.length < 4) { %>
-                                                    <% for(let i=0; i < (4 - imagenesDerechaMosaic.length); i++) { %>
-                                                        <div class="col-span-1 row-span-1 bg-gray-200">
-                                                        </div>
-                                                        <% } %>
-                                                            <% } %>
-                                    </div>
+                    <%# 3b. Dónde dormirás (espacios tipo dormitorio + foto por componente si existe) %>
+                    <% if (_sleepRooms.length > 0) { %>
+                    <div class="py-8">
+                        <h2 class="text-xl font-bold text-gray-900 mb-4">Dónde dormirás</h2>
+                        <div class="sm-sleep-scroll pb-1">
+                            <% _sleepRooms.forEach((comp) => {
+                                const _srTitle = comp.nombre || comp.tipo || 'Dormitorio';
+                                const _srPh = _pickCompPhotoUrl(comp.id);
+                                const _gi = _galeria.findIndex((g) => g && g.storagePath === _srPh);
+                            %>
+                            <article class="sm-sleep-card rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
+                                <div class="bg-gray-100 relative w-full" style="aspect-ratio:4/3">
+                                    <% if (_srPh) { %>
+                                    <img src="<%= _srPh %>" alt="<%= _srTitle %>"
+                                         class="w-full h-full object-cover<%= _gi >= 0 ? ' gallery-image-trigger cursor-pointer' : '' %>"<% if (_gi >= 0) { %> data-index="<%= _gi %>"<% } %>>
                                     <% } else { %>
-                                        <div
-                                            class="w-full h-96 bg-gray-200 flex items-center justify-center rounded-lg shadow-lg text-gray-500">
-                                            Imágenes
-                                            No
-                                            Disponibles
-                                        </div>
-                                        <% } %>
-
-                                            <div class="prose max-w-none pt-4 border-t">
-                                                <h2 class="text-xl font-semibold mb-2">
-                                                    Descripción
-                                                </h2>
-                                                <p>
-                                                    <%= propiedad.websiteData?.aiDescription || propiedad.descripcion
-                                                        || 'No hay descripción disponible.' %>
-                                                </p>
-                                            </div>
-
-                                            <div class="pt-4 border-t">
-                                                <div class="flex items-center mb-4">
-                                                    <div
-                                                        class="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center mr-4 text-gray-500 text-lg">
-                                                        <i class="fa-solid fa-user-circle"></i>
-                                                    </div>
-                                                    <div>
-                                                        <h2 class="text-lg font-semibold text-gray-900">
-                                                            Anfitrión:
-                                                            <%= empresa.contactoNombre || empresa.nombre %>
-                                                        </h2>
-                                                        <p class="text-sm text-gray-600">
-                                                            <%= locals.hostingDuration %>
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                <% if (empresa.contactoTelefono && empresa.contactoNombre) { %>
-                                                    <% const telefonoLimpio=empresa.contactoTelefono.replace(/\D/g, ''
-                                                        ); const nombreAnfitrion=empresa.contactoNombre.split(' ')[0];
-                            const mensajeEspecifico = `Hola ${nombreAnfitrion}, necesito ayuda para reservar el alojamiento "${propiedad.nombre}".`;
-                            const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeEspecifico)}`;
-                        %>
-                        <a href="<%= whatsappUrl %>" target="_blank" class="btn-whatsapp w-full mb-6 block text-center py-2 px-4 bg-success-500 text-white rounded hover:bg-success-600 transition">
-                            <i class="fa-brands fa-whatsapp w-5 h-5 mr-2 text-white"></i>
-                            ¿Necesitas ayuda? Hablemos
-                        </a>
-                    <% } %>
-
-                    <div class="space-y-4 mt-6">
-                        <div class="flex items-center">
-                            <i class="fa-solid fa-star text-primary-600 text-xl w-6 text-center mr-3"></i>
-                            <div>
-                                <h3 class="font-semibold text-gray-900">Experiencia Destacada</h3>
-                                <p class="text-sm text-gray-600">Nuestros huéspedes aman la atención y el entorno.</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fa-solid fa-house-chimney-medical text-primary-600 text-xl w-6 text-center mr-3"></i>
-                            <div>
-                                <h3 class="font-semibold text-gray-900">Ambientes Acogedores</h3>
-                                <p class="text-sm text-gray-600">Disfruta de espacios amplios y bien equipados.</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fa-solid fa-calendar-check text-primary-600 text-xl w-6 text-center mr-3"></i>
-                            <div>
-                                <h3 class="font-semibold text-gray-900">Cancelación Flexible</h3>
-                                <p class="text-sm text-gray-600">Cancela gratis hasta 3 días antes del check-in para un reembolso total.</p>
-                            </div>
+                                    <div class="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-2">
+                                        <i class="fas fa-bed text-3xl"></i>
+                                        <span class="text-[10px] uppercase tracking-wider font-semibold">Sin foto asignada</span>
+                                    </div>
+                                    <% } %>
+                                </div>
+                                <div class="p-3 border-t border-gray-100">
+                                    <p class="font-semibold text-gray-900 text-sm truncate" title="<%= _srTitle %>"><%= _srTitle %></p>
+                                    <p class="text-xs text-gray-500 mt-0.5"><%= _bedLabelForComp(comp) %></p>
+                                </div>
+                            </article>
+                            <% }) %>
                         </div>
                     </div>
-                </div>
+                    <% } %>
 
-                <div class="pt-4 border-t">
-                    <h2 class="text-xl font-semibold mb-4">Comodidades</h2>
-                    <div class="grid grid-cols-2 gap-4 text-sm">
-                        <div class="flex items-center">
-                            <i class="fa-solid fa-bed w-5 mr-2 text-primary-600"></i> <%= propiedad.numPiezas || ' ?' %>
-                                                        Dormitorios
-                                            </div>
-                                            <div class="flex items-center">
-                                                <i class="fa-solid fa-bath w-5 mr-2 text-primary-600"></i>
-                                                <%= propiedad.numBanos || '?' %>
-                                                    Baños
-                                            </div>
-                                            <div class="flex items-center">
-                                                <i class="fa-solid fa-users w-5 mr-2 text-primary-600"></i>
-                                                Capacidad
-                                                <%= propiedad.capacidad %>
-                                                    personas
-                                            </div>
-                                            <% if (hasFeature(['tinaja', 'hot tub' , 'jacuzzi' ])) { %>
-                                                <div class="flex items-center">
-                                                    <i class="fa-solid fa-hot-tub-person w-5 mr-2 text-primary-600"></i>
-                                                    Tinaja Privada
-                                                </div>
-                                                <% } %>
+                    <%# 4. DESCRIPCIÓN %>
+                    <% if (_desc) { %>
+                    <div class="py-8">
+                        <h2 class="text-xl font-bold text-gray-900 mb-4">Sobre este alojamiento</h2>
+                        <p id="desc-text" class="text-gray-700 leading-relaxed text-sm desc-clamp"><%= _desc %></p>
+                        <button id="desc-btn"
+                                onclick="const t=document.getElementById('desc-text'),b=document.getElementById('desc-btn');t.classList.toggle('desc-clamp');t.classList.toggle('desc-open');b.textContent=t.classList.contains('desc-clamp')?'Mostrar más →':'Mostrar menos'"
+                                class="mt-3 text-sm font-semibold text-gray-900 underline hover:text-gray-600 transition-colors">
+                            Mostrar más →
+                        </button>
+                    </div>
+                    <% } %>
 
-                                                    <% if (hasFeature(['parrilla', 'quincho' , 'asador' , 'bbq' ])) { %>
-                                                        <div class="flex items-center">
-                                                            <i class="fa-solid fa-burger w-5 mr-2 text-primary-600"></i>
-                                                            Parrilla
-                                                        </div>
-                                                        <% } %>
-
-                                                            <% if (hasFeature(['terraza'])) { %>
-                                                                <div class="flex items-center">
-                                                                    <i
-                                                                        class="fa-solid fa-campground w-5 mr-2 text-primary-600"></i>
-                                                                    Terraza
-                                                                </div>
-                                                                <% } %>
-
-                                                                    <% if (hasFeature(['suite'])) { %>
-                                                                        <div class="flex items-center">
-                                                                            <i
-                                                                                class="fa-solid fa-person-booth w-5 mr-2 text-primary-600"></i>
-                                                                            Pieza en Suite
-                                                                        </div>
-                                                                        <% } %>
-
-                                                                            <% if (hasFeature(['wifi', 'internet' ])) {
-                                                                                %>
-                                                                                <div class="flex items-center">
-                                                                                    <i
-                                                                                        class="fa-solid fa-wifi w-5 mr-2 text-primary-600"></i>
-                                                                                    WiFi
-                                                                                </div>
-                                                                                <% } %>
-
-                                                                                    <% if (hasFeature(['tv', 'televisor'
-                                                                                        ])) { %>
-                                                                                        <div class="flex items-center">
-                                                                                            <i
-                                                                                                class="fa-solid fa-tv w-5 mr-2 text-primary-600"></i>
-                                                                                            TV Cable / Smart TV
-                                                                                        </div>
-                                                                                        <% } %>
-
-                                                                                            <% if
-                                                                                                (hasFeature(['aire', 'ac'
-                                                                                                , 'climatizador' ])) {
-                                                                                                %>
-                                                                                                <div
-                                                                                                    class="flex items-center">
-                                                                                                    <i
-                                                                                                        class="fa-solid fa-snowflake w-5 mr-2 text-primary-600"></i>
-                                                                                                    Aire Acondicionado
-                                                                                                </div>
-                                                                                                <% } %>
+                    <%# 5. AMENIDADES %>
+                    <div class="py-8">
+                        <h2 class="text-xl font-bold text-gray-900 mb-5">Lo que este lugar ofrece</h2>
+                        <% const _topAmen = _todosElsSorted.slice(0, 12); %>
+                        <% if (_topAmen.length > 0) { %>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-6">
+                            <% var _lastAmenHeader = null; %>
+                            <% _topAmen.forEach((el, _amenIdx) => {
+                                const _hdr = el.comp && String(el.comp).trim() ? el.comp : 'Amenidades generales';
+                                const _newHdr = (_hdr !== _lastAmenHeader);
+                                if (_newHdr) _lastAmenHeader = _hdr;
+                            %>
+                            <% if (_newHdr) { %>
+                            <div class="col-span-full<%= _amenIdx > 0 ? ' pt-3' : '' %>">
+                                <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider"><%= _hdr %></p>
                             </div>
+                            <% } %>
+                            <div class="flex items-center gap-3 text-sm text-gray-700">
+                                <i class="fas <%= _ico(el.nombre) %> w-5 text-center text-gray-500 flex-shrink-0"></i>
+                                <span><%= el.nombre %></span>
+                            </div>
+                            <% }) %>
                         </div>
-
+                        <% } else { %>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-sm text-gray-700">
+                            <div class="flex items-center gap-3"><i class="fas fa-users w-5 text-center text-gray-500"></i><span>Hasta <%= propiedad.capacidad %> huéspedes</span></div>
+                            <% if (propiedad.numPiezas) { %><div class="flex items-center gap-3"><i class="fas fa-bed w-5 text-center text-gray-500"></i><span><%= propiedad.numPiezas %> dormitorio<%= propiedad.numPiezas!==1?'s':'' %></span></div><% } %>
+                            <% if (propiedad.numBanos) { %><div class="flex items-center gap-3"><i class="fas fa-bath w-5 text-center text-gray-500"></i><span><%= propiedad.numBanos %> baño<%= propiedad.numBanos!==1?'s':'' %></span></div><% } %>
+                            <% if (hasFeature(['wifi'])) { %><div class="flex items-center gap-3"><i class="fas fa-wifi w-5 text-center text-gray-500"></i><span>WiFi</span></div><% } %>
+                            <% if (hasFeature(['tv','televisor'])) { %><div class="flex items-center gap-3"><i class="fas fa-tv w-5 text-center text-gray-500"></i><span>Smart TV</span></div><% } %>
+                            <% if (hasFeature(['piscina'])) { %><div class="flex items-center gap-3"><i class="fas fa-water-ladder w-5 text-center text-gray-500"></i><span>Piscina</span></div><% } %>
+                            <% if (hasFeature(['tinaja','jacuzzi'])) { %><div class="flex items-center gap-3"><i class="fas fa-hot-tub-person w-5 text-center text-gray-500"></i><span>Tinaja privada</span></div><% } %>
+                            <% if (hasFeature(['parrilla','quincho'])) { %><div class="flex items-center gap-3"><i class="fas fa-fire w-5 text-center text-gray-500"></i><span>Parrilla / Quincho</span></div><% } %>
+                            <% if (hasFeature(['estacionamiento'])) { %><div class="flex items-center gap-3"><i class="fas fa-car w-5 text-center text-gray-500"></i><span>Estacionamiento</span></div><% } %>
+                            <% if (hasFeature(['cocina'])) { %><div class="flex items-center gap-3"><i class="fas fa-utensils w-5 text-center text-gray-500"></i><span>Cocina equipada</span></div><% } %>
                         </div>
-                        <%# --- FIN COLUMNA IZQUIERDA --- %>
+                        <% } %>
+                        <% if (_todosEls.length > 10) { %>
+                        <button onclick="document.getElementById('modal-amenidades').classList.add('open')"
+                                class="mt-5 inline-flex items-center gap-2 border border-gray-800 text-gray-800 text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
+                            <i class="fas fa-grip text-xs"></i>
+                            Ver las <%= _todosEls.length %> comodidades
+                        </button>
+                        <% } %>
+                    </div>
 
-                            <%# --- COLUMNA DERECHA: Widget de Reserva --- %>
-                                <div class="lg:col-span-1 relative">
-                                    <div class="sticky top-4">
-                                        <%- include('partials/booking-widget') %>
+                    <%# 6. RESEÑAS %>
+                    <%
+                        const _resenas = locals.resenas || [];
+                        const _dims = [
+                            { key: 'promedio_limpieza',      label: 'Limpieza' },
+                            { key: 'promedio_ubicacion',     label: 'Ubicación' },
+                            { key: 'promedio_llegada',       label: 'Llegada' },
+                            { key: 'promedio_comunicacion',  label: 'Comunicación' },
+                            { key: 'promedio_equipamiento',  label: 'Equipamiento' },
+                            { key: 'promedio_valor',         label: 'Valor' },
+                        ].filter(d => resenasResumen && resenasResumen[d.key] != null);
+                    %>
+                    <% if (_nResenas >= 1 && resenasResumen) { %>
+                    <div class="py-8">
+                        <h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                            <% if (_rating) { %>
+                            <i class="fas fa-star text-warning-400"></i>
+                            <span class="tabular-nums"><%= _rating %><span class="text-sm font-normal text-gray-500">/10</span></span>
+                            <span class="text-gray-300 mx-0.5">·</span>
+                            <% } %>
+                            <span><%= _nResenas %> reseña<%= _nResenas!==1?'s':'' %></span>
+                        </h2>
+
+                        <%# Dimensiones con barras %>
+                        <% if (_dims.length > 0) { %>
+                        <div class="grid grid-cols-2 gap-x-10 gap-y-3 mb-8 text-sm">
+                            <% _dims.forEach(d => { %>
+                            <div class="flex items-center gap-3">
+                                <span class="text-gray-600 w-28 flex-shrink-0"><%= d.label %></span>
+                                <div class="flex-1 bg-gray-200 rounded-full h-1.5">
+                                    <div class="bg-gray-800 h-1.5 rounded-full" style="width:<%= Math.round((resenasResumen[d.key]/5)*100) %>%"></div>
+                                </div>
+                                <span class="text-gray-800 font-medium w-6 text-right flex-shrink-0"><%= resenasResumen[d.key] %></span>
+                            </div>
+                            <% }) %>
+                        </div>
+                        <% } %>
+
+                        <%# Cards de reseñas %>
+                        <% if (_resenas.length > 0) { %>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <% _resenas.forEach(r => {
+                                const _rName = r.cliente_nombre || r.nombre_huesped || 'Huésped';
+                                const _rInitial = _rName.charAt(0).toUpperCase();
+                                const _rDate = r.fecha_resena
+                                    ? new Date(r.fecha_resena).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })
+                                    : '';
+                                const _rText = r.texto_positivo || r.texto_negativo || '';
+                            %>
+                            <div class="border border-gray-100 rounded-2xl p-5">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center font-bold text-primary-700 flex-shrink-0 text-sm">
+                                        <%= _rInitial %>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="font-semibold text-gray-900 text-sm truncate"><%= _rName %></p>
+                                        <p class="text-xs text-gray-400"><%= _rDate %></p>
+                                    </div>
+                                    <div class="flex items-center gap-0.5 flex-shrink-0">
+                                        <% for(let s=0; s<5; s++) { %>
+                                        <i class="fas fa-star text-xs <%= s < r.punt_general ? 'text-warning-400' : 'text-gray-200' %>"></i>
+                                        <% } %>
                                     </div>
                                 </div>
-                                <%# --- FIN COLUMNA DERECHA --- %>
-
-                                    </div>
-                                    </main>
-
-                                    <%- include('partials/footer') %>
-
-                                        <%# --- Lightbox Modal --- %>
-                                            <div id="lightbox-modal"
-                                                class="lightbox-modal hidden fixed inset-0 z-50 flex items-center justify-center">
-                                                <div class="lightbox-overlay absolute inset-0 bg-black bg-opacity-90">
-                                                </div>
-                                                <button id="lightbox-close"
-                                                    class="lightbox-close absolute top-4 right-4 text-white text-4xl">&times;</button>
-                                                <button id="lightbox-prev"
-                                                    class="lightbox-prev absolute left-4 text-white text-4xl">&#10094;</button>
-                                                <button id="lightbox-next"
-                                                    class="lightbox-next absolute right-4 text-white text-4xl">&#10095;</button>
-                                                <div class="lightbox-content relative z-10 max-w-4xl max-h-[90vh]">
-                                                    <div id="lightbox-loader"
-                                                        class="lightbox-loader hidden absolute inset-0 flex items-center justify-center text-white">
-                                                        Cargando...
-                                                    </div>
-                                                    <img id="lightbox-image" src="" alt="Imagen de galería"
-                                                        class="lightbox-image max-w-full max-h-[85vh] object-contain">
-                                                    <div id="lightbox-caption" Cargando...</div>
-                                                        <img id="lightbox-image" src="" alt="Imagen de galería"
-                                                            class="lightbox-image max-w-full max-h-[85vh] object-contain">
-                                                        <% if (imagenPrincipalMosaic) { %>
-                                                            <div
-                                                                class="grid grid-cols-2 grid-rows-2 gap-2 rounded-lg overflow-hidden shadow-lg h-[50vh] md:h-[60vh]">
-                                                                <div class="col-span-1 row-span-2 gallery-image-trigger"
-                                                                    data-index="0">
-                                                                    <picture>
-                                                                        <source
-                                                                            srcset="<%= imagenPrincipalMosaic.storagePath %>"
-                                                                            type="image/webp">
-                                                                        <img src="<%= imagenPrincipalMosaic.storagePath %>"
-                                                                            alt="<%= imagenPrincipalMosaic.altText %>"
-                                                                            title="<%= imagenPrincipalMosaic.title || '' %>"
-                                                                            class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity">
-                                                                    </picture>
-                                                                </div>
-                                                                <% imagenesDerechaMosaic.forEach((img, index)=>
-                                                                    {
-                                                                    %>
-                                                                    <div class="col-span-1 row-span-1 relative gallery-image-trigger"
-                                                                        data-index="<%= index + 1 %>">
-                                                                        <picture>
-                                                                            <source srcset="<%= img.storagePath %>"
-                                                                                type="image/webp">
-                                                                            <img src="<%= img.storagePath %>"
-                                                                                alt="<%= img.altText %>"
-                                                                                title="<%= img.title || '' %>"
-                                                                                class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity">
-                                                                        </picture>
-                                                                        <% if (index===3 && restoImagenesGaleria.length>
-                                                                            0)
-                                                                            {
-                                                                            %>
-                                                                            <button
-                                                                                class="gallery-image-trigger absolute inset-0 bg-black bg-opacity-50 text-white flex items-center justify-center text-sm font-semibold hover:bg-opacity-70 transition-opacity"
-                                                                                data-index="<%= index + 1 %>">
-                                                                                +
-                                                                                <%= restoImagenesGaleria.length %>
-                                                                                    fotos
-                                                                            </button>
-                                                                            <% } %>
-                                                                    </div>
-                                                                    <% }) %>
-                                                                        <% if (imagenesDerechaMosaic.length < 4) { %>
-                                                                            <% for(let i=0; i < (4 -
-                                                                                imagenesDerechaMosaic.length); i++) { %>
-                                                                                <div
-                                                                                    class="col-span-1 row-span-1 bg-gray-200">
-                                                                                </div>
-                                                                                <% } %>
-                                                                                    <% } %>
-                                                            </div>
-                                                            <% } else { %>
-                                                                <div
-                                                                    class="w-full h-96 bg-gray-200 flex items-center justify-center rounded-lg shadow-lg text-gray-500">
-                                                                    Imágenes
-                                                                    No
-                                                                    Disponibles
-                                                                </div>
-                                                                <% } %>
-
-                                                                    <div class="prose max-w-none pt-4 border-t">
-                                                                        <h2 class="text-xl font-semibold mb-2">
-                                                                            Descripción
-                                                                        </h2>
-                                                                        <p>
-                                                                            <%= propiedad.websiteData?.aiDescription ||
-                                                                                propiedad.descripcion
-                                                                                || 'No hay descripción disponible.' %>
-                                                                        </p>
-                                                                    </div>
-
-                                                                    <div class="pt-4 border-t">
-                                                                        <div class="flex items-center mb-4">
-                                                                            <div
-                                                                                class="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center mr-4 text-gray-500 text-lg">
-                                                                                <i class="fa-solid fa-user-circle"></i>
-                                                                            </div>
-                                                                            <div>
-                                                                                <h2
-                                                                                    class="text-lg font-semibold text-gray-900">
-                                                                                    Anfitrión:
-                                                                                    <%= empresa.contactoNombre ||
-                                                                                        empresa.nombre %>
-                                                                                </h2>
-                                                                                <p class="text-sm text-gray-600">
-                                                                                    <%= locals.hostingDuration %>
-                                                                                </p>
-                                                                            </div>
-                                                                        </div>
-
-                                                                        <% if (empresa.contactoTelefono &&
-                                                                            empresa.contactoNombre) { %>
-                                                                            <% const
-                                                                                telefonoLimpio=empresa.contactoTelefono.replace(/\D/g, ''
-                                                                                ); const
-                                                                                nombreAnfitrion=empresa.contactoNombre.split(' ')[0];
-                            const mensajeEspecifico = `Hola ${nombreAnfitrion}, necesito ayuda para reservar el alojamiento "${propiedad.nombre}".`;
-                            const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeEspecifico)}`;
-                        %>
-                        <a href="<%= whatsappUrl %>" target="_blank" class="btn-whatsapp w-full mb-6 block text-center py-2 px-4 btn-secondary rounded hover:opacity-90 transition">
-                            <i class="fa-brands fa-whatsapp w-5 h-5 mr-2 text-white"></i>
-                            ¿Necesitas ayuda? Hablemos
-                        </a>
+                                <% if (_rText) { %>
+                                <p class="text-sm text-gray-600 leading-relaxed" style="display:-webkit-box;-webkit-line-clamp:4;line-clamp:4;-webkit-box-orient:vertical;overflow:hidden"><%= _rText %></p>
+                                <% } %>
+                            </div>
+                            <% }) %>
+                        </div>
+                        <% } %>
+                    </div>
                     <% } %>
 
-                    <div class="space-y-4 mt-6">
-                        <div class="flex items-center">
-                            <i class="fa-solid fa-star text-primary-600 text-xl w-6 text-center mr-3"></i>
+                    <%# 7. MAPA %>
+                    <div class="py-8">
+                        <h2 class="text-xl font-bold text-gray-900 mb-1">Dónde estarás</h2>
+                        <% if (_ciudad) { %>
+                        <p class="text-sm text-gray-500 mb-4"><%= _ciudad %><% if (_region) { %>, <%= _region %><% } %></p>
+                        <% } %>
+                        <div class="rounded-2xl overflow-hidden border border-gray-200 shadow-sm" style="height:320px">
+                            <iframe src="<%= _mapSrc %>" width="100%" height="100%" style="border:0"
+                                    loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"
+                                    title="Ubicación de <%= empresa.nombre %>"></iframe>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-2">
+                            <i class="fas fa-circle-info mr-1"></i>La ubicación exacta se entrega al confirmar la reserva.
+                        </p>
+                    </div>
+
+                    <%# 6b. Calendario de disponibilidad (dos meses, bajo el mapa) %>
+                    <section id="public-booking-calendar-section"
+                             class="py-8 border-t border-gray-100 relative transition-shadow duration-200"
+                             data-propiedad-id="<%= propiedad.id %>"
+                             data-min-noches="<%= _minNoches %>"
+                             aria-label="Calendario de disponibilidad">
+                        <div id="pbc-mobile-header" class="hidden sticky top-0 z-[2] -mx-4 px-4 py-3 mb-2 bg-white/95 backdrop-blur border-b border-gray-200 items-center justify-between gap-2 lg:hidden">
+                            <button type="button" id="pbc-close-mobile" class="text-sm font-semibold text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-100">
+                                Cerrar
+                            </button>
+                            <span class="font-semibold text-gray-900 text-center flex-1 truncate">Fechas</span>
+                            <span class="w-[4.5rem] flex-shrink-0" aria-hidden="true"></span>
+                        </div>
+                        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                             <div>
-                                <h3 class="font-semibold text-gray-900">Experiencia Destacada</h3>
-                                <p class="text-sm text-gray-600">Nuestros huéspedes aman la atención y el entorno.</p>
+                                <h2 class="text-xl font-bold text-gray-900">Selecciona fechas</h2>
+                                <p class="text-sm text-gray-500 mt-1">
+                                    Elige la llegada y la salida. Las noches no disponibles aparecen bloqueadas.
+                                    <% if (_minNoches > 1) { %>
+                                    <span class="block mt-1 text-gray-600 font-medium">Estadía mínima: <%= _minNoches %> noches.</span>
+                                    <% } %>
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+                                <button type="button" id="pbc-expand-mobile"
+                                        class="lg:hidden text-sm font-semibold text-primary-700 border border-primary-200 bg-primary-50 px-3 py-2 rounded-xl hover:bg-primary-100 transition-colors">
+                                    Pantalla completa
+                                </button>
+                                <button type="button" id="pbc-clear"
+                                        class="text-sm font-semibold text-gray-800 underline underline-offset-2 px-2 py-2 rounded-lg hover:bg-gray-50">
+                                    Borrar fechas
+                                </button>
+                                <button type="button" id="pbc-prev"
+                                        class="h-10 w-10 rounded-full border border-gray-200 bg-white hover:bg-gray-50 flex items-center justify-center text-gray-700 transition-colors"
+                                        aria-label="Meses anteriores">
+                                    <i class="fas fa-chevron-left text-sm"></i>
+                                </button>
+                                <button type="button" id="pbc-next"
+                                        class="h-10 w-10 rounded-full border border-gray-200 bg-white hover:bg-gray-50 flex items-center justify-center text-gray-700 transition-colors"
+                                        aria-label="Meses siguientes">
+                                    <i class="fas fa-chevron-right text-sm"></i>
+                                </button>
                             </div>
                         </div>
-                        <div class="flex items-center">
-                            <i class="fa-solid fa-house-chimney-medical text-primary-600 text-xl w-6 text-center mr-3"></i>
+                        <p id="pbc-loading" class="hidden text-sm text-gray-500 mb-2"><i class="fas fa-spinner fa-spin mr-2"></i>Actualizando disponibilidad…</p>
+                        <p id="pbc-error" class="hidden text-sm text-red-600 mb-2"></p>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
                             <div>
-                                <h3 class="font-semibold text-gray-900">Ambientes Acogedores</h3>
-                                <p class="text-sm text-gray-600">Disfruta de espacios amplios y bien equipados.</p>
+                                <p id="pbc-label-0" class="text-center text-base font-semibold text-gray-900 mb-3 tabular-nums"></p>
+                                <div class="grid grid-cols-7 gap-0.5 text-center text-[10px] font-bold text-gray-400 uppercase tracking-tight mb-2">
+                                    <span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sá</span><span>Do</span>
+                                </div>
+                                <div id="pbc-grid-0" class="grid grid-cols-7 gap-1"></div>
+                            </div>
+                            <div>
+                                <p id="pbc-label-1" class="text-center text-base font-semibold text-gray-900 mb-3 tabular-nums"></p>
+                                <div class="grid grid-cols-7 gap-0.5 text-center text-[10px] font-bold text-gray-400 uppercase tracking-tight mb-2">
+                                    <span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sá</span><span>Do</span>
+                                </div>
+                                <div id="pbc-grid-1" class="grid grid-cols-7 gap-1"></div>
                             </div>
                         </div>
-                        <div class="flex items-center">
-                            <i class="fa-solid fa-calendar-check text-primary-600 text-xl w-6 text-center mr-3"></i>
+                    </section>
+
+                    <%# 7. COSAS QUE DEBES SABER %>
+                    <div class="py-8">
+                        <h2 class="text-xl font-bold text-gray-900 mb-5">Cosas que debes saber</h2>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm">
                             <div>
-                                <h3 class="font-semibold text-gray-900">Cancelación Flexible</h3>
-                                <p class="text-sm text-gray-600">Cancela gratis hasta 3 días antes del check-in para un reembolso total.</p>
+                                <h3 class="font-semibold text-gray-800 mb-3">Normas de la casa</h3>
+                                <ul class="space-y-2 text-gray-600">
+                                    <li class="flex items-start gap-2"><i class="fas fa-clock w-4 text-gray-400 mt-0.5"></i><span>Llegada: desde las <%= _checkin %></span></li>
+                                    <li class="flex items-start gap-2"><i class="fas fa-clock w-4 text-gray-400 mt-0.5"></i><span>Salida: antes de las <%= _checkout %></span></li>
+                                    <li class="flex items-start gap-2"><i class="fas fa-users w-4 text-gray-400 mt-0.5"></i><span>Máx. <%= propiedad.capacidad %> huéspedes</span></li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-800 mb-3">Seguridad</h3>
+                                <ul class="space-y-2 text-gray-600">
+                                    <% if (hasFeature(['extintor'])) { %><li class="flex items-start gap-2"><i class="fas fa-fire-extinguisher w-4 text-gray-400 mt-0.5"></i><span>Extintor disponible</span></li><% } %>
+                                    <li class="flex items-start gap-2"><i class="fas fa-shield-halved w-4 text-gray-400 mt-0.5"></i><span>Anfitrión verificado</span></li>
+                                    <li class="flex items-start gap-2"><i class="fas fa-lock w-4 text-gray-400 mt-0.5"></i><span>Pago 100% seguro</span></li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-800 mb-3">Cancelación</h3>
+                                <ul class="space-y-2 text-gray-600">
+                                    <li class="flex items-start gap-2"><i class="fas fa-rotate-left w-4 text-gray-400 mt-0.5"></i><span>Consulta condiciones al anfitrión</span></li>
+                                    <% if (_waUrl) { %>
+                                    <li class="flex items-start gap-2"><i class="fab fa-whatsapp w-4 text-success-500 mt-0.5"></i><a href="<%= _waUrl %>" target="_blank" rel="noopener" class="text-primary-600 underline font-medium">Escribir por WhatsApp</a></li>
+                                    <% } %>
+                                </ul>
                             </div>
                         </div>
                     </div>
+
+                    <%# 8. CTA WHATSAPP (solo si hay número) %>
+                    <% if (_waUrl) { %>
+                    <div class="pt-8 pb-4">
+                        <div class="bg-gray-50 rounded-2xl p-5 flex items-center gap-4 border border-gray-100">
+                            <div class="h-12 w-12 rounded-full bg-success-100 flex items-center justify-center flex-shrink-0">
+                                <i class="fab fa-whatsapp text-success-600 text-2xl"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-semibold text-gray-800">¿Tienes preguntas? Hablemos</p>
+                                <p class="text-sm text-gray-500">Te respondo rápido por WhatsApp</p>
+                            </div>
+                            <a href="<%= _waUrl %>" target="_blank" rel="noopener"
+                               class="bg-success-600 hover:bg-success-700 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2 flex-shrink-0">
+                                <i class="fab fa-whatsapp"></i>Escribir
+                            </a>
+                        </div>
+                    </div>
+                    <% } %>
+
+                </div>
+                <%# ── FIN COLUMNA IZQUIERDA ── %>
+
+                <%# ── Reserva: debajo del contenido en móvil; columna sticky en desktop ── %>
+                <div class="mt-8 lg:mt-0">
+                    <div class="lg:sticky lg:top-24">
+                        <%- include('partials/booking-widget', { minNochesSSR: _minNoches }) %>
+                    </div>
                 </div>
 
-                <div class="pt-4 border-t">
-                    <h2 class="text-xl font-semibold mb-4">Comodidades</h2>
-                    <div class="grid grid-cols-2 gap-4 text-sm">
-                        <div class="flex items-center">
-                            <i class="fa-solid fa-bed w-5 mr-2 text-primary-600"></i> <%= propiedad.numPiezas || ' ?' %>
-                                                                                Dormitorios
-                                                                    </div>
-                                                                    <div class="flex items-center">
-                                                                        <i
-                                                                            class="fa-solid fa-bath w-5 mr-2 text-primary-600"></i>
-                                                                        <%= propiedad.numBanos || '?' %>
-                                                                            Baños
-                                                                    </div>
-                                                                    <div class="flex items-center">
-                                                                        <i
-                                                                            class="fa-solid fa-users w-5 mr-2 text-primary-600"></i>
-                                                                        Capacidad
-                                                                        <%= propiedad.capacidad %>
-                                                                            personas
-                                                                    </div>
-                                                                    <% if (propiedad.equipamiento?.tinaja) { %>
-                                                                        <div class="flex items-center">
-                                                                            <i
-                                                                                class="fa-solid fa-hot-tub-person w-5 mr-2 text-primary-600"></i>
-                                                                            Tinaja
-                                                                            Privada
-                                                                        </div>
-                                                                        <% } %>
-                                                                            <% if (propiedad.equipamiento?.parrilla) {
-                                                                                %>
-                                                                                <div class="flex items-center">
-                                                                                    <i
-                                                                                        class="fa-solid fa-burger w-5 mr-2 text-primary-600"></i>
-                                                                                    Parrilla
-                                                                                </div>
-                                                                                <% } %>
-                                                                                    <% if
-                                                                                        (propiedad.equipamiento?.terrazaTechada)
-                                                                                        { %>
-                                                                                        <div class="flex items-center">
-                                                                                            <i
-                                                                                                class="fa-solid fa-campground w-5 mr-2 text-primary-600"></i>
-                                                                                            Terraza
-                                                                                            Techada
-                                                                                        </div>
-                                                                                        <% } %>
-                                                                                            <% if
-                                                                                                (propiedad.equipamiento?.juegoDeTerraza)
-                                                                                                { %>
-                                                                                                <div
-                                                                                                    class="flex items-center">
-                                                                                                    <i
-                                                                                                        class="fa-solid fa-chair w-5 mr-2 text-primary-600"></i>
-                                                                                                    Juego
-                                                                                                    de
-                                                                                                    Terraza
-                                                                                                </div>
-                                                                                                <% } %>
-                                                                                                    <% if
-                                                                                                        (propiedad.equipamiento?.piezaEnSuite)
-                                                                                                        { %>
-                                                                                                        <div
-                                                                                                            class="flex items-center">
-                                                                                                            <i
-                                                                                                                class="fa-solid fa-person-booth w-5 mr-2 text-primary-600"></i>
-                                                                                                            Pieza
-                                                                                                            en
-                                                                                                            Suite
-                                                                                                        </div>
-                                                                                                        <% } %>
-                                                                                                            <% if
-                                                                                                                (propiedad.equipamiento?.dosPisos)
-                                                                                                                { %>
-                                                                                                                <div
-                                                                                                                    class="flex items-center">
-                                                                                                                    <i
-                                                                                                                        class="fa-solid fa-building w-5 mr-2 text-primary-600"></i>
-                                                                                                                    Dos
-                                                                                                                    Pisos
-                                                                                                                </div>
-                                                                                                                <% } %>
-                                                    </div>
-                                                </div>
+            </div>
+        </div>
+    </main>
 
-                                            </div>
-                                            <%# --- FIN COLUMNA IZQUIERDA --- %>
+    <%- include('partials/footer') %>
 
-                                                <%# --- COLUMNA DERECHA: Widget de Reserva --- %>
-                                                    <div class="lg:col-span-1 relative">
-                                                        <div class="sticky top-4">
-                                                            <%- include('partials/booking-widget') %>
-                                                        </div>
-                                                    </div>
-                                                    <%# --- FIN COLUMNA DERECHA --- %>
+    <%# ── MODAL AMENIDADES ── %>
+    <% if (_todosEls.length > 10) { %>
+    <div id="modal-amenidades" onclick="if(event.target===this)this.classList.remove('open')">
+        <div class="modal-box bg-white p-6 md:p-8">
+            <div class="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+                <h2 class="text-xl font-bold text-gray-900">Lo que este lugar ofrece</h2>
+                <button onclick="document.getElementById('modal-amenidades').classList.remove('open')"
+                        class="text-gray-400 hover:text-gray-700 text-3xl leading-none w-8 h-8 flex items-center justify-center">&times;</button>
+            </div>
+            <% if ((propiedad.componentes||[]).some(c=>(c.elementos||[]).length>0)) { %>
+                <% (propiedad.componentes||[]).forEach(comp => { %>
+                <% if ((comp.elementos||[]).length > 0) { %>
+                <div class="mb-6">
+                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3"><%= comp.nombre %></h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <% (comp.elementos||[]).forEach(el => { %>
+                        <div class="flex items-center gap-3 text-sm text-gray-700">
+                            <i class="fas <%= _ico(el.nombre) %> w-5 text-center text-gray-400 flex-shrink-0"></i>
+                            <span><%= el.nombre %></span>
+                        </div>
+                        <% }) %>
+                    </div>
+                </div>
+                <% } %>
+                <% }) %>
+            <% } else { %>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <% _todosEls.forEach(el => { %>
+                <div class="flex items-center gap-3 text-sm text-gray-700">
+                    <i class="fas <%= _ico(el.nombre) %> w-5 text-center text-gray-400 flex-shrink-0"></i>
+                    <span><%= el.nombre %></span>
+                </div>
+                <% }) %>
+            </div>
+            <% } %>
+        </div>
+    </div>
+    <% } %>
 
-                                                        </div>
-                                                        </main>
+    <%# ── LIGHTBOX ── %>
+    <div id="lightbox-modal" class="lightbox-modal hidden fixed inset-0 z-50 flex items-center justify-center">
+        <div class="lightbox-overlay absolute inset-0 bg-black bg-opacity-90"></div>
+        <button id="lightbox-close" class="lightbox-close absolute top-4 right-4 text-white text-4xl z-10">&times;</button>
+        <button id="lightbox-prev" type="button" class="lightbox-prev absolute left-4 text-white text-4xl z-10" aria-label="Anterior">‹</button>
+        <button id="lightbox-next" type="button" class="lightbox-next absolute right-4 text-white text-4xl z-10" aria-label="Siguiente">›</button>
+        <div class="lightbox-content relative z-10 max-w-5xl max-h-[90vh] px-16">
+            <div id="lightbox-loader" class="lightbox-loader hidden absolute inset-0 flex items-center justify-center text-white">Cargando...</div>
+            <img id="lightbox-image" src="" alt="Imagen de galería" class="lightbox-image max-w-full max-h-[85vh] object-contain">
+            <div id="lightbox-caption" class="lightbox-caption text-white text-center mt-2 text-sm opacity-75"></div>
+        </div>
+    </div>
 
-                                                        <%- include('partials/footer') %>
+    <%# ── BARRA MÓVIL STICKY ── %>
+    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 flex items-center justify-between gap-3 lg:hidden z-30 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
+        <div>
+            <% if (_precioNoche > 0) { %>
+            <p class="text-base font-bold text-gray-900 leading-tight">
+                <%= _fmtCLP(_precioNoche) %> <span class="font-normal text-gray-500 text-sm">/ noche</span>
+            </p>
+            <% if (_rating) { %>
+            <p class="text-xs text-gray-500"><i class="fas fa-star text-warning-400 text-xs"></i> <%= _rating %>/10 · <%= _nResenas %> reseñas</p>
+            <% } %>
+            <% } else { %>
+            <p class="text-sm font-medium text-gray-600">Consulta disponibilidad</p>
+            <% } %>
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0">
+            <button type="button"
+                    onclick="(typeof window.__pbcOpenMobile==='function'?window.__pbcOpenMobile():document.getElementById('public-booking-calendar-section')?.scrollIntoView({behavior:'smooth',block:'center'}))"
+                    class="rounded-xl px-4 py-3 text-sm font-bold border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 transition-colors">
+                Fechas
+            </button>
+            <button type="button"
+                    onclick="document.getElementById('booking-widget-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' })"
+                    class="btn-primary rounded-xl px-5 py-3 text-sm font-bold">
+                Reservar
+            </button>
+        </div>
+    </div>
 
-                                                            <%# --- Lightbox Modal --- %>
-                                                                <div id="lightbox-modal"
-                                                                    class="lightbox-modal hidden fixed inset-0 z-50 flex items-center justify-center">
-                                                                    <div
-                                                                        class="lightbox-overlay absolute inset-0 bg-black bg-opacity-90">
-                                                                    </div>
-                                                                    <button id="lightbox-close"
-                                                                        class="lightbox-close absolute top-4 right-4 text-white text-4xl">&times;</button>
-                                                                    <button id="lightbox-prev"
-                                                                        class="lightbox-prev absolute left-4 text-white text-4xl">&#10094;</button>
-                                                                    <button id="lightbox-next"
-                                                                        class="lightbox-next absolute right-4 text-white text-4xl">&#10095;</button>
-                                                                    <div
-                                                                        class="lightbox-content relative z-10 max-w-4xl max-h-[90vh]">
-                                                                        <div id="lightbox-loader"
-                                                                            class="lightbox-loader hidden absolute inset-0 flex items-center justify-center text-white">
-                                                                            Cargando...
-                                                                        </div>
-                                                                        <img id="lightbox-image" src=""
-                                                                            alt="Imagen de galería"
-                                                                            class="lightbox-image max-w-full max-h-[85vh] object-contain">
-                                                                        <div id="lightbox-caption"
-                                                                            class="lightbox-caption text-white text-center mt-2">
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-
-                                                                <script>
-                                                                    // Inyectar JSON de forma segura en variables globales
-                                                                    window.allPropertyImages = [];
-                                                                    window.initialBookingData = null;
-                                                                    try {
-                                                                        window.allPropertyImages = <% - JSON.stringify(imagenesParaGaleria || []) %>;
-                                                                        const rawDefaultPrice = <% - JSON.stringify(typeof defaultPriceData !== 'undefined' ? defaultPriceData : null) %>;
-                                                                        window.initialBookingData = {
-                                                                            propiedadId: "<%= propiedad.id %>",
-                                                                            defaultPrice: rawDefaultPrice
-                                                                        };
-                                                                        console.log("Initial Booking Data Loaded (Success):", window.initialBookingData);
-                                                                    } catch (e) {
-                                                                        console.error("CRITICAL ERROR: Failed to inject initialBookingData.", e);
-                                                                        // Fallback for debugging
-                                                                        window.initialBookingDataError = e.message;
-                                                                    }
-                                                                </script>
-                                                                <script src="/public/js/booking.js" defer></script>
-                                                                <script src="/public/js/gallery.js" defer></script>
-        </body>
-
-        </html>
+    <script>
+        window.allPropertyImages = [];
+        window.initialBookingData = null;
+        window.PUBLIC_BOOKING_BASE_URL = <%- JSON.stringify((empresa.websiteSettings && empresa.websiteSettings.seo && empresa.websiteSettings.seo.publicBookingUrl) || '') %>;
+        try {
+            window.allPropertyImages = <%- JSON.stringify(_galeria || []) %>;
+            window.initialBookingData = {
+                propiedadId: "<%= propiedad.id %>",
+                defaultPrice: <%- JSON.stringify(typeof defaultPriceData !== 'undefined' ? defaultPriceData : null) %>,
+                minNoches: <%= _minNoches %>
+            };
+        } catch(e) { console.error('Error inyectando datos:', e); }
+    </script>
+    <script src="/public/js/booking.js" defer></script>
+    <script src="/public/js/public-booking-calendar.js" defer></script>
+    <script src="/public/js/gallery.js" defer></script>
+</body>
+</html>

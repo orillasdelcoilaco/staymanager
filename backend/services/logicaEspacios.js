@@ -2,6 +2,8 @@
  * @typedef {import('../types').PropuestaEspacio} PropuestaEspacio
  */
 
+const { withSsrCommerceObjective } = require('./ai/prompts/ssrCommerceContext');
+
 // 1. DICCIONARIO AL INICIO
 const DICCIONARIO_LABELS = {
     "master suite": "Dormitorio Principal",
@@ -71,7 +73,7 @@ function generarH1(tipoEspacio, detalles, activos) {
  * @returns {string} El prompt para el LLM.
  */
 function generarPromptParaEvaluacionDeFotos(tipoEspacio, activos) {
-    return `
+    return withSsrCommerceObjective(`
     Actúa como un Director de Arte y Experto en SEO Inmobiliario.
     Estás analizando un espacio del tipo "${tipoEspacio}".
     Lista de Activos disponibles: ${JSON.stringify(activos)}.
@@ -94,7 +96,7 @@ function generarPromptParaEvaluacionDeFotos(tipoEspacio, activos) {
        - Cubiertos, Basureros, Perchas estándar.
 
     Devuelve un JSON con la lista de fotos requeridas. Formato: [{"activo": "...", "motivo_relevancia": "...", "metadata_sugerida": "..."}]
-  `;
+  `);
 }
 
 /**

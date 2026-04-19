@@ -10,19 +10,22 @@ function abrirModal(estado = null) {
     const form = document.getElementById('estado-form');
     const modalTitle = document.getElementById('modal-title');
     
+    const subtitle = document.getElementById('modal-estado-subtitle');
     if (estado) {
         editandoEstado = estado;
         modalTitle.textContent = 'Editar Estado';
+        if (subtitle) subtitle.textContent = estado.nombre;
         form.nombre.value = estado.nombre;
-        form.color.value = estado.color || '#cccccc';
+        form.color.value = estado.color || 'rgb(204 204 204)';
         form.esEstadoDeGestion.checked = estado.esEstadoDeGestion || false;
         form.orden.value = estado.orden || 0;
         form.semantica.value = estado.semantica || '';
     } else {
         editandoEstado = null;
         modalTitle.textContent = 'Nuevo Estado';
+        if (subtitle) subtitle.textContent = 'Configura el nombre, color y comportamiento';
         form.reset();
-        form.color.value = '#cccccc';
+        form.color.value = 'rgb(204 204 204)';
     }
     
     modal.classList.remove('hidden');
@@ -77,7 +80,13 @@ export async function render() {
 
         <div id="estado-modal" class="modal hidden">
             <div class="modal-content">
-                <h3 id="modal-title" class="text-xl font-semibold mb-4"></h3>
+                <div class="flex items-center gap-4 mb-6 pb-5 border-b">
+                    <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 text-xl flex-shrink-0">🔖</div>
+                    <div>
+                        <h3 id="modal-title" class="text-xl font-semibold text-gray-900"></h3>
+                        <p id="modal-estado-subtitle" class="text-sm text-gray-500">Configura el nombre, color y comportamiento</p>
+                    </div>
+                </div>
                 <form id="estado-form" class="space-y-4">
                     <div><label for="nombre" class="label-form">Nombre del Estado</label><input type="text" name="nombre" required class="form-input"></div>
                     <div><label for="color" class="label-form">Color</label><input type="color" name="color" required class="form-input"></div>
@@ -92,7 +101,7 @@ export async function render() {
                         <p class="text-xs text-gray-500 mt-1">Conecta este estado con el comportamiento del sistema (flujo de trabajo, disponibilidad, filtros).</p>
                     </div>
                     <div class="flex justify-end pt-4 border-t">
-                        <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
+                        <button type="button" id="cancel-btn" class="btn-outline mr-2">Cancelar</button>
                         <button type="submit" class="btn-primary">Guardar</button>
                     </div>
                 </form>

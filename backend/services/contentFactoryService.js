@@ -1,6 +1,7 @@
 // backend/services/contentFactoryService.js
+const pool = require('../db/postgres');
+const { withSsrCommerceObjective } = require('./ai/prompts/ssrCommerceContext');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const { hydrateInventory } = require('./propiedadLogicService');
 
 // Load dotenv only if not in production
 if (!process.env.RENDER) {
@@ -56,20 +57,15 @@ async function llamarGeminiAPI(prompt, imageBuffer = null) {
  * 1. Optimizar Perfil de Alojamiento
  * Genera descripción comercial, H1 y SEO basado en datos básicos y componentes.
  */
-const optimizarPerfilAlojamiento = async (db, empresaId, alojamientoId) => {
-    // 1. Obtener datos del alojamiento y sus subcolecciones
-    const alojamientoRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(alojamientoId);
-    const alojamientoDoc = await alojamientoRef.get();
-
-    if (!alojamientoDoc.exists) throw new Error("Alojamiento no encontrado");
-    const alojamiento = alojamientoDoc.data();
-
-    // Leer subcolecciones (Componentes y Amenidades)
-    const componentesSnap = await alojamientoRef.collection('componentes').get();
-    const amenidadesSnap = await alojamientoRef.collection('amenidades').get();
-
-    const componentes = componentesSnap.docs.map(d => d.data());
-    const amenidades = amenidadesSnap.docs.map(d => d.data());
+const optimizarPerfilAlojamiento = async (_db, empresaId, alojamientoId) => {
+    const { rows } = await pool.query(
+        'SELECT * FROM propiedades WHERE id = $1 AND empresa_id = $2',
+        [alojamientoId, empresaId]
+    );
+    if (!rows[0]) throw new Error("Alojamiento no encontrado");
+    const alojamiento = { ...rows[0].metadata, nombre: rows[0].nombre, descripcion: rows[0].descripcion };
+    const componentes = rows[0].metadata?.componentes || [];
+    const amenidades = rows[0].metadata?.amenidades || [];
 
     // 2. Construir Contexto
     const contexto = {
@@ -81,7 +77,7 @@ const optimizarPerfilAlojamiento = async (db, empresaId, alojamientoId) => {
     };
 
     // 3. Prompt
-    const prompt = `
+    const prompt = withSsrCommerceObjective(`
         Actúa como un Copywriter Senior y Experto SEO para Turismo.
         Genera el perfil comercial completo para este alojamiento.
 
@@ -99,23 +95,25 @@ const optimizarPerfilAlojamiento = async (db, empresaId, alojamientoId) => {
         4. "shortDescription": Una frase corta (max 150 chars) para tarjetas/listados.
 
         Responde SOLO JSON válido.
-    `;
+    `);
 
     // 4. Llamar IA
     const rawResponse = await llamarGeminiAPI(prompt);
     const jsonResponse = JSON.parse(rawResponse);
 
-    // 5. Guardar resultado en Firestore (campo websiteData)
-    await alojamientoRef.update({
-        websiteData: {
-            ...alojamiento.websiteData,
-            aiDescription: jsonResponse.marketingDescription,
-            h1: jsonResponse.h1,
-            seo: jsonResponse.seo,
-            shortDescription: jsonResponse.shortDescription,
-            lastOptimized: new Date()
-        }
-    });
+    const nuevoWebsiteData = {
+        ...(alojamiento.websiteData || {}),
+        aiDescription: jsonResponse.marketingDescription,
+        h1: jsonResponse.h1,
+        seo: jsonResponse.seo,
+        shortDescription: jsonResponse.shortDescription,
+        lastOptimized: new Date().toISOString(),
+    };
+    await pool.query(
+        `UPDATE propiedades SET metadata = metadata || jsonb_build_object('websiteData', $1::jsonb), updated_at = NOW()
+         WHERE id = $2 AND empresa_id = $3`,
+        [JSON.stringify(nuevoWebsiteData), alojamientoId, empresaId]
+    );
 
     return jsonResponse;
 };
@@ -124,50 +122,33 @@ const optimizarPerfilAlojamiento = async (db, empresaId, alojamientoId) => {
  * 2. Analizar Requisitos de Fotos
  * Recorre los componentes y define cuántas fotos se necesitan y de qué tipo.
  */
-const analizarRequisitosFotos = async (db, empresaId, alojamientoId) => {
-    const alojamientoRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(alojamientoId);
-    const componentesRef = alojamientoRef.collection('componentes');
-    const snapshot = await componentesRef.get();
+const analizarRequisitosFotos = async (_db, empresaId, alojamientoId) => {
+    const { rows } = await pool.query(
+        'SELECT metadata FROM propiedades WHERE id = $1 AND empresa_id = $2',
+        [alojamientoId, empresaId]
+    );
+    if (!rows[0]) throw new Error("Alojamiento no encontrado");
 
-    const updates = [];
-
-    for (const doc of snapshot.docs) {
-        const comp = doc.data();
-
-        // Lógica simple de reglas (podría ser IA también, pero reglas es más rápido y predecible para esto)
+    const componentes = (rows[0].metadata?.componentes || []).map(comp => {
         let cantidadFotos = 1;
         let sugerencia = "Vista general";
-
         switch (comp.tipo?.toLowerCase()) {
-            case 'dormitorio':
-                cantidadFotos = 3;
-                sugerencia = "1. Vista general, 2. Detalle cama, 3. Ángulo inverso/closet";
-                break;
-            case 'baño':
-                cantidadFotos = 2;
-                sugerencia = "1. Lavamanos/Espejo, 2. Ducha/Tina";
-                break;
-            case 'cocina':
-                cantidadFotos = 2;
-                sugerencia = "1. Vista general, 2. Equipamiento/Detalle";
-                break;
+            case 'dormitorio': cantidadFotos = 3; sugerencia = "1. Vista general, 2. Detalle cama, 3. Ángulo inverso/closet"; break;
+            case 'baño':       cantidadFotos = 2; sugerencia = "1. Lavamanos/Espejo, 2. Ducha/Tina"; break;
+            case 'cocina':     cantidadFotos = 2; sugerencia = "1. Vista general, 2. Equipamiento/Detalle"; break;
             case 'terraza':
-            case 'quincho':
-                cantidadFotos = 2;
-                sugerencia = "1. Vista al entorno, 2. Equipamiento";
-                break;
-            default:
-                cantidadFotos = 1;
+            case 'quincho':    cantidadFotos = 2; sugerencia = "1. Vista al entorno, 2. Equipamiento"; break;
         }
+        return { ...comp, cantidadRequeridaFotos: cantidadFotos, sugerenciaFotos: sugerencia };
+    });
 
-        updates.push(doc.ref.update({
-            cantidadRequeridaFotos: cantidadFotos,
-            sugerenciaFotos: sugerencia
-        }));
-    }
+    await pool.query(
+        `UPDATE propiedades SET metadata = metadata || jsonb_build_object('componentes', $1::jsonb), updated_at = NOW()
+         WHERE id = $2 AND empresa_id = $3`,
+        [JSON.stringify(componentes), alojamientoId, empresaId]
+    );
 
-    await Promise.all(updates);
-    return { message: "Requisitos de fotos actualizados", totalComponentes: updates.length };
+    return { message: "Requisitos de fotos actualizados", totalComponentes: componentes.length };
 };
 
 /**
@@ -177,7 +158,7 @@ const analizarRequisitosFotos = async (db, empresaId, alojamientoId) => {
 const auditarFoto = async (imageBuffer, contexto) => {
     const { tipoComponente, nombreComponente, nombreAlojamiento } = contexto;
 
-    const prompt = `
+    const prompt = withSsrCommerceObjective(`
         Eres un Auditor de Calidad Visual y Experto SEO para Hotelería.
         
         CONTEXTO:
@@ -203,7 +184,7 @@ const auditarFoto = async (imageBuffer, contexto) => {
             "title": string,
             "tags": string[]
         }
-    `;
+    `);
 
     const rawResponse = await llamarGeminiAPI(prompt, imageBuffer);
     return JSON.parse(rawResponse);

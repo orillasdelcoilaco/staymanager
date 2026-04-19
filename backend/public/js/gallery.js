@@ -1,6 +1,57 @@
 // backend/public/js/gallery.js
 
+/**
+ * Carrusel móvil (scroll-snap) en ficha de propiedad: dots, contador y flechas.
+ */
+function initMobilePropertyCarousel() {
+    const track = document.getElementById('sm-gallery-track');
+    if (!track) return;
+
+    const slides = track.querySelectorAll('.sm-gallery-slide');
+    if (slides.length < 2) return;
+
+    const dots = [...document.querySelectorAll('#sm-gallery-dots .sm-gallery-dot')];
+    const prev = document.getElementById('sm-gallery-prev');
+    const next = document.getElementById('sm-gallery-next');
+    const counter = document.getElementById('sm-gallery-counter');
+
+    const slideWidth = () => track.clientWidth || 1;
+
+    const updateUi = () => {
+        const w = slideWidth();
+        const i = Math.round(track.scrollLeft / w);
+        const clamped = Math.max(0, Math.min(i, dots.length - 1));
+        dots.forEach((d, k) => d.classList.toggle('is-active', k === clamped));
+        if (counter && dots.length) {
+            counter.textContent = `${clamped + 1} / ${dots.length}`;
+        }
+        if (prev) prev.classList.toggle('opacity-40', clamped <= 0);
+        if (next) next.classList.toggle('opacity-40', clamped >= dots.length - 1);
+    };
+
+    let scrollTick = 0;
+    track.addEventListener(
+        'scroll',
+        () => {
+            cancelAnimationFrame(scrollTick);
+            scrollTick = requestAnimationFrame(updateUi);
+        },
+        { passive: true }
+    );
+
+    prev?.addEventListener('click', () => {
+        track.scrollBy({ left: -slideWidth(), behavior: 'smooth' });
+    });
+    next?.addEventListener('click', () => {
+        track.scrollBy({ left: slideWidth(), behavior: 'smooth' });
+    });
+
+    updateUi();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    initMobilePropertyCarousel();
+
     // Obtener los datos de las imágenes inyectados en propiedad.ejs
     const allImages = window.allPropertyImages || [];
     if (allImages.length === 0) return;

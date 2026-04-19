@@ -24,7 +24,7 @@ main {
     }
 
     .btn {
-        @apply inline-flex items-center justify-center px-6 py-3 text-sm font-semibold text-center text-white uppercase transition bg-indigo-600 rounded-md shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed;
+        @apply inline-flex items-center justify-center px-6 py-3 text-sm font-semibold text-center text-white uppercase transition bg-primary-600 rounded-md shadow-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed;
     }
     .btn-secondary {
        @apply inline-block px-6 py-3 text-sm font-semibold text-center text-gray-700 uppercase transition bg-gray-200 rounded-md shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400;
@@ -34,7 +34,7 @@ main {
     }
 
     .form-input {
-        @apply block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm; /* Adjusted focus ring */
+        @apply block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm; /* Adjusted focus ring */
     }
 
     .property-card {
@@ -79,7 +79,7 @@ main {
     }
 
     .btn-whatsapp {
-        @apply inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white transition bg-green-500 rounded-md shadow-sm hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500;
+        @apply inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white transition bg-success-500 rounded-md shadow-sm hover:bg-success-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-success-500;
     }
     .fa-brands.fa-whatsapp {
          @apply w-5 h-5 text-white m-0;
@@ -134,5 +134,47 @@ main {
     }
     .lightbox-image.hidden {
         display: none;
+    }
+
+    /* Página de reseña (invitación): estrellas con CSS puro, colores vía theme */
+    .review-star-group {
+        @apply flex flex-row-reverse justify-end gap-1;
+    }
+    .review-star-group input {
+        @apply sr-only;
+    }
+    .review-star-group label {
+        @apply cursor-pointer text-gray-200 transition-colors duration-150 leading-none;
+    }
+    .review-star-group.review-star-lg label {
+        @apply text-[2.15rem];
+    }
+    .review-star-group.review-star-sm label {
+        @apply text-[1.4rem];
+    }
+    .review-star-group input:checked ~ label,
+    .review-star-group label:hover,
+    .review-star-group label:hover ~ label {
+        @apply text-warning-500;
+    }
+}
+
+/* Calendario público (propiedad): modal a pantalla completa en móvil */
+body.pbc-noscroll {
+    overflow: hidden;
+}
+@media (max-width: 1023px) {
+    #public-booking-calendar-section.pbc-is-open {
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        background: #fff;
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-bottom: max(2.5rem, env(safe-area-inset-bottom, 0px));
+        padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
+        box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
     }
 }

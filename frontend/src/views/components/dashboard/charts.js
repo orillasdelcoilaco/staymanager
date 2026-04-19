@@ -97,7 +97,7 @@ export function renderCharts(kpiResults) {
                         position: 'right',
                     },
                     datalabels: {
-                        color: '#fff',
+                        color: 'rgb(255 255 255)',
                         font: {
                             weight: 'bold'
                         },

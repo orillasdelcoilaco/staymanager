@@ -1,14 +1,12 @@
 // frontend/src/views/components/gestionarClientes/clientes.modals.js
 import { fetchAPI } from '../../../api.js';
+import { AVATAR_COLORS_RGB, pickAvatarRgb } from '../../../shared/colorAvatar.js';
 
 let onSaveCallback = null;
 let editandoCliente = null;
 
-export const AVATAR_COLORS = [
-    '#6366f1', '#8b5cf6', '#ec4899', '#f59e0b',
-    '#10b981', '#3b82f6', '#ef4444', '#14b8a6',
-    '#f97316', '#84cc16', '#0ea5e9', '#a855f7'
-];
+/** @deprecated usar pickAvatarRgb; se mantiene alias para compatibilidad */
+export const AVATAR_COLORS = AVATAR_COLORS_RGB;
 
 export function getIniciales(nombre) {
     if (!nombre?.trim()) return '?';
@@ -18,10 +16,7 @@ export function getIniciales(nombre) {
 }
 
 export function getColorAvatar(nombre) {
-    if (!nombre?.trim()) return '#9ca3af';
-    let hash = 0;
-    for (const c of nombre.trim().toLowerCase()) hash = (hash * 31 + c.charCodeAt(0)) & 0xffffffff;
-    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+    return pickAvatarRgb(nombre);
 }
 
 function actualizarAvatar(nombre) {
@@ -32,7 +27,7 @@ function actualizarAvatar(nombre) {
 }
 
 function renderEstrellas(valor = 0) {
-    const textos = ['Sin calificar', '⭐ Malo', '⭐⭐ Regular', '⭐⭐⭐ Bueno', '⭐⭐⭐⭐ Muy bueno', '⭐⭐⭐⭐⭐ Excelente'];
+    const textos = ['Sin calificar', 'Malo', 'Regular', 'Bueno', 'Muy bueno', 'Excelente'];
     document.querySelectorAll('.star-btn').forEach(btn => {
         btn.classList.toggle('text-warning-400', parseInt(btn.dataset.val) <= valor);
         btn.classList.toggle('text-gray-300', parseInt(btn.dataset.val) > valor);
@@ -48,8 +43,7 @@ export const renderModalCliente = () => `
         <div class="modal-content !max-w-lg">
             <div class="flex items-center gap-4 mb-6 pb-5 border-b">
                 <div id="cliente-avatar"
-                     class="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold flex-shrink-0 select-none"
-                     style="background:#9ca3af">?</div>
+                     class="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold flex-shrink-0 select-none bg-gray-400">?</div>
                 <div>
                     <h3 id="modal-cliente-title" class="text-xl font-semibold text-gray-900">Nuevo Cliente</h3>
                     <p id="modal-cliente-subtitle" class="text-sm text-gray-500">Completa los datos del huésped</p>
@@ -86,7 +80,7 @@ export const renderModalCliente = () => `
                         <label class="label">Calificación <span class="text-gray-400 font-normal text-xs">(Opcional)</span></label>
                         <div class="flex items-center gap-0.5 mt-1">
                             ${[1,2,3,4,5].map(i =>
-                                `<button type="button" class="star-btn text-2xl text-gray-300 hover:text-warning-400 transition-colors leading-none" data-val="${i}">★</button>`
+                                `<button type="button" class="star-btn text-2xl text-gray-300 hover:text-warning-400 transition-colors leading-none" data-val="${i}"><i class="fa-solid fa-star"></i></button>`
                             ).join('')}
                             <span id="cal-text" class="text-xs text-gray-500 ml-2">Sin calificar</span>
                         </div>
@@ -97,7 +91,7 @@ export const renderModalCliente = () => `
                 <div id="bloqueo-section" class="mb-4 p-4 rounded-lg border-2 border-danger-200 bg-danger-50 hidden">
                     <div class="flex items-center justify-between mb-3">
                         <div>
-                            <p class="font-semibold text-danger-800">🚫 Cliente Bloqueado</p>
+                            <p class="font-semibold text-danger-800"><i class="fa-solid fa-ban mr-1"></i>Cliente Bloqueado</p>
                             <p class="text-xs text-danger-600">Un cliente bloqueado no puede realizar reservas en el sistema ni en el sitio web.</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">

@@ -2,44 +2,70 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai"); // Mantener por si acaso alguna referencia legacy
 const path = require('path');
 const aiConfig = require('../config/aiConfig');
-
-// Import Providers
-const GeminiProvider = require('./ai_providers/geminiProvider');
-const OpenAIProvider = require('./ai_providers/openaiProvider');
-const AnthropicProvider = require('./ai_providers/anthropicProvider');
-const DeepSeekProvider = require('./ai_providers/deepseekProvider');
+const { AI_TASK, TASK_PROVIDER_MAP } = require('./ai/aiEnums');
+const { sanitizeInput } = require('./ai/prompts/sanitizer');
+const promptsProperty = require('./ai/prompts/property');
+const promptsSeo = require('./ai/prompts/seo');
+const { promptMetadataImagen, promptMetadataImagenConContexto } = require('./ai/prompts/image');
+const { promptJsonLdYSeo } = require('./ai/prompts/jsonld');
+const { withSsrCommerceObjective } = require('./ai/prompts/ssrCommerceContext');
+const { getProvider } = require('./aiContentService.providers');
 
 // Load dotenv only if not in production
 if (!process.env.RENDER) {
     require('dotenv').config({ path: path.join(__dirname, '../.env') });
 }
 
-// --- FACTORY ---
-function getProvider(providerType) {
-    const type = providerType || aiConfig.provider;
+/**
+ * Genera contenido de IA para una tarea específica usando el proveedor correcto.
+ * Aplica sanitización de inputs contra prompt injection antes de construir el prompt.
+ *
+ * @param {string} taskType — AI_TASK.* (ej: AI_TASK.SEO_GENERATION)
+ * @param {string} prompt — Prompt ya construido (usar funciones de ai/prompts/)
+ * @param {object} [opts]
+ * @param {string} [opts.empresaId] — Para audit log de injection
+ * @param {Buffer} [opts.imageBuffer] — Solo para IMAGE_METADATA
+ * @returns {Promise<object|null>}
+ */
+async function generateForTask(taskType, prompt, opts = {}) {
+    const preferredProvider = TASK_PROVIDER_MAP[taskType] || aiConfig.provider;
 
-    switch (type) {
-        case 'openai':
-            return new OpenAIProvider(aiConfig.openai);
-        case 'claude':
-            return new AnthropicProvider(aiConfig.claude);
-        case 'deepseek':
-            return new DeepSeekProvider(aiConfig.deepseek);
-        case 'siliconflow':
-            return new OpenAIProvider(aiConfig.siliconflow);
-        case 'moonshot':
-            return new OpenAIProvider(aiConfig.moonshot);
-        case 'groq':
-            return new OpenAIProvider(aiConfig.groq);
-        case 'openrouter':
-            return new OpenAIProvider(aiConfig.openrouter);
-        case 'gemini':
-        default:
-            if (type !== 'gemini') {
-                console.warn(`[AI Service] Unknown provider '${type}', falling back to Gemini.`);
-            }
-            return new GeminiProvider(aiConfig.gemini);
+    // Para tareas de visión, siempre Gemini con imageBuffer
+    if (taskType === AI_TASK.IMAGE_METADATA && opts.imageBuffer) {
+        const gemini = getProvider('gemini');
+        return gemini.generateJSON ? gemini.generateJSON(prompt, opts.imageBuffer) : null;
     }
+
+    // Para el resto, intentar proveedor preferido de la tarea, luego cascade normal
+    // aiConfig.provider siempre al final como último recurso (ej: Gemini cuando Groq falla)
+    const providerChain = [preferredProvider, ...aiConfig.fallbackProviders, aiConfig.provider].filter(
+        (p, i, arr) => arr.indexOf(p) === i // deduplicar
+    );
+
+    for (const providerType of providerChain) {
+        try {
+            const provider = getProvider(providerType);
+            const result = await provider.generateJSON(prompt);
+            if (result) {
+                if (providerType !== preferredProvider) {
+                    console.log(`[AI Task:${taskType}] ✅ Fallback exitoso con: ${providerType}`);
+                }
+                return result;
+            }
+        } catch (error) {
+            if (error.code === 'AI_QUOTA_EXCEEDED') {
+                console.warn(`[AI Task:${taskType}] ⚠️ Cuota excedida en '${providerType}'. Intentando siguiente...`);
+                continue;
+            }
+            if (error.code === 'AI_INJECTION_DETECTED') {
+                throw error; // Nunca hacer fallback en caso de injection
+            }
+            throw error;
+        }
+    }
+
+    console.error(`[AI Task:${taskType}] ❌ Todos los proveedores fallaron.`);
+    return null;
 }
 
 /**
@@ -73,6 +99,10 @@ async function generateWithFallback(prompt) {
     console.error('[AI Cascade] ❌ Todos los proveedores fallaron o no tienen API key configurada.');
     return null;
 }
+
+const { analizarMetadataActivo: analizarMetadataActivoImpl } = require('./aiContentService.metadataActivos');
+const analizarMetadataActivo = (nombreActivo, categoriasExistentes) =>
+    analizarMetadataActivoImpl(nombreActivo, categoriasExistentes, { generateWithFallback, promptsProperty });
 
 // --- LEGACY WRAPPER (To maintain backward compatibility with existing routes) ---
 // Note: Ideally, all functions should be refactored to use the provider's generic methods.
@@ -145,149 +175,16 @@ async function llamarGeminiAPI(prompt, imageBuffer = null) {
     }
 }
 
-// --- EXPORTED FUNCTIONS ---
-
-const analizarMetadataActivo = async (nombreActivo, categoriasExistentes) => {
-    // 0. CATALOG LOOKUP (Level 1 Strategy)
-    const normalizedName = nombreActivo.toLowerCase().trim();
-    // Import inside function to avoid caching issues during dev, or top level is fine.
-    // Assuming file is in ../data/standardAssets.js relative to services/
-    let standardAssets = {};
-    try {
-        standardAssets = require('../data/standardAssets');
-    } catch (e) {
-        console.warn("Could not load standardAssets library:", e);
-    }
-
-    if (standardAssets[normalizedName]) {
-        console.log(`[AI Service] Instant Match in Catalog for: "${nombreActivo}"`);
-        const match = standardAssets[normalizedName];
-        return {
-            category: match.category,
-            is_new_category: false,
-            capacity: match.capacity || 0,
-            icon: match.icon,
-            countable: true,
-            confidence: "High",
-            reasoning: "Catalog Match: Standard Library"
-        };
-    }
-
-    // Construct System Prompt
-    const prompt = `
-        Actúa como un Arquitecto de Información experto en Hospitalidad, SEO y gestión de inventarios.
-        Tu tarea es analizar el activo de alojamiento: "${nombreActivo}".
-
-        CONTEXTO:
-        Categorías existentes en el sistema: ${JSON.stringify(categoriasExistentes)}.
-
-        OBJETIVO:
-        Generar el perfil completo del activo para usarlo en:
-        1. Gestión de inventario del alojamiento
-        2. SEO para motores de búsqueda (Google Hotels, Booking.com)
-        3. Contexto de venta para agentes IA (ChatGPT, Claude, Gemini, DeepSeek)
-        4. Schema.org para datos estructurados
-
-        REGLAS:
-        1. Si el activo encaja en una categoría existente, ÚSALA (Title Case).
-        2. Si no encaja, propón una categoría nueva profesional.
-        3. Determina si es contable (múltiples unidades) o binario (tiene/no tiene).
-        4. Usa un EMOJI representativo.
-        5. "sales_context" debe ser una frase corta en español que un agente IA puede decir al huésped
-           (ej: "Cama King para 2 personas con ropa de cama incluida").
-        6. "seo_tags" deben ser palabras clave en español que los huéspedes usan al buscar.
-        7. "schema_type" usa tipos de Schema.org para alojamientos (LocationFeatureSpecification, BedDetails, etc).
-
-        Responde SOLO con un objeto JSON (sin markdown):
-        {
-            "category": "String (Categoría, Title Case)",
-            "is_new_category": Boolean,
-            "capacity": Number (personas que puede alojar, 0 si no aplica. Ej: cama king=2, sofa cama=2),
-            "icon": "String (Emoji representativo)",
-            "countable": Boolean (true si puede haber 2+ unidades, false si es único),
-            "confidence": "High/Medium/Low",
-            "reasoning": "Breve explicación",
-            "normalized_name": "Nombre correcto en Title Case (ej: Cama King, Toalla de Baño)",
-            "requires_photo": Boolean (true si es relevante fotografiar para la web),
-            "photo_quantity": Number (cantidad de fotos recomendadas, 0 si no aplica),
-            "photo_guidelines": "Instrucción breve para fotografiar (ej: Foto desde 45°, luz natural, cama tendida)",
-            "seo_tags": ["tag1", "tag2", "tag3"] (3-6 palabras clave en español),
-            "sales_context": "Frase corta para agentes IA de venta (ej: Cama King para 2 personas)",
-            "schema_type": "String (tipo Schema.org: LocationFeatureSpecification | BedDetails | FloorPlan)",
-            "schema_property": "String (propiedad Schema.org: amenityFeature | bed | occupancy)"
-        }
-    `;
-
-    try {
-        const result = await generateWithFallback(prompt);
-        if (!result) throw new Error("Empty result from all providers");
-        return result;
-    } catch (error) {
-        console.error("[AI Service] Error en analizarMetadataActivo:", error);
-        if (error.code === 'AI_QUOTA_EXCEEDED') throw error; // propagate quota errors
-        console.warn("[AI Service] Falling back to Heuristic Classification for:", nombreActivo);
-        return classifyHeuristically(nombreActivo);
-    }
-};
-
-/**
- * Fallback heurístico para cuando la IA no está disponible.
- * Garantiza que activos comunes tengan iconos y categorías decentes.
- */
-function classifyHeuristically(nombre) {
-    const n = nombre.toLowerCase().trim();
-
-    // 1. DORMITORIOS
-    if (n.includes('cama') || n.includes('bed') || n.includes('colchon') || n.includes('almohada') || n.includes('sabana') || n.includes('closet') || n.includes('percha')) {
-        return { category: 'Dormitorio', icon: '🛏️', is_new_category: false, capacity: n.includes('cama') ? 1 : 0, countable: true, confidence: 'Medium', reasoning: 'Heuristic Match: Dormitorio' };
-    }
-
-    // 2. COCINA
-    if (n.includes('cocina') || n.includes('kitchen') || n.includes('microonda') || n.includes('refri') || n.includes('heladera') || n.includes('horno') || n.includes('paila') || n.includes('olla') || n.includes('cubierto') || n.includes('plato') || n.includes('vaso') || n.includes('taza') || n.includes('cafetera') || n.includes('tostadora') || n.includes('hervidor')) {
-        return { category: 'Cocina', icon: '🍳', is_new_category: false, capacity: 0, countable: true, confidence: 'Medium', reasoning: 'Heuristic Match: Cocina' };
-    }
-
-    // 3. BAÑO
-    if (n.includes('baño') || n.includes('ducha') || n.includes('toalla') || n.includes('jabon') || n.includes('shampoo') || n.includes('wc') || n.includes('inodoro') || n.includes('lavabo') || n.includes('secador') || n.includes('papel')) {
-        return { category: 'Baño', icon: '🚿', is_new_category: false, capacity: 0, countable: true, confidence: 'Medium', reasoning: 'Heuristic Match: Baño' };
-    }
-
-    // 4. ESTAR / LIVING
-    if (n.includes('sofa') || n.includes('sillon') || n.includes('mesa') || n.includes('silla') || n.includes('tv') || n.includes('tele') || n.includes('estufa')) {
-        return { category: 'Estar', icon: '🛋️', is_new_category: false, capacity: n.includes('sofa cama') ? 1 : 0, countable: true, confidence: 'Medium', reasoning: 'Heuristic Match: Estar' };
-    }
-
-    // 5. EXTERIOR
-    if (n.includes('piscina') || n.includes('terraza') || n.includes('parrilla') || n.includes('quincho') || n.includes('jardin') || n.includes('patio') || n.includes('tina') || n.includes('hot tub')) {
-        return { category: 'Exterior', icon: '🌲', is_new_category: false, capacity: 0, countable: true, confidence: 'Medium', reasoning: 'Heuristic Match: Exterior' };
-    }
-
-    // 6. TECNOLOGIA
-    if (n.includes('wifi') || n.includes('internet') || n.includes('alarma') || n.includes('camara') || n.includes('altavoz') || n.includes('parlante')) {
-        return { category: 'Tecnología', icon: '📶', is_new_category: false, capacity: 0, countable: true, confidence: 'Medium', reasoning: 'Heuristic Match: Tecnología' };
-    }
-
-    // Default Fallback
-    return {
-        category: "OTROS",
-        is_new_category: false,
-        capacity: 0,
-        icon: "🔹",
-        countable: true,
-        confidence: "Low",
-        reasoning: "Heuristic Fallback"
-    };
-}
-
 // 2. Existing Function Refactored: Generate SEO Home Page
 const generarSeoHomePage = async (empresaData, contextoExtra = {}) => {
-    const { historia, slogan, palabrasClave, enfoqueMarketing, tipoAlojamientoPrincipal } = contextoExtra;
-    const prompt = `
-        Actúa como un Experto SEO Senior. Genera metadatos para la HOME.
-        Empresa: "${empresaData.nombre}". Historia: "${historia}".
-        Slogan: "${slogan}". Marketing: "${enfoqueMarketing}".
-        Responde JSON: { "metaTitle": "...", "metaDescription": "..." }
-    `;
+    const { historia, slogan, enfoqueMarketing, tipoAlojamientoPrincipal } = contextoExtra;
+    const prompt = promptsSeo.promptSeoHomePage({
+        nombreEmpresa: empresaData.nombre,
+        historia: historia || '',
+        slogan: slogan || '',
+        enfoqueMarketing: enfoqueMarketing || '',
+        tipoAlojamientoPrincipal: tipoAlojamientoPrincipal || '',
+    });
     const provider = getProvider();
     const result = await provider.generateJSON(prompt);
     return result || JSON.parse(await llamarIASimulada("generar metadatos SEO"));
@@ -295,93 +192,151 @@ const generarSeoHomePage = async (empresaData, contextoExtra = {}) => {
 
 // 3. Existing Function Refactored: Generate Home Content
 const generarContenidoHomePage = async (empresaData, contextoExtra = {}) => {
-    const { historia, slogan, enfoqueMarketing, tipoAlojamientoPrincipal } = contextoExtra;
-    const prompt = `
-        Actúa como Copywriter CRO. Genera contenido Above the Fold.
-        Empresa: "${empresaData.nombre}". Slogan: "${slogan}".
-        Responde JSON: { "h1": "...", "introParagraph": "..." }
-    `;
+    const { slogan, enfoqueMarketing, tipoAlojamientoPrincipal } = contextoExtra;
+    const prompt = promptsSeo.promptContenidoHomePage({
+        nombreEmpresa: empresaData.nombre,
+        slogan: slogan || '',
+        enfoqueMarketing: enfoqueMarketing || '',
+        tipoAlojamientoPrincipal: tipoAlojamientoPrincipal || '',
+    });
     const provider = getProvider();
     const result = await provider.generateJSON(prompt);
     return result || JSON.parse(await llamarIASimulada("generar el contenido principal"));
 };
 
-// 4. Existing Function Refactored: Generate Accommodation Description
-const generarDescripcionAlojamiento = async (nombre, tipo, ubicacion, servicios, estilo = "Comercial y atractivo") => {
-    const prompt = `
-        Actúa como Copywriter Inmobiliario. Escribe una descripción para:
-        Propiedad: "${nombre}" (${tipo}).
-        Ubicación: "${ubicacion}".
-        Estilo: "${estilo}".
-        Servicios clave: ${servicios}.
+/**
+ * Convierte componentes de propiedad (wizard/DB) al formato esperado por promptDescripcionAlojamiento.
+ * @param {object} [extra]
+ * @returns {Array<{nombre: string, activos: object[]}>|null}
+ */
+function _espaciosConActivosDesdeExtra(extra) {
+    if (!extra || !Array.isArray(extra.componentes) || extra.componentes.length === 0) return null;
+    return extra.componentes.map((c) => ({
+        nombre: c.nombre || c.nombreUsuario || 'Espacio',
+        activos: (c.elementos || c.activos || []).map((el) => ({
+            nombre: el.nombre || el.label || String(el),
+            sales_context: el.sales_context,
+        })),
+    }));
+}
 
-        Responde JSON: { "descripcion": "Texto persuasivo...", "puntosFuertes": ["punto1", "punto2"] }
-    `;
+// 4. Descripción comercial alojamiento (firma usada por rutas: base, nombre, marca/empresa, ciudad, tipo, estilo, extra)
+const generarDescripcionAlojamiento = async (
+    descripcionBase,
+    nombre,
+    marcaOEmpresa,
+    ubicacion,
+    tipo,
+    estilo = 'Comercial y atractivo',
+    extra = {}
+) => {
+    const partesServicios = [
+        descripcionBase && `Descripción base: ${descripcionBase}`,
+        marcaOEmpresa && `Marca o empresa: ${marcaOEmpresa}`,
+        extra.historia && `Historia: ${extra.historia}`,
+        extra.slogan && `Slogan: ${extra.slogan}`,
+        extra.palabrasClave && `Palabras clave: ${extra.palabrasClave}`,
+        extra.marketing && `Enfoque: ${extra.marketing}`,
+    ].filter(Boolean);
+    const servicios = partesServicios.length ? partesServicios.join('\n') : 'Detalles del alojamiento por enriquecer con inventario verificado.';
+
+    const prompt = promptsProperty.promptDescripcionAlojamiento({
+        nombre,
+        tipo,
+        ubicacion,
+        servicios,
+        estilo,
+        espaciosConActivos: _espaciosConActivosDesdeExtra(extra),
+    });
     const provider = getProvider();
     const result = await provider.generateJSON(prompt);
-    // Fallback logic if needed, or return result directly
-    return result || { descripcion: `Bienvenido a ${nombre}, un excelente ${tipo} en ${ubicacion}. Disfruta de ${servicios}.`, puntosFuertes: [] };
+    return result || {
+        descripcion: `Bienvenido a ${nombre}, un excelente ${tipo} en ${ubicacion}. ${descripcionBase || ''}`.trim(),
+        puntosFuertes: [],
+    };
 };
 
 // 5. Existing Function Refactored: Generate Company Profile
-const generarPerfilEmpresa = async (nombre, historia, contexto) => {
-    const prompt = `
-        Actúa como Estratega de Marca. Genera perfil para:
-        Empresa: "${nombre}".
-        Historia Base: "${historia}".
-        Contexto extra: "${contexto}".
+// Recibe solo el texto libre del usuario (historia). Nombre y contexto ya no se usan
+// desde el wizard — el texto de historia contiene toda la info necesaria.
+const _INJECTION_PATTERNS = [
+    /ignora\s+(las\s+)?instrucciones/i,
+    /olvida\s+(todo|las instrucciones)/i,
+    /\[INST\]/i,
+    /###\s*(system|user|assistant)/i,
+    /<\|?(system|user|assistant|im_start|im_end)\|?>/i,
+    /^(system|assistant)\s*:/im,
+];
 
-        Responde JSON: { 
-            "slogan": "...", 
-            "enfoqueMarketing": "...", 
-            "palabrasClaveAdicionales": "...", 
-            "tipoAlojamientoPrincipal": "...",
-            "historiaOptimizada": "..."
-        }
-    `;
+const _sanitizarHistoria = (texto) => {
+    if (typeof texto !== 'string') return '';
+    const truncado = texto.slice(0, 2000);
+    for (const pat of _INJECTION_PATTERNS) {
+        if (pat.test(truncado)) throw new Error('El texto contiene patrones no permitidos.');
+    }
+    return truncado;
+};
+
+const generarPerfilEmpresa = async (historia, empresaContext = null) => {
+    const historiaSegura = _sanitizarHistoria(historia);
+
+    const nombre = empresaContext?.nombre || '';
+    const ubicacion = [
+        empresaContext?.ubicacion?.ciudad,
+        empresaContext?.ubicacion?.region,
+    ].filter(Boolean).join(', ');
+
+    const contextoEmpresa = nombre ? `
+DATOS DEL NEGOCIO (ya registrados en el sistema):
+- Nombre: "${nombre}"
+${ubicacion ? `- Ubicación: ${ubicacion}` : ''}
+${empresaContext?.slogan ? `- Slogan actual: "${empresaContext.slogan}"` : ''}
+` : '';
+
+    const prompt = withSsrCommerceObjective(`Eres un Estratega de Marca especialista en turismo y alojamientos de corta estadía.
+${contextoEmpresa}
+DESCRIPCIÓN INGRESADA POR EL DUEÑO DEL NEGOCIO:
+---
+${historiaSegura}
+---
+
+REGLAS CRÍTICAS — léelas antes de generar cualquier campo:
+1. PROHIBIDO generalizar instalaciones. Si la descripción menciona "hot tub", "piscina", "sauna", "gimnasio", "playa privada", "quincho" — esas palabras deben aparecer en homeIntro, homeSeoDesc y palabrasClaveAdicionales. No las conviertas en "comodidades exclusivas" ni "amenidades modernas".
+2. PROHIBIDO inventar atractivos que no están en la descripción (no agregar "lago", "volcán", "montaña" si no se mencionan explícitamente).
+3. El homeH1 debe ser específico del negocio — no genérico como "Cabañas en la Naturaleza".
+4. El homeIntro debe mencionar al menos 2-3 instalaciones reales de la descripción.
+5. El homeSeoDesc debe incluir instalaciones concretas para diferenciarse (hot tub, playa privada, etc.).
+6. Si hay nombre de empresa, úsalo en el slogan o en el homeH1.
+
+Responde SOLO con un objeto JSON (sin markdown) con estas claves exactas:
+{
+  "slogan": "Eslogan corto y memorable (máx 10 palabras) que refleje lo que hace único al negocio",
+  "tipoAlojamientoPrincipal": "Tipo de alojamiento (ej: Cabaña, Departamento, Lodge, Complejo)",
+  "enfoqueMarketing": "Uno de: Familiar, Parejas, Negocios, Aventura, Relax, Económico, Lujo, Otro",
+  "palabrasClaveAdicionales": "4-6 palabras clave SEO separadas por coma — incluir instalaciones específicas mencionadas",
+  "historiaOptimizada": "Reescritura del texto original optimizada para marketing (2-3 frases), conservando instalaciones específicas",
+  "homeH1": "Título H1 (máx 60 caracteres) — específico, no genérico",
+  "homeIntro": "Párrafo introductorio (2-3 frases) que mencione instalaciones reales: hot tub, piscina, sauna, etc. si están en la descripción",
+  "homeSeoTitle": "Meta título SEO (50-60 caracteres)",
+  "homeSeoDesc": "Meta descripción SEO (120-160 caracteres) con instalaciones concretas para diferenciar el negocio"
+}`);
+
     const provider = getProvider();
     const result = await provider.generateJSON(prompt);
-    return result || JSON.parse(await llamarIASimulada("Estratega de Marca"));
+    return result;
 };
+
 
 // 6. Existing Function (Image Metadata)
 const generarMetadataImagen = async (nombreEmpresa, nombrePropiedad, descripcionPropiedad, nombreComponente, tipoComponente, imageBuffer, contextoEsperado = null) => {
-    // Keep using direct API for images until provider supports it
-    let instruccionAuditoria = '';
-    if (contextoEsperado) {
-        instruccionAuditoria = `
-            TAREA CRÍTICA DEL WIZARD: El usuario debe subir específicamente: "${contextoEsperado}".
-            Verifica si la imagen cumple con este requisito específico.
-            - Si se pide "Vista de la cama" y suben una vista general donde la cama apenas se ve: RECHÁZALO.
-            - Si se pide "Detalle del baño" y suben una foto panorámica: RECHÁZALO.
-            Si no cumple, el campo 'advertencia' debe decir: "No cumple con el requisito: ${contextoEsperado}".
-        `;
-    } else {
-        instruccionAuditoria = `
-            AUDITORÍA GENERAL: ¿La foto coincide con el tipo de espacio "${tipoComponente}"?
-            - Si suben un baño y es "Dormitorio": DETECTARLO.
-            - Si la foto es borrosa o mala: DETECTARLO.
-        `;
-    }
-
-    const prompt = `
-        Eres un Experto SEO para Google Hotels y un Auditor de Calidad Visual.
-        CONTEXTO: Foto para el espacio: "${nombreComponente}" (Categoría: ${tipoComponente}).
-        PROPIEDAD: "${nombrePropiedad}" (Empresa: ${nombreEmpresa}).
-        DESCRIPCIÓN PROPIEDAD: "${descripcionPropiedad}".
-        ${instruccionAuditoria}
-        
-        TAREAS DE GENERACIÓN DE METADATOS (SEO):
-        1. "altText": Genera un texto alternativo optimizado para SEO (máx 125 caracteres).
-        2. "title": Un título comercial atractivo (máx 60 caracteres).
-        
-        Responde SOLO JSON:
-        {
-            "altText": "...",
-            "title": "...",
-            "advertencia": "Mensaje corto de error si no cumple la auditoría. Si está bien, pon null."
-        }
-    `;
+    const prompt = promptMetadataImagen({
+        nombreEmpresa,
+        nombrePropiedad,
+        descripcionPropiedad,
+        nombreComponente,
+        tipoComponente,
+        contextoEsperado: contextoEsperado ?? null,
+    });
 
     try {
         const raw = await llamarGeminiAPI(prompt, imageBuffer);
@@ -400,76 +355,260 @@ const generarMetadataImagen = async (nombreEmpresa, nombrePropiedad, descripcion
 };
 
 // 7. Generar Estructura de Alojamiento
-const generarEstructuraAlojamiento = async (descripcion, tiposDisponibles) => {
+const generarEstructuraAlojamiento = async (descripcion, tiposDisponibles, empresaId = null) => {
+    const safeDescripcion = sanitizeInput(descripcion, AI_TASK.PROPERTY_STRUCTURE, { empresaId, campo: 'descripcion' });
     const tiposInfo = tiposDisponibles.map(t => `- ${t.nombreNormalizado} (ID: ${t.id})`).join('\n');
-    const prompt = `
-        Actúa como un Arquitecto de Datos para un PMS. Analiza la descripción: "${descripcion}".
-        Tipos Disponibles: ${tiposInfo}.
-        
-        Extrae UBICACIÓN y COMPONENTES (Inventario).
-        Responde SOLO JSON: { "ubicacion": {...}, "componentes": [...] }
-    `;
+    const prompt = promptsProperty.promptEstructuraAlojamiento({ descripcion: safeDescripcion, tiposInfo });
 
     try {
-        const raw = await llamarGeminiAPI(prompt);
-        // Corrected Regex (removed spaces)
-        let jsonStr = raw.replace(/```json/g, '').replace(/```/g, '').trim();
-
-        const firstBrace = jsonStr.indexOf('{');
-        const lastBrace = jsonStr.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace !== -1) {
-            jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
-        }
-
-        return JSON.parse(jsonStr);
+        const result = await generateForTask(AI_TASK.PROPERTY_STRUCTURE, prompt, { empresaId });
+        return result || { componentes: [], ubicacion: {} };
     } catch (e) {
+        if (e.code === 'AI_INJECTION_DETECTED') throw e;
         console.error("Error generando estructura:", e);
         return { componentes: [], ubicacion: {} };
     }
 };
 
 // 8. Evaluar Fotografías
-const evaluarFotografiasConIA = async (prompt) => {
+const evaluarFotografiasConIA = async (prompt, empresaId = null) => {
     try {
-        const raw = await llamarGeminiAPI(prompt);
-        // Corrected Regex
-        let jsonStr = raw.replace(/```json/g, '').replace(/```/g, '').trim();
-
-        const firstBracket = jsonStr.indexOf('[');
-        const lastBracket = jsonStr.lastIndexOf(']');
-        if (firstBracket !== -1 && lastBracket !== -1) {
-            jsonStr = jsonStr.substring(firstBracket, lastBracket + 1);
-        } else {
-            const firstBrace = jsonStr.indexOf('{');
-            const lastBrace = jsonStr.lastIndexOf('}');
-            if (firstBrace !== -1 && lastBrace !== -1) {
-                jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
-            }
-        }
-
-        const resultado = JSON.parse(jsonStr);
+        const resultado = await generateForTask(AI_TASK.IMAGE_EVALUATION, prompt, { empresaId });
+        if (!resultado) return [];
         return Array.isArray(resultado) ? resultado : (resultado.requerimientos || []);
-
     } catch (e) {
-        // CRITICAL: Propagate Quota Errors to UI
         if (e.code === 'AI_QUOTA_EXCEEDED') {
             console.error("[CS] Critical AI Quota Error:", e.message);
-            throw e; // Bubble up to controller -> Frontend
+            throw e;
         }
+        if (e.code === 'AI_INJECTION_DETECTED') throw e;
         console.warn("Fallo evaluación de fotos IA:", e.message);
         return [];
     }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNCIONES CON PropertyBuildContext completo (Orquestador IA)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Genera la narrativa comercial del alojamiento a partir del buildContext completo.
+ * Reemplaza a generarDescripcionAlojamiento cuando el wizard ya completó los pasos 1-3.
+ *
+ * @param {Object} buildContext — PropertyBuildContext con empresa + producto
+ * @returns {Promise<{descripcionComercial, puntosFuertes, uniqueSellingPoints, homeH1, homeIntro}>}
+ */
+const generarNarrativaDesdeContexto = async (buildContext) => {
+    const { empresa, producto } = buildContext;
+
+    const resumenActivos = (producto.espacios || []).map(esp => {
+        const activosStr = (esp.activos || [])
+            .map(a => a.sales_context || a.nombre)
+            .join(', ');
+        return `${esp.nombre}: ${activosStr}`;
+    }).join('\n');
+
+    const prompt = withSsrCommerceObjective(`Actúa como Copywriter especializado en alojamientos turísticos y CRO.
+
+Tienes el inventario COMPLETO y verificado de este alojamiento. Genera el contenido de venta.
+
+EMPRESA: "${empresa.nombre}"
+- Tipo: ${empresa.tipo || 'alojamiento turístico'}
+- Enfoque: ${empresa.enfoque || 'general'}
+- Slogan: "${empresa.slogan || ''}"
+- Ubicación: ${empresa.ubicacion?.ciudad || ''}, ${empresa.ubicacion?.region || ''}
+
+ALOJAMIENTO: "${producto.nombre}"
+- Tipo: ${producto.tipo || 'alojamiento'}
+- Capacidad: ${producto.capacidad} personas
+- ${producto.numPiezas} dormitorios, ${producto.numBanos} baños
+
+INVENTARIO VERIFICADO POR ESPACIO:
+${resumenActivos}
+
+REGLAS:
+1. "descripcionComercial": texto persuasivo máx 200 palabras, orientado a conversión
+2. "puntosFuertes": 3-5 bullets cortos en español, basados SOLO en lo que existe en el inventario
+3. "uniqueSellingPoints": array de 3-5 frases cortas para schema.org
+4. "homeH1": título principal de la landing del alojamiento. OBLIGATORIO: incluir 1-2 diferenciadores únicos reales del inventario (ej: tinaja, piscina, vista al volcán, BBQ). Máx 10 palabras. Ejemplo correcto: "Cabaña con Tinaja y Piscina en Pucón para 6 Personas". NO usar genéricos como "Cabaña en Pucón".
+5. "homeIntro": 2-3 oraciones que transmitan emoción y propuesta de valor única
+6. NO inventar amenidades que no estén en el inventario
+
+Responde SOLO JSON (sin markdown):
+{
+  "descripcionComercial": "...",
+  "puntosFuertes": ["...", "..."],
+  "uniqueSellingPoints": ["...", "..."],
+  "homeH1": "...",
+  "homeIntro": "..."
+}`);
+
+    return generateForTask(AI_TASK.PROPERTY_DESCRIPTION, prompt);
+};
+
+/**
+ * Genera el JSON-LD schema.org + meta SEO a partir del buildContext completo.
+ * Usa el prompt especializado de prompts/jsonld.js.
+ *
+ * @param {Object} buildContext — PropertyBuildContext con empresa + producto + narrativa
+ * @returns {Promise<{metaTitle, metaDescription, keywords?: string[], jsonLd}>}
+ */
+const generarJsonLdDesdeContexto = async (buildContext) => {
+    const prompt = promptJsonLdYSeo({ buildContext });
+    return generateForTask(AI_TASK.SEO_GENERATION, prompt);
+};
+
+/**
+ * Genera metadata SEO optimizada para imágenes usando contexto corporativo completo.
+ * Versión mejorada de generarMetadataImagen que incluye identidad de marca.
+ *
+ * @param {Object} empresaContext - Contexto completo de empresa (desde getEmpresaContext)
+ * @param {string} nombrePropiedad - Nombre de la propiedad/alojamiento
+ * @param {string} descripcionPropiedad - Descripción de la propiedad
+ * @param {string} nombreComponente - Nombre del espacio/componente fotografiado
+ * @param {string} tipoComponente - Tipo/categoría del componente
+ * @param {Buffer} imageBuffer - Buffer de la imagen a analizar
+ * @param {string|null} contextoEsperado - Contexto específico del shot (opcional)
+ * @returns {Promise<{altText: string, title: string, advertencia: string|null}>}
+ */
+const generarMetadataImagenConContexto = async (
+    empresaContext,
+    nombrePropiedad,
+    descripcionPropiedad,
+    nombreComponente,
+    tipoComponente,
+    imageBuffer,
+    contextoEsperado = null
+) => {
+    const prompt = promptMetadataImagenConContexto({
+        empresaContext,
+        nombrePropiedad,
+        descripcionPropiedad,
+        nombreComponente,
+        tipoComponente,
+        contextoEsperado: contextoEsperado ?? null,
+    });
+
+    try {
+        const raw = await llamarGeminiAPI(prompt, imageBuffer);
+        const jsonStr = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+        const json = JSON.parse(jsonStr);
+        if (!json.altText || !json.title) throw new Error("JSON incompleto");
+        return json;
+    } catch (e) {
+        console.warn("Fallo generación metadata imagen con contexto:", e);
+        // Fallback a la función original
+        return generarMetadataImagen(
+            empresaContext.nombre,
+            nombrePropiedad,
+            descripcionPropiedad,
+            nombreComponente,
+            tipoComponente,
+            imageBuffer,
+            contextoEsperado
+        );
+    }
+};
+
+/**
+ * Genera metadata SEO para la imagen hero del sitio web de una empresa.
+ * A diferencia de generarMetadataImagenConContexto (diseñada para fotos de habitaciones),
+ * esta función entiende que el hero es la "cara" del negocio: analiza visualmente
+ * qué muestra la imagen y lo conecta con la propuesta de valor y la identidad de la empresa.
+ *
+ * @param {Object} empresaContext - Contexto completo de empresa (desde getEmpresaContext)
+ * @param {Buffer} imageBuffer - Buffer de la imagen hero
+ * @returns {Promise<{altText: string, title: string}>}
+ */
+const generarMetadataHeroWeb = async (empresaContext, imageBuffer) => {
+    const ubicacion = [
+        empresaContext.ubicacion?.ciudad,
+        empresaContext.ubicacion?.region
+    ].filter(Boolean).join(', ') || 'Chile';
+
+    const nombre = empresaContext.nombre || 'el alojamiento';
+    const propuesta = empresaContext.brand?.propuestaValor
+        || empresaContext.historiaOptimizada
+        || empresaContext.historia
+        || '';
+    const enfoque = empresaContext.enfoqueMarketing || '';
+    const tono = empresaContext.brand?.tonoComunicacion || 'profesional';
+    const publico = empresaContext.publicoObjetivo || 'turistas';
+    const tipo = empresaContext.tipoAlojamientoPrincipal || 'alojamiento turístico';
+
+    const prompt = withSsrCommerceObjective(`
+Eres un copywriter experto en SEO para turismo. Tienes dos tareas que DEBES completar en orden.
+
+══════════════════════════════════════
+PASO 1 — DESCRIBE SOLO LO QUE VES
+══════════════════════════════════════
+Mira la imagen y anota internamente (en "visual") qué elementos están presentes de forma CLARA Y VISIBLE.
+REGLAS ESTRICTAS para este paso:
+- Solo incluir lo que se ve con certeza. Si no ves un lago, no escribas lago.
+- Si no ves personas, no escribas personas.
+- No asumas materiales (no "madera" si no puedes confirmarlo claramente).
+- No inventes contexto. Si ves agua, es "piscina" o "lago" según lo que parezca, no ambos.
+- El entorno (árboles, montañas, jardín) solo si es claramente visible en la imagen.
+
+══════════════════════════════════════
+PASO 2 — ESCRIBE EL COPY DE MARKETING
+══════════════════════════════════════
+Con los elementos visuales reales del PASO 1, escribe metadata que conecte lo que hay en la imagen con el negocio.
+
+NEGOCIO:
+- Nombre: "${nombre}"
+- Tipo: "${tipo}"
+- Ubicación: ${ubicacion}
+- Público objetivo: "${publico}"
+- Enfoque: "${enfoque}"
+- Propuesta de valor: "${propuesta}"
+- Tono: "${tono}"
+${empresaContext.slogan ? `- Slogan: "${empresaContext.slogan}"` : ''}
+
+REGLAS PARA EL COPY:
+- El altText DEBE incluir el nombre "${nombre}" — sin excepción
+- El altText = [elemento visual real] + "en ${nombre}, ${ubicacion}" + [beneficio concreto para ${publico}]
+- El title es una frase de marketing breve que use el nombre del negocio o la ubicación
+- PROHIBIDO inventar elementos ausentes en la imagen para enriquecer el texto
+- PROHIBIDO usar datos del negocio (lago, familia, madera) como si fueran visibles si no lo son
+
+FORMATO DE RESPUESTA — SOLO JSON:
+{
+  "visual": "lista de 2-4 elementos realmente visibles en la imagen (ej: piscina, terraza, jardín, cabaña)",
+  "altText": "máx 125 caracteres — elemento visual real + nombre empresa + ubicación + beneficio",
+  "title": "máx 60 caracteres — frase de marketing con nombre o destino"
+}
+`);
+
+    try {
+        const raw = await llamarGeminiAPI(prompt, imageBuffer);
+        const jsonStr = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+        const json = JSON.parse(jsonStr);
+        if (!json.altText || !json.title) throw new Error('JSON incompleto');
+        return { altText: json.altText, title: json.title };
+    } catch (e) {
+        console.warn('[generarMetadataHeroWeb] Fallo IA, usando fallback:', e.message);
+        const nombreCorto = empresaContext.nombre || 'el alojamiento';
+        return {
+            altText: `Imagen principal de ${nombreCorto} en ${ubicacion}`,
+            title: nombreCorto,
+        };
+    }
+};
+
 module.exports = {
-    getProvider,
     generateWithFallback,
+    generateForTask,
     generarDescripcionAlojamiento,
     generarMetadataImagen,
+    generarMetadataImagenConContexto,
+    generarMetadataHeroWeb,
     generarSeoHomePage,
     generarContenidoHomePage,
     generarPerfilEmpresa,
     generarEstructuraAlojamiento,
     evaluarFotografiasConIA,
-    analizarMetadataActivo
+    analizarMetadataActivo,
+    generarNarrativaDesdeContexto,
+    generarJsonLdDesdeContexto,
 };

@@ -3,6 +3,7 @@ const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const admin = require('firebase-admin');
+const fetch = require('node-fetch');
 
 // Adjusted paths for services
 const { obtenerPropiedadPorId, actualizarPropiedad } = require('../../services/propiedadesService');
@@ -10,19 +11,83 @@ const { obtenerDetallesEmpresa, actualizarDetallesEmpresa } = require('../../ser
 const {
     generarDescripcionAlojamiento,
     generarMetadataImagen,
+    generarMetadataImagenConContexto,
+    generarMetadataHeroWeb,
     generarSeoHomePage,
     generarContenidoHomePage,
-    generarPerfilEmpresa
+    generarPerfilEmpresa,
+    generarNarrativaDesdeContexto,
+    generarJsonLdDesdeContexto,
+    analizarMetadataActivo,
 } = require('../../services/aiContentService');
+const {
+    getBuildContext,
+    getEmpresaContext,
+    updateBuildContextSection,
+    mergePublicacionForPersist,
+    construirProductoDesdeComponentes,
+} = require('../../services/buildContextService');
 const { uploadFile, deleteFileByPath } = require('../../services/storageService');
 const { generarPlanFotos } = require('../../services/propiedadLogicService');
 const { optimizeImage } = require('../../services/imageProcessingService');
+const { generateForTask } = require('../../services/aiContentService');
+const { AI_TASK } = require('../../services/ai/aiEnums');
+const { promptPlanFotos } = require('../../services/ai/prompts/fotoPlan');
+const pool = require('../../db/postgres');
+const { uploadFotoToGaleria, updateFoto } = require('../../services/galeriaService');
+const { syncDomain, removeCustomDomain } = require('../../services/renderDomainService');
+const { ssrCache } = require('../../services/cacheService');
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
+/**
+ * Recalcula slotsTotal y slotsCumplidos del plan de fotos y los persiste
+ * en propiedades.metadata.fotoStats. Debe llamarse tras cada mutación de
+ * websiteData.images (upload, delete, audit-slot).
+ *
+ * @param {object} db        - instancia Firestore (legacy, puede ser null)
+ * @param {string} empresaId
+ * @param {string} propiedadId
+ * @param {Array}  componentes  - propiedad.componentes ya cargados en memoria
+ * @param {object} wizardImages - websiteData.images actualizado (en memoria)
+ */
+async function recalcularFotoStats(db, empresaId, propiedadId, componentes, wizardImages) {
+    try {
+        const { obtenerTiposPorEmpresa } = require('../../services/componentesService');
+        // Solo se usan tiposComponente (vista general + shotList por tipo de espacio).
+        // Los tiposElemento (activos individuales como cubiertos, platos) quedan fuera
+        // del plan de fotos para el sitio web — son demasiado granulares.
+        const tipos = await obtenerTiposPorEmpresa(db, empresaId);
+        const plan = generarPlanFotos(componentes || [], tipos);
+        const slotsTotal = Object.values(plan).reduce((s, shots) => s + shots.length, 0);
+        const imgs = wizardImages || {};
+        const slotsCumplidos = Object.entries(plan).reduce((s, [compId, slots]) => {
+            return s + Math.min((imgs[compId] || []).length, slots.length);
+        }, 0);
+        if (pool && slotsTotal > 0) {
+            await pool.query(
+                `UPDATE propiedades
+                 SET metadata = metadata || jsonb_build_object('fotoStats', $1::jsonb)
+                 WHERE id = $2 AND empresa_id = $3`,
+                [JSON.stringify({ slotsTotal, slotsCumplidos }), propiedadId, empresaId]
+            );
+        }
+    } catch (err) {
+        console.warn('[fotoStats] recalculo fallido:', err.message);
+    }
+}
+
 module.exports = (db) => {
     const router = express.Router();
+
+    const invalidateSsrCache = (empresaId) => {
+        try {
+            if (empresaId) ssrCache.invalidateEmpresaCache(empresaId);
+        } catch (err) {
+            console.warn(`[SSR cache] No se pudo invalidar cache para ${empresaId}: ${err.message}`);
+        }
+    };
 
     // GET Configuración
     router.get('/configuracion-web', async (req, res, next) => {
@@ -39,76 +104,140 @@ module.exports = (db) => {
             const { empresaId } = req.user;
             const settings = req.body; // { general, theme, content, seo }
 
-            // Estructuramos para guardar en 'websiteSettings'
-            const updatePayload = {};
-            if (settings.general) updatePayload['websiteSettings.general'] = settings.general;
-            if (settings.theme) {
-                updatePayload['websiteSettings.theme.primaryColor'] = settings.theme.primaryColor;
-                updatePayload['websiteSettings.theme.secondaryColor'] = settings.theme.secondaryColor;
-                updatePayload['websiteSettings.theme.logoUrl'] = settings.theme.logoUrl;
-                if (settings.theme.heroImageAlt) updatePayload['websiteSettings.theme.heroImageAlt'] = settings.theme.heroImageAlt;
-                if (settings.theme.heroImageTitle) updatePayload['websiteSettings.theme.heroImageTitle'] = settings.theme.heroImageTitle;
-            }
-            if (settings.content) updatePayload['websiteSettings.content'] = settings.content;
-            if (settings.seo) updatePayload['websiteSettings.seo'] = settings.seo;
+            // Obtener dominio actual antes de guardar para detectar cambios
+            const empresaActual = await obtenerDetallesEmpresa(db, empresaId);
+            const oldDomain = (empresaActual?.dominio || empresaActual?.websiteSettings?.general?.domain || '').trim().toLowerCase();
+            const newDomain = (settings.general?.domain || '').trim().toLowerCase();
 
-            await actualizarDetallesEmpresa(db, empresaId, updatePayload);
-            res.status(200).json({ message: 'Configuración guardada.' });
+            // Construir objeto websiteSettings completo
+            const websiteSettings = {};
+            if (settings.general) websiteSettings.general = settings.general;
+            if (settings.theme) {
+                websiteSettings.theme = {
+                    logoUrl: settings.theme.logoUrl || '',
+                    heroImageUrl: settings.theme.heroImageUrl || '',
+                    heroImageAlt: settings.theme.heroImageAlt || '',
+                    heroImageTitle: settings.theme.heroImageTitle || ''
+                };
+            }
+            if (settings.content) websiteSettings.content = settings.content;
+            if (settings.seo)     websiteSettings.seo     = settings.seo;
+
+            await actualizarDetallesEmpresa(db, empresaId, { websiteSettings });
+            invalidateSsrCache(empresaId);
+
+            // Sincronizar dominio personalizado con Render si cambió
+            let domainInfo = null;
+            if (newDomain && newDomain !== oldDomain) {
+                try {
+                    domainInfo = await syncDomain(newDomain, oldDomain || null);
+                    console.log(`[home-settings] Dominio ${newDomain} registrado en Render`);
+                } catch (renderErr) {
+                    // No falla el guardado — dominio guardado en DB, solo falla Render API
+                    console.warn(`[home-settings] Advertencia Render API: ${renderErr.message}`);
+                    domainInfo = { domain: newDomain, error: renderErr.message, instructions: null };
+                }
+            } else if (!newDomain && oldDomain) {
+                // El cliente borró su dominio — eliminarlo de Render también (fire & forget)
+                removeCustomDomain(oldDomain).catch(err =>
+                    console.warn(`[home-settings] No se pudo eliminar ${oldDomain} de Render: ${err.message}`)
+                );
+            }
+
+            res.status(200).json({ message: 'Configuración guardada.', domainInfo });
         } catch (error) { next(error); }
     });
 
     // POST Subir Imagen Hero (Portada)
-    router.post('/upload-hero-image', upload.single('heroImage'), async (req, res, next) => {
+    router.post('/upload-hero-image', upload.any(), async (req, res, next) => {
         try {
             const { empresaId, nombreEmpresa } = req.user;
             const { altText, titleText } = req.body;
 
-            if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
+            console.log(`[DEBUG upload-hero-image] Recibiendo solicitud:`, {
+                empresaId,
+                nombreEmpresa,
+                altText,
+                titleText,
+                hasFiles: !!req.files,
+                filesCount: req.files?.length || 0,
+                hasFile: !!req.file,
+                bodyKeys: Object.keys(req.body)
+            });
+
+            // Robust file handling: get first file regardless of field name
+            const file = req.files && req.files.length > 0 ? req.files[0] : req.file;
+            if (!file) return res.status(400).json({ error: 'No file uploaded.' });
+
+            console.log(`[DEBUG upload-hero-image] Archivo recibido:`, {
+                fieldname: file.fieldname,
+                originalname: file.originalname,
+                mimetype: file.mimetype,
+                size: file.size
+            });
 
             // 1. Procesar y subir imagen (Standardized)
             const imageId = uuidv4();
             const outputFormat = 'webp';
             const storagePath = `empresas/${empresaId}/website/hero-${imageId}.${outputFormat}`;
 
-            const { buffer: optimizedBuffer } = await optimizeImage(req.file.buffer, {
+            const { buffer: optimizedBuffer } = await optimizeImage(file.buffer, {
                 maxWidth: 1920,
                 quality: 85
             });
 
             const publicUrl = await uploadFile(optimizedBuffer, storagePath, `image/${outputFormat}`);
 
-            // 2. Determinar Metadata
+            // 2. Determinar Metadata con Contexto Corporativo Completo
             let finalAlt = altText;
             let finalTitle = titleText;
 
+            console.log(`[DEBUG upload-hero-image] Valores iniciales:`, {
+                finalAlt,
+                finalTitle,
+                shouldGenerate: !finalAlt || !finalTitle
+            });
+
             if (!finalAlt || !finalTitle) {
-                const empresaData = await obtenerDetallesEmpresa(db, empresaId);
-                const contextoExtra = {
-                    historia: empresaData.historiaOptimizada || empresaData.historiaEmpresa,
-                    slogan: empresaData.slogan
-                };
-
-                const metadata = await generarMetadataImagen(
-                    nombreEmpresa,
-                    "Página Principal",
-                    contextoExtra.historia || "Sitio web de turismo",
-                    "Imagen de Portada (Hero)",
-                    "Portada Web",
-                    optimizedBuffer
-                );
-
-                if (!finalAlt) finalAlt = metadata.altText;
-                if (!finalTitle) finalTitle = metadata.title;
+                try {
+                    const empresaContext = await getEmpresaContext(empresaId);
+                    const metadata = await generarMetadataHeroWeb(empresaContext, optimizedBuffer);
+                    if (metadata.altText) finalAlt = metadata.altText;
+                    if (metadata.title) finalTitle = metadata.title;
+                    console.log(`[upload-hero-image] Metadata hero generada:`, { altText: finalAlt, title: finalTitle });
+                } catch (contextError) {
+                    console.warn(`[upload-hero-image] Error generando metadata hero, usando fallback:`, contextError.message);
+                }
             }
 
             // 3. Guardar en DB
+            // Asegurar que no guardemos strings vacíos
+            const safeAlt = finalAlt && finalAlt.trim().length > 0 ? finalAlt : `Imagen de portada de ${nombreEmpresa}`;
+            const safeTitle = finalTitle && finalTitle.trim().length > 0 ? finalTitle : `Portada principal - ${nombreEmpresa}`;
+
+            console.log(`[DEBUG upload-hero-image] Valores finales para guardar:`, {
+                alt: safeAlt,
+                title: safeTitle,
+                url: publicUrl
+            });
+
             const updatePayload = {
                 'websiteSettings.theme.heroImageUrl': publicUrl,
-                'websiteSettings.theme.heroImageAlt': finalAlt,
-                'websiteSettings.theme.heroImageTitle': finalTitle
+                'websiteSettings.theme.heroImageAlt': safeAlt,
+                'websiteSettings.theme.heroImageTitle': safeTitle
             };
-            await actualizarDetallesEmpresa(db, empresaId, updatePayload);
 
+            console.log(`[DEBUG upload-hero-image] Guardando en DB:`, updatePayload);
+            try {
+                await actualizarDetallesEmpresa(db, empresaId, updatePayload);
+                invalidateSsrCache(empresaId);
+                console.log(`[DEBUG upload-hero-image] Guardado en DB exitoso`);
+            } catch (dbError) {
+                console.error(`[DEBUG upload-hero-image] Error guardando en DB:`, dbError.message);
+                // Continuar de todos modos para no romper la UX
+            }
+
+            console.log(`[DEBUG upload-hero-image] Retornando respuesta:`, updatePayload);
             res.status(201).json(updatePayload);
         } catch (error) { next(error); }
     });
@@ -117,10 +246,17 @@ module.exports = (db) => {
     router.post('/optimize-profile', async (req, res, next) => {
         try {
             const { historia } = req.body;
-            if (!historia) return res.status(400).json({ error: 'Falta la historia.' });
-            const strategy = await generarPerfilEmpresa(historia);
+            if (!historia || typeof historia !== 'string' || historia.trim().length < 20) {
+                return res.status(400).json({ error: 'La descripción debe tener al menos 20 caracteres.' });
+            }
+            const strategy = await generarPerfilEmpresa(historia.trim());
             res.status(200).json(strategy);
-        } catch (error) { next(error); }
+        } catch (error) {
+            if (error.message?.includes('patrones no permitidos')) {
+                return res.status(400).json({ error: 'El texto contiene contenido no permitido.' });
+            }
+            next(error);
+        }
     });
 
     // --- Rutas de Propiedades (Existentes) ---
@@ -154,10 +290,28 @@ module.exports = (db) => {
                 });
                 const publicUrl = await uploadFile(optimizedBuffer, storagePath, `image/${outputFormat}`);
 
-                const metadata = await generarMetadataImagen(nombreEmpresa, propiedad.nombre, propiedad.descripcion, 'Imagen Principal', 'Portada', optimizedBuffer);
+                // Intentar usar contexto corporativo completo
+                let metadata;
+                try {
+                    const empresaContext = await getEmpresaContext(empresaId);
+                    metadata = await generarMetadataImagenConContexto(
+                        empresaContext,
+                        propiedad.nombre,
+                        propiedad.descripcion || `Alojamiento ${propiedad.nombre}`,
+                        'Imagen Principal',
+                        'Portada',
+                        optimizedBuffer
+                    );
+                    console.log(`[DEBUG PUT propiedad] Metadata generada con contexto corporativo`);
+                } catch (contextError) {
+                    console.warn(`[PUT propiedad] Fallo contexto corporativo, usando versión básica:`, contextError.message);
+                    // Fallback a la versión original
+                    metadata = await generarMetadataImagen(nombreEmpresa, propiedad.nombre, propiedad.descripcion, 'Imagen Principal', 'Portada', optimizedBuffer);
+                }
 
                 const cardImageData = { imageId, storagePath: publicUrl, altText: metadata.altText, title: metadata.title };
                 await actualizarPropiedad(db, empresaId, req.params.propiedadId, { 'websiteData.cardImage': cardImageData });
+                invalidateSsrCache(empresaId);
                 return res.status(201).json(cardImageData);
             }
 
@@ -196,11 +350,29 @@ module.exports = (db) => {
             });
             const publicUrl = await uploadFile(optimizedBuffer, storagePath, `image/${outputFormat}`);
 
-            const metadata = await generarMetadataImagen(nombreEmpresa, propiedad.nombre, propiedad.descripcion, 'Imagen Principal', 'Portada', optimizedBuffer);
+            // Intentar usar contexto corporativo completo
+            let metadata;
+            try {
+                const empresaContext = await getEmpresaContext(empresaId);
+                metadata = await generarMetadataImagenConContexto(
+                    empresaContext,
+                    propiedad.nombre,
+                    propiedad.descripcion || `Alojamiento ${propiedad.nombre}`,
+                    'Imagen Principal',
+                    'Portada',
+                    optimizedBuffer
+                );
+                console.log(`[DEBUG upload-card-image] Metadata generada con contexto corporativo`);
+            } catch (contextError) {
+                console.warn(`[upload-card-image] Fallo contexto corporativo, usando versión básica:`, contextError.message);
+                // Fallback a la versión original
+                metadata = await generarMetadataImagen(nombreEmpresa, propiedad.nombre, propiedad.descripcion, 'Imagen Principal', 'Portada', optimizedBuffer);
+            }
 
             const cardImageData = { imageId, storagePath: publicUrl, altText: metadata.altText, title: metadata.title };
 
             await actualizarPropiedad(db, empresaId, propiedadId, { 'websiteData.cardImage': cardImageData });
+            invalidateSsrCache(empresaId);
 
             res.status(201).json(cardImageData);
         } catch (error) {
@@ -223,7 +395,6 @@ module.exports = (db) => {
             const componente = propiedad.componentes?.find(c => c.id === componentId);
             if (!componente) return res.status(404).json({ error: 'Componente no encontrado.' });
 
-            const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
             const resultadosParaFrontend = [];
 
             await Promise.all(req.files.map(async (file) => {
@@ -239,15 +410,33 @@ module.exports = (db) => {
                 let metadata = { altText: componente.nombre, title: componente.nombre };
                 try {
                     const descPropiedad = propiedad.websiteData?.aiDescription || propiedad.descripcion || '';
-                    metadata = await generarMetadataImagen(
-                        nombreEmpresa,
-                        propiedad.nombre,
-                        descPropiedad,
-                        componente.nombre,
-                        componente.tipo,
-                        optimizedBuffer,
-                        shotContext
-                    );
+
+                    // Intentar usar contexto corporativo completo
+                    try {
+                        const empresaContext = await getEmpresaContext(empresaId);
+                        metadata = await generarMetadataImagenConContexto(
+                            empresaContext,
+                            propiedad.nombre,
+                            descPropiedad,
+                            componente.nombre,
+                            componente.tipo,
+                            optimizedBuffer,
+                            shotContext
+                        );
+                        console.log(`[DEBUG upload-image] Metadata generada con contexto corporativo para ${componente.nombre}`);
+                    } catch (contextError) {
+                        console.warn(`[upload-image] Fallo contexto corporativo, usando versión básica:`, contextError.message);
+                        // Fallback a la versión original
+                        metadata = await generarMetadataImagen(
+                            nombreEmpresa,
+                            propiedad.nombre,
+                            descPropiedad,
+                            componente.nombre,
+                            componente.tipo,
+                            optimizedBuffer,
+                            shotContext
+                        );
+                    }
                 } catch (aiError) {
                     console.warn("Fallo IA Visión:", aiError.message);
                 }
@@ -260,11 +449,52 @@ module.exports = (db) => {
                     shotContext: shotContext,
                     advertencia: metadata.advertencia || null
                 };
-                await propiedadRef.update({
-                    [`websiteData.images.${componentId}`]: admin.firestore.FieldValue.arrayUnion(imageData)
-                });
                 resultadosParaFrontend.push(imageData);
+
+                // GUARDAR EN GALERIA (tabla centralizada) - SOLUCIÓN AL PROBLEMA [IMG-001]
+                try {
+                    console.log(`[DEBUG upload-image] Guardando en galeria: ${imageId}, componente: ${componentId}`);
+                    // Crear archivo temporal para uploadFotoToGaleria
+                    const fileForGaleria = {
+                        buffer: optimizedBuffer,
+                        originalname: file.originalname || 'uploaded_image.jpg'
+                    };
+
+                    // Subir a galeria (solo 4 parámetros: db, empresaId, propiedadId, files)
+                    const galeriaResults = await uploadFotoToGaleria(db, empresaId, propiedadId, [fileForGaleria]);
+                    if (galeriaResults && galeriaResults.length > 0) {
+                        const galeriaFoto = galeriaResults[0];
+                        console.log(`[DEBUG upload-image] Guardado en galeria exitoso. ID: ${galeriaFoto.id}`);
+
+                        // Actualizar la foto en galeria con metadata correcta usando updateFoto
+                        await updateFoto(db, empresaId, propiedadId, galeriaFoto.id, {
+                            espacio: componente.nombre,
+                            espacioId: componentId,
+                            altText: metadata.altText || '',
+                            estado: 'manual',
+                            confianza: !metadata.advertencia ? 0.95 : 0.85
+                        });
+                        console.log(`[DEBUG upload-image] Foto ${galeriaFoto.id} actualizada con metadata`);
+                    }
+                } catch (galeriaError) {
+                    console.warn('[upload-image] Error guardando en galeria (continuando...):', galeriaError.message);
+                    // NO fallamos la operación completa si falla galeria
+                    // El guardado en websiteData.images es crítico para la UX inmediata
+                }
             }));
+
+            // Actualizar websiteData en PostgreSQL (merge en memoria, luego escribir)
+            const websiteData = propiedad.websiteData || { aiDescription: '', images: {}, cardImage: null };
+            const imagesActualizadas = { ...(websiteData.images || {}) };
+            for (const img of resultadosParaFrontend) {
+                imagesActualizadas[componentId] = [...(imagesActualizadas[componentId] || []), img];
+            }
+            websiteData.images = imagesActualizadas;
+            await actualizarPropiedad(db, empresaId, propiedadId, { websiteData });
+            invalidateSsrCache(empresaId);
+
+            // Persistir stats actualizados (fire-and-forget — no bloquea la respuesta)
+            recalcularFotoStats(db, empresaId, propiedadId, propiedad.componentes, imagesActualizadas).catch(() => {});
 
             res.status(201).json(resultadosParaFrontend);
         } catch (error) {
@@ -277,25 +507,87 @@ module.exports = (db) => {
         try {
             const { empresaId } = req.user;
             const { propiedadId, componentId, imageId } = req.params;
-            const propiedadRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
-            const doc = await propiedadRef.get();
 
-            if (!doc.exists) return res.status(404).json({ error: 'No encontrada.' });
+            const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
+            if (!propiedad) return res.status(404).json({ error: 'No encontrada.' });
 
-            const images = doc.data().websiteData?.images?.[componentId] || [];
+            const websiteData = propiedad.websiteData || { aiDescription: '', images: {}, cardImage: null };
+            const images = websiteData.images?.[componentId] || [];
             const img = images.find(i => i.imageId === imageId);
 
-            if (img && img.storagePath) {
-                await deleteFileByPath(img.storagePath);
-            }
+            if (img?.storagePath) await deleteFileByPath(img.storagePath);
 
-            const nuevasImagenes = images.filter(i => i.imageId !== imageId);
-            await propiedadRef.update({
-                [`websiteData.images.${componentId}`]: nuevasImagenes
-            });
+            const imagesActualizadasDelete = {
+                ...(websiteData.images || {}),
+                [componentId]: images.filter(i => i.imageId !== imageId)
+            };
+            websiteData.images = imagesActualizadasDelete;
+            await actualizarPropiedad(db, empresaId, propiedadId, { websiteData });
+            invalidateSsrCache(empresaId);
+
+            recalcularFotoStats(db, empresaId, propiedadId, propiedad.componentes, imagesActualizadasDelete).catch(() => {});
 
             res.status(200).json({ message: 'Eliminada.' });
         } catch (error) { next(error); }
+    });
+
+    // Auditar foto de galería existente y asignarla a un slot si pasa
+    router.post('/propiedad/:propiedadId/audit-slot', async (req, res, next) => {
+        try {
+            const { empresaId, nombreEmpresa } = req.user;
+            const { propiedadId } = req.params;
+            const { componentId, imageUrl, imageId, shotContext } = req.body;
+
+            if (!componentId || !imageUrl) return res.status(400).json({ error: 'componentId e imageUrl requeridos.' });
+
+            const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
+            if (!propiedad) return res.status(404).json({ error: 'Propiedad no encontrada.' });
+            const componente = propiedad.componentes?.find(c => c.id === componentId);
+            if (!componente) return res.status(404).json({ error: 'Componente no encontrado.' });
+
+            // Descargar la imagen para auditarla con IA
+            const imgResponse = await fetch(imageUrl);
+            if (!imgResponse.ok) return res.status(400).json({ error: 'No se pudo descargar la imagen para auditoría.' });
+            const imageBuffer = Buffer.from(await imgResponse.arrayBuffer());
+
+            const descPropiedad = propiedad.websiteData?.aiDescription || propiedad.descripcion || '';
+            const metadata = await generarMetadataImagen(
+                nombreEmpresa, propiedad.nombre, descPropiedad,
+                componente.nombre, componente.tipo, imageBuffer, shotContext || null
+            );
+
+            if (metadata.advertencia) {
+                return res.status(200).json({ aprobada: false, advertencia: metadata.advertencia });
+            }
+
+            // Aprobada: registrar en websiteData (reusar imageId/storagePath de galería)
+            const newImageId = imageId || uuidv4();
+            const imageData = {
+                imageId: newImageId,
+                storagePath: imageUrl,
+                altText: metadata.altText,
+                title: metadata.title,
+                shotContext: shotContext || null,
+                advertencia: null,
+                fromGaleria: true
+            };
+
+            const websiteData = propiedad.websiteData || { aiDescription: '', images: {}, cardImage: null };
+            const imagesActualizadasAudit = {
+                ...(websiteData.images || {}),
+                [componentId]: [...(websiteData.images?.[componentId] || []), imageData]
+            };
+            websiteData.images = imagesActualizadasAudit;
+            await actualizarPropiedad(db, empresaId, propiedadId, { websiteData });
+            invalidateSsrCache(empresaId);
+
+            recalcularFotoStats(db, empresaId, propiedadId, propiedad.componentes, imagesActualizadasAudit).catch(() => {});
+
+            res.status(201).json({ aprobada: true, imagen: imageData });
+        } catch (error) {
+            console.error('Error audit-slot:', error);
+            next(error);
+        }
     });
 
     router.get('/propiedad/:propiedadId/photo-plan', async (req, res, next) => {
@@ -304,12 +596,117 @@ module.exports = (db) => {
             const propiedad = await obtenerPropiedadPorId(db, empresaId, req.params.propiedadId);
             if (!propiedad) return res.status(404).json({ error: 'No encontrada.' });
 
-            const { obtenerTiposPorEmpresa } = require('../../services/componentesService');
-            const tipos = await obtenerTiposPorEmpresa(db, empresaId);
+            // Si existe plan IA por instancia, usarlo. Si no, caer al plan básico (vista general).
+            const planIA = propiedad.fotoPlanIA || null;
+            const plan = planIA ? planIA : generarPlanFotos(propiedad.componentes, []);
 
-            const plan = generarPlanFotos(propiedad.componentes, tipos);
-            res.status(200).json(plan);
+            await recalcularFotoStats(
+                db, empresaId, req.params.propiedadId,
+                propiedad.componentes,
+                propiedad.websiteData?.images || {}
+            );
+
+            const slotsTotal = Object.values(plan).reduce((s, shots) => s + shots.length, 0);
+            const wizardImages = propiedad.websiteData?.images || {};
+            const slotsCumplidos = Object.entries(plan).reduce((sum, [cId, shots]) =>
+                sum + Math.min((wizardImages[cId] || []).length, shots.length), 0);
+
+            res.status(200).json({
+                ...plan,
+                _aiGenerated: !!planIA,
+                _generatedAt: propiedad.fotoPlanIA_generatedAt || null,
+                _slotsTotal: slotsTotal,
+                _slotsCumplidos: slotsCumplidos,
+            });
         } catch (error) { next(error); }
+    });
+
+    // Genera el plan de fotos con IA por instancia de propiedad.
+    // La IA recibe los activos reales de cada espacio y decide qué fotos son necesarias
+    // para maximizar conversión en OTAs y SEO. Guarda en metadata.fotoPlanIA.
+    router.post('/propiedad/:propiedadId/generar-plan-fotos', async (req, res) => {
+        try {
+            const { empresaId } = req.user;
+            const { propiedadId } = req.params;
+
+            const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
+            if (!propiedad) return res.status(404).json({ error: 'No encontrada.' });
+
+            const { obtenerTipos: obtenerTiposElemento } = require('../../services/tiposElementoService');
+            const tiposElemento = await obtenerTiposElemento(db, empresaId);
+            const activoMap = new Map(tiposElemento.map(t => [t.id, t]));
+
+            const espacios = (propiedad.componentes || []).map(comp => ({
+                id: comp.id,
+                nombre: comp.nombre,
+                tipo: comp.tipo || comp.nombre,
+                activos: (comp.elementos || []).map(el => {
+                    const tipo = activoMap.get(el.tipoId || el.id);
+                    return { nombre: tipo?.nombre || el.nombre || 'elemento', cantidad: el.cantidad || 1 };
+                }),
+            }));
+
+            if (espacios.length === 0) {
+                return res.status(400).json({ error: 'La propiedad no tiene espacios definidos.' });
+            }
+
+            const empresaData = await obtenerDetallesEmpresa(db, empresaId);
+            const ubi = empresaData?.ubicacion || {};
+            const ubicacion = [ubi.ciudad, ubi.region, ubi.pais].filter(Boolean).join(', ');
+
+            const prompt = promptPlanFotos({
+                propiedadNombre: propiedad.nombre,
+                propiedadTipo: propiedad.tipo || 'alojamiento turístico',
+                ubicacion,
+                espacios,
+            });
+
+            const planIA = await generateForTask(AI_TASK.PHOTO_PLAN, prompt);
+
+            if (!planIA || typeof planIA !== 'object') {
+                return res.status(502).json({ error: 'La IA no devolvió un plan válido. Intenta de nuevo.' });
+            }
+
+            // Validar que las claves correspondan a IDs de espacios reales
+            const idsEspacios = new Set(espacios.map(e => e.id));
+            const planValidado = {};
+            for (const [compId, shots] of Object.entries(planIA)) {
+                if (idsEspacios.has(compId) && Array.isArray(shots)) {
+                    planValidado[compId] = shots;
+                }
+            }
+
+            if (Object.keys(planValidado).length === 0) {
+                return res.status(502).json({ error: 'El plan generado no coincide con los espacios de la propiedad.' });
+            }
+
+            const generatedAt = new Date().toISOString();
+            if (!pool) {
+                return res.status(503).json({ error: 'Base de datos no disponible en este entorno.' });
+            }
+            // COALESCE(metadata,'{}') evita que metadata NULL destruya el registro.
+            // $2 se pasa como texto — jsonb_build_object lo almacena como string JSON.
+            await pool.query(
+                `UPDATE propiedades
+                 SET metadata = COALESCE(metadata, '{}'::jsonb)
+                     || jsonb_build_object('fotoPlanIA', $1::jsonb, 'fotoPlanIA_generatedAt', $2::text),
+                     updated_at = NOW()
+                 WHERE id = $3 AND empresa_id = $4`,
+                [JSON.stringify(planValidado), generatedAt, propiedadId, empresaId]
+            );
+            invalidateSsrCache(empresaId);
+
+            const slotsTotal = Object.values(planValidado).reduce((s, shots) => s + shots.length, 0);
+            res.status(200).json({
+                ...planValidado,
+                _aiGenerated: true,
+                _generatedAt: generatedAt,
+                _slotsTotal: slotsTotal,
+            });
+        } catch (error) {
+            console.error('[generar-plan-fotos]', error.message);
+            res.status(500).json({ error: error.message || 'Error interno al generar el plan.' });
+        }
     });
 
     router.post('/fix-storage-cors', async (req, res) => {
@@ -360,14 +757,66 @@ module.exports = (db) => {
                 context
             );
 
-            // Clean response just in case
-            const textoLimpio = typeof descripcionGenerada === 'string' ? descripcionGenerada : JSON.stringify(descripcionGenerada);
+            // La IA devuelve { descripcion: "...", puntosFuertes: [...] } — extraer solo el texto
+            const textoLimpio = typeof descripcionGenerada === 'string'
+                ? descripcionGenerada
+                : (descripcionGenerada?.descripcion || '');
+            const puntosFuertes = Array.isArray(descripcionGenerada?.puntosFuertes)
+                ? descripcionGenerada.puntosFuertes : [];
 
-            res.json({ texto: textoLimpio });
+            res.json({ texto: textoLimpio, puntosFuertes });
 
         } catch (error) {
             next(error);
         }
+    });
+
+    // PUT Guardar cardImage desde URL existente (galería o websiteData)
+    router.put('/propiedad/:propiedadId/portada', async (req, res, next) => {
+        try {
+            const { empresaId } = req.user;
+            const { propiedadId } = req.params;
+            const { cardImage } = req.body;
+            if (!cardImage?.imageId || !cardImage?.storagePath) {
+                return res.status(400).json({ error: 'cardImage.imageId y cardImage.storagePath son requeridos.' });
+            }
+            const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
+            if (!propiedad) return res.status(404).json({ error: 'Propiedad no encontrada.' });
+            const websiteData = { ...(propiedad.websiteData || {}), cardImage };
+            await actualizarPropiedad(db, empresaId, propiedadId, { websiteData });
+            invalidateSsrCache(empresaId);
+            res.status(200).json({ cardImage });
+        } catch (error) { next(error); }
+    });
+
+    // PUT Guardar identidad de propiedad (aiDescription + puntosFuertes)
+    router.put('/propiedad/:propiedadId/identidad', async (req, res, next) => {
+        try {
+            const { empresaId } = req.user;
+            const { propiedadId } = req.params;
+            const { aiDescription, puntosFuertes } = req.body;
+            const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
+            if (!propiedad) return res.status(404).json({ error: 'No encontrada.' });
+            const websiteData = { ...(propiedad.websiteData || {}), aiDescription, puntosFuertes: puntosFuertes || [] };
+            await actualizarPropiedad(db, empresaId, propiedadId, { websiteData });
+            invalidateSsrCache(empresaId);
+            res.json({ ok: true });
+        } catch (error) { next(error); }
+    });
+
+    // PUT Guardar SEO de propiedad (metaTitle + metaDescription)
+    router.put('/propiedad/:propiedadId/seo', async (req, res, next) => {
+        try {
+            const { empresaId } = req.user;
+            const { propiedadId } = req.params;
+            const { metaTitle, metaDescription } = req.body;
+            const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
+            if (!propiedad) return res.status(404).json({ error: 'No encontrada.' });
+            const websiteData = { ...(propiedad.websiteData || {}), metaTitle, metaDescription };
+            await actualizarPropiedad(db, empresaId, propiedadId, { websiteData });
+            invalidateSsrCache(empresaId);
+            res.json({ ok: true });
+        } catch (error) { next(error); }
     });
 
     // [NEW] Eliminar Componente (Espacio) de una Propiedad
@@ -401,10 +850,201 @@ module.exports = (db) => {
 
             await propRef.update(updates);
             console.log(`[API] Componente ${componentId} eliminado de Propiedad ${propiedadId}`);
+            invalidateSsrCache(empresaId);
 
             res.status(200).json({ success: true });
         } catch (error) { next(error); }
     });
+
+    // ─── PropertyBuildContext endpoints ────────────────────────────────────────
+
+    // GET  /website/propiedad/:propiedadId/build-context
+    router.get('/propiedad/:propiedadId/build-context', async (req, res, next) => {
+        try {
+            const { empresaId } = req.user;
+            const context = await getBuildContext(db, empresaId, req.params.propiedadId);
+            res.json(context);
+        } catch (error) { next(error); }
+    });
+
+    // POST /website/propiedad/:propiedadId/build-context/sync-producto
+    router.post('/propiedad/:propiedadId/build-context/sync-producto', async (req, res, next) => {
+        try {
+            const { empresaId } = req.user;
+            const producto = await construirProductoDesdeComponentes(db, empresaId, req.params.propiedadId);
+            res.json(producto || { message: 'Sin cambios.' });
+        } catch (error) { next(error); }
+    });
+
+    // POST /website/propiedad/:propiedadId/build-context/generate-narrativa
+    router.post('/propiedad/:propiedadId/build-context/generate-narrativa', async (req, res, next) => {
+        try {
+            const { empresaId } = req.user;
+            const context = await getBuildContext(db, empresaId, req.params.propiedadId);
+            if (!context?.producto?.espacios?.length) {
+                return res.status(400).json({
+                    error: 'El alojamiento no tiene espacios configurados. Completa los pasos 1-3 primero.'
+                });
+            }
+            const narrativa = await generarNarrativaDesdeContexto(context);
+            await updateBuildContextSection(empresaId, req.params.propiedadId, 'narrativa', {
+                ...narrativa,
+                generadoEn: new Date().toISOString(),
+            });
+            invalidateSsrCache(empresaId);
+            res.json(narrativa);
+        } catch (error) { next(error); }
+    });
+
+    // POST /website/propiedad/:propiedadId/build-context/generate-jsonld
+    router.post('/propiedad/:propiedadId/build-context/generate-jsonld', async (req, res, next) => {
+        try {
+            const { empresaId } = req.user;
+            const propiedadId = req.params.propiedadId;
+            const [context, propiedad, productoFresco] = await Promise.all([
+                getBuildContext(db, empresaId, propiedadId),
+                obtenerPropiedadPorId(db, empresaId, propiedadId),
+                // Reconstruir producto SIEMPRE desde tipos_elemento actuales.
+                // El buildContext cacheado en BD puede tener schema_property obsoletos.
+                construirProductoDesdeComponentes(db, empresaId, propiedadId),
+            ]);
+            if (!context?.narrativa?.descripcionComercial) {
+                return res.status(400).json({
+                    error: 'Genera el contenido web primero (paso 4 — narrativa).'
+                });
+            }
+            // Reemplazar producto del contexto cacheado con la versión fresca
+            const contextFresco = productoFresco
+                ? { ...context, producto: productoFresco }
+                : context;
+
+            const result = await generarJsonLdDesdeContexto(contextFresco);
+
+            // Inyectar containsPlace desde los espacios reales (no se delega a la IA).
+            if (result.jsonLd) {
+                const schemaTypeMap = {
+                    dormitorio: 'Bedroom', bano: 'Bathroom', cocina: 'Kitchen',
+                    living: 'LivingRoom', sala: 'LivingRoom', comedor: 'DiningRoom',
+                    terraza: 'Terrace', exterior: 'Terrace',
+                };
+                const normalizeKey = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '');
+                const espacios = (contextFresco.producto?.espacios || []);
+                if (espacios.length > 0) {
+                    result.jsonLd.containsPlace = espacios.map(e => {
+                        const key = normalizeKey(e.categoria || e.nombre);
+                        const type = Object.entries(schemaTypeMap).find(([k]) => key.includes(k))?.[1] || 'Room';
+                        return { '@type': type, name: e.nombre, description: e.categoria || e.nombre };
+                    });
+                }
+            }
+
+            // Inyectar URLs de imágenes en el JSON-LD
+            if (result.jsonLd && propiedad) {
+                const webData = propiedad.websiteData || {};
+                const imageUrls = [];
+                if (webData.cardImage?.storagePath) {
+                    imageUrls.push(webData.cardImage.storagePath);
+                }
+                const allImages = webData.images || {};
+                for (const compImages of Object.values(allImages)) {
+                    if (Array.isArray(compImages)) {
+                        for (const img of compImages) {
+                            if (img?.storagePath && !imageUrls.includes(img.storagePath)) {
+                                imageUrls.push(img.storagePath);
+                            }
+                        }
+                    }
+                }
+                if (imageUrls.length > 0) {
+                    result.jsonLd.image = imageUrls;
+                }
+            }
+
+            const publicacionMerged = mergePublicacionForPersist(context.publicacion, result);
+            await updateBuildContextSection(empresaId, propiedadId, 'publicacion', publicacionMerged);
+            invalidateSsrCache(empresaId);
+            res.json(publicacionMerged);
+        } catch (error) { next(error); }
+    });
+
+    // ── Reclasificación de activos (schema_property) ─────────────────────────────
+
+    // POST /website/empresa/reclasificar-activos
+    // Proceso interno: la IA analiza cada tipo de elemento de la empresa y asigna
+    // el schema_property correcto (amenityFeature para amenidades reales, null para inventario).
+    // Sin interacción del usuario — completamente transparente.
+    router.post('/empresa/reclasificar-activos', async (req, res, next) => {
+        try {
+            const { empresaId } = req.user;
+
+            const { rows: tipos } = await pool.query(
+                `SELECT id, nombre, categoria FROM tipos_elemento WHERE empresa_id = $1 ORDER BY nombre`,
+                [empresaId]
+            );
+
+            if (!tipos.length) return res.json({ procesados: 0, actualizados: 0 });
+
+            // Categorías disponibles para contexto de la IA
+            const categorias = [...new Set(tipos.map(t => t.categoria).filter(Boolean))];
+
+            let procesados = 0;
+            let actualizados = 0;
+
+            for (const tipo of tipos) {
+                try {
+                    const aiResult = await analizarMetadataActivo(tipo.nombre, categorias);
+                    const nuevoSchemaProperty = aiResult.schema_property || null;
+
+                    await pool.query(
+                        `UPDATE tipos_elemento SET schema_property = $1, updated_at = NOW()
+                         WHERE id = $2 AND empresa_id = $3`,
+                        [nuevoSchemaProperty, tipo.id, empresaId]
+                    );
+
+                    procesados++;
+                    if (nuevoSchemaProperty !== null) actualizados++;
+                } catch (err) {
+                    console.warn(`[reclasificar] Error en "${tipo.nombre}":`, err.message);
+                    procesados++;
+                }
+            }
+
+            res.json({ procesados, actualizados, total: tipos.length });
+        } catch (error) { next(error); }
+    });
+
+    // ── Áreas Comunes del Recinto (empresa-level) ────────────────────────────────
+
+    // GET /website/empresa/areas-comunes
+    router.get('/empresa/areas-comunes', async (req, res, next) => {
+        try {
+            const { empresaId } = req.user;
+            const { rows } = await pool.query(
+                `SELECT configuracion->'areas_comunes' AS areas FROM empresas WHERE id = $1`,
+                [empresaId]
+            );
+            res.json(rows[0]?.areas || { activo: false, espacios: [] });
+        } catch (error) { next(error); }
+    });
+
+    // PUT /website/empresa/areas-comunes
+    router.put('/empresa/areas-comunes', async (req, res, next) => {
+        try {
+            const { empresaId } = req.user;
+            const { activo, espacios } = req.body;
+            await pool.query(
+                `UPDATE empresas
+                 SET configuracion = configuracion || jsonb_build_object('areas_comunes', $2::jsonb),
+                     updated_at    = NOW()
+                 WHERE id = $1`,
+                [empresaId, JSON.stringify({ activo: !!activo, espacios: espacios || [] })]
+            );
+            invalidateSsrCache(empresaId);
+            res.json({ ok: true });
+        } catch (error) { next(error); }
+    });
+
+    // ───────────────────────────────────────────────────────────────────────────
 
     return router;
 };

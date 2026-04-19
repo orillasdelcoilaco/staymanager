@@ -9,7 +9,7 @@ const { crearPreferencia } = require('../services/mercadopagoService');
 const { obtenerPlantillasPorEmpresa } = require('../services/plantillasService');
 const { format, addDays, parseISO, isValid } = require('date-fns');
 const { crearOActualizarCliente } = require('../services/clientesService');
-const aiContentService = require('../services/aiContentService');
+const { getProvider } = require('../services/aiContentService.providers');
 
 const sanitizeProperty = (property) => {
     if (!property) return null;
@@ -1080,7 +1080,7 @@ const recalculatePhotos = async (req, res) => {
         `;
 
         try {
-            const provider = aiContentService.getProvider ? aiContentService.getProvider() : null;
+            const provider = getProvider();
             let json = null;
 
             if (provider) {

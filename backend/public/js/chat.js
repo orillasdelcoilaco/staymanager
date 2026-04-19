@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function appendMessage(role, text) {
         const div = document.createElement('div');
         div.className = `p-3 rounded-lg mb-2 max-w-[85%] text-sm ${role === 'user'
-                ? 'bg-blue-600 text-white self-end ml-auto'
+                ? 'bg-primary-600 text-white self-end ml-auto'
                 : 'bg-gray-100 text-gray-800 self-start'
             }`;
         div.innerText = text;
@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="h-28 bg-gray-200 w-full rounded-t-lg bg-cover bg-center" style="background-image: url('${imgUrl}')"></div>
                 <div class="p-2">
                     <h4 class="font-bold text-xs truncate">${p.nombre}</h4>
-                    <p class="text-xs text-blue-600 font-semibold mt-1">Ver Detalles</p>
+                    <p class="text-xs text-primary-600 font-semibold mt-1">Ver Detalles</p>
                 </div>
             `;
             container.appendChild(card);

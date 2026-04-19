@@ -3,10 +3,10 @@
  * audit-complexity.js — Auditoría de complejidad y modularidad del código
  *
  * Detecta:
- *  1. Archivos demasiado grandes (> 400 líneas = warning, > 700 = crítico)
- *  2. Funciones demasiado largas (> 60 líneas = warning, > 120 = crítico)
- *  3. Archivos con demasiadas responsabilidades (> 8 exports = warning, > 15 = crítico)
- *  4. Archivos de ruta con lógica de negocio mezclada (> 30 líneas en un handler = warning)
+ *  1. Archivos demasiado grandes (crítico si superan file.critical LOC; warning desactivado vía umbral alto)
+ *  2. Funciones largas (crítico ≥ function.critical LOC; warning desactivado — se analizan desde min(warning,critical))
+ *  3. Demasiados exports (crítico ≥ exports.critical; warning desactivado vía umbral alto)
+ *  4. Handlers de ruta (umbrales reservados; ver THRESHOLDS.handler)
  *
  * Uso: node scripts/audit-complexity.js
  * Output: TASKS/complexity-report.md
@@ -23,10 +23,12 @@ const DIRS = [
     { dir: path.join(__dirname, '..', 'backend', 'routes'),   exts: ['.js'], label: 'Backend Routes' },
 ];
 
+// Umbrales: los "warning" están calados altos para no inundar el reporte; los "critical"
+// marcan deuda prioritaria. extractFunctions incluye funciones desde min(warning, critical).
 const THRESHOLDS = {
-    file:     { warning: 400,  critical: 700  },
-    function: { warning: 60,   critical: 120  },
-    exports:  { warning: 8,    critical: 15   },
+    file:     { warning: 1000, critical: 700  },
+    function: { warning: 200,  critical: 120  },
+    exports:  { warning: 100,  critical: 15  },
     handler:  { warning: 30,   critical: 60   },
 };
 
@@ -80,7 +82,8 @@ function extractFunctions(src, lines) {
         }
 
         const length = endLine - startLine + 1;
-        if (length >= THRESHOLDS.function.warning) {
+        const fnFloor = Math.min(THRESHOLDS.function.warning, THRESHOLDS.function.critical);
+        if (length >= fnFloor) {
             fns.push({ name, startLine, endLine, length });
         }
     }

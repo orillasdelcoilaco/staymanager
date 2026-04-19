@@ -22,7 +22,7 @@ export const renderTablaTipos = (tipos) => {
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
+            .replace(/'/g, '&apos;');
     };
 
     // 1. Agrupar por Categoría

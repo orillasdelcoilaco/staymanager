@@ -4,99 +4,158 @@ import { renderModalCliente, abrirModalCliente, setupModalCliente } from './comp
 
 let cliente = null;
 let comunicaciones = [];
-let reservaDeOrigenId = null; 
+let reservaDeOrigenId = null;
+
+const SEGMENTO_BADGE_CLASS = {
+    '🏆 Campeones':   'badge-segmento-campeones',
+    '❤️ Leales':      'badge-segmento-leales',
+    '🤝 Potenciales': 'badge-segmento-potenciales',
+    '😟 En Riesgo':   'badge-segmento-riesgo',
+    '🥶 Hibernando':  'badge-segmento-hibernando',
+    'Sin Reservas':   'badge-segmento-sin-reservas',
+};
 
 function renderStars(rating) {
-    const filledStar = '⭐';
-    const emptyStar = '☆';
-    let stars = '';
-    for (let i = 1; i <= 5; i++) {
-        stars += i <= rating ? filledStar : emptyStar;
-    }
-    return stars || 'Sin calificar';
+    if (!rating) return '<span class="text-gray-400 text-xs">Sin calificar</span>';
+    return Array.from({ length: 5 }, (_, i) =>
+        `<i class="fa-solid fa-star ${i < rating ? 'text-warning-400' : 'text-gray-200'} text-sm"></i>`
+    ).join('');
 }
 
+const formatCurrency = (v) => `$${(Math.round(v) || 0).toLocaleString('es-CL')}`;
+const formatDate = (d) => d ? new Date(d).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : '—';
+const formatDateTime = (d) => {
+    if (!d) return '—';
+    const dt = new Date(d);
+    return dt.toLocaleDateString('es-CL') + ' ' + dt.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+};
 
-function renderHistorialReservas() {
-    const tbody = document.getElementById('historial-tbody');
-    if (!tbody || !cliente || !cliente.reservas || cliente.reservas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-gray-500 py-4">No hay reservas para este cliente.</td></tr>';
-        return;
-    }
+function buildTimeline() {
+    const events = [];
 
-    const formatDate = (dateString) => {
-        if (!dateString) return '-';
-        return new Date(dateString).toLocaleDateString('es-CL', { timeZone: 'UTC' });
-    };
-
-    const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
-
-    tbody.innerHTML = cliente.reservas.map(r => `
-        <tr class="border-b text-xs hover:bg-gray-50">
-            <td class="py-2 px-3">${r.idReservaCanal}</td>
-            <td class="py-2 px-3">${r.alojamientoNombre}</td>
-            <td class="py-2 px-3">${r.canalNombre}</td>
-            <td class="py-2 px-3">${formatDate(r.fechaLlegada)}</td>
-            <td class="py-2 px-3">${r.totalNoches}</td>
-            <td class="py-2 px-3">${r.estado}</td>
-            <td class="py-2 px-3 font-semibold">${formatCurrency(r.valores.valorHuesped)}</td>
-        </tr>
-    `).join('');
-}
-
-function renderComunicaciones() {
-    const tbody = document.getElementById('comunicaciones-tbody');
-    if (!tbody) return;
-
-    if (!comunicaciones || comunicaciones.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">No hay comunicaciones registradas.</td></tr>';
-        return;
-    }
-
-    const formatDateTime = (date) => {
-        if (!date) return '-';
-        const d = new Date(date);
-        return d.toLocaleDateString('es-CL') + ' ' + d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
-    };
-
-    const getEventoBadge = (evento) => {
-        const badges = {
-            'propuesta-enviada': { bg: 'bg-primary-100', text: 'text-primary-800', label: 'Propuesta Enviada' },
-            'reserva-confirmada': { bg: 'bg-success-100', text: 'text-success-800', label: 'Reserva Confirmada' },
-            'promocion': { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Promoción' },
-            'cancelacion': { bg: 'bg-danger-100', text: 'text-danger-800', label: 'Cancelación' },
-            'general': { bg: 'bg-gray-100', text: 'text-gray-800', label: 'General' }
-        };
-        const badge = badges[evento] || badges['general'];
-        return `<span class="px-2 py-0.5 ${badge.bg} ${badge.text} text-xs font-semibold rounded-full">${badge.label}</span>`;
-    };
-
-    const getEstadoBadge = (estado) => {
-        if (estado === 'enviado') {
-            return '<span class="px-2 py-0.5 bg-success-100 text-success-800 text-xs rounded-full">✓ Enviado</span>';
-        } else if (estado === 'fallido') {
-            return '<span class="px-2 py-0.5 bg-danger-100 text-danger-800 text-xs rounded-full">✗ Fallido</span>';
+    // Reservas
+    if (cliente.reservas) {
+        for (const r of cliente.reservas) {
+            events.push({
+                date: r.fechaLlegada || r.fechaCreacion,
+                type: 'reserva',
+                icon: '<i class="fa-solid fa-clipboard"></i>',
+                title: `Reserva en ${r.alojamientoNombre || 'Alojamiento'}`,
+                subtitle: `${formatDate(r.fechaLlegada)} → ${formatDate(r.fechaSalida)} · ${r.totalNoches || '?'} noches`,
+                detail: `${r.canalNombre || ''} · ${r.estado || ''}`,
+                value: formatCurrency(r.valores?.valorHuesped || 0),
+                color: 'primary',
+            });
         }
-        return '<span class="px-2 py-0.5 bg-gray-100 text-gray-800 text-xs rounded-full">Pendiente</span>';
-    };
+    }
 
-    tbody.innerHTML = comunicaciones.map(c => `
-        <tr class="border-b text-xs hover:bg-gray-50">
-            <td class="py-2 px-3">${formatDateTime(c.fechaEnvio)}</td>
-            <td class="py-2 px-3">${getEventoBadge(c.evento)}</td>
-            <td class="py-2 px-3">${c.asunto || '-'}</td>
-            <td class="py-2 px-3 text-gray-500">${c.destinatario || '-'}</td>
-            <td class="py-2 px-3">${getEstadoBadge(c.estado)}</td>
-        </tr>
-    `).join('');
+    // Comunicaciones
+    if (comunicaciones) {
+        for (const c of comunicaciones) {
+            const badges = {
+                'propuesta-enviada': { label: 'Propuesta Enviada', color: 'primary' },
+                'reserva-confirmada': { label: 'Confirmación', color: 'success' },
+                'promocion': { label: 'Promoción', color: 'warning' },
+                'cancelacion': { label: 'Cancelación', color: 'danger' },
+                'general': { label: 'Email', color: 'gray' },
+            };
+            const badge = badges[c.evento] || badges['general'];
+            events.push({
+                date: c.fechaEnvio,
+                type: 'comunicacion',
+                icon: '<i class="fa-solid fa-envelope"></i>',
+                title: c.asunto || badge.label,
+                subtitle: `${c.destinatario || ''}`,
+                detail: c.estado === 'enviado' ? '<i class="fa-solid fa-check text-success-500 mr-1"></i>Enviado' : c.estado === 'fallido' ? '<i class="fa-solid fa-xmark text-danger-500 mr-1"></i>Fallido' : 'Pendiente',
+                color: badge.color,
+            });
+        }
+    }
+
+    events.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+    return events;
+}
+
+function _renderClienteHeader(c, seg, segBadgeClass) {
+    return `
+    <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-3 mb-2">
+                    <h1 class="text-2xl font-bold text-gray-900">${c.nombre}</h1>
+                    <span class="${segBadgeClass}">${seg}</span>
+                    ${c.bloqueado ? '<span class="badge-cliente-bloqueado"><i class="fa-solid fa-ban"></i> Bloqueado</span>' : ''}
+                </div>
+                <div class="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                    <span>📞 ${c.telefono || '—'}</span>
+                    <span>✉️ ${c.email || '—'}</span>
+                    <span>📍 ${c.pais || 'No especificado'}</span>
+                </div>
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+                <button id="edit-cliente-btn" class="btn-primary text-sm flex items-center gap-1.5"><i class="fa-solid fa-pen"></i> Editar</button>
+                ${c.telefono ? `<a href="https://wa.me/${(c.telefono||'').replace(/\D/g,'')}" target="_blank" class="btn-outline text-sm">WhatsApp</a>` : ''}
+                <button id="back-btn" class="btn-outline text-sm flex items-center gap-1.5"><i class="fa-solid fa-arrow-left"></i> Volver</button>
+            </div>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t">
+            <div><p class="text-xs text-gray-500 uppercase tracking-wide">Valor Lifetime</p><p class="text-xl font-bold text-success-600">${formatCurrency(c.totalGastado)}</p></div>
+            <div><p class="text-xs text-gray-500 uppercase tracking-wide">Reservas</p><p class="text-xl font-bold text-gray-900">${c.numeroDeReservas || 0}</p></div>
+            <div><p class="text-xs text-gray-500 uppercase tracking-wide">Calificación</p><p class="text-xl">${renderStars(c.calificacion)}</p></div>
+            <div><p class="text-xs text-gray-500 uppercase tracking-wide">Tipo</p><p class="text-sm font-semibold text-gray-900">${c.tipoCliente || 'Sin clasificar'}</p></div>
+        </div>
+    </div>`;
+}
+
+function _renderPanelTimeline(timeline) {
+    if (timeline.length === 0) return '<p class="text-gray-400 text-center py-8">No hay actividad registrada para este cliente.</p>';
+    return `<div class="relative">
+        <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+        <div class="space-y-6">
+            ${timeline.map(ev => `
+            <div class="relative flex gap-4 ml-1">
+                <div class="w-8 h-8 rounded-full bg-${ev.color}-100 flex items-center justify-center text-sm flex-shrink-0 z-10 border-2 border-white">${ev.icon}</div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2">
+                        <p class="font-medium text-sm text-gray-900">${ev.title}</p>
+                        ${ev.value ? `<span class="text-sm font-bold text-success-600 flex-shrink-0">${ev.value}</span>` : ''}
+                    </div>
+                    <p class="text-xs text-gray-500 mt-0.5">${ev.subtitle}</p>
+                    ${ev.detail ? `<p class="text-xs text-gray-400 mt-0.5">${ev.detail}</p>` : ''}
+                    <p class="text-xs text-gray-400 mt-1">${formatDateTime(ev.date)}</p>
+                </div>
+            </div>`).join('')}
+        </div>
+    </div>`;
+}
+
+function _renderPanelReservas(c) {
+    const filas = (!c.reservas || c.reservas.length === 0)
+        ? '<tr><td colspan="7" class="text-center text-gray-400 py-8">Sin reservas</td></tr>'
+        : c.reservas.map(r => `<tr class="border-b text-xs hover:bg-gray-50">
+            <td class="py-2 px-3">${r.idReservaCanal || '—'}</td>
+            <td class="py-2 px-3">${r.alojamientoNombre || '—'}</td>
+            <td class="py-2 px-3">${r.canalNombre || '—'}</td>
+            <td class="py-2 px-3">${formatDate(r.fechaLlegada)}</td>
+            <td class="py-2 px-3">${r.totalNoches || '—'}</td>
+            <td class="py-2 px-3">${r.estado || '—'}</td>
+            <td class="py-2 px-3 font-semibold">${formatCurrency(r.valores?.valorHuesped || 0)}</td>
+        </tr>`).join('');
+    return `<div class="overflow-x-auto"><table class="min-w-full">
+        <thead class="bg-gray-50"><tr>
+            <th class="th text-xs py-2 px-3">ID Canal</th><th class="th text-xs py-2 px-3">Alojamiento</th>
+            <th class="th text-xs py-2 px-3">Canal</th><th class="th text-xs py-2 px-3">Check-in</th>
+            <th class="th text-xs py-2 px-3">Noches</th><th class="th text-xs py-2 px-3">Estado</th>
+            <th class="th text-xs py-2 px-3">Total</th>
+        </tr></thead>
+        <tbody id="historial-tbody">${filas}</tbody>
+    </table></div>`;
 }
 
 export async function render() {
     const pathParts = window.location.pathname.split('/');
     const clienteId = pathParts[pathParts.length - 1];
-    
-    const urlParams = new URLSearchParams(window.location.search);
-    reservaDeOrigenId = urlParams.get('from-reserva');
+    reservaDeOrigenId = new URLSearchParams(window.location.search).get('from-reserva');
 
     try {
         [cliente, comunicaciones] = await Promise.all([
@@ -107,135 +166,52 @@ export async function render() {
         return `<p class="text-danger-500">Error al cargar el perfil del cliente: ${error.message}</p>`;
     }
 
-    const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
+    const seg = cliente.rfmSegmento || 'Sin Reservas';
+    const segBadgeClass = SEGMENTO_BADGE_CLASS[seg] || 'badge-segmento-hibernando';
+    const timeline = buildTimeline();
 
     return `
-        <div class="bg-white p-8 rounded-lg shadow mb-8">
-            <div class="flex justify-between items-start mb-6">
-                <div>
-                    <h2 class="text-2xl font-bold text-gray-900">${cliente.nombre}</h2>
-                    <div class="flex items-center gap-4 mt-1">
-                        <span class="px-2 py-1 bg-primary-100 text-primary-800 text-xs font-semibold rounded-full">${cliente.tipoCliente} (${cliente.numeroDeReservas})</span>
-                        <span class="text-sm text-gray-600">${cliente.email || ''}</span>
-                        <span class="text-sm text-gray-600">${cliente.telefono || ''} - ${cliente.pais || 'País no especificado'}</span>
-                    </div>
-                </div>
-                <div>
-                    <button id="edit-cliente-btn" class="btn-primary mr-2">Editar Cliente</button>
-                    <button id="back-btn" class="btn-secondary">Volver</button>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 border-t pt-6">
-                <div class="md:col-span-1">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Datos Adicionales</h3>
-                    <dl>
-                        <dt class="font-medium text-gray-600 text-sm">Valor Histórico Total</dt>
-                        <dd class="text-success-600 text-xl font-bold mb-3">${formatCurrency(cliente.totalGastado)}</dd>
-
-                        <dt class="font-medium text-gray-600 text-sm">Calificación</dt>
-                        <dd class="text-warning-500 text-xl mb-3">${renderStars(cliente.calificacion)}</dd>
-                        
-                        <dt class="font-medium text-gray-600 text-sm">Ubicación Geográfica</dt>
-                        <dd class="text-gray-800 text-sm">${cliente.ubicacion || 'No especificada'}</dd>
-                    </dl>
-                </div>
-                <div class="md:col-span-2">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Notas</h3>
-                    <div class="bg-gray-50 p-3 rounded-md text-sm text-gray-700 whitespace-pre-wrap h-40 overflow-y-auto">
-                        ${cliente.notas || 'Sin notas.'}
-                    </div>
+        <div class="space-y-6">
+            ${_renderClienteHeader(cliente, seg, segBadgeClass)}
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div class="border-b"><nav class="flex -mb-px">
+                    <button id="tab-timeline" class="perfil-tab active px-6 py-3 text-sm font-medium border-b-2 border-primary-500 text-primary-600" data-tab="timeline"><i class="fa-solid fa-timeline mr-1.5"></i>Timeline (${timeline.length})</button>
+                    <button id="tab-reservas" class="perfil-tab px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="reservas"><i class="fa-solid fa-calendar-check mr-1.5"></i>Reservas (${cliente.reservas?.length || 0})</button>
+                    <button id="tab-notas" class="perfil-tab px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="notas"><i class="fa-solid fa-note-sticky mr-1.5"></i>Notas</button>
+                </nav></div>
+                <div id="panel-timeline" class="perfil-panel p-6">${_renderPanelTimeline(timeline)}</div>
+                <div id="panel-reservas" class="perfil-panel p-6 hidden">${_renderPanelReservas(cliente)}</div>
+                <div id="panel-notas" class="perfil-panel p-6 hidden">
+                    <div class="bg-gray-50 p-4 rounded-lg text-sm text-gray-700 whitespace-pre-wrap min-h-[120px]">${cliente.notas || 'Sin notas.'}</div>
                 </div>
             </div>
         </div>
-
-        <!-- Tabs para Reservas y Comunicaciones -->
-        <div class="bg-white rounded-lg shadow">
-            <div class="border-b">
-                <nav class="flex -mb-px">
-                    <button id="tab-reservas" class="tab-btn active px-6 py-3 text-sm font-medium border-b-2 border-primary-500 text-primary-600">
-                        📋 Historial de Reservas (${cliente.reservas?.length || 0})
-                    </button>
-                    <button id="tab-comunicaciones" class="tab-btn px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                        📧 Comunicaciones (${comunicaciones?.length || 0})
-                    </button>
-                </nav>
-            </div>
-
-            <!-- Panel Reservas -->
-            <div id="panel-reservas" class="tab-panel p-6">
-                <div class="overflow-x-auto">
-                    <table class="min-w-full bg-white">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="th text-xs py-2 px-3">ID Canal</th>
-                                <th class="th text-xs py-2 px-3">Alojamiento</th>
-                                <th class="th text-xs py-2 px-3">Canal</th>
-                                <th class="th text-xs py-2 px-3">Check-in</th>
-                                <th class="th text-xs py-2 px-3">Noches</th>
-                                <th class="th text-xs py-2 px-3">Estado</th>
-                                <th class="th text-xs py-2 px-3">Total Cliente</th>
-                            </tr>
-                        </thead>
-                        <tbody id="historial-tbody"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Panel Comunicaciones -->
-            <div id="panel-comunicaciones" class="tab-panel p-6 hidden">
-                <div class="overflow-x-auto">
-                    <table class="min-w-full bg-white">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="th text-xs py-2 px-3">Fecha</th>
-                                <th class="th text-xs py-2 px-3">Tipo</th>
-                                <th class="th text-xs py-2 px-3">Asunto</th>
-                                <th class="th text-xs py-2 px-3">Destinatario</th>
-                                <th class="th text-xs py-2 px-3">Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody id="comunicaciones-tbody"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        
         ${renderModalCliente()}
     `;
 }
 
 export function afterRender() {
-    renderHistorialReservas();
-    renderComunicaciones();
-
     // Tabs
-    document.getElementById('tab-reservas')?.addEventListener('click', () => {
-        document.getElementById('tab-reservas').classList.add('active', 'border-primary-500', 'text-primary-600');
-        document.getElementById('tab-reservas').classList.remove('border-transparent', 'text-gray-500');
-        document.getElementById('tab-comunicaciones').classList.remove('active', 'border-primary-500', 'text-primary-600');
-        document.getElementById('tab-comunicaciones').classList.add('border-transparent', 'text-gray-500');
-        document.getElementById('panel-reservas').classList.remove('hidden');
-        document.getElementById('panel-comunicaciones').classList.add('hidden');
-    });
-
-    document.getElementById('tab-comunicaciones')?.addEventListener('click', () => {
-        document.getElementById('tab-comunicaciones').classList.add('active', 'border-primary-500', 'text-primary-600');
-        document.getElementById('tab-comunicaciones').classList.remove('border-transparent', 'text-gray-500');
-        document.getElementById('tab-reservas').classList.remove('active', 'border-primary-500', 'text-primary-600');
-        document.getElementById('tab-reservas').classList.add('border-transparent', 'text-gray-500');
-        document.getElementById('panel-comunicaciones').classList.remove('hidden');
-        document.getElementById('panel-reservas').classList.add('hidden');
+    document.querySelectorAll('.perfil-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.perfil-tab').forEach(t => {
+                t.classList.remove('active', 'border-primary-500', 'text-primary-600');
+                t.classList.add('border-transparent', 'text-gray-500');
+            });
+            tab.classList.add('active', 'border-primary-500', 'text-primary-600');
+            tab.classList.remove('border-transparent', 'text-gray-500');
+            document.querySelectorAll('.perfil-panel').forEach(p => p.classList.add('hidden'));
+            document.getElementById(`panel-${tab.dataset.tab}`)?.classList.remove('hidden');
+        });
     });
 
     const backBtn = document.getElementById('back-btn');
-    backBtn.textContent = reservaDeOrigenId ? 'Volver a Gestión Diaria' : 'Volver a Clientes';
     backBtn.addEventListener('click', () => {
-        const path = reservaDeOrigenId ? '/gestion-diaria' : '/clientes';
+        const path = reservaDeOrigenId ? '/gestion-diaria' : '/crm';
         handleNavigation(path);
     });
 
-    document.getElementById('edit-cliente-btn').addEventListener('click', () => abrirModalCliente(cliente));
+    document.getElementById('edit-cliente-btn')?.addEventListener('click', () => abrirModalCliente(cliente));
 
     setupModalCliente(async () => {
         handleNavigation(window.location.pathname);

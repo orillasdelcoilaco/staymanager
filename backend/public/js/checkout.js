@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (statusMessage) {
             statusMessage.textContent = '';
-            statusMessage.classList.remove('hidden', 'text-red-600');
+            statusMessage.classList.remove('hidden', 'text-danger-600');
             statusMessage.classList.add('text-gray-600');
         }
 
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (statusMessage) {
                 statusMessage.textContent = `Error: ${error.message}`;
-                statusMessage.classList.add('text-red-600');
+                statusMessage.classList.add('text-danger-600');
                 statusMessage.classList.remove('hidden');
             } else {
                 alert(`Error: ${error.message}`);

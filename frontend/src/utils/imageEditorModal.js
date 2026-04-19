@@ -52,7 +52,7 @@ const initModal = () => {
         const canvas = cropper.getCroppedCanvas({
             maxWidth: 1920, 
             maxHeight: 1920,
-            fillColor: '#fff',
+            fillColor: 'rgb(255 255 255)',
         });
 
         canvas.toBlob((blob) => {

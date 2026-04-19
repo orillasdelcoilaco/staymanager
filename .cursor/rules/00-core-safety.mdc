@@ -1,0 +1,31 @@
+---
+description: Reglas centrales de seguridad y arquitectura multiempresa
+alwaysApply: true
+---
+
+# Core Safety - StayManager
+
+## Invariantes obligatorios
+
+- Mantener separacion estricta de mundos: `SPA` (panel privado) y `SSR` (sitio publico).
+- No mezclar logica de `SPA` y `SSR` en el mismo flujo funcional.
+- Mantener aislamiento total por empresa (tenant) en toda lectura/escritura.
+- Las empresas no comparten datos operativos entre si.
+- Unica entidad compartida global permitida: clientes.
+
+## Seguridad y datos sensibles
+
+- Nunca exponer secretos ni hardcodear credenciales.
+- No leer ni modificar archivos sensibles (`.env`, credenciales) salvo instruccion explicita.
+- No proponer cambios que rompan trazabilidad o integridad financiera.
+
+## Multi-tenant (no negociable)
+
+- PostgreSQL: toda query debe filtrar por `empresa_id`.
+- Firestore: toda ruta debe estar dentro de `empresas/{empresaId}/...`.
+- Si no se puede validar aislamiento de tenant, detener y pedir confirmacion.
+
+## Fuente financiera
+
+- Nunca sobrescribir `valores.valorHuesped`.
+- Calculos dinamicos solo generan referencia (KPI/presupuesto), no reemplazo de fuente.

@@ -2,6 +2,7 @@
 // Módulo central de estados: caché de sesión + configuración de semántica.
 // La SEMÁNTICA es un identificador de máquina fijo; el NOMBRE lo configura cada empresa.
 import { fetchAPI } from '../../api.js';
+import { LEGACY_STATUS_COLOR_RGB, DEFAULT_STATUS_GRAY_RGB } from '../../shared/statusLegacyRgb.js';
 
 // Tabla fija: semántica → comportamiento del sistema.
 // 'level' define qué botones de acción se muestran en Gestión Diaria.
@@ -89,17 +90,9 @@ export function getStatusInfo(statusName, allEstados = []) {
     const estado = findEstado(allEstados, statusName);
     const config = (estado?.semantica && SEMANTICA_CONFIG[estado.semantica]) ? SEMANTICA_CONFIG[estado.semantica] : {};
 
-    // Fallback de colores para estados legacy sin semantica
-    let fallbackColor = '#9ca3af';
+    let fallbackColor = DEFAULT_STATUS_GRAY_RGB;
     if (!estado) {
-        const legacyMap = {
-            'Confirmada': '#22c55e', 'Cancelada': '#ef4444', 'No Presentado': '#ef4444',
-            'Propuesta': '#f59e0b', 'Desconocido': '#f59e0b',
-            'Pendiente Bienvenida': '#6366f1', 'Pendiente Cobro': '#f59e0b',
-            'Pendiente Pago': '#f59e0b', 'Pendiente Boleta': '#f59e0b',
-            'Pendiente Cliente': '#6366f1', 'Facturado': '#22c55e',
-        };
-        fallbackColor = legacyMap[statusName] || '#9ca3af';
+        fallbackColor = LEGACY_STATUS_COLOR_RGB[statusName] || DEFAULT_STATUS_GRAY_RGB;
     }
 
     // Fallback de config para estados legacy sin semantica

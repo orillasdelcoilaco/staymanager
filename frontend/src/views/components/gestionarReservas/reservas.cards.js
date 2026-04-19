@@ -20,7 +20,7 @@ function badgeEstado(estadoNombre, allEstados = []) {
 }
 
 function badgeGestion(estadoNombre, allEstados = []) {
-    if (!estadoNombre) return '<span class="badge-estado" style="background-color:#f3f4f6;color:#6b7280">N/A</span>';
+    if (!estadoNombre) return '<span class="badge-estado" style="background-color:rgb(243 244 246);color:rgb(107 114 128)">N/A</span>';
     const info = getStatusInfo(estadoNombre, allEstados);
     const hex = info.color;
     return `<span class="badge-estado" style="background-color:${hex}22;color:${hex};border:1px solid ${hex}44">${estadoNombre}</span>`;
@@ -94,7 +94,7 @@ function renderCardItem(r, idNumericoCarga, allEstados = []) {
 
         ${r.alertaBloqueo ? `
         <div class="px-4 py-2 bg-danger-50 border border-danger-200 rounded-lg text-xs flex items-start gap-2 mb-2">
-            <span class="text-danger-500 flex-shrink-0">🚫</span>
+            <i class="fa-solid fa-ban text-danger-500 flex-shrink-0"></i>
             <div><span class="font-semibold text-danger-700">Huésped Bloqueado:</span> <span class="text-danger-600">${r.motivoBloqueo || 'Sin motivo especificado'}</span></div>
         </div>` : ''}
 

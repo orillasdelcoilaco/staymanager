@@ -2,7 +2,23 @@
 import { fetchAPI } from '../../../api.js';
 import { generarIdComponente } from './alojamientos.utils.js';
 import { renderComponentList } from './componentEditor.js';
-import { renderUbicacionWidget, setupUbicacionWidget, getUbicacionData } from '../ubicacionWidget.js';
+import { getUbicacionData } from '../ubicacionWidget.js';
+import { renderModalAlojamiento } from './alojamientos.modals.render.js';
+import {
+    loadModalCatalogCaches,
+    buildIcalInputsHtml,
+    mountAreasComunesIfNeeded,
+    mountUbicacionCarteraIfNeeded,
+} from './alojamientos.modals.openHelpers.js';
+import {
+    showCustomConfirm,
+    detectarTipoEspacio,
+    calcularCapacidadElementos,
+    getCategoryForSpaceType,
+    buildElementoFromTipo
+} from './alojamientos.modals.helpers.js';
+
+export { renderModalAlojamiento };
 
 let onSaveCallback = null;
 let editandoPropiedad = null;
@@ -11,37 +27,10 @@ let componentesTemporales = []; // Array of { id, nombre, tipo, tipoId, icono, e
 let canalesCache = [];
 let tiposComponenteCache = [];
 let tiposElementoCache = [];
-let tempAiDescription = ''; // Nuevo: Almacena descripción de marketing generada por IA
+let tempAiDescription = ''; // Almacena descripción de marketing generada por IA
+let areasCompanyCache = []; // Instalaciones del recinto (empresa-level)
 
-// --- UTILS: CUSTOM CONFIRM ---
-function showCustomConfirm(message, onConfirm) {
-    const overlay = document.createElement('div');
-    overlay.className = 'fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center';
-    overlay.style.zIndex = '9999'; // Force high z-index to be above everything
-    overlay.innerHTML = `
-        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full mx-4 animate-fade-in-up">
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">Confirmación</h3>
-            <p class="text-gray-600 mb-6">${message}</p>
-            <div class="flex justify-end gap-3">
-                <button id="custom-cancel-btn" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors">Cancelar</button>
-                <button id="custom-confirm-btn" class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors">Confirmar</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-
-    const close = () => {
-        if (document.body.contains(overlay)) {
-            document.body.removeChild(overlay);
-        }
-    };
-
-    document.getElementById('custom-cancel-btn').onclick = close;
-    document.getElementById('custom-confirm-btn').onclick = () => {
-        close();
-        onConfirm();
-    };
-}
+// --- UTILS: CUSTOM CONFIRM (imported from alojamientos.modals.helpers.js) ---
 
 // --- FUNCIONES GLOBALES (Window) PARA EVENTOS EN HTML STRING ---
 
@@ -82,12 +71,12 @@ window.agregarElemento = (compIndex) => {
         componentesTemporales[compIndex].elementos = [];
     }
 
-    // Verificar si ya existe (si no permite cantidad, o si queremos agrupar)
     const existente = componentesTemporales[compIndex].elementos.find(e => e.tipoId === tipoId);
 
     if (existente && tipoData.permiteCantidad) {
         existente.cantidad++;
     } else {
+        const cap = tipoData.capacity !== undefined ? parseInt(tipoData.capacity) : 0;
         componentesTemporales[compIndex].elementos.push({
             tipoId: tipoData.id,
             nombre: tipoData.nombre,
@@ -95,15 +84,14 @@ window.agregarElemento = (compIndex) => {
             categoria: tipoData.categoria,
             permiteCantidad: tipoData.permiteCantidad,
             cantidad: 1,
-            // Guardamos la capacidad explícita desde el catálogo
-            capacity: tipoData.capacity !== undefined ? parseInt(tipoData.capacity) : 0,
-            amenity: '', // Nuevo campo para detalles
-            sales_context: tipoData.sales_context || '' // Copiar contexto de ventas para GPT
+            capacity: cap,
+            sumaCapacidad: cap > 0 ? true : undefined,
+            amenity: '',
+            sales_context: tipoData.sales_context || ''
         });
     }
 
     renderizarListaComponentes();
-    // Re-abrir el componente
     setTimeout(() => window.toggleComponente(compIndex), 0);
 };
 
@@ -123,6 +111,14 @@ window.cambiarCantidadElemento = (compIndex, elemIndex, delta) => {
     }
 };
 
+window.toggleSumaCapacidad = (compIndex, elemIndex, value) => {
+    const elem = componentesTemporales[compIndex]?.elementos[elemIndex];
+    if (elem) {
+        elem.sumaCapacidad = value;
+        actualizarContadores();
+    }
+};
+
 window.actualizarAmenidad = (compIndex, elemIndex, valor) => {
     const elem = componentesTemporales[compIndex].elementos[elemIndex];
     if (elem) {
@@ -138,6 +134,26 @@ window.actualizarCapacidadManual = (compIndex, elemIndex, valor) => {
     }
 };
 
+window.filtrarActivos = (compIndex, query) => {
+    const q = (query || '').toLowerCase().trim();
+    const panel = document.getElementById(`bulk-add-panel-${compIndex}`);
+    if (!panel) return;
+
+    const categorias = panel.querySelectorAll('[data-bulk-cat]');
+    categorias.forEach(catDiv => {
+        let tieneVisibles = false;
+        const labels = catDiv.querySelectorAll(`input[name="bulk-check-${compIndex}"]`);
+        labels.forEach(input => {
+            const labelEl = input.closest('label');
+            const nombre = labelEl.querySelector('span.text-xs')?.textContent.toLowerCase() || '';
+            const visible = !q || nombre.includes(q);
+            visible ? labelEl.classList.remove('hidden') : labelEl.classList.add('hidden');
+            if (visible) tieneVisibles = true;
+        });
+        tieneVisibles ? catDiv.classList.remove('hidden') : catDiv.classList.add('hidden');
+    });
+};
+
 window.toggleBulkPanel = (compIndex) => {
     const panel = document.getElementById(`bulk-add-panel-${compIndex}`);
     const arrow = document.getElementById(`bulk-arrow-${compIndex}`);
@@ -148,6 +164,9 @@ window.toggleBulkPanel = (compIndex) => {
         } else {
             panel.classList.add('hidden');
             arrow.style.transform = 'rotate(0deg)';
+            // Limpiar búsqueda al cerrar
+            const searchInput = document.getElementById(`bulk-search-${compIndex}`);
+            if (searchInput) { searchInput.value = ''; window.filtrarActivos(compIndex, ''); }
         }
     }
 };
@@ -172,43 +191,36 @@ window.agregarSeleccionados = (compIndex) => {
         const tipoData = tiposElementoCache.find(t => t.id === tipoId);
         if (!tipoData) return;
 
-        // Verificar si ya existe
         const existente = componentesTemporales[compIndex].elementos.find(e => e.tipoId === tipoId);
 
-        if (existente && tipoData.permiteCantidad) {
-            // Si ya existe, NO lo duplicamos automáticamente, ni aumentamos cantidad por ahora.
-            // Decisión de diseño: Bulk add agrega items nuevos. Si ya está, lo ignoramos para no sumar doble inadvertidamente.
-            // O podríamos sumar +1. Por simplicidad y seguridad, solo agregamos si NO está.
-            // CAMBIO: Si ya existe, simplemente lo ignoramos. El usuario puede subir la cantidad manualmente.
-        } else if (!existente) {
+        if (!existente) {
+            const cap = tipoData.capacity !== undefined ? parseInt(tipoData.capacity) : 0;
             componentesTemporales[compIndex].elementos.push({
                 tipoId: tipoData.id,
                 nombre: tipoData.nombre,
                 icono: tipoData.icono,
                 categoria: tipoData.categoria,
                 permiteCantidad: tipoData.permiteCantidad,
-                cantidad: 1, // Default to 1
-                capacity: tipoData.capacity !== undefined ? parseInt(tipoData.capacity) : 0,
+                cantidad: 1,
+                capacity: cap,
+                sumaCapacidad: cap > 0 ? true : undefined,
                 amenity: '',
                 sales_context: tipoData.sales_context || ''
             });
             agregadosCount++;
         }
 
-        // Uncheck after adding
         cb.checked = false;
     });
 
-    // Uncheck category headers
     const headers = document.querySelectorAll(`#bulk-add-panel-${compIndex} input[type="checkbox"]`);
     headers.forEach(h => h.checked = false);
 
     if (agregadosCount > 0) {
         renderizarListaComponentes();
-        // Mantener panel abierto
         setTimeout(() => {
-            window.toggleComponente(compIndex); // Asegurar que el componente padre esté abierto
-            window.toggleBulkPanel(compIndex); // Reabrir panel de bulk
+            window.toggleComponente(compIndex);
+            window.toggleBulkPanel(compIndex);
         }, 0);
     } else {
         alert('Los elementos seleccionados ya estaban en la lista.');
@@ -222,108 +234,27 @@ function actualizarContadores() {
     let numBanos = 0;
     let capacidadTotal = 0;
 
-    const normalize = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
     componentesTemporales.forEach(comp => {
-        // Normalizar a mayúsculas y eliminar acentos para comparación robusta
-        const rawTipo = (comp.tipo || '').toUpperCase();
-        const rawNombre = (comp.nombre || '').toUpperCase();
-
-        const tipo = normalize(rawTipo);
-        const nombre = normalize(rawNombre);
-
-        // Palabras clave para detectar tipos (debe coincidir con backend/services/propiedadLogicService.js)
-        const isDormitorio = tipo.includes('DORMITORIO') || tipo.includes('HABITACION') || tipo.includes('PIEZA') || tipo.includes('BEDROOM') ||
-            nombre.includes('DORMITORIO') || nombre.includes('HABITACION');
-
-        const isBano = tipo.includes('BANO') || tipo.includes('TOILET') || tipo.includes('WC') || tipo.includes('BATH') ||
-            nombre.includes('BANO') || nombre.includes('TOILET');
+        const { isDormitorio, isBano, isSuite } = detectarTipoEspacio(comp);
 
         if (isBano) {
             numBanos++;
         } else if (isDormitorio) {
             numPiezas++;
-            // Lógica En Suite: Si es dormitorio y dice "SUITE", asumimos +1 baño
-            if (nombre.includes('SUITE') || tipo.includes('SUITE')) {
-                numBanos++;
-            }
+            if (isSuite) numBanos++;
         }
 
-        // Calcular capacidad basada en elementos (camas)
-        if (comp.elementos && Array.isArray(comp.elementos)) {
-            comp.elementos.forEach(elem => {
-                const nombreElem = normalize((elem.nombre || '').toUpperCase());
-                const cantidad = parseInt(elem.cantidad) || 1;
-
-                // Lógica de Prioridad: 1. Capacidad Explícita (DB) -> 2. Heurística
-                if (elem.capacity !== undefined && elem.capacity !== null) {
-                    capacidadTotal += Number(elem.capacity) * cantidad;
-                    return; // Usamos el valor explícito y pasamos al siguiente elemento
-                }
-
-                // Lógica heurística de capacidad (FALLBACK)
-
-                // 1. Detectar explícitamente capacidad doble
-                const esDoble = nombreElem.includes('KING') ||
-                    nombreElem.includes('QUEEN') ||
-                    nombreElem.includes('MATRIMONIAL') ||
-                    nombreElem.includes('DOBLE') ||
-                    nombreElem.includes('2 PLAZAS') ||
-                    nombreElem.includes('DOS PLAZAS');
-
-                // 2. Detectar explícitamente capacidad simple
-                const esSimple = nombreElem.includes('1 PLAZA') ||
-                    nombreElem.includes('1.5 PLAZA') ||
-                    nombreElem.includes('INDIVIDUAL') ||
-                    nombreElem.includes('SINGLE') ||
-                    nombreElem.includes('NIDO') ||
-                    nombreElem.includes('CATRE') ||
-                    nombreElem.includes('SIMPLE');
-
-                // 3. Tipos de muebles para dormir
-                const esCama = nombreElem.includes('CAMA') || nombreElem.includes('BED');
-                const esLitera = nombreElem.includes('LITERA') || nombreElem.includes('CAMAROTE');
-                // MODIFICADO: Solo contar sofás si son explícitamente SOFA CAMA. El sofá normal es mueble.
-                const esSofa = nombreElem.includes('SOFA CAMA') || nombreElem.includes('FUTON') || nombreElem.includes('SOFABED');
-                const esColchon = nombreElem.includes('COLCHON') || nombreElem.includes('INFLABLE');
-
-                if (esLitera) {
-                    // Literas generalmente son 2 camas
-                    capacidadTotal += 2 * cantidad;
-                } else if (esDoble) {
-                    // Cualquier cosa explícitamente doble suma 2
-                    capacidadTotal += 2 * cantidad;
-                } else if (esSimple) {
-                    // Cualquier cosa explícitamente simple suma 1
-                    capacidadTotal += 1 * cantidad;
-                } else {
-                    // Casos ambiguos o por defecto
-                    if (esSofa || esColchon) {
-                        capacidadTotal += 1 * cantidad;
-                    } else if (esCama) {
-                        // Si dice solo "Cama" y no especificó nada más -> Asumimos 1
-                        capacidadTotal += 1 * cantidad;
-                    }
-                }
-            });
-        }
+        capacidadTotal += calcularCapacidadElementos(comp.elementos);
     });
 
-    // Actualizar inputs del DOM si existen
     const inputPiezas = document.getElementById('numPiezas');
-    if (inputPiezas) {
-        inputPiezas.value = numPiezas;
-    }
+    if (inputPiezas) inputPiezas.value = numPiezas;
 
     const inputBanos = document.getElementById('numBanos');
-    if (inputBanos) {
-        inputBanos.value = numBanos;
-    }
+    if (inputBanos) inputBanos.value = numBanos;
 
     const inputCapacidad = document.getElementById('capacidad');
-    if (inputCapacidad) {
-        inputCapacidad.value = capacidadTotal;
-    }
+    if (inputCapacidad) inputCapacidad.value = capacidadTotal;
 
     console.log(`[DEBUG] Contadores actualizados: Piezas=${numPiezas}, Baños=${numBanos}, Capacidad=${capacidadTotal}`);
 }
@@ -339,23 +270,22 @@ function renderizarListaComponentes() {
     actualizarContadores();
 }
 
-/**
- * Mapea el nombre o tipo de un espacio a una categoría de activos probable.
- * @param {string} tipoEspacio - Nombre normalizado del tipo de espacio (ej: 'DORMITORIO')
- * @returns {string|null} Nombre de la categoría de activos o null si no hay match claro.
- */
-function getCategoryForSpaceType(tipoEspacio) {
-    const t = (tipoEspacio || '').toUpperCase();
 
-    if (t.includes('DORMITORIO') || t.includes('HABITACION') || t.includes('PIEZA')) return 'DORMITORIO';
-    if (t.includes('COCINA') || t.includes('KITCHEN')) return 'COCINA';
-    if (t.includes('BAÑO') || t.includes('BANO') || t.includes('BATH') || t.includes('TOILET')) return 'BAÑO';
-    if (t.includes('LIVING') || t.includes('ESTAR') || t.includes('SALA')) return 'LIVING';
-    if (t.includes('COMEDOR') || t.includes('DINING')) return 'COMEDOR';
-    if (t.includes('TERRAZA') || t.includes('PATIO') || t.includes('JARDIN') || t.includes('EXTERIOR') || t.includes('QUINCHO')) return 'EXTERIOR';
-    if (t.includes('LOGGIA') || t.includes('LAVADERO')) return 'LOGGIA';
+function autoFillElementos(comp, tipoData, nombre) {
+    if (comp.elementos.length > 0) return;
 
-    return null;
+    const catSugerida = getCategoryForSpaceType(tipoData.nombreNormalizado || nombre);
+    if (!catSugerida) return;
+
+    console.log(`[AutoFill] Buscando activos para categoría '${catSugerida}'...`);
+    const itemsSugeridos = tiposElementoCache.filter(te =>
+        (te.categoria || '').toUpperCase().includes(catSugerida)
+    );
+
+    if (itemsSugeridos.length > 0) {
+        console.log(`[AutoFill] Encontrados ${itemsSugeridos.length} items. Agregando...`);
+        comp.elementos = itemsSugeridos.map(buildElementoFromTipo);
+    }
 }
 
 function handleAgregarComponente() {
@@ -377,7 +307,6 @@ function handleAgregarComponente() {
         tipo: tipoData.nombreNormalizado || 'Otro',
         tipoId: tipoId,
         icono: tipoData.icono || '📦',
-        // Pre-llenar con inventario por defecto si existe
         elementos: (tipoData.elementosDefault && Array.isArray(tipoData.elementosDefault))
             ? tipoData.elementosDefault.map(ed => ({
                 tipoId: ed.tipoId,
@@ -385,50 +314,31 @@ function handleAgregarComponente() {
                 titulo: ed.nombre,
                 icono: ed.icono || '🔹',
                 cantidad: ed.cantidad || 1,
-                permiteCantidad: true, // Asumimos true para defaults
-                capacity: ed.capacity || 0, // Asegurar copia de capacidad también aquí
+                permiteCantidad: true,
+                capacity: ed.capacity || 0,
                 categoria: 'BÁSICOS'
             }))
             : []
     });
 
-    // Lógica Auto-Fill por Categoría
-    // Si no hay defaults configurados, intentamos poblar inteligentemente basado en la categoría.
     const nuevoComp = componentesTemporales[componentesTemporales.length - 1];
-
-    if (nuevoComp.elementos.length === 0) {
-        const catSugerida = getCategoryForSpaceType(tipoData.nombreNormalizado || nombre);
-
-        if (catSugerida) {
-            console.log(`[AutoFill] Buscando activos para categoría '${catSugerida}'...`);
-
-            // Buscar items en tiposElementoCache que coincidan con la categoría (fuzzy matching simple)
-            // Se usa includes para flexibilidad (ej: 'DORMITORIO' matchea 'DORMITORIO PRINCIPAL' si existiera categorización detallada)
-            const itemsSugeridos = tiposElementoCache.filter(te =>
-                (te.categoria || '').toUpperCase().includes(catSugerida)
-            );
-
-            if (itemsSugeridos.length > 0) {
-                console.log(`[AutoFill] Encontrados ${itemsSugeridos.length} items. Agregando...`);
-
-                nuevoComp.elementos = itemsSugeridos.map(te => ({
-                    tipoId: te.id,
-                    nombre: te.nombre,
-                    titulo: te.nombre,
-                    icono: te.icono || '🔹',
-                    cantidad: 1, // Default quantity should be 1
-                    permiteCantidad: true,
-                    capacity: (te.capacity !== undefined && te.capacity !== null) ? Number(te.capacity) : 0,
-                    categoria: te.categoria,
-                    amenity: '',
-                    sales_context: te.sales_context || ''
-                }));
-            }
-        }
-    }
+    autoFillElementos(nuevoComp, tipoData, nombre);
 
     nombreInput.value = '';
     renderizarListaComponentes();
+}
+
+async function crearTiposSugeridos(suggestedNewTypes) {
+    for (const nuevo of suggestedNewTypes) {
+        await fetchAPI('/componentes', { method: 'POST', body: nuevo });
+    }
+    const timestamp = Date.now();
+    const [tiposComp, tiposElem] = await Promise.all([
+        fetchAPI(`/componentes?t=${timestamp}`),
+        fetchAPI(`/tipos-elemento?t=${timestamp}`)
+    ]);
+    tiposComponenteCache = tiposComp;
+    tiposElementoCache = tiposElem;
 }
 
 async function handleGenerarEstructuraIA() {
@@ -442,129 +352,82 @@ async function handleGenerarEstructuraIA() {
     const btn = document.getElementById('btn-generar-ia');
     const originalText = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = '✨ Analizando y Creando...';
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Analizando y Creando...';
 
     try {
         console.log('[DEBUG] Enviando petición a /ai/generate-structure con:', descripcion);
-        const response = await fetchAPI('/ai/generate-structure', {
-            method: 'POST',
-            body: { descripcion }
-        });
+        const response = await fetchAPI('/ai/generate-structure', { method: 'POST', body: { descripcion } });
         console.log('[DEBUG] Respuesta IA recibida:', response);
 
-        // Pre-procesamiento: Detectar si es Array (viejo) u Objeto (nuevo)
         const listaComponentes = Array.isArray(response) ? response : (response.componentes || []);
         const ubicacionSugerida = Array.isArray(response) ? null : response.ubicacion;
         const marketingDescSugerida = Array.isArray(response) ? '' : (response.marketingDesc || '');
 
-        if (listaComponentes && Array.isArray(listaComponentes)) {
-            // RECARGA CRÍTICA: Actualizar cache de tipos por si la IA creó nuevos
-            // NUEVO: Detectar si hay sugerencias de nuevos tipos y PREGUNTAR antes de seguir
-            const suggestedNewTypes = Array.isArray(response) ? [] : (response.suggestedNewTypes || []);
+        if (!Array.isArray(listaComponentes)) return;
 
-            if (suggestedNewTypes.length > 0) {
-                console.log('[AI] Sugerencias detectadas:', suggestedNewTypes);
+        const suggestedNewTypes = Array.isArray(response) ? [] : (response.suggestedNewTypes || []);
 
-                // Generar lista HTML para el alert
-                const listaHTML = suggestedNewTypes.map(t => `<li>${t.icono} <b>${t.nombreNormalizado}</b></li>`).join('');
+        if (suggestedNewTypes.length > 0) {
+            console.log('[AI] Sugerencias detectadas:', suggestedNewTypes);
+            const listaHTML = suggestedNewTypes.map(t => `<li>${t.icono} <b>${t.nombreNormalizado}</b></li>`).join('');
 
-                // Usamos un confirm especial para crear tipos (Async flow)
-                // Nota: showCustomConfirm no es async, pero ejecutamos la lógica dentro del callback
-
-                showCustomConfirm(`
-                    <p class="mb-2">La IA detectó espacios que no tienes configurados:</p>
-                    <ul class="list-disc pl-5 mb-2 text-sm text-gray-700 bg-gray-50 p-2 rounded">${listaHTML}</ul>
-                    <p>¿Deseas crearlos automáticamente ahora?</p>
-                `, async () => {
-                    // Lógica de Creación
-                    try {
-                        const btn = document.getElementById('btn-generar-ia');
-                        if (btn) btn.innerHTML = '✨ Creando tipos...';
-
-                        console.log('[AI] Creando tipos sugeridos...');
-                        for (const nuevo of suggestedNewTypes) {
-                            await fetchAPI('/componentes', {
-                                method: 'POST',
-                                body: nuevo // { nombreNormalizado, icono, ... }
-                            });
-                        }
-                        console.log('[AI] Tipos creados. Recargando cache...');
-
-                        // Recargar cache
-                        const timestamp = Date.now();
-                        const [tiposComp, tiposElem] = await Promise.all([
-                            fetchAPI(`/componentes?t=${timestamp}`),
-                            fetchAPI(`/tipos-elemento?t=${timestamp}`)
-                        ]);
-                        tiposComponenteCache = tiposComp;
-                        tiposElementoCache = tiposElem;
-
-                        // Continuar con el flujo normal
-                        aplicarEstructuraIA(listaComponentes, ubicacionSugerida, marketingDescSugerida);
-
-                    } catch (createError) {
-                        console.error('Error creando tipos:', createError);
-                        alert('Error creando los tipos automáticos. Se intentará aplicar la estructura igual.');
-                        aplicarEstructuraIA(listaComponentes, ubicacionSugerida, marketingDescSugerida);
-                    } finally {
-                        const btn = document.getElementById('btn-generar-ia');
-                        if (btn) {
-                            btn.disabled = false;
-                            btn.innerHTML = originalText;
-                        }
-                    }
-                });
-                return; // IMPORTANTE: Salir para esperar la confirmación
-            }
-
-            // Si no hay nuevos tipos, seguimos directo
-            aplicarEstructuraIA(listaComponentes, ubicacionSugerida, marketingDescSugerida);
-
+            showCustomConfirm(`
+                <p class="mb-2">La IA detectó espacios que no tienes configurados:</p>
+                <ul class="list-disc pl-5 mb-2 text-sm text-gray-700 bg-gray-50 p-2 rounded">${listaHTML}</ul>
+                <p>¿Deseas crearlos automáticamente ahora?</p>
+            `, async () => {
+                try {
+                    const b = document.getElementById('btn-generar-ia');
+                    if (b) b.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Creando tipos...';
+                    console.log('[AI] Creando tipos sugeridos...');
+                    await crearTiposSugeridos(suggestedNewTypes);
+                    console.log('[AI] Tipos creados. Recargando cache...');
+                    aplicarEstructuraIA(listaComponentes, ubicacionSugerida, marketingDescSugerida);
+                } catch (createError) {
+                    console.error('Error creando tipos:', createError);
+                    alert('Error creando los tipos automáticos. Se intentará aplicar la estructura igual.');
+                    aplicarEstructuraIA(listaComponentes, ubicacionSugerida, marketingDescSugerida);
+                } finally {
+                    const b = document.getElementById('btn-generar-ia');
+                    if (b) { b.disabled = false; b.innerHTML = originalText; }
+                }
+            });
+            return;
         }
+
+        aplicarEstructuraIA(listaComponentes, ubicacionSugerida, marketingDescSugerida);
+
     } catch (error) {
         console.error("Error IA:", error);
         alert("Hubo un error al generar la estructura.");
-        const btn = document.getElementById('btn-generar-ia');
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-        }
+        const b = document.getElementById('btn-generar-ia');
+        if (b) { b.disabled = false; b.innerHTML = originalText; }
     }
 }
 
-// Refactor: Separamos la lógica de aplicación para reusarla
 function aplicarEstructuraIA(listaComponentes, ubicacionSugerida, marketingDescSugerida) {
-    // Confirmar y aplicar cambios
     showCustomConfirm(`La IA ha sugerido agregar ${listaComponentes.length} nuevos espacios. ¿Deseas agregarlos a tu distribución actual?`, () => {
         try {
-            // 1. Aplicar Ubicación si se detectó
             if (ubicacionSugerida) {
                 if (ubicacionSugerida.calle) document.getElementById('googleHotelStreet').value = ubicacionSugerida.calle;
                 if (ubicacionSugerida.ciudad) document.getElementById('googleHotelCity').value = ubicacionSugerida.ciudad;
             }
 
-            // 1b. Guardar Descripción Marketing si se generó
             if (marketingDescSugerida) {
                 tempAiDescription = marketingDescSugerida;
                 console.log('[AI] Descripción de Marketing guardada temporalmente:', tempAiDescription);
             }
 
-            // 2. MERGE: Agregar nuevos a los existentes
             const nuevosComponentes = listaComponentes.map(comp => {
-                // Buscar metadatos actualizados en la nueva cache
                 const metaTipo = tiposComponenteCache.find(t => t.id === comp.tipoId);
-
                 return {
                     id: generarIdComponente(comp.nombre || 'Espacio'),
                     nombre: comp.nombre || 'Sin Nombre',
-                    // Fallback mejorado: Si cache falla, usa datos directos de IA (tipo/icono creados)
                     tipo: metaTipo ? metaTipo.nombreNormalizado : (comp.tipo || comp.sugerenciaNuevoTipo || 'Otro'),
                     tipoId: comp.tipoId || 'unknown',
                     icono: metaTipo ? metaTipo.icono : (comp.icono || '✨'),
-                    elementos: (comp.elementos && Array.isArray(comp.elementos)) ? comp.elementos.map(elem => {
-                        // Buscar metadatos del elemento en cache
+                    elementos: Array.isArray(comp.elementos) ? comp.elementos.map(elem => {
                         const metaElem = tiposElementoCache.find(e => e.id === elem.tipoId);
-
                         return {
                             tipoId: elem.tipoId,
                             nombre: elem.nombre || (metaElem ? metaElem.nombre : 'Item'),
@@ -573,15 +436,13 @@ function aplicarEstructuraIA(listaComponentes, ubicacionSugerida, marketingDescS
                             categoria: elem.categoria || (metaElem ? metaElem.categoria : 'OTROS'),
                             permiteCantidad: true,
                             amenity: '',
-                            sales_context: metaElem ? (metaElem.sales_context || '') : '' // COPYING CONTEXT HERE TOO!
+                            sales_context: metaElem ? (metaElem.sales_context || '') : ''
                         };
                     }) : []
                 };
             });
 
-            // APPEND to existing list
             componentesTemporales = [...componentesTemporales, ...nuevosComponentes];
-
             console.log('[DEBUG] Estructura aplicada (Merged):', componentesTemporales);
             renderizarListaComponentes();
 
@@ -592,114 +453,81 @@ function aplicarEstructuraIA(listaComponentes, ubicacionSugerida, marketingDescS
     });
 }
 
+// --- HELPERS PRIVADOS: abrirModalAlojamiento ---
+
+function cargarSelectTipos(tipoSelect, tiposComp) {
+    if (tiposComp.length === 0) {
+        tipoSelect.innerHTML = '<option value="">Sin tipos definidos</option>';
+        tipoSelect.disabled = true;
+    } else {
+        tipoSelect.disabled = false;
+        tipoSelect.innerHTML = tiposComp.map(t =>
+            `<option value="${t.id}">${t.icono || ''} ${t.nombreNormalizado}</option>`
+        ).join('');
+    }
+}
+
+function hidratarCapacidades(componentes) {
+    componentes.forEach(comp => {
+        if (!Array.isArray(comp.elementos)) return;
+        comp.elementos.forEach(elem => {
+            if (elem.capacity !== undefined && elem.capacity !== null) return;
+            const tipoData = tiposElementoCache.find(t => t.id === elem.tipoId);
+            if (tipoData && tipoData.capacity !== undefined) {
+                elem.capacity = parseInt(tipoData.capacity);
+                console.log(`[Hydrate] Elemento '${elem.nombre}' hidratado con capacidad: ${elem.capacity}`);
+            }
+        });
+    });
+}
+
+function poblarFormularioEdicion(form, propiedad, icalContainer) {
+    editandoPropiedad = propiedad;
+    document.getElementById('modal-title').textContent = 'Editar Alojamiento';
+    const subtitleEl = document.getElementById('modal-alojamiento-subtitle');
+    if (subtitleEl) subtitleEl.textContent = propiedad.nombre;
+
+    form.nombre.value = propiedad.nombre || '';
+    form.numPiezas.value = propiedad.numPiezas || 0;
+    form.numBanos.value = propiedad.numBanos || 0;
+    form.capacidad.value = propiedad.capacidad || 0;
+
+    componentesTemporales = Array.isArray(propiedad.componentes)
+        ? JSON.parse(JSON.stringify(propiedad.componentes))
+        : [];
+
+    icalContainer.querySelectorAll('.ical-input').forEach(input => {
+        const canalKey = input.dataset.canalKey;
+        input.value = (propiedad.sincronizacionIcal && propiedad.sincronizacionIcal[canalKey])
+            ? propiedad.sincronizacionIcal[canalKey]
+            : '';
+    });
+
+    form.googleHotelId.value = propiedad.googleHotelData?.hotelId || '';
+    form.googleHotelIsListed.checked = propiedad.googleHotelData?.isListed || false;
+}
+
+function poblarFormularioCreacion(form, icalContainer) {
+    editandoPropiedad = null;
+    document.getElementById('modal-title').textContent = 'Crear Nuevo Alojamiento';
+    const subtitleEl = document.getElementById('modal-alojamiento-subtitle');
+    if (subtitleEl) subtitleEl.textContent = 'Configura los datos del alojamiento';
+    form.reset();
+    componentesTemporales = [];
+    tempAiDescription = '';
+    icalContainer.querySelectorAll('.ical-input').forEach(input => { input.value = ''; });
+}
+
 // --- EXPORTS ---
-
-export const renderModalAlojamiento = () => {
-    return `
-        <div id="propiedad-modal" class="modal hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-40 flex items-center justify-center">
-             <div class="modal-content relative bg-white rounded-lg shadow-xl w-full max-w-5xl mx-4 md:mx-auto my-5 flex flex-col max-h-[95vh]">
-                 <div class="flex justify-between items-center p-5 border-b">
-                    <h3 id="modal-title" class="text-xl font-semibold text-gray-800"></h3>
-                    <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-2xl font-bold">&times;</button>
-                </div>
-                <div class="p-6 overflow-y-auto bg-gray-50">
-                    <form id="propiedad-form" class="space-y-6">
-                        
-                        <!-- SECCIÓN 1: DATOS BÁSICOS -->
-                        <div class="bg-white p-6 rounded-lg shadow-sm border">
-                            <h4 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Información General</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <div class="lg:col-span-2">
-                                    <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre Alojamiento</label>
-                                    <input type="text" id="nombre" name="nombre" required class="form-input mt-1 w-full" placeholder="Ej: Cabaña del Lago">
-                                </div>
-                                <div>
-                                    <label for="capacidad" class="block text-sm font-medium text-gray-700">Capacidad Máxima</label>
-                                    <input type="number" id="capacidad" name="capacidad" required class="form-input mt-1 w-full">
-                                </div>
-                                <div>
-                                    <label for="numPiezas" class="block text-sm font-medium text-gray-700">Nº Piezas (Ref)</label>
-                                    <input type="number" id="numPiezas" name="numPiezas" class="form-input mt-1 w-full" readonly>
-                                </div>
-                                <div>
-                                    <label for="numBanos" class="block text-sm font-medium text-gray-700">Nº Baños (Ref)</label>
-                                    <input type="number" id="numBanos" name="numBanos" class="form-input mt-1 w-full" readonly>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- SECCIÓN 2: CONSTRUCTOR DE ESPACIOS (CORE) -->
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-primary-100">
-                            <div class="flex justify-between items-center mb-4 border-b pb-2">
-                                <div>
-                                    <h4 class="text-lg font-semibold text-primary-700">Distribución y Contenido</h4>
-                                    <p class="text-sm text-gray-500">Define los espacios (dormitorios, baños) y qué hay dentro de ellos.</p>
-                                </div>
-                            </div>
-                            
-                            <!-- Formulario Agregar Componente -->
-                            <div class="bg-primary-50 p-4 rounded-lg mb-6 flex flex-col md:flex-row gap-4 items-end border border-primary-100">
-                                <div class="flex-grow">
-                                    <label class="block text-xs font-medium text-primary-800 uppercase mb-1">Nombre del Espacio</label>
-                                    <input type="text" id="nuevo-componente-nombre" placeholder="Ej: Dormitorio Principal" class="form-input w-full">
-                                </div>
-                                <div class="md:w-1/3">
-                                    <label class="block text-xs font-medium text-primary-800 uppercase mb-1">Tipo</label>
-                                    <select id="nuevo-componente-tipo" class="form-select w-full">
-                                        <option value="">Cargando...</option>
-                                    </select>
-                                </div>
-                                <button type="button" id="agregar-componente-btn" class="btn-primary whitespace-nowrap">
-                                    + Agregar Espacio
-                                </button>
-                            </div>
-
-                            <!-- Lista de Componentes -->
-                            <div id="lista-componentes" class="space-y-4"></div>
-                        </div>
-
-                        <!-- SECCIÓN 3: CONFIGURACIÓN AVANZADA -->
-                        <div class="bg-white p-6 rounded-lg shadow-sm border">
-                            <h4 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Configuración Avanzada</h4>
-                            
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Google Hotels & SEO</label>
-                                    <div class="space-y-3">
-                                        <div><label class="text-xs text-gray-500">ID Alojamiento</label><input type="text" id="googleHotelId" class="form-input w-full mt-1"></div>
-                                        <div><label class="flex items-center space-x-2"><input type="checkbox" id="googleHotelIsListed" class="rounded text-primary-600"><span>Publicar en Web/Google</span></label></div>
-                                    </div>
-                                </div>
-                                <!-- Ubicación: se inyecta dinámicamente si tipoNegocio === 'cartera' -->
-                                <div id="ubicacion-propiedad-container" class="hidden">
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Ubicación del Alojamiento</label>
-                                    <div id="ubicacion-propiedad-widget"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="ical-fields-container" class="hidden"></div>
-                    </form>
-                </div>
-                <div class="p-5 border-t bg-white rounded-b-lg flex justify-end gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-10">
-                    <button type="button" id="cancel-btn" class="btn-secondary">Cancelar</button>
-                    <button type="submit" form="propiedad-form" class="btn-primary px-8">Guardar Todo</button>
-                </div>
-            </div>
-        </div>
-    `;
-};
 
 export const abrirModalAlojamiento = async (propiedad = null, canales = []) => {
     const modal = document.getElementById('propiedad-modal');
     const form = document.getElementById('propiedad-form');
-    const modalTitle = document.getElementById('modal-title');
     const icalContainer = document.getElementById('ical-fields-container');
     const tipoSelect = document.getElementById('nuevo-componente-tipo');
 
     canalesCache = canales;
 
-    // Cargar tipoNegocio de empresa (solo primera vez o si no está cacheado)
     if (!tipoNegocioEmpresa) {
         try {
             const emp = await fetchAPI('/empresa');
@@ -709,98 +537,34 @@ export const abrirModalAlojamiento = async (propiedad = null, canales = []) => {
 
     if (!modal || !form) return;
 
-    // 1. Cargar Tipos de Componente y Elemento en paralelo (Cache Busting)
     try {
-        const timestamp = Date.now();
-        const [tiposComp, tiposElem] = await Promise.all([
-            fetchAPI(`/componentes?t=${timestamp}`),
-            fetchAPI(`/tipos-elemento?t=${timestamp}`)
-        ]);
-
+        const { tiposComp, tiposElem, areasCompanyCache: areas } = await loadModalCatalogCaches();
         tiposComponenteCache = tiposComp;
         tiposElementoCache = tiposElem;
-
-        if (tiposComponenteCache.length === 0) {
-            tipoSelect.innerHTML = '<option value="">Sin tipos definidos</option>';
-            tipoSelect.disabled = true;
-        } else {
-            tipoSelect.disabled = false;
-            tipoSelect.innerHTML = tiposComponenteCache.map(t =>
-                `<option value="${t.id}">${t.icono || ''} ${t.nombreNormalizado}</option>`
-            ).join('');
-        }
+        areasCompanyCache = areas;
+        cargarSelectTipos(tipoSelect, tiposComponenteCache);
     } catch (error) {
         console.error("Error cargando metadatos:", error);
         alert("Error cargando configuraciones. Revisa la consola.");
     }
 
-    // 2. Renderizar campos iCal (Oculto pero funcional)
-    icalContainer.innerHTML = canales
-        .filter(canal => canal.nombre.toLowerCase() !== 'app')
-        .map(canal => `
-            <input type="url" id="ical-${canal.id}" data-canal-key="${canal.nombre.toLowerCase()}" class="ical-input">
-        `).join('');
+    icalContainer.innerHTML = buildIcalInputsHtml(canales);
 
     if (propiedad) {
-        editandoPropiedad = propiedad;
-        modalTitle.textContent = `Editar: ${propiedad.nombre}`;
-
-        form.nombre.value = propiedad.nombre || '';
-        form.numPiezas.value = propiedad.numPiezas || 0;
-        form.numBanos.value = propiedad.numBanos || 0;
-        form.capacidad.value = propiedad.capacidad || 0;
-
-        // Deep copy de componentes para no mutar el original hasta guardar
-        componentesTemporales = Array.isArray(propiedad.componentes) ? JSON.parse(JSON.stringify(propiedad.componentes)) : [];
-
-        icalContainer.querySelectorAll('.ical-input').forEach(input => {
-            const canalKey = input.dataset.canalKey;
-            if (propiedad.sincronizacionIcal && propiedad.sincronizacionIcal[canalKey]) {
-                input.value = propiedad.sincronizacionIcal[canalKey];
-            } else {
-                input.value = '';
-            }
-        });
-
-        form.googleHotelId.value = propiedad.googleHotelData?.hotelId || '';
-        form.googleHotelIsListed.checked = propiedad.googleHotelData?.isListed || false;
+        poblarFormularioEdicion(form, propiedad, icalContainer);
     } else {
-        editandoPropiedad = null;
-        modalTitle.textContent = 'Crear Nuevo Alojamiento';
-        form.reset();
-        componentesTemporales = [];
-        tempAiDescription = '';
-        icalContainer.querySelectorAll('.ical-input').forEach(input => input.value = '');
+        poblarFormularioCreacion(form, icalContainer);
     }
 
-    // 3. Hidratación de Capacidades (Fix Backend "0 Capacity")
-    // Iteramos los componentes cargados y si faltan atributos críticos (como capacity), los rellenamos desde el cache.
-    componentesTemporales.forEach(comp => {
-        if (comp.elementos && Array.isArray(comp.elementos)) {
-            comp.elementos.forEach(elem => {
-                if (elem.capacity === undefined || elem.capacity === null) {
-                    const tipoData = tiposElementoCache.find(t => t.id === elem.tipoId);
-                    if (tipoData && tipoData.capacity !== undefined) {
-                        elem.capacity = parseInt(tipoData.capacity);
-                        console.log(`[Hydrate] Elemento '${elem.nombre}' hidratado con capacidad: ${elem.capacity}`);
-                    }
-                }
-            });
-        }
-    });
+    hidratarCapacidades(componentesTemporales);
 
-    // Ubicación por propiedad: solo visible para cartera dispersa
+    const areasSection = document.getElementById('areas-comunes-section');
+    const areasChecks = document.getElementById('areas-comunes-checks');
+    mountAreasComunesIfNeeded(areasSection, areasChecks, areasCompanyCache, propiedad);
+
     const ubicacionContainer = document.getElementById('ubicacion-propiedad-container');
     const ubicacionWidgetEl = document.getElementById('ubicacion-propiedad-widget');
-    if (tipoNegocioEmpresa === 'cartera') {
-        const datosUbicacion = propiedad?.ubicacion || {};
-        ubicacionWidgetEl.innerHTML = renderUbicacionWidget('prop-ubicacion', datosUbicacion);
-        ubicacionContainer.classList.remove('hidden');
-        setupUbicacionWidget('prop-ubicacion');
-    } else {
-        ubicacionContainer.classList.add('hidden');
-        ubicacionWidgetEl.innerHTML = '';
-    }
+    mountUbicacionCarteraIfNeeded(tipoNegocioEmpresa, propiedad, ubicacionContainer, ubicacionWidgetEl);
 
     renderizarListaComponentes();
     modal.classList.remove('hidden');
@@ -823,8 +587,6 @@ export const setupModalAlojamiento = (callback) => {
     document.getElementById('close-modal-btn').addEventListener('click', cerrarModalAlojamiento);
     document.getElementById('cancel-btn').addEventListener('click', cerrarModalAlojamiento);
     document.getElementById('agregar-componente-btn').addEventListener('click', handleAgregarComponente);
-    document.getElementById('agregar-componente-btn').addEventListener('click', handleAgregarComponente);
-    // document.getElementById('btn-generar-ia').addEventListener('click', handleGenerarEstructuraIA); // REMOVED
 
     newForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -836,6 +598,10 @@ export const setupModalAlojamiento = (callback) => {
 
         const ubicacion = tipoNegocioEmpresa === 'cartera' ? getUbicacionData('prop-ubicacion') : null;
 
+        const areas_comunes_ids = Array.from(
+            document.querySelectorAll('input[name="area-comun-check"]:checked')
+        ).map(cb => cb.value);
+
         const datos = {
             nombre: newForm.nombre.value,
             capacidad: parseInt(newForm.capacidad.value),
@@ -846,6 +612,7 @@ export const setupModalAlojamiento = (callback) => {
             equipamiento: {},
             amenidades: [],
             componentes: componentesTemporales,
+            areas_comunes_ids,
             sincronizacionIcal,
             ...(ubicacion ? { ubicacion } : {}),
             googleHotelData: {
@@ -863,7 +630,15 @@ export const setupModalAlojamiento = (callback) => {
         try {
             const endpoint = editandoPropiedad ? `/propiedades/${editandoPropiedad.id}` : '/propiedades';
             const method = editandoPropiedad ? 'PUT' : 'POST';
-            await fetchAPI(endpoint, { method: method, body: datos });
+            const result = await fetchAPI(endpoint, { method: method, body: datos });
+
+            // Fire-and-forget: sync buildContext en background (no bloquea)
+            const propId = editandoPropiedad?.id || result?.id;
+            if (propId && componentesTemporales.length > 0) {
+                fetchAPI(`/website/propiedad/${propId}/build-context/sync-producto`, { method: 'POST' })
+                    .catch(err => console.warn('[BuildContext] Sync fallido (no crítico):', err.message));
+            }
+
             cerrarModalAlojamiento();
             if (onSaveCallback) onSaveCallback();
         } catch (error) {
