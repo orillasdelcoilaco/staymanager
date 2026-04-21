@@ -41,17 +41,16 @@
     <% if (locals.ogImage && ogImage) { %><meta name="twitter:image" content="<%= ogImage %>"><% } %>
     <% if (locals.schemaData) { %><script type="application/ld+json"><%- JSON.stringify(schemaData, null, 2) %></script><% } %>
     <link rel="stylesheet" href="/public/css/website.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <%- include('partials/web-fonts') %>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <% if (locals.customCSS && locals.customCSS.trim().length > 0) { %><style><%= locals.customCSS %></style><% } %>
     <style>
-        body { font-family: 'Inter', system-ui, sans-serif; }
         .desc-clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
         .desc-open  { display: block; }
         #modal-amenidades { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:60; align-items:center; justify-content:center; }
         #modal-amenidades.open { display:flex; }
+        .sm-modal-reglas { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:65; align-items:center; justify-content:center; padding:1rem; }
+        .sm-modal-reglas.open { display:flex; }
         .modal-box { border-radius:16px; max-width:600px; width:92%; max-height:82vh; overflow-y:auto; }
         /* Galería móvil — carrusel tipo marketplace */
         .sm-gallery-track { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; -ms-overflow-style:none; }
@@ -66,6 +65,13 @@
         /* Dónde dormirás — scroll horizontal en móvil */
         .sm-sleep-scroll { display:flex; gap:12px; overflow-x:auto; padding-bottom:6px; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:thin; }
         .sm-sleep-card { flex:0 0 min(260px, 78vw); scroll-snap-align:start; }
+        /* Destacados: rejilla (evita scroll horizontal largo); >3 → varias filas */
+        .sm-spotlight-grid { display:grid; grid-template-columns:1fr; gap:12px; }
+        @media (min-width:640px){ .sm-spotlight-grid{ grid-template-columns:repeat(2,minmax(0,1fr));} }
+        @media (min-width:1024px){ .sm-spotlight-grid{ grid-template-columns:repeat(3,minmax(0,1fr));} }
+        .sm-spotlight-card { min-width:0; border-radius:0.75rem; border:1px solid rgb(229 231 235); overflow:hidden; background:#fff; box-shadow:0 1px 2px rgb(0 0 0 / 0.05); }
+        .sm-ia-title-clamp { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .sm-ia-blurb-clamp { display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
     </style>
 </head>
 
@@ -78,8 +84,105 @@
         const _imgs     = propiedad.websiteData?.images || {};
         const _fromWSD  = Object.values(_imgs).flat().filter(img => img && img.storagePath);
         const _cardImg  = propiedad.websiteData?.cardImage?.storagePath ? propiedad.websiteData.cardImage : null;
+        const _commonAreaImgs = Array.isArray(galeriaAreasComunes) ? galeriaAreasComunes.filter((img) => img && img.storagePath) : [];
+        const _componentesOrden = Array.isArray(propiedad.componentes) ? propiedad.componentes : [];
+        const _compRankById = {};
+        const _compRankByName = {};
+        _componentesOrden.forEach((comp, idx) => {
+            const _cid = String(comp?.id || '').trim();
+            const _cname = String(comp?.nombre || comp?.tipo || '').trim().toLowerCase();
+            if (_cid) _compRankById[_cid] = idx;
+            if (_cname && _compRankByName[_cname] == null) _compRankByName[_cname] = idx;
+        });
+        const _safeNum = (v, fallback = Number.POSITIVE_INFINITY) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : fallback;
+        };
+        const _imgSpaceName = (img) => {
+            const direct = String(img?.espacio || img?.space || '').trim();
+            if (direct) return direct.toLowerCase();
+            const fromTitle = String(img?.title || '').split('-')[0].trim();
+            return fromTitle ? fromTitle.toLowerCase() : '';
+        };
+        const _compInfoById = {};
+        _componentesOrden.forEach((comp) => {
+            const _cid = String(comp?.id || '').trim();
+            if (!_cid) return;
+            _compInfoById[_cid] = {
+                nombre: String(comp?.nombre || '').toLowerCase(),
+                tipo: String(comp?.tipo || '').toLowerCase(),
+                categoria: String(comp?.categoria || '').toLowerCase()
+            };
+        });
+        const _isCommonSpaceText = (txt) => {
+            const t = String(txt || '').toLowerCase();
+            if (!t) return false;
+            return [
+                'espacio comun',
+                'espacio común',
+                'area comun',
+                'área común',
+                'zona comun',
+                'zona común',
+                'comun ',
+                ' común',
+                'compartid',
+                'shared'
+            ].some((kw) => t.includes(kw));
+        };
+        const _isCommonSpaceImage = (img) => {
+            if (_isCommonSpaceText(img?.espacio) || _isCommonSpaceText(img?.title)) return true;
+            const sid = String(img?.espacioId || img?.espacio_id || img?.spaceId || '').trim();
+            const info = sid ? _compInfoById[sid] : null;
+            if (!info) return false;
+            const blob = `${info.nombre} ${info.tipo} ${info.categoria}`;
+            return _isCommonSpaceText(blob);
+        };
+        const _imgSpaceRank = (img) => {
+            const sid = String(img?.espacioId || img?.espacio_id || img?.spaceId || '').trim();
+            if (sid && _compRankById[sid] != null) return _compRankById[sid];
+            const sname = _imgSpaceName(img);
+            if (sname) {
+                let best = Number.POSITIVE_INFINITY;
+                Object.entries(_compRankByName).forEach(([nm, rank]) => {
+                    if (sname === nm || sname.includes(nm) || nm.includes(sname)) {
+                        best = Math.min(best, rank);
+                    }
+                });
+                if (Number.isFinite(best)) return best;
+            }
+            return 9999;
+        };
+        const _imgCreatedAt = (img) => {
+            const t = Date.parse(String(img?.createdAt || img?.created_at || img?.uploadedAt || img?.fecha || ''));
+            return Number.isFinite(t) ? t : 0;
+        };
         // Fallback: si websiteData no tiene fotos, usar las de la tabla galeria
-        const _allImgs  = _fromWSD.length > 0 ? _fromWSD : (galeriaFotos || []);
+        const _propImgsRaw = _fromWSD.length > 0 ? _fromWSD : (galeriaFotos || []);
+        const _allImgsRaw = [..._propImgsRaw, ..._commonAreaImgs];
+        const _allImgs = [..._allImgsRaw].sort((a, b) => {
+            const _cA = _isCommonSpaceImage(a) ? 1 : 0;
+            const _cB = _isCommonSpaceImage(b) ? 1 : 0;
+            if (_cA !== _cB) return _cA - _cB;
+            const _rA = _imgSpaceRank(a);
+            const _rB = _imgSpaceRank(b);
+            if (_rA !== _rB) return _rA - _rB;
+            const _oA = _safeNum(a?.orden);
+            const _oB = _safeNum(b?.orden);
+            if (_oA !== _oB) return _oA - _oB;
+            const _tA = _imgCreatedAt(a);
+            const _tB = _imgCreatedAt(b);
+            if (_tA !== _tB) return _tA - _tB;
+            return String(a?.id || a?.imageId || '').localeCompare(String(b?.id || b?.imageId || ''));
+        });
+        const _hasCommonAreaImages = _allImgs.some((img) => _isCommonSpaceImage(img) || img?.areaComun);
+        const _galleryBadgeHtml = (img) => {
+            if (!img) return '';
+            if (_isCommonSpaceImage(img) || img?.areaComun) {
+                return '<span class="absolute top-2 right-2 z-[2] inline-flex items-center gap-1 rounded-full bg-warning-100 text-warning-800 border border-warning-300 text-[10px] font-semibold px-2 py-1 shadow-sm pointer-events-none"><i class="fas fa-users text-[10px]"></i>Espacio común</span>';
+            }
+            return '<span class="absolute top-2 right-2 z-[2] inline-flex items-center gap-1 rounded-full bg-primary-100 text-primary-800 border border-primary-300 text-[10px] font-semibold px-2 py-1 shadow-sm pointer-events-none"><i class="fas fa-house text-[10px]"></i>Privado</span>';
+        };
         let _galeria    = _allImgs.slice();
         if (_cardImg) {
             _galeria = _galeria.filter(img => img?.imageId !== _cardImg.imageId && img?.id !== _cardImg.imageId);
@@ -155,17 +258,81 @@
             const row = g.find((f) => f && (f.espacioId === compId || f.espacio_id === compId) && (f.storagePath || f.storage_url));
             return row ? String(row.storagePath || row.storage_url || '') : '';
         };
+        const _isCapTicketActive = (val) => {
+            if (val === false || val === 0 || val === '0') return false;
+            if (typeof val === 'string' && ['false', 'off', 'no', 'n', 'disabled'].includes(val.toLowerCase().trim())) return false;
+            return true;
+        };
+        const _isElementContributingCapacity = (el) => {
+            const qty = Number(el?.cantidad ?? 1);
+            const cap = Number(el?.capacity);
+            return _isCapTicketActive(el?.sumaCapacidad) && Number.isFinite(qty) && qty > 0 && Number.isFinite(cap) && cap > 0;
+        };
+        const _compSleepCapacity = (comp) => {
+            const directCaps = [
+                comp?.capacidad,
+                comp?.capacidadAlojamiento,
+                comp?.capacidad_alojamiento,
+                comp?.plazas,
+                comp?.huespedes,
+                comp?.maxHuespedes,
+                comp?.max_huespedes
+            ];
+            const directVal = _isCapTicketActive(comp?.sumaCapacidad)
+                ? directCaps.map((v) => Number(v)).find((v) => Number.isFinite(v) && v > 0)
+                : null;
+            if (directVal) return directVal;
+
+            let fromElements = 0;
+            (comp?.elementos || []).forEach((el) => {
+                if (_isElementContributingCapacity(el)) {
+                    const cap = Number(el?.capacity);
+                    const qty = Number(el?.cantidad || 1);
+                    fromElements += cap * (Number.isFinite(qty) && qty > 0 ? qty : 1);
+                }
+            });
+            return fromElements;
+        };
+        const _hasSleepElements = (comp) => {
+            const els = comp?.elementos || [];
+            return els.some((e) => {
+                const nm = String(e?.nombre || '').toLowerCase();
+                const cat = String(e?.categoria || '').toLowerCase();
+                return /(cama|bed|litera|bunk|matrimonial|king|queen|sofacama|sofá|sofa|futon|camarote|nido)/.test(`${nm} ${cat}`);
+            });
+        };
         const _isSleepComponent = (comp) => {
             const blob = `${comp?.tipo || ''} ${comp?.nombre || ''} ${comp?.categoria || ''}`.toLowerCase();
-            return /(dormitorio|bedroom|suite|habitaci|recámara|recamara)/.test(blob);
+            const looksBathroom = /(bañ|bano|toilet|wc|bath|ducha)/.test(blob);
+            if (looksBathroom) return false;
+            return _compSleepCapacity(comp) > 0;
         };
-        const _sleepRooms = (propiedad.componentes || []).filter(_isSleepComponent);
+        const _sleepPriority = (comp) => {
+            const blob = `${comp?.tipo || ''} ${comp?.nombre || ''} ${comp?.categoria || ''}`.toLowerCase();
+            const hasSofaBed = /(sofacama|sofá cama|sofa cama|futon|futón)/.test(blob)
+                || (comp?.elementos || []).some((e) => /(sofacama|sofá cama|sofa cama|futon|futón)/.test(String(e?.nombre || '').toLowerCase()));
+            if (/(principal|master|matrimonial|suite)/.test(blob)) return 0;
+            if (/(dormitorio|bedroom|habitaci|recámara|recamara|pieza)/.test(blob)) return 1;
+            if (hasSofaBed) return 3;
+            return 2;
+        };
+        const _sleepRooms = (propiedad.componentes || [])
+            .filter(_isSleepComponent)
+            .sort((a, b) => {
+                const pA = _sleepPriority(a);
+                const pB = _sleepPriority(b);
+                if (pA !== pB) return pA - pB;
+                const cA = _compSleepCapacity(a);
+                const cB = _compSleepCapacity(b);
+                if (cA !== cB) return cB - cA;
+                return String(a?.nombre || a?.tipo || '').localeCompare(String(b?.nombre || b?.tipo || ''));
+            });
         const _bedLabelForComp = (comp) => {
             const els = comp.elementos || [];
             let n = 0;
             els.forEach((e) => {
                 const nm = String(e.nombre || '').toLowerCase();
-                if (/(cama|bed|litera|bunk|matrimonial|king|queen|sofacama|sofá|sofa)/.test(nm)) {
+                if (/(cama|bed|litera|bunk|matrimonial|king|queen|sofacama|sofá|sofa)/.test(nm) && _isElementContributingCapacity(e)) {
                     n += parseInt(e.cantidad, 10) || 1;
                 }
             });
@@ -173,6 +340,191 @@
             if (n === 1) return '1 cama';
             return `${n} camas`;
         };
+        const _sleepCapacityLabel = (comp) => {
+            const cap = _compSleepCapacity(comp);
+            return cap > 0 ? `${cap} huésped${cap !== 1 ? 'es' : ''}` : '';
+        };
+
+        /* ── Destacados venta: prioridad narrativa IA (espaciosDestacadosVenta), fallback heurístico acotado ── */
+        const _bcRoot = propiedad.buildContext || propiedad.metadata?.buildContext || {};
+        const _bcProducto = _bcRoot.producto || {};
+        const _bcEspacios = Array.isArray(_bcProducto.espacios) ? _bcProducto.espacios : [];
+        const _bcCompartidas = Array.isArray(_bcRoot.compartidas) ? _bcRoot.compartidas : [];
+        const _narrVenta = _bcRoot.narrativa || {};
+        const _introDestacadosVenta = String(_narrVenta.introDestacadosVenta || '').trim();
+        const _aiVentaRows = Array.isArray(_narrVenta.espaciosDestacadosVenta) ? _narrVenta.espaciosDestacadosVenta : [];
+        const _sleepIdSet = new Set(_sleepRooms.map((c) => String(c?.id || '').trim()).filter(Boolean));
+        const _iaSpotlightCards = [];
+        let _iaSpotlightFuente = 'ninguno';
+        const _spotSeenIds = new Set();
+        const _pushIaSpot = (card) => {
+            if (_iaSpotlightCards.length >= 8) return false;
+            const sid = String(card?.id || '').trim();
+            const dedupeKey = card.kind === 'comun' ? `c:${sid}` : `p:${sid}`;
+            if (_spotSeenIds.has(dedupeKey)) return false;
+            _spotSeenIds.add(dedupeKey);
+            _iaSpotlightCards.push(card);
+            return true;
+        };
+        const _photoComunByAreaId = (aid) => {
+            const area = _bcCompartidas.find((a) => String(a?.id || '').trim() === aid);
+            const fotos = Array.isArray(area?.fotos) ? area.fotos : [];
+            let ph = '';
+            for (let fi = 0; fi < fotos.length; fi++) {
+                const u = String(fotos[fi]?.storageUrl || fotos[fi]?.storagePath || '').trim();
+                if (u) { ph = u; break; }
+            }
+            if (!ph) {
+                const hit = _galeria.find((g) => g && String(g.areaComunId || '') === aid && g.storagePath);
+                if (hit) ph = String(hit.storagePath || '');
+            }
+            return ph;
+        };
+        const _trivialSalesRx = /(papel\s*higi|pela\s*pap|pela\s*pat|escoba|trapo|detergen|jab[oó]n|shampoo|hisopo|toalla\s*de\s*papel|utensilios?\s+b[aá]s|tenedor|cuchillo|cuchar|plato\s*descart|vaso\s*de|filtro\s*de\s*caf|cepillo|curita|botiqu[ií]n|papel\s*de\s*cocina|esponj)/i;
+        const _isTrivialSalesContext = (txt) => {
+            const t = String(txt || '').trim();
+            if (t.length < 14) return true;
+            return _trivialSalesRx.test(t);
+        };
+        const _experientialBlobRx = /(tinaja|jacuzzi|hidromasaje|piscina|gimnasio|gym|parrilla|quincho|bbq|asador|terraza|vista|lago|volc[aá]n|playa|bosque|juego|niñ|trampol[ií]n|sauna|spa|kayak|bicicleta|fog[oó]n|horno|deck|mirador|sala\s+de\s+estar|living)/i;
+        const _bestNonTrivialSalesContext = (esp) => {
+            const acts = Array.isArray(esp?.activos) ? esp.activos : [];
+            let best = '';
+            acts.forEach((a) => {
+                const sc = String(a?.sales_context || '').trim();
+                if (!sc || _isTrivialSalesContext(sc)) return;
+                const nm = String(esp?.nombre || '').trim();
+                if (nm && sc.toLowerCase() === nm.toLowerCase()) return;
+                if (sc.length > best.length) best = sc;
+            });
+            return best;
+        };
+        const _scoreBcEspacioHeuristic = (esp) => {
+            const nm = `${esp?.nombre || ''} ${(esp?.activos || []).map((a) => a?.nombre || '').join(' ')}`.toLowerCase();
+            let s = 0;
+            if (_experientialBlobRx.test(nm)) s += 14;
+            const acts = Array.isArray(esp?.activos) ? esp.activos : [];
+            acts.forEach((a) => {
+                if (!a) return;
+                if (a.schema_property === 'amenityFeature') s += 4;
+                const sc = String(a?.sales_context || '').trim();
+                if (sc && !_isTrivialSalesContext(sc)) {
+                    s += 6;
+                    if (sc.length > 45) s += 3;
+                }
+            });
+            return s;
+        };
+
+        if (_aiVentaRows.length > 0) {
+            _iaSpotlightFuente = 'ia';
+            _aiVentaRows.forEach((row) => {
+                const kind = row.kind === 'comun' ? 'comun' : 'privado';
+                const rid = String(row.id || '').trim();
+                const title = String(row.titulo || row.title || '').trim();
+                let blurb = String(row.pitch || row.blurb || '').trim();
+                if (!rid || !title || !blurb) return;
+                if (blurb.length > 200) blurb = `${blurb.slice(0, 197)}…`;
+                let photo = String(row.imagen?.storagePath || row.foto?.storagePath || '').trim();
+                if (!photo) {
+                    if (kind === 'comun') photo = _photoComunByAreaId(rid);
+                    else photo = _pickCompPhotoUrl(rid);
+                }
+                _pushIaSpot({ kind, id: rid, title, blurb, photo, fromAi: true });
+            });
+            if (_iaSpotlightCards.length === 0) _iaSpotlightFuente = 'ninguno';
+        }
+
+        if (_iaSpotlightFuente === 'ninguno') {
+            _iaSpotlightFuente = 'heuristica';
+            _bcCompartidas.forEach((area) => {
+                const aid = String(area?.id || '').trim();
+                const title = String(area?.nombre || 'Espacio común').trim();
+                if (!title) return;
+                const ph = _photoComunByAreaId(aid);
+                const elems = Array.isArray(area?.elementos) ? area.elementos : [];
+                let blurb = elems.map((e) => String(e?.nombre || '').trim()).filter(Boolean).slice(0, 4).join(' · ');
+                if (!blurb) blurb = 'Espacio común disponible para huéspedes de este alojamiento.';
+                if (blurb.length > 160) blurb = `${blurb.slice(0, 157)}…`;
+                // Áreas comunes vinculadas: si hay foto en galería, siempre candidatas aunque el nombre no coincida con regex de experiencia
+                if (!ph && !_experientialBlobRx.test(`${title} ${blurb}`)) return;
+                _pushIaSpot({ kind: 'comun', id: aid || title, title, blurb, photo: ph, fromAi: false });
+            });
+            _bcEspacios
+                .filter((esp) => !_sleepIdSet.has(String(esp?.id || '').trim()))
+                .map((esp) => ({ esp, score: _scoreBcEspacioHeuristic(esp) }))
+                .sort((a, b) => b.score - a.score)
+                .forEach(({ esp }) => {
+                    const eid = String(esp?.id || '').trim();
+                    if (!eid) return;
+                    const title = String(esp?.nombre || 'Espacio').trim();
+                    let blurb = _bestNonTrivialSalesContext(esp);
+                    const blob = `${title} ${(esp?.activos || []).map((a) => `${a?.nombre} ${a?.sales_context}`).join(' ')}`;
+                    if (!blurb) {
+                        if (_experientialBlobRx.test(blob)) blurb = `Disfruta de ${title} en tu estadía.`;
+                        else return;
+                    }
+                    if (blurb.length > 180) blurb = `${blurb.slice(0, 177)}…`;
+                    const photo = _pickCompPhotoUrl(eid);
+                    _pushIaSpot({ kind: 'privado', id: eid, title, blurb, photo, fromAi: false });
+                });
+            if (_iaSpotlightCards.length < 2) {
+                (propiedad.componentes || [])
+                    .filter((comp) => !_sleepIdSet.has(String(comp?.id || '').trim()) && !_isSleepComponent(comp))
+                    .forEach((comp) => {
+                        const cid = String(comp?.id || '').trim();
+                        if (!cid) return;
+                        const title = String(comp?.nombre || comp?.tipo || 'Espacio').trim();
+                        if (!_experientialBlobRx.test(title)) return;
+                        const bits = (comp.elementos || []).map((el) => String(el?.nombre || '').trim()).filter(Boolean).slice(0, 3);
+                        let blurb = bits.join(' · ');
+                        if (!blurb) blurb = `Espacio ${title} para disfrutar durante tu estadía.`;
+                        if (blurb.length > 180) blurb = `${blurb.slice(0, 177)}…`;
+                        const photo = _pickCompPhotoUrl(cid);
+                        _pushIaSpot({ kind: 'privado', id: cid, title, blurb, photo, fromAi: false });
+                    });
+            }
+        }
+        if (_iaSpotlightCards.length === 0) _iaSpotlightFuente = 'ninguno';
+
+        /* Fotos por destacado (mismo espacio) para lightbox SSR — no abre toda la galería */
+        const _spotlightPhotoBuckets = (_iaSpotlightCards || []).map((spot) => {
+            const kind = spot.kind === 'comun' ? 'comun' : 'privado';
+            const sid = String(spot.id || '').trim();
+            const rows = (_galeria || []).filter((img) => {
+                if (!img || !img.storagePath) return false;
+                if (kind === 'comun') return String(img.areaComunId || '') === sid;
+                return String(img.espacioId || img.espacio_id || '').trim() === sid;
+            });
+            const out = rows.map((img) => ({
+                storagePath: img.storagePath,
+                altText: img.altText || '',
+                title: img.title || img.espacio || ''
+            }));
+            if (kind === 'privado') {
+                const ws = _imgs && typeof _imgs === 'object' ? _imgs : {};
+                let bagFound = null;
+                for (const k of Object.keys(ws)) {
+                    if (String(k).trim() === sid) { bagFound = ws[k]; break; }
+                }
+                const arr = bagFound != null ? (Array.isArray(bagFound) ? bagFound : [bagFound]) : [];
+                arr.forEach((im) => {
+                    const p = String(im?.storagePath || im?.storage_url || im?.url || '').trim();
+                    if (!p || out.some((x) => x.storagePath === p)) return;
+                    out.push({
+                        storagePath: p,
+                        altText: String(im?.altText || im?.alt || '').trim(),
+                        title: String(im?.title || '').trim() || (spot.title || '')
+                    });
+                });
+            }
+            const ph = String(spot.photo || '').trim();
+            if (ph && !out.some((x) => x.storagePath === ph)) {
+                out.unshift({ storagePath: ph, altText: spot.title || '', title: spot.title || '' });
+            }
+            return out;
+        });
+
         const _amenSortKey = (el) => {
             const c = String(el.comp || '').trim();
             return c ? c.toLowerCase() : 'zzz_sin_espacio';
@@ -183,28 +535,6 @@
             if (ca !== cb) return ca.localeCompare(cb);
             return String(a.nombre || '').localeCompare(String(b.nombre || ''));
         });
-
-        /* ── Highlights (3 top) ── */
-        const _hs = [];
-        if (hasFeature(['tinaja','jacuzzi','hot tub'])) _hs.push({ ico:'fa-hot-tub-person', t:'Tinaja privada',      s:'Relájate bajo las estrellas' });
-        if (hasFeature(['piscina','pool']))             _hs.push({ ico:'fa-water-ladder',   t:'Piscina',             s:'Disponible para huéspedes' });
-        if (hasFeature(['parrilla','quincho','bbq']))   _hs.push({ ico:'fa-fire',            t:'Quincho / Parrilla',  s:'Para asados en familia' });
-        if (hasFeature(['vista','lago','mar','rio','cerro','panoram'])) _hs.push({ ico:'fa-mountain-sun', t:'Vista privilegiada', s:'Naturaleza en tu ventana' });
-        if (hasFeature(['wifi','internet']))            _hs.push({ ico:'fa-wifi',            t:'WiFi incluido',       s:'Conexión en todo el espacio' });
-        if (hasFeature(['estacionamiento','parking']))  _hs.push({ ico:'fa-car',             t:'Estacionamiento',     s:'Sin costo adicional' });
-        _hs.push({ ico:'fa-house-user', t:'Reserva directa', s:'Sin comisiones de intermediario' });
-        const _narr = propiedad.buildContext?.narrativa || {};
-        const _usp = Array.isArray(_narr.uniqueSellingPoints)
-            ? _narr.uniqueSellingPoints.filter((x) => typeof x === 'string' && x.trim())
-            : [];
-        const _destacados = [];
-        _usp.slice(0, 3).forEach((t) => {
-            _destacados.push({ ico: 'fa-wand-magic-sparkles', t: t.trim(), s: 'Destacado por IA desde el wizard de alojamiento' });
-        });
-        for (const h of _hs) {
-            if (_destacados.length >= 3) break;
-            if (!_destacados.some((d) => d.t === h.t)) _destacados.push(h);
-        }
 
         /* ── Precios ── */
         const _fmtCLP = (v) => `$${Math.round(v||0).toLocaleString('es-CL')}`;
@@ -218,6 +548,10 @@
             ? (parseFloat(resenasResumen.promedio_general) * 2).toFixed(1)
             : null;
         const _rating    = (_nResenas >= 3 && _ratingDiez) ? _ratingDiez : null;
+        const _prom5 = (resenasResumen?.promedio_general != null)
+            ? parseFloat(resenasResumen.promedio_general)
+            : null;
+        const _guestFavoriteBanner = (_nResenas >= 6 && _prom5 != null && _prom5 >= 4.7);
 
         /* ── Ubicación / Mapa ── */
         const _ciudad = (locals.ubicacion?.ciudad || '');
@@ -227,10 +561,12 @@
         const _mapSrc = (_geoLat && _geoLng)
             ? `https://maps.google.com/maps?q=${_geoLat},${_geoLng}&output=embed&z=15`
             : `https://maps.google.com/maps?q=${encodeURIComponent(empresa.nombre + (_ciudad ? ', '+_ciudad : ''))}&output=embed&z=14`;
+        const _sleepRoomsCount = _sleepRooms.length;
+        const _bathroomsCount = Number(propiedad.numBanos || 0);
 
         /* ── Descripción (wizard narrativa + SPA websiteData) ── */
         const _desc = propiedad.websiteData?.aiDescription
-            || _narr.descripcionComercial
+            || _narrVenta.descripcionComercial
             || propiedad.descripcion
             || '';
 
@@ -244,55 +580,75 @@
         const _checkin  = empresa.horaCheckIn  || empresa.websiteSettings?.normas?.checkin  || '15:00';
         const _checkout = empresa.horaCheckOut || empresa.websiteSettings?.normas?.checkout || '11:00';
         const _minNoches = Math.max(1, parseInt(String(empresa.websiteSettings?.booking?.minNoches ?? propiedad.websiteData?.booking?.minNoches ?? '1'), 10) || 1);
+        const _aiTitleRaw = propiedad.buildContext?.publicacion?.metaTitle
+            || propiedad.websiteData?.h1
+            || propiedad.buildContext?.narrativa?.homeH1
+            || '';
+        const _aiTitleText = String(_aiTitleRaw || '').trim() || 'Experiencia recomendada para tu próxima estadía';
+        const _heroBaseName = String(propiedad.nombre || '').trim() || 'Alojamiento';
+        const _escapeRegExp = (txt) => String(txt).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const _namePrefixRx = new RegExp(`^${_escapeRegExp(_heroBaseName)}\\s*[-:|–—]?\\s*`, 'i');
+        const _heroAiSuffix = _aiTitleText.replace(_namePrefixRx, '').trim() || _aiTitleText;
+        const _heroTitle = `${_heroBaseName} - ${_heroAiSuffix}`;
     %>
 
     <main class="flex-grow">
         <div class="container mx-auto px-4 pt-6 pb-8 md:pb-10 max-w-6xl">
-
-            <%# ── Título + Compartir (encima del mosaico, estilo Airbnb) ── %>
-            <div class="flex items-start justify-between gap-4 mb-4">
-                <h1 class="text-2xl md:text-3xl font-bold text-gray-900 leading-tight flex-1">
-                    <%= propiedad.websiteData?.h1 || propiedad.buildContext?.narrativa?.homeH1 || propiedad.nombre %>
-                </h1>
-                <button onclick="(navigator.share||0)?navigator.share({title:'<%= propiedad.nombre %>',url:location.href}):navigator.clipboard.writeText(location.href).then(()=>alert('Enlace copiado'))"
-                        class="flex items-center gap-1.5 text-sm text-gray-700 underline font-medium hover:text-gray-900 flex-shrink-0 mt-1">
-                    <i class="fas fa-share-from-square text-xs"></i>
-                    <span class="hidden sm:inline">Compartir</span>
-                </button>
+            <div class="mb-5">
+                <div class="flex items-start justify-between gap-4 mb-2">
+                    <h1 class="text-2xl md:text-3xl font-bold text-gray-900 leading-tight flex-1 min-w-0">
+                        <%= _heroTitle %>
+                    </h1>
+                    <button type="button" onclick="window.smOpenShareModal && window.smOpenShareModal()"
+                            class="flex items-center gap-1.5 text-sm text-gray-700 underline font-medium hover:text-gray-900 flex-shrink-0 mt-1">
+                        <i class="fas fa-share-from-square text-xs"></i>
+                        <span class="hidden sm:inline">Compartir</span>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600">
+                    <%= propiedad.capacidad %> huésped<%= propiedad.capacidad!==1?'es':'e' %>
+                    <% if (_sleepRoomsCount > 0) { %> · <%= _sleepRoomsCount %> dormitorio<%= _sleepRoomsCount!==1?'s':'' %><% } %>
+                    <% if (_bathroomsCount > 0) { %> · <%= _bathroomsCount %> baño<%= _bathroomsCount!==1?'s':'' %><% } %>
+                </p>
             </div>
 
             <%# ── MOSAICO DE FOTOS (contenido, bordes redondeados) ── %>
             <% if (_imgP) { %>
-            <div class="relative rounded-xl overflow-hidden mb-8 bg-gray-200">
+            <div id="property-gallery-root" class="relative rounded-xl overflow-hidden mb-8 bg-gray-200">
                 <%# Desktop: layout adaptativo según cantidad de fotos %>
                 <% if (_galeria.length === 1) { %>
-                <div class="hidden md:block" style="height:480px">
+                <div class="hidden md:block relative" style="height:480px">
                     <img src="<%= _imgP.storagePath %>" alt="<%= _imgP.altText || propiedad.nombre %>"
                          class="w-full h-full object-cover cursor-pointer gallery-image-trigger hover:brightness-90 transition-all duration-200" data-index="0">
+                    <%- _galleryBadgeHtml(_imgP) %>
                 </div>
                 <% } else if (_galeria.length === 2) { %>
                 <div class="hidden md:grid grid-cols-2 gap-0.5" style="height:480px">
-                    <div class="overflow-hidden cursor-pointer gallery-image-trigger" data-index="0">
+                    <div class="overflow-hidden relative cursor-pointer gallery-image-trigger" data-index="0">
                         <img src="<%= _imgP.storagePath %>" alt="<%= _imgP.altText || propiedad.nombre %>"
                              class="w-full h-full object-cover hover:brightness-90 transition-all duration-200">
+                        <%- _galleryBadgeHtml(_imgP) %>
                     </div>
-                    <div class="overflow-hidden cursor-pointer gallery-image-trigger" data-index="1">
+                    <div class="overflow-hidden relative cursor-pointer gallery-image-trigger" data-index="1">
                         <img src="<%= _imgs4[0].storagePath %>" alt="<%= _imgs4[0].altText || propiedad.nombre %>"
                              class="w-full h-full object-cover hover:brightness-90 transition-all duration-200">
+                        <%- _galleryBadgeHtml(_imgs4[0]) %>
                     </div>
                 </div>
                 <% } else if (_galeria.length <= 4) { %>
                 <div class="hidden md:grid gap-0.5" style="height:480px; grid-template-columns:3fr 2fr">
-                    <div class="overflow-hidden cursor-pointer gallery-image-trigger" data-index="0">
+                    <div class="overflow-hidden relative cursor-pointer gallery-image-trigger" data-index="0">
                         <img src="<%= _imgP.storagePath %>" alt="<%= _imgP.altText || propiedad.nombre %>"
                              class="w-full h-full object-cover hover:brightness-90 transition-all duration-200">
+                        <%- _galleryBadgeHtml(_imgP) %>
                     </div>
                     <% const _rowsCls = _imgs4.length <= 2 ? 'grid-rows-2' : 'grid-rows-3'; %>
                     <div class="grid gap-0.5 h-full <%= _rowsCls %>">
                         <% _imgs4.forEach((img, i) => { %>
-                        <div class="overflow-hidden cursor-pointer gallery-image-trigger" data-index="<%= i+1 %>">
+                        <div class="overflow-hidden relative cursor-pointer gallery-image-trigger" data-index="<%= i+1 %>">
                             <img src="<%= img.storagePath %>" alt="<%= img.altText || propiedad.nombre %>"
                                  class="w-full h-full object-cover hover:brightness-90 transition-all duration-200">
+                            <%- _galleryBadgeHtml(img) %>
                         </div>
                         <% }) %>
                     </div>
@@ -327,6 +683,7 @@
                         <div class="sm-gallery-slide h-full relative">
                             <img src="<%= img.storagePath %>" alt="<%= img.altText || propiedad.nombre %>"
                                  class="w-full h-full object-cover gallery-image-trigger cursor-pointer" data-index="<%= idx %>">
+                            <%- _galleryBadgeHtml(img) %>
                         </div>
                         <% }) %>
                     </div>
@@ -343,6 +700,7 @@
                 <div class="md:hidden relative" style="height:260px">
                     <img src="<%= _imgP.storagePath %>" alt="<%= _imgP.altText || propiedad.nombre %>"
                          class="w-full h-full object-cover gallery-image-trigger cursor-pointer" data-index="0">
+                    <%- _galleryBadgeHtml(_imgP) %>
                 </div>
                 <% } %>
                 <%# Botón "Ver todas las fotos" (desktop) %>
@@ -354,33 +712,61 @@
                 <% } %>
             </div>
             <% } %>
+            <% if (_hasCommonAreaImages) { %>
+            <p class="text-xs text-gray-500 mb-6 flex items-center gap-1.5">
+                <i class="fas fa-users text-gray-400"></i>
+                Algunas imágenes corresponden a espacios comunes del recinto compartidos entre alojamientos.
+            </p>
+            <% } %>
 
-            <%# ── Grid de contenido ── %>
+            <%# ── Grid: cabecera + widget reserva en la misma fila (desktop) ── %>
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-14">
 
                 <%# ── COLUMNA IZQUIERDA ── %>
                 <div class="lg:col-span-2 divide-y divide-gray-200 space-y-0">
 
-                    <%# 1. CABECERA (subtitle + rating — el h1 está sobre el mosaico) %>
+                    <%# Franja valoraciones (compacta) ── %>
                     <div class="pb-8">
-                        <% if (_rating) { %>
-                        <p class="text-sm font-semibold text-gray-800 mb-1">
-                            <i class="fas fa-star text-warning-400 text-xs"></i>
-                            <span class="ml-0.5 tabular-nums"><%= _rating %><span class="text-gray-500 font-normal">/10</span></span>
-                            <span class="text-gray-400 mx-1">·</span>
-                            <span class="underline text-gray-700 font-normal cursor-pointer"><%= _nResenas %> reseña<%= _nResenas!==1?'s':'' %></span>
-                        </p>
+                        <% if (_nResenas >= 1 && _prom5 != null) { %>
+                        <div class="rounded-xl border border-gray-200 bg-gray-50 p-3 sm:p-4 shadow-sm">
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:flex-wrap gap-3 sm:gap-x-4 sm:gap-y-2">
+                                <% if (_guestFavoriteBanner) { %>
+                                <div class="flex items-center justify-center sm:justify-start gap-1.5 font-semibold text-gray-900 text-sm sm:text-base flex-wrap">
+                                    <i class="fas fa-award text-amber-600 text-base shrink-0" aria-hidden="true"></i>
+                                    <span>Favorito entre huéspedes</span>
+                                    <i class="fas fa-award text-amber-600 text-base shrink-0" aria-hidden="true"></i>
+                                </div>
+                                <p class="text-xs sm:text-sm text-gray-600 sm:flex-1 sm:min-w-[12rem] text-center sm:text-left leading-snug">
+                                    Alojamiento muy bien valorado por huéspedes recientes.
+                                </p>
+                                <% } else { %>
+                                <p class="text-sm text-gray-600 sm:flex-1 sm:min-w-[10rem] leading-snug">
+                                    <span class="font-medium text-gray-800">Valoración de huéspedes.</span>
+                                    <span class="text-gray-600"> Reseñas verificadas de esta propiedad.</span>
+                                </p>
+                                <% } %>
+                                <div class="hidden sm:block w-px h-10 bg-gray-200 shrink-0 self-center" aria-hidden="true"></div>
+                                <div class="flex items-center justify-center gap-4 sm:gap-5 border-t border-gray-200 sm:border-t-0 pt-3 sm:pt-0 mt-1 sm:mt-0">
+                                    <div class="flex flex-col items-center text-center min-w-[4.5rem]">
+                                        <span class="text-2xl font-semibold text-gray-900 tabular-nums leading-none"><%= _prom5.toFixed(2) %></span>
+                                        <div class="flex justify-center gap-0.5 mt-1 text-[11px]" aria-hidden="true">
+                                            <% for (let s = 0; s < 5; s++) { %>
+                                            <i class="fas fa-star <%= s < Math.round(_prom5) ? 'text-warning-400' : 'text-gray-200' %>"></i>
+                                            <% } %>
+                                        </div>
+                                    </div>
+                                    <div class="w-px h-10 bg-gray-200 shrink-0" aria-hidden="true"></div>
+                                    <div class="flex flex-col items-center text-center min-w-[4.5rem]">
+                                        <span class="text-2xl font-semibold text-gray-900 tabular-nums leading-none"><%= _nResenas %></span>
+                                        <span class="text-[10px] text-gray-500 mt-1 font-medium uppercase tracking-wide">Evaluaciones</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <% } %>
-                        <p class="text-sm text-gray-600">
-                            <%= propiedad.capacidad %> huéspedes
-                            <% if (propiedad.numPiezas) { %> · <%= propiedad.numPiezas %> habitaci<%= propiedad.numPiezas!==1?'ones':'ón' %><% } %>
-                            <% if (propiedad.camas?.total) { %> · <%= propiedad.camas.total %> cama<%= propiedad.camas.total!==1?'s':'' %><% } %>
-                            <% if (propiedad.numBanos) { %> · <%= propiedad.numBanos %> baño<%= propiedad.numBanos!==1?'s':'' %><% } %>
-                            <% if (_ciudad) { %> · <span class="underline cursor-pointer"><%= _ciudad %></span><% } %>
-                        </p>
                     </div>
 
-                    <%# 2. ANFITRIÓN %>
+                    <%# 1. ANFITRIÓN %>
                     <div class="py-8">
                         <div class="flex items-center gap-4">
                             <div class="h-14 w-14 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0 text-xl font-bold text-primary-700">
@@ -419,20 +805,59 @@
                         </div>
                     </div>
 
-                    <%# 3. HIGHLIGHTS STRIP %>
+                    <%# 3. Destacados para tu estadía (tarjetas con foto; posición principal bajo confianza / ubicación) %>
+                    <% if (_iaSpotlightCards.length > 0) { %>
                     <div class="py-8">
-                        <div class="space-y-5">
-                            <% _destacados.forEach(h => { %>
-                            <div class="flex items-start gap-5">
-                                <i class="fas <%= h.ico %> text-xl w-6 text-center text-gray-700 mt-0.5 flex-shrink-0"></i>
-                                <div>
-                                    <p class="font-semibold text-gray-900 text-sm"><%= h.t %></p>
-                                    <p class="text-xs text-gray-500 mt-0.5 leading-relaxed"><%= h.s %></p>
+                        <h2 class="text-xl font-bold text-gray-900 mb-1">Destacados para tu estadía</h2>
+                        <% if (_iaSpotlightFuente === 'ia') { %>
+                        <p class="text-xs text-gray-500 mb-4 max-w-3xl leading-relaxed">
+                            <% if (_introDestacadosVenta) { %>
+                            <%= _introDestacadosVenta %>
+                            <% } else { %>
+                            Curados en <span class="font-semibold text-gray-700">Contenido web</span> desde tu inventario y narrativa (hasta 8 diferenciadores entre espacios del alojamiento y áreas comunes vinculadas).
+                            <% } %>
+                        </p>
+                        <% } else { %>
+                        <p class="text-xs text-gray-500 mb-4 max-w-3xl leading-relaxed">
+                            <span class="font-semibold text-gray-700">Sugerencia automática</span> según fotos y espacios hasta que guardes una lista en el wizard.
+                        </p>
+                        <% } %>
+                        <div class="<%= _iaSpotlightCards.length > 3 ? 'sm-spotlight-grid' : 'sm-sleep-scroll pb-1' %>">
+                            <% _iaSpotlightCards.forEach((spot, _siSpot) => {
+                                const _spTitle = spot.title || 'Espacio';
+                                const _spPh = String(spot.photo || '').trim();
+                                const _bucketLen = (_spotlightPhotoBuckets[_siSpot] || []).length;
+                                const _isComun = spot.kind === 'comun';
+                            %>
+                            <article class="<%= _iaSpotlightCards.length > 3 ? 'sm-spotlight-card' : 'sm-sleep-card rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm' %>">
+                                <div class="bg-gray-100 relative w-full" style="aspect-ratio:4/3">
+                                    <% if (_spPh) { %>
+                                    <img src="<%= _spPh %>" alt="<%= _spTitle %>"
+                                         class="w-full h-full object-cover<%= _bucketLen ? ' spotlight-lb-trigger cursor-pointer' : '' %>"
+                                         <% if (_bucketLen) { %>data-bucket-index="<%= _siSpot %>" data-start-path="<%- encodeURIComponent(_spPh) %>"<% } %>>
+                                    <% } else { %>
+                                    <div class="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-2">
+                                        <i class="fas <%= _isComun ? 'fa-users' : 'fa-house' %> text-3xl"></i>
+                                        <span class="text-[10px] uppercase tracking-wider font-semibold">Sin foto en galería</span>
+                                    </div>
+                                    <% } %>
+                                    <% if (_isComun) { %>
+                                    <span class="absolute top-2 right-2 z-[2] inline-flex items-center gap-1 rounded-full bg-warning-100 text-warning-800 border border-warning-300 text-[10px] font-semibold px-2 py-1 shadow-sm pointer-events-none"><i class="fas fa-users text-[10px]"></i><%= spot.fromAi ? 'Común · IA' : 'Espacio común' %></span>
+                                    <% } else if (spot.fromAi) { %>
+                                    <span class="absolute top-2 right-2 z-[2] inline-flex items-center gap-1 rounded-full bg-primary-100 text-primary-800 border border-primary-300 text-[10px] font-semibold px-2 py-1 shadow-sm pointer-events-none"><i class="fas fa-wand-magic-sparkles text-[10px]"></i>Propuesta IA</span>
+                                    <% } else { %>
+                                    <span class="absolute top-2 right-2 z-[2] inline-flex items-center gap-1 rounded-full bg-gray-100 text-gray-700 border border-gray-300 text-[10px] font-semibold px-2 py-1 shadow-sm pointer-events-none"><i class="fas fa-layer-group text-[10px]"></i>Aprox. inventario</span>
+                                    <% } %>
                                 </div>
-                            </div>
+                                <div class="p-3 border-t border-gray-100">
+                                    <p class="font-semibold text-gray-900 text-sm leading-snug sm-ia-title-clamp" title="<%= _spTitle %>"><%= _spTitle %></p>
+                                    <p class="text-xs text-gray-600 mt-1.5 leading-relaxed sm-ia-blurb-clamp"><%= spot.blurb %></p>
+                                </div>
+                            </article>
                             <% }) %>
                         </div>
                     </div>
+                    <% } %>
 
                     <%# 3b. Dónde dormirás (espacios tipo dormitorio + foto por componente si existe) %>
                     <% if (_sleepRooms.length > 0) { %>
@@ -458,7 +883,11 @@
                                 </div>
                                 <div class="p-3 border-t border-gray-100">
                                     <p class="font-semibold text-gray-900 text-sm truncate" title="<%= _srTitle %>"><%= _srTitle %></p>
-                                    <p class="text-xs text-gray-500 mt-0.5"><%= _bedLabelForComp(comp) %></p>
+                                    <p class="text-xs text-gray-500 mt-0.5">
+                                        <%= _bedLabelForComp(comp) %>
+                                        <% const _capLbl = _sleepCapacityLabel(comp); %>
+                                        <% if (_capLbl) { %> · <%= _capLbl %><% } %>
+                                    </p>
                                 </div>
                             </article>
                             <% }) %>
@@ -529,39 +958,84 @@
                     <%
                         const _resenas = locals.resenas || [];
                         const _dims = [
-                            { key: 'promedio_limpieza',      label: 'Limpieza' },
-                            { key: 'promedio_ubicacion',     label: 'Ubicación' },
-                            { key: 'promedio_llegada',       label: 'Llegada' },
-                            { key: 'promedio_comunicacion',  label: 'Comunicación' },
-                            { key: 'promedio_equipamiento',  label: 'Equipamiento' },
-                            { key: 'promedio_valor',         label: 'Valor' },
+                            { key: 'promedio_limpieza',      label: 'Limpieza',      icon: 'fa-broom' },
+                            { key: 'promedio_ubicacion',     label: 'Ubicación',     icon: 'fa-location-dot' },
+                            { key: 'promedio_llegada',       label: 'Llegada',       icon: 'fa-key' },
+                            { key: 'promedio_comunicacion',  label: 'Comunicación',  icon: 'fa-comments' },
+                            { key: 'promedio_equipamiento',  label: 'Equipamiento',  icon: 'fa-house' },
+                            { key: 'promedio_valor',         label: 'Calidad-precio',icon: 'fa-tag' },
                         ].filter(d => resenasResumen && resenasResumen[d.key] != null);
                     %>
                     <% if (_nResenas >= 1 && resenasResumen) { %>
                     <div class="py-8">
-                        <h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                            <% if (_rating) { %>
-                            <i class="fas fa-star text-warning-400"></i>
-                            <span class="tabular-nums"><%= _rating %><span class="text-sm font-normal text-gray-500">/10</span></span>
-                            <span class="text-gray-300 mx-0.5">·</span>
-                            <% } %>
-                            <span><%= _nResenas %> reseña<%= _nResenas!==1?'s':'' %></span>
-                        </h2>
-
-                        <%# Dimensiones con barras %>
-                        <% if (_dims.length > 0) { %>
-                        <div class="grid grid-cols-2 gap-x-10 gap-y-3 mb-8 text-sm">
-                            <% _dims.forEach(d => { %>
-                            <div class="flex items-center gap-3">
-                                <span class="text-gray-600 w-28 flex-shrink-0"><%= d.label %></span>
-                                <div class="flex-1 bg-gray-200 rounded-full h-1.5">
-                                    <div class="bg-gray-800 h-1.5 rounded-full" style="width:<%= Math.round((resenasResumen[d.key]/5)*100) %>%"></div>
+                        <% const _isGuestFavorite = (_prom5 != null && _prom5 >= 4.8 && _nResenas >= 3); %>
+                        <% 
+                            const _dimScoreValues = _dims.map((d) => Number(resenasResumen[d.key] || 0)).filter((v) => Number.isFinite(v) && v > 0);
+                            const _scoreCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+                            _dimScoreValues.forEach((v) => {
+                                const b = Math.max(1, Math.min(5, Math.round(v)));
+                                _scoreCounts[b] += 1;
+                            });
+                            const _maxBucket = Math.max(1, _scoreCounts[5], _scoreCounts[4], _scoreCounts[3], _scoreCounts[2], _scoreCounts[1]);
+                            const _generalByBand = [5, 4, 3, 2, 1]
+                                .map((v) => ({ v, count: _scoreCounts[v], pct: Math.round((_scoreCounts[v] / _maxBucket) * 100) }))
+                                .filter((row) => row.count > 0);
+                        %>
+                        <div class="rounded-2xl border border-gray-200 bg-white p-5 md:p-7 mb-8">
+                            <div class="text-center max-w-2xl mx-auto pt-2 md:pt-3">
+                                <div class="flex items-center justify-center gap-4 mb-4">
+                                    <i class="fas fa-award text-3xl text-gray-800 opacity-80"></i>
+                                    <p class="text-6xl md:text-7xl font-extrabold leading-none tabular-nums text-gray-900"><%= (_prom5 != null ? _prom5.toFixed(1) : '—') %></p>
+                                    <i class="fas fa-award text-3xl text-gray-800 opacity-80"></i>
                                 </div>
-                                <span class="text-gray-800 font-medium w-6 text-right flex-shrink-0"><%= resenasResumen[d.key] %></span>
+                                <p class="text-xl font-semibold text-gray-900"><%= _isGuestFavorite ? 'Favorito entre huéspedes' : 'Valoraciones verificadas de huéspedes' %></p>
+                                <p class="text-sm text-gray-600 leading-relaxed mt-1">
+                                    <%= _isGuestFavorite
+                                        ? 'Este alojamiento destaca por consistencia en evaluaciones recientes de limpieza, comunicación y experiencia.'
+                                        : 'Estas métricas se calculan con reseñas reales de huéspedes que se alojaron en la propiedad.' %>
+                                </p>
                             </div>
-                            <% }) %>
+
+                            <div class="mt-7 grid grid-cols-2 lg:grid-cols-7 gap-0 border border-gray-200 rounded-xl overflow-hidden bg-white">
+                                <div class="p-4 border-b lg:border-b-0 lg:border-r border-gray-200 col-span-2 lg:col-span-1">
+                                    <p class="text-xs text-gray-600 font-medium mb-2">Distribución</p>
+                                    <div class="space-y-1.5">
+                                        <% _generalByBand.forEach((row) => { %>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[11px] text-gray-500 w-2"><%= row.v %></span>
+                                            <div class="flex-1 h-1.5 rounded-full bg-gray-200">
+                                                <div class="h-1.5 rounded-full bg-gray-800" style="width:<%= row.pct %>%"></div>
+                                            </div>
+                                            <span class="text-[11px] text-gray-500 w-3 text-right"><%= row.count %></span>
+                                        </div>
+                                        <% }) %>
+                                    </div>
+                                </div>
+
+                                <% _dims.forEach((d, idx) => { %>
+                                <div class="p-4 border-b lg:border-b-0 border-gray-200 <%= idx < _dims.length - 1 ? 'lg:border-r' : '' %>">
+                                    <p class="text-xs text-gray-600 font-medium"><%= d.label %></p>
+                                    <p class="text-3xl font-bold text-gray-900 leading-none mt-1 tabular-nums"><%= Number(resenasResumen[d.key]).toFixed(1) %></p>
+                                    <i class="fas <%= d.icon %> text-gray-700 mt-3 text-xl"></i>
+                                </div>
+                                <% }) %>
+                            </div>
+
+                            <% const _reviewTags = []; %>
+                            <% if (resenasResumen.promedio_limpieza >= 4.8) _reviewTags.push('Limpieza'); %>
+                            <% if (resenasResumen.promedio_comunicacion >= 4.8) _reviewTags.push('Comunicación'); %>
+                            <% if (resenasResumen.promedio_valor >= 4.8) _reviewTags.push('Calidad-precio'); %>
+                            <% if (resenasResumen.promedio_ubicacion >= 4.8) _reviewTags.push('Ubicación'); %>
+                            <% if (_reviewTags.length > 0) { %>
+                            <div class="mt-5 flex flex-wrap justify-center gap-2">
+                                <% _reviewTags.slice(0, 6).forEach((tag) => { %>
+                                <span class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 text-gray-700 text-xs font-medium px-3 py-1">
+                                    <i class="fas fa-medal text-primary-500 text-[10px]"></i><%= tag %>
+                                </span>
+                                <% }) %>
+                            </div>
+                            <% } %>
                         </div>
-                        <% } %>
 
                         <%# Cards de reseñas %>
                         <% if (_resenas.length > 0) { %>
@@ -574,7 +1048,7 @@
                                     : '';
                                 const _rText = r.texto_positivo || r.texto_negativo || '';
                             %>
-                            <div class="border border-gray-100 rounded-2xl p-5">
+                            <article class="border border-gray-200 rounded-2xl p-5 md:p-6 bg-white shadow-sm hover:shadow-md transition-shadow">
                                 <div class="flex items-center gap-3 mb-3">
                                     <div class="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center font-bold text-primary-700 flex-shrink-0 text-sm">
                                         <%= _rInitial %>
@@ -590,9 +1064,9 @@
                                     </div>
                                 </div>
                                 <% if (_rText) { %>
-                                <p class="text-sm text-gray-600 leading-relaxed" style="display:-webkit-box;-webkit-line-clamp:4;line-clamp:4;-webkit-box-orient:vertical;overflow:hidden"><%= _rText %></p>
+                                <p class="text-sm text-gray-700 leading-relaxed" style="display:-webkit-box;-webkit-line-clamp:4;line-clamp:4;-webkit-box-orient:vertical;overflow:hidden"><%= _rText %></p>
                                 <% } %>
-                            </div>
+                            </article>
                             <% }) %>
                         </div>
                         <% } %>
@@ -660,7 +1134,7 @@
                             </div>
                         </div>
                         <p id="pbc-loading" class="hidden text-sm text-gray-500 mb-2"><i class="fas fa-spinner fa-spin mr-2"></i>Actualizando disponibilidad…</p>
-                        <p id="pbc-error" class="hidden text-sm text-red-600 mb-2"></p>
+                        <p id="pbc-error" class="hidden text-sm text-danger-600 mb-2"></p>
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
                             <div>
                                 <p id="pbc-label-0" class="text-center text-base font-semibold text-gray-900 mb-3 tabular-nums"></p>
@@ -685,10 +1159,25 @@
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm">
                             <div>
                                 <h3 class="font-semibold text-gray-800 mb-3">Normas de la casa</h3>
+                                <% 
+                                    const _dispIn = (locals.reglasVista && reglasVista.horaEntrada24) ? reglasVista.horaEntrada24 : _checkin;
+                                    const _dispOut = (locals.reglasVista && reglasVista.horaSalida24) ? reglasVista.horaSalida24 : _checkout;
+                                    const _dispMax = (locals.reglasVista && reglasVista.maxHuespedesUI > 0) ? reglasVista.maxHuespedesUI : propiedad.capacidad;
+                                %>
                                 <ul class="space-y-2 text-gray-600">
-                                    <li class="flex items-start gap-2"><i class="fas fa-clock w-4 text-gray-400 mt-0.5"></i><span>Llegada: desde las <%= _checkin %></span></li>
-                                    <li class="flex items-start gap-2"><i class="fas fa-clock w-4 text-gray-400 mt-0.5"></i><span>Salida: antes de las <%= _checkout %></span></li>
-                                    <li class="flex items-start gap-2"><i class="fas fa-users w-4 text-gray-400 mt-0.5"></i><span>Máx. <%= propiedad.capacidad %> huéspedes</span></li>
+                                    <li class="flex items-start gap-2"><i class="fas fa-clock w-4 text-gray-400 mt-0.5"></i><span>Llegada: desde las <%= _dispIn %></span></li>
+                                    <li class="flex items-start gap-2"><i class="fas fa-clock w-4 text-gray-400 mt-0.5"></i><span>Salida: antes de las <%= _dispOut %></span></li>
+                                    <li class="flex items-start gap-2"><i class="fas fa-users w-4 text-gray-400 mt-0.5"></i><span>Máx. <%= _dispMax %> huéspedes</span></li>
+                                    <% if (locals.reglasVista) { %>
+                                    <li class="flex items-start gap-2 pt-0.5">
+                                        <span class="w-4 flex-shrink-0" aria-hidden="true"></span>
+                                        <button type="button"
+                                                class="text-primary-600 underline font-medium hover:text-primary-700 bg-transparent border-0 p-0 cursor-pointer text-left text-sm"
+                                                onclick="document.getElementById('modal-reglas-casa').classList.add('open'); document.body.classList.add('overflow-hidden');">
+                                            Más información
+                                        </button>
+                                    </li>
+                                    <% } %>
                                 </ul>
                             </div>
                             <div>
@@ -710,6 +1199,66 @@
                             </div>
                         </div>
                     </div>
+
+                    <%# 7b. Más alojamientos (misma empresa o descubrimiento StayManager) %>
+                    <% if (typeof masAlojamientos !== 'undefined' && masAlojamientos && masAlojamientos.items && masAlojamientos.items.length) { %>
+                    <div class="py-10 border-t border-gray-100" id="sm-mas-alojamientos">
+                        <div class="flex flex-wrap items-end justify-between gap-3 mb-2">
+                            <h2 class="text-xl font-bold text-gray-900"><%= masAlojamientos.titulo %></h2>
+                            <div class="hidden sm:flex items-center gap-2 shrink-0">
+                                <button type="button" data-ma-prev class="h-9 w-9 rounded-full border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 flex items-center justify-center transition-colors" aria-label="Anterior">
+                                    <i class="fas fa-chevron-left text-sm"></i>
+                                </button>
+                                <button type="button" data-ma-next class="h-9 w-9 rounded-full border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 flex items-center justify-center transition-colors" aria-label="Siguiente">
+                                    <i class="fas fa-chevron-right text-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <% if (masAlojamientos.subtitulo) { %>
+                        <p class="text-sm text-gray-500 mb-5 max-w-3xl leading-relaxed"><%= masAlojamientos.subtitulo %></p>
+                        <% } %>
+                        <div class="flex gap-4 overflow-x-auto pb-2 scroll-smooth" data-ma-track style="-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;display:flex;">
+                            <% masAlojamientos.items.forEach((it) => {
+                                const _mImg = String(it.imagen || '').trim() || 'https://placehold.co/480x360/e5e7eb/9ca3af?text=Alojamiento';
+                                const _mTit = String(it.titulo || 'Alojamiento').trim();
+                            %>
+                            <a href="<%= it.href %>"
+                               class="group flex-shrink-0 rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
+                               style="width:min(260px,78vw);scroll-snap-align:start;flex-shrink:0;"
+                               <% if (it.target) { %>target="<%= it.target %>" rel="<%= it.rel || 'noopener noreferrer' %>"<% } %>>
+                                <div class="relative w-full bg-gray-100 overflow-hidden" style="aspect-ratio:4/3">
+                                    <img src="<%= _mImg %>" alt="" loading="lazy" decoding="async" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" onerror="this.src='https://placehold.co/480x360/e5e7eb/9ca3af?text=Alojamiento'">
+                                </div>
+                                <div class="p-3.5">
+                                    <h3 class="font-semibold text-gray-900 text-sm leading-snug sm-ia-title-clamp"><%= _mTit %></h3>
+                                    <div class="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                                        <span class="text-sm font-bold text-gray-900"><%= it.precioLabel %></span>
+                                        <% if (it.ratingLabel) { %>
+                                        <span class="text-xs font-semibold text-gray-700 tabular-nums"><i class="fas fa-star text-warning-400 mr-0.5"></i><%= it.ratingLabel %></span>
+                                        <% } %>
+                                    </div>
+                                </div>
+                            </a>
+                            <% }) %>
+                        </div>
+                    </div>
+                    <script>
+                    (function () {
+                        var root = document.getElementById('sm-mas-alojamientos');
+                        if (!root) return;
+                        var track = root.querySelector('[data-ma-track]');
+                        var prev = root.querySelector('[data-ma-prev]');
+                        var next = root.querySelector('[data-ma-next]');
+                        if (!track || !prev || !next) return;
+                        var step = function (dir) {
+                            var w = Math.max(220, Math.floor(track.clientWidth * 0.82));
+                            track.scrollBy({ left: dir * w, behavior: 'smooth' });
+                        };
+                        prev.addEventListener('click', function () { step(-1); });
+                        next.addEventListener('click', function () { step(1); });
+                    })();
+                    </script>
+                    <% } %>
 
                     <%# 8. CTA WHATSAPP (solo si hay número) %>
                     <% if (_waUrl) { %>
@@ -743,6 +1292,8 @@
             </div>
         </div>
     </main>
+
+    <%- include('partials/property-house-rules') %>
 
     <%- include('partials/footer') %>
 
@@ -798,6 +1349,60 @@
         </div>
     </div>
 
+    <%# ── MODAL SHARE ── %>
+    <div id="share-modal" class="hidden fixed inset-0 z-[70]">
+        <button id="share-modal-overlay" type="button" class="absolute inset-0 bg-black/50" aria-label="Cerrar compartir"></button>
+        <div class="relative z-[71] min-h-screen w-full flex items-center justify-center p-4 sm:p-6">
+            <div class="w-full max-w-[760px] rounded-[28px] bg-white shadow-2xl border-2 border-gray-300 ring-1 ring-black/5 overflow-hidden max-h-[calc(100vh-3rem)] overflow-y-auto">
+                <div class="flex items-center justify-between px-6 sm:px-7 py-5">
+                    <h3 class="text-3xl sm:text-[44px] leading-[1.05] font-semibold text-gray-900">Comparte este espacio</h3>
+                    <button id="share-modal-close" type="button" class="h-9 w-9 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700" aria-label="Cerrar">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
+                </div>
+
+                <div class="px-6 sm:px-7 pb-5 flex items-start gap-3">
+                    <img id="share-modal-image" src="" alt="Imagen del alojamiento" class="h-16 w-16 rounded-xl object-cover bg-gray-100 flex-shrink-0">
+                    <div>
+                        <p id="share-modal-title" class="text-xl sm:text-[32px] font-semibold text-gray-900 leading-tight"></p>
+                        <p id="share-modal-subtitle" class="text-sm text-gray-600 mt-1 leading-snug"></p>
+                    </div>
+                </div>
+
+                <div class="px-6 sm:px-7 pb-7 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button type="button" data-share-action="copy" class="flex items-center gap-3 text-left rounded-2xl border border-gray-300 px-5 py-4 hover:bg-gray-50">
+                        <i class="fas fa-copy text-gray-700 text-lg w-5"></i><span class="font-semibold text-lg sm:text-[28px] leading-none text-gray-900">Copiar enlace</span>
+                    </button>
+                    <button type="button" data-share-action="email" class="flex items-center gap-3 text-left rounded-2xl border border-gray-300 px-5 py-4 hover:bg-gray-50">
+                        <i class="fas fa-envelope text-gray-700 text-lg w-5"></i><span class="font-semibold text-lg sm:text-[28px] leading-none text-gray-900">Email</span>
+                    </button>
+                    <button type="button" data-share-action="messages" class="flex items-center gap-3 text-left rounded-2xl border border-gray-300 px-5 py-4 hover:bg-gray-50">
+                        <i class="fas fa-comment text-gray-700 text-lg w-5"></i><span class="font-semibold text-lg sm:text-[28px] leading-none text-gray-900">Mensajes</span>
+                    </button>
+                    <button type="button" data-share-action="whatsapp" class="flex items-center gap-3 text-left rounded-2xl border border-gray-300 px-5 py-4 hover:bg-gray-50">
+                        <i class="fab fa-whatsapp text-gray-700 text-lg w-5"></i><span class="font-semibold text-lg sm:text-[28px] leading-none text-gray-900">WhatsApp</span>
+                    </button>
+                    <button type="button" data-share-action="messenger" class="flex items-center gap-3 text-left rounded-2xl border border-gray-300 px-5 py-4 hover:bg-gray-50">
+                        <i class="fab fa-facebook-messenger text-gray-700 text-lg w-5"></i><span class="font-semibold text-lg sm:text-[28px] leading-none text-gray-900">Messenger</span>
+                    </button>
+                    <button type="button" data-share-action="facebook" class="flex items-center gap-3 text-left rounded-2xl border border-gray-300 px-5 py-4 hover:bg-gray-50">
+                        <i class="fab fa-facebook text-gray-700 text-lg w-5"></i><span class="font-semibold text-lg sm:text-[28px] leading-none text-gray-900">Facebook</span>
+                    </button>
+                    <button type="button" data-share-action="twitter" class="flex items-center gap-3 text-left rounded-2xl border border-gray-300 px-5 py-4 hover:bg-gray-50">
+                        <i class="fab fa-x-twitter text-gray-700 text-lg w-5"></i><span class="font-semibold text-lg sm:text-[28px] leading-none text-gray-900">Twitter</span>
+                    </button>
+                    <button type="button" data-share-action="embed" class="flex items-center gap-3 text-left rounded-2xl border border-gray-300 px-5 py-4 hover:bg-gray-50">
+                        <i class="fas fa-code text-gray-700 text-lg w-5"></i><span class="font-semibold text-lg sm:text-[28px] leading-none text-gray-900">Insertar</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="share-toast"
+         class="pointer-events-none fixed left-1/2 top-5 -translate-x-1/2 z-[75] hidden rounded-xl border border-success-200 bg-success-50 text-success-800 px-4 py-2 text-sm font-semibold shadow-lg"
+         role="status"
+         aria-live="polite"></div>
+
     <%# ── BARRA MÓVIL STICKY ── %>
     <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 flex items-center justify-between gap-3 lg:hidden z-30 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
         <div>
@@ -827,11 +1432,15 @@
     </div>
 
     <script>
+        window.currentPropertyShareTitle = <%- JSON.stringify(_heroTitle) %>;
+        window.currentPropertyShareSubtitle = <%- JSON.stringify(`${Number(propiedad.capacidad || 0)} huésped${Number(propiedad.capacidad || 0) === 1 ? '' : 'es'} · ${_sleepRoomsCount} dormitorio${_sleepRoomsCount === 1 ? '' : 's'} · ${_bathroomsCount} baño${_bathroomsCount === 1 ? '' : 's'}`) %>;
+        window.currentPropertyShareImage = <%- JSON.stringify(_imgP?.storagePath || '') %>;
         window.allPropertyImages = [];
         window.initialBookingData = null;
         window.PUBLIC_BOOKING_BASE_URL = <%- JSON.stringify((empresa.websiteSettings && empresa.websiteSettings.seo && empresa.websiteSettings.seo.publicBookingUrl) || '') %>;
         try {
             window.allPropertyImages = <%- JSON.stringify(_galeria || []) %>;
+            window.__spotlightPhotoBuckets = <%- JSON.stringify(typeof _spotlightPhotoBuckets !== 'undefined' ? _spotlightPhotoBuckets : []) %>;
             window.initialBookingData = {
                 propiedadId: "<%= propiedad.id %>",
                 defaultPrice: <%- JSON.stringify(typeof defaultPriceData !== 'undefined' ? defaultPriceData : null) %>,
@@ -839,6 +1448,7 @@
             };
         } catch(e) { console.error('Error inyectando datos:', e); }
     </script>
+    <script src="/public/js/share.js" defer></script>
     <script src="/public/js/booking.js" defer></script>
     <script src="/public/js/public-booking-calendar.js" defer></script>
     <script src="/public/js/gallery.js" defer></script>

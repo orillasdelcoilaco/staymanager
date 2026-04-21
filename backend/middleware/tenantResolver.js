@@ -2,6 +2,13 @@
 
 const { obtenerEmpresaPorDominio } = require('../services/empresaService');
 
+const PLATFORM_DOMAIN = process.env.PLATFORM_DOMAIN || 'suitemanagers.com';
+const MARKETPLACE_HOSTS = new Set([
+    PLATFORM_DOMAIN,
+    `www.${PLATFORM_DOMAIN}`,
+    'marketplace', // alias local: force_host=marketplace
+]);
+
 const createTenantResolver = (db) => async (req, res, next) => {
     // Ignorar explícitamente cualquier ruta que pertenezca a la API o a los assets.
     if (req.path.startsWith('/api/') || req.path.startsWith('/src/') || req.path.startsWith('/public/')) {
@@ -27,17 +34,22 @@ const createTenantResolver = (db) => async (req, res, next) => {
     if (req.query.force_host) {
         console.log(`[TenantResolver] Setting cookie force_host=${req.query.force_host}`);
         // Establecer cookie simple, sin HttpOnly para facilitar debug si es necesario, pero Path=/ es clave
-        res.setHeader('Set-Cookie', `force_host=${req.query.force_host}; Path=/`);
+        res.setHeader('Set-Cookie', `force_host=${req.query.force_host}; Path=/; Max-Age=3600`);
     }
 
-    const hostname = forceHost || req.hostname;
-    console.log(`[TenantResolver] Path: ${req.path}, Hostname: ${hostname}, Cookie: ${req.headers.cookie}, ForceHost: ${forceHost}`);
+    const hostname = (forceHost || req.hostname).toLowerCase().trim();
+    console.log(`[TenantResolver] Path: ${req.path}, Hostname: ${hostname}, ForceHost: ${forceHost}`);
+
+    // Dominio raíz de la plataforma → marketplace (no buscar empresa)
+    if (MARKETPLACE_HOSTS.has(hostname)) {
+        console.log(`[TenantResolver] Marketplace detectado: ${hostname}`);
+        req.isMarketplace = true;
+        return next();
+    }
 
     try {
         const empresa = await obtenerEmpresaPorDominio(db, hostname);
 
-        // Si se encuentra una empresa, se adjunta al objeto de la petición
-        // para que las rutas SSR (y la ruta catch-all final) puedan usarla.
         if (empresa) {
             console.log(`[TenantResolver] Empresa encontrada: ${empresa.nombre} (${empresa.id})`);
             req.empresa = empresa;
@@ -45,7 +57,6 @@ const createTenantResolver = (db) => async (req, res, next) => {
             console.log(`[TenantResolver] NO se encontró empresa para el hostname: ${hostname}`);
         }
 
-        // Continuamos siempre el flujo.
         next();
     } catch (error) {
         console.error(`[TenantResolver] Error resolviendo el dominio ${hostname}:`, error);

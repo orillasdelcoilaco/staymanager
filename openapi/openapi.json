@@ -7,10 +7,89 @@
     },
     "servers": [
         {
-            "url": "https://suite-manager.onrender.com/api/public"
+            "url": "https://suitemanagers.com",
+            "description": "Marketplace público"
+        },
+        {
+            "url": "https://suite-manager.onrender.com/api/public",
+            "description": "API privada por empresa"
         }
     ],
     "paths": {
+        "/api/search.json": {
+            "get": {
+                "summary": "Busca alojamientos en el marketplace de SuiteManagers",
+                "description": "Endpoint público sin autenticación. Retorna propiedades activas con foto, precio, rating y disponibilidad filtrada por fechas.",
+                "operationId": "buscarAlojamientos",
+                "servers": [{ "url": "https://suitemanagers.com" }],
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "description": "Texto libre: nombre de destino, tipo de alojamiento o empresa (ej: 'pucon', 'tinaja', 'orillas')",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "personas",
+                        "in": "query",
+                        "description": "Capacidad mínima requerida (número de huéspedes)",
+                        "schema": { "type": "integer", "minimum": 1 }
+                    },
+                    {
+                        "name": "fecha_in",
+                        "in": "query",
+                        "description": "Fecha de llegada (YYYY-MM-DD). Junto con fecha_out filtra disponibilidad real.",
+                        "schema": { "type": "string", "format": "date" }
+                    },
+                    {
+                        "name": "fecha_out",
+                        "in": "query",
+                        "description": "Fecha de salida (YYYY-MM-DD)",
+                        "schema": { "type": "string", "format": "date" }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Máximo de resultados (default 40, máximo 100)",
+                        "schema": { "type": "integer", "default": 40 }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Lista de alojamientos que coinciden con los filtros",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "version": { "type": "string" },
+                                        "total": { "type": "integer" },
+                                        "propiedades": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": { "type": "string" },
+                                                    "titulo": { "type": "string" },
+                                                    "empresa": { "type": "string" },
+                                                    "capacidad": { "type": "integer" },
+                                                    "precioDesde": { "type": "number", "description": "Precio mínimo en CLP" },
+                                                    "moneda": { "type": "string", "example": "CLP" },
+                                                    "rating": { "type": "number" },
+                                                    "numResenas": { "type": "integer" },
+                                                    "fotoUrl": { "type": "string" },
+                                                    "url": { "type": "string", "description": "URL directa a la página de reserva" }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/propiedades": {
             "get": {
                 "summary": "Lista todas las propiedades registradas en SuiteManager",

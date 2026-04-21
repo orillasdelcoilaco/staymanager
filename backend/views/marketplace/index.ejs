@@ -1,0 +1,280 @@
+<%- /* backend/views/marketplace/index.ejs — Homepage Marketplace suitemanagers.com */ %>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuiteManagers — Alojamientos en Chile</title>
+    <meta name="description" content="Encuentra cabañas, casas y departamentos únicos en los mejores destinos de Chile. Reserva directo con el anfitrión.">
+
+    <!-- Open Graph / Social -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="SuiteManagers">
+    <meta property="og:title" content="SuiteManagers — Alojamientos en Chile">
+    <meta property="og:description" content="Encuentra cabañas, casas y departamentos únicos en los mejores destinos de Chile. Reserva directo con el anfitrión.">
+    <meta property="og:url" content="https://<%= platformDomain %>/">
+    <% if (propiedades.length > 0 && propiedades[0].fotoUrl) { %>
+    <meta property="og:image" content="<%= propiedades[0].fotoUrl %>">
+    <% } %>
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="SuiteManagers — Alojamientos en Chile">
+    <meta name="twitter:description" content="Reserva directo con el anfitrión. Sin intermediarios.">
+
+    <!-- Schema.org JSON-LD -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "SuiteManagers",
+      "url": "https://<%= platformDomain %>",
+      "description": "Marketplace de alojamientos en Chile. Reserva directa con anfitriones.",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://<%= platformDomain %>/?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+    <% if (propiedades.length > 0) { %>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      "name": "Alojamientos en Chile",
+      "description": "Cabañas, casas y departamentos disponibles en SuiteManagers",
+      "numberOfItems": <%= propiedades.length %>,
+      "itemListElement": [
+        <%- propiedades.slice(0, 10).map((p, i) => JSON.stringify({
+          "@type": "ListItem",
+          "position": i + 1,
+          "item": {
+            "@type": "LodgingBusiness",
+            "name": p.titulo,
+            "url": p.url,
+            "image": p.fotoUrl || undefined,
+            "maximumAttendeeCapacity": p.capacidad,
+            ...(p.rating ? { "aggregateRating": {
+              "@type": "AggregateRating",
+              "ratingValue": p.rating,
+              "reviewCount": p.numResenas,
+              "bestRating": 5
+            }} : {}),
+            ...(p.precioDesde ? { "priceRange": "$".repeat(Math.ceil(p.precioDesde / 100000)) } : {})
+          }
+        })).join(',\n        ') %>
+      ]
+    }
+    </script>
+    <% } %>
+
+    <link rel="stylesheet" href="/public/css/website.css">
+    <%- include('../partials/web-fonts') %>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f8f8f8; }
+        .mp-header { background: #fff; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; z-index: 50; }
+        .mp-logo { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.5px; color: #4f46e5; }
+        .mp-logo span { color: #111; }
+        .search-pill {
+            display: flex; align-items: center;
+            background: #fff; border: 1.5px solid #d1d5db;
+            border-radius: 9999px; overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            max-width: 680px; width: 100%; margin: 0 auto;
+        }
+        .search-segment {
+            flex: 1; padding: 12px 20px; cursor: pointer; border: none;
+            background: transparent; text-align: left;
+        }
+        .search-segment + .search-segment { border-left: 1.5px solid #e5e7eb; }
+        .search-segment label { display: block; font-size: 11px; font-weight: 700; color: #111; margin-bottom: 2px; cursor: pointer; }
+        .search-segment input { width: 100%; border: none; outline: none; font-size: 13px; color: #6b7280; background: transparent; font-family: inherit; }
+        .search-segment input::placeholder { color: #9ca3af; }
+        .search-btn {
+            margin: 6px; background: #4f46e5; color: #fff; border: none;
+            border-radius: 9999px; width: 48px; height: 48px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; flex-shrink: 0; transition: background 0.15s;
+        }
+        .search-btn:hover { background: #4338ca; }
+        .prop-card {
+            background: #fff; border-radius: 16px; overflow: hidden;
+            transition: transform 0.15s, box-shadow 0.15s;
+            text-decoration: none; color: inherit; display: block;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .prop-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+        .prop-photo { position: relative; aspect-ratio: 4/3; background: #e5e7eb; overflow: hidden; }
+        .prop-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
+        .prop-card:hover .prop-photo img { transform: scale(1.04); }
+        .prop-photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #e0e7ff, #f0f4ff); color: #a5b4fc; font-size: 3rem; }
+        .badge-fav { position: absolute; top: 10px; left: 10px; background: #fff; border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 700; color: #111; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+        .prop-body { padding: 14px 16px 16px; }
+        .prop-title { font-size: 14px; font-weight: 700; color: #111; line-height: 1.35; margin-bottom: 3px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .prop-sub { font-size: 12px; color: #6b7280; margin-bottom: 8px; }
+        .prop-rating { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: #111; }
+        .prop-rating span { color: #6b7280; font-weight: 400; }
+        .prop-price { font-size: 14px; color: #111; margin-top: 8px; }
+        .prop-price strong { font-weight: 700; }
+        .prop-price em { font-style: normal; color: #6b7280; font-size: 12px; }
+        .section-title { font-size: 1.35rem; font-weight: 700; color: #111; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header class="mp-header">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center gap-6">
+        <a href="/" class="mp-logo flex-shrink-0">suite<span>managers</span></a>
+
+        <!-- Search pill (form GET) -->
+        <form method="GET" action="/" class="flex-1 max-w-3xl">
+            <div class="search-pill">
+                <div class="search-segment">
+                    <label for="s-destino">Destino</label>
+                    <input id="s-destino" name="q" type="text"
+                           placeholder="Buscar destinos"
+                           value="<%= busqueda %>">
+                </div>
+                <div class="search-segment" style="max-width: 140px;">
+                    <label for="s-fecha-in">Llegada</label>
+                    <input id="s-fecha-in" name="fecha_in" type="date"
+                           value="<%= fechaIn %>" style="color-scheme:light;">
+                </div>
+                <div class="search-segment" style="max-width: 140px;">
+                    <label for="s-fecha-out">Salida</label>
+                    <input id="s-fecha-out" name="fecha_out" type="date"
+                           value="<%= fechaOut %>" style="color-scheme:light;">
+                </div>
+                <div class="search-segment" style="max-width: 120px;">
+                    <label for="s-personas">Huéspedes</label>
+                    <input id="s-personas" name="personas" type="number"
+                           placeholder="¿Cuántos?" min="1" max="20"
+                           value="<%= personas > 0 ? personas : '' %>">
+                </div>
+                <button type="submit" class="search-btn" aria-label="Buscar">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</header>
+
+<!-- ═══ MAIN ═══ -->
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+    <%
+    const formatPrecio = (n) => {
+        if (!n) return null;
+        return '$' + Number(n).toLocaleString('es-CL');
+    };
+    %>
+
+    <!-- Destacados (solo si no hay búsqueda activa) -->
+    <% if (!hayBusqueda && destacados.length > 0) { %>
+    <section class="mb-14">
+        <h2 class="section-title">
+            <i class="fas fa-star text-warning-500 mr-2" style="font-size:1.1rem;"></i>
+            Favoritos entre huéspedes
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <% destacados.forEach(p => { %>
+            <a href="/ir?s=<%= p.subdominio %>&id=<%= p.id %>" class="prop-card" target="_blank" rel="noopener">
+                <div class="prop-photo">
+                    <% if (p.fotoUrl) { %>
+                        <img src="<%= p.fotoUrl %>" alt="<%= p.titulo %>" loading="lazy">
+                    <% } else { %>
+                        <div class="prop-photo-placeholder"><i class="fas fa-home"></i></div>
+                    <% } %>
+                    <span class="badge-fav"><i class="fas fa-medal mr-1 text-warning-500"></i>Favorito</span>
+                </div>
+                <div class="prop-body">
+                    <p class="prop-title"><%= p.titulo %></p>
+                    <p class="prop-sub"><%= p.empresaNombre %> · <%= p.capacidad %> personas</p>
+                    <% if (p.rating) { %>
+                    <div class="prop-rating">
+                        <i class="fas fa-star text-warning-500" style="font-size:11px;"></i>
+                        <%= p.rating %>
+                        <% if (p.numResenas > 0) { %><span>(<%= p.numResenas %> reseñas)</span><% } %>
+                    </div>
+                    <% } %>
+                    <% if (p.precioDesde) { %>
+                    <p class="prop-price"><strong><%= formatPrecio(p.precioDesde) %></strong> <em>/ noche</em></p>
+                    <% } %>
+                </div>
+            </a>
+            <% }); %>
+        </div>
+    </section>
+    <% } %>
+
+    <!-- Resultados / Todos los alojamientos -->
+    <section>
+        <h2 class="section-title">
+            <% if (hayBusqueda) { %>
+                <% if (busqueda) { %>
+                    Resultados para "<strong><%= busqueda %></strong>"
+                <% } else { %>
+                    Alojamientos para <%= personas %> persona<%= personas !== 1 ? 's' : '' %>
+                <% } %>
+                <span class="text-base font-normal text-gray-400 ml-2">· <%= totalResultados %> alojamientos</span>
+                <a href="/" class="text-sm font-normal text-primary-600 hover:underline ml-4">
+                    <i class="fas fa-times-circle mr-1"></i>Limpiar filtros
+                </a>
+            <% } else { %>
+                Todos los alojamientos
+                <span class="text-base font-normal text-gray-400 ml-2">· <%= totalResultados %></span>
+            <% } %>
+        </h2>
+
+        <% if (propiedades.length === 0) { %>
+        <div class="text-center py-20">
+            <i class="fas fa-search text-4xl text-gray-200 mb-4"></i>
+            <p class="text-gray-500 text-lg">No encontramos alojamientos con esos filtros.</p>
+            <a href="/" class="inline-block mt-4 text-primary-600 hover:underline font-medium">Ver todos los alojamientos</a>
+        </div>
+        <% } else { %>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <% propiedades.forEach(p => { %>
+            <a href="/ir?s=<%= p.subdominio %>&id=<%= p.id %>" class="prop-card" target="_blank" rel="noopener">
+                <div class="prop-photo">
+                    <% if (p.fotoUrl) { %>
+                        <img src="<%= p.fotoUrl %>" alt="<%= p.titulo %>" loading="lazy">
+                    <% } else { %>
+                        <div class="prop-photo-placeholder"><i class="fas fa-home"></i></div>
+                    <% } %>
+                </div>
+                <div class="prop-body">
+                    <p class="prop-title"><%= p.titulo %></p>
+                    <p class="prop-sub"><%= p.empresaNombre %> · <%= p.capacidad %> personas</p>
+                    <% if (p.rating) { %>
+                    <div class="prop-rating">
+                        <i class="fas fa-star text-warning-500" style="font-size:11px;"></i>
+                        <%= p.rating %>
+                        <% if (p.numResenas > 0) { %><span>(<%= p.numResenas %>)</span><% } %>
+                    </div>
+                    <% } %>
+                    <% if (p.precioDesde) { %>
+                    <p class="prop-price"><strong><%= formatPrecio(p.precioDesde) %></strong> <em>/ noche</em></p>
+                    <% } %>
+                </div>
+            </a>
+            <% }); %>
+        </div>
+        <% } %>
+    </section>
+</main>
+
+<!-- ═══ FOOTER ═══ -->
+<footer class="border-t border-gray-200 mt-20 py-10 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-400">
+        <p class="mp-logo mb-2" style="font-size:1.1rem;">suite<span style="color:#111;">managers</span></p>
+        <p>Plataforma de arrendamiento directo en Chile · <a href="#" class="hover:underline">Términos</a> · <a href="#" class="hover:underline">Privacidad</a></p>
+    </div>
+</footer>
+
+</body>
+</html>

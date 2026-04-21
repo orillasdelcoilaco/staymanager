@@ -1,0 +1,57 @@
+{
+    "schema_version": "v1",
+    "name_for_human": "SuiteManagers — Alojamientos Chile",
+    "name_for_model": "suitemanagers",
+    "description_for_human": "Busca cabañas, casas y departamentos en Chile. Ve disponibilidad, precios y reserva directamente con el anfitrión.",
+    "description_for_model": "Herramienta para buscar alojamientos turísticos en Chile (cabañas, casas, departamentos). Retorna propiedades con precios en CLP, rating, capacidad, fotos y URL directa de reserva. Usa buscarAlojamientos para búsquedas por destino, fechas y número de personas.",
+    "auth": {
+        "type": "none"
+    },
+    "api": {
+        "type": "openapi",
+        "url": "https://suitemanagers.com/openapi.json"
+    },
+    "tools": [
+        {
+            "name": "buscarAlojamientos",
+            "description": "Busca alojamientos disponibles en el marketplace de SuiteManagers. Puedes filtrar por texto (destino, tipo de propiedad), número de personas y rango de fechas. Retorna precios en CLP, rating, foto y URL de reserva directa.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "q": {
+                        "type": "string",
+                        "description": "Búsqueda de texto: destino, tipo de alojamiento o característica (ej: 'pucon', 'tinaja', 'vista al volcán')"
+                    },
+                    "personas": {
+                        "type": "integer",
+                        "description": "Número mínimo de personas que debe alojar la propiedad",
+                        "minimum": 1
+                    },
+                    "fecha_in": {
+                        "type": "string",
+                        "description": "Fecha de llegada en formato YYYY-MM-DD",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "fecha_out": {
+                        "type": "string",
+                        "description": "Fecha de salida en formato YYYY-MM-DD",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Máximo de resultados a retornar (default 10 para respuestas conversacionales)",
+                        "default": 10,
+                        "maximum": 100
+                    }
+                }
+            },
+            "http": {
+                "method": "GET",
+                "url": "https://suitemanagers.com/api/search.json"
+            }
+        }
+    ],
+    "logo_url": "https://suitemanagers.com/public/img/logo.png",
+    "contact_email": "hola@suitemanagers.com",
+    "legal_info_url": "https://suitemanagers.com/legal/terminos"
+}

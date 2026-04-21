@@ -35,6 +35,7 @@ const kpiRoutes = require('./routes/kpi.js');
 const icalRoutes = require('./routes/ical.js');
 const crmRoutes = require('./routes/crm.js');
 const websiteRoutes = require('./routes/website.js');
+const { createMarketplaceRouter } = require('./routes/marketplace.js');
 const integrationsRoutes = require('./routes/integrations.js');
 const estadosRoutes = require('./routes/estados.js');
 const websiteConfigRoutes = require('./api/ssr/config.routes.js');
@@ -67,6 +68,9 @@ const resenasRoutes = require('./routes/resenas');
 // [NEW] Galería de fotos por propiedad (revisión manual + sync SSR)
 const galeriaRoutes = require('./routes/galeriaRoutes');
 const mapeosCentralesRoutes = require('./routes/mapeosCentrales');
+
+// Catálogo universal de activos (para wizard gestión de propiedades)
+const catalogoRoutes = require('./routes/catalogoRoutes');
 const geocodeRoutes = require('./routes/geocode');
 
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
@@ -155,6 +159,34 @@ try {
     const backendPublicPath = path.join(__dirname, 'public');
     app.use('/public', cors({ origin: '*' }), express.static(backendPublicPath));
 
+    // ── Marketplace search API pública (antes del apiRouter con auth) ─────
+    const { obtenerPropiedadesParaMarketplace: mpSearch, PLATFORM_DOMAIN: mpDomain } = require('./services/marketplaceService');
+    app.get('/api/search.json', cors(), async (req, res) => {
+        try {
+            const { q = '', personas = '', fecha_in = '', fecha_out = '', limit = '40' } = req.query;
+            const personasNum = parseInt(personas) || 0;
+            const fechaIn = fecha_in.match(/^\d{4}-\d{2}-\d{2}$/) ? fecha_in : null;
+            const fechaOut = fecha_out.match(/^\d{4}-\d{2}-\d{2}$/) ? fecha_out : null;
+            const limitNum = Math.min(parseInt(limit) || 40, 100);
+            const propiedades = await mpSearch({ busqueda: q.trim(), personas: personasNum, fechaIn, fechaOut, limit: limitNum });
+            res.json({
+                version: '1.0',
+                platform: mpDomain,
+                query: { q: q.trim(), personas: personasNum, fechaIn, fechaOut },
+                total: propiedades.length,
+                propiedades: propiedades.map(p => ({
+                    id: p.id, titulo: p.titulo, empresa: p.empresaNombre,
+                    capacidad: p.capacidad, precioDesde: p.precioDesde, moneda: 'CLP',
+                    rating: p.rating, numResenas: p.numResenas,
+                    fotoUrl: p.fotoUrl, url: p.url,
+                })),
+            });
+        } catch (err) {
+            console.error('[API search] Error:', err);
+            res.status(500).json({ error: 'Error interno' });
+        }
+    });
+
     // --- ORDEN DE RUTAS ESTRATÉGICO ---
 
     // **PRIORIDAD 1: Rutas de la API (/api/...)**
@@ -219,6 +251,7 @@ try {
     apiRouter.use('/componentes', componentesRoutes(db));
     apiRouter.use('/amenidades', amenidadesRoutes(db));
     apiRouter.use('/tipos-elemento', tiposElementoRoutes(db));
+    apiRouter.use('/catalogo', catalogoRoutes);
 
     // Rutas faltantes agregadas
     apiRouter.use('/kpis', kpiRoutes(db));
@@ -256,7 +289,11 @@ try {
 
     // **PRIORIDAD 4.5: Formulario de Reseñas Público (sin auth, sin tenantResolver)**
     const {
-        obtenerPorToken, marcarTokenUsado, guardarResena, registrarClickGoogle
+        obtenerPorToken,
+        marcarTokenUsado,
+        guardarResena,
+        registrarClickGoogle,
+        clienteBloqueadoParaResenaToken,
     } = require('./services/resenasService');
 
     app.get('/r/:token', async (req, res) => {
@@ -265,6 +302,12 @@ try {
             if (!resena) return res.status(404).render('404', { empresa: { nombre: 'SuiteManager' } });
             if (resena.punt_general) {
                 return res.send('<html><body style="font-family:sans-serif;text-align:center;padding:60px"><h2>Esta reseña ya fue enviada. ¡Gracias!</h2></body></html>');
+            }
+            if (await clienteBloqueadoParaResenaToken(req.params.token)) {
+                return res.status(403).send(
+                    '<html><body style="font-family:sans-serif;text-align:center;padding:48px;max-width:520px;margin:0 auto">'
+                    + '<h2>No disponible</h2><p style="color:#444;line-height:1.5">Este enlace no puede usarse para dejar una reseña.</p></body></html>'
+                );
             }
             await marcarTokenUsado(req.params.token);
             res.render('review', { resena });
@@ -281,6 +324,9 @@ try {
             res.json({ ok: true });
         } catch (err) {
             console.error('[review] POST submit:', err.message);
+            if (err.code === 'CLIENTE_BLOQUEADO') {
+                return res.status(403).json({ error: err.message });
+            }
             res.status(500).json({ error: err.message });
         }
     });
@@ -296,7 +342,50 @@ try {
 
     // **PRIORIDAD 5: SSR Router**
     const tenantResolver = createTenantResolver(db);
+
+    // Limpiar cookie force_host (para dev local — salir del modo preview)
+    app.get('/clear-preview', (_req, res) => {
+        res.setHeader('Set-Cookie', 'force_host=; Path=/; Max-Age=0');
+        res.redirect('/');
+    });
+
+    // ── SEO global (robots.txt, sitemap.xml) ─────────────────────────────
+    const { generarSitemap, ROBOTS_TXT } = require('./services/marketplace.seo.js');
+    app.get('/robots.txt', (_req, res) => {
+        res.type('text/plain').send(ROBOTS_TXT);
+    });
+    app.get('/sitemap.xml', async (_req, res) => {
+        try {
+            const xml = await generarSitemap();
+            res.type('application/xml').send(xml);
+        } catch (err) {
+            console.error('[SEO] Error generando sitemap:', err);
+            res.status(500).send('Error generando sitemap');
+        }
+    });
+
+    // Redirect marketplace → propiedad de empresa (funciona en dev y prod)
+    const { PLATFORM_DOMAIN: MP_DOMAIN } = require('./services/marketplaceService');
+    app.get('/ir', (req, res) => {
+        const { s: subdominio, id } = req.query;
+        if (!subdominio || !id) return res.redirect('/');
+        const sub = subdominio.toLowerCase();
+        if (process.env.RENDER) {
+            return res.redirect(`https://${sub}.${MP_DOMAIN}/propiedad/${id}`);
+        }
+        const base = `${req.protocol}://${req.get('host')}`;
+        res.redirect(`${base}/propiedad/${id}?force_host=${sub}.${MP_DOMAIN}`);
+    });
+
     app.use('/', tenantResolver, (req, res, next) => {
+        // Rutas SPA — siempre van al admin panel, aunque haya cookie force_host activa
+        const spaPaths = ['/login', '/logout', '/register', '/forgot-password'];
+        if (spaPaths.includes(req.path)) {
+            return res.sendFile(path.join(frontendPath, 'index.html'));
+        }
+        if (req.isMarketplace) {
+            return createMarketplaceRouter(db)(req, res, next);
+        }
         if (req.empresa) {
             return websiteRoutes(db)(req, res, next);
         }
