@@ -1,0 +1,222 @@
+<%- /* backend/views/contacto.ejs */ %>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <%
+        const _contactTitle = `Contacto | ${empresa.nombre}`;
+        const _contactDesc  = `Contacta con ${empresa.nombre}. Reservas directas, consultas y más información sobre nuestros alojamientos.`;
+        const _pageUrl      = (locals.baseUrl || '') + '/contacto';
+        const _heroImage    = empresa.websiteSettings?.theme?.heroImageUrl || '';
+        const _logoUrl      = locals.brandIdentity?.logoUrl || empresa.websiteSettings?.theme?.logoUrl || '';
+
+        // Datos de contacto: combinar fuentes
+        const _telefono     = locals.contacto?.telefonoPrincipal || empresa.contactoTelefono || '';
+        const _email        = locals.contacto?.emailContacto    || empresa.contactoEmail    || '';
+        const _nombreContacto = empresa.contactoNombre          || empresa.nombre;
+        const _whatsappNum  = _telefono.replace(/\D/g, '');
+        const _whatsappMsg  = encodeURIComponent(`Hola ${_nombreContacto.split(' ')[0]}, me gustaría obtener más información sobre sus alojamientos.`);
+        const _whatsappUrl  = _whatsappNum ? `https://wa.me/${_whatsappNum}?text=${_whatsappMsg}` : '';
+
+        // Ubicación
+        const _ciudad  = locals.ubicacion?.ciudad  || empresaContext?.ubicacion?.ciudad  || '';
+        const _region  = locals.ubicacion?.region  || empresaContext?.ubicacion?.region  || '';
+        const _direccion = locals.ubicacion?.direccion || locals.contacto?.direccionCompleta || empresa.ubicacionTexto || '';
+        const _googleMapsUrl = empresa.websiteSettings?.general?.googleMapsUrl || empresa.googleMapsUrl || '';
+        const _mapsEmbed = empresa.websiteSettings?.general?.googleMapsEmbed || '';
+    %>
+
+    <title><%= _contactTitle %></title>
+    <meta name="description" content="<%= _contactDesc %>">
+    <link rel="canonical" href="<%= _pageUrl %>">
+
+    <%# --- Open Graph --- %>
+    <meta property="og:type"        content="website">
+    <meta property="og:locale"      content="es_CL">
+    <meta property="og:site_name"   content="<%= empresa.nombre %>">
+    <meta property="og:title"       content="<%= _contactTitle %>">
+    <meta property="og:description" content="<%= _contactDesc %>">
+    <meta property="og:url"         content="<%= _pageUrl %>">
+    <% if (_heroImage) { %>
+    <meta property="og:image"       content="<%= _heroImage %>">
+    <meta property="og:image:alt"   content="<%= empresa.nombre %>">
+    <% } %>
+
+    <%# --- Twitter Card --- %>
+    <meta name="twitter:card"        content="summary_large_image">
+    <meta name="twitter:title"       content="<%= _contactTitle %>">
+    <meta name="twitter:description" content="<%= _contactDesc %>">
+    <% if (_heroImage) { %>
+    <meta name="twitter:image"       content="<%= _heroImage %>">
+    <% } %>
+
+    <%# --- JSON-LD --- %>
+    <script type="application/ld+json"><%- JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "ContactPage",
+        "name": `Contacto | ${empresa.nombre}`,
+        "url": _pageUrl,
+        "mainEntity": {
+            "@type": "Organization",
+            "name": empresa.nombre,
+            ...(_telefono && { "telephone": _telefono }),
+            ...(_email    && { "email": _email }),
+            ...(_direccion && { "address": {
+                "@type": "PostalAddress",
+                "streetAddress": _direccion,
+                ...(_ciudad && { "addressLocality": _ciudad }),
+                ...(_region && { "addressRegion": _region }),
+                "addressCountry": "CL"
+            }})
+        }
+    }) %></script>
+
+    <%# --- Estilos --- %>
+    <link rel="stylesheet" href="/public/css/website.css">
+    <% if (locals.customCSS && locals.customCSS.trim().length > 0) { %>
+    <style><%= locals.customCSS %></style>
+    <% } %>
+
+    <%# --- Fuentes (sin gstatic: compatible con CSP estricta) --- %>
+    <%- include('partials/web-fonts', { brandFont: (locals.brandIdentity && locals.brandIdentity.typography && locals.brandIdentity.typography.fontFamily) || '' }) %>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <% if (_logoUrl) { %><link rel="icon" href="<%= _logoUrl %>" type="image/png"><% } %>
+</head>
+
+<body class="bg-gray-50 flex flex-col min-h-screen">
+
+    <%- include('partials/header') %>
+
+    <main class="flex-grow">
+        <%# --- Hero compacto --- %>
+        <div class="bg-primary-700 text-white py-14 px-4 text-center">
+            <h1 class="text-3xl md:text-5xl font-bold mb-3"><%= empresa.nombre %></h1>
+            <p class="text-lg text-primary-100 max-w-xl mx-auto"><%= _contactDesc %></p>
+        </div>
+
+        <div class="container py-12 mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-5xl mx-auto">
+
+                <%# --- Columna izquierda: datos de contacto --- %>
+                <div class="space-y-8">
+                    <h2 class="text-2xl font-bold text-gray-900">¿Cómo contactarnos?</h2>
+
+                    <%# WhatsApp --- CTA principal %>
+                    <% if (_whatsappUrl) { %>
+                    <a href="<%= _whatsappUrl %>" target="_blank" rel="noopener"
+                       class="flex items-center gap-4 bg-success-600 hover:bg-success-700 text-white rounded-xl px-6 py-5 transition shadow-md">
+                        <i class="fa-brands fa-whatsapp text-4xl"></i>
+                        <div>
+                            <div class="font-bold text-lg">Escríbenos por WhatsApp</div>
+                            <div class="text-success-100 text-sm"><%= _telefono %></div>
+                        </div>
+                    </a>
+                    <% } %>
+
+                    <%# Teléfono %>
+                    <% if (_telefono) { %>
+                    <div class="flex items-start gap-4">
+                        <div class="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="fa-solid fa-phone text-primary-600 text-lg"></i>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-gray-900">Teléfono</div>
+                            <a href="tel:<%= _telefono.replace(/\D/g, '') %>" class="text-primary-600 hover:underline"><%= _telefono %></a>
+                        </div>
+                    </div>
+                    <% } %>
+
+                    <%# Email %>
+                    <% if (_email) { %>
+                    <div class="flex items-start gap-4">
+                        <div class="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="fa-solid fa-envelope text-primary-600 text-lg"></i>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-gray-900">Email</div>
+                            <a href="mailto:<%= _email %>" class="text-primary-600 hover:underline"><%= _email %></a>
+                        </div>
+                    </div>
+                    <% } %>
+
+                    <%# Dirección %>
+                    <% if (_direccion || _ciudad) { %>
+                    <div class="flex items-start gap-4">
+                        <div class="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="fa-solid fa-location-dot text-primary-600 text-lg"></i>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-gray-900">Ubicación</div>
+                            <% if (_direccion) { %><p class="text-gray-600"><%= _direccion %></p><% } %>
+                            <% if (_ciudad || _region) { %>
+                            <p class="text-gray-500 text-sm">
+                                <%= [_ciudad, _region].filter(Boolean).join(', ') %>, Chile
+                            </p>
+                            <% } %>
+                            <% if (_googleMapsUrl) { %>
+                            <a href="<%= _googleMapsUrl %>" target="_blank" rel="noopener"
+                               class="text-primary-600 hover:underline text-sm mt-1 inline-block">
+                                Ver en Google Maps →
+                            </a>
+                            <% } %>
+                        </div>
+                    </div>
+                    <% } %>
+
+                    <%# Redes Sociales %>
+                    <% const redes = locals.contacto?.redesSociales || {}; %>
+                    <% if (Object.keys(redes).length > 0) { %>
+                    <div>
+                        <div class="font-semibold text-gray-900 mb-3">Síguenos</div>
+                        <div class="flex gap-3">
+                            <% if (redes.instagram) { %>
+                            <a href="<%= redes.instagram %>" target="_blank" rel="noopener"
+                               class="w-10 h-10 bg-gray-800 hover:bg-primary-600 text-white rounded-full flex items-center justify-center transition">
+                                <i class="fa-brands fa-instagram"></i>
+                            </a>
+                            <% } %>
+                            <% if (redes.facebook) { %>
+                            <a href="<%= redes.facebook %>" target="_blank" rel="noopener"
+                               class="w-10 h-10 bg-gray-800 hover:bg-primary-600 text-white rounded-full flex items-center justify-center transition">
+                                <i class="fa-brands fa-facebook-f"></i>
+                            </a>
+                            <% } %>
+                        </div>
+                    </div>
+                    <% } %>
+                </div>
+
+                <%# --- Columna derecha: mapa o CTA ver propiedades --- %>
+                <div>
+                    <% if (_mapsEmbed) { %>
+                    <div class="rounded-xl overflow-hidden shadow-md h-full min-h-[320px]">
+                        <%- _mapsEmbed %>
+                    </div>
+                    <% } else if (_googleMapsUrl) { %>
+                    <a href="<%= _googleMapsUrl %>" target="_blank" rel="noopener"
+                       class="flex flex-col items-center justify-center bg-gray-100 border-2 border-dashed border-gray-300 rounded-xl p-10 text-center h-full min-h-[320px] hover:bg-primary-50 hover:border-primary-300 transition group">
+                        <i class="fa-solid fa-map-location-dot text-5xl text-gray-400 group-hover:text-primary-500 mb-4 transition"></i>
+                        <p class="font-semibold text-gray-700 group-hover:text-primary-700">Ver ubicación en Google Maps</p>
+                        <p class="text-sm text-gray-500 mt-1"><%= [_ciudad, _region].filter(Boolean).join(', ') || 'Chile' %></p>
+                    </a>
+                    <% } else { %>
+                    <div class="bg-primary-50 border border-primary-100 rounded-xl p-8 flex flex-col items-center justify-center text-center h-full min-h-[280px]">
+                        <i class="fa-solid fa-house text-5xl text-primary-300 mb-4"></i>
+                        <h3 class="text-xl font-bold text-primary-800 mb-2">Nuestros alojamientos</h3>
+                        <p class="text-primary-600 mb-6">Explora toda nuestra oferta y reserva directamente sin intermediarios.</p>
+                        <a href="/#propiedades" class="btn-primary px-6 py-3 rounded-lg font-semibold">Ver propiedades</a>
+                    </div>
+                    <% } %>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <%- include('partials/footer') %>
+
+</body>
+</html>

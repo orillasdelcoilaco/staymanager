@@ -1,0 +1,62 @@
+<%#
+  Solo modal de reglas completas. El enlace «Más información» vive en «Cosas que debes saber».
+  Requiere locals.reglasVista (website.property.page.js).
+%>
+<% if (locals.reglasVista) { %>
+<div id="modal-reglas-casa" class="sm-modal-reglas" role="dialog" aria-modal="true" aria-labelledby="modal-reglas-titulo"
+     onclick="if(event.target===this){ this.classList.remove('open'); document.body.classList.remove('overflow-hidden'); }">
+    <div class="sm-modal-reglas-inner bg-white rounded-2xl shadow-2xl w-full max-w-[600px] max-h-[min(88vh,720px)] overflow-y-auto mx-4" onclick="event.stopPropagation();">
+        <div class="sticky top-0 z-10 px-5 pt-4 pb-4 bg-white border-b border-gray-100">
+            <div class="flex items-start gap-3">
+                <button type="button"
+                        class="h-9 w-9 flex-shrink-0 flex items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-800 text-2xl leading-none -mt-0.5"
+                        onclick="document.getElementById('modal-reglas-casa').classList.remove('open'); document.body.classList.remove('overflow-hidden');"
+                        aria-label="Cerrar">&times;</button>
+                <div class="min-w-0 flex-1">
+                    <h2 id="modal-reglas-titulo" class="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">Reglas de la casa</h2>
+                    <p class="mt-2 text-sm text-gray-600 leading-relaxed"><%= reglasVista.intro %></p>
+                </div>
+            </div>
+        </div>
+        <div class="px-5 sm:px-6 pb-6 pt-5">
+
+            <% (reglasVista.secciones || []).forEach((sec) => { %>
+            <div class="mt-8">
+                <h3 class="text-base font-bold text-gray-900 mb-3"><%= sec.titulo %></h3>
+                <% if (sec.rows && sec.rows.length) { %>
+                <ul class="divide-y divide-gray-100 border-t border-b border-gray-100 rounded-lg overflow-hidden bg-white">
+                    <% sec.rows.forEach((row) => { %>
+                    <li class="flex items-start gap-3 px-1 py-3.5 sm:py-4">
+                        <span class="flex-shrink-0 w-8 flex justify-center pt-0.5 text-gray-500">
+                            <i class="fas <%= row.icon %> text-base" aria-hidden="true"></i>
+                        </span>
+                        <span class="text-sm text-gray-700 leading-snug"><%= row.text %></span>
+                    </li>
+                    <% }) %>
+                </ul>
+                <% } %>
+                <% if (sec.paragraphs && sec.paragraphs.length) { %>
+                <div class="space-y-3 text-sm text-gray-700 leading-relaxed">
+                    <% sec.paragraphs.forEach((para) => { %>
+                    <p><%= para %></p>
+                    <% }) %>
+                </div>
+                <% } %>
+            </div>
+            <% }) %>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        var m = document.getElementById('modal-reglas-casa');
+        if (m && m.classList.contains('open')) {
+            m.classList.remove('open');
+            document.body.classList.remove('overflow-hidden');
+        }
+    });
+})();
+</script>
+<% } %>

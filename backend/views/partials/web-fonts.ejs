@@ -1,0 +1,16 @@
+<%#
+  Evita cargar fonts.googleapis.com / fonts.gstatic.com: con CSP estricta
+  (p. ej. default-src 'none' en iframes o entornos aislados) esas peticiones fallan.
+  La pila del sistema da tipografía nativa; el nombre de marca (opcional) solo
+  aplica si el SO tiene esa familia instalada.
+%>
+<%
+  const smFontStack = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif';
+  let smBrand = '';
+  if (typeof brandFont === 'string' && brandFont.trim()) {
+    smBrand = brandFont.replace(/[^a-zA-Z0-9 _-]/g, '').trim().slice(0, 48);
+  }
+%>
+<style id="sm-web-font-stack">
+  body { font-family: <%= smBrand ? `'${smBrand}', ` : '' %><%= smFontStack %>; }
+</style>
