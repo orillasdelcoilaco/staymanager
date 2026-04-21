@@ -4,6 +4,7 @@ const { getAvailabilityData } = require('../services/propuestasService');
 const { calculatePrice } = require('../services/utils/calculoValoresService');
 const { obtenerCanalesPorEmpresa, crearCanal } = require('../services/canalesService');
 const { obtenerValorDolar } = require('../services/dolarService');
+const { obtenerTarifasParaConsumidores } = require('../services/tarifasService');
 const { guardarOActualizarPropuesta } = require('../services/gestionPropuestasService');
 const { crearPreferencia } = require('../services/mercadopagoService');
 const { obtenerPlantillasPorEmpresa } = require('../services/plantillasService');
@@ -611,17 +612,7 @@ const quotePriceForDates = async (req, res) => {
 
         const valorDolar = await obtenerValorDolar(db, empresaId, inicio);
 
-        const tarifasSnapshot = await db.collection('empresas').doc(empresaId).collection('tarifas').get();
-        const allTarifas = tarifasSnapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                ...data,
-                id: doc.id,
-                fechaInicio: data.fechaInicio?.toDate ? data.fechaInicio.toDate() : parseISO(data.fechaInicio + 'T00:00:00Z'),
-                fechaTermino: data.fechaTermino?.toDate ? data.fechaTermino.toDate() : parseISO(data.fechaTermino + 'T00:00:00Z'),
-                alojamientoId: data.alojamientoId
-            };
-        }).filter(Boolean);
+        const allTarifas = await obtenerTarifasParaConsumidores(empresaId);
 
         const precioCalculado = await calculatePrice(
             db,
@@ -884,17 +875,7 @@ const createPublicReservation = async (req, res) => {
 
         const valorDolar = await obtenerValorDolar(db, empresaId, inicio);
 
-        const tarifasSnapshot = await db.collection('empresas').doc(empresaId).collection('tarifas').get();
-        const allTarifas = tarifasSnapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                ...data,
-                id: doc.id,
-                fechaInicio: data.fechaInicio?.toDate ? data.fechaInicio.toDate() : parseISO(data.fechaInicio + 'T00:00:00Z'),
-                fechaTermino: data.fechaTermino?.toDate ? data.fechaTermino.toDate() : parseISO(data.fechaTermino + 'T00:00:00Z'),
-                alojamientoId: data.alojamientoId
-            };
-        }).filter(Boolean);
+        const allTarifas = await obtenerTarifasParaConsumidores(empresaId);
 
         const precioCalculado = await calculatePrice(
             db,
