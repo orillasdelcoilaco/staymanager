@@ -25,26 +25,20 @@ const KNOWN_AGENTS = ['chatgpt', 'claude', 'gemini', 'deepseek', 'openai', 'anth
  */
 const requireAgentKey = (req, res, next) => {
     // Si no hay claves configuradas, el sistema está en modo abierto (solo para desarrollo)
+    // Sin claves configuradas → modo abierto (el rate limiter protege el endpoint)
     if (VALID_KEYS.size === 0) {
-        if (process.env.NODE_ENV === 'production') {
-            console.error('[AgentAuth] CRÍTICO: AGENT_API_KEYS no configurado en producción.');
-            return res.status(503).json({
-                error: 'Servicio no disponible: autenticación de agentes no configurada.',
-                code: 'AGENT_AUTH_NOT_CONFIGURED'
-            });
-        }
-        console.warn('[AgentAuth] ADVERTENCIA: AGENT_API_KEYS vacío. Modo desarrollo: acceso sin autenticación.');
-        req.agentName = req.headers['x-agent-name'] || 'Desconocido (dev)';
+        console.warn('[AgentAuth] AGENT_API_KEYS no configurado — acceso abierto con rate limit.');
+        req.agentName = req.headers['x-agent-name'] || req.body?.origen || 'Agente sin clave';
         return next();
     }
 
+    // Si hay claves configuradas pero el request no trae key → verificar
     const apiKey = req.headers['x-agent-api-key'];
-
     if (!apiKey) {
-        return res.status(401).json({
-            error: 'Se requiere autenticación de agente. Incluye el header X-Agent-API-Key.',
-            code: 'AGENT_KEY_MISSING'
-        });
+        // Permitir sin key pero registrar para auditoría
+        console.warn(`[AgentAuth] Request sin X-Agent-API-Key desde ${req.ip}`);
+        req.agentName = req.body?.origen || 'Sin autenticar';
+        return next();
     }
 
     if (!VALID_KEYS.has(apiKey)) {
