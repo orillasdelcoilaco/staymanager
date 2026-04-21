@@ -823,22 +823,21 @@ const getPropertyImages = async (req, res) => {
 const createPublicReservation = async (req, res) => {
     try {
         const db = require('firebase-admin').firestore();
-        const {
-            propiedadId,
-            fechaInicio,
-            fechaFin,
-            cliente,
-            numeroHuespedes,
-            notas,
-            agenteIA: agenteIABody
-        } = req.body;
+        const body = req.body;
 
-        // Prioridad: header autenticado > body
-        const agenteIA = req.agentName || agenteIABody || 'Desconocido';
+        // Acepta formato nuevo (propiedadId/fechaInicio) y formato ChatGPT (alojamiento_id/checkin/huesped)
+        const propiedadId   = body.propiedadId   || body.alojamiento_id;
+        const fechaInicio   = body.fechaInicio   || body.fechaInicio  || body.checkin;
+        const fechaFin      = body.fechaFin      || body.checkout;
+        const cliente       = body.cliente       || body.huesped;
+        const numeroHuespedes = body.numeroHuespedes
+            ?? (body.adultos != null ? (Number(body.adultos) + Number(body.ninos || 0)) : undefined);
+        const notas         = body.notas         || body.comentarios  || '';
+        const agenteIA      = req.agentName      || body.agenteIA     || body.origen || 'Desconocido';
 
         if (!propiedadId || !fechaInicio || !fechaFin || !cliente?.email || !cliente?.nombre) {
             return res.status(400).json({
-                error: 'Campos requeridos: propiedadId, fechaInicio, fechaFin, cliente.nombre, cliente.email'
+                error: 'Campos requeridos: propiedadId (o alojamiento_id), fechaInicio (o checkin), fechaFin (o checkout), cliente.nombre, cliente.email'
             });
         }
 

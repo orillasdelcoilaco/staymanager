@@ -239,66 +239,83 @@
         },
         "/reservas": {
             "post": {
-                "summary": "Crea una reserva definitiva o una reserva desde IA",
+                "summary": "Crea una reserva o pre-reserva desde un agente IA",
+                "description": "Recibe los datos del huésped y la propiedad, verifica disponibilidad y crea la reserva con un link de pago de seña. Requiere header X-Agent-API-Key.",
                 "operationId": "crearReserva",
+                "security": [{ "AgentApiKey": [] }],
                 "requestBody": {
                     "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
                                 "type": "object",
+                                "description": "Acepta tanto propiedadId/fechaInicio/fechaFin/cliente como alojamiento_id/checkin/checkout/huesped",
                                 "properties": {
-                                    "propiedadId": {
-                                        "type": "string"
-                                    },
-                                    "fechaInicio": {
-                                        "type": "string",
-                                        "format": "date"
-                                    },
-                                    "fechaFin": {
-                                        "type": "string",
-                                        "format": "date"
-                                    },
-                                    "adultos": {
-                                        "type": "integer"
-                                    },
-                                    "menores": {
-                                        "type": "integer"
-                                    },
+                                    "propiedadId": { "type": "string", "description": "ID de la propiedad (ej: cabana-2). También acepta alojamiento_id." },
+                                    "alojamiento_id": { "type": "string", "description": "Alias de propiedadId" },
+                                    "fechaInicio": { "type": "string", "format": "date", "description": "Fecha de llegada YYYY-MM-DD. También acepta checkin." },
+                                    "checkin": { "type": "string", "format": "date", "description": "Alias de fechaInicio" },
+                                    "fechaFin": { "type": "string", "format": "date", "description": "Fecha de salida YYYY-MM-DD. También acepta checkout." },
+                                    "checkout": { "type": "string", "format": "date", "description": "Alias de fechaFin" },
+                                    "adultos": { "type": "integer", "description": "Número de adultos" },
+                                    "ninos": { "type": "integer", "description": "Número de niños" },
                                     "cliente": {
                                         "type": "object",
+                                        "description": "Datos del huésped. También acepta huesped.",
                                         "properties": {
-                                            "nombre": {
-                                                "type": "string"
-                                            },
-                                            "email": {
-                                                "type": "string"
-                                            },
-                                            "telefono": {
-                                                "type": "string"
-                                            }
+                                            "nombre": { "type": "string" },
+                                            "email": { "type": "string", "format": "email" },
+                                            "telefono": { "type": "string" }
+                                        },
+                                        "required": ["nombre", "email"]
+                                    },
+                                    "huesped": {
+                                        "type": "object",
+                                        "description": "Alias de cliente",
+                                        "properties": {
+                                            "nombre": { "type": "string" },
+                                            "email": { "type": "string" },
+                                            "telefono": { "type": "string" }
                                         }
                                     },
-                                    "origen": {
-                                        "type": "string",
-                                        "example": "chatgpt"
-                                    }
-                                },
-                                "required": [
-                                    "propiedadId",
-                                    "fechaInicio",
-                                    "fechaFin",
-                                    "cliente"
-                                ]
+                                    "origen": { "type": "string", "example": "chatgpt" }
+                                }
                             }
                         }
                     }
                 },
                 "responses": {
                     "201": {
-                        "description": "Reserva creada correctamente"
-                    }
+                        "description": "Reserva creada. Incluye link_pago para que el huésped pague la seña.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "reserva_id": { "type": "string" },
+                                        "link_pago": { "type": "string", "description": "URL de MercadoPago para pagar la seña" },
+                                        "monto_sena": { "type": "number" },
+                                        "moneda": { "type": "string", "example": "CLP" },
+                                        "propiedad": { "type": "object" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": { "description": "Datos incompletos o fechas inválidas" },
+                    "401": { "description": "Falta header X-Agent-API-Key" },
+                    "409": { "description": "Propiedad no disponible en las fechas solicitadas" }
                 }
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "AgentApiKey": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "X-Agent-API-Key",
+                "description": "Clave de API para agentes IA. Configurada en variable de entorno AGENT_API_KEYS en el servidor."
             }
         }
     }
