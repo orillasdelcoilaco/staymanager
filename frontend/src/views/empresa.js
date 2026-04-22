@@ -97,6 +97,50 @@ function renderLogo() {
         </fieldset>`;
 }
 
+function renderDatosBancarios() {
+    const db = empresaInfo.datosBancarios || {};
+    return `
+        <fieldset class="border p-4 rounded-md">
+            <legend class="px-2 font-semibold text-gray-700">Datos para Transferencia Bancaria</legend>
+            <p class="text-sm text-gray-500 mt-2 mb-4">
+                Se incluyen automáticamente en los correos de confirmación de reservas creadas por el asistente virtual (IA).
+                Usa la etiqueta <code class="bg-gray-100 px-1 rounded text-xs">[DATOS_TRANSFERENCIA]</code> en tus plantillas de email.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="db_titular" class="block text-sm font-medium text-gray-700">Nombre del Titular</label>
+                    <input type="text" id="db_titular" name="db_titular" value="${db.titular || ''}" class="mt-1 form-input" placeholder="Nombre completo">
+                </div>
+                <div>
+                    <label for="db_rut" class="block text-sm font-medium text-gray-700">RUT del Titular</label>
+                    <input type="text" id="db_rut" name="db_rut" value="${db.rut || ''}" class="mt-1 form-input" placeholder="12.345.678-9">
+                </div>
+                <div>
+                    <label for="db_banco" class="block text-sm font-medium text-gray-700">Banco</label>
+                    <input type="text" id="db_banco" name="db_banco" value="${db.banco || ''}" class="mt-1 form-input" placeholder="ej: BancoEstado, Banco de Chile">
+                </div>
+                <div>
+                    <label for="db_tipoCuenta" class="block text-sm font-medium text-gray-700">Tipo de Cuenta</label>
+                    <select id="db_tipoCuenta" name="db_tipoCuenta" class="mt-1 form-input">
+                        <option value="">— Seleccionar —</option>
+                        <option value="Cuenta Corriente" ${db.tipoCuenta === 'Cuenta Corriente' ? 'selected' : ''}>Cuenta Corriente</option>
+                        <option value="Cuenta Vista / RUT" ${db.tipoCuenta === 'Cuenta Vista / RUT' ? 'selected' : ''}>Cuenta Vista / RUT</option>
+                        <option value="Cuenta de Ahorro" ${db.tipoCuenta === 'Cuenta de Ahorro' ? 'selected' : ''}>Cuenta de Ahorro</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="db_numeroCuenta" class="block text-sm font-medium text-gray-700">Número de Cuenta</label>
+                    <input type="text" id="db_numeroCuenta" name="db_numeroCuenta" value="${db.numeroCuenta || ''}" class="mt-1 form-input" placeholder="00000000">
+                </div>
+                <div>
+                    <label for="db_email" class="block text-sm font-medium text-gray-700">Email para Transferencia</label>
+                    <input type="email" id="db_email" name="db_email" value="${db.email || ''}" class="mt-1 form-input" placeholder="pagos@empresa.cl">
+                    <p class="text-xs text-gray-400 mt-1">Algunos bancos requieren el email del destinatario para transferencias.</p>
+                </div>
+            </div>
+        </fieldset>`;
+}
+
 function renderPresupuestos() {
     return `
         <fieldset class="border p-4 rounded-md">
@@ -139,6 +183,7 @@ function renderFormulario() {
             ${renderInfoGeneral()}
             ${renderUbicacion(tipoActual, ubicacion)}
             ${renderLogo()}
+            ${renderDatosBancarios()}
             ${renderPresupuestos()}
             <div class="border-t pt-6">
                 <h3 class="text-base font-semibold text-gray-800 mb-2">Sincronización con Google Contacts</h3>
@@ -181,6 +226,14 @@ function renderFormulario() {
             condicionesReserva: form.condicionesReserva.value,
             tipoNegocio: form.querySelector('input[name="tipoNegocio"]:checked')?.value || '',
             ubicacion:   getUbicacionData('empresa-ubicacion'),
+            datosBancarios: {
+                titular:       form.db_titular.value.trim(),
+                rut:           form.db_rut.value.trim(),
+                banco:         form.db_banco.value.trim(),
+                tipoCuenta:    form.db_tipoCuenta.value,
+                numeroCuenta:  form.db_numeroCuenta.value.trim(),
+                email:         form.db_email.value.trim(),
+            },
         };
         try {
             await fetchAPI('/empresa', { method: 'PUT', body: datos });
