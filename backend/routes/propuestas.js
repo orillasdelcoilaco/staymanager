@@ -5,8 +5,8 @@ const { getAvailabilityData, findNormalCombination, findSegmentedCombination } =
 // (Añadir esta línea, por ejemplo, en la línea 3)
 const { calculatePrice } = require('../services/utils/calculoValoresService');
 const { generarTextoPropuesta } = require('../services/mensajeService');
-// *** VERIFICACIÓN: Necesitamos obtenerValorDolar aquí también para la ruta /recalcular ***
 const { obtenerValorDolar, obtenerValorDolarHoy } = require('../services/dolarService');
+const { obtenerTarifasParaConsumidores } = require('../services/tarifasService');
 const { parseISO, isValid, addDays, format } = require('date-fns');
 
 // --- Helper buildItineraryFromDailyOptions (Sin cambios) ---
@@ -86,7 +86,7 @@ module.exports = (db) => {
                 getAvailabilityData(db, empresaId, startDate, endDate, sinCamarotes, editId),
                 obtenerValorDolarHoy(db, empresaId)
             ]);
-            const { availableProperties, allProperties, allTarifas, availabilityMap } = availability;
+            const { availableProperties, allProperties, allTarifas, availabilityMap, propiedadesConTarifa } = availability;
             const valorDolarDia = dolar.valor;
             let result;
             let isSegmented = !!permitirCambios;
@@ -97,8 +97,18 @@ module.exports = (db) => {
             }
             const { combination, capacity } = result;
             if (!combination || combination.length === 0) {
-                 console.log(`[Ruta /generar] No se encontró combinación para ${personas}pax. Devolviendo disponibles.`);
-                 return res.status(200).json({ message: 'No hay suficientes propiedades disponibles para la capacidad solicitada.', suggestion: null, availableProperties, allProperties });
+                console.log(`[Ruta /generar] No se encontró combinación para ${personas}pax. tarifas=${allTarifas.length}, conTarifa=${propiedadesConTarifa?.length}, disponibles=${availableProperties.length}`);
+                let message;
+                if (allTarifas.length === 0) {
+                    message = 'No hay tarifas configuradas. Crea temporadas con precios antes de generar propuestas.';
+                } else if (!propiedadesConTarifa?.length) {
+                    message = 'Ninguna propiedad tiene tarifa para las fechas solicitadas. Revisa que tus temporadas cubran el período buscado.';
+                } else if (availableProperties.length === 0) {
+                    message = 'Todas las propiedades disponibles están ocupadas o bloqueadas en ese período.';
+                } else {
+                    message = 'No hay suficientes propiedades disponibles para la capacidad solicitada.';
+                }
+                return res.status(200).json({ message, suggestion: null, availableProperties, allProperties });
             }
             console.log(`[Ruta /generar] Combinación encontrada (isSegmented=${isSegmented}):`, combination);
             const pricing = await calculatePrice(db, empresaId, combination, startDate, endDate, allTarifas, canalId, valorDolarDia, isSegmented);
@@ -133,18 +143,7 @@ module.exports = (db) => {
                  return res.status(400).json({ error: 'Fechas inválidas.' });
              }
 
-            // Obtener tarifas necesarias
-            const tarifasSnapshot = await db.collection('empresas').doc(empresaId).collection('tarifas').get();
-             const allTarifas = tarifasSnapshot.docs.map(doc => {
-                 const data = doc.data();
-                 let inicio = null, termino = null;
-                 try {
-                    inicio = data.fechaInicio?.toDate ? data.fechaInicio.toDate() : (data.fechaInicio ? parseISO(data.fechaInicio + 'T00:00:00Z') : null);
-                    termino = data.fechaTermino?.toDate ? data.fechaTermino.toDate() : (data.fechaTermino ? parseISO(data.fechaTermino + 'T00:00:00Z') : null);
-                    if (!isValid(inicio) || !isValid(termino)) throw new Error('Fecha inválida');
-                 } catch(e){ return null; }
-                 return { ...data, id: doc.id, fechaInicio: inicio, fechaTermino: termino };
-             }).filter(Boolean);
+            const allTarifas = await obtenerTarifasParaConsumidores(empresaId);
 
             // Obtener dólar para fecha de llegada
             // *** VERIFICACIÓN: Se llama a la función importada 'obtenerValorDolar' ***

@@ -119,7 +119,8 @@ function spacesToContainsPlace(spaces = []) {
 }
 
 /**
- * Determina el schema type principal según tipo de negocio
+ * Determina el schema type principal según tipo de negocio.
+ * Si cambias `type` o `additionalType`, amplía `backend/services/jsonLdLodgingTypes.js` (falla CI: `npm run test:house-rules-jsonld`).
  */
 function getMainSchemaType(tipoNegocio) {
     switch (tipoNegocio) {

@@ -5,7 +5,6 @@
 //   1. previewImport  → analiza el JSON, auto-mapea cabañas/canales, devuelve brechas
 //   2. runImport      → ejecuta el upsert con los mapeos confirmados por el usuario
 
-const admin = require('firebase-admin');
 const pool = require('../db/postgres');
 const { crearOActualizarCliente } = require('./clientesService');
 const { crearOActualizarReserva } = require('./reservasService');
@@ -94,24 +93,15 @@ function buildValores(reserva) {
 // PASO 1: PREVIEW
 // ─────────────────────────────────────────────────────────────
 
-async function previewImport(db, empresaId, importData) {
+async function previewImport(_db, empresaId, importData) {
     let alojamientos, canales;
 
-    if (pool) {
-        const [propRows, canalRows] = await Promise.all([
-            pool.query('SELECT id, nombre FROM propiedades WHERE empresa_id = $1 ORDER BY nombre', [empresaId]),
-            pool.query(`SELECT id, nombre, metadata->>'moneda' AS moneda FROM canales WHERE empresa_id = $1 ORDER BY nombre`, [empresaId]),
-        ]);
-        alojamientos = propRows.rows.map(r => ({ id: r.id, nombre: r.nombre || '' }));
-        canales      = canalRows.rows.map(r => ({ id: r.id, nombre: r.nombre || '', moneda: r.moneda || 'CLP' }));
-    } else {
-        const [propSnap, canalSnap] = await Promise.all([
-            db.collection('empresas').doc(empresaId).collection('propiedades').get(),
-            db.collection('empresas').doc(empresaId).collection('canales').get()
-        ]);
-        alojamientos = propSnap.docs.map(d => ({ id: d.id, nombre: d.data().nombre || '' }));
-        canales      = canalSnap.docs.map(d => ({ id: d.id, nombre: d.data().nombre || '', moneda: d.data().moneda || 'CLP' }));
-    }
+    const [propRows, canalRows] = await Promise.all([
+        pool.query('SELECT id, nombre FROM propiedades WHERE empresa_id = $1 ORDER BY nombre', [empresaId]),
+        pool.query(`SELECT id, nombre, metadata->>'moneda' AS moneda FROM canales WHERE empresa_id = $1 ORDER BY nombre`, [empresaId]),
+    ]);
+    alojamientos = propRows.rows.map(r => ({ id: r.id, nombre: r.nombre || '' }));
+    canales      = canalRows.rows.map(r => ({ id: r.id, nombre: r.nombre || '', moneda: r.moneda || 'CLP' }));
 
     const cabanas  = (importData.cabanas  || []).map(c => ({ ...c, nombre: fixEncoding(c.nombre) }));
     const reservas = (importData.reservas || []).map(fixReserva);
@@ -167,47 +157,29 @@ async function previewImport(db, empresaId, importData) {
 // HELPERS
 // ─────────────────────────────────────────────────────────────
 
-async function _importarTransacciones(db, empresaId, idReservaCanal, transacciones) {
+async function _importarTransacciones(_db, empresaId, idReservaCanal, transacciones) {
     let count = 0;
     for (const t of transacciones) {
-        if (pool) {
-            const { rows: ex } = await pool.query(
-                `SELECT id FROM transacciones WHERE empresa_id = $1 AND metadata->>'idOrigenImport' = $2 LIMIT 1`,
-                [empresaId, t.id]
+        const { rows: ex } = await pool.query(
+            `SELECT id FROM transacciones WHERE empresa_id = $1 AND metadata->>'idOrigenImport' = $2 LIMIT 1`,
+            [empresaId, t.id]
+        );
+        if (!ex[0]) {
+            await pool.query(
+                `INSERT INTO transacciones (empresa_id, id_reserva_canal, tipo, monto, metadata)
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [
+                    empresaId, idReservaCanal, t.tipo || 'Abono', t.monto || 0,
+                    JSON.stringify({
+                        idOrigenImport:    t.id,
+                        medioDePago:       t.medioDePago,
+                        enlaceComprobante: t.enlaceComprobante || null,
+                        fecha:             t.fecha || null,
+                        origen:            'historico'
+                    })
+                ]
             );
-            if (!ex[0]) {
-                await pool.query(
-                    `INSERT INTO transacciones (empresa_id, id_reserva_canal, tipo, monto, metadata)
-                     VALUES ($1, $2, $3, $4, $5)`,
-                    [
-                        empresaId, idReservaCanal, t.tipo || 'Abono', t.monto || 0,
-                        JSON.stringify({
-                            idOrigenImport:    t.id,
-                            medioDePago:       t.medioDePago,
-                            enlaceComprobante: t.enlaceComprobante || null,
-                            fecha:             t.fecha || null,
-                            origen:            'historico'
-                        })
-                    ]
-                );
-                count++;
-            }
-        } else {
-            const transRef = db.collection('empresas').doc(empresaId).collection('transacciones');
-            const tSnap = await transRef.where('idOrigenImport', '==', t.id).get();
-            if (tSnap.empty) {
-                await transRef.add({
-                    idOrigenImport:    t.id,
-                    reservaIdOriginal: idReservaCanal,
-                    monto:             t.monto,
-                    medioDePago:       t.medioDePago,
-                    tipo:              t.tipo,
-                    fecha:             admin.firestore.Timestamp.fromDate(new Date(t.fecha)),
-                    enlaceComprobante: t.enlaceComprobante || null,
-                    origen:            'historico'
-                });
-                count++;
-            }
+            count++;
         }
     }
     return count;
@@ -226,13 +198,8 @@ async function runImport(db, empresaId, importData, mapeoCabanas, mapeoCanales, 
 
     // Mapa alojamiento id → nombre
     let alojNombres;
-    if (pool) {
-        const { rows } = await pool.query('SELECT id, nombre FROM propiedades WHERE empresa_id = $1', [empresaId]);
-        alojNombres = Object.fromEntries(rows.map(r => [r.id, r.nombre || '']));
-    } else {
-        const propSnap = await db.collection('empresas').doc(empresaId).collection('propiedades').get();
-        alojNombres = Object.fromEntries(propSnap.docs.map(d => [d.id, d.data().nombre || '']));
-    }
+    const { rows: propRows2 } = await pool.query('SELECT id, nombre FROM propiedades WHERE empresa_id = $1', [empresaId]);
+    alojNombres = Object.fromEntries(propRows2.map(r => [r.id, r.nombre || '']));
 
     const clientesMap = Object.fromEntries((importData.clientes || []).map(c => [c.id, c]));
 

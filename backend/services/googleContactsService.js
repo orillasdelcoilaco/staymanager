@@ -1,3 +1,4 @@
+const pool = require('../db/postgres');
 const { google } = require('googleapis');
 const { OAuth2Client } = require('google-auth-library');
 
@@ -10,23 +11,21 @@ try {
     console.error("CRITICAL: No se pudieron cargar las credenciales de Google. La autenticación de Google no funcionará.", error);
 }
 
-async function getAuthenticatedClient(db, empresaId) {
+async function getAuthenticatedClient(_db, empresaId) {
     if (!credentials) throw new Error('Las credenciales de Google no están configuradas en el servidor.');
-    
+
     const { client_secret, client_id, redirect_uris } = credentials.web;
     const oauth2Client = new OAuth2Client(client_id, client_secret, redirect_uris[0]);
 
-    const empresaRef = db.collection('empresas').doc(empresaId);
-    const doc = await empresaRef.get();
-
-    if (!doc.exists || !doc.data().googleRefreshToken) {
+    const { rows } = await pool.query(
+        'SELECT google_refresh_token FROM empresas WHERE id = $1',
+        [empresaId]
+    );
+    if (!rows[0]?.google_refresh_token) {
         throw new Error('La empresa no ha autorizado la conexión con Google Contacts.');
     }
-    
-    oauth2Client.setCredentials({
-        refresh_token: doc.data().googleRefreshToken
-    });
 
+    oauth2Client.setCredentials({ refresh_token: rows[0].google_refresh_token });
     return oauth2Client;
 }
 

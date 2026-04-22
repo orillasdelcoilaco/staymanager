@@ -3,7 +3,9 @@
     "start": "node backend/index.js",
     "create-agent": "node ./ai/scripts/create-agent.js",
     "mcp": "node ./ai/openai/mcp-server/index.js",
-    "test:ssr": "node backend/scripts/verify_ssr_integrity.js"
+    "test:ssr": "node backend/scripts/verify_ssr_integrity.js",
+    "test:house-rules-jsonld": "node backend/scripts/test-house-rules-jsonld-patch.js",
+    "test:ci": "npm run test:house-rules-jsonld"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

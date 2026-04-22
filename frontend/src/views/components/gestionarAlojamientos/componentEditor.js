@@ -26,7 +26,7 @@ export function renderComponentList(componentes, tiposElemento) {
                     <button type="button" onclick="window.eliminarComponente(${compIndex}, event)" class="text-gray-400 hover:text-danger-600 p-1 rounded hover:bg-danger-50 transition-colors" title="Eliminar Espacio">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
-                    <span class="transform transition-transform duration-200 text-gray-400" id="arrow-${compIndex}">▼</span>
+                    <span class="transform transition-transform duration-200 text-gray-400" id="arrow-${compIndex}"><i class="fa-solid fa-chevron-down"></i></span>
                 </div>
             </div>
 
@@ -44,7 +44,7 @@ export function renderComponentList(componentes, tiposElemento) {
                 <div class="border-t pt-3 mt-2 bg-gray-50 p-2 rounded-md">
                     <button type="button" onclick="window.toggleBulkPanel(${compIndex})" class="w-full text-left flex justify-between items-center text-sm font-medium text-primary-700 hover:text-primary-900 focus:outline-none">
                         <span>+ Agregar Activos (Selección Múltiple)</span>
-                        <span id="bulk-arrow-${compIndex}" class="transform transition-transform text-xs">▼</span>
+                        <span id="bulk-arrow-${compIndex}" class="transform transition-transform text-xs"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
 
                     <!-- Panel de Selección Múltiple (Oculto por defecto) -->
@@ -52,7 +52,7 @@ export function renderComponentList(componentes, tiposElemento) {
                         ${renderCheckboxList(tiposElemento, compIndex)}
                         
                         <div class="flex justify-end pt-2">
-                            <button type="button" onclick="window.agregarSeleccionados(${compIndex})" class="bg-primary-600 text-white px-4 py-2 rounded-md text-sm hover:bg-primary-700 shadow-sm">
+                            <button type="button" onclick="window.agregarSeleccionados(${compIndex})" class="btn-primary text-sm">
                                 Agregar Seleccionados
                             </button>
                         </div>
@@ -73,7 +73,7 @@ function renderPhotoRequirements(reqs) {
     return `
         <div class="mb-4 bg-primary-50/30 border border-primary-100 rounded-md p-3">
             <h5 class="text-xs font-bold text-primary-800 uppercase mb-2 flex items-center gap-1">
-                📸 Fotos Sugeridas (IA)
+                <i class="fa-solid fa-camera"></i> Fotos Sugeridas (IA)
             </h5>
             <div class="flex flex-wrap gap-2">
                 ${reqs.map(req => {
@@ -81,7 +81,9 @@ function renderPhotoRequirements(reqs) {
         const badgeClass = isObligatory
             ? 'bg-amber-50 text-amber-800 border-amber-200'
             : 'bg-white text-gray-600 border-gray-200';
-        const icon = isObligatory ? '⚠️' : '📷';
+        const icon = isObligatory
+            ? '<i class="fa-solid fa-triangle-exclamation"></i>'
+            : '<i class="fa-solid fa-camera"></i>';
 
         return `
                         <div class="group relative cursor-help flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${badgeClass} transition-colors hover:shadow-sm">
@@ -136,6 +138,16 @@ function renderElementsList(elementos, compIndex) {
                     </div>
                 ` : ''}
                 
+                ${elem.capacity > 0 ? `
+                <label class="flex items-center gap-1 text-[10px] text-gray-400 cursor-pointer select-none" title="¿Este mueble suma personas a la capacidad total?">
+                    <input type="checkbox"
+                        class="form-checkbox h-3.5 w-3.5 text-primary-600 rounded"
+                        ${elem.sumaCapacidad !== false ? 'checked' : ''}
+                        onchange="window.toggleSumaCapacidad(${compIndex}, ${elemIndex}, this.checked)"
+                    >
+                    <span>Cap.</span>
+                </label>` : ''}
+
                 <button type="button" onclick="window.eliminarElemento(${compIndex}, ${elemIndex})" class="text-gray-400 hover:text-danger-500 p-1 transition-colors" title="Quitar elemento">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
@@ -198,8 +210,20 @@ function renderCheckboxList(tiposElemento, compIndex) {
 
     const clavesOrdenadas = Object.keys(categorias).sort();
 
+    // Buscador
+    let html = `
+        <div class="sticky top-0 z-20 bg-white pb-2">
+            <input type="text"
+                id="bulk-search-${compIndex}"
+                oninput="window.filtrarActivos(${compIndex}, this.value)"
+                placeholder="Buscar activo..."
+                class="form-input w-full text-sm"
+            >
+        </div>
+    `;
+
     // Contenedor con scroll
-    let html = '<div class="space-y-4 max-h-60 overflow-y-auto pr-1 custom-scrollbar">';
+    html += `<div id="bulk-list-${compIndex}" class="space-y-4 max-h-52 overflow-y-auto pr-1 custom-scrollbar">`;
 
     for (const key of clavesOrdenadas) {
         const group = categorias[key];
@@ -208,7 +232,7 @@ function renderCheckboxList(tiposElemento, compIndex) {
             const label = group.label.charAt(0).toUpperCase() + group.label.slice(1);
 
             html += `
-                <div class="bg-white border border-gray-200 rounded-md overflow-hidden">
+                <div class="bg-white border border-gray-200 rounded-md overflow-hidden" data-bulk-cat="${key}">
                     <!-- Header Categoría con Checkbox 'Select All' -->
                     <div class="bg-gray-100 px-3 py-2 flex items-center justify-between sticky top-0 z-10">
                         <label class="flex items-center gap-2 cursor-pointer select-none">

@@ -28,6 +28,17 @@ export async function render() {
                 </div>
             </div>
 
+            <!-- BANNER PASO 2 -->
+            <div class="mb-6 p-4 bg-primary-50 border border-primary-100 rounded-lg text-sm text-primary-800">
+                <div class="flex items-start gap-3">
+                    <span class="text-lg mt-0.5">🏠</span>
+                    <div>
+                        <p class="font-semibold mb-1">Paso 2 de 3 — Definición de Espacios</p>
+                        <p>Cada espacio (ej: Dormitorio Principal, Terraza) agrupa los <strong>activos</strong> definidos en el Paso 1. En el Paso 3 asignarás espacios a cada alojamiento. La IA generará estándares de fotografía y narrativa comercial a partir de la composición de cada espacio.</p>
+                    </div>
+                </div>
+            </div>
+
             <div class="table-container border rounded-lg overflow-auto max-h-[70vh]">
                 <table class="min-w-full bg-white">
                     <thead class="bg-gray-50 border-b sticky top-0 z-10">

@@ -15,15 +15,18 @@ function abrirModal(conversion = null) {
     document.getElementById('alojamiento-select').innerHTML = alojamientos.map(a => `<option value="${a.id}">${a.nombre}</option>`).join('');
     document.getElementById('canal-select').innerHTML = canales.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
     
+    const subtitle = document.getElementById('modal-conversion-subtitle');
     if (conversion) {
         editandoConversion = conversion;
         modalTitle.textContent = 'Editar Conversión';
+        if (subtitle) subtitle.textContent = conversion.nombreExterno;
         form.alojamientoId.value = conversion.alojamientoId;
         form.canalId.value = conversion.canalId;
         form.nombreExterno.value = conversion.nombreExterno;
     } else {
         editandoConversion = null;
         modalTitle.textContent = 'Nueva Conversión';
+        if (subtitle) subtitle.textContent = 'Mapea un nombre externo a un alojamiento interno';
         form.reset();
     }
     
@@ -97,7 +100,13 @@ export async function render() {
 
         <div id="conversion-modal" class="modal hidden">
             <div class="modal-content">
-                <h3 id="modal-title" class="text-xl font-semibold mb-4">Nueva Conversión</h3>
+                <div class="flex items-center gap-4 mb-6 pb-5 border-b">
+                    <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 text-xl flex-shrink-0">🔄</div>
+                    <div>
+                        <h3 id="modal-title" class="text-xl font-semibold text-gray-900">Nueva Conversión</h3>
+                        <p id="modal-conversion-subtitle" class="text-sm text-gray-500">Mapea un nombre externo a un alojamiento interno</p>
+                    </div>
+                </div>
                 <form id="conversion-form">
                     <div class="mb-4">
                         <label for="alojamiento-select" class="block text-sm font-medium text-gray-700">Alojamiento (en SuiteManager)</label>
@@ -113,7 +122,7 @@ export async function render() {
                         <p class="text-xs text-gray-500 mt-1">Si hay varios nombres posibles, sepáralos con punto y coma (;).</p>
                     </div>
                     <div class="flex justify-end pt-4 mt-4 border-t">
-                        <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
+                        <button type="button" id="cancel-btn" class="btn-outline mr-2">Cancelar</button>
                         <button type="submit" class="btn-primary">Guardar</button>
                     </div>
                 </form>

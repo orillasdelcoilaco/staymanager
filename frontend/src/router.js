@@ -28,15 +28,16 @@ const views = {
     '/gestionar-propuestas': () => import('./views/gestionarPropuestas.js'),
     '/generar-reportes-rapidos': () => import('./views/generarReportes.js'),
     '/sincronizar-ical': () => import('./views/sincronizarCalendarios.js'),
-    '/crm-promociones': () => import('./views/crmPromociones.js'),
-    '/historial-campanas': () => import('./views/historialCampanas.js'),
+    '/crm': () => import('./views/crm.js'),
+    '/crm-promociones': () => import('./views/crm.js'),
+    '/historial-campanas': () => import('./views/crm.js'),
 
     // --- NUEVAS VISTAS AGREGADAS ---
     '/website-general': () => import('./views/websiteGeneral.js'),
+    '/normas-alojamiento': () => import('./views/normasAlojamiento.js'),
     '/website-alojamientos': () => import('./views/websiteAlojamientos.js'),
     '/gestionar-tipos-componente': () => import('./views/gestionarTiposComponente.js'),
     '/gestionar-tipos-elemento': () => import('./views/gestionarTiposElemento.js?v=1.7'),
-    '/gestionar-comentarios': () => import('./views/gestionarComentarios.js'),
     '/importador-magico': () => import('./views/importadorMagico.js?v=1.2'),
     '/galeria-propiedad': () => import('./views/galeriaPropiedad.js'),
     '/mapeos-centrales': () => import('./views/mapeosCentrales.js'),
@@ -47,65 +48,64 @@ const views = {
 };
 
 const menuConfig = [
-    { name: '📊 Dashboard', path: '/', id: 'dashboard' },
+    { icon: 'fa-solid fa-gauge-high', name: 'Dashboard', path: '/', id: 'dashboard' },
     {
-        name: '💼 Flujo de Trabajo',
+        icon: 'fa-solid fa-briefcase', name: 'Flujo de Trabajo',
         id: 'flujo-trabajo',
         children: [
-            { name: '☀️ Gestión Diaria', path: '/gestion-diaria', id: 'gestion-diaria' },
-            { name: '📅 Calendario', path: '/calendario', id: 'calendario' },
-            { name: '📄 Reportes Rápidos', path: '/generar-reportes-rapidos', id: 'reportes-rapidos' },
-            { name: '➕ Agregar Propuesta', path: '/agregar-propuesta', id: 'agregar-propuesta' },
-            { name: '💲 Generar Presupuesto', path: '/generar-presupuesto', id: 'generar-presupuestos' },
-            { name: '🗂️ Gestionar Propuestas', path: '/gestionar-propuestas', id: 'gestionar-propuestas' },
-            { name: '🎯 CRM y Promociones', path: '/crm-promociones', id: 'crm-promociones' },
-            { name: '📈 Historial Campañas', path: '/historial-campanas', id: 'historial-campanas' },
+            { icon: 'fa-solid fa-sun',                  name: 'Gestión Diaria',      path: '/gestion-diaria',          id: 'gestion-diaria' },
+            { icon: 'fa-solid fa-calendar',             name: 'Calendario',          path: '/calendario',              id: 'calendario' },
+            { icon: 'fa-solid fa-chart-bar',            name: 'Reportes Rápidos',    path: '/generar-reportes-rapidos', id: 'reportes-rapidos' },
+            { icon: 'fa-solid fa-plus',                 name: 'Agregar Propuesta',   path: '/agregar-propuesta',       id: 'agregar-propuesta' },
+            { icon: 'fa-solid fa-file-invoice-dollar',  name: 'Generar Presupuesto', path: '/generar-presupuesto',     id: 'generar-presupuestos' },
+            { icon: 'fa-solid fa-folder-open',          name: 'Gestionar Propuestas',path: '/gestionar-propuestas',    id: 'gestionar-propuestas' },
+            { icon: 'fa-solid fa-bullseye',             name: 'CRM',                 path: '/crm',                     id: 'crm' },
         ]
     },
     {
-        name: '⚙️ Operaciones',
+        icon: 'fa-solid fa-gears', name: 'Operaciones',
         id: 'operaciones',
         children: [
-            { name: '💬 Comentarios', path: '/gestionar-comentarios', id: 'gestionar-comentarios' },
-            { name: '⭐ Reseñas', path: '/resenas', id: 'resenas' },
-            { name: '🏨 Reservas', path: '/gestionar-reservas', id: 'gestionar-reservas' },
-            { name: '👥 Clientes', path: '/clientes', id: 'clientes' },
-            { name: '📈 Tarifas', path: '/gestionar-tarifas', id: 'gestionar-tarifas' },
-            { name: '📡 Canales', path: '/gestionar-canales', id: 'gestionar-canales' },
-            { name: '🗓️ Sincronizar iCal', path: '/sincronizar-ical', id: 'sincronizar-ical' },
-            { name: '🔒 Bloqueos', path: '/gestionar-bloqueos', id: 'gestionar-bloqueos' },
+            { icon: 'fa-solid fa-star',             name: 'Reseñas',          path: '/resenas',              id: 'resenas' },
+            { icon: 'fa-solid fa-bed',              name: 'Reservas',         path: '/gestionar-reservas',   id: 'gestionar-reservas' },
+            { icon: 'fa-solid fa-users',            name: 'Clientes',         path: '/clientes',             id: 'clientes' },
+            { icon: 'fa-solid fa-chart-line',       name: 'Tarifas',          path: '/gestionar-tarifas',    id: 'gestionar-tarifas' },
+            { icon: 'fa-solid fa-tower-broadcast',  name: 'Canales',          path: '/gestionar-canales',    id: 'gestionar-canales' },
+            { icon: 'fa-solid fa-calendar-days',    name: 'Sincronizar iCal', path: '/sincronizar-ical',     id: 'sincronizar-ical' },
+            { icon: 'fa-solid fa-lock',             name: 'Bloqueos',         path: '/gestionar-bloqueos',   id: 'gestionar-bloqueos' },
         ]
     },
     {
-        name: '🏡 Gestión de Propiedades',
+        icon: 'fa-solid fa-house', name: 'Gestión de Propiedades',
         id: 'gestion-propiedades',
         children: [
-            { name: '🧩 Activos', path: '/gestionar-tipos-elemento', id: 'tipos-elemento' },
-            { name: '📦 Espacios', path: '/gestionar-tipos-componente', id: 'tipos-componente' },
-            { name: '🏨 Alojamientos', path: '/gestionar-alojamientos', id: 'gestionar-alojamientos' },
-            { name: '🖼️ Contenido Web', path: '/website-alojamientos', id: 'website-alojamientos' },
-            { name: '📷 Galería de Fotos', path: '/galeria-propiedad', id: 'galeria-propiedad' },
-            { name: '⚙️ Configuración Web', path: '/website-general', id: 'website-general' },
+            { icon: 'fa-solid fa-puzzle-piece',  name: 'Activos',           path: '/gestionar-tipos-elemento',   id: 'tipos-elemento' },
+            { icon: 'fa-solid fa-box',           name: 'Espacios',          path: '/gestionar-tipos-componente', id: 'tipos-componente' },
+            { icon: 'fa-solid fa-building',      name: 'Alojamientos',      path: '/gestionar-alojamientos',     id: 'gestionar-alojamientos' },
+            { icon: 'fa-solid fa-images',        name: 'Galería de Fotos',  path: '/galeria-propiedad',          id: 'galeria-propiedad' },
+            { icon: 'fa-solid fa-list-check',    name: 'Normas del alojamiento', path: '/normas-alojamiento', id: 'normas-alojamiento' },
+            { icon: 'fa-solid fa-pen-to-square', name: 'Contenido Web',     path: '/website-alojamientos',       id: 'website-alojamientos' },
+            { icon: 'fa-solid fa-sliders',       name: 'Configuración Web', path: '/website-general',            id: 'website-general' },
         ]
     },
     {
-        name: '⚙️ Configuración',
+        icon: 'fa-solid fa-gear', name: 'Configuración',
         id: 'configuracion',
         children: [
-            { name: '🏢 Empresa', path: '/empresa', id: 'config-empresa' },
-            { name: '👥 Usuarios', path: '/gestionar-usuarios', id: 'config-usuarios' },
-            { name: '✉️ Plantillas', path: '/gestionar-plantillas', id: 'gestionar-plantillas' },
-            { name: '💵 Valor Dólar', path: '/gestionar-dolar', id: 'gestionar-dolar' },
-            { name: '🔧 Herramientas Avanzadas', path: '/procesar-y-consolidar', id: 'procesar-consolidar' },
-            { name: '🗂️ Historial Cargas', path: '/historial-cargas', id: 'historial-cargas' },
-            { name: '🔄 Conversión', path: '/conversion-alojamientos', id: 'config-conversion' },
-            { name: '🗺️ Mapeo Reportes', path: '/mapeo-reportes', id: 'mapeo-reportes' },
-            { name: '🌐 Mapeos OTA Centrales', path: '/mapeos-centrales', id: 'mapeos-centrales' },
-            { name: '👤 Autorizar Google Contacts', path: '/autorizar-google', id: 'config-google' },
-            { name: '🏷️ Tipos de Plantilla', path: '/gestionar-tipos-plantilla', id: 'gestionar-tipos-plantilla' },
-            { name: '🔖 Estados de Gestión', path: '/gestionar-estados', id: 'gestionar-estados' },
-            { name: '✨ Importador Mágico', path: '/importador-magico', id: 'importador-magico' },
-            { name: '📥 Importador Histórico', path: '/importador-historico', id: 'importador-historico' },
+            { icon: 'fa-solid fa-building-columns', name: 'Empresa',                  path: '/empresa',                      id: 'config-empresa' },
+            { icon: 'fa-solid fa-users-gear',       name: 'Usuarios',                 path: '/gestionar-usuarios',           id: 'config-usuarios' },
+            { icon: 'fa-solid fa-envelope',         name: 'Plantillas',               path: '/gestionar-plantillas',         id: 'gestionar-plantillas' },
+            { icon: 'fa-solid fa-dollar-sign',      name: 'Valor Dólar',              path: '/gestionar-dolar',              id: 'gestionar-dolar' },
+            { icon: 'fa-solid fa-wrench',           name: 'Herramientas Avanzadas',   path: '/procesar-y-consolidar',        id: 'procesar-consolidar' },
+            { icon: 'fa-solid fa-clock-rotate-left',name: 'Historial Cargas',         path: '/historial-cargas',             id: 'historial-cargas' },
+            { icon: 'fa-solid fa-rotate',           name: 'Conversión',               path: '/conversion-alojamientos',      id: 'config-conversion' },
+            { icon: 'fa-solid fa-map',              name: 'Mapeo Reportes',           path: '/mapeo-reportes',               id: 'mapeo-reportes' },
+            { icon: 'fa-solid fa-globe',            name: 'Mapeos OTA Centrales',     path: '/mapeos-centrales',             id: 'mapeos-centrales' },
+            { icon: 'fa-solid fa-address-book',     name: 'Autorizar Google Contacts',path: '/autorizar-google',             id: 'config-google' },
+            { icon: 'fa-solid fa-tag',              name: 'Tipos de Plantilla',       path: '/gestionar-tipos-plantilla',    id: 'gestionar-tipos-plantilla' },
+            { icon: 'fa-solid fa-bookmark',         name: 'Estados de Gestión',       path: '/gestionar-estados',            id: 'gestionar-estados' },
+            { icon: 'fa-solid fa-wand-magic-sparkles', name: 'Importador Mágico',     path: '/importador-magico',            id: 'importador-magico' },
+            { icon: 'fa-solid fa-file-import',      name: 'Importador Histórico',     path: '/importador-historico',         id: 'importador-historico' },
         ]
     }
 ];
@@ -200,23 +200,16 @@ export function renderMenu() {
     let menuHtml = '';
 
     const createLink = (item) => {
-        const firstSpaceIndex = item.name.indexOf(' ');
-        const icon = item.name.substring(0, firstSpaceIndex);
-        const text = item.name.substring(firstSpaceIndex + 1);
-        return `<li><a href="${item.path}" class="nav-link" data-path="${item.path}">${icon} <span class="link-text">${text}</span></a></li>`;
+        return `<li><a href="${item.path}" class="nav-link" data-path="${item.path}"><i class="${item.icon} nav-icon"></i><span class="link-text">${item.name}</span></a></li>`;
     };
 
     menuConfig.forEach(item => {
         if (item.children) {
-            const firstSpaceIndex = item.name.indexOf(' ');
-            const icon = item.name.substring(0, firstSpaceIndex);
-            const text = item.name.substring(firstSpaceIndex + 1);
-
             menuHtml += `
                 <div class="menu-category">
                     <button class="category-title">
-                        <span class="category-icon">${icon}</span>
-                        <span class="link-text">${text}</span>
+                        <span class="category-icon"><i class="${item.icon}"></i></span>
+                        <span class="link-text">${item.name}</span>
                         <svg class="arrow-icon link-text" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
                     </button>
                     <ul class="submenu">
@@ -262,5 +255,10 @@ function updateActiveLink(path) {
     });
 }
 
-window.addEventListener('popstate', () => loadView(window.location.pathname));
-document.addEventListener('DOMContentLoaded', () => loadView(window.location.pathname));
+function initialAppPath() {
+    const q = window.location.search || '';
+    return `${window.location.pathname}${q}`;
+}
+
+window.addEventListener('popstate', () => loadView(initialAppPath()));
+document.addEventListener('DOMContentLoaded', () => loadView(initialAppPath()));

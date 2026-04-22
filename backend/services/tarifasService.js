@@ -1,147 +1,243 @@
 // backend/services/tarifasService.js
 const pool = require('../db/postgres');
-const admin = require('firebase-admin');
 const { obtenerValorDolar } = require('./dolarService');
 
-function mapearTarifa(row) {
-    if (!row) return null;
-    const reglas = row.reglas || {};
-    return { id: row.id, alojamientoId: row.propiedad_id, temporada: reglas.temporada, precios: reglas.precios || {}, fechaInicio: reglas.fechaInicio, fechaTermino: reglas.fechaTermino, activa: row.activa };
-}
+// ─── Cálculo de precios por canal ────────────────────────────────────────────
 
-async function calcularPreciosPorCanal(db, empresaId, datosTarifa, fechaInicioDate) {
+async function calcularPreciosPorCanal(empresaId, precioBase, fechaInicioStr) {
     const { obtenerCanalesPorEmpresa } = require('./canalesService');
-    const canales = await obtenerCanalesPorEmpresa(db, empresaId);
+    const canales = await obtenerCanalesPorEmpresa(null, empresaId);
     const canalPD = canales.find(c => c.esCanalPorDefecto || c.metadata?.esCanalPorDefecto);
     if (!canalPD) throw new Error('No se ha configurado un canal por defecto.');
-    const precioBase = parseFloat(datosTarifa.precioBase);
-    if (isNaN(precioBase)) throw new Error('El valor de precioBase no es válido.');
-    const valorDolarDia = await obtenerValorDolar(db, empresaId, fechaInicioDate);
-    const preciosFinales = {};
+
+    const fechaDate = new Date(fechaInicioStr + 'T00:00:00Z');
+    const valorDolarDia = await obtenerValorDolar(null, empresaId, fechaDate);
+    const base = parseFloat(precioBase);
+    if (isNaN(base)) throw new Error('El precio base no es válido.');
+
+    const preciosCanales = {};
     for (const canal of canales) {
-        let val = precioBase;
+        let val = base;
         const mc = canal.moneda || canal.metadata?.moneda || 'CLP';
         const md = canalPD.moneda || canalPD.metadata?.moneda || 'CLP';
-        if (mc === 'USD' && md === 'CLP' && valorDolarDia > 0) val = precioBase / valorDolarDia;
-        else if (mc === 'CLP' && md === 'USD' && valorDolarDia > 0) val = precioBase * valorDolarDia;
+        if (mc === 'USD' && md === 'CLP' && valorDolarDia > 0) val = base / valorDolarDia;
+        else if (mc === 'CLP' && md === 'USD' && valorDolarDia > 0) val = base * valorDolarDia;
+
         const modTipo  = canal.modificadorTipo  || canal.metadata?.modificadorTipo;
         const modValor = canal.modificadorValor || canal.metadata?.modificadorValor || 0;
         if (canal.id !== canalPD.id && modValor) {
             if (modTipo === 'porcentaje') val *= (1 + modValor / 100);
             else if (modTipo === 'fijo')  val += modValor;
         }
-        preciosFinales[canal.id] = mc === 'USD' ? { valorUSD: val, valorCLP: val * valorDolarDia, moneda: 'USD' } : { valorCLP: val, moneda: 'CLP' };
+        preciosCanales[canal.id] = mc === 'USD'
+            ? { valorUSD: val, valorCLP: val * valorDolarDia, moneda: 'USD' }
+            : { valorCLP: val, moneda: 'CLP' };
     }
-    return { preciosFinales, canalPorDefectoId: canalPD.id, valorDolarDia };
+    return { preciosCanales, canalPorDefectoId: canalPD.id, valorDolarDia };
 }
 
-const crearTarifa = async (db, empresaId, datosTarifa) => {
-    if (!datosTarifa.alojamientoId || !datosTarifa.precioBase) throw new Error('Faltan datos requeridos.');
-    const fechaInicioDate = new Date(datosTarifa.fechaInicio + 'T00:00:00Z');
-    const { preciosFinales, canalPorDefectoId } = await calcularPreciosPorCanal(db, empresaId, datosTarifa, fechaInicioDate);
+// ─── Mapeo interno ────────────────────────────────────────────────────────────
 
-    if (pool) {
-        const reglas = { temporada: datosTarifa.temporada, fechaInicio: datosTarifa.fechaInicio, fechaTermino: datosTarifa.fechaTermino, precios: { [canalPorDefectoId]: parseFloat(datosTarifa.precioBase) } };
-        const { rows } = await pool.query(`INSERT INTO tarifas (empresa_id, propiedad_id, nombre, reglas, activa) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-            [empresaId, datosTarifa.alojamientoId, datosTarifa.temporada || '', JSON.stringify(reglas), true]);
-        return { ...mapearTarifa(rows[0]), precios: preciosFinales };
-    }
+function mapearTarifa(row) {
+    const fi = row.fecha_inicio instanceof Date
+        ? row.fecha_inicio.toISOString().split('T')[0]
+        : String(row.fecha_inicio);
+    const ft = row.fecha_termino instanceof Date
+        ? row.fecha_termino.toISOString().split('T')[0]
+        : String(row.fecha_termino);
+    return {
+        id:               row.id,
+        temporadaId:      row.temporada_id,
+        temporadaNombre:  row.temporada_nombre || null,
+        alojamientoId:    row.propiedad_id,
+        alojamientoNombre: row.alojamiento_nombre || null,
+        precioBase:       parseFloat(row.precio_base),
+        valorDolarDia:    row.valor_dolar_dia ? parseFloat(row.valor_dolar_dia) : null,
+        precios:          row.precios_canales || {},
+        fechaInicio:      fi,
+        fechaTermino:     ft,
+    };
+}
 
-    const tarifaRef = db.collection('empresas').doc(empresaId).collection('tarifas').doc();
-    const datosGuardar = { alojamientoId: datosTarifa.alojamientoId, temporada: datosTarifa.temporada, fechaInicio: admin.firestore.Timestamp.fromDate(fechaInicioDate), fechaTermino: admin.firestore.Timestamp.fromDate(new Date(datosTarifa.fechaTermino + 'T00:00:00Z')), precios: { [canalPorDefectoId]: parseFloat(datosTarifa.precioBase) }, fechaCreacion: admin.firestore.FieldValue.serverTimestamp() };
-    await tarifaRef.set(datosGuardar);
-    return { id: tarifaRef.id, ...datosGuardar, precios: preciosFinales };
+// ─── CRUD ─────────────────────────────────────────────────────────────────────
+
+const obtenerTarifasPorTemporada = async (empresaId, temporadaId) => {
+    const { rows } = await pool.query(
+        `SELECT ta.*, te.nombre AS temporada_nombre,
+                te.fecha_inicio, te.fecha_termino,
+                p.nombre AS alojamiento_nombre
+         FROM tarifas ta
+         JOIN temporadas te ON te.id = ta.temporada_id
+         JOIN propiedades p  ON p.id  = ta.propiedad_id
+         WHERE ta.empresa_id = $1 AND ta.temporada_id = $2
+         ORDER BY p.nombre`,
+        [empresaId, temporadaId]
+    );
+    return rows.map(mapearTarifa);
 };
 
-const obtenerTarifasPorEmpresa = async (db, empresaId) => {
-    const { obtenerCanalesPorEmpresa } = require('./canalesService');
-    const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
+const guardarTarifasBulk = async (empresaId, temporadaId, precios) => {
+    // precios = [{ propiedadId, precioBase }]
+    if (!precios?.length) return [];
 
-    if (pool) {
-        const [{ rows }, propiedades, canales] = await Promise.all([
-            pool.query(`SELECT * FROM tarifas WHERE empresa_id = $1 ORDER BY (reglas->>'fechaInicio') DESC`, [empresaId]),
-            obtenerPropiedadesPorEmpresa(db, empresaId),
-            obtenerCanalesPorEmpresa(db, empresaId)
-        ]);
-        const propMap = new Map(propiedades.map(p => [p.id, p.nombre]));
-        const canalPD = canales.find(c => c.esCanalPorDefecto || c.metadata?.esCanalPorDefecto);
-        if (!canalPD) throw new Error('No se ha configurado un canal por defecto.');
-        return Promise.all(rows.map(async row => {
-            const reglas = row.reglas || {};
-            const fechaInicioDate = reglas.fechaInicio ? new Date(reglas.fechaInicio + 'T00:00:00Z') : new Date();
-            const valorDolarDia = await obtenerValorDolar(db, empresaId, fechaInicioDate);
-            const precioBase = reglas.precios?.[canalPD.id] || 0;
-            const preciosFinales = {};
-            for (const canal of canales) {
-                let val = precioBase;
-                const mc = canal.moneda || canal.metadata?.moneda || 'CLP';
-                const md = canalPD.moneda || canalPD.metadata?.moneda || 'CLP';
-                if (mc === 'USD' && md === 'CLP' && valorDolarDia > 0) val = precioBase / valorDolarDia;
-                else if (mc === 'CLP' && md === 'USD' && valorDolarDia > 0) val = precioBase * valorDolarDia;
-                const modTipo = canal.modificadorTipo || canal.metadata?.modificadorTipo;
-                const modValor = canal.modificadorValor || canal.metadata?.modificadorValor || 0;
-                if (canal.id !== canalPD.id && modValor) {
-                    if (modTipo === 'porcentaje') val *= (1 + modValor / 100);
-                    else if (modTipo === 'fijo') val += modValor;
-                }
-                preciosFinales[canal.id] = mc === 'USD' ? { valorUSD: val, valorCLP: val * valorDolarDia, moneda: 'USD' } : { valorCLP: val, moneda: 'CLP' };
-            }
-            return { id: row.id, alojamientoId: row.propiedad_id, alojamientoNombre: propMap.get(row.propiedad_id) || 'No encontrado', temporada: reglas.temporada, precios: preciosFinales, fechaInicio: reglas.fechaInicio, fechaTermino: reglas.fechaTermino, valorDolarDia };
-        }));
+    // Obtener fecha_inicio de la temporada para el tipo de cambio
+    const { rows: temp } = await pool.query(
+        'SELECT fecha_inicio FROM temporadas WHERE id = $1 AND empresa_id = $2',
+        [temporadaId, empresaId]
+    );
+    if (!temp[0]) throw new Error('Temporada no encontrada.');
+    const fechaInicioStr = temp[0].fecha_inicio instanceof Date
+        ? temp[0].fecha_inicio.toISOString().split('T')[0]
+        : String(temp[0].fecha_inicio);
+
+    const resultados = [];
+    for (const item of precios) {
+        if (!item.propiedadId || item.precioBase === undefined || item.precioBase === null) continue;
+        const base = parseFloat(item.precioBase);
+        if (isNaN(base) || base < 0) continue;
+
+        const { preciosCanales, valorDolarDia } = await calcularPreciosPorCanal(
+            empresaId, base, fechaInicioStr
+        );
+
+        const { rows } = await pool.query(
+            `INSERT INTO tarifas (empresa_id, temporada_id, propiedad_id, precio_base, valor_dolar_dia, precios_canales)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (temporada_id, propiedad_id) DO UPDATE
+             SET precio_base    = EXCLUDED.precio_base,
+                 valor_dolar_dia = EXCLUDED.valor_dolar_dia,
+                 precios_canales = EXCLUDED.precios_canales,
+                 updated_at     = NOW()
+             RETURNING id`,
+            [empresaId, temporadaId, item.propiedadId, base, valorDolarDia, JSON.stringify(preciosCanales)]
+        );
+        resultados.push(rows[0].id);
     }
+    return resultados;
+};
 
-    const [tarifasSnap, propSnap, canalSnap] = await Promise.all([
-        db.collection('empresas').doc(empresaId).collection('tarifas').orderBy('fechaInicio', 'desc').get(),
-        db.collection('empresas').doc(empresaId).collection('propiedades').get(),
-        db.collection('empresas').doc(empresaId).collection('canales').get()
-    ]);
-    if (tarifasSnap.empty) return [];
-    const propMap = new Map(propSnap.docs.map(d => [d.id, d.data().nombre]));
-    const canales = canalSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const canalPD = canales.find(c => c.esCanalPorDefecto);
-    if (!canalPD) throw new Error('No se ha configurado un canal por defecto.');
-    return Promise.all(tarifasSnap.docs.map(async doc => {
-        const data = doc.data();
-        const fechaInicioDate = data.fechaInicio.toDate();
-        const valorDolarDia = await obtenerValorDolar(db, empresaId, fechaInicioDate);
-        const precioBase = data.precios?.[canalPD.id] || 0;
-        const preciosFinales = {};
-        for (const canal of canales) {
-            let val = precioBase;
-            if (canal.moneda === 'USD' && canalPD.moneda === 'CLP' && valorDolarDia > 0) val = precioBase / valorDolarDia;
-            else if (canal.moneda === 'CLP' && canalPD.moneda === 'USD' && valorDolarDia > 0) val = precioBase * valorDolarDia;
-            if (canal.id !== canalPD.id && canal.modificadorValor) {
-                if (canal.modificadorTipo === 'porcentaje') val *= (1 + canal.modificadorValor / 100);
-                else if (canal.modificadorTipo === 'fijo') val += canal.modificadorValor;
-            }
-            preciosFinales[canal.id] = canal.moneda === 'USD' ? { valorUSD: val, valorCLP: val * valorDolarDia, moneda: 'USD' } : { valorCLP: val, moneda: 'CLP' };
-        }
-        return { id: doc.id, alojamientoId: data.alojamientoId, alojamientoNombre: propMap.get(data.alojamientoId) || 'No encontrado', temporada: data.temporada, precios: preciosFinales, fechaInicio: fechaInicioDate.toISOString().split('T')[0], fechaTermino: data.fechaTermino.toDate().toISOString().split('T')[0], valorDolarDia };
+const actualizarTarifa = async (empresaId, tarifaId, precioBase) => {
+    const { rows: ex } = await pool.query(
+        `SELECT ta.temporada_id, te.fecha_inicio
+         FROM tarifas ta JOIN temporadas te ON te.id = ta.temporada_id
+         WHERE ta.id = $1 AND ta.empresa_id = $2`,
+        [tarifaId, empresaId]
+    );
+    if (!ex[0]) throw new Error('Tarifa no encontrada.');
+
+    const fechaInicioStr = ex[0].fecha_inicio instanceof Date
+        ? ex[0].fecha_inicio.toISOString().split('T')[0]
+        : String(ex[0].fecha_inicio);
+
+    const base = parseFloat(precioBase);
+    if (isNaN(base)) throw new Error('Precio base inválido.');
+    const { preciosCanales, valorDolarDia } = await calcularPreciosPorCanal(
+        empresaId, base, fechaInicioStr
+    );
+
+    const { rows } = await pool.query(
+        `UPDATE tarifas
+         SET precio_base = $2, valor_dolar_dia = $3, precios_canales = $4, updated_at = NOW()
+         WHERE id = $1 AND empresa_id = $5 RETURNING *`,
+        [tarifaId, base, valorDolarDia, JSON.stringify(preciosCanales), empresaId]
+    );
+    return mapearTarifa(rows[0]);
+};
+
+const eliminarTarifa = async (empresaId, tarifaId) => {
+    await pool.query('DELETE FROM tarifas WHERE id = $1 AND empresa_id = $2', [tarifaId, empresaId]);
+};
+
+const eliminarTarifasPorTemporada = async (empresaId, temporadaId) => {
+    await pool.query(
+        'DELETE FROM tarifas WHERE temporada_id = $1 AND empresa_id = $2',
+        [temporadaId, empresaId]
+    );
+};
+
+// ─── Para consumidores internos (KPI, propuestas, sincronización) ─────────────
+// Devuelve el formato que esperan los servicios existentes.
+
+const obtenerTarifasParaConsumidores = async (empresaId) => {
+    const { rows } = await pool.query(
+        `SELECT ta.id, ta.propiedad_id, ta.precio_base, ta.precios_canales,
+                ta.valor_dolar_dia,
+                te.fecha_inicio, te.fecha_termino
+         FROM tarifas ta
+         JOIN temporadas te ON te.id = ta.temporada_id
+         WHERE ta.empresa_id = $1`,
+        [empresaId]
+    );
+    return rows.map(row => ({
+        id:           row.id,
+        alojamientoId: row.propiedad_id,
+        fechaInicio:  row.fecha_inicio instanceof Date
+            ? new Date(row.fecha_inicio.toISOString().split('T')[0] + 'T00:00:00Z')
+            : new Date(String(row.fecha_inicio).split('T')[0] + 'T00:00:00Z'),
+        fechaTermino: row.fecha_termino instanceof Date
+            ? new Date(row.fecha_termino.toISOString().split('T')[0] + 'T00:00:00Z')
+            : new Date(String(row.fecha_termino).split('T')[0] + 'T00:00:00Z'),
+        precioBase:   parseFloat(row.precio_base),
+        precios:      row.precios_canales || {},
+        valorDolarDia: row.valor_dolar_dia ? parseFloat(row.valor_dolar_dia) : null,
     }));
 };
 
-const actualizarTarifa = async (db, empresaId, tarifaId, datosActualizados) => {
-    const fechaInicioDate = new Date((datosActualizados.fechaInicio || new Date().toISOString().split('T')[0]) + 'T00:00:00Z');
-    const { preciosFinales, canalPorDefectoId } = await calcularPreciosPorCanal(db, empresaId, datosActualizados, fechaInicioDate);
-    if (pool) {
-        const { rows: ex } = await pool.query('SELECT * FROM tarifas WHERE id = $1 AND empresa_id = $2', [tarifaId, empresaId]);
-        if (!ex[0]) throw new Error('La tarifa que intentas actualizar no existe.');
-        const reglas = { ...ex[0].reglas, temporada: datosActualizados.temporada || ex[0].reglas?.temporada, fechaInicio: datosActualizados.fechaInicio || ex[0].reglas?.fechaInicio, fechaTermino: datosActualizados.fechaTermino || ex[0].reglas?.fechaTermino, precios: { [canalPorDefectoId]: parseFloat(datosActualizados.precioBase) } };
-        await pool.query('UPDATE tarifas SET reglas = $2, updated_at = NOW() WHERE id = $1 AND empresa_id = $3', [tarifaId, JSON.stringify(reglas), empresaId]);
-        return { id: tarifaId, ...datosActualizados, precios: preciosFinales };
+// ─── Upsert para el importador mágico ────────────────────────────────────────
+
+const upsertTarifaImportador = async (empresaId, alojamientoId, precioBase, result) => {
+    try {
+        const año = new Date().getFullYear();
+        const fechaInicio  = `${año}-01-01`;
+        const fechaTermino = `${año}-12-31`;
+
+        // Buscar o crear temporada "General {año}"
+        const nombreTemporada = `General ${año}`;
+        let temporadaId;
+        const { rows: tempEx } = await pool.query(
+            'SELECT id FROM temporadas WHERE empresa_id = $1 AND nombre = $2 LIMIT 1',
+            [empresaId, nombreTemporada]
+        );
+        if (tempEx[0]) {
+            temporadaId = tempEx[0].id;
+        } else {
+            const { rows: tempNew } = await pool.query(
+                'INSERT INTO temporadas (empresa_id, nombre, fecha_inicio, fecha_termino) VALUES ($1,$2,$3,$4) RETURNING id',
+                [empresaId, nombreTemporada, fechaInicio, fechaTermino]
+            );
+            temporadaId = tempNew[0].id;
+        }
+
+        const base = parseFloat(precioBase);
+        if (isNaN(base) || base <= 0) return;
+
+        const { preciosCanales, valorDolarDia } = await calcularPreciosPorCanal(
+            empresaId, base, fechaInicio
+        );
+
+        await pool.query(
+            `INSERT INTO tarifas (empresa_id, temporada_id, propiedad_id, precio_base, valor_dolar_dia, precios_canales)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (temporada_id, propiedad_id) DO UPDATE
+             SET precio_base = EXCLUDED.precio_base,
+                 valor_dolar_dia = EXCLUDED.valor_dolar_dia,
+                 precios_canales = EXCLUDED.precios_canales,
+                 updated_at = NOW()`,
+            [empresaId, temporadaId, alojamientoId, base, valorDolarDia, JSON.stringify(preciosCanales)]
+        );
+        result.tarifas.push({ alojamientoId });
+    } catch (err) {
+        result.errores.push(`Tarifa "${alojamientoId}": ${err.message}`);
     }
-    const tarifaRef = db.collection('empresas').doc(empresaId).collection('tarifas').doc(tarifaId);
-    await db.runTransaction(async (transaction) => {
-        const doc = await transaction.get(tarifaRef);
-        if (!doc.exists) throw new Error('La tarifa que intentas actualizar no existe.');
-        transaction.update(tarifaRef, { temporada: datosActualizados.temporada, fechaInicio: admin.firestore.Timestamp.fromDate(fechaInicioDate), fechaTermino: admin.firestore.Timestamp.fromDate(new Date(datosActualizados.fechaTermino + 'T00:00:00Z')), precios: { [canalPorDefectoId]: parseFloat(datosActualizados.precioBase) }, fechaActualizacion: admin.firestore.FieldValue.serverTimestamp() });
-    });
-    return { id: tarifaId, ...datosActualizados };
 };
 
-const eliminarTarifa = async (db, empresaId, tarifaId) => {
-    if (pool) { await pool.query('DELETE FROM tarifas WHERE id = $1 AND empresa_id = $2', [tarifaId, empresaId]); return; }
-    await db.collection('empresas').doc(empresaId).collection('tarifas').doc(tarifaId).delete();
+module.exports = {
+    calcularPreciosPorCanal,
+    obtenerTarifasPorTemporada,
+    guardarTarifasBulk,
+    actualizarTarifa,
+    eliminarTarifa,
+    eliminarTarifasPorTemporada,
+    obtenerTarifasParaConsumidores,
+    upsertTarifaImportador,
 };
-
-module.exports = { crearTarifa, obtenerTarifasPorEmpresa, actualizarTarifa, eliminarTarifa };

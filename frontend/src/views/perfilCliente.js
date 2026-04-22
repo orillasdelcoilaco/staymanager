@@ -23,6 +23,14 @@ function renderStars(rating) {
 }
 
 const formatCurrency = (v) => `$${(Math.round(v) || 0).toLocaleString('es-CL')}`;
+/** Escapa texto para insertar en HTML (nombres de plantilla, etc.). */
+function _escHtml(s) {
+    return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : '—';
 const formatDateTime = (d) => {
     if (!d) return '—';
@@ -60,12 +68,15 @@ function buildTimeline() {
                 'general': { label: 'Email', color: 'gray' },
             };
             const badge = badges[c.evento] || badges['general'];
+            const plantillaLine = c.plantillaNombre
+                ? `Plantilla: ${_escHtml(c.plantillaNombre)}`
+                : (c.plantillaId ? 'Plantilla registrada (sin nombre en catálogo)' : '');
             events.push({
                 date: c.fechaEnvio,
                 type: 'comunicacion',
                 icon: '<i class="fa-solid fa-envelope"></i>',
                 title: c.asunto || badge.label,
-                subtitle: `${c.destinatario || ''}`,
+                subtitle: [c.destinatario || '', plantillaLine].filter(Boolean).join(' · ') || '—',
                 detail: c.estado === 'enviado' ? '<i class="fa-solid fa-check text-success-500 mr-1"></i>Enviado' : c.estado === 'fallido' ? '<i class="fa-solid fa-xmark text-danger-500 mr-1"></i>Fallido' : 'Pendiente',
                 color: badge.color,
             });
@@ -92,8 +103,9 @@ function _renderClienteHeader(c, seg, segBadgeClass) {
                     <span>📍 ${c.pais || 'No especificado'}</span>
                 </div>
             </div>
-            <div class="flex gap-2 flex-shrink-0">
+            <div class="flex flex-wrap gap-2 flex-shrink-0">
                 <button id="edit-cliente-btn" class="btn-primary text-sm flex items-center gap-1.5"><i class="fa-solid fa-pen"></i> Editar</button>
+                <button type="button" id="btn-ir-plantillas" class="btn-outline text-sm flex items-center gap-1.5" title="Plantillas de correo usadas en propuestas y confirmaciones"><i class="fa-solid fa-file-lines"></i> Plantillas</button>
                 ${c.telefono ? `<a href="https://wa.me/${(c.telefono||'').replace(/\D/g,'')}" target="_blank" class="btn-outline text-sm">WhatsApp</a>` : ''}
                 <button id="back-btn" class="btn-outline text-sm flex items-center gap-1.5"><i class="fa-solid fa-arrow-left"></i> Volver</button>
             </div>
@@ -127,6 +139,54 @@ function _renderPanelTimeline(timeline) {
             </div>`).join('')}
         </div>
     </div>`;
+}
+
+function _eventoCorreoLabel(evento) {
+    const map = {
+        'propuesta-enviada': 'Propuesta enviada',
+        'reserva-confirmada': 'Reserva confirmada',
+        'promocion': 'Promoción',
+        'cancelacion': 'Cancelación',
+        'general': 'Correo',
+    };
+    return map[evento] || evento || 'Correo';
+}
+
+function _renderPanelCorreos(list) {
+    if (!list || list.length === 0) {
+        return `<div class="text-center py-10 text-gray-500 text-sm max-w-md mx-auto">
+            <p class="mb-2"><i class="fa-solid fa-envelope-open text-2xl text-gray-300"></i></p>
+            <p class="font-medium text-gray-700">Aún no hay correos registrados</p>
+            <p class="mt-1">Los envíos desde <strong>propuestas</strong> y la confirmación de <strong>reservas</strong> en gestión aparecerán aquí automáticamente. La columna <strong>Plantilla</strong> enlaza a la edición del mensaje usado.</p>
+        </div>`;
+    }
+    const filas = [...list].sort((a, b) => new Date(b.fechaEnvio || 0) - new Date(a.fechaEnvio || 0))
+        .map((c) => {
+            const plantillaCell = c.plantillaId
+                ? `<button type="button" class="text-left text-primary-600 hover:underline text-xs max-w-[200px] truncate block" data-action="open-plantilla" data-plantilla-id="${_escHtml(c.plantillaId)}" title="Abrir plantilla en Gestionar plantillas">${_escHtml(c.plantillaNombre || 'Plantilla (editar)')}</button>`
+                : '<span class="text-gray-400 text-xs">—</span>';
+            return `<tr class="border-b text-sm hover:bg-gray-50">
+            <td class="py-2.5 px-3 whitespace-nowrap text-gray-600">${formatDateTime(c.fechaEnvio)}</td>
+            <td class="py-2.5 px-3"><span class="text-xs font-semibold text-primary-700">${_eventoCorreoLabel(c.evento)}</span></td>
+            <td class="py-2.5 px-3 text-gray-800">${_escHtml(c.asunto) || '—'}</td>
+            <td class="py-2.5 px-3">${plantillaCell}</td>
+            <td class="py-2.5 px-3 text-gray-600 truncate max-w-[200px]" title="${_escHtml(c.destinatario)}">${_escHtml(c.destinatario) || '—'}</td>
+            <td class="py-2.5 px-3 text-xs">${c.estado === 'enviado' ? '<span class="text-success-600">Enviado</span>' : c.estado === 'fallido' ? '<span class="text-danger-600">Fallido</span>' : (c.estado || '—')}</td>
+            <td class="py-2.5 px-3 text-xs font-mono text-gray-500 truncate max-w-[120px]" title="${_escHtml(c.messageId)}">${_escHtml(c.messageId) || '—'}</td>
+        </tr>`;
+        }).join('');
+    return `<div class="overflow-x-auto"><table class="min-w-full">
+        <thead class="bg-gray-50"><tr>
+            <th class="th text-xs py-2 px-3 text-left">Fecha</th>
+            <th class="th text-xs py-2 px-3 text-left">Evento</th>
+            <th class="th text-xs py-2 px-3 text-left">Asunto</th>
+            <th class="th text-xs py-2 px-3 text-left">Plantilla</th>
+            <th class="th text-xs py-2 px-3 text-left">Destinatario</th>
+            <th class="th text-xs py-2 px-3 text-left">Estado</th>
+            <th class="th text-xs py-2 px-3 text-left">ID mensaje</th>
+        </tr></thead>
+        <tbody>${filas}</tbody>
+    </table></div>`;
 }
 
 function _renderPanelReservas(c) {
@@ -169,25 +229,44 @@ export async function render() {
     const seg = cliente.rfmSegmento || 'Sin Reservas';
     const segBadgeClass = SEGMENTO_BADGE_CLASS[seg] || 'badge-segmento-hibernando';
     const timeline = buildTimeline();
+    const nCorreos = (comunicaciones && comunicaciones.length) || 0;
+    const tabFromUrl = (new URLSearchParams(window.location.search).get('tab') || 'timeline').toLowerCase();
+    const validTabs = new Set(['timeline', 'correos', 'reservas', 'notas']);
+    const initialTab = validTabs.has(tabFromUrl) ? tabFromUrl : 'timeline';
+    const isActive = (t) => (t === initialTab
+        ? 'perfil-tab active px-6 py-3 text-sm font-medium border-b-2 border-primary-500 text-primary-600'
+        : 'perfil-tab px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300');
 
     return `
         <div class="space-y-6">
             ${_renderClienteHeader(cliente, seg, segBadgeClass)}
             <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div class="border-b"><nav class="flex -mb-px">
-                    <button id="tab-timeline" class="perfil-tab active px-6 py-3 text-sm font-medium border-b-2 border-primary-500 text-primary-600" data-tab="timeline"><i class="fa-solid fa-timeline mr-1.5"></i>Timeline (${timeline.length})</button>
-                    <button id="tab-reservas" class="perfil-tab px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="reservas"><i class="fa-solid fa-calendar-check mr-1.5"></i>Reservas (${cliente.reservas?.length || 0})</button>
-                    <button id="tab-notas" class="perfil-tab px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="notas"><i class="fa-solid fa-note-sticky mr-1.5"></i>Notas</button>
+                <div class="border-b"><nav class="flex flex-wrap -mb-px gap-x-1">
+                    <button type="button" id="tab-timeline" class="${isActive('timeline')}" data-tab="timeline" title="Reservas y correos en orden cronológico"><i class="fa-solid fa-timeline mr-1.5"></i>Actividad (${timeline.length})</button>
+                    <button type="button" id="tab-correos" class="${isActive('correos')}" data-tab="correos"><i class="fa-solid fa-envelope mr-1.5"></i>Correos (${nCorreos})</button>
+                    <button type="button" id="tab-reservas" class="${isActive('reservas')}" data-tab="reservas"><i class="fa-solid fa-calendar-check mr-1.5"></i>Reservas (${cliente.reservas?.length || 0})</button>
+                    <button type="button" id="tab-notas" class="${isActive('notas')}" data-tab="notas"><i class="fa-solid fa-note-sticky mr-1.5"></i>Notas</button>
                 </nav></div>
-                <div id="panel-timeline" class="perfil-panel p-6">${_renderPanelTimeline(timeline)}</div>
-                <div id="panel-reservas" class="perfil-panel p-6 hidden">${_renderPanelReservas(cliente)}</div>
-                <div id="panel-notas" class="perfil-panel p-6 hidden">
+                <div id="panel-timeline" class="perfil-panel p-6 ${initialTab === 'timeline' ? '' : 'hidden'}">${_renderPanelTimeline(timeline)}</div>
+                <div id="panel-correos" class="perfil-panel p-6 ${initialTab === 'correos' ? '' : 'hidden'}">${_renderPanelCorreos(comunicaciones)}</div>
+                <div id="panel-reservas" class="perfil-panel p-6 ${initialTab === 'reservas' ? '' : 'hidden'}">${_renderPanelReservas(cliente)}</div>
+                <div id="panel-notas" class="perfil-panel p-6 ${initialTab === 'notas' ? '' : 'hidden'}">
                     <div class="bg-gray-50 p-4 rounded-lg text-sm text-gray-700 whitespace-pre-wrap min-h-[120px]">${cliente.notas || 'Sin notas.'}</div>
                 </div>
             </div>
         </div>
         ${renderModalCliente()}
     `;
+}
+
+function _syncPerfilTabUrl(tabId) {
+    const id = cliente?.id;
+    if (!id) return;
+    const params = new URLSearchParams(window.location.search);
+    if (tabId && tabId !== 'timeline') params.set('tab', tabId);
+    else params.delete('tab');
+    const qs = params.toString();
+    window.history.replaceState({}, '', `/cliente/${id}${qs ? `?${qs}` : ''}`);
 }
 
 export function afterRender() {
@@ -202,6 +281,7 @@ export function afterRender() {
             tab.classList.remove('border-transparent', 'text-gray-500');
             document.querySelectorAll('.perfil-panel').forEach(p => p.classList.add('hidden'));
             document.getElementById(`panel-${tab.dataset.tab}`)?.classList.remove('hidden');
+            _syncPerfilTabUrl(tab.dataset.tab);
         });
     });
 
@@ -212,6 +292,17 @@ export function afterRender() {
     });
 
     document.getElementById('edit-cliente-btn')?.addEventListener('click', () => abrirModalCliente(cliente));
+
+    document.getElementById('btn-ir-plantillas')?.addEventListener('click', () => handleNavigation('/gestionar-plantillas'));
+
+    document.getElementById('panel-correos')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action="open-plantilla"]');
+        const pid = btn?.dataset?.plantillaId;
+        if (!pid) return;
+        e.preventDefault();
+        sessionStorage.setItem('openPlantillaId', pid);
+        handleNavigation('/gestionar-plantillas');
+    });
 
     setupModalCliente(async () => {
         handleNavigation(window.location.pathname);

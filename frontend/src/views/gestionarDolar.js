@@ -59,7 +59,9 @@ function abrirModal(valor = null) {
     valorEditando = valor;
     const modal = document.getElementById('valor-modal');
     const form = document.getElementById('valor-form');
+    const subtitle = document.getElementById('modal-dolar-subtitle');
     document.getElementById('modal-title').textContent = valor ? `Editar valor para ${valor.fecha}` : 'Añadir Nuevo Valor';
+    if (subtitle) subtitle.textContent = valor ? `Modifica el tipo de cambio registrado` : 'Ingresa la fecha y el valor en CLP';
     
     if (valor) {
         form.fecha.value = valor.fecha;
@@ -138,14 +140,31 @@ export function render() {
             </div>
         </div>
 
-        <div id="valor-modal" class="modal hidden"><div class="modal-content">
-            <h3 id="modal-title" class="text-xl font-semibold mb-4"></h3>
-            <form id="valor-form" class="space-y-4">
-                <div><label for="fecha" class="block text-sm font-medium">Fecha</label><input type="date" name="fecha" required class="form-input mt-1"></div>
-                <div><label for="valor" class="block text-sm font-medium">Valor</label><input type="number" step="0.01" name="valor" required class="form-input mt-1"></div>
-                <div class="flex justify-end pt-4 border-t"><button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button><button type="submit" class="btn-primary">Guardar</button></div>
-            </form>
-        </div></div>
+        <div id="valor-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="flex items-center gap-4 mb-6 pb-5 border-b">
+                    <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 text-xl flex-shrink-0">💵</div>
+                    <div>
+                        <h3 id="modal-title" class="text-xl font-semibold text-gray-900"></h3>
+                        <p id="modal-dolar-subtitle" class="text-sm text-gray-500">Ingresa la fecha y el valor en CLP</p>
+                    </div>
+                </div>
+                <form id="valor-form" class="space-y-4">
+                    <div>
+                        <label for="fecha" class="label">Fecha <span class="text-danger-500">*</span></label>
+                        <input type="date" name="fecha" required class="form-input mt-1">
+                    </div>
+                    <div>
+                        <label for="valor" class="label">Valor (CLP) <span class="text-danger-500">*</span></label>
+                        <input type="number" step="0.01" name="valor" required class="form-input mt-1">
+                    </div>
+                    <div class="flex justify-end pt-4 border-t">
+                        <button type="button" id="cancel-btn" class="btn-outline mr-2">Cancelar</button>
+                        <button type="submit" class="btn-primary">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     `;
 }
 

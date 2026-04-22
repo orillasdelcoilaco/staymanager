@@ -36,6 +36,9 @@ const AI_TASK = {
 
     // Plan de fotos por instancia de propiedad: shots requeridos por espacio para SEO/ventas/OTAs
     PHOTO_PLAN: 'PHOTO_PLAN',
+
+    /** Generación de plantillas de mensaje (correo) con etiquetas [TAG] del motor */
+    TEMPLATE_GENERATION: 'TEMPLATE_GENERATION',
 };
 
 /**
@@ -53,6 +56,7 @@ const TASK_PROVIDER_MAP = {
     [AI_TASK.IMAGE_EVALUATION]:    'gemini',
     [AI_TASK.COMPANY_PROFILE]:     'groq',
     [AI_TASK.PHOTO_PLAN]:          'groq',
+    [AI_TASK.TEMPLATE_GENERATION]: 'groq',
 };
 
 /**
@@ -69,6 +73,7 @@ const TASK_INPUT_LIMITS = {
     [AI_TASK.IMAGE_EVALUATION]:     3000,
     [AI_TASK.COMPANY_PROFILE]:      3800,
     [AI_TASK.PHOTO_PLAN]:           6800,
+    [AI_TASK.TEMPLATE_GENERATION]: 2400,
 };
 
 module.exports = { AI_TASK, TASK_PROVIDER_MAP, TASK_INPUT_LIMITS };

@@ -99,7 +99,19 @@ const obtenerValorDolarHoy = async (db, empresaId) => {
 
 const obtenerValorDolar = async (db, empresaId, targetDate) => {
     if (!(targetDate instanceof Date) || isNaN(targetDate)) return 950;
-    
+
+    // Sin Firestore: obtener valor vigente desde API pública sin persistir
+    if (!db) {
+        try {
+            const response = await fetch('https://mindicador.cl/api/dolar');
+            if (!response.ok) return 950;
+            const data = await response.json();
+            return data.serie[0]?.valor || 950;
+        } catch {
+            return 950;
+        }
+    }
+
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 

@@ -5,14 +5,10 @@ const { procesarPlantilla, textoAHtml } = require('./plantillasService');
 const emailService = require('./emailService');
 const { registrarComunicacion } = require('./comunicacionesService');
 
-async function _obtenerDatosEmpresa(db, empresaId) {
-    if (pool) {
-        const { rows } = await pool.query('SELECT nombre, configuracion FROM empresas WHERE id = $1', [empresaId]);
-        if (!rows[0]) return {};
-        return { nombre: rows[0].nombre, ...(rows[0].configuracion || {}) };
-    }
-    const doc = await db.collection('empresas').doc(empresaId).get();
-    return doc.exists ? doc.data() : {};
+async function _obtenerDatosEmpresa(_db, empresaId) {
+    const { rows } = await pool.query('SELECT nombre, configuracion FROM empresas WHERE id = $1', [empresaId]);
+    if (!rows[0]) return {};
+    return { nombre: rows[0].nombre, ...(rows[0].configuracion || {}) };
 }
 
 const enviarEmailPropuesta = async (db, empresaId, datos) => {
@@ -71,15 +67,8 @@ const enviarEmailReservaConfirmada = async (db, empresaId, datosReserva) => {
 
     if (!clienteId) { console.warn('No se puede enviar email: no hay clienteId'); return; }
 
-    let cliente;
-    if (pool) {
-        cliente = await obtenerClientePorId(db, empresaId, clienteId);
-        if (!cliente) { console.warn('No se puede enviar email: cliente no encontrado'); return; }
-    } else {
-        const clienteDoc = await db.collection('empresas').doc(empresaId).collection('clientes').doc(clienteId).get();
-        if (!clienteDoc.exists) { console.warn('No se puede enviar email: cliente no encontrado'); return; }
-        cliente = clienteDoc.data();
-    }
+    const cliente = await obtenerClientePorId(db, empresaId, clienteId);
+    if (!cliente) { console.warn('No se puede enviar email: cliente no encontrado'); return; }
 
     if (!cliente.email) { console.warn('No se puede enviar email: cliente sin email'); return; }
 

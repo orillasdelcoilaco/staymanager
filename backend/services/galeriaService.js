@@ -525,4 +525,66 @@ async function uploadFotoEmpresaArea(_db, empresaId, areaId, files) {
     return results;
 }
 
-module.exports = { getGaleria, updateFoto, descartarFoto, confirmarFoto, eliminarFoto, syncToWebsite, uploadFotoToGaleria, getCounts, setPortada, replaceFoto, getGaleriaByEspacio, uploadFotoEmpresaArea };
+/**
+ * URLs de imágenes permitidas para destacados de venta (anti SSR open-redirect / hotlink arbitrario).
+ * Incluye galería de la propiedad, fotos en websiteData.images y fotos declaradas en áreas comunes vinculadas.
+ *
+ * @param {string} empresaId
+ * @param {string} propiedadId
+ * @param {object} [buildContext] — opcional; usa compartidas[].fotos
+ * @param {object} [websiteData] — opcional; usa images por componente
+ * @returns {Promise<Set<string>>}
+ */
+async function collectAllowedHighlightImagePaths(empresaId, propiedadId, buildContext, websiteData) {
+    const set = new Set();
+    const add = (u) => {
+        const s = String(u || '').trim();
+        if (s) set.add(s);
+    };
+    if (pool && empresaId && propiedadId) {
+        try {
+            const { rows } = await pool.query(
+                `SELECT storage_url, thumbnail_url, storage_path
+                 FROM galeria
+                 WHERE empresa_id = $1 AND propiedad_id = $2
+                   AND estado IN ('auto','manual','pendiente')`,
+                [empresaId, propiedadId]
+            );
+            rows.forEach((r) => {
+                add(r.storage_url);
+                add(r.thumbnail_url);
+                add(r.storage_path);
+            });
+        } catch (e) {
+            console.warn('[collectAllowedHighlightImagePaths]', e.message);
+        }
+    }
+    const wsImgs = websiteData?.images || {};
+    Object.values(wsImgs).forEach((bag) => {
+        const arr = Array.isArray(bag) ? bag : (bag && typeof bag === 'object' ? [bag] : []);
+        arr.forEach((img) => {
+            add(img.storagePath || img.storage_url || img.url);
+            add(img.thumbnailUrl || img.thumbnail_url);
+        });
+    });
+    (buildContext?.compartidas || []).forEach((a) => {
+        (a.fotos || []).forEach((f) => add(f.storageUrl || f.storagePath || f.url));
+    });
+    return set;
+}
+
+module.exports = {
+    getGaleria,
+    updateFoto,
+    descartarFoto,
+    confirmarFoto,
+    eliminarFoto,
+    syncToWebsite,
+    uploadFotoToGaleria,
+    getCounts,
+    setPortada,
+    replaceFoto,
+    getGaleriaByEspacio,
+    uploadFotoEmpresaArea,
+    collectAllowedHighlightImagePaths,
+};

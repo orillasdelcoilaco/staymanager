@@ -2,6 +2,7 @@
 import { fetchAPI } from '../../../api.js';
 import { handleNavigation } from '../../../router.js';
 import { state } from './propuesta.state.js';
+import { detectarCuponCliente } from '../../../shared/cuponesValidator.js';
 
 export function filterClients(e) {
     const searchTerm = e.target.value.toLowerCase();
@@ -61,6 +62,14 @@ export function selectClient(client) {
     document.getElementById('new-client-name').value = client.nombre || '';
     document.getElementById('new-client-phone').value = client.telefono || '';
     document.getElementById('new-client-email').value = client.email || '';
+
+    // Auto-detectar cupones del cliente
+    if (client.id) {
+        detectarCuponCliente(client.id, (codigo) => {
+            const input = document.getElementById('cupon-input');
+            if (input) input.dispatchEvent(new Event('change'));
+        });
+    }
 }
 
 export function clearClientSelection() {

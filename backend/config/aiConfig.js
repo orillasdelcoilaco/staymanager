@@ -66,6 +66,15 @@ const aiConfig = {
         baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
         providerName: 'OpenRouter',
         maxTokens: 4096
+    },
+
+    // Ollama: inferencia local, SOLO para desarrollo. NO usar en producción (Render).
+    // Instalar: https://ollama.com/ | Descargar modelo: `ollama pull gemma3:4b`
+    // Modelos recomendados: gemma3:4b (rápido), gemma3:12b (calidad), llama3.2:3b (liviano)
+    ollama: {
+        baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+        model: process.env.OLLAMA_MODEL || 'gemma3:4b',
+        providerName: 'Ollama (Local Dev)'
     }
 };
 

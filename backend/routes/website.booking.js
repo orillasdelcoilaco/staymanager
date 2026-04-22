@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../db/postgres');
+const { mergeEffectiveRules, buildHouseRulesPublicView } = require('../services/houseRulesService');
 
 function registerBookingRoutes({ router, db, deps }) {
     const { obtenerPropiedadPorId, crearReservaPublica } = deps;
@@ -21,7 +22,19 @@ function registerBookingRoutes({ router, db, deps }) {
             }
             const isGroupReservation = propiedades.length > 1;
             const dataToRender = isGroupReservation ? propiedades : propiedades[0];
-            res.render('reservar', { title: `Completar Reserva | ${empresaCompleta.nombre}`, propiedad: dataToRender, isGroup: isGroupReservation, query: req.query });
+            const propiedadNormasRef = propiedades[0];
+            const reglasMerged = mergeEffectiveRules(
+                empresaCompleta.websiteSettings?.houseRules,
+                propiedadNormasRef.normasAlojamiento || {}
+            );
+            const reglasVista = buildHouseRulesPublicView(reglasMerged, propiedadNormasRef.capacidad);
+            res.render('reservar', {
+                title: `Completar Reserva | ${empresaCompleta.nombre}`,
+                propiedad: dataToRender,
+                isGroup: isGroupReservation,
+                query: req.query,
+                reglasVista,
+            });
         } catch (error) {
             res.status(500).render('404', { title: 'Error Interno del Servidor', empresa: empresaCompleta || { id: empresaId, nombre: 'Error Crítico' } });
         }

@@ -1,7 +1,6 @@
 // backend/services/propuestasService.js
 
 const pool = require('../db/postgres');
-const admin = require('firebase-admin');
 const { parseISO, isValid, addDays, format } = require('date-fns');
 const { listarBloqueos } = require('./bloqueosService');
 
@@ -29,11 +28,21 @@ function reducirCapacidadSinCamarotes(properties) {
     });
 }
 
+// pg puede retornar columnas DATE como objetos Date o como strings "YYYY-MM-DD".
+// Esta función normaliza ambos casos a un Date UTC medianoche.
+function _pgDateToUTC(val) {
+    if (val instanceof Date) return new Date(val.toISOString().split('T')[0] + 'T00:00:00Z');
+    return parseISO(String(val).split('T')[0] + 'T00:00:00Z');
+}
+
 async function _fetchAvailabilityPG(empresaId, endDate) {
     const endStr = endDate.toISOString().split('T')[0];
     const [propRes, tarifaRes, reservaRes, bloqueos] = await Promise.all([
         pool.query('SELECT * FROM propiedades WHERE empresa_id = $1 AND activo = true', [empresaId]),
-        pool.query('SELECT * FROM tarifas WHERE empresa_id = $1', [empresaId]),
+        pool.query(`SELECT ta.id, ta.propiedad_id, ta.precios_canales,
+                           te.fecha_inicio, te.fecha_termino
+                    FROM tarifas ta JOIN temporadas te ON te.id = ta.temporada_id
+                    WHERE ta.empresa_id = $1`, [empresaId]),
         pool.query(
             `SELECT propiedad_id, id_reserva_canal, fecha_llegada, fecha_salida
              FROM reservas WHERE empresa_id = $1 AND fecha_llegada < $2 AND estado = ANY($3)`,
@@ -44,10 +53,10 @@ async function _fetchAvailabilityPG(empresaId, endDate) {
     const allProperties = propRes.rows.map(r => ({ id: r.id, nombre: r.nombre, capacidad: r.capacidad, ...(r.metadata || {}) }));
     const allTarifas = tarifaRes.rows.map(row => {
         try {
-            const fi = parseISO((row.reglas?.fechaInicio || '') + 'T00:00:00Z');
-            const ft = parseISO((row.reglas?.fechaTermino || '') + 'T00:00:00Z');
+            const fi = _pgDateToUTC(row.fecha_inicio);
+            const ft = _pgDateToUTC(row.fecha_termino);
             if (!isValid(fi) || !isValid(ft)) return null;
-            return { ...row.reglas, alojamientoId: row.propiedad_id, fechaInicio: fi, fechaTermino: ft };
+            return { alojamientoId: row.propiedad_id, precios: row.precios_canales || {}, fechaInicio: fi, fechaTermino: ft };
         } catch { return null; }
     }).filter(Boolean);
     const allReservas = reservaRes.rows.map(r => ({
@@ -62,40 +71,21 @@ async function _fetchAvailabilityPG(empresaId, endDate) {
     return { allProperties, allTarifas, allReservas, allBloqueos };
 }
 
-async function _fetchAvailabilityFS(db, empresaId, startDate, endDate) {
-    const [propSnap, tarifaSnap, reservaSnap, bloqueoSnap] = await Promise.all([
-        db.collection('empresas').doc(empresaId).collection('propiedades').get(),
-        db.collection('empresas').doc(empresaId).collection('tarifas').get(),
-        db.collection('empresas').doc(empresaId).collection('reservas')
-            .where('fechaLlegada', '<', admin.firestore.Timestamp.fromDate(endDate))
-            .where('estado', 'in', ['Confirmada', 'Propuesta']).get(),
-        db.collection('empresas').doc(empresaId).collection('bloqueos')
-            .where('fechaFin', '>=', admin.firestore.Timestamp.fromDate(startDate)).get(),
-    ]);
-    const allProperties = propSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const allTarifas = tarifaSnap.docs.map(doc => {
-        const data = doc.data();
-        try {
-            const fi = data.fechaInicio?.toDate ? data.fechaInicio.toDate() : parseISO(data.fechaInicio + 'T00:00:00Z');
-            const ft = data.fechaTermino?.toDate ? data.fechaTermino.toDate() : parseISO(data.fechaTermino + 'T00:00:00Z');
-            if (!isValid(fi) || !isValid(ft)) return null;
-            return { ...data, id: doc.id, fechaInicio: fi, fechaTermino: ft };
-        } catch { return null; }
-    }).filter(Boolean);
-    const allReservas = reservaSnap.docs.map(d => {
-        const r = d.data();
-        return { alojamientoId: r.alojamientoId, idReservaCanal: r.idReservaCanal, fechaLlegada: r.fechaLlegada?.toDate?.() || null, fechaSalida: r.fechaSalida?.toDate?.() || null };
-    });
-    const allBloqueos = bloqueoSnap.docs.map(d => {
-        const b = d.data();
-        return { todos: b.todos, alojamientoIds: b.alojamientoIds || [], fechaInicio: b.fechaInicio.toDate(), fechaFin: b.fechaFin.toDate() };
-    });
-    return { allProperties, allTarifas, allReservas, allBloqueos };
+function _cadaNocheConTarifa(propId, allTarifas, startDate, endDate) {
+    for (let d = new Date(startDate); d < endDate; d = addDays(d, 1)) {
+        const covered = allTarifas.some(t =>
+            t.alojamientoId === propId &&
+            t.fechaInicio <= d &&
+            t.fechaTermino >= d
+        );
+        if (!covered) return false;
+    }
+    return true;
 }
 
 function _buildAvailabilityResult(allProperties, allTarifas, allReservas, allBloqueos, startDate, endDate, idGrupoAExcluir) {
     const propiedadesConTarifa = allProperties.filter(prop =>
-        allTarifas.some(t => t.alojamientoId === prop.id && t.fechaInicio <= endDate && t.fechaTermino >= startDate)
+        _cadaNocheConTarifa(prop.id, allTarifas, startDate, endDate)
     );
     const availabilityMap = new Map();
     allProperties.forEach(prop => availabilityMap.set(prop.id, []));
@@ -120,14 +110,12 @@ function _buildAvailabilityResult(allProperties, allTarifas, allReservas, allBlo
         const reservations = availabilityMap.get(prop.id) || [];
         return !reservations.some(res => startDate < res.end && endDate > res.start);
     });
-    return { availableProperties, allProperties, allTarifas, availabilityMap };
+    return { availableProperties, allProperties, allTarifas, availabilityMap, propiedadesConTarifa };
 }
 
 // --- Función getAvailabilityData ---
-async function getAvailabilityData(db, empresaId, startDate, endDate, sinCamarotes = false, idGrupoAExcluir = null) {
-    const fetched = pool
-        ? await _fetchAvailabilityPG(empresaId, endDate)
-        : await _fetchAvailabilityFS(db, empresaId, startDate, endDate);
+async function getAvailabilityData(_db, empresaId, startDate, endDate, sinCamarotes = false, idGrupoAExcluir = null) {
+    const fetched = await _fetchAvailabilityPG(empresaId, endDate);
 
     let { allProperties, allTarifas, allReservas, allBloqueos } = fetched;
     if (sinCamarotes) allProperties = reducirCapacidadSinCamarotes(allProperties);

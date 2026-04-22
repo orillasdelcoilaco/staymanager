@@ -1,59 +1,39 @@
 <%# backend/views/partials/property-card.ejs %>
-    <% const imagenTarjeta=prop.websiteData?.cardImage; const imagenUrl=imagenTarjeta?.storagePath
-        || 'https://via.placeholder.com/400x300.png?text=Imagen+principal+no+disponible' ; const
-        altText=imagenTarjeta?.altText || `Imagen de ${prop.nombre}`; const titleText=imagenTarjeta?.title ||
-        prop.nombre; const descripcion=prop.websiteData?.aiDescription || prop.descripcion
-        || 'Descripción no disponible.' ; const tienePrecio=isSearchResult && prop.pricing && typeof
-        prop.pricing.totalPriceCLP==='number' && prop.pricing.totalPriceCLP> 0;
-        let abono = tienePrecio ? prop.pricing.totalPriceCLP * 0.10 : 0;
-        const formatCurrency = (value) => `$${(Math.round(value) || 0).toLocaleString('es-CL')}`;
-        %>
-        <div
-            class="bg-white rounded-lg shadow-md overflow-hidden flex flex-col h-full hover:shadow-xl transition-shadow duration-300">
-            <a href="/propiedad/<%= prop.id %>?fechaLlegada=<%= query.fechaLlegada || '' %>&fechaSalida=<%= query.fechaSalida || '' %>&personas=<%= query.personas || '' %>"
-                class="block relative h-48 overflow-hidden">
-                <picture>
-                    <source srcset="<%= imagenUrl %>" type="image/webp">
-                    <img src="<%= imagenUrl %>" alt="<%= altText %>" title="<%= titleText %>" loading="lazy"
-                        class="w-full h-full object-cover transition-transform duration-300 hover:scale-105">
-                </picture>
-            </a>
-            <div class="p-4 flex flex-col flex-grow">
-                <div class="flex-grow">
-                    <h3 class="text-lg font-bold text-gray-900 mb-1 line-clamp-1">
-                        <a href="/propiedad/<%= prop.id %>?fechaLlegada=<%= query.fechaLlegada || '' %>&fechaSalida=<%= query.fechaSalida || '' %>&personas=<%= query.personas || '' %>"
-                            class="hover:text-primary-600">
-                            <% if (tienePrecio) { %><span class="text-success-600 mr-1">✓</span>
-                                <% } %>
-                                    <%= prop.nombre %>
-                        </a>
-                    </h3>
-                    <p class="text-sm text-gray-600 mb-2"><i class="fas fa-user-friends mr-1"></i> Hasta <%=
-                            prop.capacidad %> personas</p>
-
-                    <% if (tienePrecio) { %>
-                        <div class="mt-2 text-sm border-t pt-2">
-                            <p class="text-gray-600 text-xs">Total por <%= prop.pricing.nights %> noche(s):</p>
-                            <p class="text-xl font-bold text-gray-900">
-                                <%= formatCurrency(prop.pricing.totalPriceCLP) %>
-                            </p>
-                            <% if (abono> 0) { %>
-                                <p class="text-primary-600 font-semibold text-xs mt-1">Reserva con solo <%=
-                                        formatCurrency(abono) %>
-                                </p>
-                                <% } %>
-                        </div>
-                        <% } else if (!isSearchResult) { %>
-                            <p class="text-sm text-gray-500 line-clamp-3">
-                                <%= descripcion %>
-                            </p>
-                            <% } %>
-                </div>
-                <div class="text-right mt-4 pt-3 border-t border-gray-100">
-                    <a href="/propiedad/<%= prop.id %>?fechaLlegada=<%= query.fechaLlegada || '' %>&fechaSalida=<%= query.fechaSalida || '' %>&personas=<%= query.personas || '' %>"
-                        class="btn-secondary btn-sm w-full block text-center">
-                        <%= tienePrecio ? 'Ver y Reservar' : 'Ver Detalles' %>
-                    </a>
-                </div>
-            </div>
-        </div>
+<%
+    const _img      = prop.websiteData?.cardImage?.storagePath || 'https://placehold.co/400x400/e5e7eb/9ca3af?text=Sin+imagen';
+    const _alt      = prop.websiteData?.cardImage?.altText || prop.nombre;
+    const _tiene    = isSearchResult && prop.pricing && prop.pricing.totalPriceCLP > 0;
+    const _pxnExact = _tiene && prop.pricing.nights > 0 ? Math.round(prop.pricing.totalPriceCLP / prop.pricing.nights) : 0;
+    const _pxnBase  = prop.precioBaseNoche > 0 ? prop.precioBaseNoche : 0;
+    const _pxn      = _pxnExact > 0 ? _pxnExact : _pxnBase;
+    const _esBase   = !_tiene && _pxnBase > 0;
+    const _fmtCLP   = (v) => `$${Math.round(v || 0).toLocaleString('es-CL')}`;
+    const _link     = `/propiedad/${prop.id}?fechaLlegada=${query.fechaLlegada||''}&fechaSalida=${query.fechaSalida||''}&personas=${query.personas||''}`;
+    const _dorm     = prop.numPiezas ? `${prop.numPiezas} dorm.` : '';
+    const _banos    = prop.numBanos  ? `${prop.numBanos} baños`  : '';
+    const _detalles = [_dorm, _banos, `${prop.capacidad} pers.`].filter(Boolean).join(' · ');
+%>
+<a href="<%= _link %>" class="group block focus:outline-none">
+    <div class="relative overflow-hidden rounded-xl bg-gray-100" style="aspect-ratio:1/1">
+        <img src="<%= _img %>" alt="<%= _alt %>" loading="lazy"
+             class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+        <% if (_tiene) { %>
+        <span class="absolute top-3 left-3 bg-white/95 text-success-700 text-xs font-bold px-2.5 py-1 rounded-full shadow-sm backdrop-blur-sm">
+            ✓ Disponible
+        </span>
+        <% } %>
+    </div>
+    <div class="mt-3 px-0.5">
+        <h3 class="font-semibold text-gray-900 text-sm leading-snug line-clamp-1"><%= prop.nombre %></h3>
+        <p class="text-xs text-gray-500 mt-0.5"><%= _detalles %></p>
+        <p class="mt-1.5 text-sm font-bold text-gray-900">
+            <% if (_tiene && _pxnExact > 0) { %>
+                <%= _fmtCLP(_pxnExact) %> <span class="font-normal text-gray-500">/ noche</span>
+            <% } else if (_esBase) { %>
+                <span class="font-normal text-gray-400 text-xs">desde</span> <%= _fmtCLP(_pxnBase) %> <span class="font-normal text-gray-500">/ noche</span>
+            <% } else { %>
+                <span class="font-normal text-gray-500 text-xs">Consultar disponibilidad</span>
+            <% } %>
+        </p>
+    </div>
+</a>

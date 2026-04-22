@@ -1,166 +1,71 @@
 {
-  "fecha": "2026-03-23T21:07:01.323Z",
-  "total": 32,
+  "fecha": "2026-04-22T02:13:51.516Z",
+  "total": 13,
   "criticos": [
     {
-      "file": "frontend/src/views/components/agregarPropuesta/propuesta.ui.js",
-      "type": "function-size",
-      "detail": "renderPropuestaLayout — 136 líneas (línea 73)"
-    },
-    {
-      "file": "frontend/src/views/components/configurarWebPublica/webPublica.galeria.js",
+      "file": "frontend/src/views/components/configurarWebPublica/webPublica.paso1.identidad.js",
       "type": "file-size",
-      "detail": "762 líneas"
+      "detail": "734 líneas"
     },
     {
-      "file": "frontend/src/views/components/configurarWebPublica/webPublica.galeria.js",
+      "file": "frontend/src/views/components/crm/crm.pipeline.js",
       "type": "function-size",
-      "detail": "renderWizardStep — 153 líneas (línea 104)"
+      "detail": "setupPipeline — 126 líneas (línea 94)"
     },
     {
-      "file": "frontend/src/views/components/configurarWebPublica/webPublica.galeria.js",
+      "file": "frontend/src/views/normasAlojamiento.js",
       "type": "function-size",
-      "detail": "openGalleryPicker — 149 líneas (línea 441)"
+      "detail": "renderForm — 153 líneas (línea 155)"
     },
     {
-      "file": "frontend/src/views/components/configurarWebPublica/webPublica.general.js",
+      "file": "frontend/src/views/resenas.js",
       "type": "function-size",
-      "detail": "renderGeneral — 145 líneas (línea 13)"
+      "detail": "afterRender — 125 líneas (línea 290)"
     },
     {
-      "file": "frontend/src/views/components/gestionarAlojamientos/alojamientos.modals.js",
+      "file": "backend/services/aiContentService.js",
       "type": "file-size",
-      "detail": "873 líneas"
+      "detail": "785 líneas"
     },
     {
-      "file": "frontend/src/views/components/gestionarReservas/reservas.modals.view.js",
-      "type": "function-size",
-      "detail": "abrirModalVer — 231 líneas (línea 12)"
-    },
-    {
-      "file": "frontend/src/views/components/gestionarTiposComponente/tipos.wizard.js",
-      "type": "function-size",
-      "detail": "renderWizardModal — 155 líneas (línea 10)"
-    },
-    {
-      "file": "frontend/src/views/generadorPresupuestos.js",
-      "type": "function-size",
-      "detail": "afterRender — 139 líneas (línea 267)"
-    },
-    {
-      "file": "frontend/src/views/gestionarPropuestas.js",
-      "type": "function-size",
-      "detail": "handleTableClick — 175 líneas (línea 92)"
-    },
-    {
-      "file": "frontend/src/views/gestionarReservas.js",
-      "type": "function-size",
-      "detail": "render — 190 líneas (línea 24)"
-    },
-    {
-      "file": "frontend/src/views/gestionarTiposElemento.js",
-      "type": "function-size",
-      "detail": "afterRender — 170 líneas (línea 290)"
-    },
-    {
-      "file": "frontend/src/views/utils.PASO0.js",
-      "type": "file-size",
-      "detail": "726 líneas"
-    },
-    {
-      "file": "frontend/src/views/utils.PASO0.js",
+      "file": "backend/services/aiContentService.js",
       "type": "too-many-exports",
-      "detail": "18 exports"
+      "detail": "17 exports"
     },
     {
-      "file": "backend/services/analisisFinancieroService.js",
+      "file": "backend/services/buildContextService.js",
       "type": "function-size",
-      "detail": "actualizarValoresGrupo — 160 líneas (línea 9)"
+      "detail": "getBuildContext — 121 líneas (línea 122)"
     },
     {
-      "file": "backend/services/empresaImporterService.js",
+      "file": "backend/services/plantillasService.js",
+      "type": "too-many-exports",
+      "detail": "16 exports"
+    },
+    {
+      "file": "backend/services/publicWebsiteService.js",
+      "type": "function-size",
+      "detail": "obtenerMasAlojamientosParaFichaSSR — 169 líneas (línea 221)"
+    },
+    {
+      "file": "backend/services/resenasService.js",
       "type": "file-size",
-      "detail": "996 líneas"
+      "detail": "792 líneas"
     },
     {
-      "file": "backend/services/empresaImporterService.js",
+      "file": "backend/services/resenasService.js",
       "type": "function-size",
-      "detail": "createEmpresaFromImport — 487 líneas (línea 462)"
+      "detail": "generarResenasAutomaticas — 143 líneas (línea 629)"
     },
     {
-      "file": "backend/services/gestionPropuestasService.js",
-      "type": "file-size",
-      "detail": "810 líneas"
+      "file": "backend/services/resenasService.js",
+      "type": "too-many-exports",
+      "detail": "17 exports"
     },
     {
-      "file": "backend/services/gestionPropuestasService.js",
+      "file": "backend/routes/website.property.page.js",
       "type": "function-size",
-      "detail": "guardarOActualizarPropuesta — 201 líneas (línea 13)"
-    },
-    {
-      "file": "backend/services/gestionPropuestasService.js",
-      "type": "function-size",
-      "detail": "enviarEmailReservaConfirmada — 122 líneas (línea 316)"
-    },
-    {
-      "file": "backend/services/gestionService.js",
-      "type": "function-size",
-      "detail": "getReservasPendientes — 217 líneas (línea 16)"
-    },
-    {
-      "file": "backend/services/kpiService.js",
-      "type": "function-size",
-      "detail": "calculateKPIs — 217 líneas (línea 9)"
-    },
-    {
-      "file": "backend/services/mensajeService.js",
-      "type": "function-size",
-      "detail": "generarTextoPropuesta — 183 líneas (línea 50)"
-    },
-    {
-      "file": "backend/services/mensajeService.js",
-      "type": "function-size",
-      "detail": "generarTextoPresupuesto — 134 líneas (línea 234)"
-    },
-    {
-      "file": "backend/services/presupuestosService.js",
-      "type": "function-size",
-      "detail": "generarPresupuesto — 127 líneas (línea 25)"
-    },
-    {
-      "file": "backend/services/reservasService.js",
-      "type": "function-size",
-      "detail": "actualizarReservaManualmente — 131 líneas (línea 80)"
-    },
-    {
-      "file": "backend/services/reservasService.js",
-      "type": "function-size",
-      "detail": "obtenerReservaPorId — 159 líneas (línea 256)"
-    },
-    {
-      "file": "backend/services/reservasService.js",
-      "type": "function-size",
-      "detail": "eliminarGrupoReservasCascada — 128 líneas (línea 504)"
-    },
-    {
-      "file": "backend/services/sincronizacionService.js",
-      "type": "function-size",
-      "detail": "procesarArchivoReservas — 197 líneas (línea 141)"
-    },
-    {
-      "file": "backend/services/utils/calculoValoresService.js",
-      "type": "function-size",
-      "detail": "calculatePrice — 144 líneas (línea 156)"
-    },
-    {
-      "file": "backend/services/webImporterService.js",
-      "type": "file-size",
-      "detail": "726 líneas"
-    },
-    {
-      "file": "backend/services/webImporterService.js",
-      "type": "function-size",
-      "detail": "analyzeWebsite — 189 líneas (línea 419)"
+      "detail": "renderPropiedadPublica — 149 líneas (línea 70)"
     }
   ]
 }

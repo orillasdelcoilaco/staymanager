@@ -5,25 +5,35 @@ let currentUser = null;
 
 export async function renderAppLayout(dollarInfo) {
     const appRoot = document.getElementById('app-root');
+    const initials = (currentUser?.nombreEmpresa || 'SM').slice(0, 2).toUpperCase();
     appRoot.innerHTML = `
         <div id="sidebar-overlay" class="sidebar-overlay"></div>
         <aside id="sidebar" class="sidebar">
             <div class="sidebar-header">
-                <div class="flex items-center justify-between p-4">
-                    <h1 id="sidebar-title" class="text-xl font-bold text-white"><span>StayManager</span></h1>
-                    <button id="sidebar-toggle-desktop" class="p-2 rounded-md text-gray-300 hover:bg-gray-700 hover:text-white hidden md:block">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                    </button>
-                    <button id="sidebar-close-mobile" class="p-2 rounded-md text-gray-300 hover:bg-gray-700 hover:text-white md:hidden">
-                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+                <div class="sidebar-brand">
+                    <div class="sidebar-logo-icon">
+                        <i class="fa-solid fa-house-chimney"></i>
+                    </div>
+                    <div class="link-text">
+                        <h1 id="sidebar-title" class="sidebar-title">SuiteManager</h1>
+                        <span class="sidebar-version">v1.0.0</span>
+                    </div>
+                </div>
+                <button id="sidebar-toggle-desktop" class="sidebar-toggle-btn hidden md:flex">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <button id="sidebar-close-mobile" class="sidebar-toggle-btn flex md:hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <nav id="main-nav" class="flex-grow"></nav>
+            <div class="sidebar-user">
+                <div class="sidebar-user-avatar">${initials}</div>
+                <div class="sidebar-user-info link-text">
+                    <p class="sidebar-user-name">${currentUser?.nombreEmpresa || ''}</p>
+                    <p class="sidebar-user-role">Administrador</p>
                 </div>
             </div>
-            <nav id="main-nav" class="flex-grow mt-4"></nav>
-            <footer class="sidebar-footer">
-                <p>Desarrollado por Sacatines SPA</p>
-                <p>Todos los derechos reservados V 1.0.0</p>
-            </footer>
         </aside>
         <div id="main-content" class="main-content">
             <header class="bg-white shadow-sm">
@@ -32,7 +42,7 @@ export async function renderAppLayout(dollarInfo) {
                         <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                     </button>
                     <div id="auth-info" class="flex-grow flex items-center space-x-4 text-xs md:text-sm"></div>
-                    <button id="logout-btn" class="px-3 py-2 bg-danger-600 text-white text-xs font-medium rounded-md hover:bg-danger-700 flex-shrink-0">Cerrar Sesión</button>
+                    <button id="logout-btn" class="btn-danger text-xs flex-shrink-0">Cerrar Sesión</button>
                 </div>
             </header>
             <main id="view-content"></main>

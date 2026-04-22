@@ -7,6 +7,7 @@ const fetch = require('node-fetch');
 
 // Adjusted paths for services
 const { obtenerPropiedadPorId, actualizarPropiedad } = require('../../services/propiedadesService');
+const { mountOnRouter: mountHouseRulesRoutes } = require('../../routes/houseRulesApi');
 const { obtenerDetallesEmpresa, actualizarDetallesEmpresa } = require('../../services/empresaService');
 const {
     generarDescripcionAlojamiento,
@@ -17,8 +18,10 @@ const {
     generarContenidoHomePage,
     generarPerfilEmpresa,
     generarNarrativaDesdeContexto,
+    generarIntroDestacadosVenta,
     generarJsonLdDesdeContexto,
     analizarMetadataActivo,
+    sanitizeEspaciosDestacadosVenta,
 } = require('../../services/aiContentService');
 const {
     getBuildContext,
@@ -34,7 +37,7 @@ const { generateForTask } = require('../../services/aiContentService');
 const { AI_TASK } = require('../../services/ai/aiEnums');
 const { promptPlanFotos } = require('../../services/ai/prompts/fotoPlan');
 const pool = require('../../db/postgres');
-const { uploadFotoToGaleria, updateFoto } = require('../../services/galeriaService');
+const { uploadFotoToGaleria, updateFoto, collectAllowedHighlightImagePaths } = require('../../services/galeriaService');
 const { syncDomain, removeCustomDomain } = require('../../services/renderDomainService');
 const { ssrCache } = require('../../services/cacheService');
 
@@ -258,6 +261,9 @@ module.exports = (db) => {
             next(error);
         }
     });
+
+    // --- Normas / reglas (alias bajo /website; la ruta principal es /api/propiedades/house-rules) ---
+    mountHouseRulesRoutes(router, db);
 
     // --- Rutas de Propiedades (Existentes) ---
 
@@ -735,16 +741,58 @@ module.exports = (db) => {
             const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
             if (!propiedad) return res.status(404).json({ error: 'Propiedad no encontrada.' });
 
-            const empresaRef = await db.collection('empresas').doc(empresaId).get();
-            const empresaData = empresaRef.exists ? empresaRef.data() : {};
-            const websiteConfig = empresaData.websiteData || {};
+            // Con inventario en buildContext: misma narrativa que el wizard (Postgres), sin depender de Firestore.
+            if (pool) {
+                try {
+                    const buildContext = await getBuildContext(db, empresaId, propiedadId);
+                    if (buildContext?.producto?.espacios?.length) {
+                        const narrativa = await generarNarrativaDesdeContexto(buildContext);
+                        if (!narrativa) {
+                            return res.status(502).json({ error: 'La IA no devolvió narrativa.' });
+                        }
+                        await updateBuildContextSection(empresaId, propiedadId, 'narrativa', {
+                            ...narrativa,
+                            generadoEn: new Date().toISOString(),
+                        });
+                        invalidateSsrCache(empresaId);
+                        const textoLimpio = narrativa.descripcionComercial || '';
+                        const puntosFuertes = Array.isArray(narrativa.puntosFuertes)
+                            ? narrativa.puntosFuertes
+                            : [];
+                        return res.json({
+                            texto: textoLimpio,
+                            puntosFuertes,
+                            descripcionComercial: textoLimpio,
+                            ...narrativa,
+                        });
+                    }
+                } catch (invErr) {
+                    console.warn('[generate-ai-text] narrativa con inventario omitida:', invErr.message);
+                }
+            }
+
+            // Legacy: copy de empresa desde PostgreSQL (configuracion / websiteSettings), no Firestore.
+            let historia = '';
+            let slogan = '';
+            let marketing = 'General';
+            let palabrasClave = '';
+            try {
+                const empCtx = await getEmpresaContext(empresaId);
+                historia = empCtx.historia || '';
+                slogan = empCtx.slogan || '';
+                marketing = empCtx.enfoque || 'General';
+                const kw = empCtx.seo?.keywords;
+                palabrasClave = Array.isArray(kw) ? kw.join(', ') : (typeof kw === 'string' ? kw : '');
+            } catch (empErr) {
+                console.warn('[generate-ai-text] getEmpresaContext:', empErr.message);
+            }
 
             const context = {
-                historia: websiteConfig.historiaOptimizada || websiteConfig.historia || '',
-                slogan: websiteConfig.slogan || '',
-                marketing: websiteConfig.enfoqueMarketing || 'General',
-                palabrasClave: websiteConfig.palabrasClaveAdicionales || '',
-                componentes: propiedad.componentes || []
+                historia,
+                slogan,
+                marketing,
+                palabrasClave,
+                componentes: propiedad.componentes || [],
             };
 
             const descripcionGenerada = await generarDescripcionAlojamiento(
@@ -893,6 +941,66 @@ module.exports = (db) => {
             });
             invalidateSsrCache(empresaId);
             res.json(narrativa);
+        } catch (error) { next(error); }
+    });
+
+    // PUT /website/propiedad/:propiedadId/build-context/espacios-destacados
+    // Guarda (y valida) la lista curada para la ficha SSR pública — merge en narrativa.
+    router.put('/propiedad/:propiedadId/build-context/espacios-destacados', async (req, res, next) => {
+        try {
+            const { empresaId } = req.user;
+            const { propiedadId } = req.params;
+            const { espaciosDestacadosVenta } = req.body || {};
+            const context = await getBuildContext(db, empresaId, propiedadId);
+            const propiedadDoc = await obtenerPropiedadPorId(db, empresaId, propiedadId);
+            const allowedPaths = await collectAllowedHighlightImagePaths(
+                empresaId,
+                propiedadId,
+                context,
+                propiedadDoc?.websiteData || {}
+            );
+            const prev = context?.narrativa || {};
+            const sanitized = sanitizeEspaciosDestacadosVenta(espaciosDestacadosVenta, context, allowedPaths);
+
+            let introDestacadosVenta = String(prev.introDestacadosVenta || '').trim();
+            let introDestacadosVentaGeneradoEn = prev.introDestacadosVentaGeneradoEn || null;
+
+            if (!sanitized.length) {
+                introDestacadosVenta = '';
+                introDestacadosVentaGeneradoEn = null;
+            } else {
+                try {
+                    const introNew = await generarIntroDestacadosVenta({
+                        empresaNombre: context?.empresa?.nombre || req.user?.nombreEmpresa,
+                        propiedadNombre: context?.producto?.nombre || propiedadDoc?.nombre,
+                        ciudad:
+                            context?.empresa?.ubicacion?.ciudad
+                            || propiedadDoc?.direccion?.ciudad
+                            || propiedadDoc?.ciudad,
+                        rows: sanitized,
+                    });
+                    if (introNew) {
+                        introDestacadosVenta = introNew;
+                        introDestacadosVentaGeneradoEn = new Date().toISOString();
+                    }
+                } catch (e) {
+                    console.warn('[espacios-destacados] intro IA:', e?.message || e);
+                }
+            }
+
+            await updateBuildContextSection(empresaId, propiedadId, 'narrativa', {
+                ...prev,
+                espaciosDestacadosVenta: sanitized,
+                introDestacadosVenta,
+                introDestacadosVentaGeneradoEn,
+            });
+            invalidateSsrCache(empresaId);
+            res.json({
+                ok: true,
+                espaciosDestacadosVenta: sanitized,
+                introDestacadosVenta,
+                introDestacadosVentaGeneradoEn,
+            });
         } catch (error) { next(error); }
     });
 

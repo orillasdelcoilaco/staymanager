@@ -8,14 +8,17 @@ function abrirModal(tipo = null) {
     const form = document.getElementById('tipo-form');
     const modalTitle = document.getElementById('modal-title');
     
+    const subtitle = document.getElementById('modal-tipo-subtitle');
     if (tipo) {
         editandoTipo = tipo;
         modalTitle.textContent = 'Editar Tipo de Plantilla';
+        if (subtitle) subtitle.textContent = tipo.nombre;
         form.nombre.value = tipo.nombre;
         form.descripcion.value = tipo.descripcion || '';
     } else {
         editandoTipo = null;
         modalTitle.textContent = 'Nuevo Tipo de Plantilla';
+        if (subtitle) subtitle.textContent = 'Define el nombre y descripción del tipo';
         form.reset();
     }
     
@@ -73,7 +76,13 @@ export async function render() {
 
         <div id="tipo-modal" class="modal hidden">
             <div class="modal-content">
-                <h3 id="modal-title" class="text-xl font-semibold mb-4"></h3>
+                <div class="flex items-center gap-4 mb-6 pb-5 border-b">
+                    <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 text-xl flex-shrink-0">🏷️</div>
+                    <div>
+                        <h3 id="modal-title" class="text-xl font-semibold text-gray-900"></h3>
+                        <p id="modal-tipo-subtitle" class="text-sm text-gray-500">Define el nombre y descripción del tipo</p>
+                    </div>
+                </div>
                 <form id="tipo-form" class="space-y-4">
                     <div>
                         <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre</label>
@@ -84,7 +93,7 @@ export async function render() {
                         <textarea name="descripcion" rows="3" class="form-input"></textarea>
                     </div>
                     <div class="flex justify-end pt-4 border-t">
-                        <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
+                        <button type="button" id="cancel-btn" class="btn-outline mr-2">Cancelar</button>
                         <button type="submit" class="btn-primary">Guardar</button>
                     </div>
                 </form>

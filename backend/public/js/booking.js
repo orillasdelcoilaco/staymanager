@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const a = fechaLlegadaInput.value;
         const b = fechaSalidaInput.value;
         if (a && b) bookingDatesSummary.textContent = `${formatDateHuman(a)} → ${formatDateHuman(b)}`;
-        else if (a) bookingDatesSummary.textContent = `Entrada: ${formatDateHuman(a)} — elige salida en el calendario`;
+        else if (a) bookingDatesSummary.textContent = `Entrada: ${formatDateHuman(a)} — selecciona una salida`;
         else bookingDatesSummary.textContent = '';
     };
 

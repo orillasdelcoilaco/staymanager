@@ -43,17 +43,25 @@ module.exports = (db) => {
             await actualizarDetallesEmpresa(db, empresaId, updatePayload);
 
             // [NEW] Generar/Actualizar App Premium automáticamente al tener logo
-            const { handlePremiumApp } = require('../ai/openai/premium/handlePremiumApp');
-            (async () => {
-                try {
-                    // Necesitamos el nombre comercial actualizado
-                    const empresa = await obtenerDetallesEmpresa(db, empresaId);
-                    await handlePremiumApp(empresaId, empresa.nombre || "Empresa", publicUrl);
-                    console.log("🌟 App Premium lista para revisión/publicación en ChatGPT.");
-                } catch (err) {
-                    console.error("❌ Error preparando App Premium:", err);
-                }
-            })();
+            // Esto se ejecuta en background y no bloquea la respuesta
+            try {
+                const { handlePremiumApp } = require('../../ai/openai/premium/handlePremiumApp');
+                // Necesitamos el nombre comercial actualizado
+                const empresa = await obtenerDetallesEmpresa(db, empresaId);
+
+                // Ejecutar en background sin esperar
+                handlePremiumApp(empresaId, empresa.nombre || "Empresa", publicUrl)
+                    .then(() => {
+                        console.log("🌟 App Premium lista para revisión/publicación en ChatGPT.");
+                    })
+                    .catch(err => {
+                        console.error("❌ Error preparando App Premium:", err);
+                        // No fallar la subida del logo por esto
+                    });
+            } catch (err) {
+                console.error("⚠️ No se pudo inicializar App Premium (continuando con subida de logo):", err.message);
+                // No fallar la subida del logo si hay error con App Premium
+            }
 
             // Devolver la nueva URL al frontend
             res.status(200).json({ logoUrl: publicUrl });
@@ -71,7 +79,26 @@ module.exports = (db) => {
     router.get('/', async (req, res) => {
         try {
             const { empresaId } = req.user;
+            console.log(`[DEBUG empresa GET] Obteniendo detalles para empresaId: ${empresaId}`);
             const detalles = await obtenerDetallesEmpresa(db, empresaId);
+
+            // Log para depuración
+            console.log(`[DEBUG empresa GET] Datos obtenidos:`, {
+                id: detalles?.id,
+                nombre: detalles?.nombre,
+                hasWebsiteSettings: !!detalles?.websiteSettings,
+                websiteSettingsKeys: detalles?.websiteSettings ? Object.keys(detalles.websiteSettings) : [],
+                configuracion: detalles?.configuracion ? 'PRESENTE' : 'AUSENTE'
+            });
+
+            if (detalles?.websiteSettings?.theme) {
+                console.log(`[DEBUG empresa GET] Theme data:`, {
+                    hasHeroImageUrl: !!detalles.websiteSettings.theme.heroImageUrl,
+                    hasHeroImageAlt: !!detalles.websiteSettings.theme.heroImageAlt,
+                    hasHeroImageTitle: !!detalles.websiteSettings.theme.heroImageTitle
+                });
+            }
+
             res.status(200).json(detalles);
         } catch (error) {
             console.error("Error al obtener detalles de la empresa:", error);
@@ -91,8 +118,11 @@ module.exports = (db) => {
                 delete datosActualizados.websiteSettings.theme.logoUrl;
             }
 
-            await actualizarDetallesEmpresa(db, empresaId, datosActualizados);
-            res.status(200).json({ message: 'Datos de la empresa actualizados con éxito.' });
+            const empresaActualizada = await actualizarDetallesEmpresa(db, empresaId, datosActualizados);
+            res.status(200).json({
+                message: 'Datos de la empresa actualizados con éxito.',
+                empresa: empresaActualizada
+            });
         } catch (error) {
             console.error("Error al actualizar detalles de la empresa:", error);
             res.status(500).json({ error: error.message });

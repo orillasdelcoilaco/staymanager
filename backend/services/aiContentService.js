@@ -391,15 +391,151 @@ const evaluarFotografiasConIA = async (prompt, empresaId = null) => {
 // FUNCIONES CON PropertyBuildContext completo (Orquestador IA)
 // ─────────────────────────────────────────────────────────────────────────────
 
+const MAX_ESPACIOS_DESTACADOS_VENTA = 8;
+
+/**
+ * Normaliza y valida la lista de espacios destacados para venta (SSR / ficha pública).
+ * Solo acepta ids reales de componentes (privado) o de áreas comunes vinculadas (comun).
+ * Hasta 8 ítems: suficiente riqueza para SEO/CRO sin diluir el mensaje ni alargar en exceso la página.
+ *
+ * @param {unknown} raw
+ * @param {Object} buildContext
+ * @param {Set<string>|undefined} [allowedImagePaths] — si es un Set, solo se conserva imagen.storagePath incluida; si se omite, no se aceptan fotos (p. ej. salida de IA sin curar)
+ * @returns {{ kind: 'privado'|'comun', id: string, titulo: string, pitch: string, imagen?: { storagePath: string, imageId?: string } }[]}
+ */
+function normalizeFirebaseStorageObjectPath(u) {
+    const s = String(u || '').trim();
+    if (!s) return '';
+    if (s.includes('/o/')) {
+        try {
+            return decodeURIComponent(s.split('/o/')[1].split('?')[0]);
+        } catch (_e) {
+            return s;
+        }
+    }
+    return s;
+}
+
+/** True si candidate coincide con alguna entrada del allowlist (URL completa, path o misma ruta decodificada). */
+function highlightStoragePathAllowed(set, candidate) {
+    const c = String(candidate || '').trim();
+    if (!c || !(set instanceof Set)) return false;
+    if (set.has(c)) return true;
+    const nc = normalizeFirebaseStorageObjectPath(c);
+    if (nc && set.has(nc)) return true;
+    for (const p of set) {
+        const ps = String(p || '').trim();
+        if (!ps) continue;
+        if (ps === c) return true;
+        if (nc && normalizeFirebaseStorageObjectPath(ps) === nc) return true;
+    }
+    return false;
+}
+
+function sanitizeEspaciosDestacadosVenta(raw, buildContext, allowedImagePaths) {
+    const producto = buildContext?.producto || {};
+    const espacios = Array.isArray(producto.espacios) ? producto.espacios : [];
+    const compartidas = Array.isArray(buildContext?.compartidas) ? buildContext.compartidas : [];
+    const privIds = new Set(espacios.map((e) => String(e?.id || '').trim()).filter(Boolean));
+    const comIds = new Set(compartidas.map((a) => String(a?.id || '').trim()).filter(Boolean));
+    const rows = Array.isArray(raw) ? raw : [];
+    const out = [];
+    for (let i = 0; i < rows.length && out.length < MAX_ESPACIOS_DESTACADOS_VENTA; i++) {
+        const row = rows[i] || {};
+        const alcance = String(row.alcance || row.scope || '').toLowerCase().trim();
+        const id = String(row.id || row.componenteId || row.areaComunId || '').trim();
+        const titulo = String(row.titulo || row.title || '').trim().slice(0, 90);
+        const pitch = String(row.pitch || row.resumen || row.blurb || '').trim().slice(0, 220);
+        if (!id || !titulo || !pitch) continue;
+
+        const isComun = alcance === 'comun' || alcance === 'compartida' || alcance === 'común' || alcance === 'comunal';
+        const isPrivado = alcance === 'privado' || alcance === 'alojamiento' || alcance === 'unidad' || alcance === '';
+
+        const imgRaw = row.imagen || row.foto;
+        let imagen;
+        if (imgRaw && typeof imgRaw === 'object') {
+            const storagePath = String(imgRaw.storagePath || imgRaw.storage_url || imgRaw.url || '').trim();
+            const imageId = String(imgRaw.imageId || imgRaw.id || '').trim();
+            if (storagePath && allowedImagePaths instanceof Set && highlightStoragePathAllowed(allowedImagePaths, storagePath)) {
+                imagen = imageId ? { storagePath, imageId } : { storagePath };
+            }
+        } else if (typeof imgRaw === 'string' && imgRaw.trim()) {
+            const storagePath = imgRaw.trim();
+            if (allowedImagePaths instanceof Set && highlightStoragePathAllowed(allowedImagePaths, storagePath)) {
+                imagen = { storagePath };
+            }
+        }
+
+        const base = { kind: /** @type {'comun'|'privado'} */ ('privado'), id, titulo, pitch };
+        if (imagen) base.imagen = imagen;
+
+        if (isComun && comIds.has(id)) {
+            base.kind = 'comun';
+            out.push(base);
+        } else if (isPrivado && privIds.has(id)) {
+            base.kind = 'privado';
+            out.push(base);
+        }
+    }
+    return out;
+}
+
+/**
+ * Subtítulo SSR bajo "Destacados para tu estadía", a partir de la lista guardada (sin inventar fuera de ella).
+ *
+ * @param {{ empresaNombre?: string, propiedadNombre?: string, ciudad?: string, rows: { kind?: string, titulo?: string, pitch?: string }[] }} params
+ * @returns {Promise<string>}
+ */
+async function generarIntroDestacadosVenta(params) {
+    const { empresaNombre, propiedadNombre, ciudad, rows } = params || {};
+    if (!Array.isArray(rows) || !rows.length) return '';
+
+    const bullets = rows
+        .map((r) => {
+            const k = r.kind === 'comun' ? 'Área común del recinto' : 'Espacio del alojamiento';
+            return `- [${k}] ${String(r.titulo || '').trim()}: ${String(r.pitch || '').trim()}`;
+        })
+        .join('\n');
+
+    const loc = String(ciudad || '').trim() || 'Chile';
+    const prop = String(propiedadNombre || 'el alojamiento').trim();
+    const emp = String(empresaNombre || '').trim();
+
+    const prompt = withSsrCommerceObjective(`Sos redactor web para turismo en Chile. Vas a escribir UN subtítulo corto (copy de apoyo) que aparece justo debajo del título "Destacados para tu estadía" en la página pública de "${prop}" (${loc})${emp ? `, gestionado por "${emp}".` : '.'}
+
+DATOS VERIFICADOS (no inventes nada fuera de esto):
+${bullets}
+
+REGLAS:
+- Español neutro latino, tono cálido, orientado a reservar.
+- Una sola frase o como máximo dos frases cortas; entre 120 y 280 caracteres en total.
+- Si la lista mezcla espacios propios y áreas comunes, menciónalo de forma natural (sin jerga interna tipo "wizard" o "buildContext").
+- No uses comillas tipográficas ni markdown ni viñetas en el texto final.
+- No repitas literalmente el título "Destacados para tu estadía".
+
+Responde SOLO JSON válido con esta forma exacta:
+{"intro":"..."}`);
+
+    try {
+        const raw = await generateForTask(AI_TASK.PROPERTY_DESCRIPTION, prompt);
+        const intro = typeof raw?.intro === 'string' ? raw.intro.replace(/\s+/g, ' ').trim() : '';
+        if (intro.length < 40) return '';
+        return intro.slice(0, 320);
+    } catch (e) {
+        console.warn('[generarIntroDestacadosVenta]', e?.message || e);
+        return '';
+    }
+}
+
 /**
  * Genera la narrativa comercial del alojamiento a partir del buildContext completo.
  * Reemplaza a generarDescripcionAlojamiento cuando el wizard ya completó los pasos 1-3.
  *
  * @param {Object} buildContext — PropertyBuildContext con empresa + producto
- * @returns {Promise<{descripcionComercial, puntosFuertes, uniqueSellingPoints, homeH1, homeIntro}>}
+ * @returns {Promise<{descripcionComercial, puntosFuertes, uniqueSellingPoints, homeH1, homeIntro, espaciosDestacadosVenta?}>}
  */
 const generarNarrativaDesdeContexto = async (buildContext) => {
-    const { empresa, producto } = buildContext;
+    const { empresa, producto, compartidas = [] } = buildContext;
 
     const resumenActivos = (producto.espacios || []).map(esp => {
         const activosStr = (esp.activos || [])
@@ -407,6 +543,19 @@ const generarNarrativaDesdeContexto = async (buildContext) => {
             .join(', ');
         return `${esp.nombre}: ${activosStr}`;
     }).join('\n');
+
+    const inventarioConIds = (producto.espacios || []).map((esp) => {
+        const id = String(esp?.id || '').trim();
+        const nm = String(esp?.nombre || '').trim();
+        const act = (esp.activos || [])
+            .map((a) => `${a.nombre || ''} (${String(a.sales_context || '').slice(0, 120)})`)
+            .join(' | ');
+        return `- id: "${id}" nombre: "${nm}" — ${act}`;
+    }).join('\n');
+
+    const areasComunesLines = (compartidas || []).length
+        ? compartidas.map((a) => `- id: "${String(a?.id || '').trim()}" nombre: "${String(a?.nombre || '').trim()}"`).join('\n')
+        : '(ninguna área común vinculada a esta unidad)';
 
     const prompt = withSsrCommerceObjective(`Actúa como Copywriter especializado en alojamientos turísticos y CRO.
 
@@ -423,8 +572,14 @@ ALOJAMIENTO: "${producto.nombre}"
 - Capacidad: ${producto.capacidad} personas
 - ${producto.numPiezas} dormitorios, ${producto.numBanos} baños
 
-INVENTARIO VERIFICADO POR ESPACIO:
+INVENTARIO VERIFICADO POR ESPACIO (resumen):
 ${resumenActivos}
+
+INVENTARIO POR ESPACIO CON IDs (OBLIGATORIO para espaciosDestacadosVenta.privado):
+${inventarioConIds}
+
+ÁREAS COMUNES DEL RECINTO VINCULADAS A ESTA UNIDAD (para espaciosDestacadosVenta.comun):
+${areasComunesLines}
 
 REGLAS:
 1. "descripcionComercial": texto persuasivo máx 200 palabras, orientado a conversión
@@ -433,6 +588,15 @@ REGLAS:
 4. "homeH1": título principal de la landing del alojamiento. OBLIGATORIO: incluir 1-2 diferenciadores únicos reales del inventario (ej: tinaja, piscina, vista al volcán, BBQ). Máx 10 palabras. Ejemplo correcto: "Cabaña con Tinaja y Piscina en Pucón para 6 Personas". NO usar genéricos como "Cabaña en Pucón".
 5. "homeIntro": 2-3 oraciones que transmitan emoción y propuesta de valor única
 6. NO inventar amenidades que no estén en el inventario
+7. "espaciosDestacadosVenta": array de 0 a 8 objetos para la ficha pública (tarjetas “destacados”). Prioriza calidad sobre cantidad: 4–6 suele ser ideal para conversión; usa hasta 8 solo si hay diferenciadores claros y no redundantes. Elige lo que un huésped COMPARA al decidirse (experiencia, ocio, vistas, espacios sociales, bienestar).
+   Los destacados pueden ser SOLO del alojamiento, SOLO áreas comunes vinculadas, o una MEZCLA: si hay filas en "ÁREAS COMUNES DEL RECINTO VINCULADAS", conviene incluir 1-3 entradas "comun" cuando aporten valor (piscina, gimnasio del recinto, quincho compartido, zona de juegos, etc.), usando exactamente el id de esa lista.
+   PROHIBIDO destacar: consumibles, aseo doméstico trivial, utensilios básicos de cocina/baño (ej. papel higiénico, pela papas, escobillas), dormitorios como “destacado” (ya van en otra sección), o inventar espacios.
+   PRIORIZA cuando exista: tinaja/jacuzzi/piscina/gimnasio/zona de juegos/parrilla/quincho/vista/terraza amplia/living destacable y áreas comunes de alto valor vinculadas.
+   Cada objeto EXACTAMENTE:
+   { "alcance": "privado" | "comun", "id": "<id de la lista anterior, sin inventar>", "titulo": "nombre corto para el huésped", "pitch": "una frase de beneficio emocional (máx 120 caracteres)" }
+   - "privado": id = uno de INVENTARIO POR ESPACIO CON IDs
+   - "comun": id = uno de ÁREAS COMUNES DEL RECINTO VINCULADAS (solo si la lista no es "(ninguna...)")
+   Si nada merece destacarse más allá de lo básico, devuelve [].
 
 Responde SOLO JSON (sin markdown):
 {
@@ -440,10 +604,14 @@ Responde SOLO JSON (sin markdown):
   "puntosFuertes": ["...", "..."],
   "uniqueSellingPoints": ["...", "..."],
   "homeH1": "...",
-  "homeIntro": "..."
+  "homeIntro": "...",
+  "espaciosDestacadosVenta": []
 }`);
 
-    return generateForTask(AI_TASK.PROPERTY_DESCRIPTION, prompt);
+    const raw = await generateForTask(AI_TASK.PROPERTY_DESCRIPTION, prompt);
+    if (!raw) return null;
+    const espaciosDestacadosVenta = sanitizeEspaciosDestacadosVenta(raw.espaciosDestacadosVenta, buildContext);
+    return { ...raw, espaciosDestacadosVenta };
 };
 
 /**
@@ -610,5 +778,8 @@ module.exports = {
     evaluarFotografiasConIA,
     analizarMetadataActivo,
     generarNarrativaDesdeContexto,
+    generarIntroDestacadosVenta,
     generarJsonLdDesdeContexto,
+    sanitizeEspaciosDestacadosVenta,
+    MAX_ESPACIOS_DESTACADOS_VENTA,
 };

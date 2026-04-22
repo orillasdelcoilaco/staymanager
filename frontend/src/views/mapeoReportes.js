@@ -158,7 +158,9 @@ function abrirModal(canal) {
     archivoDeMuestra = null;
 
     const modal = document.getElementById('mapeo-modal');
-    document.getElementById('modal-title').textContent = `Configurar Mapeo para: ${canal.nombre}`;
+    document.getElementById('modal-title').textContent = `Configurar Mapeo: ${canal.nombre}`;
+    const subtitleEl = document.getElementById('modal-mapeo-subtitle');
+    if (subtitleEl) subtitleEl.textContent = 'Configura las columnas del reporte del canal';
     document.getElementById('upload-status').classList.add('hidden');
     document.getElementById('mapeo-editor').classList.add('hidden');
     document.getElementById('mapeo-estados-container').classList.add('hidden');
@@ -210,7 +212,7 @@ export async function render() {
                         <tr class="border-b">
                             <td class="py-3 px-4 font-medium">${c.nombre}</td>
                             <td class="py-3 px-4 text-center">
-                                <button data-id="${c.id}" class="edit-btn px-4 py-1 bg-primary-100 text-primary-700 rounded-md hover:bg-primary-200 text-sm font-medium">
+                                <button data-id="${c.id}" class="edit-btn btn-table-view">
                                     Configurar Mapeo
                                 </button>
                             </td>
@@ -222,7 +224,13 @@ export async function render() {
 
         <div id="mapeo-modal" class="modal hidden">
             <div class="modal-content !max-w-4xl">
-                <h3 id="modal-title" class="text-xl font-semibold mb-4"></h3>
+                <div class="flex items-center gap-4 mb-6 pb-5 border-b">
+                    <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 text-xl flex-shrink-0">🗂️</div>
+                    <div>
+                        <h3 id="modal-title" class="text-xl font-semibold text-gray-900"></h3>
+                        <p id="modal-mapeo-subtitle" class="text-sm text-gray-500">Configura las columnas del reporte del canal</p>
+                    </div>
+                </div>
                 <div id="canal-descarga-hint" class="hidden mb-4 p-3 bg-primary-50 border border-primary-200 rounded-lg text-sm text-primary-800"></div>
                 <div class="space-y-4">
                     <div>
@@ -266,7 +274,7 @@ export async function render() {
                     </div>
                 </div>
                 <div class="flex justify-end pt-6 mt-6 border-t">
-                    <button type="button" id="cancel-btn" class="btn-secondary">Cancelar</button>
+                    <button type="button" id="cancel-btn" class="btn-outline">Cancelar</button>
                     <button type="button" id="guardar-mapeo-btn" class="btn-primary ml-2">Guardar Configuración</button>
                 </div>
             </div>

@@ -84,8 +84,15 @@ export async function fetchAPI(endpoint, options = {}) {
                         const retryResponse = await fetch(url, { ...options, headers });
                         
                         if (retryResponse.ok) {
-                            if (retryResponse.status === 204) return { success: true };
-                            return await retryResponse.json();
+                            const rt = await retryResponse.text();
+                            if (retryResponse.status === 204 || !rt.trim()) return { success: true };
+                            try {
+                                return JSON.parse(rt);
+                            } catch {
+                                throw new Error(rt.trim().startsWith('<!')
+                                    ? 'La API devolvió HTML (revisa URL/puerto del backend).'
+                                    : 'Respuesta inválida tras reintento');
+                            }
                         }
                     }
                 } catch (e) {
@@ -99,23 +106,39 @@ export async function fetchAPI(endpoint, options = {}) {
             throw new Error('Sesión expirada o inválida.');
         }
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        const text = await response.text();
 
-            // Crear un error personalizado con status y data
+        if (!response.ok) {
+            let errorData = {};
+            try {
+                errorData = text && text.trim() ? JSON.parse(text) : {};
+            } catch {
+                const hint = text && text.trim().startsWith('<!')
+                    ? 'El servidor devolvió HTML (¿llamando al puerto del frontend sin proxy a /api?).'
+                    : (text ? text.slice(0, 120) : response.statusText);
+                errorData = { error: hint, message: hint };
+            }
+
             const error = new Error(errorData.error || errorData.message || 'Error en la petición a la API');
             error.status = response.status;
             error.data = errorData.data || null;
-            error.responseJSON = errorData; // Expose full body for advanced handling (e.g. AI actions)
+            error.responseJSON = errorData;
 
             throw error;
         }
 
-        if (response.status === 204) {
+        if (response.status === 204 || !text.trim()) {
             return { success: true };
         }
 
-        return await response.json();
+        try {
+            return JSON.parse(text);
+        } catch {
+            const hint = text.trim().startsWith('<!')
+                ? 'El servidor devolvió HTML en lugar de JSON (ruta /api no encontrada o proxy mal configurado).'
+                : 'Respuesta no JSON del servidor';
+            throw new Error(hint);
+        }
     } catch (error) {
         console.error(`Error en fetchAPI para el endpoint ${endpoint}:`, error);
         throw error;

@@ -6,6 +6,8 @@ const { obtenerValorDolar } = require('./dolarService');
 const { crearOActualizarCliente } = require('./clientesService');
 const { listarBloqueos, getBloqueosPorPeriodo } = require('./bloqueosService');
 const { isValid, differenceInDays, addDays, parseISO } = require('date-fns');
+const { getPrecioBaseNoche, fetchTarifasForEmpresas } = require('../routes/website.shared');
+const { obtenerResumenPorPropiedad } = require('./resenasService');
 
 // --- Helpers de Cliente ---
 
@@ -134,6 +136,257 @@ async function obtenerOcupacionCalendarioPropiedad(empresaId, propiedadId, fromI
 }
 
 // --- Funciones de Propiedades (Lectura SSR) ---
+
+function _haversineKm(lat1, lng1, lat2, lng2) {
+    if (![lat1, lng1, lat2, lng2].every((x) => typeof x === 'number' && Number.isFinite(x))) return null;
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+function _extractGeoCityFromPropiedad(prop) {
+    const meta = prop?.metadata || prop || {};
+    const bc = meta.buildContext || prop?.buildContext || {};
+    const pub = bc.publicacion?.jsonLd || {};
+    const geo = pub.geo || {};
+    const la = parseFloat(geo.latitude);
+    const lo = parseFloat(geo.longitude);
+    const addr = prop?.googleHotelData?.address || meta.googleHotelData?.address || {};
+    const city = String(addr.city || addr.locality || '').trim();
+    return {
+        lat: Number.isFinite(la) ? la : null,
+        lng: Number.isFinite(lo) ? lo : null,
+        cityKey: city.toLowerCase(),
+    };
+}
+
+function _pickCardTitleFromPropiedad(p) {
+    const meta = p.metadata || p;
+    const bc = meta.buildContext || p.buildContext || {};
+    const h1 = String(bc.narrativa?.homeH1 || '').trim();
+    if (h1) return h1.slice(0, 140);
+    const ai = String(meta.websiteData?.aiDescription || p.websiteData?.aiDescription || '').trim();
+    if (ai) return ai.replace(/\s+/g, ' ').slice(0, 140);
+    return String(p.nombre || '').trim().slice(0, 140);
+}
+
+function _cardImageFromPropiedad(p) {
+    const meta = p.metadata || p;
+    const wd = meta.websiteData || p.websiteData || {};
+    const card = wd.cardImage?.storagePath;
+    if (card) return String(card).trim();
+    const imgs = wd.images || {};
+    const flat = Object.values(imgs).flat().filter((i) => i && i.storagePath);
+    if (flat[0]?.storagePath) return String(flat[0].storagePath).trim();
+    return '';
+}
+
+function _buildPublicPropertyUrl(empresaRow, propiedadId, protocol) {
+    const pro = String(protocol || 'https').replace(/:$/, '');
+    let dom = String(empresaRow.dominio || '').trim().replace(/^https?:\/\//i, '');
+    if (dom && !/^localhost/i.test(dom)) return `${pro}://${dom}/propiedad/${propiedadId}`;
+    const sub = String(empresaRow.subdominio || '').trim().toLowerCase();
+    const root = process.env.PUBLIC_SITES_ROOT_DOMAIN || 'suitemanagers.com';
+    if (sub) return `${pro}://${sub}.${root}/propiedad/${propiedadId}`;
+    return '';
+}
+
+function _fmtPrecioDesde(px) {
+    const n = Math.round(Number(px) || 0);
+    if (n <= 0) return 'Consultar precio';
+    return `Desde $${n.toLocaleString('es-CL')} / noche`;
+}
+
+/**
+ * Carrusel SSR "más alojamientos": primero otros del mismo anfitrión; si no hay, descubrimiento StayManager
+ * (misma ciudad o cercanía por coordenadas + rango de precio similar al alojamiento actual).
+ *
+ * @param {object} opts
+ * @param {string} opts.empresaId
+ * @param {string} opts.propiedadIdActual
+ * @param {object} opts.propiedad — objeto enriquecido como en obtenerPropiedadPorId
+ * @param {string} opts.baseUrl — origen del sitio actual (mismos anfitriones)
+ * @param {string} [opts.protocol] — req.protocol
+ * @param {Array} opts.allTarifasHost — tarifas del anfitrión actual (fetchTarifasYCanal)
+ * @param {string|null} opts.canalPorDefectoIdHost
+ * @param {number} opts.precioReferenciaNoche — getPrecioBaseNoche del alojamiento actual
+ * @param {string} opts.nombreAnfitrion
+ * @returns {Promise<{ modo: 'misma_empresa'|'descubrimiento', titulo: string, subtitulo: string, items: object[] }|null>}
+ */
+async function obtenerMasAlojamientosParaFichaSSR(opts) {
+    if (!pool) return null;
+    const {
+        empresaId,
+        propiedadIdActual,
+        propiedad,
+        baseUrl,
+        protocol,
+        allTarifasHost,
+        canalPorDefectoIdHost,
+        precioReferenciaNoche,
+        nombreAnfitrion,
+    } = opts;
+
+    const refPx = Math.max(0, Number(precioReferenciaNoche) || 0);
+    const { lat: refLat, lng: refLng, cityKey } = _extractGeoCityFromPropiedad(propiedad);
+    const qSuffix = ['fechaLlegada', 'fechaSalida', 'personas']
+        .map((k) => {
+            const v = opts.query && opts.query[k];
+            return v ? `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}` : '';
+        })
+        .filter(Boolean)
+        .join('&');
+    const queryStr = qSuffix ? `?${qSuffix}` : '';
+    const appendQuery = (absoluteUrl) => {
+        if (!qSuffix) return absoluteUrl;
+        const sep = String(absoluteUrl || '').includes('?') ? '&' : '?';
+        return `${absoluteUrl}${sep}${qSuffix}`;
+    };
+
+    const todas = await obtenerPropiedadesPorEmpresa(null, empresaId);
+    const hermanas = todas.filter((p) => p.id !== propiedadIdActual);
+    const MAX = 8;
+
+    if (hermanas.length > 0) {
+        const slice = hermanas.slice(0, MAX);
+        const resumenes = await Promise.all(slice.map((p) => obtenerResumenPorPropiedad(empresaId, p.id)));
+        const items = slice.map((p, i) => {
+            const px = canalPorDefectoIdHost
+                ? getPrecioBaseNoche(p.id, allTarifasHost, canalPorDefectoIdHost)
+                : 0;
+            const rs = resumenes[i] || {};
+            const rating =
+                rs.promedio_general != null && Number(rs.total) > 0
+                    ? `★ ${Number(rs.promedio_general).toFixed(1)}`
+                    : null;
+            const base = String(baseUrl || '').replace(/\/$/, '');
+            const href = base ? `${base}/propiedad/${p.id}${queryStr}` : `/propiedad/${p.id}${queryStr}`;
+            return {
+                href,
+                target: null,
+                rel: null,
+                imagen: _cardImageFromPropiedad(p),
+                titulo: _pickCardTitleFromPropiedad(p),
+                precioLabel: _fmtPrecioDesde(px),
+                ratingLabel: rating,
+                reviewCount: Number(rs.total) || 0,
+                esExterno: false,
+            };
+        });
+        return {
+            modo: 'misma_empresa',
+            titulo: `Más alojamientos de ${nombreAnfitrion || 'este anfitrión'}`,
+            subtitulo: 'Otros espacios publicados por el mismo anfitrión.',
+            items,
+        };
+    }
+
+    const cityParam = cityKey || null;
+    const { rows } = await pool.query(
+        `SELECT p.id, p.empresa_id, p.nombre, p.metadata
+         FROM propiedades p
+         WHERE p.activo = true
+           AND (p.metadata->'googleHotelData'->>'isListed')::boolean = true
+           AND p.id::text <> $1::text
+           AND p.empresa_id::text <> $2::text
+           AND (
+             $3::text IS NULL OR trim($3::text) = '' OR
+             lower(trim(coalesce(p.metadata #>> '{googleHotelData,address,city}', ''))) = lower(trim($3::text))
+           )
+         ORDER BY p.updated_at DESC NULLS LAST
+         LIMIT 120`,
+        [String(propiedadIdActual), String(empresaId), cityParam]
+    );
+
+    if (!rows.length) return null;
+
+    const empIds = [...new Set(rows.map((r) => r.empresa_id))];
+    const { allTarifas, defaultCanalByEmpresa } = await fetchTarifasForEmpresas(empIds);
+    const { rows: empRows } = await pool.query(
+        `SELECT id, nombre, dominio, subdominio FROM empresas WHERE id::text = ANY($1::text[])`,
+        [empIds.map(String)]
+    );
+    const empById = new Map(empRows.map((e) => [String(e.id), e]));
+
+    const band = 0.5;
+    const scored = [];
+    for (const r of rows) {
+        const meta = r.metadata || {};
+        const p = { id: r.id, nombre: r.nombre, empresa_id: r.empresa_id, metadata: meta, websiteData: meta.websiteData, buildContext: meta.buildContext, googleHotelData: meta.googleHotelData };
+        const canalId = defaultCanalByEmpresa.get(String(r.empresa_id))?.id || null;
+        const minPx = canalId ? getPrecioBaseNoche(r.id, allTarifas, canalId) : 0;
+        if (refPx > 0 && minPx > 0) {
+            const relDiff = Math.abs(minPx - refPx) / refPx;
+            if (relDiff > band) continue;
+        }
+        const g = _extractGeoCityFromPropiedad(p);
+        let distKm = null;
+        if (refLat != null && refLng != null && g.lat != null && g.lng != null) {
+            distKm = _haversineKm(refLat, refLng, g.lat, g.lng);
+        }
+        const empRow = empById.get(String(r.empresa_id)) || {};
+        const absUrl = _buildPublicPropertyUrl(empRow, r.id, protocol);
+        if (!absUrl) continue;
+        scored.push({
+            p,
+            minPx,
+            distKm: distKm != null && Number.isFinite(distKm) ? distKm : 1e9,
+            absUrl,
+        });
+    }
+
+    scored.sort((a, b) => {
+        const imgA = _cardImageFromPropiedad(a.p) ? 1 : 0;
+        const imgB = _cardImageFromPropiedad(b.p) ? 1 : 0;
+        if (imgB !== imgA) return imgB - imgA;
+        const finiteA = a.distKm < 1e8;
+        const finiteB = b.distKm < 1e8;
+        if (finiteA && finiteB && a.distKm !== b.distKm) return a.distKm - b.distKm;
+        if (refPx > 0 && a.minPx > 0 && b.minPx > 0) {
+            return Math.abs(a.minPx - refPx) - Math.abs(b.minPx - refPx);
+        }
+        return 0;
+    });
+
+    const picked = scored.slice(0, MAX);
+    if (!picked.length) return null;
+
+    const items = await Promise.all(
+        picked.map(async ({ p, minPx, absUrl }) => {
+            const rs = await obtenerResumenPorPropiedad(p.empresa_id, p.id);
+            const rating =
+                rs.promedio_general != null && Number(rs.total) > 0
+                    ? `★ ${Number(rs.promedio_general).toFixed(1)}`
+                    : null;
+            return {
+                href: appendQuery(absUrl),
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                imagen: _cardImageFromPropiedad(p),
+                titulo: _pickCardTitleFromPropiedad(p),
+                precioLabel: _fmtPrecioDesde(minPx),
+                ratingLabel: rating,
+                reviewCount: Number(rs.total) || 0,
+                esExterno: true,
+            };
+        })
+    );
+
+    const sub = cityKey
+        ? `En ${cityKey} y precio similar al de esta estadía.`
+        : 'Selección en StayManager con precio similar al de esta estadía.';
+    return {
+        modo: 'descubrimiento',
+        titulo: 'Más alojamientos a tu alrededor',
+        subtitulo: sub,
+        items,
+    };
+}
 
 const obtenerPropiedadesPorEmpresa = async (_db, empresaId) => {
     if (!empresaId || typeof empresaId !== 'string' || empresaId.trim() === '') {
@@ -350,4 +603,5 @@ module.exports = {
     obtenerDetallesEmpresa,
     crearReservaPublica,
     obtenerOcupacionCalendarioPropiedad,
+    obtenerMasAlojamientosParaFichaSSR,
 };

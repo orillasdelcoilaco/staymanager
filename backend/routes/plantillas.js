@@ -7,11 +7,18 @@ const {
     crearPlantilla,
     obtenerPlantillasPorEmpresa,
     actualizarPlantilla,
-    eliminarPlantilla
+    eliminarPlantilla,
+    generarPlantillaConIa,
 } = require('../services/plantillasService');
+const { ETIQUETAS_CATALOGO } = require('../services/plantillasEtiquetasCatalog');
 
 module.exports = (db) => {
     const router = express.Router();
+
+    /** Catálogo de etiquetas [TAG] que el motor sustituye (misma lista que usa la IA y el modal SPA). */
+    router.get('/etiquetas-motor', (req, res) => {
+        res.status(200).json(ETIQUETAS_CATALOGO);
+    });
 
     // --- Rutas para Tipos de Plantilla ---
     router.post('/tipos', async (req, res) => {
@@ -51,6 +58,16 @@ module.exports = (db) => {
     });
 
     // --- Rutas para Plantillas de Mensajes ---
+    router.post('/generar-ia', async (req, res) => {
+        try {
+            const out = await generarPlantillaConIa(db, req.user.empresaId, req.body || {});
+            res.status(200).json(out);
+        } catch (error) {
+            const code = error.code === 'AI_INJECTION_DETECTED' ? 400 : 500;
+            res.status(code).json({ error: error.message || 'Error al generar con IA' });
+        }
+    });
+
     router.post('/', async (req, res) => {
         try {
             const nuevaPlantilla = await crearPlantilla(db, req.user.empresaId, req.body);

@@ -156,8 +156,12 @@ async function buscar(widgetId) {
 
         if (!resultados.length) {
             listaSugerencias.innerHTML = `
-                <li class="px-4 py-3 text-gray-500 italic text-sm">
-                    Sin resultados para "${q}". Prueba con ciudad, región o país.
+                <li class="px-4 py-3 text-sm space-y-1">
+                    <p class="text-gray-500 italic">Sin resultados para "${escAttr(q)}". Prueba con ciudad, región o país.</p>
+                    <p class="text-xs text-primary-600">
+                        💡 Si la dirección no aparece en el mapa (p.ej. caminos rurales), busca primero la <strong>ciudad o sector</strong>,
+                        luego <strong>arrastra el pin</strong> al lugar exacto. El campo de dirección lo puedes editar libremente.
+                    </p>
                 </li>`;
             listaSugerencias.classList.remove('hidden');
             return;
@@ -263,10 +267,25 @@ async function inicializarMapa(widgetId, lat, lng) {
 
     const marker = L.marker([lat, lng], { draggable: true }).addTo(map);
 
-    marker.on('dragend', () => {
+    marker.on('dragend', async () => {
         const pos = marker.getLatLng();
-        document.getElementById(`${widgetId}-lat`).value = pos.lat.toFixed(6);
-        document.getElementById(`${widgetId}-lng`).value = pos.lng.toFixed(6);
+        const latVal = pos.lat.toFixed(6);
+        const lngVal = pos.lng.toFixed(6);
+        document.getElementById(`${widgetId}-lat`).value = latVal;
+        document.getElementById(`${widgetId}-lng`).value = lngVal;
+
+        // Reverse geocoding: actualizar solo ciudad/región/país (NO el campo de dirección libre)
+        const inputCiudad = document.getElementById(`${widgetId}-ciudad`);
+        const inputRegion = document.getElementById(`${widgetId}-region`);
+        const inputPais   = document.getElementById(`${widgetId}-pais`);
+        try {
+            const r = await fetchAPI(`/geocode/reverse?lat=${latVal}&lng=${lngVal}`);
+            if (inputCiudad && r.ciudad)  inputCiudad.value  = r.ciudad;
+            if (inputRegion && r.region)  inputRegion.value  = r.region;
+            if (inputPais   && r.pais)    inputPais.value    = r.pais;
+        } catch (_) {
+            // Fallo silencioso — solo coords ya actualizadas, los campos estructurados quedan igual
+        }
     });
 
     mapaInstancias[widgetId] = { map, marker };

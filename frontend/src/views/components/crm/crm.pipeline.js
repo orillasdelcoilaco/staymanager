@@ -1,5 +1,6 @@
 // frontend/src/views/components/crm/crm.pipeline.js
 import { fetchAPI } from '../../../api.js';
+import { handleNavigation } from '../../../router.js';
 import { pickAvatarRgb } from '../../../shared/colorAvatar.js';
 
 const SEGMENTOS_CONFIG = [
@@ -121,6 +122,11 @@ export async function setupPipeline() {
         }
     }
 
+    const closePipelineSidebar = () => {
+        document.getElementById('pipeline-sidebar')?.classList.add('translate-x-full');
+        document.getElementById('pipeline-overlay')?.classList.add('hidden');
+    };
+
     // Card click → sidebar
     document.addEventListener('click', e => {
         const card = e.target.closest('.pipeline-card');
@@ -136,9 +142,12 @@ export async function setupPipeline() {
                         <div class="flex justify-between"><span class="text-gray-500">Gasto total</span><span class="font-bold text-success-600">${formatCurrency(c.totalGastado || 0)}</span></div>
                     </div>
                     <div class="pt-4 border-t space-y-2">
-                        <div class="flex gap-2">
-                            <a href="#/cliente/${c.id}" class="btn-primary text-sm flex-1 text-center">Ver perfil</a>
-                            ${c.telefono ? `<a href="https://wa.me/${(c.telefono||'').replace(/\D/g,'')}" target="_blank" class="btn-outline text-sm flex-1 text-center">WhatsApp</a>` : ''}
+                        <div class="flex flex-col gap-2">
+                            <div class="flex gap-2">
+                                <button type="button" class="sidebar-ver-perfil btn-primary text-sm flex-1">Ver perfil</button>
+                                <button type="button" class="sidebar-ver-correos btn-outline text-sm flex-1"><i class="fa-solid fa-envelope mr-1"></i>Correos</button>
+                            </div>
+                            ${c.telefono ? `<a href="https://wa.me/${(c.telefono||'').replace(/\D/g,'')}" target="_blank" class="btn-outline text-sm w-full text-center">WhatsApp</a>` : ''}
                         </div>
                         <p class="text-xs font-medium text-gray-700 mt-2 flex items-center gap-1"><i class="fa-solid fa-ticket"></i> Generar Cupón</p>
                         <div class="grid grid-cols-2 gap-2">
@@ -155,6 +164,15 @@ export async function setupPipeline() {
                 </div>`;
             document.getElementById('pipeline-sidebar').classList.remove('translate-x-full');
             document.getElementById('pipeline-overlay').classList.remove('hidden');
+
+            document.querySelector('#sidebar-content .sidebar-ver-perfil')?.addEventListener('click', () => {
+                closePipelineSidebar();
+                handleNavigation(`/cliente/${c.id}`);
+            });
+            document.querySelector('#sidebar-content .sidebar-ver-correos')?.addEventListener('click', () => {
+                closePipelineSidebar();
+                handleNavigation(`/cliente/${c.id}?tab=correos`);
+            });
 
             // Coupon generation handler
             document.getElementById('sidebar-cupon-btn')?.addEventListener('click', async (ev) => {
@@ -181,13 +199,8 @@ export async function setupPipeline() {
         }
     });
 
-    // Close sidebar
-    const closeSidebar = () => {
-        document.getElementById('pipeline-sidebar').classList.add('translate-x-full');
-        document.getElementById('pipeline-overlay').classList.add('hidden');
-    };
-    document.getElementById('sidebar-close')?.addEventListener('click', closeSidebar);
-    document.getElementById('pipeline-overlay')?.addEventListener('click', closeSidebar);
+    document.getElementById('sidebar-close')?.addEventListener('click', closePipelineSidebar);
+    document.getElementById('pipeline-overlay')?.addEventListener('click', closePipelineSidebar);
 
     // Recalcular
     document.getElementById('pipeline-recalcular-btn')?.addEventListener('click', async (e) => {

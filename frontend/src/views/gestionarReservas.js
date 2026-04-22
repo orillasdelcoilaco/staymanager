@@ -23,77 +23,56 @@ let allEstados       = [];
 let editandoReserva  = null;
 let chipActivo       = '';
 
-export async function render() {
-    try {
-        [todasLasReservas, historialCargas, alojamientos, clientes, canales, allEstados] = await Promise.all([
-            fetchAPI('/reservas'),
-            fetchAPI('/historial-cargas'),
-            fetchAPI('/propiedades'),
-            fetchAPI('/clientes'),
-            fetchAPI('/canales'),
-            getEstados(),
-        ]);
-    } catch (error) {
-        return `<p class="text-danger-500">Error al cargar los datos. Por favor, intente de nuevo.</p>`;
-    }
-
-    const opcionesCarga = historialCargas.map(h => `<option value="${h.id}">#${h.idNumerico} - ${h.nombreArchivo}</option>`).join('');
-    const opcionesCanal = canales.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join('');
-
-    const estadosGestion = getEstadosGestion(allEstados);
-    const estadosGestionOptions = estadosGestion.length > 0
-        ? estadosGestion.map(e => `<option value="${e.nombre}">${e.nombre}</option>`).join('')
-        : ['Pendiente Bienvenida','Pendiente Cobro','Pendiente Pago','Pendiente Boleta','Pendiente Cliente','Facturado','Propuesta']
-            .map(e => `<option value="${e}">${e}</option>`).join('');
-
-    const estadosReserva = getEstadosReserva(allEstados);
-    const estadosReservaOptions = estadosReserva.length > 0
-        ? estadosReserva.map(e => `<option value="${e.nombre}">${e.nombre}</option>`).join('')
-        : ['Confirmada','Cancelada','No Presentado','Desconocido','Propuesta']
-            .map(e => `<option value="${e}">${e}</option>`).join('');
-
+function _renderFiltros(opcionesCanal, opcionesCarga, estadosReservaOptions, estadosGestionOptions) {
     return `
-        <div class="bg-white p-6 rounded-lg shadow">
-            <div class="flex items-center justify-between mb-5">
-                <h2 class="text-2xl font-semibold text-gray-900">Gestionar Reservas</h2>
-                <button id="toggle-filters-btn" class="btn-outline text-xs">Filtros avanzados ▾</button>
-            </div>
-
-            <!-- Chips de filtro rápido -->
-            <div class="flex flex-wrap gap-2 mb-4" id="chips-container">
-                <button class="chip-filter active" data-chip="">Todas</button>
-                <button class="chip-filter" data-chip="checkin-hoy">Check-in hoy</button>
-                <button class="chip-filter" data-chip="checkout-hoy">Check-out hoy</button>
-                <button class="chip-filter" data-chip="bienvenida-pendiente">Bienvenida pendiente</button>
-                <button class="chip-filter" data-chip="sin-pago">Sin pago confirmado</button>
-                <button class="chip-filter" data-chip="proximas-7">Próximas 7 días</button>
-            </div>
-
-            <!-- Búsqueda -->
-            <input type="text" id="search-input" placeholder="Buscar por ID, cliente, alojamiento..." class="form-input mb-4">
-
-            <!-- Filtros avanzados (colapsables) -->
-            <div id="advanced-filters" class="hidden mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                    <div><label class="label-filter">Desde (Llegada)</label><input type="date" id="fecha-inicio-filter" class="form-input"></div>
-                    <div><label class="label-filter">Hasta (Llegada)</label><input type="date" id="fecha-fin-filter" class="form-input"></div>
-                    <div><label class="label-filter">Canal</label><select id="canal-filter" class="form-select"><option value="">Todos</option>${opcionesCanal}</select></div>
-                    <div><label class="label-filter">Estado Reserva</label><select id="estado-filter" class="form-select"><option value="">Todos</option>${estadosReservaOptions}</select></div>
-                    <div><label class="label-filter">Estado Gestión</label><select id="estado-gestion-filter" class="form-select"><option value="">Todos</option>${estadosGestionOptions}</select></div>
-                    <div><label class="label-filter">Reporte de Carga</label><select id="carga-filter" class="form-select"><option value="">Todos</option>${opcionesCarga}</select></div>
-                </div>
-            </div>
-
-            <!-- Stats -->
-            <div id="reservas-stats" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5"></div>
-
-            <!-- Cards grid -->
-            <div id="reservas-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        <div class="flex items-center justify-between mb-5">
+            <h2 class="text-2xl font-semibold text-gray-900">Gestionar Reservas</h2>
+            <button id="toggle-filters-btn" class="btn-outline text-xs">Filtros avanzados ▾</button>
         </div>
 
-        <!-- Modal Editar -->
+        <!-- Chips de filtro rápido -->
+        <div class="flex flex-wrap gap-2 mb-4" id="chips-container">
+            <button class="chip-filter active" data-chip="">Todas</button>
+            <button class="chip-filter" data-chip="checkin-hoy">Check-in hoy</button>
+            <button class="chip-filter" data-chip="checkout-hoy">Check-out hoy</button>
+            <button class="chip-filter" data-chip="bienvenida-pendiente">Bienvenida pendiente</button>
+            <button class="chip-filter" data-chip="sin-pago">Sin pago confirmado</button>
+            <button class="chip-filter" data-chip="proximas-7">Próximas 7 días</button>
+        </div>
+
+        <!-- Búsqueda -->
+        <input type="text" id="search-input" placeholder="Buscar por ID, cliente, alojamiento..." class="form-input mb-4">
+
+        <!-- Filtros avanzados (colapsables) -->
+        <div id="advanced-filters" class="hidden mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div><label class="label-filter">Desde (Llegada)</label><input type="date" id="fecha-inicio-filter" class="form-input"></div>
+                <div><label class="label-filter">Hasta (Llegada)</label><input type="date" id="fecha-fin-filter" class="form-input"></div>
+                <div><label class="label-filter">Canal</label><select id="canal-filter" class="form-select"><option value="">Todos</option>${opcionesCanal}</select></div>
+                <div><label class="label-filter">Estado Reserva</label><select id="estado-filter" class="form-select"><option value="">Todos</option>${estadosReservaOptions}</select></div>
+                <div><label class="label-filter">Estado Gestión</label><select id="estado-gestion-filter" class="form-select"><option value="">Todos</option>${estadosGestionOptions}</select></div>
+                <div><label class="label-filter">Reporte de Carga</label><select id="carga-filter" class="form-select"><option value="">Todos</option>${opcionesCarga}</select></div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div id="reservas-stats" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5"></div>
+
+        <!-- Cards grid -->
+        <div id="reservas-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    `;
+}
+
+function _renderModalEditar(estadosReservaOptions, estadosGestionOptions) {
+    return `
         <div id="reserva-modal-edit" class="modal hidden"><div class="modal-content !max-w-4xl">
-            <h3 id="modal-title-edit" class="text-xl font-semibold mb-4">Editar Reserva</h3>
+            <div class="flex items-center gap-4 mb-6 pb-5 border-b">
+                <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 text-xl flex-shrink-0">📋</div>
+                <div>
+                    <h3 id="modal-title-edit" class="text-xl font-semibold text-gray-900">Editar Reserva</h3>
+                    <p id="modal-edit-subtitle" class="text-sm text-gray-500">Modifica los datos de la reserva</p>
+                </div>
+            </div>
             <div id="resumen-grupo-container" class="hidden mb-4"></div>
             <form id="reserva-form-edit" class="space-y-6 max-h-[75vh] overflow-y-auto pr-4">
                 <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Datos de la Reserva</legend>
@@ -138,18 +117,25 @@ export async function render() {
                     <div id="form-pago-container-edit" class="hidden mt-2"></div>
                 </fieldset>
                 <div class="flex justify-end pt-4 border-t">
-                    <button type="button" id="cancel-edit-btn" class="btn-secondary">Cancelar</button>
+                    <button type="button" id="cancel-edit-btn" class="btn-outline">Cancelar</button>
                     <button type="submit" class="btn-primary ml-2">Guardar Cambios</button>
                 </div>
             </form>
         </div></div>
+    `;
+}
 
-        <!-- Modal Ver -->
+function _renderModalVer() {
+    return `
         <div id="reserva-modal-view" class="modal hidden">
             <div class="modal-content !max-w-4xl">
-                <div class="flex justify-between items-center pb-3 border-b mb-4">
-                    <h3 id="view-modal-title" class="text-xl font-semibold"></h3>
-                    <button id="close-view-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+                <div class="flex items-center gap-4 mb-6 pb-5 border-b">
+                    <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 text-xl flex-shrink-0">🏠</div>
+                    <div class="flex-1">
+                        <h3 id="view-modal-title" class="text-xl font-semibold text-gray-900"></h3>
+                        <p id="modal-view-subtitle" class="text-sm text-gray-500">Detalle completo de la reserva</p>
+                    </div>
+                    <button id="close-view-btn" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
                 </div>
                 <div id="view-loading-state" class="text-center p-8"><p>Cargando detalles...</p></div>
                 <div id="reserva-view-content" class="hidden space-y-6 max-h-[75vh] overflow-y-auto pr-4">
@@ -204,8 +190,11 @@ export async function render() {
                 </div>
             </div>
         </div>
+    `;
+}
 
-        <!-- Modal confirmar borrado -->
+function _renderModalBorrado() {
+    return `
         <div id="modal-confirmar-borrado-grupo" class="modal hidden">
             <div class="modal-content !max-w-lg">
                 <h3 class="text-xl font-semibold text-danger-700 mb-4">⚠️ ¡Advertencia! Reserva con Datos Vinculados</h3>
@@ -215,11 +204,50 @@ export async function render() {
                     <div id="borrado-grupo-lista" class="p-3 bg-gray-50 border rounded-md max-h-40 overflow-y-auto"></div>
                 </div>
                 <div class="flex justify-end space-x-3">
-                    <button type="button" id="borrado-grupo-cancelar" class="btn-secondary">Cancelar</button>
+                    <button type="button" id="borrado-grupo-cancelar" class="btn-outline">Cancelar</button>
                     <button type="button" id="borrado-grupo-confirmar" class="btn-danger">Sí, Borrar Grupo Completo</button>
                 </div>
             </div>
         </div>
+    `;
+}
+
+export async function render() {
+    try {
+        [todasLasReservas, historialCargas, alojamientos, clientes, canales, allEstados] = await Promise.all([
+            fetchAPI('/reservas'),
+            fetchAPI('/historial-cargas'),
+            fetchAPI('/propiedades'),
+            fetchAPI('/clientes'),
+            fetchAPI('/canales'),
+            getEstados(),
+        ]);
+    } catch (error) {
+        return `<p class="text-danger-500">Error al cargar los datos. Por favor, intente de nuevo.</p>`;
+    }
+
+    const opcionesCarga = historialCargas.map(h => `<option value="${h.id}">#${h.idNumerico} - ${h.nombreArchivo}</option>`).join('');
+    const opcionesCanal = canales.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join('');
+
+    const estadosGestion = getEstadosGestion(allEstados);
+    const estadosGestionOptions = estadosGestion.length > 0
+        ? estadosGestion.map(e => `<option value="${e.nombre}">${e.nombre}</option>`).join('')
+        : ['Pendiente Bienvenida','Pendiente Cobro','Pendiente Pago','Pendiente Boleta','Pendiente Cliente','Facturado','Propuesta']
+            .map(e => `<option value="${e}">${e}</option>`).join('');
+
+    const estadosReserva = getEstadosReserva(allEstados);
+    const estadosReservaOptions = estadosReserva.length > 0
+        ? estadosReserva.map(e => `<option value="${e.nombre}">${e.nombre}</option>`).join('')
+        : ['Confirmada','Cancelada','No Presentado','Desconocido','Propuesta']
+            .map(e => `<option value="${e}">${e}</option>`).join('');
+
+    return `
+        <div class="bg-white p-6 rounded-lg shadow">
+            ${_renderFiltros(opcionesCanal, opcionesCarga, estadosReservaOptions, estadosGestionOptions)}
+        </div>
+        ${_renderModalEditar(estadosReservaOptions, estadosGestionOptions)}
+        ${_renderModalVer()}
+        ${_renderModalBorrado()}
     `;
 }
 

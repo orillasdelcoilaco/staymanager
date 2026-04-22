@@ -88,179 +88,154 @@ async function fetchAndRender() {
     }
 }
 
+function _handleEditarPropuesta(target, id) {
+    const item = todasLasPropuestas.find(p => p.id === id);
+    if (!item) {
+        alert('Error: No se pudo encontrar el ítem para editar.');
+        return;
+    }
+
+    const personas = item.personas || 1;
+    let params;
+    let route;
+
+    if (item.tipo === 'propuesta') {
+        const loadDocId = item.idsReservas && item.idsReservas.length > 0 ? item.idsReservas[0] : null;
+        if (!loadDocId) {
+            alert(`Error: Esta propuesta (ID: ${id}) no tiene un ID de reserva válido para cargar.`);
+            return;
+        }
+        params = new URLSearchParams({
+            edit: id,
+            load: loadDocId,
+            props: item.propiedades.map(p => p.id).join(','),
+            clienteId: item.clienteId || '',
+            fechaLlegada: item.fechaLlegada,
+            fechaSalida: item.fechaSalida,
+            personas: personas,
+            idReservaCanal: item.idReservaCanal || '',
+            canalId: item.canalId || '',
+            origen: item.origen || 'manual',
+            icalUid: item.icalUid || ''
+        });
+        route = '/agregar-propuesta';
+    } else {
+        params = new URLSearchParams({
+            edit: item.id,
+            clienteId: item.clienteId || '',
+            fechaLlegada: item.fechaLlegada,
+            fechaSalida: item.fechaSalida,
+            personas: item.personas || 1,
+            propiedades: item.propiedades.map(p => p.id).join(','),
+            canalId: item.canalId || '',
+            origen: item.origen || 'manual'
+        });
+        route = '/generar-presupuesto';
+    }
+
+    handleNavigation(`${route}?${params.toString()}`);
+}
+
+async function _handleAprobarPropuesta(target, id, tipo) {
+    target.dataset.processing = 'true';
+    target.disabled = true;
+    const textoOriginal = target.textContent;
+    target.textContent = 'Verificando...';
+
+    try {
+        let result;
+        if (tipo === 'propuesta') {
+            const idsReservas = target.dataset.idsReservas?.split(',').filter(Boolean) || [];
+            if (idsReservas.length === 0) {
+                throw new Error('No se encontraron IDs de reserva para aprobar.');
+            }
+            result = await fetchAPI(`/gestion-propuestas/propuesta/${id}/verificar-disponibilidad`, {
+                method: 'POST',
+                body: { idsReservas }
+            });
+            if (!confirm(`¿Estás seguro de que quieres aprobar esta propuesta?\n\nLa disponibilidad ha sido verificada.`)) {
+                target.disabled = false;
+                target.textContent = textoOriginal;
+                target.dataset.processing = 'false';
+                return;
+            }
+            target.textContent = 'Aprobando...';
+            result = await fetchAPI(`/gestion-propuestas/propuesta/${id}/aprobar`, {
+                method: 'POST',
+                body: { idsReservas }
+            });
+        } else {
+            if (!confirm(`¿Estás seguro de que quieres aprobar este presupuesto?\n\nSe verificará la disponibilidad antes de confirmar.`)) {
+                target.disabled = false;
+                target.textContent = textoOriginal;
+                target.dataset.processing = 'false';
+                return;
+            }
+            target.textContent = 'Aprobando...';
+            result = await fetchAPI(`/gestion-propuestas/presupuesto/${id}/aprobar`, { method: 'POST' });
+        }
+        alert('✅ ' + result.message);
+        await fetchAndRender();
+    } catch (error) {
+        alert(`❌ Error al aprobar: ${error.message}`);
+        target.disabled = false;
+        target.textContent = textoOriginal;
+    } finally {
+        target.dataset.processing = 'false';
+    }
+}
+
+async function _handleRechazarPropuesta(target, id, tipo) {
+    const tipoTexto = tipo === 'propuesta' ? 'esta propuesta' : 'este presupuesto';
+    if (!confirm(`¿Estás seguro de que quieres rechazar ${tipoTexto}?\n\nEsta acción eliminará la propuesta permanentemente.`)) {
+        return;
+    }
+    target.dataset.processing = 'true';
+    target.disabled = true;
+    const textoOriginal = target.textContent;
+    target.textContent = 'Eliminando...';
+
+    try {
+        if (tipo === 'propuesta') {
+            const idsReservas = target.dataset.idsReservas?.split(',').filter(Boolean) || [];
+            await fetchAPI(`/gestion-propuestas/propuesta/${id}/rechazar`, {
+                method: 'POST',
+                body: { idsReservas }
+            });
+        } else {
+            await fetchAPI(`/gestion-propuestas/presupuesto/${id}/rechazar`, { method: 'POST' });
+        }
+        alert('✅ Propuesta rechazada y eliminada.');
+        await fetchAndRender();
+    } catch (error) {
+        alert(`❌ Error: ${error.message}`);
+        target.disabled = false;
+        target.textContent = textoOriginal;
+    } finally {
+        target.dataset.processing = 'false';
+    }
+}
+
 // Handler separado para poder removerlo si es necesario
 async function handleTableClick(e) {
     const target = e.target;
-    
-    // Verificar que sea un botón con los datos necesarios
     if (!target.matches('button[data-id]')) return;
-    
-    // Prevenir múltiples clics
     if (target.dataset.processing === 'true') return;
-    
+
     const id = target.dataset.id;
     const tipo = target.dataset.tipo;
     if (!id || !tipo) return;
 
-    // --- EDITAR ---
     if (target.classList.contains('edit-btn')) {
-        const item = todasLasPropuestas.find(p => p.id === id);
-        if (!item) {
-            alert('Error: No se pudo encontrar el ítem para editar.');
-            return;
-        }
-
-        const personas = item.personas || 1;
-        let params;
-        let route;
-
-        if (item.tipo === 'propuesta') {
-            const loadDocId = item.idsReservas && item.idsReservas.length > 0 ? item.idsReservas[0] : null;
-
-            if (!loadDocId) {
-                alert(`Error: Esta propuesta (ID: ${id}) no tiene un ID de reserva válido para cargar.`);
-                return;
-            }
-
-            params = new URLSearchParams({
-                edit: id,
-                load: loadDocId,
-                props: item.propiedades.map(p => p.id).join(','),
-                clienteId: item.clienteId || '',
-                fechaLlegada: item.fechaLlegada,
-                fechaSalida: item.fechaSalida,
-                personas: personas,
-                idReservaCanal: item.idReservaCanal || '',
-                canalId: item.canalId || '',
-                origen: item.origen || 'manual',
-                icalUid: item.icalUid || ''
-            });
-            route = '/agregar-propuesta';
-
-        } else {
-            params = new URLSearchParams({
-                edit: item.id,
-                clienteId: item.clienteId || '',
-                fechaLlegada: item.fechaLlegada,
-                fechaSalida: item.fechaSalida,
-                personas: item.personas || 1, 
-                propiedades: item.propiedades.map(p => p.id).join(','),
-                canalId: item.canalId || '',
-                origen: item.origen || 'manual'
-            });
-            route = '/generar-presupuesto';
-        }
-
-        handleNavigation(`${route}?${params.toString()}`);
+        _handleEditarPropuesta(target, id);
         return;
     }
-    
-    // --- APROBAR ---
     if (target.classList.contains('approve-btn')) {
-        // Marcar como procesando para evitar doble clic
-        target.dataset.processing = 'true';
-        target.disabled = true;
-        const textoOriginal = target.textContent;
-        target.textContent = 'Verificando...';
-
-        try {
-            let result;
-            if (tipo === 'propuesta') {
-                const idsReservas = target.dataset.idsReservas?.split(',').filter(Boolean) || [];
-                if (idsReservas.length === 0) {
-                    throw new Error('No se encontraron IDs de reserva para aprobar.');
-                }
-                
-                // Primero verificar disponibilidad (sin confirmación del usuario aún)
-                result = await fetchAPI(`/gestion-propuestas/propuesta/${id}/verificar-disponibilidad`, { 
-                    method: 'POST', 
-                    body: { idsReservas } 
-                });
-                
-                // Si hay disponibilidad, ahora sí pedir confirmación
-                const tipoTexto = 'esta propuesta';
-                if (!confirm(`¿Estás seguro de que quieres aprobar ${tipoTexto}?\n\nLa disponibilidad ha sido verificada.`)) {
-                    target.disabled = false;
-                    target.textContent = textoOriginal;
-                    target.dataset.processing = 'false';
-                    return;
-                }
-                
-                target.textContent = 'Aprobando...';
-                
-                // Ahora sí aprobar
-                result = await fetchAPI(`/gestion-propuestas/propuesta/${id}/aprobar`, { 
-                    method: 'POST', 
-                    body: { idsReservas } 
-                });
-            } else {
-                // Para presupuestos, mantener el flujo original
-                const tipoTexto = 'este presupuesto';
-                if (!confirm(`¿Estás seguro de que quieres aprobar ${tipoTexto}?\n\nSe verificará la disponibilidad antes de confirmar.`)) {
-                    target.disabled = false;
-                    target.textContent = textoOriginal;
-                    target.dataset.processing = 'false';
-                    return;
-                }
-                
-                target.textContent = 'Aprobando...';
-                result = await fetchAPI(`/gestion-propuestas/presupuesto/${id}/aprobar`, { 
-                    method: 'POST' 
-                });
-            }
-            
-            // Solo mostrar éxito si llegamos aquí
-            alert('✅ ' + result.message);
-            await fetchAndRender();
-            
-        } catch (error) {
-            alert(`❌ Error al aprobar: ${error.message}`);
-            // Restaurar botón
-            target.disabled = false;
-            target.textContent = textoOriginal;
-        } finally {
-            target.dataset.processing = 'false';
-        }
+        await _handleAprobarPropuesta(target, id, tipo);
         return;
     }
-    
-    // --- RECHAZAR ---
     if (target.classList.contains('reject-btn')) {
-        const tipoTexto = tipo === 'propuesta' ? 'esta propuesta' : 'este presupuesto';
-        
-        if (!confirm(`¿Estás seguro de que quieres rechazar ${tipoTexto}?\n\nEsta acción eliminará la propuesta permanentemente.`)) {
-            return;
-        }
-        
-        // Marcar como procesando
-        target.dataset.processing = 'true';
-        target.disabled = true;
-        const textoOriginal = target.textContent;
-        target.textContent = 'Eliminando...';
-         
-        try {
-            if (tipo === 'propuesta') {
-                const idsReservas = target.dataset.idsReservas?.split(',').filter(Boolean) || [];
-                await fetchAPI(`/gestion-propuestas/propuesta/${id}/rechazar`, { 
-                    method: 'POST', 
-                    body: { idsReservas } 
-                });
-            } else {
-                await fetchAPI(`/gestion-propuestas/presupuesto/${id}/rechazar`, { 
-                    method: 'POST' 
-                });
-            }
-            
-            alert('✅ Propuesta rechazada y eliminada.');
-            await fetchAndRender();
-            
-        } catch(error) {
-            alert(`❌ Error: ${error.message}`);
-            target.disabled = false;
-            target.textContent = textoOriginal;
-        } finally {
-            target.dataset.processing = 'false';
-        }
+        await _handleRechazarPropuesta(target, id, tipo);
         return;
     }
 }

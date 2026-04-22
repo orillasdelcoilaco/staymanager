@@ -76,11 +76,12 @@ async function loadWizard(propiedadId) {
     renderRoot();
     try {
         const prop       = state.propiedades.find(p => p.id === propiedadId);
-        const [wd, plan, buildCtx, galeriaPorEspacio] = await Promise.all([
+        const [wd, plan, buildCtx, galeriaPorEspacio, galeriaFlat] = await Promise.all([
             fetchAPI(`/website/propiedad/${propiedadId}`),
             fetchAPI(`/website/propiedad/${propiedadId}/photo-plan`).catch(() => ({})),
             fetchAPI(`/website/propiedad/${propiedadId}/build-context`).catch(() => null),
-            fetchAPI(`/galeria/${propiedadId}/por-espacio`).catch(() => ({}))
+            fetchAPI(`/galeria/${propiedadId}/por-espacio`).catch(() => ({})),
+            fetchAPI(`/galeria/${propiedadId}`).catch(() => []),
         ]);
         state.propiedadId         = propiedadId;
         state.propiedadNombre     = prop?.nombre || '';
@@ -98,6 +99,10 @@ async function loadWizard(propiedadId) {
         const imagesPorEspacio = Object.keys(galeriaPorEspacio).length > 0
             ? galeriaPorEspacio
             : (wd.images || {});
+        state.imagesPorEspacio = imagesPorEspacio || {};
+        state.galeriaFlat = Array.isArray(galeriaFlat)
+            ? galeriaFlat.filter((f) => f && f.estado !== 'descartada')
+            : [];
         await initPaso2(propiedadId, imagesPorEspacio);
     } catch (err) {
         state.error = 'Error al cargar el alojamiento.';

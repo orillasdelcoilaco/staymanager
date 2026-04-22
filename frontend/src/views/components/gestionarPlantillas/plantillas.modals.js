@@ -4,45 +4,43 @@ import { fetchAPI } from '../../../api.js';
 let editandoPlantilla = null;
 let onSaveCallback = null;
 
-const ETIQUETAS_DISPONIBLES = [
-    { etiqueta: '[CLIENTE_NOMBRE]', descripcion: 'Nombre completo del cliente' },
-    { etiqueta: '[RESERVA_ID_CANAL]', descripcion: 'ID de la reserva en el canal de origen' },
-    { etiqueta: '[FECHA_LLEGADA]', descripcion: 'Fecha de check-in' },
-    { etiqueta: '[FECHA_SALIDA]', descripcion: 'Fecha de check-out' },
-    { etiqueta: '[ALOJAMIENTO_NOMBRE]', descripcion: 'Nombre(s) de el/los alojamiento(s) reservado(s)' },
-    { etiqueta: '[TOTAL_NOCHES]', descripcion: 'Número total de noches de la estadía' },
-    { etiqueta: '[CANTIDAD_HUESPEDES]', descripcion: 'Número de huéspedes en la reserva' },
-    { etiqueta: '[SALDO_PENDIENTE]', descripcion: 'Monto del saldo adeudado por el cliente' },
-    { etiqueta: '[COBRO]', descripcion: 'Genera un resumen detallado del cobro (Total, abonos, saldo, etc.)' },
-    { etiqueta: '[RESUMEN_VALORES_PROPUESTA]', descripcion: '(Para Propuestas) Bloque completo con detalle de precios, descuentos y totales' },
-    { etiqueta: '[PROPUESTA_ID]', descripcion: 'ID único generado para la propuesta de reserva' },
-    { etiqueta: '[ENLACE_PAGO]', descripcion: 'Enlace para realizar pagos (si aplica)' },
-    { etiqueta: '[ENLACE_CHECKIN]', descripcion: 'Enlace al formulario de check-in online' },
-    { etiqueta: '[ENLACE_RESERVA]', descripcion: 'Enlace al documento PDF de la reserva' },
-    { etiqueta: '[ENLACE_BOLETA]', descripcion: 'Enlace al documento de boleta/factura' }
-];
+function _escHtml(s) {
+    return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
 
-function renderEtiquetasAyuda() {
-    return ETIQUETAS_DISPONIBLES.map(tag => `
+/** @param {Array<{ tag: string, descripcion: string }>} catalogo — GET /plantillas/etiquetas-motor */
+function renderEtiquetasAyuda(catalogo = []) {
+    if (!catalogo || catalogo.length === 0) {
+        return `<p class="text-xs text-amber-800 bg-amber-50 border border-amber-200 p-2 rounded">No se pudo cargar el catálogo de etiquetas. Recarga la página o revisa la conexión con el servidor.</p>`;
+    }
+    return catalogo.map((row) => `
         <div class="flex items-center justify-between text-xs bg-gray-50 p-2 rounded border border-gray-200">
-            <div>
-                <span class="font-mono font-bold text-primary-700 select-all">${tag.etiqueta}</span>
-                <span class="text-gray-500 ml-2">- ${tag.descripcion}</span>
+            <div class="min-w-0 pr-2">
+                <span class="font-mono font-bold text-primary-700 select-all">${_escHtml(row.tag)}</span>
+                <span class="text-gray-500 ml-2">— ${_escHtml(row.descripcion)}</span>
             </div>
-            <button type="button" data-etiqueta="${tag.etiqueta}" class="copy-tag-btn text-gray-400 hover:text-primary-600 ml-2" title="Copiar">
-                📋
+            <button type="button" data-etiqueta="${_escHtml(row.tag)}" class="copy-tag-btn text-gray-400 hover:text-primary-600 ml-2 shrink-0" title="Copiar">
+                <i class="fa-solid fa-clipboard"></i>
             </button>
         </div>
     `).join('');
 }
 
-export const renderModalPlantilla = () => {
+export const renderModalPlantilla = (catalogoEtiquetas = []) => {
     return `
         <div id="plantilla-modal" class="modal hidden">
             <div class="modal-content !max-w-5xl h-[90vh] flex flex-col">
-                <div class="flex justify-between items-center pb-3 border-b mb-4 flex-shrink-0">
-                    <h3 id="modal-title" class="text-xl font-semibold">Nueva Plantilla</h3>
-                    <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+                <div class="flex items-center gap-4 mb-6 pb-5 border-b flex-shrink-0">
+                    <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 text-xl flex-shrink-0">✉️</div>
+                    <div class="flex-1">
+                        <h3 id="modal-title" class="text-xl font-semibold text-gray-900">Nueva Plantilla</h3>
+                        <p id="modal-plantilla-subtitle" class="text-sm text-gray-500">Redacta el contenido del mensaje</p>
+                    </div>
+                    <button id="close-modal-btn" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
                 </div>
                 
                 <div class="flex flex-col md:flex-row gap-6 flex-grow overflow-hidden">
@@ -65,23 +63,33 @@ export const renderModalPlantilla = () => {
                                 <input type="text" id="asunto" name="asunto" class="form-input mt-1" placeholder="Ej: Confirmación de Reserva en [ALOJAMIENTO_NOMBRE]">
                             </div>
 
-                            <div class="flex-grow flex flex-col mb-4">
-                                <label for="texto" class="block text-sm font-medium text-gray-700 mb-1">Contenido del Mensaje</label>
-                                <textarea id="texto" name="texto" required class="form-input flex-grow resize-none font-mono text-sm" placeholder="Hola [CLIENTE_NOMBRE]..."></textarea>
+                            <div class="mb-4">
+                                <label for="plantilla-ia-instrucciones" class="block text-xs font-medium text-gray-600">Instrucciones opcionales para la IA</label>
+                                <textarea id="plantilla-ia-instrucciones" name="plantillaIaInstrucciones" rows="2" class="form-input mt-1 text-sm" placeholder="Ej.: tono formal, mencionar política de cancelación, no usar emojis..."></textarea>
+                            </div>
+
+                            <div class="flex-grow flex flex-col mb-4 min-h-0">
+                                <div class="mb-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                    <label for="texto" class="block text-sm font-medium text-gray-700">Contenido del Mensaje</label>
+                                    <button type="button" id="plantilla-generar-ia-btn" class="btn-outline text-xs py-1.5 px-3 whitespace-nowrap flex items-center gap-1.5 shrink-0" title="Requiere tipo de mensaje. Usa las etiquetas [VARIABLE] del panel derecho.">
+                                        <i class="fa-solid fa-wand-magic-sparkles"></i> Generar con IA
+                                    </button>
+                                </div>
+                                <textarea id="texto" name="texto" required class="form-input flex-grow resize-none font-mono text-sm min-h-[200px]" placeholder="Hola [CLIENTE_NOMBRE]..."></textarea>
                             </div>
 
                             <div class="flex justify-end pt-4 border-t mt-auto flex-shrink-0">
-                                <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
+                                <button type="button" id="cancel-btn" class="btn-outline mr-2">Cancelar</button>
                                 <button type="submit" class="btn-primary">Guardar Plantilla</button>
                             </div>
                         </form>
                     </div>
 
                     <div class="w-full md:w-1/3 bg-gray-50 border-l p-4 overflow-y-auto flex-shrink-0 rounded-r-lg">
-                        <h4 class="font-semibold text-gray-700 mb-3 text-sm">Variables Disponibles</h4>
-                        <p class="text-xs text-gray-500 mb-4">Haz clic en el icono para copiar y pega en el contenido.</p>
+                        <h4 class="font-semibold text-gray-700 mb-3 text-sm">Etiquetas del motor</h4>
+                        <p class="text-xs text-gray-500 mb-4">Solo estas variables se sustituyen al enviar el correo (mismo criterio que <strong>Generar con IA</strong>). Haz clic en el icono para copiar.</p>
                         <div id="etiquetas-container" class="space-y-2">
-                            ${renderEtiquetasAyuda()}
+                            ${renderEtiquetasAyuda(catalogoEtiquetas)}
                         </div>
                     </div>
                 </div>
@@ -102,9 +110,11 @@ export const abrirModalPlantilla = (plantilla = null, tipos = []) => {
     tipoSelect.innerHTML = '<option value="">-- Seleccionar Tipo --</option>' + 
         tipos.map(t => `<option value="${t.id}">${t.nombre}</option>`).join('');
 
+    const subtitle = document.getElementById('modal-plantilla-subtitle');
     if (plantilla) {
         editandoPlantilla = plantilla;
         modalTitle.textContent = 'Editar Plantilla';
+        if (subtitle) subtitle.textContent = plantilla.nombre;
         form.nombre.value = plantilla.nombre;
         form.tipoId.value = plantilla.tipoId;
         form.asunto.value = plantilla.asunto || '';
@@ -112,8 +122,11 @@ export const abrirModalPlantilla = (plantilla = null, tipos = []) => {
     } else {
         editandoPlantilla = null;
         modalTitle.textContent = 'Nueva Plantilla';
+        if (subtitle) subtitle.textContent = 'Redacta el contenido del mensaje';
         form.reset();
     }
+    const iaInstr = document.getElementById('plantilla-ia-instrucciones');
+    if (iaInstr) iaInstr.value = '';
     
     modal.classList.remove('hidden');
 };
@@ -146,11 +159,47 @@ export const setupModalPlantilla = (callback) => {
             const etiqueta = btn.dataset.etiqueta;
             navigator.clipboard.writeText(etiqueta).then(() => {
                 const originalHtml = btn.innerHTML;
-                btn.textContent = '✅';
+                btn.innerHTML = '<i class="fa-solid fa-check text-success-500"></i>';
                 setTimeout(() => { btn.innerHTML = originalHtml; }, 1500);
             });
         }
     });
+
+    const genIaBtn = newForm.querySelector('#plantilla-generar-ia-btn');
+    if (genIaBtn) {
+        genIaBtn.addEventListener('click', async () => {
+            const tipoId = newForm.tipoId?.value;
+            if (!tipoId) {
+                alert('Selecciona un tipo de mensaje para que la IA adapte el texto y las etiquetas del motor.');
+                return;
+            }
+            const originalHtml = genIaBtn.innerHTML;
+            genIaBtn.disabled = true;
+            genIaBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generando...';
+            try {
+                const tipoOpt = newForm.tipoId.options[newForm.tipoId.selectedIndex];
+                const tipoNombre = tipoOpt ? tipoOpt.textContent.trim() : '';
+                const iaInstr = newForm.querySelector('#plantilla-ia-instrucciones');
+                const data = await fetchAPI('/plantillas/generar-ia', {
+                    method: 'POST',
+                    body: {
+                        tipoId,
+                        tipoNombre,
+                        nombreBorrador: newForm.nombre.value,
+                        instrucciones: iaInstr?.value || '',
+                    },
+                });
+                if (data.nombre) newForm.nombre.value = data.nombre;
+                if (data.asunto != null) newForm.asunto.value = data.asunto;
+                if (data.texto) newForm.texto.value = data.texto;
+            } catch (err) {
+                alert(err.message || String(err));
+            } finally {
+                genIaBtn.disabled = false;
+                genIaBtn.innerHTML = originalHtml;
+            }
+        });
+    }
 
     newForm.addEventListener('submit', async (e) => {
         e.preventDefault();

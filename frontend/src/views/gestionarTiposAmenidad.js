@@ -24,7 +24,13 @@ export async function render() {
 
             <div id="modal-crear-tipo" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
                 <div class="relative bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-                    <h3 class="text-xl font-semibold mb-4">Crear Nuevo Tipo</h3>
+                    <div class="flex items-center gap-4 mb-6 pb-5 border-b">
+                        <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 text-xl flex-shrink-0">🛏️</div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900">Crear Nuevo Tipo</h3>
+                            <p class="text-sm text-gray-500">Amenidad o elemento de alojamiento</p>
+                        </div>
+                    </div>
                     <form id="form-crear-tipo">
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700">Nombre</label>
@@ -43,7 +49,7 @@ export async function render() {
                             <input type="text" name="icono" class="form-input mt-1 block w-full" placeholder="Ej: 👑">
                         </div>
                         <div class="flex justify-end gap-3 mt-6">
-                            <button type="button" id="btn-cancelar" class="btn-secondary">Cancelar</button>
+                            <button type="button" id="btn-cancelar" class="btn-outline">Cancelar</button>
                             <button type="submit" class="btn-primary">Guardar</button>
                         </div>
                     </form>

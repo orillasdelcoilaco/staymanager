@@ -1,7 +1,6 @@
 // backend/services/gestionPropuestas.write.js
 const { randomUUID } = require('crypto');
 const pool = require('../db/postgres');
-const admin = require('firebase-admin');
 const { crearOActualizarCliente } = require('./clientesService');
 const { recalcularValoresDesdeTotal } = require('./utils/calculoValoresService');
 const { registrarAjusteValor } = require('./utils/trazabilidadService');
@@ -78,42 +77,8 @@ async function _pgTransactionPropuesta(client, empresaId, idGrupo, propiedades, 
     }
 }
 
-async function _fsTransactionPropuesta(transaction, db, reservasRef, idGrupo, propiedades, datos, fin, clienteId, usuarioEmail) {
-    const { fechaLlegada, fechaSalida, noches, canalId, canalNombre, moneda, valorDolarDia, origen, icalUid, codigoCupon, personas, idPropuestaExistente, descuentoPct, descuentoFijo, valorFinalFijado, valorOriginal } = datos;
-    let idCargaParaPreservar = null;
-    if (idPropuestaExistente) {
-        const snap = await transaction.get(reservasRef.where('idReservaCanal', '==', idPropuestaExistente).where('estado', '==', 'Propuesta'));
-        if (!snap.empty) idCargaParaPreservar = snap.docs[0].data().idCarga;
-        snap.forEach(doc => transaction.delete(doc.ref));
-    }
-    let personasAsignadas = false;
-    for (const prop of propiedades) {
-        const ref = reservasRef.doc();
-        const p = 1 / propiedades.length;
-        const valores = { ..._buildValoresPropiedad(fin, p, valorDolarDia, valorOriginal, descuentoPct, descuentoFijo, valorFinalFijado), comisionOriginal: 0, costoCanalOriginal: 0, comisionCalculado: 0, costoCanalCalculado: 0 };
-        transaction.set(ref, {
-            id: ref.id, idUnicoReserva: `${idGrupo}-${prop.id}`, idCarga: idCargaParaPreservar,
-            idReservaCanal: idGrupo, icalUid: icalUid || null, clienteId, alojamientoId: prop.id,
-            alojamientoNombre: prop.nombre, canalId: canalId || null, canalNombre: canalNombre || 'Por Defecto',
-            fechaLlegada: admin.firestore.Timestamp.fromDate(new Date(fechaLlegada + 'T00:00:00Z')),
-            fechaSalida:  admin.firestore.Timestamp.fromDate(new Date(fechaSalida  + 'T00:00:00Z')),
-            totalNoches: noches, cantidadHuespedes: personasAsignadas ? 0 : (personas || 0),
-            estado: 'Propuesta', origen: origen || 'manual', moneda, valorDolarDia,
-            cuponUtilizado: codigoCupon || null, valores, historialAjustes: [],
-            fechaReserva: admin.firestore.FieldValue.serverTimestamp(),
-            fechaCreacion: admin.firestore.FieldValue.serverTimestamp(), fechaActualizacion: new Date()
-        });
-        await registrarAjusteValor(transaction, db, empresaId, ref, {
-            fuente: idPropuestaExistente ? 'Edición Propuesta' : 'Creación Propuesta',
-            usuarioEmail, valorAnteriorUSD: fin.ancla_TotalCliente_USD * p,
-            valorNuevoUSD: fin.actual_TotalCliente_USD * p, valorDolarUsado: valorDolarDia
-        });
-        personasAsignadas = true;
-    }
-}
-
 const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, idPropuestaExistente = null) => {
-    const { cliente, propiedades, canalId, canalNombre, moneda, valorDolarDia, valorOriginal, descuentoPct, descuentoFijo, valorFinalFijado, idReservaCanal, plantillaId, enviarEmail, linkPago, noches, personas } = datos;
+    const { cliente, propiedades, canalId, canalNombre, moneda, valorDolarDia, valorOriginal, descuentoPct, descuentoFijo, valorFinalFijado, idReservaCanal, plantillaId, enviarEmail, noches, personas } = datos;
     const idGrupo = idReservaCanal || idPropuestaExistente || randomUUID();
 
     let clienteId, clienteData = cliente;
@@ -124,32 +89,19 @@ const guardarOActualizarPropuesta = async (db, empresaId, usuarioEmail, datos, i
         clienteId = res.cliente.id; clienteData = res.cliente;
     } else { clienteId = null; }
 
-    let configuracionIva;
-    if (pool) {
-        const { rows } = await pool.query('SELECT metadata FROM canales WHERE id = $1 AND empresa_id = $2', [canalId, empresaId]);
-        if (!rows[0]) throw new Error("El canal seleccionado no es válido.");
-        configuracionIva = rows[0].metadata?.configuracionIva || 'incluido';
-    } else {
-        const canalDoc = await db.collection('empresas').doc(empresaId).collection('canales').doc(canalId).get();
-        if (!canalDoc.exists) throw new Error("El canal seleccionado no es válido.");
-        configuracionIva = canalDoc.data().configuracionIva || 'incluido';
-    }
+    const { rows } = await pool.query('SELECT metadata FROM canales WHERE id = $1 AND empresa_id = $2', [canalId, empresaId]);
+    if (!rows[0]) throw new Error("El canal seleccionado no es válido.");
+    const configuracionIva = rows[0].metadata?.configuracionIva || 'incluido';
 
     const fin = _calcularFinanciero(valorOriginal, moneda, valorDolarDia, descuentoPct, descuentoFijo, valorFinalFijado, configuracionIva);
     const datosCompletos = { ...datos, idPropuestaExistente };
 
-    if (pool) {
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
-            await _pgTransactionPropuesta(client, empresaId, idGrupo, propiedades, datosCompletos, fin, clienteId);
-            await client.query('COMMIT');
-        } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
-    } else {
-        await db.runTransaction(async (transaction) => {
-            await _fsTransactionPropuesta(transaction, db, db.collection('empresas').doc(empresaId).collection('reservas'), idGrupo, propiedades, datosCompletos, fin, clienteId, usuarioEmail);
-        });
-    }
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await _pgTransactionPropuesta(client, empresaId, idGrupo, propiedades, datosCompletos, fin, clienteId);
+        await client.query('COMMIT');
+    } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
 
     if (enviarEmail && plantillaId && clienteData?.email) {
         try {
@@ -169,34 +121,21 @@ const guardarPresupuesto = async (db, empresaId, datos) => {
     }
     const datosPresupuesto = { clienteId, clienteNombre: cliente.nombre, fechaLlegada, fechaSalida, propiedades, monto: precioFinal, noches, texto, estado: 'Borrador' };
 
-    if (pool) {
-        if (id) {
-            await pool.query(`UPDATE presupuestos SET datos = datos || $1::jsonb, updated_at = NOW() WHERE id = $2 AND empresa_id = $3`, [JSON.stringify(datosPresupuesto), id, empresaId]);
-            return { id };
-        }
-        const { rows } = await pool.query(`INSERT INTO presupuestos (empresa_id, cliente_id, estado, datos) VALUES ($1,$2,'Borrador',$3) RETURNING id`, [empresaId, clienteId, JSON.stringify(datosPresupuesto)]);
-        return { id: rows[0].id };
+    if (id) {
+        await pool.query(`UPDATE presupuestos SET datos = datos || $1::jsonb, updated_at = NOW() WHERE id = $2 AND empresa_id = $3`, [JSON.stringify(datosPresupuesto), id, empresaId]);
+        return { id };
     }
-
-    const ref = db.collection('empresas').doc(empresaId).collection('presupuestos');
-    const fsData = { ...datosPresupuesto, fechaActualizacion: admin.firestore.FieldValue.serverTimestamp() };
-    if (id) { await ref.doc(id).update(fsData); return { id }; }
-    fsData.fechaCreacion = admin.firestore.FieldValue.serverTimestamp();
-    const docRef = await ref.add(fsData);
-    return { id: docRef.id };
+    const { rows } = await pool.query(`INSERT INTO presupuestos (empresa_id, cliente_id, estado, datos) VALUES ($1,$2,'Borrador',$3) RETURNING id`, [empresaId, clienteId, JSON.stringify(datosPresupuesto)]);
+    return { id: rows[0].id };
 };
 
-const rechazarPropuesta = async (db, empresaId, idsReservas) => {
+const rechazarPropuesta = async (_db, empresaId, idsReservas) => {
     if (!idsReservas || idsReservas.length === 0) throw new Error("No se proporcionaron IDs de reserva para rechazar.");
-    if (pool) { await pool.query(`DELETE FROM reservas WHERE id = ANY($1) AND empresa_id = $2`, [idsReservas, empresaId]); return; }
-    const batch = db.batch();
-    idsReservas.forEach(id => batch.delete(db.collection('empresas').doc(empresaId).collection('reservas').doc(id)));
-    await batch.commit();
+    await pool.query(`DELETE FROM reservas WHERE id = ANY($1) AND empresa_id = $2`, [idsReservas, empresaId]);
 };
 
-const rechazarPresupuesto = async (db, empresaId, presupuestoId) => {
-    if (pool) { await pool.query(`UPDATE presupuestos SET estado = 'Rechazado', updated_at = NOW() WHERE id = $1 AND empresa_id = $2`, [presupuestoId, empresaId]); return; }
-    await db.collection('empresas').doc(empresaId).collection('presupuestos').doc(presupuestoId).update({ estado: 'Rechazado' });
+const rechazarPresupuesto = async (_db, empresaId, presupuestoId) => {
+    await pool.query(`UPDATE presupuestos SET estado = 'Rechazado', updated_at = NOW() WHERE id = $1 AND empresa_id = $2`, [presupuestoId, empresaId]);
 };
 
 module.exports = { guardarOActualizarPropuesta, guardarPresupuesto, rechazarPropuesta, rechazarPresupuesto };

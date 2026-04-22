@@ -74,7 +74,10 @@ function renderRows() {
             <td class="py-3 px-4 text-gray-500">${c.telefono || '—'}</td>
             <td class="py-3 px-4 text-gray-500 truncate max-w-[160px]">${c.email || '—'}</td>
             <td class="py-3 px-4 text-center">
-                <button class="crm-view-btn btn-outline text-xs py-1 px-2" data-id="${c.id}">Ver</button>
+                <div class="flex flex-wrap items-center justify-center gap-1">
+                    <button type="button" class="crm-view-btn btn-outline text-xs py-1 px-2" data-id="${c.id}" title="Perfil y actividad">Perfil</button>
+                    <button type="button" class="crm-correos-btn btn-outline text-xs py-1 px-2" data-id="${c.id}" title="Historial de correos (tabla comunicaciones)"><i class="fa-solid fa-envelope"></i></button>
+                </div>
             </td>
         </tr>`;
     }).join('');
@@ -92,8 +95,14 @@ export function renderTable() {
                     <option value="">Todos los segmentos</option>
                     ${segmentos.map(s => `<option value="${s}">${s}</option>`).join('')}
                 </select>
+                <button type="button" id="crm-recalcular-segmentos-btn" class="btn-primary text-sm flex items-center gap-1.5 whitespace-nowrap"
+                        title="Recalcula para todos los clientes: Campeones, Leales, Potenciales, En riesgo, Hibernando y Sin reservas (RFM + gasto)">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    Clasificar segmentos
+                </button>
                 <span id="crm-table-count" class="text-sm text-gray-500"></span>
             </div>
+            <p id="crm-recalcular-msg" class="text-xs text-gray-500 mt-2 hidden" role="status"></p>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div class="overflow-x-auto">
@@ -106,7 +115,7 @@ export function renderTable() {
                             <th class="th py-3 px-4 text-right cursor-pointer select-none" data-sort="totalGastado">Gasto Total ↕</th>
                             <th class="th py-3 px-4">Teléfono</th>
                             <th class="th py-3 px-4">Email</th>
-                            <th class="th py-3 px-4 text-center">Acciones</th>
+                            <th class="th py-3 px-4 text-center">CRM</th>
                         </tr>
                     </thead>
                     <tbody id="crm-table-tbody"></tbody>
@@ -126,6 +135,37 @@ export async function setupTable() {
     document.getElementById('crm-table-search')?.addEventListener('input', renderRows);
     document.getElementById('crm-table-seg-filter')?.addEventListener('change', renderRows);
 
+    const recalcBtn = document.getElementById('crm-recalcular-segmentos-btn');
+    const recalcMsg = document.getElementById('crm-recalcular-msg');
+    recalcBtn?.addEventListener('click', async () => {
+        recalcBtn.disabled = true;
+        const prevHtml = recalcBtn.innerHTML;
+        recalcBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Clasificando…';
+        recalcMsg?.classList.add('hidden');
+        try {
+            const data = await fetchAPI('/crm/recalcular-segmentos', { method: 'POST' });
+            allClientes = await fetchAPI('/clientes');
+            renderRows();
+            if (recalcMsg) {
+                const n = data.total != null ? `${data.actualizados ?? 0} / ${data.total}` : '';
+                recalcMsg.textContent = n ? `${data.message || 'Listo.'} (${n} clientes).` : (data.message || 'Listo.');
+                recalcMsg.classList.remove('hidden');
+                recalcMsg.classList.remove('text-danger-600');
+                recalcMsg.classList.add('text-gray-600');
+            }
+        } catch (err) {
+            if (recalcMsg) {
+                recalcMsg.textContent = err.message || 'Error al clasificar.';
+                recalcMsg.classList.remove('hidden');
+                recalcMsg.classList.add('text-danger-600');
+                recalcMsg.classList.remove('text-gray-600');
+            }
+        } finally {
+            recalcBtn.disabled = false;
+            recalcBtn.innerHTML = prevHtml;
+        }
+    });
+
     // Sort headers
     document.querySelectorAll('[data-sort]').forEach(th => {
         th.addEventListener('click', () => {
@@ -136,9 +176,10 @@ export async function setupTable() {
         });
     });
 
-    // View button
     document.getElementById('crm-table-tbody')?.addEventListener('click', e => {
-        const btn = e.target.closest('.crm-view-btn');
-        if (btn) handleNavigation(`/cliente/${btn.dataset.id}`);
+        const perfil = e.target.closest('.crm-view-btn');
+        if (perfil) handleNavigation(`/cliente/${perfil.dataset.id}`);
+        const correos = e.target.closest('.crm-correos-btn');
+        if (correos) handleNavigation(`/cliente/${correos.dataset.id}?tab=correos`);
     });
 }

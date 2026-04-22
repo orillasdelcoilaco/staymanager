@@ -1,8 +1,7 @@
 // backend/services/googleHotelsService.js
+const pool = require('../db/postgres');
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
-const { getAvailabilityData, calculatePrice } = require('./propuestasService'); // Importar funciones necesarias
-const { obtenerValorDolar } = require('./dolarService'); // Importar para obtener dólar histórico si es necesario
-const admin = require('firebase-admin');
+const { getAvailabilityData } = require('./propuestasService');
 
 // Función para escapar caracteres XML (sin cambios)
 const escapeXml = (unsafe) => {
@@ -18,9 +17,8 @@ const escapeXml = (unsafe) => {
     });
 };
 
-const generatePropertyListFeed = async (db, empresaId) => {
-    // ... (código sin cambios)
-    const propiedades = await obtenerPropiedadesPorEmpresa(db, empresaId);
+const generatePropertyListFeed = async (_db, empresaId) => {
+    const propiedades = await obtenerPropiedadesPorEmpresa(null, empresaId);
     const propiedadesListadas = propiedades.filter(p => p.googleHotelData && p.googleHotelData.isListed && p.googleHotelData.hotelId);
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
@@ -50,24 +48,26 @@ const generatePropertyListFeed = async (db, empresaId) => {
 };
 
 // --- NUEVA FUNCIÓN PARA EL FEED ARI ---
-const generateAriFeed = async (db, empresaId) => {
+const generateAriFeed = async (_db, empresaId) => {
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
     // Google recomienda enviar disponibilidad para los próximos 180-365 días. Empecemos con 90.
     const endDateLimit = new Date(today);
     endDateLimit.setDate(today.getDate() + 90);
 
-    const [propiedades, canalesSnapshot, tarifasSnapshot] = await Promise.all([
-        obtenerPropiedadesPorEmpresa(db, empresaId),
-        db.collection('empresas').doc(empresaId).collection('canales').where('esCanalPorDefecto', '==', true).limit(1).get(),
-        db.collection('empresas').doc(empresaId).collection('tarifas').get()
+    const [propiedades, canalRes] = await Promise.all([
+        obtenerPropiedadesPorEmpresa(null, empresaId),
+        pool.query(
+            `SELECT id, metadata->>'moneda' AS moneda FROM canales WHERE empresa_id = $1 AND (metadata->>'esCanalPorDefecto')::boolean = true LIMIT 1`,
+            [empresaId]
+        ),
     ]);
 
-    if (canalesSnapshot.empty) {
+    if (!canalRes.rows[0]) {
         throw new Error('No se ha configurado un canal por defecto.');
     }
-    const canalPorDefectoId = canalesSnapshot.docs[0].id;
-    const canalPorDefectoMoneda = canalesSnapshot.docs[0].data().moneda || 'CLP';
+    const canalPorDefectoId = canalRes.rows[0].id;
+    const canalPorDefectoMoneda = canalRes.rows[0].moneda || 'CLP';
 
     const propiedadesListadas = propiedades.filter(p => p.googleHotelData && p.googleHotelData.isListed && p.googleHotelData.hotelId);
     if (propiedadesListadas.length === 0) {

@@ -4,8 +4,10 @@ const path = require('path');
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 if (!OPENAI_API_KEY) {
-    console.error("ERROR: Falta OPENAI_API_KEY en variables de entorno");
-    process.exit(1);
+    console.error("⚠️  OPENAI_API_KEY no configurada - App Premium deshabilitada");
+    console.log("💡 Para habilitar App Premium, agregar OPENAI_API_KEY al .env");
+    // No salir con error, solo loguear y continuar
+    process.exit(0); // Salir exitosamente sin hacer nada
 }
 
 // Tentative endpoint – verify in Apps SDK docs

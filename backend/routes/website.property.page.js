@@ -1,7 +1,7 @@
 const { differenceInMonths, differenceInYears } = require('date-fns');
 const { resolvePublicStayDates, computeHostingDurationLabel } = require('./website.property.helpers');
 const { obtenerMasAlojamientosParaFichaSSR } = require('../services/publicWebsiteService');
-const { mergeEffectiveRules, buildHouseRulesPublicView } = require('../services/houseRulesService');
+const { mergeEffectiveRules, buildHouseRulesPublicView, patchJsonLdWithHouseRules } = require('../services/houseRulesService');
 
 /** Evita tarjetas duplicadas en SSR (ids repetidos o mismo huésped/texto por datos viejos). */
 function dedupeResenasLista(rows) {
@@ -159,7 +159,7 @@ async function renderPropiedadPublica(req, res, db, deps) {
         const galeriaAreasComunes = buildEmpresaAreasComunesGallery(empresaCompleta, propiedad);
 
         // JSON-LD: buildContext vive en metadata pero el servicio público hace spread → propiedad.buildContext
-        const schemaData =
+        let schemaData =
             propiedad.buildContext?.publicacion?.jsonLd
             || propiedad.metadata?.buildContext?.publicacion?.jsonLd
             || null;
@@ -187,6 +187,9 @@ async function renderPropiedadPublica(req, res, db, deps) {
             propiedad.normasAlojamiento || {}
         );
         const reglasVista = buildHouseRulesPublicView(reglasMerged, propiedad.capacidad);
+        if (schemaData) {
+            schemaData = patchJsonLdWithHouseRules(schemaData, reglasMerged);
+        }
 
         res.render('propiedad', {
             title: `${propiedad.nombre} | ${empresaCompleta.nombre}`,

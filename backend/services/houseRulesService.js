@@ -251,10 +251,45 @@ function buildHouseRulesPublicView(merged, capacidadPropiedad) {
     };
 }
 
+const { isLikelyLodgingJsonLdNode } = require('./jsonLdLodgingTypes');
+
+/**
+ * Alinea JSON-LD público con normas mergeadas (petsAllowed, smokingAllowed).
+ * Solo toca nodos con @type de alojamiento; si no hay candidato claro, devuelve el clon sin cambios en señales.
+ */
+function patchJsonLdWithHouseRules(jsonLd, mergedRules) {
+    if (!jsonLd || typeof jsonLd !== 'object') return jsonLd;
+    let out;
+    try {
+        out = JSON.parse(JSON.stringify(jsonLd));
+    } catch {
+        return jsonLd;
+    }
+    const r = sanitizeHouseRules(mergedRules || {});
+    const apply = (node) => {
+        if (!node || typeof node !== 'object') return;
+        if (r.admiteMascotas === 'si') node.petsAllowed = true;
+        else if (r.admiteMascotas === 'no') node.petsAllowed = false;
+        else delete node.petsAllowed;
+        if (r.permiteFumar === 'si') node.smokingAllowed = true;
+        else node.smokingAllowed = false;
+    };
+    if (Array.isArray(out['@graph'])) {
+        const graph = out['@graph'];
+        const lodging = graph.filter(isLikelyLodgingJsonLdNode);
+        const targets = lodging.length ? lodging : [];
+        targets.forEach(apply);
+        return out;
+    }
+    if (isLikelyLodgingJsonLdNode(out)) apply(out);
+    return out;
+}
+
 module.exports = {
     emptyHouseRules,
     sanitizeHouseRules,
     mergeEffectiveRules,
     buildHouseRulesPublicView,
+    patchJsonLdWithHouseRules,
     ITEM_KEYS,
 };

@@ -8,9 +8,13 @@ export const renderModalCanal = () => {
     return `
         <div id="canal-modal" class="modal hidden">
             <div class="modal-content !max-w-3xl">
-                <div class="flex justify-between items-center pb-3">
-                    <h3 id="modal-title" class="text-xl font-semibold">Nuevo Canal</h3>
-                    <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800">&times;</button>
+                <div class="flex items-center gap-4 mb-6 pb-5 border-b">
+                    <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 text-xl flex-shrink-0">📡</div>
+                    <div class="flex-1">
+                        <h3 id="modal-title" class="text-xl font-semibold text-gray-900">Nuevo Canal</h3>
+                        <p id="modal-canal-subtitle" class="text-sm text-gray-500">Configura los datos del canal de ventas</p>
+                    </div>
+                    <button id="close-modal-btn" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
                 </div>
                 <form id="canal-form">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -37,7 +41,7 @@ export const renderModalCanal = () => {
                             </select>
                         </div>
                     </div>
-                     <div class="border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div class="border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                         <div class="mb-4">
                             <label for="modificadorTipo" class="block text-sm font-medium text-gray-700">Modificador de Tarifa</label>
                             <select id="modificadorTipo" name="modificadorTipo" class="form-select mt-1">
@@ -67,7 +71,7 @@ export const renderModalCanal = () => {
                         </label>
                     </div>
                     <div class="flex justify-end pt-4 mt-4 border-t">
-                        <button type="button" id="cancel-btn" class="btn-secondary mr-2">Cancelar</button>
+                        <button type="button" id="cancel-btn" class="btn-outline mr-2">Cancelar</button>
                         <button type="submit" class="btn-primary">Guardar</button>
                     </div>
                 </form>
@@ -83,9 +87,11 @@ export const abrirModalCanal = (canal = null) => {
     
     if (!modal || !form) return;
 
+    const subtitle = document.getElementById('modal-canal-subtitle');
     if (canal) {
         editandoCanal = canal;
         modalTitle.textContent = 'Editar Canal';
+        if (subtitle) subtitle.textContent = canal.nombre;
         form.nombre.value = canal.nombre;
         form.clienteIdCanal.value = canal.clienteIdCanal || '';
         form.descripcion.value = canal.descripcion || '';
@@ -98,6 +104,7 @@ export const abrirModalCanal = (canal = null) => {
     } else {
         editandoCanal = null;
         modalTitle.textContent = 'Nuevo Canal';
+        if (subtitle) subtitle.textContent = 'Configura los datos del canal de ventas';
         form.reset();
         form.moneda.value = 'CLP';
         form.separadorDecimal.value = ',';

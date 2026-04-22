@@ -1,3 +1,7 @@
+**Backlog de producto (hitos pendientes):** ver `TASKS/backlog-producto-pendientes.md`.
+
+---
+
 ## 🔴 FEEDBACK DE ANTIGRAVITY — Leer antes de enviar nuevas tareas
 
 **Reporte de revisión UI — observaciones sobre el informe:**

@@ -1,18 +1,36 @@
 // backend/routes/crm.js
 const express = require('express');
-const { obtenerClientesPorSegmento, segmentarClienteRFM } = require('../services/crmService');
+const { obtenerClientesPorSegmento, obtenerDashboardCRM } = require('../services/crmService');
+const { generateForTask } = require('../services/aiContentService');
+const { AI_TASK } = require('../services/ai/aiEnums');
+const { sanitizeInput } = require('../services/ai/prompts/sanitizer');
+const { promptCampanaMensaje } = require('../services/ai/prompts/crm');
 const { recalcularEstadisticasClientes } = require('../services/clientesService');
-const { crearCampanaYRegistrarInteracciones, actualizarEstadoInteraccion, obtenerCampanas } = require('../services/campanasService');
-const { generarCuponParaCliente, validarCupon } = require('../services/cuponesService');
+const { crearCampanaYRegistrarInteracciones, actualizarEstadoInteraccion, obtenerCampanas, obtenerInteraccionesCampana } = require('../services/campanasService');
+const { generarCuponParaCliente, validarCupon, obtenerCuponesCliente, obtenerTodosCupones, obtenerUsoCupon, editarCupon, eliminarCupon } = require('../services/cuponesService');
 
 module.exports = (db) => {
     const router = express.Router();
 
+    router.get('/dashboard', async (req, res) => {
+        try {
+            const dashboard = await obtenerDashboardCRM(db, req.user.empresaId);
+            res.status(200).json(dashboard);
+        } catch (error) {
+            console.error('Error al obtener dashboard CRM:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     router.post('/recalcular-segmentos', async (req, res) => {
         try {
             const { empresaId } = req.user;
-            await recalcularEstadisticasClientes(db, empresaId);
-            res.status(200).json({ message: 'La segmentación de clientes ha sido actualizada.' });
+            const stats = await recalcularEstadisticasClientes(db, empresaId);
+            res.status(200).json({
+                message: 'Segmentación actualizada según reservas confirmadas y reglas RFM.',
+                actualizados: stats.actualizados,
+                total: stats.total,
+            });
         } catch (error) {
             console.error("Error al recalcular segmentos:", error);
             res.status(500).json({ error: error.message });
@@ -56,9 +74,7 @@ module.exports = (db) => {
         try {
             const { empresaId } = req.user;
             const { campanaId } = req.params;
-            const snapshot = await db.collection('empresas').doc(empresaId).collection('interacciones')
-                .where('campanaId', '==', campanaId).get();
-            const interacciones = snapshot.docs.map(doc => doc.data());
+            const interacciones = await obtenerInteraccionesCampana(db, empresaId, campanaId);
             res.status(200).json(interacciones);
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -80,11 +96,43 @@ module.exports = (db) => {
     router.post('/cupones', async (req, res) => {
         try {
             const { empresaId } = req.user;
-            const { clienteId, porcentajeDescuento } = req.body;
-            const nuevoCupon = await generarCuponParaCliente(db, empresaId, clienteId, porcentajeDescuento);
+            const { clienteId, porcentajeDescuento, usosMaximos, vigenciaDesde, vigenciaHasta } = req.body;
+            const nuevoCupon = await generarCuponParaCliente(db, empresaId, clienteId, {
+                porcentajeDescuento, usosMaximos, vigenciaDesde, vigenciaHasta
+            });
             res.status(201).json(nuevoCupon);
         } catch (error) {
             res.status(400).json({ error: error.message });
+        }
+    });
+
+    // Cupones de un cliente (auto-detección en Agregar Propuesta)
+    router.get('/cupones/cliente/:clienteId', async (req, res) => {
+        try {
+            const cupones = await obtenerCuponesCliente(db, req.user.empresaId, req.params.clienteId);
+            res.status(200).json(cupones);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Todos los cupones (tab CRM)
+    router.get('/cupones/todos', async (req, res) => {
+        try {
+            const cupones = await obtenerTodosCupones(db, req.user.empresaId);
+            res.status(200).json(cupones);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Detalle de uso de un cupón
+    router.get('/cupones/:codigo/uso', async (req, res) => {
+        try {
+            const uso = await obtenerUsoCupon(db, req.user.empresaId, req.params.codigo);
+            res.status(200).json(uso);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
         }
     });
 
@@ -96,6 +144,54 @@ module.exports = (db) => {
             res.status(200).json(cupon);
         } catch (error) {
             res.status(error.status || 500).json({ error: error.message });
+        }
+    });
+
+    // Editar cupón
+    router.put('/cupones/:id', async (req, res) => {
+        try {
+            const cupon = await editarCupon(db, req.user.empresaId, req.params.id, req.body);
+            res.status(200).json(cupon);
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    });
+
+    // Eliminar cupón (solo si no fue usado)
+    router.delete('/cupones/:id', async (req, res) => {
+        try {
+            const result = await eliminarCupon(db, req.user.empresaId, req.params.id);
+            res.status(200).json(result);
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    });
+
+    router.post('/redactar-promocion', async (req, res) => {
+        try {
+            const { idea, segmento } = req.body;
+            if (!idea) return res.status(400).json({ error: 'Se requiere una idea para la promoción.' });
+
+            const empresaId = req.user.empresaId;
+            const safeIdea = sanitizeInput(idea, AI_TASK.CRM_DRAFTING, { empresaId, campo: 'idea' });
+            const prompt = promptCampanaMensaje({
+                nombreEmpresa: req.user.empresa || '',
+                objetivo: safeIdea,
+                canal: 'whatsapp',
+                tono: 'cercano y profesional',
+                detallesExtra: segmento ? `Segmento: ${segmento}. Incluir [NOMBRE_CLIENTE] al inicio. Mencionar [CUPON_DESCUENTO] si hay descuento.` : 'Incluir [NOMBRE_CLIENTE] al inicio.'
+            });
+
+            const resultado = await generateForTask(AI_TASK.CRM_DRAFTING, prompt, { empresaId });
+            if (!resultado) return res.status(500).json({ error: 'No se pudo generar el mensaje. Intente nuevamente.' });
+
+            res.status(200).json({ mensaje: resultado.cuerpo || resultado.mensaje || '' });
+        } catch (error) {
+            if (error.code === 'AI_INJECTION_DETECTED') {
+                return res.status(400).json({ error: 'El texto contiene instrucciones no permitidas.' });
+            }
+            console.error('Error al redactar promoción:', error);
+            res.status(500).json({ error: error.message });
         }
     });
 

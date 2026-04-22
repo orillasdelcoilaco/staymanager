@@ -1,7 +1,6 @@
 // backend/services/reservas.delete.js
 const pool = require('../db/postgres');
 const admin = require('firebase-admin');
-const idUpdateManifest = require('../config/idUpdateManifest');
 
 function _tieneDocumentos(documentos) {
     return documentos && (documentos.enlaceReserva || documentos.enlaceBoleta);
@@ -113,101 +112,13 @@ async function _eliminarGrupoReservasCascadaPG(empresaId, idReservaCanal) {
     }
 }
 
-async function _decidirYEliminarReservaFirestore(db, empresaId, reservaId) {
-    const reservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(reservaId);
-    const reservaDoc = await reservaRef.get();
-    if (!reservaDoc.exists) throw new Error('Reserva no encontrada.');
-    const reservaData = reservaDoc.data();
-    const idReservaCanal = reservaData.idReservaCanal;
-
-    if (!idReservaCanal) {
-        if (_tieneDocumentos(reservaData.documentos)) {
-            const err = new Error('Esta reserva tiene documentos asociados. Solo se puede eliminar el grupo completo.');
-            err.code = 409;
-            err.data = { idReservaCanal: reservaId, message: 'Esta reserva tiene documentos adjuntos.', grupoInfo: [{ id: reservaId, nombre: reservaData.alojamientoNombre, valor: reservaData.valores?.valorHuesped || 0 }] };
-            throw err;
-        }
-        await reservaRef.delete();
-        return { status: 'individual_deleted', message: 'Reserva individual sin grupo eliminada.' };
-    }
-
-    const transRef = db.collection('empresas').doc(empresaId).collection('transacciones');
-    const notasRef = db.collection('empresas').doc(empresaId).collection('gestionNotas');
-    const [transSnap, notasSnap, grupoSnap] = await Promise.all([
-        transRef.where('reservaIdOriginal', '==', idReservaCanal).limit(1).get(),
-        notasRef.where('reservaIdOriginal', '==', idReservaCanal).limit(1).get(),
-        db.collection('empresas').doc(empresaId).collection('reservas').where('idReservaCanal', '==', idReservaCanal).get(),
-    ]);
-
-    const tienePagosONotas    = !transSnap.empty || !notasSnap.empty;
-    const algunaConDocumentos = grupoSnap.docs.some(doc => _tieneDocumentos(doc.data().documentos));
-    const estaLimpia          = !tienePagosONotas && !algunaConDocumentos;
-
-    if (estaLimpia) {
-        await reservaRef.delete();
-        return { status: 'individual_deleted', message: 'Reserva individual eliminada de un grupo limpio.' };
-    }
-    const grupoInfo = grupoSnap.docs.map(doc => ({ id: doc.id, nombre: doc.data().alojamientoNombre, valor: doc.data().valores?.valorHuesped || 0 }));
-    const err = new Error('Esta reserva tiene datos (pagos/notas/documentos) asociados. Solo se puede eliminar el grupo completo.');
-    err.code = 409;
-    err.data = { idReservaCanal, message: 'Esta reserva es parte de un grupo con datos vinculados.', grupoInfo };
-    throw err;
-}
-
-async function _eliminarGrupoReservasCascadaFirestore(db, empresaId, idReservaCanal) {
-    const bucket = admin.storage().bucket();
-    const batch  = db.batch();
-    let archivosEliminados = 0, erroresStorage = 0;
-
-    const reservasSnapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
-        .where('idReservaCanal', '==', idReservaCanal).get();
-    const transaccionesSnapshot = await db.collection('empresas').doc(empresaId).collection('transacciones')
-        .where('reservaIdOriginal', '==', idReservaCanal).get();
-
-    const urlsStorage = [];
-    reservasSnapshot.forEach(doc => {
-        const r = doc.data();
-        if (r.documentos?.enlaceReserva) urlsStorage.push(r.documentos.enlaceReserva);
-        if (r.documentos?.enlaceBoleta)  urlsStorage.push(r.documentos.enlaceBoleta);
-    });
-    transaccionesSnapshot.forEach(doc => {
-        const enlace = doc.data().enlaceComprobante;
-        if (enlace && enlace !== 'SIN_DOCUMENTO') urlsStorage.push(enlace);
-    });
-
-    for (const url of urlsStorage) {
-        const filePath = _extractStoragePath(url);
-        if (!filePath) continue;
-        try {
-            const file = bucket.file(filePath);
-            const [exists] = await file.exists();
-            if (exists) { await file.delete(); archivosEliminados++; }
-            else erroresStorage++;
-        } catch (e) { console.error('[ERROR] Storage:', e.message); erroresStorage++; }
-    }
-
-    const collectionsToClean = idUpdateManifest.filter(item => item.collection !== 'reservas');
-    for (const item of collectionsToClean) {
-        try {
-            const snap = await db.collection('empresas').doc(empresaId).collection(item.collection)
-                .where(item.field, '==', idReservaCanal).get();
-            snap.forEach(doc => batch.delete(doc.ref));
-        } catch (e) { console.log(`[DEBUG] ${item.collection}: ${e.message}`); }
-    }
-    reservasSnapshot.forEach(doc => batch.delete(doc.ref));
-    await batch.commit();
-    return { status: 'group_deleted', deletedReservas: reservasSnapshot.size, storage: { archivosEliminados, erroresStorage } };
-}
-
-const decidirYEliminarReserva = async (db, empresaId, reservaId) => {
-    if (pool) return _decidirYEliminarReservaPG(empresaId, reservaId);
-    return _decidirYEliminarReservaFirestore(db, empresaId, reservaId);
+const decidirYEliminarReserva = async (_db, empresaId, reservaId) => {
+    return _decidirYEliminarReservaPG(empresaId, reservaId);
 };
 
-const eliminarGrupoReservasCascada = async (db, empresaId, idReservaCanal) => {
+const eliminarGrupoReservasCascada = async (_db, empresaId, idReservaCanal) => {
     try {
-        if (pool) return await _eliminarGrupoReservasCascadaPG(empresaId, idReservaCanal);
-        return await _eliminarGrupoReservasCascadaFirestore(db, empresaId, idReservaCanal);
+        return await _eliminarGrupoReservasCascadaPG(empresaId, idReservaCanal);
     } catch (error) {
         if (error.code === 409) throw error;
         throw new Error(`Error al eliminar el grupo: ${error.message}`);

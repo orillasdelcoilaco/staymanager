@@ -2,7 +2,10 @@
 <header class="bg-white shadow-sm sticky top-0 z-50">
     <div class="container py-3 flex items-center justify-between">
         <a href="/" class="flex items-center space-x-3">
-            <% if (empresa.websiteSettings?.theme?.logoUrl) { %>
+            <%# Logo de la identidad visual o configuración de empresa %>
+            <% if (locals.brandIdentity?.logoUrl) { %>
+                <img src="<%= locals.brandIdentity.logoUrl %>" alt="<%= empresa.nombre %> Logo" class="h-9 max-w-[150px] object-contain">
+            <% } else if (empresa.websiteSettings?.theme?.logoUrl) { %>
                 <img src="<%= empresa.websiteSettings.theme.logoUrl %>" alt="<%= empresa.nombre %> Logo" class="h-9 max-w-[150px] object-contain">
             <% } %>
             <span class="text-xl md:text-2xl font-bold text-gray-900 truncate">
@@ -21,7 +24,7 @@
                     const mensajeGenerico = `Hola ${nombreAnfitrion}, necesito ayuda con una reserva.`;
                     const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeGenerico)}`;
                 %>
-                <a href="<%= whatsappUrl %>" target="_blank" class="btn-whatsapp">
+                <a href="<%= whatsappUrl %>" target="_blank" class="bg-success-600 hover:bg-success-700 text-white px-4 py-2 rounded-lg font-semibold transition flex items-center">
                     <i class="fa-brands fa-whatsapp w-5 h-5 mr-2 text-white"></i>
                     Hola, soy <%= nombreAnfitrion %>, ¿te ayudo?
                 </a>
@@ -38,7 +41,7 @@
                     const mensajeGenerico = `Hola ${nombreAnfitrion}, necesito ayuda con una reserva.`;
                     const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeGenerico)}`;
                 %>
-                <a href="<%= whatsappUrl %>" target="_blank" class="btn-whatsapp p-2">
+                <a href="<%= whatsappUrl %>" target="_blank" class="bg-success-600 hover:bg-success-700 text-white p-2 rounded-lg">
                     <i class="fa-brands fa-whatsapp w-5 h-5 text-white m-0"></i>
                 </a>
              <% } %>

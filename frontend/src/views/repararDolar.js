@@ -29,7 +29,7 @@ export function render() {
                     Para cada día sin valor, el sistema buscará el valor del día anterior y del día siguiente, y usará el <strong>mayor de los dos</strong> para rellenar el vacío. Los valores rellenados se marcarán como "manuales" para protegerlos de futuras cargas de archivos.
                 </p>
                 <div class="mt-4">
-                    <button id="repair-btn" class="px-6 py-3 bg-danger-600 text-white font-semibold rounded-md hover:bg-danger-700">
+                    <button id="repair-btn" class="btn-danger">
                         Iniciar Proceso de Reparación de Historial
                     </button>
                 </div>

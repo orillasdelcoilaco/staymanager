@@ -67,15 +67,8 @@ export function renderSelectionWidgets(containerSuggestion, containerAvailable, 
     document.querySelectorAll('.propiedad-checkbox').forEach(cb => cb.addEventListener('change', onSelectionChange));
 }
 
-/**
- * Renderiza la estructura HTML completa de la vista.
- */
-export function renderPropuestaLayout() {
+function _renderPanelBusqueda() {
     return `
-    <div class="bg-white p-8 rounded-lg shadow space-y-8">
-      <div>
-        <h2 class="text-2xl font-semibold text-gray-900 mb-6">Crear/Editar Propuesta de Reserva</h2>
-        
         <div class="p-4 border rounded-md bg-gray-50 mb-6">
           <h3 class="font-semibold text-gray-800 mb-2">1. Fechas, Personas y Disponibilidad</h3>
           <div class="flex flex-col md:flex-row items-end space-y-4 md:space-y-0 md:space-x-4">
@@ -101,30 +94,33 @@ export function renderPropuestaLayout() {
             </div>
             <button id="buscar-btn" class="btn-primary w-full md:w-auto">Buscar Disponibilidad</button>
           </div>
-        </div>
+        </div>`;
+}
 
-        <div id="status-container" class="text-center text-gray-500 hidden p-4"></div>
-
-        <div id="results-container" class="hidden">
+function _renderPanelPropiedades() {
+    return `
           <div id="propiedades-section" class="p-4 border rounded-md bg-gray-50 mb-6">
             <h3 class="font-semibold text-gray-800">2. Selección de Propiedades</h3>
             <div id="suggestion-list" class="mt-2 space-y-2"></div>
             <h4 class="font-medium text-gray-700 mt-4">Otras Disponibles</h4>
             <div id="available-list" class="mt-2 space-y-2"></div>
-          </div>
+          </div>`;
+}
 
+function _renderPanelCliente() {
+    return `
           <div id="cliente-section" class="p-4 border rounded-md bg-gray-50 mb-6">
             <h3 class="font-semibold text-gray-800 mb-2">3. Cliente y Canal de Venta</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div class="relative"> 
+              <div class="relative">
                 <label id="client-form-title" class="block text-sm font-medium text-gray-700">Buscar o Crear Cliente</label>
                 <input type="text" id="client-search" placeholder="Buscar por nombre o teléfono..." class="form-input mt-1">
                 <div id="client-results-list" class="hidden mt-1 border rounded-md max-h-32 overflow-y-auto bg-white z-10 absolute w-full max-w-sm"></div>
                 <div id="cliente-bloqueo-alert" class="hidden mt-2 p-3 rounded-lg border border-danger-300 bg-danger-50 text-xs">
-                    <p class="font-semibold text-danger-800 mb-1">🚫 Cliente Bloqueado</p>
+                    <p class="font-semibold text-danger-800 mb-1 flex items-center gap-1.5"><i class="fa-solid fa-ban"></i> Cliente Bloqueado</p>
                     <p id="cliente-bloqueo-motivo" class="text-danger-700 mb-2"></p>
                     <p class="text-danger-600 mb-2">Para poder crear una reserva, primero debes desbloquear al cliente desde su ficha.</p>
-                    <button id="ir-editar-cliente-btn" class="btn-outline text-xs py-1 px-2 border-danger-400 text-danger-700 hover:bg-danger-100">Ir a Editar Cliente →</button>
+                    <button id="ir-editar-cliente-btn" class="btn-outline text-xs py-1 px-2 border-danger-400 text-danger-700 hover:bg-danger-100 flex items-center gap-1">Ir a Editar Cliente <i class="fa-solid fa-arrow-right text-[10px]"></i></button>
                 </div>
                 <input type="text" id="new-client-name" placeholder="Nombre completo" class="form-input mt-2">
                 <input type="tel" id="new-client-phone" placeholder="Teléfono" class="form-input mt-2">
@@ -149,18 +145,21 @@ export function renderPropuestaLayout() {
                   <input id="enviar-email-checkbox" type="checkbox" class="h-4 w-4 text-primary-600 border-gray-300 rounded" checked>
                   <label for="enviar-email-checkbox" class="ml-2 block text-sm font-medium text-gray-700">Enviar propuesta por correo</label>
                 </div>
-                <p id="email-warning" class="text-xs text-amber-600 mt-1 hidden">⚠️ El cliente no tiene email registrado</p>
+                <p id="email-warning" class="text-xs text-amber-600 mt-1 hidden flex items-center gap-1"><i class="fa-solid fa-triangle-exclamation"></i> El cliente no tiene email registrado</p>
               </div>
             </div>
-          </div>
+          </div>`;
+}
 
+function _renderPanelResumen() {
+    return `
           <div id="pricing-section" class="p-4 border rounded-md bg-gray-50">
             <h3 class="font-semibold text-gray-800 mb-4">4. Descuentos y Resumen Final</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
+
               <div class="space-y-4 md:col-span-1">
                 <div id="valor-dolar-container" class="hidden"><p id="valor-dolar-info" class="text-sm font-semibold text-primary-600"></p></div>
-                
+
                 <div>
                   <label for="valor-final-fijo" class="block text-sm font-medium text-gray-900">1. Valor Final Fijo (Prioritario)</label>
                   <input type="number" id="valor-final-fijo" placeholder="Ej: 300000" class="form-input mt-1">
@@ -180,7 +179,7 @@ export function renderPropuestaLayout() {
                   <input type="number" id="descuento-fijo-total" placeholder="Ej: 20000" class="form-input mt-1 discount-input">
                 </div>
                 </div>
-              
+
               <div id="summary-original-currency-container" class="p-4 bg-primary-50 border border-primary-200 rounded-md space-y-2 md:col-span-1 hidden"></div>
               <div id="summary-clp-container" class="p-4 bg-white rounded-md border space-y-2 md:col-span-1"></div>
             </div>
@@ -188,21 +187,47 @@ export function renderPropuestaLayout() {
 
           <div class="text-right pt-6 border-t mt-8">
             <button id="guardar-propuesta-btn" class="btn-primary btn-lg">Crear Reserva Tentativa</button>
-          </div>
-        </div>
-      </div>
-    </div>
+          </div>`;
+}
 
+function _renderModalPropuestaGuardada() {
+    return `
     <div id="propuesta-guardada-modal" class="modal hidden">
       <div class="modal-content !max-w-2xl">
-        <h3 class="text-xl font-semibold mb-4">Propuesta Guardada con Éxito</h3>
-        <p class="text-sm text-gray-600 mb-4">Copia el siguiente resumen y envíalo al cliente. Puedes gestionar esta y otras propuestas en la nueva sección "Gestionar Propuestas".</p>
+        <div class="flex items-center gap-4 mb-6 pb-5 border-b">
+            <div class="w-12 h-12 rounded-xl bg-success-100 flex items-center justify-center text-success-600 text-xl flex-shrink-0"><i class="fa-solid fa-check"></i></div>
+            <div>
+                <h3 class="text-xl font-semibold text-gray-900">Propuesta Guardada con Éxito</h3>
+                <p class="text-sm text-gray-500">Copia el resumen y envíalo al cliente</p>
+            </div>
+        </div>
+        <p class="text-sm text-gray-600 mb-4">Puedes gestionar esta y otras propuestas en la sección "Gestionar Propuestas".</p>
         <textarea id="propuesta-texto" rows="15" class="form-input w-full bg-gray-50 font-mono text-xs"></textarea>
         <div class="flex justify-end space-x-2 mt-4">
           <button id="copiar-propuesta-btn" class="btn-secondary">Copiar</button>
           <button id="cerrar-propuesta-modal-btn" class="btn-primary">Cerrar</button>
         </div>
       </div>
+    </div>`;
+}
+
+/**
+ * Renderiza la estructura HTML completa de la vista.
+ */
+export function renderPropuestaLayout() {
+    return `
+    <div class="bg-white p-8 rounded-lg shadow space-y-8">
+      <div>
+        <h2 class="text-2xl font-semibold text-gray-900 mb-6">Crear/Editar Propuesta de Reserva</h2>
+        ${_renderPanelBusqueda()}
+        <div id="status-container" class="text-center text-gray-500 hidden p-4"></div>
+        <div id="results-container" class="hidden">
+          ${_renderPanelPropiedades()}
+          ${_renderPanelCliente()}
+          ${_renderPanelResumen()}
+        </div>
+      </div>
     </div>
+    ${_renderModalPropuestaGuardada()}
     `;
 }

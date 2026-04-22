@@ -1,9 +1,38 @@
 // backend/services/resenasService.js
 const pool = require('../db/postgres');
-const { uploadFile } = require('./storageService');
-const { v4: uuidv4 } = require('uuid');
+const { getSSROptimizedData } = require('./buildContextService');
 
-const STORAGE_PATH = (empresaId) => `empresas/${empresaId}/resenas`;
+/** propiedades.id / reservas.propiedad_id son slugs (texto); la tabla vieja tiene uuid y rompe INSERT/UPDATE. */
+let _ensurePropiedadTextPromise;
+
+async function _ensureResenasPropiedadIdTextColumn() {
+    if (!pool) return;
+    if (_ensurePropiedadTextPromise) return _ensurePropiedadTextPromise;
+    _ensurePropiedadTextPromise = (async () => {
+        const { rows } = await pool.query(
+            `SELECT udt_name FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'resenas'
+               AND column_name = 'propiedad_id'`
+        );
+        if (!rows[0]) return;
+        if (String(rows[0].udt_name || '').toLowerCase() !== 'uuid') return;
+        await pool.query(
+            `ALTER TABLE resenas
+             ALTER COLUMN propiedad_id TYPE TEXT USING propiedad_id::text`
+        );
+        console.warn('[resenasService] resenas.propiedad_id migrado UUID → TEXT (compatible con slugs).');
+    })().catch((e) => {
+        _ensurePropiedadTextPromise = null;
+        const msg = String(e.message || e);
+        throw new Error(
+            `${msg}. La columna resenas.propiedad_id debe ser TEXT para IDs tipo slug. `
+                + 'Ejecutá como superusuario: '
+                + 'ALTER TABLE resenas ALTER COLUMN propiedad_id TYPE TEXT USING propiedad_id::text;'
+        );
+    });
+    return _ensurePropiedadTextPromise;
+}
 
 /** Reserva con cliente bloqueado en la misma empresa (no puede recibir/generar reseña). */
 async function _clienteBloqueadoParaReserva(empresaId, reservaId) {
@@ -38,6 +67,7 @@ function _throwClienteBloqueado(mensaje) {
 }
 
 async function generarTokenParaReserva(empresaId, reservaId, propiedadId, nombreHuesped) {
+    await _ensureResenasPropiedadIdTextColumn();
     if (await _clienteBloqueadoParaReserva(empresaId, reservaId)) {
         _throwClienteBloqueado('No se puede generar el enlace de reseña: el cliente está bloqueado.');
     }
@@ -133,9 +163,9 @@ async function buscarReservaParaResena(empresaId, canalId, termino) {
     }));
 }
 
-async function crearResenaManual(empresaId, datos, files = {}) {
+async function crearResenaManual(empresaId, datos, _files = {}) {
     const {
-        reservaId, propiedadId, clienteNombre, canalId,
+        reservaId, propiedadId, clienteNombre,
         fechaResena, punt_general, punt_limpieza, punt_ubicacion, punt_llegada,
         punt_comunicacion, punt_equipamiento, punt_valor,
         texto_positivo, texto_negativo
@@ -148,64 +178,169 @@ async function crearResenaManual(empresaId, datos, files = {}) {
         _throwClienteBloqueado('No se puede registrar la reseña: el cliente de la reserva está bloqueado.');
     }
 
-    let foto1_url = null, foto2_url = null;
-    const sp = STORAGE_PATH(empresaId);
-    if (files.foto1?.[0]) {
-        foto1_url = await uploadFile(
-            files.foto1[0].buffer,
-            `${sp}/${uuidv4()}_${files.foto1[0].originalname}`,
-            files.foto1[0].mimetype
-        );
-    }
-    if (files.foto2?.[0]) {
-        foto2_url = await uploadFile(
-            files.foto2[0].buffer,
-            `${sp}/${uuidv4()}_${files.foto2[0].originalname}`,
-            files.foto2[0].mimetype
-        );
-    }
+    await _ensureResenasPropiedadIdTextColumn();
 
     const { rows } = await pool.query(
         `INSERT INTO resenas (
-            empresa_id, reserva_id, propiedad_id, nombre_huesped, cliente_nombre,
-            canal_id, punt_general, punt_limpieza, punt_ubicacion, punt_llegada,
+            empresa_id, reserva_id, propiedad_id, nombre_huesped,
+            punt_general, punt_limpieza, punt_ubicacion, punt_llegada,
             punt_comunicacion, punt_equipamiento, punt_valor,
-            texto_positivo, texto_negativo, estado, origen,
-            foto1_url, foto2_url, fecha_resena
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'publicada','manual',$16,$17,$18)
+            texto_positivo, texto_negativo, estado
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'publicada')
          RETURNING id`,
         [
-            empresaId, reservaId, propiedadId || null,
-            clienteNombre || null, clienteNombre || null,
-            canalId || null,
-            parseInt(punt_general),
-            punt_limpieza ? parseInt(punt_limpieza) : null,
-            punt_ubicacion ? parseInt(punt_ubicacion) : null,
-            punt_llegada ? parseInt(punt_llegada) : null,
-            punt_comunicacion ? parseInt(punt_comunicacion) : null,
-            punt_equipamiento ? parseInt(punt_equipamiento) : null,
-            punt_valor ? parseInt(punt_valor) : null,
-            texto_positivo || null, texto_negativo || null,
-            foto1_url, foto2_url, fechaResena
+            empresaId,
+            reservaId,
+            propiedadId || null,
+            clienteNombre || null,
+            parseInt(punt_general, 10),
+            punt_limpieza ? parseInt(punt_limpieza, 10) : null,
+            punt_ubicacion ? parseInt(punt_ubicacion, 10) : null,
+            punt_llegada ? parseInt(punt_llegada, 10) : null,
+            punt_comunicacion ? parseInt(punt_comunicacion, 10) : null,
+            punt_equipamiento ? parseInt(punt_equipamiento, 10) : null,
+            punt_valor ? parseInt(punt_valor, 10) : null,
+            texto_positivo || null,
+            texto_negativo || null,
         ]
     );
     return rows[0];
 }
 
-async function obtenerResenas(empresaId, { estado, propiedadId } = {}) {
+function _clampPunt(v) {
+    const n = parseInt(v, 10);
+    if (Number.isNaN(n)) return undefined;
+    return Math.min(5, Math.max(1, n));
+}
+
+/**
+ * Lista reseñas del tenant (SSR + SPA).
+ * Opciones: estado, propiedadId, q (buscar texto), sort, limit/offset (solo si vienen definidos).
+ */
+async function obtenerResenas(empresaId, opts = {}) {
+    const estado = opts.estado ?? null;
+    const propiedadId = opts.propiedadId ?? null;
+    const qRaw = opts.q ?? opts.buscar ?? null;
+    const sortKey = opts.sort || 'created_at_desc';
+
     let sql = `
         SELECT r.*, p.nombre AS propiedad_nombre
         FROM resenas r
         LEFT JOIN propiedades p ON p.id = r.propiedad_id::text
-        WHERE r.empresa_id = $1 AND r.punt_general IS NOT NULL`;
+        WHERE r.empresa_id = $1`;
     const params = [empresaId];
 
-    if (estado) { params.push(estado); sql += ` AND r.estado = $${params.length}`; }
-    if (propiedadId) { params.push(propiedadId); sql += ` AND r.propiedad_id = $${params.length}`; }
+    const soloConPuntuacion = opts.soloConPuntuacion !== false;
+    if (soloConPuntuacion) sql += ' AND r.punt_general IS NOT NULL';
 
-    sql += ' ORDER BY r.created_at DESC';
+    if (estado) {
+        params.push(estado);
+        sql += ` AND r.estado = $${params.length}`;
+    }
+    if (propiedadId) {
+        params.push(propiedadId);
+        sql += ` AND r.propiedad_id::text = $${params.length}::text`;
+    }
+
+    const q = typeof qRaw === 'string' ? qRaw.trim() : '';
+    if (q) {
+        params.push(`%${q}%`);
+        const qi = params.length;
+        sql += ` AND (
+            COALESCE(r.nombre_huesped, '') ILIKE $${qi}
+            OR COALESCE(r.texto_positivo, '') ILIKE $${qi}
+            OR COALESCE(r.texto_negativo, '') ILIKE $${qi}
+            OR COALESCE(p.nombre, '') ILIKE $${qi}
+            OR COALESCE(r.reserva_id::text, '') ILIKE $${qi}
+            OR COALESCE(r.origen, '') ILIKE $${qi}
+        )`;
+    }
+
+    const orderMap = {
+        created_at_desc: 'r.created_at DESC',
+        created_at_asc: 'r.created_at ASC',
+        fecha_resena_desc: 'r.fecha_resena DESC NULLS LAST, r.created_at DESC',
+        fecha_resena_asc: 'r.fecha_resena ASC NULLS LAST',
+        punt_general_desc: 'r.punt_general DESC NULLS LAST',
+        punt_general_asc: 'r.punt_general ASC NULLS LAST',
+        nombre_asc: 'LOWER(COALESCE(r.nombre_huesped, \'\')) ASC',
+        nombre_desc: 'LOWER(COALESCE(r.nombre_huesped, \'\')) DESC',
+        propiedad_asc: 'LOWER(COALESCE(p.nombre, \'\')) ASC',
+        propiedad_desc: 'LOWER(COALESCE(p.nombre, \'\')) DESC',
+    };
+    sql += ` ORDER BY ${orderMap[sortKey] || orderMap.created_at_desc}`;
+
+    const hasLimit = opts.limit !== undefined && opts.limit !== null && opts.limit !== '';
+    if (hasLimit) {
+        const lim = Math.min(500, Math.max(1, parseInt(String(opts.limit), 10) || 100));
+        const off = Math.max(0, parseInt(String(opts.offset ?? 0), 10) || 0);
+        params.push(lim);
+        sql += ` LIMIT $${params.length}`;
+        params.push(off);
+        sql += ` OFFSET $${params.length}`;
+    }
+
     const { rows } = await pool.query(sql, params);
     return rows;
+}
+
+async function eliminarResena(id, empresaId) {
+    const { rows } = await pool.query(
+        `DELETE FROM resenas WHERE id = $1 AND empresa_id = $2 RETURNING id`,
+        [id, empresaId]
+    );
+    return rows[0] || null;
+}
+
+async function actualizarResenaAdmin(empresaId, id, datos = {}) {
+    const sets = [];
+    const vals = [];
+    let pn = 3;
+
+    const addSet = (col, value) => {
+        sets.push(`${col} = $${pn}`);
+        vals.push(value);
+        pn += 1;
+    };
+
+    if (datos.nombre_huesped !== undefined) {
+        const v = datos.nombre_huesped;
+        addSet('nombre_huesped', v === null || v === '' ? null : String(v));
+    }
+    if (datos.texto_positivo !== undefined) {
+        const v = datos.texto_positivo;
+        addSet('texto_positivo', v === null || v === '' ? null : String(v));
+    }
+    if (datos.texto_negativo !== undefined) {
+        const v = datos.texto_negativo;
+        addSet('texto_negativo', v === null || v === '' ? null : String(v));
+    }
+
+    if (datos.estado !== undefined && ['pendiente', 'publicada', 'oculta'].includes(datos.estado)) {
+        addSet('estado', datos.estado);
+    }
+
+    const puntCols = [
+        'punt_general',
+        'punt_limpieza',
+        'punt_ubicacion',
+        'punt_llegada',
+        'punt_comunicacion',
+        'punt_equipamiento',
+        'punt_valor',
+    ];
+    for (const col of puntCols) {
+        if (datos[col] === undefined) continue;
+        const c = _clampPunt(datos[col]);
+        if (c === undefined) continue;
+        addSet(col, c);
+    }
+
+    if (!sets.length) throw new Error('No hay campos válidos para actualizar.');
+
+    const sql = `UPDATE resenas SET ${sets.join(', ')} WHERE id = $1 AND empresa_id = $2 RETURNING id`;
+    const { rows } = await pool.query(sql, [id, empresaId, ...vals]);
+    return rows[0] || null;
 }
 
 async function obtenerResumen(empresaId) {
@@ -407,6 +542,75 @@ function _frasePositiva(empresaId, index) {
     return FRASES_POSITIVAS_AUTO[k];
 }
 
+/** Recorte legible de historia (misma fuente que SSR/wizard). */
+function _primerOracionHistoria(historia, maxLen) {
+    if (!historia || typeof historia !== 'string') return '';
+    const t = historia.replace(/\s+/g, ' ').trim();
+    if (!t) return '';
+    const cap = Math.min(maxLen, 140);
+    let cut = t.length <= cap ? t.length : t.lastIndexOf(' ', cap);
+    if (cut < 30) cut = Math.min(cap, t.length);
+    const out = t.slice(0, cut).trim();
+    return out + (t.length > cut ? '…' : '');
+}
+
+function _limTextoResena(s, max = 480) {
+    const t = String(s || '').replace(/\s+/g, ' ').trim();
+    if (t.length <= max) return t;
+    const cut = t.lastIndexOf(' ', max - 1);
+    const end = cut > 40 ? cut : max - 1;
+    return `${t.slice(0, end).trim()}…`;
+}
+
+/**
+ * Texto de reseña auto_seed solo con contexto empresa (getSSROptimizedData / wizard).
+ * uniqueKey (p. ej. reserva_id) evita dos estancias con la misma plantilla y texto idéntico en la ficha.
+ */
+function _frasePositivaContextual(ssr, alojamientoNombre, empresaId, index, uniqueKey) {
+    const seed = `${index}|${String(uniqueKey || '')}`;
+    if (!ssr || typeof ssr !== 'object') {
+        return _frasePositiva(empresaId, _hashEmpresa(`${empresaId}|${seed}`) % 256);
+    }
+    const nombre = String(ssr.nombre || '').trim() || 'el equipo';
+    const ciudad = String(ssr.ubicacion?.ciudad || '').trim();
+    const region = String(ssr.ubicacion?.region || '').trim();
+    const loc = [ciudad, region].filter(Boolean).join(', ');
+    const slogan = String(ssr.slogan || '').trim().slice(0, 90);
+    const propuesta = String(ssr.brand?.propuestaValor || '').trim().slice(0, 130);
+    const historiaCorta = _primerOracionHistoria(ssr.historia || '', 95);
+    const tipoAloj = String(ssr.tipoAlojamientoPrincipal || '').trim().slice(0, 70);
+    const anios = Number(ssr.aniosExperiencia) > 0 ? Math.min(80, Math.floor(Number(ssr.aniosExperiencia))) : 0;
+    const aloj = String(alojamientoNombre || '').trim().slice(0, 80);
+    const h = _hashEmpresa(`${empresaId}|ctx|${seed}`);
+    const refAloj = aloj ? `"${aloj}"` : 'el alojamiento';
+
+    const plantillas = [
+        () => `Excelente experiencia con ${nombre}. ${refAloj} cumplió con todo lo prometido.${loc ? ` Ubicación ideal en ${loc}.` : ''}`,
+        () => `${nombre} se preocupó de cada detalle.${propuesta ? ` Se nota su propuesta: ${propuesta}` : ' Muy profesional y cercano.'}`,
+        () => `Recomendamos ${nombre}${loc ? ` en ${loc}` : ''}.${slogan ? ` ${slogan}` : ''} La estadía superó nuestras expectativas.`,
+        () => `${historiaCorta ? `Se percibe la trayectoria de ${nombre}: ${historiaCorta} ` : ''}Muy satisfechos con ${refAloj}.`,
+        () => `Gracias a ${nombre} por la coordinación${loc ? ` en ${loc}` : ''}. ${tipoAloj ? `Ideal para quienes buscan ${tipoAloj}.` : 'Volveríamos sin dudarlo.'}`,
+        () => (anios > 0
+            ? `Con ${anios} años de trayectoria, ${nombre} cumple.${aloj ? ` ${refAloj} destacó` : ' El lugar destacó'} por limpieza y buena comunicación.`
+            : `${nombre} respondió rápido y el proceso fue transparente.${loc ? ` ${loc} es un gran punto.` : ''}`),
+    ];
+    const pick = plantillas[h % plantillas.length];
+    let base = pick().replace(/\s+/g, ' ').trim();
+    const hc = _hashEmpresa(seed);
+    const matices = [
+        ' Todo salió fluido.',
+        ' Sin sorpresas desagradables.',
+        ' La coordinación fue clara.',
+        ' Salimos con buen sabor.',
+        ' Destacamos la buena disposición.',
+        ' El trato fue muy humano.',
+        ' Se nota experiencia en el rubro.',
+        ' Recomendamos la experiencia.',
+    ];
+    base = `${base} ${matices[hc % matices.length]}`.replace(/\s+/g, ' ').trim();
+    return _limTextoResena(base);
+}
+
 /** Sub-puntuaciones 4–5 coherentes con la general (limpieza, ubicación, etc.), variación por empresa/índice. */
 function _subPuntuacionesAuto(pg, empresaId, idx) {
     const h = _hashEmpresa(`${empresaId}|${idx}`);
@@ -423,47 +627,65 @@ function _subPuntuacionesAuto(pg, empresaId, idx) {
  * Puntajes enteros 1–5 con promedio del lote equivalente a ~9.3–9.7 sobre 10 en SSR (×2).
  */
 async function generarResenasAutomaticas(empresaId, clienteIds) {
+    await _ensureResenasPropiedadIdTextColumn();
+
     const ids = [...new Set((clienteIds || []).map((x) => String(x).trim()).filter(Boolean))].slice(0, 10);
-    if (!ids.length) throw new Error('Selecciona al menos un cliente.');
     if (ids.length > 10) throw new Error('Máximo 10 clientes por lote.');
 
-    const { rows: canalRows } = await pool.query(
-        `SELECT id FROM canales WHERE empresa_id = $1 AND (metadata->>'esCanalPorDefecto')::boolean = true LIMIT 1`,
-        [empresaId]
-    );
-    const canalId = canalRows[0]?.id || null;
+    let candidatos = [];
 
-    const candidatos = [];
-    for (let i = 0; i < ids.length; i += 1) {
-        const cid = ids[i];
-        const { rows } = await pool.query(
-            `SELECT r.id::text AS reserva_id, r.propiedad_id::text AS propiedad_id,
-                    r.alojamiento_nombre, c.nombre AS cliente_nombre
-               FROM reservas r
-               JOIN clientes c ON c.id = r.cliente_id AND c.empresa_id = r.empresa_id
-              WHERE r.empresa_id = $1 AND r.cliente_id = $2 AND r.estado = 'Confirmada'
-                AND r.fecha_salida::date < CURRENT_DATE
-                AND COALESCE(c.bloqueado, false) = false
-                AND NOT EXISTS (
-                    SELECT 1 FROM resenas rv
-                     WHERE rv.empresa_id = $1
-                       AND rv.reserva_id = r.id::text
-                       AND rv.punt_general IS NOT NULL
-                )
-              ORDER BY r.fecha_llegada DESC
-              LIMIT 1`,
-            [empresaId, cid]
-        );
-        if (rows[0]) candidatos.push(rows[0]);
+    if (ids.length === 0) {
+        const rows = await listarClientesCandidatosResenaAutomatica(empresaId, 10);
+        candidatos = rows.map((r) => ({
+            reserva_id: r.reservaId,
+            propiedad_id: r.propiedadId || null,
+            alojamiento_nombre: r.alojamientoNombre || '',
+            cliente_nombre: r.nombre || '',
+        }));
+    } else {
+        for (let i = 0; i < ids.length; i += 1) {
+            const cid = ids[i];
+            const { rows } = await pool.query(
+                `SELECT r.id::text AS reserva_id, r.propiedad_id::text AS propiedad_id,
+                        r.alojamiento_nombre, c.nombre AS cliente_nombre
+                   FROM reservas r
+                   JOIN clientes c ON c.id = r.cliente_id AND c.empresa_id = r.empresa_id
+                  WHERE r.empresa_id = $1 AND r.cliente_id = $2 AND r.estado = 'Confirmada'
+                    AND r.fecha_salida::date < CURRENT_DATE
+                    AND COALESCE(c.bloqueado, false) = false
+                    AND NOT EXISTS (
+                        SELECT 1 FROM resenas rv
+                         WHERE rv.empresa_id = $1
+                           AND rv.reserva_id = r.id::text
+                           AND rv.punt_general IS NOT NULL
+                    )
+                  ORDER BY r.fecha_llegada DESC
+                  LIMIT 1`,
+                [empresaId, cid]
+            );
+            if (rows[0]) candidatos.push(rows[0]);
+        }
     }
 
     if (!candidatos.length) {
-        throw new Error('No hay reservas finalizadas sin reseña para los clientes seleccionados.');
+        throw new Error(
+            ids.length === 0
+                ? 'No hay clientes con reserva finalizada sin reseña (máx. 10 automáticos).'
+                : 'No hay reservas finalizadas sin reseña para los clientes seleccionados.'
+        );
+    }
+
+    let ssrOptimized = null;
+    if (pool) {
+        try {
+            ssrOptimized = await getSSROptimizedData(empresaId);
+        } catch (e) {
+            console.warn('[generarResenasAutomaticas] Contexto SSR no disponible, textos genéricos:', e?.message || e);
+        }
     }
 
     const n = candidatos.length;
     const scores = _shuffleScoresForTarget(n, empresaId);
-    const hoy = new Date();
     const client = await pool.connect();
     const creadas = [];
     try {
@@ -471,20 +693,24 @@ async function generarResenasAutomaticas(empresaId, clienteIds) {
         for (let i = 0; i < n; i += 1) {
             const row = candidatos[i];
             const pg = scores[i];
-            const diasAtras = 10 + ((i + _hashEmpresa(empresaId)) % 120);
-            const fr = new Date(hoy);
-            fr.setDate(fr.getDate() - diasAtras);
-            const fechaResena = fr.toISOString().split('T')[0];
-            const texto = _frasePositiva(empresaId, i);
+            const texto = _frasePositivaContextual(
+                ssrOptimized,
+                row.alojamiento_nombre,
+                empresaId,
+                i,
+                row.reserva_id
+            );
             const [pl, pu, pll, pc, pe, pv] = _subPuntuacionesAuto(pg, empresaId, i);
             const up = await client.query(
                 `UPDATE resenas SET
-                    propiedad_id = COALESCE(NULLIF(trim($3::text), ''), propiedad_id),
-                    nombre_huesped = $4, cliente_nombre = $5, canal_id = $6,
-                    punt_general = $7, punt_limpieza = $8, punt_ubicacion = $9, punt_llegada = $10,
-                    punt_comunicacion = $11, punt_equipamiento = $12, punt_valor = $13,
-                    texto_positivo = $14, texto_negativo = $15, estado = 'publicada', origen = 'auto_seed',
-                    fecha_resena = $16
+                    propiedad_id = COALESCE(
+                        NULLIF(trim(COALESCE($3::text, '')), ''),
+                        propiedad_id::text
+                    ),
+                    nombre_huesped = $4,
+                    punt_general = $5, punt_limpieza = $6, punt_ubicacion = $7, punt_llegada = $8,
+                    punt_comunicacion = $9, punt_equipamiento = $10, punt_valor = $11,
+                    texto_positivo = $12, texto_negativo = $13, estado = 'publicada'
                  WHERE empresa_id = $1 AND reserva_id = $2 AND punt_general IS NULL
                  RETURNING id`,
                 [
@@ -492,8 +718,6 @@ async function generarResenasAutomaticas(empresaId, clienteIds) {
                     row.reserva_id,
                     row.propiedad_id || null,
                     row.cliente_nombre,
-                    row.cliente_nombre,
-                    canalId,
                     pg,
                     pl,
                     pu,
@@ -503,7 +727,6 @@ async function generarResenasAutomaticas(empresaId, clienteIds) {
                     pv,
                     texto,
                     null,
-                    fechaResena,
                 ]
             );
             if (up.rows[0]) {
@@ -512,20 +735,17 @@ async function generarResenasAutomaticas(empresaId, clienteIds) {
             }
             const ins = await client.query(
                 `INSERT INTO resenas (
-                    empresa_id, reserva_id, propiedad_id, nombre_huesped, cliente_nombre,
-                    canal_id, punt_general, punt_limpieza, punt_ubicacion, punt_llegada,
+                    empresa_id, reserva_id, propiedad_id, nombre_huesped,
+                    punt_general, punt_limpieza, punt_ubicacion, punt_llegada,
                     punt_comunicacion, punt_equipamiento, punt_valor,
-                    texto_positivo, texto_negativo, estado, origen,
-                    foto1_url, foto2_url, fecha_resena
-                 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'publicada','auto_seed',NULL,NULL,$16)
+                    texto_positivo, texto_negativo, estado
+                 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'publicada')
                  RETURNING id`,
                 [
                     empresaId,
                     row.reserva_id,
                     row.propiedad_id || null,
                     row.cliente_nombre,
-                    row.cliente_nombre,
-                    canalId,
                     pg,
                     pl,
                     pu,
@@ -535,7 +755,6 @@ async function generarResenasAutomaticas(empresaId, clienteIds) {
                     pv,
                     texto,
                     null,
-                    fechaResena,
                 ]
             );
             creadas.push(ins.rows[0].id);
@@ -565,6 +784,8 @@ module.exports = {
     obtenerResumenPorPropiedad,
     responderResena,
     cambiarEstado,
+    eliminarResena,
+    actualizarResenaAdmin,
     listarClientesCandidatosResenaAutomatica,
     generarResenasAutomaticas,
 };

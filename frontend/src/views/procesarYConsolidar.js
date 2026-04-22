@@ -80,7 +80,7 @@ export async function render() {
                 </div>
                 
                 <div class="flex justify-end">
-                    <button type="submit" id="submit-btn" class="px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:bg-gray-400" disabled>
+                    <button type="submit" id="submit-btn" class="btn-primary disabled:opacity-50" disabled>
                         Subir y Procesar
                     </button>
                 </div>

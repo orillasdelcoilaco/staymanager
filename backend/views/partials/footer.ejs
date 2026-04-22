@@ -1,8 +1,91 @@
-<footer class="bg-gray-800 text-white mt-12">
-    <div class="container py-8 text-center">
-        <p>&copy; <%= new Date().getFullYear() %>
-                <%= empresa.nombre %>. Todos los derechos reservados.</p>
-        <p class="text-sm text-gray-400 mt-2">Powered by SuiteManager</p>
+<%- /* backend/views/partials/footer.ejs */ %>
+<%
+    const _fTelefono  = locals.contacto?.telefonoPrincipal || empresa.contactoTelefono || '';
+    const _fEmail     = locals.contacto?.emailContacto    || empresa.contactoEmail    || '';
+    const _fNombre    = empresa.contactoNombre            || empresa.nombre;
+    const _fWhatsapp  = _fTelefono.replace(/\D/g, '');
+    const _fWaMsg     = encodeURIComponent(`Hola ${_fNombre.split(' ')[0]}, me interesa reservar un alojamiento.`);
+    const _fWaUrl     = _fWhatsapp ? `https://wa.me/${_fWhatsapp}?text=${_fWaMsg}` : '';
+    const _fCiudad    = locals.ubicacion?.ciudad  || empresaContext?.ubicacion?.ciudad  || '';
+    const _fRegion    = locals.ubicacion?.region  || empresaContext?.ubicacion?.region  || '';
+    const _fRedes     = locals.contacto?.redesSociales || {};
+%>
+<footer class="bg-gray-900 text-gray-300 mt-12">
+    <div class="container mx-auto px-4 py-10">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 mb-8">
+
+            <%# --- Columna 1: Identidad --- %>
+            <div>
+                <% if (locals.brandIdentity?.logoUrl || empresa.websiteSettings?.theme?.logoUrl) { %>
+                <img src="<%= locals.brandIdentity?.logoUrl || empresa.websiteSettings.theme.logoUrl %>"
+                     alt="<%= empresa.nombre %>" class="h-10 mb-3 object-contain">
+                <% } %>
+                <p class="font-bold text-white text-lg mb-1"><%= empresa.nombre %></p>
+                <% if (_fCiudad || _fRegion) { %>
+                <p class="text-sm text-gray-400"><%= [_fCiudad, _fRegion].filter(Boolean).join(', ') %>, Chile</p>
+                <% } %>
+                <% if (Object.keys(_fRedes).length > 0) { %>
+                <div class="flex gap-3 mt-4">
+                    <% if (_fRedes.instagram) { %>
+                    <a href="<%= _fRedes.instagram %>" target="_blank" rel="noopener"
+                       class="w-8 h-8 bg-gray-700 hover:bg-primary-600 rounded-full flex items-center justify-center transition">
+                        <i class="fa-brands fa-instagram text-sm"></i>
+                    </a>
+                    <% } %>
+                    <% if (_fRedes.facebook) { %>
+                    <a href="<%= _fRedes.facebook %>" target="_blank" rel="noopener"
+                       class="w-8 h-8 bg-gray-700 hover:bg-primary-600 rounded-full flex items-center justify-center transition">
+                        <i class="fa-brands fa-facebook-f text-sm"></i>
+                    </a>
+                    <% } %>
+                </div>
+                <% } %>
+            </div>
+
+            <%# --- Columna 2: Navegación --- %>
+            <div>
+                <p class="font-semibold text-white mb-3">Navegación</p>
+                <ul class="space-y-2 text-sm">
+                    <li><a href="/" class="hover:text-white transition">Inicio</a></li>
+                    <li><a href="/#propiedades" class="hover:text-white transition">Alojamientos</a></li>
+                    <li><a href="/contacto" class="hover:text-white transition">Contacto</a></li>
+                </ul>
+            </div>
+
+            <%# --- Columna 3: Contacto --- %>
+            <div>
+                <p class="font-semibold text-white mb-3">Contacto</p>
+                <ul class="space-y-3 text-sm">
+                    <% if (_fTelefono) { %>
+                    <li class="flex items-center gap-2">
+                        <i class="fa-solid fa-phone text-primary-400 w-4"></i>
+                        <a href="tel:<%= _fWhatsapp %>" class="hover:text-white transition"><%= _fTelefono %></a>
+                    </li>
+                    <% } %>
+                    <% if (_fEmail) { %>
+                    <li class="flex items-center gap-2">
+                        <i class="fa-solid fa-envelope text-primary-400 w-4"></i>
+                        <a href="mailto:<%= _fEmail %>" class="hover:text-white transition"><%= _fEmail %></a>
+                    </li>
+                    <% } %>
+                    <% if (_fWaUrl) { %>
+                    <li>
+                        <a href="<%= _fWaUrl %>" target="_blank" rel="noopener"
+                           class="inline-flex items-center gap-2 bg-success-600 hover:bg-success-700 text-white px-4 py-2 rounded-lg font-semibold transition text-sm mt-1">
+                            <i class="fa-brands fa-whatsapp"></i>
+                            WhatsApp
+                        </a>
+                    </li>
+                    <% } %>
+                </ul>
+            </div>
+
+        </div>
+
+        <div class="border-t border-gray-700 pt-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-sm text-gray-500">
+            <p>&copy; <%= new Date().getFullYear() %> <%= empresa.nombre %>. Todos los derechos reservados.</p>
+            <p>Powered by <a href="https://suitemanager.cl" class="hover:text-gray-300 transition">SuiteManager</a></p>
+        </div>
     </div>
 </footer>
 <%- include('chat-widget') %>

@@ -7,9 +7,13 @@ const {
     eliminarPropiedad,
     clonarPropiedad
 } = require('../services/propiedadesService');
+const { construirProductoDesdeComponentes } = require('../services/buildContextService');
 
 module.exports = (db) => {
     const router = express.Router();
+
+    const { mountOnRouter: mountHouseRulesRoutes } = require('./houseRulesApi');
+    mountHouseRulesRoutes(router, db);
 
     router.post('/', async (req, res) => {
         try {
@@ -43,6 +47,12 @@ module.exports = (db) => {
 
             console.log(`[API SUCCESS] PUT /propiedades/${id} - Updated OK`);
             res.status(200).json(propiedadActualizada);
+
+            // Sync buildContext en background — no bloquea la respuesta al usuario
+            if (req.body.componentes) {
+                construirProductoDesdeComponentes(db, empresaId, id)
+                    .catch(err => console.error('[BuildContext] Error sync background:', err.message));
+            }
         } catch (error) {
             console.error(`[API CRITICAL FAIL] PUT /propiedades/${req.params.id}:`, error);
             res.status(500).json({ error: error.message });

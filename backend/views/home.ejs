@@ -92,14 +92,11 @@
     <% } %>
     <link rel="stylesheet" href="/public/css/website.css">
     <% if (locals.customCSS && locals.customCSS.trim().length > 0) { %><style><%= locals.customCSS %></style><% } %>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <%- include('partials/web-fonts') %>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <% if (_logoUrl) { %><link rel="icon" href="<%= _logoUrl %>" type="image/png"><% } %>
 
     <style>
-        body { font-family: 'Inter', system-ui, sans-serif; }
         .hero-search-input { background: transparent; outline: none; width: 100%; font-size: 0.875rem; color: rgb(34 34 34); }
         .hero-search-input::placeholder { color: rgb(156 163 175); }
         .prop-card-img { transition: transform 0.5s ease; }

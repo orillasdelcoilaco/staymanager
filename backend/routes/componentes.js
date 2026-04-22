@@ -101,7 +101,7 @@ module.exports = (db) => {
                                     sales_context: aiResult.sales_context || '',
                                     photo_guidelines: aiResult.photo_guidelines || '',
                                     schema_type: aiResult.schema_type || 'LocationFeatureSpecification',
-                                    schema_property: aiResult.schema_property || 'amenityFeature',
+                                    schema_property: aiResult.schema_property || null,
                                     ai_autofilled: true
                                 };
                             }

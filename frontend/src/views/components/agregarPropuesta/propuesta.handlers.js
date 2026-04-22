@@ -203,11 +203,90 @@ export async function handleCuponChange() {
                 alert("Por favor, selecciona o crea un cliente primero.");
                 return;
             }
-            if(confirm(`¿Quieres ir a la sección de CRM para crear el cupón "${codigoIntentado}" para ${state.selectedClient.nombre}?`)) {
-                handleNavigation('/crm-promociones'); 
-            }
+            _abrirModalCrearCupon(codigoIntentado, state.selectedClient);
         }
     );
+}
+
+/**
+ * Abre un modal inline para crear cupón sin salir de Agregar Propuesta.
+ * Al guardar: crea el cupón vía API, rellena el input y re-valida.
+ */
+function _abrirModalCrearCupon(codigoIntentado, cliente) {
+    document.getElementById('modal-crear-cupon-inline')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'modal-crear-cupon-inline';
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content !max-w-md">
+            <div class="flex items-center gap-3 mb-4 pb-4 border-b">
+                <span class="text-2xl">🎟️</span>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Crear Cupón</h3>
+                    <p class="text-sm text-gray-500">Para: <strong>${cliente.nombre}</strong></p>
+                </div>
+            </div>
+            <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">% Descuento</label>
+                        <input type="number" id="modal-cupon-pct" class="form-input w-full" min="1" max="100" value="10">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Usos máximos</label>
+                        <input type="number" id="modal-cupon-usos" class="form-input w-full" min="1" value="1">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Vigencia desde <span class="text-gray-400 font-normal">(opc.)</span></label>
+                        <input type="date" id="modal-cupon-desde" class="form-input w-full text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Vigencia hasta <span class="text-gray-400 font-normal">(opc.)</span></label>
+                        <input type="date" id="modal-cupon-hasta" class="form-input w-full text-sm">
+                    </div>
+                </div>
+                <div id="modal-cupon-status" class="text-sm"></div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6 pt-4 border-t">
+                <button id="modal-cupon-cancelar" class="btn-outline text-sm">Cancelar</button>
+                <button id="modal-cupon-guardar" class="btn-primary text-sm">Crear y Aplicar</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+
+    document.getElementById('modal-cupon-cancelar').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+    document.getElementById('modal-cupon-guardar').addEventListener('click', async () => {
+        const pct = parseInt(document.getElementById('modal-cupon-pct').value || '10', 10);
+        const usos = parseInt(document.getElementById('modal-cupon-usos').value || '1', 10);
+        const desde = document.getElementById('modal-cupon-desde').value || null;
+        const hasta = document.getElementById('modal-cupon-hasta').value || null;
+        const statusEl = document.getElementById('modal-cupon-status');
+        const btn = document.getElementById('modal-cupon-guardar');
+        btn.disabled = true;
+        btn.textContent = 'Creando...';
+        statusEl.textContent = '';
+        try {
+            const cupon = await fetchAPI('/crm/cupones', {
+                method: 'POST',
+                body: { clienteId: cliente.id, porcentajeDescuento: pct, usosMaximos: usos, vigenciaDesde: desde, vigenciaHasta: hasta }
+            });
+            const cuponInput = document.getElementById('cupon-input');
+            if (cuponInput) {
+                cuponInput.value = cupon.codigo;
+                modal.remove();
+                await handleCuponChange();
+            }
+        } catch (err) {
+            statusEl.innerHTML = `<span class="text-danger-500">Error: ${err.message}</span>`;
+            btn.disabled = false;
+            btn.textContent = 'Crear y Aplicar';
+        }
+    });
 }
 
 /**

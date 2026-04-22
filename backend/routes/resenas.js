@@ -9,6 +9,8 @@ const {
     obtenerResumen,
     responderResena,
     cambiarEstado,
+    eliminarResena,
+    actualizarResenaAdmin,
     listarClientesCandidatosResenaAutomatica,
     generarResenasAutomaticas,
 } = require('../services/resenasService');
@@ -89,7 +91,7 @@ module.exports = (db) => {
     router.post('/generar-automaticas', express.json(), async (req, res) => {
         const { clienteIds } = req.body || {};
         if (!Array.isArray(clienteIds)) {
-            return res.status(400).json({ error: 'clienteIds debe ser un arreglo.' });
+            return res.status(400).json({ error: 'clienteIds debe ser un arreglo (vacío = hasta 10 candidatos).' });
         }
         try {
             const result = await generarResenasAutomaticas(req.user.empresaId, clienteIds);
@@ -102,24 +104,28 @@ module.exports = (db) => {
         }
     });
 
-    // GET /api/resenas
-    router.get('/', async (req, res) => {
+    // GET /api/resenas/resumen — antes de GET / para no confundir segmentos
+    router.get('/resumen', async (req, res) => {
         try {
-            const resenas = await obtenerResenas(req.user.empresaId, {
-                estado: req.query.estado || null,
-                propiedadId: req.query.propiedadId || null,
-            });
-            res.json(resenas);
+            const resumen = await obtenerResumen(req.user.empresaId);
+            res.json(resumen);
         } catch (err) {
             res.status(500).json({ error: err.message });
         }
     });
 
-    // GET /api/resenas/resumen
-    router.get('/resumen', async (req, res) => {
+    // GET /api/resenas?q=&sort=&limit=&offset=&estado=&propiedadId=
+    router.get('/', async (req, res) => {
         try {
-            const resumen = await obtenerResumen(req.user.empresaId);
-            res.json(resumen);
+            const resenas = await obtenerResenas(req.user.empresaId, {
+                estado: req.query.estado || null,
+                propiedadId: req.query.propiedadId || null,
+                q: req.query.q || null,
+                sort: req.query.sort || null,
+                limit: req.query.limit,
+                offset: req.query.offset,
+            });
+            res.json(resenas);
         } catch (err) {
             res.status(500).json({ error: err.message });
         }
@@ -148,6 +154,29 @@ module.exports = (db) => {
         }
         try {
             const result = await cambiarEstado(req.params.id, req.user.empresaId, estado);
+            if (!result) return res.status(404).json({ error: 'Reseña no encontrada' });
+            res.json({ ok: true });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    // PUT /api/resenas/:id — edición admin (texto, nombre, puntuaciones, estado)
+    router.put('/:id', express.json(), async (req, res) => {
+        try {
+            const result = await actualizarResenaAdmin(req.user.empresaId, req.params.id, req.body || {});
+            if (!result) return res.status(404).json({ error: 'Reseña no encontrada' });
+            res.json({ ok: true, id: result.id });
+        } catch (err) {
+            const bad = err.message && err.message.includes('No hay campos');
+            res.status(bad ? 400 : 500).json({ error: err.message });
+        }
+    });
+
+    // DELETE /api/resenas/:id — JSON explícito (evita clientes que no manejan 204 sin cuerpo)
+    router.delete('/:id', async (req, res) => {
+        try {
+            const result = await eliminarResena(req.params.id, req.user.empresaId);
             if (!result) return res.status(404).json({ error: 'Reseña no encontrada' });
             res.json({ ok: true });
         } catch (err) {

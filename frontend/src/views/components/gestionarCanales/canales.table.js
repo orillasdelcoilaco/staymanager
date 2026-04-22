@@ -8,7 +8,11 @@ export const renderFilasTabla = (canales) => {
     return canales.map((c, index) => `
         <tr class="border-b hover:bg-gray-50">
             <td class="py-3 px-4 text-center font-medium text-gray-500">${index + 1}</td>
-            <td class="py-3 px-4 font-medium">${c.nombre} ${c.esCanalPorDefecto ? '⭐' : ''} ${c.esCanalIcal ? '🗓️' : ''}</td>
+            <td class="py-3 px-4 font-medium">
+                ${c.nombre}
+                ${c.esCanalPorDefecto ? '<i class="fa-solid fa-star text-warning-400 ml-1 text-xs" title="Canal por defecto"></i>' : ''}
+                ${c.esCanalIcal ? '<i class="fa-solid fa-calendar-days text-primary-400 ml-1 text-xs" title="Canal iCal"></i>' : ''}
+            </td>
             <td class="py-3 px-4">${c.moneda}</td>
             <td class="py-3 px-4">${c.separadorDecimal === ',' ? 'Coma (,)' : 'Punto (.)'}</td>
             <td class="py-3 px-4 truncate max-w-sm">${c.descripcion || '-'}</td>

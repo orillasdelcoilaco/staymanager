@@ -1,9 +1,7 @@
 // backend/services/reservas.write.js
 const pool = require('../db/postgres');
-const admin = require('firebase-admin');
 const { obtenerValorDolar, obtenerValorDolarHoy } = require('./dolarService');
 const { recalcularValoresDesdeTotal } = require('./utils/calculoValoresService');
-const { registrarAjusteValor } = require('./utils/trazabilidadService');
 
 function _toDateStr(val) {
     if (!val) return null;
@@ -108,59 +106,8 @@ async function _crearOActualizarReservaPG(empresaId, datosReserva) {
     return { reserva: { ...existente, valores: nuevosValores }, status: sets.length ? 'actualizada' : 'sin_cambios' };
 }
 
-async function _crearOActualizarReservaFirestore(db, empresaId, datosReserva) {
-    const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
-    let snapshot = await reservasRef.where('idUnicoReserva', '==', datosReserva.idUnicoReserva).get();
-
-    if (snapshot.empty) {
-        snapshot = await reservasRef
-            .where('alojamientoId', '==', datosReserva.alojamientoId)
-            .where('origen', '==', 'ical').where('estado', '==', 'Propuesta')
-            .where('fechaLlegada', '<=', admin.firestore.Timestamp.fromDate(datosReserva.fechaLlegada))
-            .where('fechaSalida', '>=', admin.firestore.Timestamp.fromDate(datosReserva.fechaLlegada))
-            .get();
-    }
-    if (snapshot.empty) {
-        const ref = reservasRef.doc();
-        const nueva = { id: ref.id, ...datosReserva, fechaCreacion: admin.firestore.FieldValue.serverTimestamp(), edicionesManuales: {} };
-        await ref.set(nueva);
-        return { reserva: nueva, status: 'creada' };
-    }
-
-    const reservaDoc = snapshot.docs[0];
-    const reservaExistente = reservaDoc.data();
-    const ediciones = reservaExistente.edicionesManuales || {};
-    const datosAActualizar = {};
-    let hayCambios = false;
-
-    if (reservaExistente.origen === 'ical') {
-        Object.assign(datosAActualizar, { idUnicoReserva: datosReserva.idUnicoReserva, idReservaCanal: datosReserva.idReservaCanal, origen: 'reporte' });
-        hayCambios = true;
-    }
-    const nuevosValores = { ...reservaExistente.valores, ...datosReserva.valores };
-    for (const key in datosReserva.valores) {
-        if (!ediciones[`valores.${key}`] && nuevosValores[key] !== datosReserva.valores[key]) hayCambios = true;
-    }
-    datosAActualizar.valores = nuevosValores;
-    ['moneda', 'estado', 'alojamientoId', 'fechaLlegada', 'fechaSalida', 'clienteId'].forEach(campo => {
-        if (!ediciones[campo] && datosReserva[campo] !== undefined && JSON.stringify(reservaExistente[campo]) !== JSON.stringify(datosReserva[campo])) {
-            datosAActualizar[campo] = datosReserva[campo]; hayCambios = true;
-        }
-    });
-    if (datosReserva.idCarga && reservaExistente.idCarga !== datosReserva.idCarga) {
-        datosAActualizar.idCarga = datosReserva.idCarga; hayCambios = true;
-    }
-    if (hayCambios) {
-        datosAActualizar.fechaActualizacion = admin.firestore.FieldValue.serverTimestamp();
-        await reservaDoc.ref.update(datosAActualizar);
-        return { reserva: { ...reservaExistente, ...datosAActualizar }, status: 'actualizada' };
-    }
-    return { reserva: reservaExistente, status: 'sin_cambios' };
-}
-
-const crearOActualizarReserva = async (db, empresaId, datosReserva) => {
-    if (pool) return _crearOActualizarReservaPG(empresaId, datosReserva);
-    return _crearOActualizarReservaFirestore(db, empresaId, datosReserva);
+const crearOActualizarReserva = async (_db, empresaId, datosReserva) => {
+    return _crearOActualizarReservaPG(empresaId, datosReserva);
 };
 
 async function _determinarValorDolar(db, empresaId, reserva, datosNuevos) {
@@ -250,57 +197,8 @@ async function _actualizarReservaManualmentePG(db, empresaId, usuarioEmail, rese
     return { id: reservaId, valores: valoresFinal, estadoGestion: datosNuevos.estadoGestion ?? row.estado_gestion };
 }
 
-async function _actualizarReservaManualmenteFirestore(db, empresaId, usuarioEmail, reservaId, datosNuevos) {
-    const reservaRef = db.collection('empresas').doc(empresaId).collection('reservas').doc(reservaId);
-
-    return db.runTransaction(async (transaction) => {
-        const reservaDoc = await transaction.get(reservaRef);
-        if (!reservaDoc.exists) throw new Error('La reserva no existe.');
-        const reservaExistente = reservaDoc.data();
-        const edicionesManuales = reservaExistente.edicionesManuales || {};
-        const valoresExistentes = reservaExistente.valores || {};
-
-        let datosNuevosNivelSuperior = { ...datosNuevos };
-        delete datosNuevosNivelSuperior.valores;
-        delete datosNuevosNivelSuperior.ajustes;
-        if (datosNuevos.fechaLlegada) datosNuevosNivelSuperior.fechaLlegada = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaLlegada + 'T00:00:00Z'));
-        if (datosNuevos.fechaSalida)  datosNuevosNivelSuperior.fechaSalida  = admin.firestore.Timestamp.fromDate(new Date(datosNuevos.fechaSalida  + 'T00:00:00Z'));
-
-        const valorAnteriorUSD = valoresExistentes.valorHuespedOriginal || 0;
-        const valorDolarUsado  = await _determinarValorDolar(db, empresaId, reservaExistente, datosNuevos);
-
-        const canalDoc = await db.collection('empresas').doc(empresaId).collection('canales').doc(reservaExistente.canalId).get();
-        const configuracionIva = canalDoc.exists ? (canalDoc.data().configuracionIva || 'incluido') : 'incluido';
-
-        const { nuevosValores, valorNuevoUSD } = _recalcularValoresSiCambia(datosNuevos, valoresExistentes, reservaExistente.moneda || 'CLP', valorDolarUsado, configuracionIva, valoresExistentes.comisionOriginal || 0);
-
-        if (datosNuevos.estadoGestion === 'Facturado' && reservaExistente.estadoGestion !== 'Facturado' && reservaExistente.moneda !== 'CLP' && valorDolarUsado > 0) {
-            nuevosValores.valorDolarFacturacion = valorDolarUsado;
-        }
-
-        const datosAActualizar = { ...datosNuevosNivelSuperior, valores: { ...valoresExistentes, ...nuevosValores } };
-
-        Object.keys(datosAActualizar).forEach(key => {
-            const vNuevo = datosAActualizar[key]; const vExistente = reservaExistente[key];
-            if (typeof vNuevo === 'object' && vNuevo !== null && !Array.isArray(vNuevo)) {
-                Object.keys(vNuevo).forEach(sub => {
-                    if (JSON.stringify(vExistente?.[sub]) !== JSON.stringify(vNuevo[sub])) edicionesManuales[`${key}.${sub}`] = true;
-                });
-            } else if (JSON.stringify(vExistente) !== JSON.stringify(vNuevo)) {
-                edicionesManuales[key] = true;
-            }
-        });
-
-        const datosFinalesParaUpdate = { ...datosAActualizar, edicionesManuales, fechaActualizacion: admin.firestore.FieldValue.serverTimestamp() };
-        await registrarAjusteValor(transaction, db, empresaId, reservaRef, { fuente: 'Gestionar Reservas (Editar)', usuarioEmail, valorAnteriorUSD, valorNuevoUSD, valorDolarUsado });
-        transaction.update(reservaRef, datosFinalesParaUpdate);
-        return { id: reservaId, ...datosFinalesParaUpdate };
-    });
-}
-
 const actualizarReservaManualmente = async (db, empresaId, usuarioEmail, reservaId, datosNuevos) => {
-    if (pool) return _actualizarReservaManualmentePG(db, empresaId, usuarioEmail, reservaId, datosNuevos);
-    return _actualizarReservaManualmenteFirestore(db, empresaId, usuarioEmail, reservaId, datosNuevos);
+    return _actualizarReservaManualmentePG(db, empresaId, usuarioEmail, reservaId, datosNuevos);
 };
 
 module.exports = { crearOActualizarReserva, actualizarReservaManualmente };

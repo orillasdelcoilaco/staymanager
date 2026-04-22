@@ -86,8 +86,63 @@ export function clearCupon(updateSummaryCallback, currentPricing) {
     statusEl.textContent = '';
     statusEl.className = 'text-xs mt-1';
   }
+  // Limpiar sugerencia de cupón detectado
+  document.getElementById('cupon-detectado-container')?.remove();
   
   if (updateSummaryCallback && currentPricing) {
     updateSummaryCallback(currentPricing);
+  }
+}
+
+/**
+ * Auto-detecta cupones del cliente seleccionado.
+ * Si tiene cupones activos, muestra un banner con botón "Aplicar Cupón".
+ * @param {string} clienteId
+ * @param {Function} onAplicarCallback - Se llama con el código del cupón para rellenar el input
+ */
+export async function detectarCuponCliente(clienteId, onAplicarCallback) {
+  document.getElementById('cupon-detectado-container')?.remove();
+  if (!clienteId) return;
+
+  try {
+    const cupones = await fetchAPI(`/crm/cupones/cliente/${clienteId}`);
+    if (!cupones || cupones.length === 0) return;
+
+    const cuponInput = document.getElementById('cupon-input');
+    if (!cuponInput) return;
+
+    const container = document.createElement('div');
+    container.id = 'cupon-detectado-container';
+    container.className = 'mt-2 space-y-2';
+    container.innerHTML = cupones.map(c => {
+      const usosRestantes = Math.max(0, (c.usosMaximos || 1) - (c.usosActuales || 0));
+      const vigencia = c.vigenciaHasta
+        ? `Vence: ${new Date(c.vigenciaHasta).toLocaleDateString('es-CL')}`
+        : 'Sin vencimiento';
+      return `
+        <div class="flex items-center justify-between gap-3 p-2.5 bg-primary-50 border border-primary-200 rounded-lg">
+          <div class="flex items-center gap-2 text-sm">
+            <span class="text-lg">🎟️</span>
+            <div>
+              <span class="font-mono font-bold text-primary-700">${c.codigo}</span>
+              <span class="text-primary-600 font-semibold ml-1">${c.porcentajeDescuento}% OFF</span>
+              <p class="text-xs text-gray-500">${usosRestantes} uso${usosRestantes !== 1 ? 's' : ''} restante${usosRestantes !== 1 ? 's' : ''} · ${vigencia}</p>
+            </div>
+          </div>
+          <button class="btn-cupon-aplicar btn-primary text-xs py-1 px-3" data-codigo="${c.codigo}">Aplicar Cupón</button>
+        </div>`;
+    }).join('');
+    cuponInput.parentElement.appendChild(container);
+
+    container.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-cupon-aplicar');
+      if (!btn) return;
+      const codigo = btn.dataset.codigo;
+      cuponInput.value = codigo;
+      container.remove();
+      if (onAplicarCallback) onAplicarCallback(codigo);
+    });
+  } catch {
+    // Silencioso — no es crítico
   }
 }

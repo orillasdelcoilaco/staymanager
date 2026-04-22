@@ -91,11 +91,13 @@ function renderTarjeta(r) {
                 </div>` : ''}
 
             <div class="flex flex-wrap gap-2 pt-1 border-t border-gray-50">
-                <button class="btn-outline text-xs py-1 px-3" onclick="abrirRespuesta('${r.id}')">
+                <button type="button" class="btn-outline text-xs py-1 px-3" onclick="abrirEditarResena('${r.id}')">Editar</button>
+                <button type="button" class="btn-ghost text-xs py-1 px-3 text-red-700 hover:bg-red-50" onclick="eliminarResena('${r.id}')">Eliminar</button>
+                <button type="button" class="btn-outline text-xs py-1 px-3" onclick="abrirRespuesta('${r.id}')">
                     ${r.respuesta_texto ? 'Editar respuesta' : 'Responder'}
                 </button>
-                ${r.estado !== 'publicada' ? `<button class="btn-success text-xs py-1 px-3" onclick="cambiarEstado('${r.id}', 'publicada')">Publicar</button>` : ''}
-                ${r.estado !== 'oculta'    ? `<button class="btn-ghost text-xs py-1 px-3" onclick="cambiarEstado('${r.id}', 'oculta')">Ocultar</button>` : ''}
+                ${r.estado !== 'publicada' ? `<button type="button" class="btn-success text-xs py-1 px-3" onclick="cambiarEstado('${r.id}', 'publicada')">Publicar</button>` : ''}
+                ${r.estado !== 'oculta'    ? `<button type="button" class="btn-ghost text-xs py-1 px-3" onclick="cambiarEstado('${r.id}', 'oculta')">Ocultar</button>` : ''}
             </div>
 
             <div id="form-respuesta-${r.id}" class="hidden space-y-2 pt-2">
@@ -119,6 +121,24 @@ export function render() {
 
             <div class="bg-white p-6 rounded-xl shadow-sm">
                 <div class="flex flex-wrap gap-3 items-end mb-5">
+                    <div class="min-w-[180px] flex-1 max-w-md">
+                        <label class="block text-xs font-medium text-gray-500 mb-1">Buscar</label>
+                        <input type="search" id="buscar-resenas" class="form-input text-sm w-full" placeholder="Nombre, texto, alojamiento, reserva…" autocomplete="off">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">Orden</label>
+                        <select id="orden-resenas" class="form-select text-sm min-w-[200px]">
+                            <option value="created_at_desc">Más recientes</option>
+                            <option value="created_at_asc">Más antiguas</option>
+                            <option value="punt_general_desc">Mayor puntuación</option>
+                            <option value="punt_general_asc">Menor puntuación</option>
+                            <option value="nombre_asc">Nombre A–Z</option>
+                            <option value="nombre_desc">Nombre Z–A</option>
+                            <option value="propiedad_asc">Alojamiento A–Z</option>
+                            <option value="propiedad_desc">Alojamiento Z–A</option>
+                            <option value="fecha_resena_desc">Fecha reseña (reciente)</option>
+                        </select>
+                    </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-500 mb-1">Estado</label>
                         <select id="filtro-estado" class="form-select text-sm">
@@ -134,7 +154,7 @@ export function render() {
                             <option value="">Todos</option>
                         </select>
                     </div>
-                    <button id="btn-filtrar" class="btn-primary text-sm">Filtrar</button>
+                    <button id="btn-filtrar" type="button" class="btn-primary text-sm">Aplicar</button>
                     <div class="ml-auto flex flex-wrap gap-2 justify-end">
                         <button id="btn-generar-auto" type="button" class="btn-outline text-sm">✨ Generar automáticas</button>
                         <button id="btn-nueva-manual" type="button" class="btn-outline text-sm">📝 Cargar reseña manual</button>
@@ -146,7 +166,65 @@ export function render() {
             </div>
         </div>
         ${renderModalManual()}
-        ${renderModalAuto()}`;
+        ${renderModalAuto()}
+        ${renderModalEditResena()}`;
+}
+
+function renderModalEditResena() {
+    return `
+    <div id="modal-edit-resena" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto flex flex-col">
+            <div class="flex items-center justify-between px-5 py-4 border-b flex-shrink-0">
+                <h3 class="text-base font-semibold text-gray-900">Editar reseña</h3>
+                <button type="button" id="modal-edit-close" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+            </div>
+            <form id="form-edit-resena" class="px-5 py-4 space-y-3 text-sm">
+                <input type="hidden" id="edit-resena-id" />
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Nombre huésped</label>
+                    <input type="text" id="edit-nombre" class="form-input w-full text-sm" />
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Estado</label>
+                    <select id="edit-estado" class="form-select w-full text-sm">
+                        <option value="pendiente">Pendiente</option>
+                        <option value="publicada">Publicada</option>
+                        <option value="oculta">Oculta</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Puntuación general (1–5)</label>
+                    <select id="edit-punt-general" class="form-select w-full text-sm"></select>
+                </div>
+                <details class="border border-gray-100 rounded-lg p-2">
+                    <summary class="cursor-pointer text-xs font-medium text-gray-600">Dimensiones (opcional)</summary>
+                    <div class="grid grid-cols-2 gap-2 mt-2">
+                        ${['punt_limpieza', 'punt_ubicacion', 'punt_llegada', 'punt_comunicacion', 'punt_equipamiento', 'punt_valor'].map((k) => `
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-0.5">${k.replace('punt_', '')}</label>
+                            <select id="edit-${k}" class="form-select w-full text-xs punt-dim"></select>
+                        </div>`).join('')}
+                    </div>
+                </details>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Texto positivo</label>
+                    <textarea id="edit-texto-pos" rows="3" class="form-input w-full text-sm"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Texto negativo / mejoras</label>
+                    <textarea id="edit-texto-neg" rows="2" class="form-input w-full text-sm"></textarea>
+                </div>
+                <div class="flex justify-end gap-2 pt-2 border-t">
+                    <button type="button" id="modal-edit-cancel" class="btn-outline text-sm">Cancelar</button>
+                    <button type="submit" class="btn-primary text-sm">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>`;
+}
+
+function _syncCacheResenas(rows) {
+    window._cacheResenasById = Object.fromEntries((rows || []).map((x) => [String(x.id), x]));
 }
 
 function renderLista(resenas) {
@@ -158,20 +236,64 @@ function renderLista(resenas) {
     el.innerHTML = resenas.map(renderTarjeta).join('');
 }
 
-async function _recargar() {
+function _paramsListaResenas() {
     const estado = document.getElementById('filtro-estado')?.value || '';
     const propiedadId = document.getElementById('filtro-propiedad')?.value || '';
+    const q = document.getElementById('buscar-resenas')?.value?.trim() || '';
+    const sort = document.getElementById('orden-resenas')?.value || 'created_at_desc';
     const params = new URLSearchParams();
     if (estado) params.set('estado', estado);
     if (propiedadId) params.set('propiedadId', propiedadId);
-    const data = await fetchAPI(`/resenas?${params}`);
+    if (q) params.set('q', q);
+    if (sort) params.set('sort', sort);
+    params.set('limit', '300');
+    return params;
+}
+
+async function _recargar() {
+    const data = await fetchAPI(`/resenas?${_paramsListaResenas()}`);
+    _syncCacheResenas(data);
     renderLista(data);
 }
 
+async function _recargarResumenYLista() {
+    const [nuevoResumen, nuevasResenas] = await Promise.all([
+        fetchAPI('/resenas/resumen'),
+        fetchAPI(`/resenas?${_paramsListaResenas()}`),
+    ]);
+    document.getElementById('resumen-kpis').innerHTML = renderResumenKPIs(nuevoResumen);
+    _syncCacheResenas(nuevasResenas);
+    renderLista(nuevasResenas);
+}
+
+function _fillSelectPunt(sel, current) {
+    if (!sel) return;
+    sel.innerHTML = '';
+    for (let i = 1; i <= 5; i += 1) {
+        const o = document.createElement('option');
+        o.value = String(i);
+        o.textContent = String(i);
+        const c = current != null ? Number(current) : null;
+        if (c === i) o.selected = true;
+        sel.appendChild(o);
+    }
+}
+
+function _closeModalEdit() {
+    const root = document.getElementById('modal-edit-resena');
+    if (root) {
+        root.classList.add('hidden');
+        root.classList.remove('flex');
+    }
+}
+
 export async function afterRender() {
+    const paramsInicial = new URLSearchParams();
+    paramsInicial.set('limit', '300');
+
     const [resumen, resenas, propiedades, canales] = await Promise.all([
         fetchAPI('/resenas/resumen'),
-        fetchAPI('/resenas'),
+        fetchAPI(`/resenas?${paramsInicial}`),
         fetchAPI('/propiedades'),
         fetchAPI('/canales'),
     ]);
@@ -180,39 +302,33 @@ export async function afterRender() {
 
     const sel = document.getElementById('filtro-propiedad');
     sel.innerHTML = '<option value="">Todos</option>';
-    (propiedades || []).forEach(p => {
+    (propiedades || []).forEach((p) => {
         const opt = document.createElement('option');
         opt.value = p.id;
         opt.textContent = p.nombre;
         sel.appendChild(opt);
     });
 
+    _syncCacheResenas(resenas);
     renderLista(resenas);
 
-    document.getElementById('btn-filtrar').addEventListener('click', _recargar);
+    document.getElementById('btn-filtrar').addEventListener('click', () => _recargar());
 
-    const modal = setupModalManual(canales || [], fetchAPI, async () => {
-        const [nuevoResumen, nuevasResenas] = await Promise.all([
-            fetchAPI('/resenas/resumen'),
-            fetchAPI('/resenas'),
-        ]);
-        document.getElementById('resumen-kpis').innerHTML = renderResumenKPIs(nuevoResumen);
-        renderLista(nuevasResenas);
+    let searchTimer;
+    document.getElementById('buscar-resenas')?.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => _recargar(), 450);
     });
+    document.getElementById('orden-resenas')?.addEventListener('change', () => _recargar());
+
+    const modal = setupModalManual(canales || [], fetchAPI, _recargarResumenYLista);
 
     document.getElementById('btn-nueva-manual').addEventListener('click', () => modal.open());
 
-    const modalAuto = setupModalAuto(fetchAPI, async () => {
-        const [nuevoResumen, nuevasResenas] = await Promise.all([
-            fetchAPI('/resenas/resumen'),
-            fetchAPI('/resenas'),
-        ]);
-        document.getElementById('resumen-kpis').innerHTML = renderResumenKPIs(nuevoResumen);
-        renderLista(nuevasResenas);
-    });
+    const modalAuto = setupModalAuto(fetchAPI, _recargarResumenYLista);
     document.getElementById('btn-generar-auto')?.addEventListener('click', () => modalAuto.open());
 
-    window.abrirRespuesta  = (id) => document.getElementById(`form-respuesta-${id}`)?.classList.remove('hidden');
+    window.abrirRespuesta = (id) => document.getElementById(`form-respuesta-${id}`)?.classList.remove('hidden');
     window.cerrarRespuesta = (id) => document.getElementById(`form-respuesta-${id}`)?.classList.add('hidden');
 
     window.guardarRespuesta = async (id) => {
@@ -221,7 +337,7 @@ export async function afterRender() {
         if (!texto) return;
         try {
             await fetchAPI(`/resenas/${id}/responder`, { method: 'PUT', body: { texto } });
-            await _recargar();
+            await _recargarResumenYLista();
         } catch (e) {
             alert('Error al guardar la respuesta: ' + e.message);
         }
@@ -230,9 +346,69 @@ export async function afterRender() {
     window.cambiarEstado = async (id, estado) => {
         try {
             await fetchAPI(`/resenas/${id}/estado`, { method: 'PUT', body: { estado } });
-            await _recargar();
+            await _recargarResumenYLista();
         } catch (e) {
             alert('Error: ' + e.message);
         }
     };
+
+    window.abrirEditarResena = (id) => {
+        const r = window._cacheResenasById?.[String(id)];
+        if (!r) {
+            alert('Recarga la página e intenta de nuevo.');
+            return;
+        }
+        document.getElementById('edit-resena-id').value = String(id);
+        document.getElementById('edit-nombre').value = r.nombre_huesped || r.cliente_nombre || '';
+        document.getElementById('edit-estado').value = r.estado || 'publicada';
+        document.getElementById('edit-texto-pos').value = r.texto_positivo || '';
+        document.getElementById('edit-texto-neg').value = r.texto_negativo || '';
+
+        _fillSelectPunt(document.getElementById('edit-punt-general'), r.punt_general);
+
+        const dims = ['punt_limpieza', 'punt_ubicacion', 'punt_llegada', 'punt_comunicacion', 'punt_equipamiento', 'punt_valor'];
+        dims.forEach((k) => {
+            _fillSelectPunt(document.getElementById(`edit-${k}`), r[k] ?? r.punt_general);
+        });
+
+        const root = document.getElementById('modal-edit-resena');
+        root.classList.remove('hidden');
+        root.classList.add('flex');
+    };
+
+    window.eliminarResena = async (id) => {
+        if (!confirm('¿Eliminar esta reseña de forma permanente?')) return;
+        try {
+            await fetchAPI(`/resenas/${id}`, { method: 'DELETE' });
+            await _recargarResumenYLista();
+        } catch (e) {
+            alert(e.message || 'No se pudo eliminar');
+        }
+    };
+
+    document.getElementById('modal-edit-close')?.addEventListener('click', _closeModalEdit);
+    document.getElementById('modal-edit-cancel')?.addEventListener('click', _closeModalEdit);
+
+    document.getElementById('form-edit-resena')?.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const rid = document.getElementById('edit-resena-id').value;
+        const body = {
+            nombre_huesped: document.getElementById('edit-nombre').value?.trim() || null,
+            estado: document.getElementById('edit-estado').value,
+            texto_positivo: document.getElementById('edit-texto-pos').value?.trim() || null,
+            texto_negativo: document.getElementById('edit-texto-neg').value?.trim() || null,
+            punt_general: parseInt(document.getElementById('edit-punt-general').value, 10),
+        };
+        ['punt_limpieza', 'punt_ubicacion', 'punt_llegada', 'punt_comunicacion', 'punt_equipamiento', 'punt_valor'].forEach((k) => {
+            const v = document.getElementById(`edit-${k}`)?.value;
+            if (v !== undefined && v !== '') body[k] = parseInt(v, 10);
+        });
+        try {
+            await fetchAPI(`/resenas/${rid}`, { method: 'PUT', body });
+            _closeModalEdit();
+            await _recargarResumenYLista();
+        } catch (e) {
+            alert(e.message || 'Error al guardar');
+        }
+    });
 }

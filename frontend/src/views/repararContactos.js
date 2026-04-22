@@ -33,7 +33,7 @@ export function render() {
                    Este proceso puede tardar varios minutos dependiendo de la cantidad de clientes que tengas.
                 </p>
                 <div class="mt-4">
-                    <button id="repair-btn" class="px-6 py-3 bg-danger-600 text-white font-semibold rounded-md hover:bg-danger-700">
+                    <button id="repair-btn" class="btn-danger">
                         Iniciar Proceso de Verificación
                     </button>
                 </div>

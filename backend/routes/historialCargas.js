@@ -1,6 +1,7 @@
 // backend/routes/historialCargas.js
 const express = require('express');
-const { obtenerHistorialPorEmpresa, eliminarReservasPorIdCarga, contarReservasPorIdCarga } = require('../services/historialCargasService'); 
+const pool = require('../db/postgres');
+const { obtenerHistorialPorEmpresa, eliminarReservasPorIdCarga, contarReservasPorIdCarga } = require('../services/historialCargasService');
 
 module.exports = (db) => {
     const router = express.Router();
@@ -35,8 +36,7 @@ module.exports = (db) => {
             
             const resultado = await eliminarReservasPorIdCarga(db, empresaId, idCarga);
 
-            const historialDocRef = db.collection('empresas').doc(empresaId).collection('historialCargas').doc(idCarga);
-            await historialDocRef.delete();
+            await pool.query('DELETE FROM historial_cargas WHERE id = $1 AND empresa_id = $2', [idCarga, empresaId]);
 
             res.status(200).json({
                 message: `Proceso finalizado. Se eliminaron ${resultado.eliminadas} reserva(s) y el registro de la carga.`,

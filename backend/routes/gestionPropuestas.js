@@ -1,5 +1,6 @@
 // backend/routes/gestionPropuestas.js
 const express = require('express');
+const pool = require('../db/postgres');
 const {
     guardarOActualizarPropuesta,
     guardarPresupuesto,
@@ -17,19 +18,12 @@ module.exports = (db) => {
     router.get('/count', async (req, res) => {
         try {
             const { empresaId } = req.user;
-            const snapshot = await db.collection('empresas').doc(empresaId).collection('reservas')
-                .where('estado', '==', 'Propuesta')
-                .get();
-            
-            const grouped = new Map();
-            snapshot.forEach(doc => {
-                const id = doc.data().idReservaCanal;
-                if (id) {
-                    grouped.set(id, true);
-                }
-            });
-
-            res.status(200).json({ count: grouped.size });
+            const { rows } = await pool.query(
+                `SELECT COUNT(DISTINCT id_reserva_canal) AS count
+                 FROM reservas WHERE empresa_id = $1 AND estado = 'Propuesta'`,
+                [empresaId]
+            );
+            res.status(200).json({ count: parseInt(rows[0]?.count || 0) });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }

@@ -45,19 +45,11 @@ module.exports = (db) => {
                 return res.status(400).send('No se recibió refresh token. Intenta de nuevo con prompt=consent.');
             }
 
-            if (pool) {
-                await pool.query(`
+            await pool.query(`
                     UPDATE empresas
                     SET google_refresh_token = $1, google_auth_date = NOW()
                     WHERE id = $2
                 `, [tokens.refresh_token, empresaId]);
-            } else {
-                // Firestore fallback
-                await db.collection('empresas').doc(empresaId).update({
-                    googleRefreshToken: tokens.refresh_token,
-                    googleAuthDate: new Date()
-                });
-            }
 
             res.send('¡Autorización completada! Puedes cerrar esta ventana.');
         } catch (err) {
@@ -69,19 +61,15 @@ module.exports = (db) => {
     // GET /api/authGoogle/status — verifica si la empresa tiene token activo
     router.get('/status', async (req, res) => {
         try {
-            if (pool) {
-                const { rows } = await pool.query(
-                    'SELECT google_auth_date FROM empresas WHERE id = $1',
-                    [req.user.empresaId]
-                );
-                const row = rows[0];
-                res.json({
-                    autorizado: !!row?.google_auth_date,
-                    fechaAuth: row?.google_auth_date || null
-                });
-            } else {
-                res.json({ autorizado: false });
-            }
+            const { rows } = await pool.query(
+                'SELECT google_auth_date FROM empresas WHERE id = $1',
+                [req.user.empresaId]
+            );
+            const row = rows[0];
+            res.json({
+                autorizado: !!row?.google_auth_date,
+                fechaAuth: row?.google_auth_date || null
+            });
         } catch (err) {
             res.status(500).json({ error: err.message });
         }

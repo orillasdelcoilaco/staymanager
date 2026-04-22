@@ -49,22 +49,22 @@ function renderActionButtons(grupo, allEstados) {
     const reservaAdjunta = grupo.documentos && grupo.documentos.enlaceReserva;
 
     let buttons = `
-        <button class="gestion-btn btn-table-copy text-xs" data-gestion="ajuste_tarifa">Ajuste Tarifa ${ajusteRealizado ? '✓' : ''}</button>
+        <button class="gestion-btn btn-table-copy text-xs" data-gestion="ajuste_tarifa">Ajuste Tarifa ${ajusteRealizado ? '<i class="fa-solid fa-check text-success-600 ml-1"></i>' : ''}</button>
         <button class="gestion-btn btn-table-copy text-xs" data-gestion="bitacora">Bitácora (${grupo.notasCount})</button>
-        <button class="gestion-btn btn-table-copy text-xs" data-gestion="gestionar_reserva">Doc. Reserva ${reservaAdjunta ? '✓' : ''}</button>
+        <button class="gestion-btn btn-table-copy text-xs" data-gestion="gestionar_reserva">Doc. Reserva ${reservaAdjunta ? '<i class="fa-solid fa-check text-success-600 ml-1"></i>' : ''}</button>
     `;
 
     if (estadoInfo.level >= 2) {
-        buttons += `<button class="gestion-btn btn-table-edit text-xs" data-gestion="pagos">Pagos (${grupo.transaccionesCount}) ${pagoFinalRealizado ? '✓' : ''}</button>`;
+        buttons += `<button class="gestion-btn btn-table-edit text-xs" data-gestion="pagos">Pagos (${grupo.transaccionesCount}) ${pagoFinalRealizado ? '<i class="fa-solid fa-check text-success-600 ml-1"></i>' : ''}</button>`;
     }
 
     if (estadoInfo.level >= 4) {
         const docStatusClass = boletaAdjunta ? 'bg-success-500 hover:bg-success-700' : 'bg-amber-500 hover:bg-amber-700';
-        buttons += `<button class="gestion-btn btn-table-edit text-xs ${docStatusClass}" data-gestion="boleta">Boleta ${boletaAdjunta ? '✓' : ''}</button>`;
+        buttons += `<button class="gestion-btn btn-table-edit text-xs ${docStatusClass}" data-gestion="boleta">Boleta ${boletaAdjunta ? '<i class="fa-solid fa-check ml-1"></i>' : ''}</button>`;
     }
 
     if (estadoInfo.level >= 5) {
-        buttons += `<button class="gestion-btn btn-table-edit text-xs" data-gestion="gestionar_cliente">Gestionar Cliente ${grupo.clienteGestionado ? '✓' : ''}</button>`;
+        buttons += `<button class="gestion-btn btn-table-edit text-xs" data-gestion="gestionar_cliente">Gestionar Cliente ${grupo.clienteGestionado ? '<i class="fa-solid fa-check text-success-600 ml-1"></i>' : ''}</button>`;
     }
 
     if (estadoInfo.level > 1) {
@@ -141,7 +141,7 @@ function createCard(grupo, allEstados) {
 
             ${grupo.clienteBloqueado ? `
             <div class="mx-[-1rem] px-4 py-2 bg-danger-50 border-y border-danger-200 flex items-start gap-2 text-xs">
-                <span class="text-danger-500 mt-0.5 flex-shrink-0">🚫</span>
+                <i class="fa-solid fa-ban text-danger-500 mt-0.5 flex-shrink-0"></i>
                 <div><span class="font-semibold text-danger-700">Cliente Bloqueado:</span> <span class="text-danger-600">${grupo.motivoBloqueo || 'Sin motivo especificado'}</span></div>
             </div>` : ''}
             ${crearDropdownEstadosReserva(grupo, allEstados)}

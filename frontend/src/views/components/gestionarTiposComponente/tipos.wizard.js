@@ -1,5 +1,6 @@
 // frontend/src/views/components/gestionarTiposComponente/tipos.wizard.js
 import { fetchAPI } from '../../../api.js';
+import { setupCatalogoSearch } from './tipos.catalogo.js';
 
 // Variables globales para el Wizard
 let onSaveCallback = null;
@@ -7,125 +8,146 @@ let currentAnalisis = null;
 let tiposElementoCache = []; // Cache para el dropdown
 let inventarioTemporal = []; // Array de { tipoId, nombre, cantidad, icono }
 
-export const renderWizardModal = () => `
-    <div id="tipo-wizard-modal" class="modal hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-        <div class="modal-content relative bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4 md:mx-auto">
-            
-            <div class="flex justify-between items-center p-5 border-b bg-gray-50 rounded-t-lg">
-                <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
-                    ✨ Nuevo Tipo de Espacio (IA)
-                </h3>
-                <button id="close-wizard-btn" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+function _renderWizardHeader() {
+    return `
+    <div class="flex justify-between items-center p-5 border-b bg-gray-50 rounded-t-lg">
+        <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+            ✨ Nuevo Tipo de Espacio (IA)
+        </h3>
+        <button id="close-wizard-btn" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+    </div>
+`;}
+
+function _renderWizardPaso1() { return `
+    <div id="step-1-input" class="space-y-4">
+        <p class="text-gray-600 text-sm">
+            Escribe el nombre del espacio (ej: "Quincho", "Rincón de Lectura").
+            <br><strong>La IA definirá el estándar de fotografía y sugerirá equipamiento.</strong>
+        </p>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del Espacio</label>
+            <div class="flex gap-2">
+                <input type="text" id="input-nombre-usuario" class="form-input flex-1" placeholder="Ej: Quincho para asados..." autofocus>
+                <button id="btn-analizar-ia" class="btn-primary whitespace-nowrap px-6">
+                    🤖 Analizar
+                </button>
+            </div>
+        </div>
+    </div>
+`;}
+
+function _renderWizardLoading() { return `
+    <div id="step-loading" class="hidden py-8 text-center">
+        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600 mx-auto mb-3"></div>
+        <p class="text-primary-600 font-medium animate-pulse">La IA está diseñando el perfil del espacio...</p>
+        <p class="text-xs text-gray-400 mt-1">Definiendo inventario y tiros de cámara</p>
+    </div>
+`;}
+
+function _renderWizardPaso2() { return `
+    <div id="step-2-review" class="hidden space-y-6">
+        <!-- Cabecera -->
+        <div class="bg-primary-50 p-4 rounded-md border border-primary-100">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                <div class="md:col-span-1 text-center">
+                    <span id="review-icono" class="text-5xl">🏠</span>
+                </div>
+                <div class="md:col-span-3">
+                    <label class="block text-xs font-semibold text-primary-600 uppercase tracking-wide">Nombre Normalizado</label>
+                    <input type="text" id="review-nombre-normalizado" class="w-full font-bold text-lg text-gray-900 bg-transparent border-b border-primary-200 focus:outline-none focus:border-primary-500 pb-1">
+                    <input type="text" id="review-descripcion" class="w-full text-sm text-gray-600 mt-1 bg-transparent border-b border-transparent focus:border-primary-300 focus:outline-none" placeholder="Descripción...">
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Columna Izquierda: Fotos -->
+            <div>
+                <h4 class="font-semibold text-gray-800 mb-2 flex items-center justify-between">
+                    <span class="flex items-center gap-2">📸 Guía de Fotos (IA)</span>
+                    <button id="btn-recalc-photos" class="btn-outline text-xs" title="Recalcular basándose en el inventario actual">
+                        ↻ Recalcular
+                    </button>
+                </h4>
+                <ul id="review-shotlist" class="space-y-2 text-sm text-gray-700 bg-gray-50 p-3 rounded-md border border-gray-200 h-64 overflow-y-auto">
+                </ul>
             </div>
 
-            <div class="p-6 max-h-[75vh] overflow-y-auto">
-                
-                <!-- PASO 1 -->
-                <div id="step-1-input" class="space-y-4">
-                    <p class="text-gray-600 text-sm">
-                        Escribe el nombre del espacio (ej: "Quincho", "Rincón de Lectura"). 
-                        <br><strong>La IA definirá el estándar de fotografía y sugerirá equipamiento.</strong>
-                    </p>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del Espacio</label>
-                        <div class="flex gap-2">
-                            <input type="text" id="input-nombre-usuario" class="form-input flex-1" placeholder="Ej: Quincho para asados..." autofocus>
-                            <button id="btn-analizar-ia" class="btn-primary whitespace-nowrap px-6">
-                                🤖 Analizar
+            <!-- Columna Derecha: Inventario -->
+            <div class="flex flex-col h-full">
+                <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                    📦 Inventario Estándar
+                    <span class="text-xs text-gray-400 font-normal">(Se creará automáticamente)</span>
+                </h4>
+
+                <!-- Lista Actual -->
+                <div id="review-inventory-list" class="flex-1 bg-gray-50 p-2 rounded-md border border-gray-200 overflow-y-auto h-40 mb-2 text-sm">
+                    <p class="text-gray-400 text-center italic mt-4">Sin elementos por defecto.</p>
+                </div>
+
+                <!-- Agregar Elemento (Compatibilidad Legacy + Bulk) -->
+                <div class="space-y-3">
+                    <!-- Botones de Acción -->
+                    <div class="flex gap-2">
+                        <button type="button" onclick="window.wizardToggleBulkPanel()" class="btn-outline flex-1 flex justify-between items-center">
+                            <span>+ Agregar Activos (Masivo)</span>
+                            <span id="wizard-bulk-arrow" class="transform transition-transform text-xs">▼</span>
+                        </button>
+                    </div>
+
+                    <!-- Panel Bulk (Hidden) -->
+                    <div id="wizard-bulk-panel" class="hidden border border-primary-100 rounded-md p-2 bg-white shadow-sm">
+                        <div id="wizard-bulk-list-container">Cargando...</div>
+                        <div class="flex justify-end pt-2 border-t mt-2">
+                            <button type="button" onclick="window.wizardAgregarSeleccionados()" class="btn-primary text-xs">
+                                Agregar Seleccionados
                             </button>
                         </div>
                     </div>
-                </div>
 
-                <!-- LOADING -->
-                <div id="step-loading" class="hidden py-8 text-center">
-                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600 mx-auto mb-3"></div>
-                    <p class="text-primary-600 font-medium animate-pulse">La IA está diseñando el perfil del espacio...</p>
-                    <p class="text-xs text-gray-400 mt-1">Definiendo inventario y tiros de cámara</p>
-                </div>
-
-                <!-- PASO 2 -->
-                <div id="step-2-review" class="hidden space-y-6">
-                    <!-- Cabecera -->
-                    <div class="bg-primary-50 p-4 rounded-md border border-primary-100">
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-                            <div class="md:col-span-1 text-center">
-                                <span id="review-icono" class="text-5xl">🏠</span>
-                            </div>
-                            <div class="md:col-span-3">
-                                <label class="block text-xs font-semibold text-primary-600 uppercase tracking-wide">Nombre Normalizado</label>
-                                <input type="text" id="review-nombre-normalizado" class="w-full font-bold text-lg text-gray-900 bg-transparent border-b border-primary-200 focus:outline-none focus:border-primary-500 pb-1">
-                                <input type="text" id="review-descripcion" class="w-full text-sm text-gray-600 mt-1 bg-transparent border-b border-transparent focus:border-primary-300 focus:outline-none" placeholder="Descripción...">
-                            </div>
+                    <!-- Catálogo Fuzzy Search -->
+                    <div class="space-y-2 pt-2 border-t">
+                        <div class="relative">
+                            <input type="text" id="input-catalogo-busqueda"
+                                class="form-input text-xs w-full pr-8"
+                                placeholder="🔍 Buscar en catálogo (ej: TV, jacuzzi...)">
+                            <span id="catalogo-loading" class="hidden absolute right-2 top-2 animate-spin text-primary-500 text-xs">⟳</span>
+                        </div>
+                        <div id="catalogo-resultados" class="hidden flex flex-wrap gap-1"></div>
+                        <div id="catalogo-crear-nuevo" class="hidden">
+                            <button type="button" id="btn-catalogo-crear"
+                                class="text-xs text-primary-600 hover:underline flex items-center gap-1">
+                                <span>+</span> Crear "<span id="catalogo-crear-nombre"></span>" como nuevo activo
+                            </button>
                         </div>
                     </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Columna Izquierda: Fotos -->
-                        <div>
-                            <h4 class="font-semibold text-gray-800 mb-2 flex items-center justify-between">
-                                <span class="flex items-center gap-2">📸 Guía de Fotos (IA)</span>
-                                <button id="btn-recalc-photos" class="text-[10px] bg-primary-50 text-primary-600 px-2 py-1 rounded border border-primary-200 hover:bg-primary-100 transition-colors" title="Recalcular basándose en el inventario actual">
-                                    ↻ Recalcular
-                                </button>
-                            </h4>
-                            <ul id="review-shotlist" class="space-y-2 text-sm text-gray-700 bg-gray-50 p-3 rounded-md border border-gray-200 h-64 overflow-y-auto">
-                            </ul>
-                        </div>
-
-                        <!-- Columna Derecha: Inventario -->
-                        <div class="flex flex-col h-full">
-                            <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                                📦 Inventario Estándar
-                                <span class="text-xs text-gray-400 font-normal">(Se creará automáticamente)</span>
-                            </h4>
-                            
-                            <!-- Lista Actual -->
-                            <div id="review-inventory-list" class="flex-1 bg-gray-50 p-2 rounded-md border border-gray-200 overflow-y-auto h-40 mb-2 text-sm">
-                                <p class="text-gray-400 text-center italic mt-4">Sin elementos por defecto.</p>
-                            </div>
-
-                            <!-- Agregar Elemento -->
-                            <!-- Agregar Elemento (Compatibilidad Legacy + Bulk) -->
-                            <div class="space-y-3">
-                                <!-- Botones de Acción -->
-                                <div class="flex gap-2">
-                                    <button type="button" onclick="window.wizardToggleBulkPanel()" class="flex-1 bg-primary-50 text-primary-700 px-3 py-2 rounded-md text-sm border border-primary-200 hover:bg-primary-100 transition-colors flex justify-between items-center">
-                                        <span>+ Agregar Activos (Masivo)</span>
-                                        <span id="wizard-bulk-arrow" class="transform transition-transform text-xs">▼</span>
-                                    </button>
-                                </div>
-
-                                <!-- Panel Bulk (Hidden) -->
-                                <div id="wizard-bulk-panel" class="hidden border border-primary-100 rounded-md p-2 bg-white shadow-sm">
-                                    <div id="wizard-bulk-list-container">Cargando...</div>
-                                    <div class="flex justify-end pt-2 border-t mt-2">
-                                        <button type="button" onclick="window.wizardAgregarSeleccionados()" class="bg-primary-600 text-white px-3 py-1.5 rounded text-xs hover:bg-primary-700">
-                                            Agregar Seleccionados
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- Legacy Single Add (Opcional, mantener oculto o secundario si se prefiere) -->
-                                <div class="flex gap-2 items-center text-xs text-gray-500 pt-2 border-t">
-                                    <span>Agregar individual:</span>
-                                    <select id="select-element-default" class="form-select text-xs w-32">
-                                        <option value="">Buscar...</option>
-                                    </select>
-                                    <input type="number" id="input-qty-default" class="form-input text-xs w-12 text-center" value="1" min="1">
-                                    <button id="btn-add-default" class="bg-gray-200 text-gray-700 px-2 py-1 rounded hover:bg-gray-300">+</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Hidden legacy helpers (keep for handleAddDefault compatibility) -->
+                    <select id="select-element-default" class="hidden"></select>
+                    <input type="number" id="input-qty-default" class="hidden" value="1" min="1">
+                    <button id="btn-add-default" class="hidden"></button>
                 </div>
-
             </div>
+        </div>
+    </div>
+`;}
 
-            <div class="p-5 border-t bg-gray-50 rounded-b-lg flex justify-end gap-3">
-                <button id="btn-cancelar-wizard" class="btn-secondary">Cancelar</button>
-                <button id="btn-guardar-tipo" class="btn-primary hidden">Confirmar y Crear</button>
+function _renderWizardFooter() { return `
+    <div class="p-5 border-t bg-gray-50 rounded-b-lg flex justify-end gap-3">
+        <button id="btn-cancelar-wizard" class="btn-secondary">Cancelar</button>
+        <button id="btn-guardar-tipo" class="btn-primary hidden">Confirmar y Crear</button>
+    </div>
+`;}
+
+export const renderWizardModal = () => `
+    <div id="tipo-wizard-modal" class="modal hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+        <div class="modal-content relative bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4 md:mx-auto">
+            ${_renderWizardHeader()}
+            <div class="p-6 max-h-[75vh] overflow-y-auto">
+                ${_renderWizardPaso1()}
+                ${_renderWizardLoading()}
+                ${_renderWizardPaso2()}
             </div>
+            ${_renderWizardFooter()}
         </div>
     </div>
 `;
@@ -161,6 +183,9 @@ export const setupWizardEvents = (onSave) => {
 
     // AI Recalc
     document.getElementById('btn-recalc-photos')?.addEventListener('click', handleRecalculatePhotos);
+
+    // Catálogo fuzzy search (delegado a tipos.catalogo.js)
+    setupCatalogoSearch(inventarioTemporal, renderInventarioList);
 };
 
 export const openWizard = () => {

@@ -29,36 +29,19 @@ class EmailService {
         return this.client;
     }
 
-    async inicializarConfigEmail(db, empresaId) {
-        if (pool) {
-            const { rows } = await pool.query(
-                'SELECT id, nombre, email_contacto FROM empresas WHERE id = $1',
-                [empresaId]
-            );
-            if (!rows[0]) throw new Error('Empresa no encontrada');
-            return {
-                nombre: rows[0].nombre,
-                emailConfig: {
-                    nombreRemitente: rows[0].nombre || 'SuiteManager',
-                    replyTo: rows[0].email_contacto || null
-                }
-            };
-        }
-
-        // Firestore fallback
-        const empresaRef = db.collection('empresas').doc(empresaId);
-        const doc = await empresaRef.get();
-        if (!doc.exists) throw new Error('Empresa no encontrada');
-        const empresa = doc.data();
-        if (!empresa.emailConfig) {
-            await empresaRef.update({
-                emailConfig: {
-                    nombreRemitente: empresa.nombre || 'SuiteManager',
-                    replyTo: empresa.contactoEmail || null
-                }
-            });
-        }
-        return empresa;
+    async inicializarConfigEmail(_db, empresaId) {
+        const { rows } = await pool.query(
+            'SELECT id, nombre, email_contacto FROM empresas WHERE id = $1',
+            [empresaId]
+        );
+        if (!rows[0]) throw new Error('Empresa no encontrada');
+        return {
+            nombre: rows[0].nombre,
+            emailConfig: {
+                nombreRemitente: rows[0].nombre || 'SuiteManager',
+                replyTo: rows[0].email_contacto || null
+            }
+        };
     }
 
     async enviarCorreo(db, opciones) {

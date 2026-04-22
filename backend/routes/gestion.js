@@ -1,5 +1,6 @@
 // backend/routes/gestion.js
 const express = require('express');
+const pool = require('../db/postgres');
 const multer = require('multer');
 const path = require('path');
 const { getReservasPendientes, actualizarEstadoGrupo, getNotas, addNota, getTransacciones, marcarClienteComoGestionado } = require('../services/gestionService');
@@ -47,19 +48,15 @@ module.exports = (db) => {
 
             console.log(`[Gestión] Actualizando ESTADO RESERVA para grupo ${idReservaCanal} a: ${nuevoEstadoReserva}`);
 
-            const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
-            const q = reservasRef.where('idReservaCanal', '==', idReservaCanal);
-            const snapshot = await q.get();
+            const { rowCount } = await pool.query(
+                `UPDATE reservas SET estado = $1, updated_at = NOW()
+                 WHERE empresa_id = $2 AND id_reserva_canal = $3`,
+                [nuevoEstadoReserva, empresaId, idReservaCanal]
+            );
 
-            if (snapshot.empty) {
+            if (rowCount === 0) {
                 return res.status(404).send('No se encontraron reservas para este grupo.');
             }
-            
-            const batch = db.batch();
-            snapshot.forEach(doc => {
-                batch.update(doc.ref, { estado: nuevoEstadoReserva });
-            });
-            await batch.commit();
 
             res.status(200).json({ message: 'Estado de reserva actualizado con éxito para todo el grupo.' });
         } catch (error) {

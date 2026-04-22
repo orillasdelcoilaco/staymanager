@@ -6,10 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= title %></title>
     <link rel="stylesheet" href="/public/css/website.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <%- include('partials/web-fonts') %>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .sm-modal-reglas { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:65; align-items:center; justify-content:center; padding:1rem; }
+        .sm-modal-reglas.open { display:flex; }
+    </style>
     
     <%# Funciones auxiliares para formato %>
     <%
@@ -181,8 +183,42 @@
                 </div>
 
             </div>
+
+            <% if (locals.reglasVista) { %>
+            <%
+                const _checkinR  = empresa.horaCheckIn  || empresa.websiteSettings?.normas?.checkin  || '15:00';
+                const _checkoutR = empresa.horaCheckOut || empresa.websiteSettings?.normas?.checkout || '11:00';
+                const _propRules = isGroup ? propiedad[0] : propiedad;
+                const _dispInR = (reglasVista.horaEntrada24) ? reglasVista.horaEntrada24 : _checkinR;
+                const _dispOutR = (reglasVista.horaSalida24) ? reglasVista.horaSalida24 : _checkoutR;
+                const _dispMaxR = (reglasVista.maxHuespedesUI > 0) ? reglasVista.maxHuespedesUI : (_propRules.capacidad || 0);
+            %>
+            <div class="mt-10 pt-8 border-t border-gray-200">
+                <h2 class="text-lg font-bold text-gray-900 mb-2">Normas del alojamiento</h2>
+                <p class="text-sm text-gray-600 mb-4">Revisa horarios y normas antes de confirmar el pago del abono.</p>
+                <div class="bg-white p-5 rounded-lg border border-gray-200 max-w-xl">
+                    <h3 class="font-semibold text-gray-800 mb-3 text-sm">Normas de la casa</h3>
+                    <ul class="space-y-2 text-sm text-gray-600">
+                        <li class="flex items-start gap-2"><i class="fas fa-clock w-4 text-gray-400 mt-0.5"></i><span>Llegada: desde las <%= _dispInR %></span></li>
+                        <li class="flex items-start gap-2"><i class="fas fa-clock w-4 text-gray-400 mt-0.5"></i><span>Salida: antes de las <%= _dispOutR %></span></li>
+                        <li class="flex items-start gap-2"><i class="fas fa-users w-4 text-gray-400 mt-0.5"></i><span>Máx. <%= _dispMaxR %> huéspedes</span></li>
+                        <li class="flex items-start gap-2 pt-0.5">
+                            <span class="w-4 flex-shrink-0" aria-hidden="true"></span>
+                            <button type="button"
+                                    class="text-primary-600 underline font-medium hover:text-primary-700 bg-transparent border-0 p-0 cursor-pointer text-left text-sm"
+                                    onclick="document.getElementById('modal-reglas-casa').classList.add('open'); document.body.classList.add('overflow-hidden');">
+                                Más información
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <% } %>
+
         </div>
     </main>
+
+    <%- include('partials/property-house-rules') %>
 
     <%- include('partials/footer') %>
 

@@ -78,7 +78,9 @@ export async function abrirModalEditar(reservaId, alojamientos, clientes) {
     try {
         const editandoReserva = await fetchAPI(`/reservas/${reservaId}`);
 
-        document.getElementById('modal-title-edit').textContent = `Editar Reserva: ${editandoReserva.idReservaCanal}`;
+        document.getElementById('modal-title-edit').textContent = `Editar Reserva`;
+        const editSubtitle = document.getElementById('modal-edit-subtitle');
+        if (editSubtitle) editSubtitle.textContent = `${editandoReserva.idReservaCanal} — ${editandoReserva.alojamientoNombre || ''}`;
 
         const resumenGrupoEl = document.getElementById('resumen-grupo-container');
         if (editandoReserva.datosGrupo.propiedades.length > 1) {

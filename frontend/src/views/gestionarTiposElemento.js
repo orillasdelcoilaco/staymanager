@@ -162,7 +162,6 @@ function activarModoEdicion(data) {
     if (form.elements['permiteCantidad']) {
         form.elements['permiteCantidad'].checked = data.permiteCantidad;
     }
-
     form.dataset.editId = data.id;
     document.getElementById('btn-submit').innerText = "💾 Guardar Cambios";
 
@@ -199,70 +198,25 @@ export async function render() {
                         <input type="text" id="filtro-activos" placeholder="🔍 Buscar activo o categoría..." 
                             class="form-input pl-8 pr-4 py-2 w-full sm:w-64 text-sm border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
                     </div>
+                    <button id="btn-reclasificar-ia" class="btn-outline text-sm flex items-center gap-1.5 whitespace-nowrap" title="La IA reclasifica todos los activos para el JSON-LD del sitio web">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Reclasificar con IA
+                    </button>
                     <button id="btn-nuevo-tipo" class="btn-primary whitespace-nowrap">+ Nuevo Tipo</button>
                 </div>
             </div>
 
-            <!-- FORMULARIO -->
-            <div id="form-container" class="hidden bg-gray-50 p-6 rounded-lg border border-gray-200 mb-8 shadow-sm transition-all duration-300">
-                <div id="ai-help-banner" class="hidden mb-4 p-3 bg-primary-50 text-primary-800 text-sm rounded border border-primary-200 flex items-center">
-                    <span class="mr-2 text-xl">🤖</span>
+            <!-- BANNER PASO 1 -->
+            <div class="mb-6 p-4 bg-primary-50 border border-primary-100 rounded-lg text-sm text-primary-800">
+                <div class="flex items-start gap-3">
+                    <span class="text-lg mt-0.5">📋</span>
                     <div>
-                        <strong>Ayuda requerida:</strong>
-                        <span id="ai-help-text">Confirma los datos sugeridos.</span>
+                        <p class="font-semibold mb-1">Paso 1 de 3 — Biblioteca de Activos</p>
+                        <p>Define cada amenidad o elemento que existe en tus propiedades (ej: TV, Jacuzzi, Cafetera). Estos activos se asignan a los <strong>Espacios</strong> en el Paso 2, y los espacios a cada <strong>Alojamiento</strong> en el Paso 3. La IA usará este inventario para generar descripciones precisas y fichas schema.org indexables por Google SGE.</p>
                     </div>
                 </div>
-
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-bold text-gray-800">Definir Nuevo Activo</h3>
-                    <button type="button" id="btn-cancelar" class="text-gray-400 hover:text-gray-600">✕</button>
-                </div>
-                
-                <form id="form-nuevo-tipo" class="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
-                    <div class="md:col-span-2">
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre del Activo</label>
-                        <input type="text" name="nombre" required placeholder="Ej: Jacuzzi Exterior" class="form-input w-full shadow-sm text-gray-900">
-                        <p class="text-xs text-gray-500 mt-1">Escribe lo que quieras. El sistema intentará clasificarlo automáticamente.</p>
-                    </div>
-
-                    <!-- Extended Fields -->
-                    <div id="extended-fields" class="contents hidden">
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Categoría</label>
-                            <select name="categoria" class="form-select w-full border-gray-300 rounded-md shadow-sm">
-                                <option value="" selected>Auto (Recomendado)</option>
-                                ${datalistOptions}
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Icono (Emoji)</label>
-                            <!-- UX FIX: Smaller font for input, clear helper text below -->
-                            <input type="text" name="icono" placeholder="Ej: 🍳" class="form-input w-full text-center text-2xl h-10">
-                            <p class="text-xs text-gray-500 mt-1 text-center">
-                                Usa <kbd class="px-1 py-0.5 rounded bg-gray-200 border border-gray-300 font-sans text-xs">Win</kbd> + <kbd class="px-1 py-0.5 rounded bg-gray-200 border border-gray-300 font-sans text-xs">.</kbd> para emojis.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Capacidad</label>
-                        <input type="number" name="capacity" min="0" placeholder="0" class="form-input w-full h-10">
-                    </div>
-
-                    <div class="flex items-center pt-8">
-                         <label class="flex items-center space-x-2 text-sm cursor-pointer select-none">
-                            <input type="checkbox" name="permiteCantidad" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4">
-                            <span>¿Es Multi-cantidad?</span>
-                        </label>
-                    </div>
-                    
-                    <div class="md:col-span-4 flex justify-end gap-3 mt-2 pt-4 border-t border-gray-200">
-                        <button type="submit" class="btn-primary w-full md:w-48 shadow-lg transform transition hover:scale-105" id="btn-submit">
-                           ✨ Guardar
-                        </button>
-                    </div>
-                </form>
             </div>
+
+            ${_renderFormulario(datalistOptions)}
 
             <!-- TABLE -->
             <div class="overflow-hidden rounded-lg border border-gray-200">
@@ -287,35 +241,133 @@ export async function render() {
             `;
 }
 
-export function afterRender() {
-    renderTabla();
+function _renderFormulario(datalistOptions) {
+    return `
+    <div id="form-container" class="hidden bg-gray-50 p-6 rounded-lg border border-gray-200 mb-8 shadow-sm transition-all duration-300">
+        <div id="ai-help-banner" class="hidden mb-4 p-3 bg-primary-50 text-primary-800 text-sm rounded border border-primary-200 flex items-center">
+            <span class="mr-2 text-xl">🤖</span>
+            <div><strong>Ayuda requerida:</strong> <span id="ai-help-text">Confirma los datos sugeridos.</span></div>
+        </div>
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="font-bold text-gray-800">Definir Nuevo Activo</h3>
+            <button type="button" id="btn-cancelar" class="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+        <form id="form-nuevo-tipo" class="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
+            <div class="md:col-span-2">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre del Activo</label>
+                <input type="text" name="nombre" required placeholder="Ej: Jacuzzi Exterior" class="form-input w-full shadow-sm text-gray-900">
+                <p class="text-xs text-gray-500 mt-1">Escribe lo que quieras. El sistema intentará clasificarlo automáticamente.</p>
+            </div>
+            <div id="extended-fields" class="contents hidden">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Categoría</label>
+                    <select name="categoria" class="form-select w-full border-gray-300 rounded-md shadow-sm">
+                        <option value="" selected>Auto (Recomendado)</option>
+                        ${datalistOptions}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Icono (Emoji)</label>
+                    <input type="text" name="icono" placeholder="Ej: 🍳" class="form-input w-full text-center text-2xl h-10">
+                    <p class="text-xs text-gray-500 mt-1 text-center">
+                        Usa <kbd class="px-1 py-0.5 rounded bg-gray-200 border border-gray-300 font-sans text-xs">Win</kbd> +
+                        <kbd class="px-1 py-0.5 rounded bg-gray-200 border border-gray-300 font-sans text-xs">.</kbd> para emojis.
+                    </p>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Capacidad</label>
+                <input type="number" name="capacity" min="0" placeholder="0" class="form-input w-full h-10">
+            </div>
+            <div class="flex items-center pt-8">
+                <label class="flex items-center space-x-2 text-sm cursor-pointer select-none">
+                    <input type="checkbox" name="permiteCantidad" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4">
+                    <span>¿Es Multi-cantidad?</span>
+                </label>
+            </div>
+            <div class="md:col-span-4 flex justify-end gap-3 mt-2 pt-4 border-t border-gray-200">
+                <button type="submit" class="btn-primary w-full md:w-48 shadow-lg transform transition hover:scale-105" id="btn-submit">
+                    ✨ Guardar
+                </button>
+            </div>
+        </form>
+    </div>`;
+}
 
-    // COLLAPSE HANDLER (Delegation)
+function _setupCollapseHandler() {
     const tbody = document.getElementById('tipos-tbody');
-    if (tbody) {
-        tbody.addEventListener('click', (e) => {
-            const toggleBtn = e.target.closest('.btn-toggle-categoria');
-            if (toggleBtn) {
-                const targetGroup = toggleBtn.dataset.targetGroup;
-                const rows = document.querySelectorAll(`.group-item-${targetGroup}`);
+    if (!tbody) return;
 
-                if (rows.length === 0) return;
+    tbody.addEventListener('click', (e) => {
+        const toggleBtn = e.target.closest('.btn-toggle-categoria');
+        if (toggleBtn) {
+            const targetGroup = toggleBtn.dataset.targetGroup;
+            const rows = document.querySelectorAll(`.group-item-${targetGroup}`);
 
-                const isHidden = rows[0].classList.contains('hidden');
+            if (rows.length === 0) return;
 
-                rows.forEach(r => {
-                    if (isHidden) r.classList.remove('hidden');
-                    else r.classList.add('hidden');
-                });
+            const isHidden = rows[0].classList.contains('hidden');
 
-                const chevron = toggleBtn.querySelector('.icon-chevron');
-                if (chevron) {
-                    chevron.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(-180deg)';
-                }
+            rows.forEach(r => {
+                if (isHidden) r.classList.remove('hidden');
+                else r.classList.add('hidden');
+            });
+
+            const chevron = toggleBtn.querySelector('.icon-chevron');
+            if (chevron) {
+                chevron.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(-180deg)';
             }
-        });
-    }
+        }
+    });
+}
 
+function _setupBuscadorTipos() {
+    const searchInput = document.getElementById('filtro-activos');
+    if (!searchInput) return;
+
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        if (!query) {
+            renderTabla(tipos);
+        } else {
+            const filtered = tipos.filter(t =>
+                t.nombre.toLowerCase().includes(query) ||
+                (t.categoria || '').toLowerCase().includes(query)
+            );
+            renderTabla(filtered);
+        }
+    });
+}
+
+async function _resetFormulario(form, formContainer, aiBanner, btnNuevo) {
+    form.reset();
+    delete form.dataset.editId;
+    delete form.dataset.forceCreation;
+    formContainer.classList.add('hidden');
+    btnNuevo.classList.remove('hidden');
+    aiBanner.classList.add('hidden');
+    document.getElementById('btn-submit').innerHTML = '✨ Guardar';
+    tipos = await fetchAPI('/tipos-elemento');
+    renderTabla();
+}
+
+function _handleError422IA(error, form, aiBanner, btnSubmit, extendedFields, formContainer) {
+    const aiData = error.responseJSON.ai_result;
+    aiBanner.classList.remove('hidden');
+    document.getElementById('ai-help-text').innerText = 'La IA tiene dudas. Confirma o corrige los datos y vuelve a Guardar.';
+    if (form.elements['categoria']) form.elements['categoria'].value = aiData.category || '';
+    if (form.elements['capacity']) form.elements['capacity'].value = aiData.capacity || 0;
+    if (form.elements['icono']) form.elements['icono'].value = aiData.icon || '';
+    if (form.elements['permiteCantidad']) form.elements['permiteCantidad'].checked = aiData.countable;
+    extendedFields.classList.remove('hidden');
+    extendedFields.classList.add('contents');
+    form.dataset.forceCreation = 'true';
+    btnSubmit.innerText = '💾 Confirmar Manualmente';
+    formContainer.classList.add('border-orange-500', 'ring-2', 'ring-orange-100');
+    setTimeout(() => formContainer.classList.remove('border-orange-500', 'ring-2', 'ring-orange-100'), 2000);
+}
+
+async function _setupFormularioCRUD() {
     const formContainer = document.getElementById('form-container');
     const aiBanner = document.getElementById('ai-help-banner');
     const btnNuevo = document.getElementById('btn-nuevo-tipo');
@@ -347,23 +399,6 @@ export function afterRender() {
         aiBanner.classList.add('hidden');
     });
 
-    // SEARCH LOGIC
-    const searchInput = document.getElementById('filtro-activos');
-    if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase().trim();
-            if (!query) {
-                renderTabla(tipos);
-            } else {
-                const filtered = tipos.filter(t =>
-                    t.nombre.toLowerCase().includes(query) ||
-                    (t.categoria || '').toLowerCase().includes(query)
-                );
-                renderTabla(filtered);
-            }
-        });
-    }
-
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -380,68 +415,23 @@ export function afterRender() {
             icono: formData.get('icono'),
             capacity: Number(formData.get('capacity') || 0),
             permiteCantidad: isCountable,
-            countable: isCountable
+            countable: isCountable,
         };
 
         const editId = form.dataset.editId;
 
         try {
             if (editId) {
-                // UPDATE MODE
-                await fetchAPI(`/tipos-elemento/${editId}`, {
-                    method: 'PUT',
-                    body: datos
-                });
+                await fetchAPI(`/tipos-elemento/${editId}`, { method: 'PUT', body: datos });
                 alert('Tipo actualizado correctamente ✨');
             } else {
-                // CREATE MODE
-                await fetchAPI('/tipos-elemento', {
-                    method: 'POST',
-                    body: { ...datos, force_creation: form.dataset.forceCreation === 'true' }
-                });
+                await fetchAPI('/tipos-elemento', { method: 'POST', body: { ...datos, force_creation: form.dataset.forceCreation === 'true' } });
                 alert('Tipo creado exitosamente ✨');
             }
-
-            form.reset();
-            delete form.dataset.editId;
-            delete form.dataset.forceCreation;
-
-            formContainer.classList.add('hidden');
-            btnNuevo.classList.remove('hidden');
-            aiBanner.classList.add('hidden');
-            btnSubmit.innerHTML = "✨ Guardar";
-
-            // Recargar tabla
-            tipos = await fetchAPI('/tipos-elemento');
-            renderTabla();
-
+            await _resetFormulario(form, formContainer, aiBanner, btnNuevo);
         } catch (error) {
-            // HUMAN-IN-THE-LOOP: AI Ambiguity Handler (ONLY FOR CREATION)
             if (!editId && error.status === 422 && error.responseJSON?.action_required === 'manual_classification') {
-                const aiData = error.responseJSON.ai_result;
-
-                // Mostrar Banner de Ayuda
-                aiBanner.classList.remove('hidden');
-                document.getElementById('ai-help-text').innerText = "La IA tiene dudas. Confirma o corrige los datos y vuelve a Guardar.";
-
-                // Pre-llenar campos con la sugerencia de la IA
-                if (form.elements['categoria']) form.elements['categoria'].value = aiData.category || '';
-                if (form.elements['capacity']) form.elements['capacity'].value = aiData.capacity || 0;
-                if (form.elements['icono']) form.elements['icono'].value = aiData.icon || '';
-                if (form.elements['permiteCantidad']) form.elements['permiteCantidad'].checked = aiData.countable;
-
-                // SHOW EXTENDED FIELDS FOR MANUAL CORRECTION
-                extendedFields.classList.remove('hidden');
-                extendedFields.classList.add('contents');
-
-                // Activar modo "Forzar Creación" para el próximo intento
-                form.dataset.forceCreation = 'true';
-                btnSubmit.innerText = "💾 Confirmar Manualmente";
-
-                // Highlight visual
-                formContainer.classList.add('border-orange-500', 'ring-2', 'ring-orange-100');
-                setTimeout(() => formContainer.classList.remove('border-orange-500', 'ring-2', 'ring-orange-100'), 2000);
-
+                _handleError422IA(error, form, aiBanner, btnSubmit, extendedFields, formContainer);
             } else {
                 console.error(error);
                 alert(error.message || 'Error al guardar.');
@@ -456,4 +446,33 @@ export function afterRender() {
             }
         }
     });
+}
+
+async function _reclasificarConIA() {
+    const btn = document.getElementById('btn-reclasificar-ia');
+    if (!btn) return;
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analizando...';
+    try {
+        const res = await fetchAPI('/website/empresa/reclasificar-activos', { method: 'POST' });
+        const amenidades = res.actualizados || 0;
+        const total = res.procesados || 0;
+        alert(`Reclasificación completada: ${amenidades} amenidades detectadas de ${total} activos analizados.`);
+        tipos = await fetchAPI('/tipos-elemento');
+        renderTabla();
+    } catch (err) {
+        alert('Error al reclasificar: ' + (err.message || 'Intenta nuevamente'));
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = original;
+    }
+}
+
+export function afterRender() {
+    renderTabla();
+    _setupCollapseHandler();
+    _setupBuscadorTipos();
+    _setupFormularioCRUD();
+    document.getElementById('btn-reclasificar-ia')?.addEventListener('click', _reclasificarConIA);
 }

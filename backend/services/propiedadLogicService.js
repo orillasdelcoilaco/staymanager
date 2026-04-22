@@ -3,7 +3,8 @@
 
 /**
  * Calcula la capacidad total de una propiedad basada en sus componentes y elementos.
- * Ahora se basa EXCLUSIVAMENTE en la propiedad 'capacity' almacenada en cada elemento.
+ * Regla única: solo suman los elementos con capacity definido explícitamente como número > 0.
+ * Elementos sin capacity definido o con capacity=0 contribuyen 0.
  * @param {Array} componentes - Lista de componentes de la propiedad.
  * @returns {number} Capacidad total calculada.
  */
@@ -15,14 +16,10 @@ function calcularCapacidad(componentes) {
     componentes.forEach(comp => {
         if (Array.isArray(comp.elementos)) {
             comp.elementos.forEach(el => {
-                // Confianza total en el modelo de datos:
-                // Si el elemento dice capacity: 2, es 2.
-                // Si no dice nada, asumimos 0 (no es cama).
-                const unitCapacity = Number(el.capacity || 0);
-                const quantity = Number(el.cantidad || 1);
-
-                if (unitCapacity > 0) {
-                    capacidadTotal += (quantity * unitCapacity);
+                const capacity = Number(el.capacity);
+                if (!isNaN(capacity) && capacity > 0 && el.sumaCapacidad !== false) {
+                    const quantity = Number(el.cantidad || 1);
+                    capacidadTotal += quantity * capacity;
                 }
             });
         }
@@ -104,17 +101,11 @@ function getVerifiedInventory(componentes) {
  * @param {Array} tiposElemento - tiposElemento (activos con requires_photo, photo_guidelines, photo_quantity)
  * @returns {Object} Mapa { componentId: [ { shot, priority, description, guidelines, type } ] }
  */
-function generarPlanFotos(componentes, tipos = [], tiposElemento = []) {
+function generarPlanFotos(componentes, _tipos = [], tiposElemento = []) {
     if (!Array.isArray(componentes)) return {};
 
     // Lookup rápido de activos por ID
     const activoMap = new Map(tiposElemento.map(t => [t.id, t]));
-
-    // Lookup de tiposComponente por nombre normalizado
-    const tipoCompMap = new Map(tipos.map(t => [
-        (t.nombreNormalizado || t.nombreUsuario || '').toUpperCase(),
-        t
-    ]));
 
     const plan = {};
 
@@ -131,26 +122,9 @@ function generarPlanFotos(componentes, tipos = [], tiposElemento = []) {
             required: true
         });
 
-        // 2. Shots adicionales del tipo de espacio (desde tiposComponente.shotList)
-        const tipoKey = (comp.tipo || '').toUpperCase();
-        const tipoComp = tipoCompMap.get(tipoKey);
-        if (tipoComp?.shotList?.length > 0) {
-            tipoComp.shotList.forEach(shotDesc => {
-                // Evitar duplicar la vista general
-                if (!shotDesc.toLowerCase().includes('general') && !shotDesc.toLowerCase().includes('panorámica')) {
-                    shots.push({
-                        shot: shotDesc,
-                        priority: 'Media',
-                        description: shotDesc,
-                        guidelines: shotDesc,
-                        type: 'espacio_shot',
-                        required: false
-                    });
-                }
-            });
-        }
-
-        // 3. Activos con requires_photo = true
+        // 2. Activos con requires_photo = true (fuente de verdad: activos reales del espacio)
+        // La shotList de tiposComponente se omite intencionalmente — es un template genérico
+        // del tipo y puede referenciar activos que no existen en esta instancia específica.
         const elementos = comp.elementos || [];
         elementos.forEach(el => {
             const activo = activoMap.get(el.tipoId || el.id);
@@ -193,12 +167,15 @@ function hydrateInventory(componentes) {
     const inventory = componentes.map(comp => {
         const enrichedElements = (comp.elementos || []).map(el => {
             // Lógica Simplificada: Lo que viene es lo que es.
-            const capacity = Number(el.capacity || 0);
+            // Si capacity no está definido, mantenemos undefined (no lo forzamos a 0)
+            const capacity = (typeof el.capacity !== 'undefined' && el.capacity !== null)
+                ? Number(el.capacity)
+                : undefined;
 
             return {
                 ...el,
-                capacity: capacity, // Aseguramos que el campo exista explícitamente
-                capacidad_total: (el.cantidad || 1) * capacity,
+                capacity: capacity, // Mantenemos undefined si no estaba definido
+                capacidad_total: capacity !== undefined ? ((el.cantidad || 1) * capacity) : 0,
                 ssr_status: "verified",
                 _match_method: 'database' // Provenance: Database
             };

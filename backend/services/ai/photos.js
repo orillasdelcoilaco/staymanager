@@ -1,43 +1,66 @@
 /**
  * @fileoverview Photo Retrieval Service
- * returns optimized photo URLs without vision processing/metadata overkill.
+ * Returns optimized photo URLs from PostgreSQL galeria table (primary) with fallback to propiedades.metadata.
+ * SOLUCIÓN UNIFICADA: Prioriza la tabla galeria como fuente de verdad centralizada.
  */
 
-const { COLLECTIONS } = require('../../firestore/models');
+const pool = require('../../db/postgres');
 
 /**
  * Get photos for a specific property and type (optional).
- * @param {object} db 
- * @param {string} empresaId 
- * @param {string} alojamientoId 
- * @param {string} tipo (optional filter like "dormitorio", "baño")
+ * @param {object} _db - unused (legacy param)
+ * @param {string} empresaId
+ * @param {string} alojamientoId
+ * @param {string} tipo - optional filter like "dormitorio", "baño"
  */
-async function getMorePhotos(db, empresaId, alojamientoId, tipo = null) {
+async function getMorePhotos(_db, empresaId, alojamientoId, tipo = null) {
     try {
-        const docRef = db.collection(COLLECTIONS.EMPRESAS)
-            .doc(empresaId)
-            .collection(COLLECTIONS.PROPIEDADES)
-            .doc(alojamientoId);
+        // ============================================================
+        // PRIORIDAD 1: TABLA GALERIA (fuente de verdad centralizada)
+        // ============================================================
+        let query = `
+            SELECT storage_url, alt_text, espacio, espacio_id, confianza, estado
+            FROM galeria
+            WHERE empresa_id = $1 AND propiedad_id = $2
+              AND estado IN ('auto', 'manual')
+        `;
+        const params = [empresaId, alojamientoId];
 
-        const doc = await docRef.get();
-        if (!doc.exists) return { error: "Alojamiento no encontrado" };
-
-        const data = doc.data();
-        let allImages = [];
-
-        // Aggregate all images from websiteData
-        if (data.websiteData?.images) {
-            Object.values(data.websiteData.images).forEach(imgArray => {
-                if (Array.isArray(imgArray)) {
-                    allImages.push(...imgArray);
-                }
-            });
+        if (tipo) {
+            // Buscar en espacio o alt_text
+            query += ` AND (espacio ILIKE $${params.length + 1} OR alt_text ILIKE $${params.length + 1})`;
+            params.push(`%${tipo}%`);
         }
 
-        // TODO: Filter by 'tipo' if our image metadata supports categorization mapping.
-        // For now, if 'tipo' is requested, we assume images stored in components might match,
-        // but 'websiteData.images' is often keyed by componentId. 
-        // We'll perform a simple text match on 'title' or 'altText' if available, or just return first few.
+        query += ' ORDER BY confianza DESC, orden ASC LIMIT 10';
+
+        const { rows: galeriaRows } = await pool.query(query, params);
+
+        if (galeriaRows.length > 0) {
+            // Tenemos fotos en la galería
+            const fotos = galeriaRows.slice(0, 5).map(row => ({
+                url: row.storage_url,
+                altText: row.alt_text || '',
+                espacio: row.espacio || '',
+                confianza: row.confianza
+            }));
+            return { tipo: tipo || "general", fotos, fuente: "galeria" };
+        }
+
+        // ============================================================
+        // PRIORIDAD 2: FALLBACK A websiteData.images (legacy)
+        // ============================================================
+        const { rows } = await pool.query(
+            'SELECT metadata FROM propiedades WHERE id = $1 AND empresa_id = $2',
+            [alojamientoId, empresaId]
+        );
+        if (!rows[0]) return { error: "Alojamiento no encontrado" };
+
+        const websiteImages = rows[0].metadata?.websiteData?.images || {};
+        let allImages = [];
+        Object.values(websiteImages).forEach(imgArray => {
+            if (Array.isArray(imgArray)) allImages.push(...imgArray);
+        });
 
         if (tipo) {
             const regex = new RegExp(tipo, 'i');
@@ -45,22 +68,16 @@ async function getMorePhotos(db, empresaId, alojamientoId, tipo = null) {
                 (img.title && regex.test(img.title)) ||
                 (img.altText && regex.test(img.altText))
             );
-
-            // If we found matches, use them. Otherwise fallback to all (better something than nothing).
-            if (filtered.length > 0) {
-                allImages = filtered;
-            }
+            if (filtered.length > 0) allImages = filtered;
         }
 
-        // Limit to 5 images to avoid overwhelming the chat
         const limited = allImages.slice(0, 5).map(img => ({
-            url: img.storagePath // In real app, generate signed URL if private, but these are public assets
+            url: img.storagePath,
+            altText: img.altText || '',
+            espacio: img.title || '',
+            confianza: 0.5 // Confianza baja para datos legacy
         }));
-
-        return {
-            tipo: tipo || "general",
-            fotos: limited
-        };
+        return { tipo: tipo || "general", fotos: limited, fuente: "websiteData" };
 
     } catch (error) {
         console.error("Error getting photos:", error);
@@ -68,6 +85,4 @@ async function getMorePhotos(db, empresaId, alojamientoId, tipo = null) {
     }
 }
 
-module.exports = {
-    getMorePhotos
-};
+module.exports = { getMorePhotos };
