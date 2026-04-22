@@ -8,7 +8,7 @@ const { obtenerValorDolar } = require('../services/dolarService');
 const { obtenerTarifasParaConsumidores } = require('../services/tarifasService');
 const { guardarOActualizarPropuesta } = require('../services/gestionPropuestasService');
 const { crearPreferencia } = require('../services/mercadopagoService');
-const { obtenerPlantillasPorEmpresa } = require('../services/plantillasService');
+const { obtenerPlantillasPorEmpresa, procesarPlantilla } = require('../services/plantillasService');
 const { format, addDays, parseISO, isValid } = require('date-fns');
 const { crearOActualizarCliente } = require('../services/clientesService');
 const { getProvider } = require('../services/aiContentService.providers');
@@ -813,7 +813,6 @@ const getPropertyImages = async (req, res) => {
 };
 
 const emailService = require('../services/emailService');
-const { obtenerPlantillasPorEmpresa, procesarPlantilla } = require('../services/plantillasService');
 
 function _buildFallbackConfirmEmail({ nombreCliente, nombrePropiedad, checkin, checkout, noches, montoSena, datosBancariosTexto, plazoAbono, empresaNombre }) {
     const fmt = (v) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(v || 0);
