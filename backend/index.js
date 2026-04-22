@@ -394,6 +394,7 @@ try {
 
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`[Startup] Servidor de StayManager escuchando en http://localhost:${PORT}`);
+        require('./jobs/expirarPropuestasIA').iniciar();
     });
 
 } catch (error) {

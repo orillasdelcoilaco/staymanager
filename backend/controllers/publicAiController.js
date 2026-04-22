@@ -812,6 +812,47 @@ const getPropertyImages = async (req, res) => {
     }
 };
 
+const emailService = require('../services/emailService');
+
+function _buildConfirmationEmail({ nombreCliente, nombrePropiedad, checkin, checkout, noches, montoSena, linkPago, vencimientoPago, empresaNombre }) {
+    const fmt = (v) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(v || 0);
+    const fmtFecha = (s) => new Date(s + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC', day: '2-digit', month: 'long', year: 'numeric' });
+    const vence = new Date(vencimientoPago).toLocaleString('es-CL', { timeZone: 'America/Santiago', day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' });
+
+    return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
+<table width="600" style="background:#fff;border-radius:8px;overflow:hidden;max-width:600px">
+  <tr><td style="background:#1e3a5f;padding:28px 32px;text-align:center">
+    <h1 style="color:#fff;margin:0;font-size:22px">${empresaNombre}</h1>
+    <p style="color:#93c5fd;margin:6px 0 0;font-size:14px">Confirmación de Reserva</p>
+  </td></tr>
+  <tr><td style="padding:32px">
+    <p style="font-size:16px;color:#374151">Hola <strong>${nombreCliente}</strong>,</p>
+    <p style="color:#374151">Tu reserva ha sido registrada. Para confirmarla definitivamente, por favor abona la seña dentro del plazo indicado.</p>
+    <table width="100%" style="background:#f0f9ff;border-radius:8px;padding:20px;margin:20px 0;border-collapse:collapse">
+      <tr><td style="padding:6px 0;color:#6b7280;font-size:14px">Alojamiento</td><td style="padding:6px 0;font-weight:bold;color:#111827;text-align:right">${nombrePropiedad}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280;font-size:14px">Check-in</td><td style="padding:6px 0;font-weight:bold;color:#111827;text-align:right">${fmtFecha(checkin)}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280;font-size:14px">Check-out</td><td style="padding:6px 0;font-weight:bold;color:#111827;text-align:right">${fmtFecha(checkout)}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280;font-size:14px">Noches</td><td style="padding:6px 0;font-weight:bold;color:#111827;text-align:right">${noches}</td></tr>
+      <tr><td style="border-top:1px solid #e5e7eb;padding:12px 0 6px;color:#6b7280;font-size:14px">Seña a abonar (10%)</td><td style="border-top:1px solid #e5e7eb;padding:12px 0 6px;font-weight:bold;color:#059669;font-size:18px;text-align:right">${fmt(montoSena)}</td></tr>
+    </table>
+    <div style="background:#fef3c7;border-radius:8px;padding:16px;margin:20px 0">
+      <p style="margin:0;color:#92400e;font-size:14px">⏰ <strong>Vence el ${vence}</strong><br>Si no se recibe el pago, la reserva se anulará automáticamente.</p>
+    </div>
+    ${linkPago ? `<div style="text-align:center;margin:28px 0"><a href="${linkPago}" style="background:#1e3a5f;color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:bold">Pagar Seña Ahora</a></div>` : ''}
+    <p style="color:#6b7280;font-size:13px">Si tienes dudas, responde este correo o contáctanos directamente.</p>
+  </td></tr>
+  <tr><td style="background:#f9fafb;padding:16px 32px;text-align:center">
+    <p style="margin:0;color:#9ca3af;font-size:12px">${empresaNombre} · Reserva gestionada por SuiteManager</p>
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+}
+
 const createPublicReservation = async (req, res) => {
     try {
         const body = req.body;
@@ -911,6 +952,8 @@ const createPublicReservation = async (req, res) => {
             descuentoPct: 0, descuentoFijo: 0, valorFinalFijado: 0
         };
 
+        const vencimientoPago = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
         await pool.query(
             `INSERT INTO reservas
                (empresa_id, id_reserva_canal, propiedad_id, alojamiento_nombre, canal_id, canal_nombre,
@@ -920,13 +963,35 @@ const createPublicReservation = async (req, res) => {
             [empresaId, reservaId, propiedadId, propRows[0].nombre, canalId, canalNombre,
              clienteCreado.id, precioCalc.nights, vd,
              JSON.stringify(valores), personas, fechaInicio, fechaFin,
-             JSON.stringify({ origen: 'ia-reserva', agenteIA, estadoPago: 'pendiente' })]
+             JSON.stringify({ origen: 'ia-reserva', agenteIA, estadoPago: 'pendiente', vencimientoPago })]
         );
 
         // 7. Link de pago (MOCK si no hay MP_ACCESS_TOKEN)
         const linkPago = await crearPreferencia(empresaId, reservaId, `Seña ${propRows[0].nombre}`, senaPagar, 'CLP');
 
-        console.log(`✅ [Reserva IA] ${reservaId} — ${propRows[0].nombre} ${fechaInicio}→${fechaFin}`);
+        // 8. Email de confirmación (no bloquea la respuesta si falla)
+        const { rows: empRows } = await pool.query('SELECT nombre FROM empresas WHERE id = $1', [empresaId]);
+        const empresaNombre = empRows[0]?.nombre || empresaId;
+
+        emailService.enviarCorreo(require('firebase-admin').firestore(), {
+            to: cliente.email,
+            subject: `Tu reserva en ${propRows[0].nombre} — confirma tu seña`,
+            html: _buildConfirmationEmail({
+                nombreCliente: cliente.nombre,
+                nombrePropiedad: propRows[0].nombre,
+                checkin: fechaInicio,
+                checkout: fechaFin,
+                noches: precioCalc.nights,
+                montoSena: senaPagar,
+                linkPago,
+                vencimientoPago,
+                empresaNombre
+            }),
+            empresaId,
+            replyTo: null
+        }).catch(err => console.warn(`[Reserva IA] Email no enviado: ${err.message}`));
+
+        console.log(`✅ [Reserva IA] ${reservaId} — ${propRows[0].nombre} ${fechaInicio}→${fechaFin} | email→${cliente.email}`);
 
         return res.status(201).json({
             success: true,
@@ -944,7 +1009,9 @@ const createPublicReservation = async (req, res) => {
                 monto_sena: senaPagar,
                 link_pago: linkPago
             },
-            mensaje: 'Reserva creada. Paga la seña para confirmar.'
+            email_enviado: cliente.email,
+            vencimiento_pago: vencimientoPago,
+            mensaje: `Reserva creada y correo de confirmación enviado a ${cliente.email}. El huésped tiene 24 horas para abonar la seña de $${senaPagar.toLocaleString('es-CL')} CLP. Si no se recibe el pago antes del ${new Date(vencimientoPago).toLocaleString('es-CL', { timeZone: 'America/Santiago', day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' })}, la reserva se anulará automáticamente.`
         });
 
     } catch (error) {
