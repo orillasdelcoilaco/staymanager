@@ -1,3 +1,4 @@
+const pool = require('../db/postgres');
 const { obtenerPropiedadesPorEmpresa, obtenerPropiedadPorId } = require('../services/publicWebsiteService');
 const { hydrateInventory, calcularCapacidad } = require('../services/propiedadLogicService');
 const { getAvailabilityData } = require('../services/propuestasService');
@@ -813,193 +814,151 @@ const getPropertyImages = async (req, res) => {
 
 const createPublicReservation = async (req, res) => {
     try {
-        const db = require('firebase-admin').firestore();
         const body = req.body;
 
-        // Acepta formato nuevo (propiedadId/fechaInicio) y formato ChatGPT (alojamiento_id/checkin/huesped)
-        const propiedadId   = body.propiedadId   || body.alojamiento_id;
-        const fechaInicio   = body.fechaInicio   || body.fechaInicio  || body.checkin;
-        const fechaFin      = body.fechaFin      || body.checkout;
-        const cliente       = body.cliente       || body.huesped;
-        const numeroHuespedes = body.numeroHuespedes
-            ?? (body.adultos != null ? (Number(body.adultos) + Number(body.ninos || 0)) : undefined);
-        const notas         = body.notas         || body.comentarios  || '';
-        const agenteIA      = req.agentName      || body.agenteIA     || body.origen || 'Desconocido';
+        const empresaId   = body.empresa_id;
+        const propiedadId = body.propiedadId  || body.alojamiento_id;
+        const fechaInicio = body.fechaInicio  || body.checkin;
+        const fechaFin    = body.fechaFin     || body.checkout;
+        const cliente     = body.cliente      || body.huesped;
+        const personas    = Number(body.adultos || 0) + Number(body.ninos || 0) || 2;
+        const agenteIA    = req.agentName     || body.origen || 'Desconocido';
 
-        if (!propiedadId || !fechaInicio || !fechaFin || !cliente?.email || !cliente?.nombre) {
+        if (!empresaId || !propiedadId || !fechaInicio || !fechaFin || !cliente?.nombre || !cliente?.email) {
             return res.status(400).json({
-                error: 'Campos requeridos: propiedadId (o alojamiento_id), fechaInicio (o checkin), fechaFin (o checkout), cliente.nombre, cliente.email'
+                success: false,
+                error: 'MISSING_FIELDS',
+                message: 'Requeridos: empresa_id, alojamiento_id, checkin, checkout, huesped.nombre, huesped.email'
             });
         }
 
         const inicio = parseISO(fechaInicio + 'T00:00:00Z');
-        const fin = parseISO(fechaFin + 'T00:00:00Z');
-
+        const fin    = parseISO(fechaFin    + 'T00:00:00Z');
         if (!isValid(inicio) || !isValid(fin) || inicio >= fin) {
-            return res.status(400).json({ error: 'Fechas inválidas' });
+            return res.status(400).json({ success: false, error: 'INVALID_DATES' });
         }
 
-        const propDoc = await findPropertyById(db, propiedadId);
-
-        if (!propDoc) {
-            return res.status(404).json({ error: 'Propiedad no encontrada' });
-        }
-
-        const propData = propDoc.data();
-        const empresaId = propDoc.ref.parent.parent.id;
-
-        const availabilityData = await getAvailabilityData(db, empresaId, inicio, fin, false, null);
-        const isAvailable = availabilityData.availableProperties.some(p => p.id === propiedadId);
-
-        if (!isAvailable) {
-            return res.status(409).json({
-                error: 'Propiedad no disponible',
-                code: 'NOT_AVAILABLE'
-            });
-        }
-
-        let canalesIA = await obtenerCanalesPorEmpresa(db, empresaId);
-        let canalIA = canalesIA.find(c => c.nombre === 'IA Reserva');
-
-        if (!canalIA) {
-            const nuevoCanalIA = await crearCanal(db, empresaId, {
-                nombre: 'IA Reserva',
-                moneda: 'CLP',
-                modificadorTipo: 'porcentaje',
-                modificadorValor: 0,
-                configuracionIva: 'incluido',
-                descripcion: 'Reservas de agentes IA'
-            });
-            canalIA = { id: nuevoCanalIA.id, ...nuevoCanalIA };
-        }
-
-        const valorDolar = await obtenerValorDolar(db, empresaId, inicio);
-
-        const allTarifas = await obtenerTarifasParaConsumidores(empresaId);
-
-        const precioCalculado = await calculatePrice(
-            db,
-            empresaId,
-            [{ id: propiedadId, nombre: propData.nombre }],
-            inicio,
-            fin,
-            allTarifas,
-            canalIA.id,
-            valorDolar,
-            false
+        // 1. Verificar propiedad en PostgreSQL
+        const { rows: propRows } = await pool.query(
+            'SELECT id, nombre FROM propiedades WHERE id = $1 AND empresa_id = $2 AND activo = true',
+            [propiedadId, empresaId]
         );
+        if (!propRows[0]) {
+            return res.status(404).json({ success: false, error: 'PROPERTY_NOT_FOUND' });
+        }
 
-        if (!precioCalculado || precioCalculado.totalPriceCLP === 0) {
-            return res.status(404).json({
-                error: 'No se pudo calcular precio',
-                code: 'NO_PRICING'
+        // 2. Verificar disponibilidad con SQL (sin solapamiento de fechas)
+        const { rows: conflictos } = await pool.query(
+            `SELECT 1 FROM reservas
+             WHERE empresa_id = $1 AND propiedad_id = $2
+               AND estado = ANY($3)
+               AND fecha_llegada < $5 AND fecha_salida > $4
+             LIMIT 1`,
+            [empresaId, propiedadId, ['Confirmada', 'Propuesta'], fechaInicio, fechaFin]
+        );
+        if (conflictos.length > 0) {
+            return res.status(409).json({
+                success: false,
+                error: 'NOT_AVAILABLE',
+                message: 'La propiedad no está disponible en esas fechas'
             });
         }
 
-        const valorTotal = precioCalculado.totalPriceCLP;
-        const senaPagar = Math.round(valorTotal * 0.10);
-        const saldoPendiente = valorTotal - senaPagar;
+        // 3. Canal IA Reserva
+        const { rows: canalRows } = await pool.query(
+            "SELECT id FROM canales WHERE empresa_id = $1 AND nombre = 'IA Reserva' LIMIT 1",
+            [empresaId]
+        );
+        let canalId;
+        if (canalRows[0]) {
+            canalId = canalRows[0].id;
+        } else {
+            const { rows: nc } = await pool.query(
+                `INSERT INTO canales (empresa_id, nombre, tipo, comision, activo, metadata)
+                 VALUES ($1, 'IA Reserva', 'Directo', 0, true, $2) RETURNING id`,
+                [empresaId, JSON.stringify({ modificadorTipo: 'porcentaje', modificadorValor: 0, configuracionIva: 'incluido', moneda: 'CLP' })]
+            );
+            canalId = nc[0].id;
+        }
 
-        const resultadoCliente = await crearOActualizarCliente(db, empresaId, {
-            nombre: cliente.nombre,
-            email: cliente.email,
-            telefono: cliente.telefono || '',
-            canalNombre: 'IA Reserva',
-            idReservaCanal: null
+        // 4. Precio vía tarifas PostgreSQL
+        const db = require('firebase-admin').firestore();
+        const valorDolar   = await obtenerValorDolar(db, empresaId, inicio);
+        const allTarifas   = await obtenerTarifasParaConsumidores(empresaId);
+        const precioCalc   = await calculatePrice(db, empresaId, [{ id: propiedadId, nombre: propRows[0].nombre }], inicio, fin, allTarifas, canalId, valorDolar, false);
+
+        if (!precioCalc || precioCalc.totalPriceCLP === 0) {
+            return res.status(422).json({
+                success: false,
+                error: 'NO_PRICING',
+                message: 'No hay tarifas configuradas para esta propiedad en esas fechas'
+            });
+        }
+
+        const valorTotal     = precioCalc.totalPriceCLP;
+        const senaPagar      = Math.round(valorTotal * 0.10);
+        const saldoPendiente = valorTotal - senaPagar;
+        const vd             = valorDolar || 950;
+
+        // 5. Cliente
+        const { cliente: clienteCreado } = await crearOActualizarCliente(db, empresaId, {
+            nombre: cliente.nombre, email: cliente.email,
+            telefono: cliente.telefono || '', canalNombre: 'IA Reserva', idReservaCanal: null
         });
 
-        const clienteId = resultadoCliente.cliente.id;
-
-        const datosPropuesta = {
-            cliente: { id: clienteId, nombre: cliente.nombre, email: cliente.email, telefono: cliente.telefono },
-            fechaLlegada: fechaInicio,
-            fechaSalida: fechaFin,
-            propiedades: [{ id: propiedadId, nombre: propData.nombre }],
-            precioFinal: valorTotal,
-            noches: precioCalculado.nights,
-            canalId: canalIA.id,
-            canalNombre: 'IA Reserva',
-            moneda: 'CLP',
-            valorDolarDia: valorDolar,
-            valorOriginal: valorTotal,
-            origen: 'ia-reserva',
-            personas: numeroHuespedes || 2,
-            descuentoPct: 0,
-            descuentoFijo: 0,
-            valorFinalFijado: 0,
-            enviarEmail: false,
-            linkPago: null
+        // 6. Insertar reserva directamente en PostgreSQL
+        const { randomUUID } = require('crypto');
+        const reservaId = randomUUID();
+        const valores = {
+            valorHuesped: valorTotal,
+            valorTotal: Math.round(valorTotal / 1.19),
+            iva: Math.round(valorTotal - valorTotal / 1.19),
+            valorHuespedOriginal: Math.round(valorTotal / vd * 100) / 100,
+            valorTotalOriginal:   Math.round(valorTotal / vd / 1.19 * 100) / 100,
+            descuentoPct: 0, descuentoFijo: 0, valorFinalFijado: 0
         };
 
-        const propuestaCreada = await guardarOActualizarPropuesta(
-            db,
-            empresaId,
-            'ai-agent@system',
-            datosPropuesta,
-            null
+        await pool.query(
+            `INSERT INTO reservas
+               (empresa_id, id_reserva_canal, propiedad_id, alojamiento_nombre, canal_id, canal_nombre,
+                cliente_id, total_noches, estado, moneda, valor_dolar_dia, valores,
+                cantidad_huespedes, fecha_llegada, fecha_salida, metadata)
+             VALUES ($1,$2,$3,$4,$5,'IA Reserva',$6,$7,'Propuesta','CLP',$8,$9,$10,$11,$12,$13)`,
+            [empresaId, reservaId, propiedadId, propRows[0].nombre, canalId,
+             clienteCreado.id, precioCalc.nights, vd,
+             JSON.stringify(valores), personas, fechaInicio, fechaFin,
+             JSON.stringify({ origen: 'ia-reserva', agenteIA, estadoPago: 'pendiente' })]
         );
 
-        const linkPago = await crearPreferencia(
-            empresaId,
-            propuestaCreada.id,
-            `Seña reserva ${propData.nombre} - ${precioCalculado.nights} noches`,
-            senaPagar,
-            'CLP'
-        );
+        // 7. Link de pago (MOCK si no hay MP_ACCESS_TOKEN)
+        const linkPago = await crearPreferencia(empresaId, reservaId, `Seña ${propRows[0].nombre}`, senaPagar, 'CLP');
 
-        const reservasRef = db.collection('empresas').doc(empresaId).collection('reservas');
-        const reservasSnapshot = await reservasRef.where('idReservaCanal', '==', propuestaCreada.id).get();
+        console.log(`✅ [Reserva IA] ${reservaId} — ${propRows[0].nombre} ${fechaInicio}→${fechaFin}`);
 
-        const batch = db.batch();
-        reservasSnapshot.docs.forEach(doc => {
-            batch.update(doc.ref, {
-                linkPago: linkPago,
-                metadata: {
-                    origenIA: true,
-                    agenteIA: agenteIA || 'Desconocido',
-                    estadoPago: 'pendiente'
-                },
-                notas: `${notas || ''}\n\nCreado por: ${agenteIA || 'Agente IA'}`
-            });
-        });
-        await batch.commit();
-
-        console.log(`✅ [Reserva IA] Propuesta creada: ${propuestaCreada.id}`);
-
-        res.status(201).json(formatResponse({
-            propuestaId: propuestaCreada.id,
-            estado: 'Propuesta',
-            estadoPago: 'Pendiente',
-            propiedad: {
-                id: propiedadId,
-                nombre: propData.nombre
-            },
-            fechas: {
-                llegada: fechaInicio,
-                salida: fechaFin,
-                noches: precioCalculado.nights
-            },
-            precios: {
-                moneda: 'CLP',
-                valorTotal: valorTotal,
-                senaPagar: senaPagar,
-                saldoPendiente: saldoPendiente
+        return res.status(201).json({
+            success: true,
+            reserva: {
+                id: reservaId,
+                alojamiento: propRows[0].nombre,
+                checkin: fechaInicio,
+                checkout: fechaFin,
+                noches: precioCalc.nights,
+                personas,
+                estado: 'Propuesta'
             },
             pago: {
-                linkPago: linkPago,
-                monto: senaPagar,
-                instrucciones: [
-                    'Completa el pago de la seña para confirmar tu reserva',
-                    'Recibirás confirmación por email',
-                    `Pagarás $${saldoPendiente.toLocaleString('es-CL')} CLP al check-in`
-                ],
-                expiraEn: '48 horas'
+                moneda: 'CLP',
+                totalEstadia: valorTotal,
+                senaPagar,
+                saldoPendiente,
+                linkPago,
+                instrucciones: 'Paga la seña para confirmar. El saldo se abona al check-in.'
             }
-        }));
+        });
 
     } catch (error) {
-        console.error('Error in createPublicReservation:', error);
-        res.status(500).json({ error: 'Internal Server Error', message: error.message });
+        console.error('Error in createPublicReservation:', error.message);
+        return res.status(500).json({ success: false, error: 'INTERNAL_ERROR', message: error.message });
     }
 };
 
