@@ -847,14 +847,14 @@ const createPublicReservation = async (req, res) => {
             return res.status(404).json({ success: false, error: 'PROPERTY_NOT_FOUND' });
         }
 
-        // 2. Verificar disponibilidad con SQL (sin solapamiento de fechas)
+        // 2. Verificar disponibilidad — solo bloquear en Confirmada
         const { rows: conflictos } = await pool.query(
             `SELECT 1 FROM reservas
              WHERE empresa_id = $1 AND propiedad_id = $2
-               AND estado = ANY($3)
-               AND fecha_llegada < $5 AND fecha_salida > $4
+               AND estado = 'Confirmada'
+               AND fecha_llegada < $4 AND fecha_salida > $3
              LIMIT 1`,
-            [empresaId, propiedadId, ['Confirmada', 'Propuesta'], fechaInicio, fechaFin]
+            [empresaId, propiedadId, fechaInicio, fechaFin]
         );
         if (conflictos.length > 0) {
             return res.status(409).json({
@@ -864,22 +864,16 @@ const createPublicReservation = async (req, res) => {
             });
         }
 
-        // 3. Canal IA Reserva
+        // 3. Canal por defecto (el mismo que usa el sitio web)
         const { rows: canalRows } = await pool.query(
-            "SELECT id FROM canales WHERE empresa_id = $1 AND nombre = 'IA Reserva' LIMIT 1",
+            `SELECT id, nombre FROM canales WHERE empresa_id = $1 AND (metadata->>'esCanalPorDefecto')::boolean = true LIMIT 1`,
             [empresaId]
         );
-        let canalId;
-        if (canalRows[0]) {
-            canalId = canalRows[0].id;
-        } else {
-            const { rows: nc } = await pool.query(
-                `INSERT INTO canales (empresa_id, nombre, tipo, comision, activo, metadata)
-                 VALUES ($1, 'IA Reserva', 'Directo', 0, true, $2) RETURNING id`,
-                [empresaId, JSON.stringify({ modificadorTipo: 'porcentaje', modificadorValor: 0, configuracionIva: 'incluido', moneda: 'CLP' })]
-            );
-            canalId = nc[0].id;
+        if (!canalRows[0]) {
+            return res.status(422).json({ success: false, error: 'NO_CANAL', message: 'No hay canal por defecto configurado' });
         }
+        const canalId   = canalRows[0].id;
+        const canalNombre = canalRows[0].nombre;
 
         // 4. Precio vía tarifas PostgreSQL
         const db = require('firebase-admin').firestore();
@@ -922,8 +916,8 @@ const createPublicReservation = async (req, res) => {
                (empresa_id, id_reserva_canal, propiedad_id, alojamiento_nombre, canal_id, canal_nombre,
                 cliente_id, total_noches, estado, moneda, valor_dolar_dia, valores,
                 cantidad_huespedes, fecha_llegada, fecha_salida, metadata)
-             VALUES ($1,$2,$3,$4,$5,'IA Reserva',$6,$7,'Propuesta','CLP',$8,$9,$10,$11,$12,$13)`,
-            [empresaId, reservaId, propiedadId, propRows[0].nombre, canalId,
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'Propuesta','CLP',$9,$10,$11,$12,$13,$14)`,
+            [empresaId, reservaId, propiedadId, propRows[0].nombre, canalId, canalNombre,
              clienteCreado.id, precioCalc.nights, vd,
              JSON.stringify(valores), personas, fechaInicio, fechaFin,
              JSON.stringify({ origen: 'ia-reserva', agenteIA, estadoPago: 'pendiente' })]

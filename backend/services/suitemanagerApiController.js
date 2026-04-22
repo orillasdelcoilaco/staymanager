@@ -1,274 +1,150 @@
-const publicAiController = require("../controllers/publicAiController");
-
-// Wrapper para reutilizar la lógica de publicAiController
-// Mapea los parámetros de la API de ChatGPT a lo que espera el controlador existente
+const pool = require('../db/postgres');
+const { parseISO, isValid } = require('date-fns');
+const { getAvailabilityData } = require('./publicWebsiteService');
 
 exports.disponibilidad = async (req, res) => {
-    // ChatGPT envía empresa_id, checkin, checkout, adultos
-    // publicAiController espera empresaId, fechaLlegada, fechaSalida, capacidad
+    try {
+        const empresaId = req.query.empresa_id || req.query.empresaId;
+        const checkin   = req.query.checkin  || req.query.fechaLlegada;
+        const checkout  = req.query.checkout || req.query.fechaSalida;
+        const personas  = parseInt(req.query.adultos || req.query.personas || 0);
 
-    if (req.query.empresa_id) {
-        req.query.empresaId = req.query.empresa_id;
-    }
-    if (req.query.checkin) {
-        req.query.fechaLlegada = req.query.checkin;
-    }
-    if (req.query.checkout) {
-        req.query.fechaSalida = req.query.checkout;
-    }
-    if (req.query.adultos) {
-        req.query.capacidad = req.query.adultos;
-    }
+        if (!empresaId || !checkin || !checkout) {
+            return res.status(400).json({ error: 'Requeridos: empresa_id, checkin, checkout' });
+        }
 
-    return publicAiController.getProperties(req, res);
+        const inicio = parseISO(checkin + 'T00:00:00Z');
+        const fin    = parseISO(checkout + 'T00:00:00Z');
+        if (!isValid(inicio) || !isValid(fin) || inicio >= fin) {
+            return res.status(400).json({ error: 'Fechas inválidas' });
+        }
+
+        const db = require('firebase-admin').firestore();
+        const { availableProperties, unavailableProperties } = await getAvailabilityData(db, empresaId, inicio, fin);
+
+        let disponibles = availableProperties;
+        if (personas > 0) disponibles = disponibles.filter(p => (p.capacidad || 0) >= personas);
+
+        return res.json({
+            success: true,
+            empresa_id: empresaId,
+            checkin,
+            checkout,
+            total: availableProperties.length + unavailableProperties.length,
+            disponibles: disponibles.length,
+            alojamientos: [
+                ...disponibles.map(p => ({ id: p.id, nombre: p.nombre, disponible: true, capacidad: p.capacidad || 0 })),
+                ...unavailableProperties.map(p => ({ id: p.id, nombre: p.nombre, disponible: false, capacidad: p.capacidad || 0 }))
+            ]
+        });
+    } catch (error) {
+        console.error('[disponibilidad]', error.message);
+        return res.status(500).json({ error: 'Error al consultar disponibilidad' });
+    }
 };
 
 exports.detalle = async (req, res) => {
-    // ChatGPT envía alojamiento_id
-    // publicAiController espera req.params.id
+    try {
+        const alojamientoId = req.query.alojamiento_id;
+        if (!alojamientoId) return res.status(400).json({ error: 'Requerido: alojamiento_id' });
 
-    if (req.query.alojamiento_id) {
-        req.params.id = req.query.alojamiento_id;
+        const { rows } = await pool.query(
+            'SELECT id, nombre, capacidad, descripcion FROM propiedades WHERE id = $1 AND activo = true LIMIT 1',
+            [alojamientoId]
+        );
+        if (!rows[0]) return res.status(404).json({ error: 'Alojamiento no encontrado' });
+
+        const p = rows[0];
+        return res.json({ success: true, id: p.id, nombre: p.nombre, capacidad: p.capacidad, descripcion: p.descripcion || '' });
+    } catch (error) {
+        console.error('[detalle]', error.message);
+        return res.status(500).json({ error: 'Error al obtener detalle' });
     }
-
-    return publicAiController.getPropertyDetail(req, res);
 };
 
 exports.alternativas = async (req, res) => {
-    // ChatGPT envía destino, checkin, checkout
-    // publicAiController espera ubicacion, fechaLlegada, fechaSalida
+    try {
+        const destino = req.query.destino || req.query.ubicacion || '';
 
-    if (req.query.destino) {
-        req.query.ubicacion = req.query.destino;
-    }
-    if (req.query.checkin) {
-        req.query.fechaLlegada = req.query.checkin;
-    }
-    if (req.query.checkout) {
-        req.query.fechaSalida = req.query.checkout;
-    }
+        const { rows } = await pool.query(
+            `SELECT p.id, p.nombre, p.capacidad, e.id AS empresa_id
+             FROM propiedades p JOIN empresas e ON p.empresa_id = e.id
+             WHERE p.activo = true
+               AND ($1 = '' OR p.nombre ILIKE $2 OR e.nombre ILIKE $2)
+             LIMIT 10`,
+            [destino, `%${destino}%`]
+        );
 
-    // Alternativas es una búsqueda global (sin empresaId) filtrada por ubicación
-    return publicAiController.getProperties(req, res);
+        return res.json({ success: true, alojamientos: rows.map(r => ({ id: r.id, nombre: r.nombre, capacidad: r.capacidad, empresa_id: r.empresa_id })) });
+    } catch (error) {
+        console.error('[alternativas]', error.message);
+        return res.status(500).json({ error: 'Error al buscar alternativas' });
+    }
 };
 
 exports.crearReserva = async (req, res) => {
-    // ChatGPT envía body con snake_case
-    // publicAiController espera body con camelCase o lo maneja internamente
-    // Vamos a verificar createReservation en publicAiController
-    // Asumimos que createReservation maneja la lógica, pero tal vez necesitemos adaptar el body
-
-    // Mapeo de campos si es necesario
-    /*
-    Body esperado por ChatGPT:
-    {
-        empresa_id, alojamiento_id, checkin, checkout, adultos, ninos, origen, huesped: { ... }
-    }
-    */
-
-    // Si publicAiController espera otros nombres, los mapeamos aqui.
-    // Por ahora pasamos el request directo, asumiendo que el controller es robusto o que los nombres coinciden
-    // (createReservation suele esperar propertyId, startDate, endDate, guestDetails)
-
-    // IMPORTANTE: publicAiController.createReservation podría no estar exportado o implementado como esperamos.
-    // Si falla, tendremos que implementarlo aquí.
-
-    // IMPORTANTE: publicAiController.createReservation podría no estar exportado o implementado como esperamos.
-    // Si falla, tendremos que implementarlo aquí.
-
-    return publicAiController.createReservation(req, res);
+    const publicAiController = require('../controllers/publicAiController');
+    return publicAiController.createPublicReservation(req, res);
 };
 
 exports.busquedaGeneral = async (req, res) => {
-    // Endpoint: /ai/busqueda-general
-    // Parámetros: destino, checkin, checkout, adultos, ninos, habitaciones
+    try {
+        const q        = req.query.q || '';
+        const checkin  = req.query.checkin;
+        const checkout = req.query.checkout;
+        const personas = parseInt(req.query.personas || 0);
 
-    // Mapeo de parámetros a publicAiController.getProperties
-    if (req.query.destino) req.query.ubicacion = req.query.destino;
-    if (req.query.checkin) req.query.fechaLlegada = req.query.checkin;
-    if (req.query.checkout) req.query.fechaSalida = req.query.checkout;
-    if (req.query.adultos) req.query.capacidad = req.query.adultos;
+        const { rows } = await pool.query(
+            `SELECT p.id, p.nombre, p.capacidad, e.id AS empresa_id, e.nombre AS empresa_nombre
+             FROM propiedades p JOIN empresas e ON p.empresa_id = e.id
+             WHERE p.activo = true
+               AND ($1 = '' OR p.nombre ILIKE $2 OR e.nombre ILIKE $2)
+               AND ($3 = 0 OR p.capacidad >= $3)
+             ORDER BY p.nombre LIMIT 20`,
+            [q, `%${q}%`, personas]
+        );
 
-    // Forzar búsqueda global (asegurar que no haya empresaId si es búsqueda general)
-    delete req.query.empresaId;
-    delete req.params.id;
-
-    // Interceptamos la respuesta para formatearla según requerimiento
-    const originalJson = res.json;
-    res.json = (body) => {
-        // Restaurar res.json original para futuras llamadas
-        res.json = originalJson;
-
-        if (!body || !body.data) {
-            return originalJson.call(res, { success: false, resultados: [] });
-        }
-
-        const resultados = body.data.map(prop => ({
-            empresaId: prop.empresa?.id,
-            nombre: prop.empresa?.nombre,
-            alojamientoId: prop.id,
-            titulo: prop.titulo || prop.nombre || 'Alojamiento',
-            precio: prop.precioBase || 0,
-            imagenPrincipal: prop.imagenesDestacadas?.[0]?.url || ''
-        }));
-
-        return originalJson.call(res, {
-            success: true,
-            resultados: resultados
-        });
-    };
-
-    return publicAiController.getProperties(req, res);
+        return res.json({ success: true, total: rows.length, resultados: rows });
+    } catch (error) {
+        console.error('[busquedaGeneral]', error.message);
+        return res.status(500).json({ error: 'Error en búsqueda general' });
+    }
 };
 
 exports.imagenes = async (req, res) => {
-    // Endpoint: /api/alojamientos/imagenes
-    // Parámetros: empresa_id, alojamiento_id
+    try {
+        const alojamientoId = req.query.alojamiento_id;
+        if (!alojamientoId) return res.status(400).json({ error: 'Requerido: alojamiento_id' });
 
-    const alojamientoId = req.query.alojamiento_id;
-    if (!alojamientoId) {
-        return res.status(400).json({ error: "Missing alojamiento_id" });
+        const { rows } = await pool.query(
+            'SELECT storage_url, alt_text, rol FROM galeria WHERE propiedad_id = $1 AND estado = $2 ORDER BY orden ASC LIMIT 20',
+            [alojamientoId, 'activo']
+        );
+
+        return res.json({ success: true, total: rows.length, fotos: rows.map(r => ({ url: r.storage_url, descripcion: r.alt_text || '', tipo: r.rol || 'general' })) });
+    } catch (error) {
+        console.error('[imagenes]', error.message);
+        return res.status(500).json({ error: 'Error al obtener imágenes' });
     }
-
-    // Usamos getPropertyDetail pero interceptamos para formatear
-    req.params.id = alojamientoId;
-
-    const originalJson = res.json;
-    res.json = (body) => {
-        res.json = originalJson;
-
-        if (!body || !body.imagenesDestacadas) { // Asumiendo estructura de getPropertyDetail
-            // Si getPropertyDetail devuelve la estructura completa de la propiedad en body (sin wrapper data en algunos casos, o dentro de data)
-            // Revisando publicAiController.getPropertyDetail, devuelve formatResponse(sanitizedProperty) -> { meta, data: property }
-            // Ojo: getPropertyDetail en publicAiController devuelve formatResponse({ ...sanitizedProperty, ... }) ? 
-            // Revisemos el código de publicAiController:
-            // res.json(formatResponse({ ...sanitizedProperty, imagenesDestacadas: enrichedImages ... }));
-            // Entonces body.data contiene la propiedad.
-        }
-
-        const propData = body.data || body;
-
-        const categorias = {
-            dormitorio: [],
-            bano: [], // Evitar ñ en claves JSON por compatibilidad
-            cocina: [],
-            living: [],
-            exterior: [],
-            otros: []
-        };
-
-        const images = propData.imagenesDestacadas || [];
-        // Si hay más imágenes en websiteData que no están en imagenesDestacadas (que solo trae 5), 
-        // idealmente deberíamos acceder a todas. getPropertyDetail ya procesa 'enrichedImages'.
-        // Pero getPropertyDetail podría estar limitando o no. 
-        // Asumiremos que propData tiene las imágenes procesadas.
-
-        // Si publicAiController devuelve todas las imágenes en alguna propiedad, las usamos.
-        // Si no, trabajamos con lo que hay.
-
-        images.forEach(img => {
-            const cat = img.category ? img.category.toLowerCase() : 'general';
-            const url = img.url;
-
-            if (cat.includes('dormitorio') || cat.includes('habitacion')) categorias.dormitorio.push(url);
-            else if (cat.includes('baño') || cat.includes('bano')) categorias.bano.push(url);
-            else if (cat.includes('cocina')) categorias.cocina.push(url);
-            else if (cat.includes('living') || cat.includes('sala')) categorias.living.push(url);
-            else if (cat.includes('exterior') || cat.includes('patio') || cat.includes('jardin') || cat.includes('piscina')) categorias.exterior.push(url);
-            else categorias.otros.push(url);
-        });
-
-        return originalJson.call(res, {
-            success: true,
-            categorias: categorias
-        });
-    };
-
-    return publicAiController.getPropertyDetail(req, res);
 };
 
 exports.agentConfig = async (req, res) => {
-    // Endpoint: /api/agent-config
-    // Parámetros: empresa_id
-
-    const empresaId = req.query.empresa_id;
-    if (!empresaId) {
-        return res.status(400).json({ error: "Missing empresa_id" });
-    }
-
     try {
-        const db = require('firebase-admin').firestore();
-        const { obtenerDetallesEmpresa } = require('./empresaService'); // Asegurar importación correcta o usar db directo
+        const empresaId = req.query.empresa_id;
+        if (!empresaId) return res.status(400).json({ error: 'Requerido: empresa_id' });
 
-        // Usamos db directo para evitar dependencias circulares si no están disponibles
-        const empresaDoc = await db.collection('empresas').doc(empresaId).get();
+        const { rows } = await pool.query(
+            'SELECT nombre FROM empresas WHERE id = $1 LIMIT 1',
+            [empresaId]
+        );
 
-        if (!empresaDoc.exists) {
-            return res.status(404).json({ error: "Empresa no encontrada" });
-        }
+        const nombreEmpresa = rows[0]?.nombre || empresaId;
 
-        const empresaData = empresaDoc.data();
-        const nombreEmpresa = empresaData.nombreFantasia || empresaData.razonSocial || empresaData.nombre || 'Empresa';
+        const instrucciones = `Eres el asistente oficial de ${nombreEmpresa}. Ayuda a huéspedes a consultar disponibilidad, ver detalles y gestionar reservas. No inventes información. Usa siempre las Actions. Responde en español con tono cálido.`;
 
-        // Generar instrucciones dinámicas detalladas (Base para todos)
-        const instructionsBase = `
-Eres el asistente oficial de ${nombreEmpresa}, un alojamiento conectado a SuiteManager.
-Tu rol es ayudar a huéspedes a:
-- buscar disponibilidad real
-- ver fotos y detalles
-- revisar políticas y servicios
-- gestionar reservas mediante las Actions de SuiteManager
-
-Reglas esenciales:
-- NO inventes alojamientos, fotos ni precios.
-- Toda la información estructural debe provenir exclusivamente de las Actions.
-- Usa las siguientes Actions: 
-  - /api/disponibilidad
-  - /api/alojamientos/detalle
-  - /api/public/busqueda-general
-  - /api/alojamientos/alternativas
-  - /api/reservas
-- Nunca hables de otras empresas.
-- Nunca mezcles datos entre empresas.
-- Responde en español con tono cálido y profesional.
-
-Si al usuario le falta:
-- fechas → pídelas
-- cantidad de personas → pídelas
-- datos para reservar → solicítalos
-        `.trim();
-
-        // Generar manifiesto dinámico enriquecido y profesional
-        const manifest = {
-            chatgpt: {
-                name: `${nombreEmpresa} — Concierge IA Oficial`,
-                description: `Asistente IA oficial de ${nombreEmpresa}, conectado a SuiteManager para disponibilidad y reservas reales.`,
-                welcome_message: `👋 ¡Hola! Soy el asistente oficial de ${nombreEmpresa}.\nPuedo ayudarte a ver disponibilidad, fotos, detalles o gestionar una reserva.\n¿En qué puedo ayudarte hoy?`,
-                instructions: instructionsBase,
-                tags: ["Reservas", "Turismo", "Alojamientos", "SuiteManager"],
-                actions: {
-                    openapi_url: "https://suite-manager.onrender.com/openapi-chatgpt.yaml"
-                }
-            },
-            gemini: {
-                system_instruction: `Eres el asistente oficial de ${nombreEmpresa}. \nSolo respondes sobre alojamientos, disponibilidad y servicios de esta empresa. \nUsa siempre la API SuiteManager para obtener datos reales. \nNo inventes información. \nSé amable, profesional y claro.`,
-                examples: []
-            },
-            claude: {
-                system_prompt: `Tu nombre es “${nombreEmpresa} — Concierge IA”. \nTu función es ayudar a huéspedes a consultar disponibilidad, ver detalles y gestionar reservas reales usando SuiteManager. \nNo inventes alojamientos, fotos ni precios. \nHabla solo sobre ${nombreEmpresa}. \nResponde en tono cálido, profesional y directo.`,
-                examples: []
-            }
-        };
-
-        return res.json({
-            empresa_id: empresaId,
-            nombre_empresa: nombreEmpresa,
-            instrucciones: instructionsBase,
-            manifiesto: manifest
-        });
-
+        return res.json({ empresa_id: empresaId, nombre_empresa: nombreEmpresa, instrucciones });
     } catch (error) {
-        console.error("Error in agentConfig:", error);
-        return res.status(500).json({ error: "Internal Server Error" });
+        console.error('[agentConfig]', error.message);
+        return res.status(500).json({ error: 'Error al obtener configuración' });
     }
 };
