@@ -40,7 +40,7 @@ const obtenerPropuestasYPresupuestos = async (_db, empresaId) => {
         pool.query(
             `SELECT id, id_reserva_canal, cliente_id, alojamiento_nombre, canal_id, canal_nombre,
                     fecha_llegada, fecha_salida, propiedad_id, valores, cantidad_huespedes, metadata
-             FROM reservas WHERE empresa_id = $1 AND estado = 'Propuesta' ORDER BY created_at DESC`,
+             FROM reservas WHERE empresa_id = $1 AND estado = 'Propuesta' ORDER BY fecha_llegada DESC NULLS LAST`,
             [empresaId]
         ),
         pool.query(

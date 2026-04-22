@@ -268,7 +268,7 @@ const getTransacciones = async (_db, empresaId, idsIndividuales) => {
     if (!reservaRows[0]) return [];
     const idReservaCanal = reservaRows[0].id_reserva_canal;
     const { rows } = await pool.query(
-        `SELECT * FROM transacciones WHERE empresa_id = $1 AND id_reserva_canal = $2 ORDER BY created_at DESC`,
+        `SELECT * FROM transacciones WHERE empresa_id = $1 AND id_reserva_canal = $2 ORDER BY fecha DESC NULLS LAST`,
         [empresaId, idReservaCanal]
     );
     return rows.map(row => ({
@@ -278,7 +278,7 @@ const getTransacciones = async (_db, empresaId, idsIndividuales) => {
         monto:             row.monto,
         medioDePago:       row.metadata?.medioDePago || '',
         enlaceComprobante: row.metadata?.enlaceComprobante || null,
-        fecha:             row.created_at || new Date(),
+        fecha:             row.fecha || new Date(),
     }));
 };
 

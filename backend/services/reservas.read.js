@@ -86,12 +86,12 @@ async function _obtenerReservaPorIdPG(db, empresaId, row) {
             ? pool.query('SELECT * FROM clientes WHERE id = $1 AND empresa_id = $2', [row.cliente_id, empresaId])
             : Promise.resolve({ rows: [] }),
         pool.query('SELECT * FROM bitacora WHERE empresa_id = $1 AND id_reserva_canal = $2 ORDER BY created_at DESC', [empresaId, idReservaCanal]),
-        pool.query('SELECT * FROM transacciones WHERE empresa_id = $1 AND id_reserva_canal = $2 ORDER BY created_at DESC', [empresaId, idReservaCanal]),
+        pool.query('SELECT * FROM transacciones WHERE empresa_id = $1 AND id_reserva_canal = $2 ORDER BY fecha DESC NULLS LAST', [empresaId, idReservaCanal]),
     ]);
 
     const cliente      = clienteRes.rows[0] ? _mapearClienteSimple(clienteRes.rows[0]) : {};
     const notas        = notasRes.rows.map(r => ({ id: r.id, reservaIdOriginal: r.id_reserva_canal, texto: r.texto, autor: r.autor || '', fecha: r.created_at?.toLocaleString('es-CL') || '' }));
-    const transacciones = transRes.rows.map(r => ({ id: r.id, reservaIdOriginal: r.id_reserva_canal, tipo: r.tipo, monto: r.monto, medioDePago: r.metadata?.medioDePago || '', enlaceComprobante: r.metadata?.enlaceComprobante || null, fecha: r.created_at?.toLocaleString('es-CL') || '' }));
+    const transacciones = transRes.rows.map(r => ({ id: r.id, reservaIdOriginal: r.id_reserva_canal, tipo: r.tipo, monto: r.monto, medioDePago: r.metadata?.medioDePago || '', enlaceComprobante: r.metadata?.enlaceComprobante || null, fecha: r.fecha?.toLocaleString('es-CL') || '' }));
     const reservasDelGrupo = grupoRes.rows.map(mapearReservaPG);
 
     return _construirDetalleReserva(db, empresaId, reservaData, row, cliente, notas, transacciones, reservasDelGrupo);
