@@ -165,7 +165,7 @@ paths:
         "200":
           description: OK
 
-  /api/reservas:
+  /api/public/reservas:
     post:
       operationId: crearReserva
       summary: Crea una reserva

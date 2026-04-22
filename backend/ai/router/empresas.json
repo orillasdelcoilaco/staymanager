@@ -2,6 +2,7 @@
     {
         "id": "orillasdelcoilaco",
         "nombre": "Orillas del Coilaco",
+        "aliases": ["coilaco", "orillas coilaco", "orillas del coilaco", "orillas"],
         "plan": "premium",
         "baseUrl": "https://suite-manager.onrender.com/api"
     }
