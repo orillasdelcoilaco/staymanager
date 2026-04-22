@@ -895,9 +895,8 @@ const createPublicReservation = async (req, res) => {
             });
         }
 
-        const valorTotal     = precioCalc.totalPriceCLP;
-        const senaPagar      = Math.round(valorTotal * 0.10);
-        const saldoPendiente = valorTotal - senaPagar;
+        const valorTotal = precioCalc.totalPriceCLP;
+        const senaPagar  = Math.round(valorTotal * 0.10);
         const vd             = valorDolar || 950;
 
         // 5. Cliente
@@ -939,21 +938,19 @@ const createPublicReservation = async (req, res) => {
             success: true,
             reserva: {
                 id: reservaId,
-                alojamiento: propRows[0].nombre,
+                estado: 'Propuesta',
                 checkin: fechaInicio,
                 checkout: fechaFin,
-                noches: precioCalc.nights,
-                personas,
-                estado: 'Propuesta'
+                alojamiento: { id: propiedadId, nombre: propRows[0].nombre },
+                huesped: { nombre: cliente.nombre },
+                total_noches: precioCalc.nights,
+                fecha_creacion: new Date().toISOString()
             },
             pago: {
-                moneda: 'CLP',
-                totalEstadia: valorTotal,
-                senaPagar,
-                saldoPendiente,
-                linkPago,
-                instrucciones: 'Paga la seña para confirmar. El saldo se abona al check-in.'
-            }
+                monto_sena: senaPagar,
+                link_pago: linkPago
+            },
+            mensaje: 'Reserva creada. Paga la seña para confirmar.'
         });
 
     } catch (error) {
