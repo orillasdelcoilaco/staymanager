@@ -33,6 +33,12 @@ const ETIQUETAS_CATALOGO = [
     { tag: '[USUARIO_TELEFONO]', descripcion: 'Teléfono de contacto' },
     { tag: '[URL_PAGO]', descripcion: 'Enlace para pago en línea' },
     { tag: '[ENLACE_PAGO]', descripcion: 'Mismo valor que URL de pago (sinónimo)' },
+    { tag: '[LINK_RESEÑA]', descripcion: 'Enlace público para dejar valoración (post‑estancia)' },
+    { tag: '[LINK_RESENA]', descripcion: 'Sinónimo ASCII de [LINK_RESEÑA]' },
+    { tag: '[MENSAJE_CONSULTA]', descripcion: 'Texto enviado desde el formulario de contacto web' },
+    { tag: '[CONSULTA_ASUNTO_USUARIO]', descripcion: 'Asunto opcional indicado por el visitante' },
+    { tag: '[DATOS_TRANSFERENCIA]', descripcion: 'Datos bancarios para realizar transferencia de pago' },
+    { tag: '[PLAZO_ABONO]', descripcion: 'Fecha y hora límite para realizar el abono' },
 ];
 
 /**
@@ -67,6 +73,12 @@ function buildReemplazoMap(datos = {}) {
         '[USUARIO_TELEFONO]': datos.contactoTelefono || datos.usuarioTelefono || '',
         '[URL_PAGO]': datos.linkPago || datos.urlPago || '',
         '[ENLACE_PAGO]': datos.linkPago || datos.urlPago || '',
+        '[LINK_RESEÑA]': datos.linkResena || datos.LINK_RESEÑA || '',
+        '[LINK_RESENA]': datos.linkResena || datos.LINK_RESENA || datos.LINK_RESEÑA || '',
+        '[MENSAJE_CONSULTA]': datos.mensajeConsulta || datos.MENSAJE_CONSULTA || '',
+        '[CONSULTA_ASUNTO_USUARIO]': datos.asuntoConsultaUsuario || datos.CONSULTA_ASUNTO_USUARIO || '',
+        '[DATOS_TRANSFERENCIA]': datos.datosBancarios || datos.datosBancariosTexto || '',
+        '[PLAZO_ABONO]': datos.plazoAbono || datos.fechaVencimiento || '',
     };
 }
 
