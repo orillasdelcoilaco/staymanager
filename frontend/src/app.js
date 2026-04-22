@@ -69,6 +69,19 @@ export async function renderAppLayout(dollarInfo) {
 }
 
 export async function checkAuthAndRender() {
+    // Esperar a que Firebase restaure la sesión y renueve el token antes del primer fetch
+    if (window.firebaseApp) {
+        try {
+            const { getAuth } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+            const auth = getAuth(window.firebaseApp);
+            if (typeof auth.authStateReady === 'function') await auth.authStateReady();
+            if (auth.currentUser) {
+                const freshToken = await auth.currentUser.getIdToken();
+                localStorage.setItem('idToken', freshToken);
+            }
+        } catch (_) { /* Firebase no disponible, se usa el token en localStorage */ }
+    }
+
     const token = localStorage.getItem('idToken');
     if (!token) {
         currentUser = null;
