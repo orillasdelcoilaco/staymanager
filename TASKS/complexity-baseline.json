@@ -1,6 +1,6 @@
 {
-  "fecha": "2026-04-24T19:03:30.330Z",
-  "total": 28,
+  "fecha": "2026-04-24T19:30:38.851Z",
+  "total": 29,
   "criticos": [
     {
       "file": "frontend/src/views/components/configurarWebPublica/webPublica.general.unified.lineasExtraRows.js",
@@ -75,12 +75,12 @@
     {
       "file": "backend/services/empresaService.js",
       "type": "function-size",
-      "detail": "actualizarDetallesEmpresa — 156 líneas (línea 28)"
+      "detail": "actualizarDetallesEmpresa — 164 líneas (línea 29)"
     },
     {
       "file": "backend/services/gestionPropuestas.email.js",
       "type": "function-size",
-      "detail": "enviarEmailReservaConfirmada — 130 líneas (línea 130)"
+      "detail": "enviarEmailReservaConfirmada — 155 líneas (línea 136)"
     },
     {
       "file": "backend/services/plantillasService.js",
@@ -90,7 +90,7 @@
     {
       "file": "backend/services/publicWebsiteService.js",
       "type": "file-size",
-      "detail": "1241 líneas"
+      "detail": "1263 líneas"
     },
     {
       "file": "backend/services/publicWebsiteService.js",
@@ -105,7 +105,7 @@
     {
       "file": "backend/services/publicWebsiteService.js",
       "type": "function-size",
-      "detail": "crearReservaPublica — 204 líneas (línea 913)"
+      "detail": "crearReservaPublica — 226 líneas (línea 913)"
     },
     {
       "file": "backend/services/resenasService.js",
@@ -130,7 +130,7 @@
     {
       "file": "backend/routes/website.booking.js",
       "type": "function-size",
-      "detail": "registerBookingRoutes — 189 líneas (línea 13)"
+      "detail": "registerBookingRoutes — 201 líneas (línea 13)"
     },
     {
       "file": "backend/routes/website.home.helpers.js",
@@ -141,6 +141,11 @@
       "file": "backend/routes/website.property.page.js",
       "type": "function-size",
       "detail": "renderPropiedadPublica — 189 líneas (línea 76)"
+    },
+    {
+      "file": "backend/routes/website.seo.js",
+      "type": "function-size",
+      "detail": "registerSeoRoutes — 152 líneas (línea 1)"
     }
   ]
 }
