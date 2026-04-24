@@ -1,6 +1,12 @@
 // backend/services/estadosService.js
 const pool = require('../db/postgres');
 
+/**
+ * Semántica fija del producto (misma clave que `SEMANTICA_CONFIG` en frontend):
+ * primer paso de gestión tras confirmar una reserva. El nombre visible lo define cada empresa en `estados_reserva`.
+ */
+const SEMANTICA_GESTION_INICIO_POST_CONFIRMACION = 'pendiente_bienvenida';
+
 function mapearEstado(row) {
     if (!row) return null;
     return {
@@ -69,4 +75,50 @@ const eliminarEstado = async (_db, empresaId, estadoId) => {
     );
 };
 
-module.exports = { crearEstado, obtenerEstados, actualizarEstado, eliminarEstado };
+/**
+ * @param {string} empresaId
+ * @param {string} semantica — clave de máquina (columna estados_reserva.semantica)
+ * @returns {Promise<string|null>} — `nombre` a guardar en reservas.estado_gestion (el panel filtra por nombre)
+ */
+async function obtenerNombreEstadoGestionPorSemantica(empresaId, semantica) {
+    if (!pool || !empresaId || !semantica) return null;
+    const { rows } = await pool.query(
+        `SELECT nombre FROM estados_reserva
+         WHERE empresa_id = $1 AND es_gestion = true AND semantica = $2
+         ORDER BY orden ASC NULLS LAST
+         LIMIT 1`,
+        [empresaId, semantica]
+    );
+    return rows[0]?.nombre || null;
+}
+
+/**
+ * Nombre del estado de gestión inicial tras confirmar reserva (web, IA, presupuesto).
+ * Resuelve por semántica; si la empresa no la tiene asignada, usa el primer estado de gestión por orden.
+ */
+async function obtenerNombreEstadoGestionInicialReservaConfirmada(empresaId) {
+    let nombre = await obtenerNombreEstadoGestionPorSemantica(
+        empresaId,
+        SEMANTICA_GESTION_INICIO_POST_CONFIRMACION
+    );
+    if (nombre) return nombre;
+    if (!pool || !empresaId) return null;
+    const { rows } = await pool.query(
+        `SELECT nombre FROM estados_reserva
+         WHERE empresa_id = $1 AND es_gestion = true
+         ORDER BY orden ASC NULLS LAST
+         LIMIT 1`,
+        [empresaId]
+    );
+    return rows[0]?.nombre || null;
+}
+
+module.exports = {
+    crearEstado,
+    obtenerEstados,
+    actualizarEstado,
+    eliminarEstado,
+    obtenerNombreEstadoGestionPorSemantica,
+    obtenerNombreEstadoGestionInicialReservaConfirmada,
+    SEMANTICA_GESTION_INICIO_POST_CONFIRMACION,
+};

@@ -18,6 +18,7 @@ const { format, addDays, parseISO, isValid } = require('date-fns');
 const { crearOActualizarCliente } = require('../services/clientesService');
 const { getProvider } = require('../services/aiContentService.providers');
 const { resolveEmpresaDbId } = require('../services/resolveEmpresaDbId');
+const { obtenerNombreEstadoGestionInicialReservaConfirmada } = require('../services/estadosService');
 
 const sanitizeProperty = (property) => {
     if (!property) return null;
@@ -1043,17 +1044,39 @@ const createPublicReservation = async (req, res) => {
         const vencimientoPago = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
         const plazoAbonoTexto = new Date(vencimientoPago).toLocaleString('es-CL', { timeZone: 'America/Santiago', day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' });
 
-        // estado_gestion alineado con reserva web (publicWebsiteService) para que aparezca en gestión diaria
+        const nombreEstadoGestion = await obtenerNombreEstadoGestionInicialReservaConfirmada(empresaId);
+        if (!nombreEstadoGestion) {
+            return res.status(422).json({
+                success: false,
+                error: 'NO_ESTADO_GESTION',
+                message:
+                    'La empresa no tiene estados de gestión configurados en estados_reserva; no se puede registrar la reserva en el flujo operativo.',
+            });
+        }
+
         await pool.query(
             `INSERT INTO reservas
                (empresa_id, id_reserva_canal, propiedad_id, alojamiento_nombre, canal_id, canal_nombre,
                 cliente_id, total_noches, estado, estado_gestion, moneda, valor_dolar_dia, valores,
                 cantidad_huespedes, fecha_llegada, fecha_salida, metadata)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'Confirmada','Pendiente Bienvenida','CLP',$9,$10,$11,$12,$13,$14)`,
-            [empresaId, reservaId, propiedadId, propRows[0].nombre, canalId, canalNombre,
-             clienteCreado.id, precioCalc.nights, vd,
-             JSON.stringify(valores), personas, fechaInicio, fechaFin,
-             JSON.stringify({ origen: 'ia-reserva', agenteIA, estadoPago: 'pendiente', vencimientoPago })]
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'Confirmada',$9,'CLP',$10,$11,$12,$13,$14,$15)`,
+            [
+                empresaId,
+                reservaId,
+                propiedadId,
+                propRows[0].nombre,
+                canalId,
+                canalNombre,
+                clienteCreado.id,
+                precioCalc.nights,
+                nombreEstadoGestion,
+                vd,
+                JSON.stringify(valores),
+                personas,
+                fechaInicio,
+                fechaFin,
+                JSON.stringify({ origen: 'ia-reserva', agenteIA, estadoPago: 'pendiente', vencimientoPago }),
+            ]
         );
 
         // 7. Email de confirmación con plantilla o fallback HTML

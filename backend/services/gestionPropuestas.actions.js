@@ -3,6 +3,7 @@ const pool = require('../db/postgres');
 const { getAvailabilityData } = require('./propuestasService');
 const { marcarCuponComoUtilizado } = require('./cuponesService');
 const { enviarEmailReservaConfirmada } = require('./gestionPropuestas.email');
+const { obtenerNombreEstadoGestionInicialReservaConfirmada } = require('./estadosService');
 
 async function _verificarConflictoPG(empresaId, propiedadId, alojamientoNombre, startDate, endDate) {
     const { rows } = await pool.query(
@@ -47,9 +48,11 @@ const aprobarPropuesta = async (db, empresaId, idsReservas) => {
     for (const r of rows) {
         if (!availableIds.has(r.propiedad_id)) await _verificarConflictoPG(empresaId, r.propiedad_id, r.alojamiento_nombre, primera.fecha_llegada, primera.fecha_salida);
     }
+    const nombreEstadoGestion = await obtenerNombreEstadoGestionInicialReservaConfirmada(empresaId);
+    if (!nombreEstadoGestion) throw new Error('La empresa no tiene estados de gestión configurados.');
     await pool.query(
-        `UPDATE reservas SET estado = 'Confirmada', estado_gestion = 'Pendiente Bienvenida', updated_at = NOW() WHERE id = ANY($1) AND empresa_id = $2`,
-        [idsReservas, empresaId]
+        `UPDATE reservas SET estado = 'Confirmada', estado_gestion = $1, updated_at = NOW() WHERE id = ANY($2) AND empresa_id = $3`,
+        [nombreEstadoGestion, idsReservas, empresaId]
     );
     const codigoCupon = primera.metadata?.cuponUtilizado;
     if (codigoCupon) {
@@ -84,6 +87,8 @@ const aprobarPresupuesto = async (db, empresaId, presupuestoId) => {
     const { rows: canalRows } = await pool.query(`SELECT id, nombre FROM canales WHERE empresa_id=$1 AND (metadata->>'esCanalPorDefecto')::boolean = true LIMIT 1`, [empresaId]);
     if (!canalRows[0]) throw new Error("No se ha configurado un canal por defecto.");
     const canal = canalRows[0];
+    const nombreEstadoGestion = await obtenerNombreEstadoGestionInicialReservaConfirmada(empresaId);
+    if (!nombreEstadoGestion) throw new Error('La empresa no tiene estados de gestión configurados.');
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -92,8 +97,23 @@ const aprobarPresupuesto = async (db, empresaId, presupuestoId) => {
             await client.query(
                 `INSERT INTO reservas (empresa_id, id_reserva_canal, propiedad_id, alojamiento_nombre, canal_id, canal_nombre,
                     cliente_id, total_noches, estado, estado_gestion, moneda, valores, cantidad_huespedes, fecha_llegada, fecha_salida, metadata)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'Confirmada','Pendiente Bienvenida','CLP',$9,$10,$11,$12,$13)`,
-                [empresaId, presupuestoId, prop.id, prop.nombre, canal.id, canal.nombre, presupuesto.clienteId, presupuesto.noches, JSON.stringify(valores), prop.capacidad || 0, presupuesto.fechaLlegada, presupuesto.fechaSalida, JSON.stringify({ origen: 'presupuesto', edicionesManuales: {} })]
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'Confirmada',$9,'CLP',$10,$11,$12,$13,$14)`,
+                [
+                    empresaId,
+                    presupuestoId,
+                    prop.id,
+                    prop.nombre,
+                    canal.id,
+                    canal.nombre,
+                    presupuesto.clienteId,
+                    presupuesto.noches,
+                    nombreEstadoGestion,
+                    JSON.stringify(valores),
+                    prop.capacidad || 0,
+                    presupuesto.fechaLlegada,
+                    presupuesto.fechaSalida,
+                    JSON.stringify({ origen: 'presupuesto', edicionesManuales: {} }),
+                ]
             );
         }
         await client.query(`UPDATE presupuestos SET estado = 'Aprobado', updated_at = NOW() WHERE id = $1 AND empresa_id = $2`, [presupuestoId, empresaId]);
@@ -103,6 +123,31 @@ const aprobarPresupuesto = async (db, empresaId, presupuestoId) => {
         throw e;
     } finally {
         client.release();
+    }
+
+    const { rows: resNuevas } = await pool.query(
+        `SELECT * FROM reservas WHERE empresa_id = $1 AND id_reserva_canal = $2::text ORDER BY fecha_llegada ASC`,
+        [empresaId, String(presupuestoId)]
+    );
+    if (resNuevas.length && presupuesto.clienteId) {
+        const primera = resNuevas[0];
+        const capTotal = resNuevas.reduce((s, r) => s + (parseInt(r.cantidad_huespedes, 10) || 0), 0)
+            || presupuesto.propiedades?.reduce((s, p) => s + (p.capacidad || 0), 0) || 0;
+        const datosParaEmail = {
+            clienteId: presupuesto.clienteId,
+            reservaId: String(presupuestoId),
+            propiedades: resNuevas.map((r) => ({ nombre: r.alojamiento_nombre })),
+            fechaLlegada: new Date(primera.fecha_llegada),
+            fechaSalida: new Date(primera.fecha_salida),
+            noches: primera.total_noches || presupuesto.noches,
+            personas: capTotal,
+            precioFinal: presupuesto.monto || 0,
+        };
+        try {
+            await enviarEmailReservaConfirmada(db, empresaId, datosParaEmail);
+        } catch (e) {
+            console.error('❌ Error enviando email de presupuesto confirmado:', e.message);
+        }
     }
 };
 
