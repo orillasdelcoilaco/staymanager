@@ -3,20 +3,11 @@
 
 const pool = require('../db/postgres');
 const { obtenerValorDolar } = require('./dolarService');
-const { crearOActualizarCliente, buscarClienteIdPorEmail } = require('./clientesService');
+const { crearOActualizarCliente } = require('./clientesService');
 const { listarBloqueos, getBloqueosPorPeriodo } = require('./bloqueosService');
-const { isValid, differenceInDays, addDays, parseISO, format } = require('date-fns');
-const { getPrecioBaseNoche, fetchTarifasForEmpresas, fetchTarifasYCanal } = require('../routes/website.shared');
+const { isValid, differenceInDays, addDays, parseISO } = require('date-fns');
+const { getPrecioBaseNoche, fetchTarifasForEmpresas } = require('../routes/website.shared');
 const { obtenerResumenPorPropiedad } = require('./resenasService');
-const { aplicarPromocionesDisplayCompleto, precioNocheConPromoTarifa } = require('./promocionesDisplayService');
-const { buildDesglosePrecioCheckout } = require('./checkoutDesgloseService');
-const {
-    listTarifaIdsPorNocheEstadia,
-    listTarifaIdsUnionGrupoEstadia,
-    mergeLegalConPoliticaTarifaUnica,
-    snapshotPoliticaCancelacionParaMetadata,
-} = require('./politicaCancelacionTarifaService');
-const { validarCupon, marcarCuponComoUtilizado } = require('./cuponesService');
 
 // --- Helpers de Cliente ---
 
@@ -225,9 +216,7 @@ function _fmtPrecioDesde(px) {
  * @param {string} [opts.protocol] — req.protocol
  * @param {Array} opts.allTarifasHost — tarifas del anfitrión actual (fetchTarifasYCanal)
  * @param {string|null} opts.canalPorDefectoIdHost
- * @param {number} opts.precioReferenciaNoche — referencia por noche para el filtro ±50% (idealmente alineada al precio mostrado en la ficha, p. ej. noche con promo).
- * @param {string} [opts.fechaEstanciaLlegada] — YYYY-MM-DD para promos de tarifa (si no hay en `query`, p. ej. mismo fin de semana que la ficha).
- * @param {string} [opts.fechaEstanciaSalida] — checkout exclusivo, mismo criterio que SSR ficha.
+ * @param {number} opts.precioReferenciaNoche — getPrecioBaseNoche del alojamiento actual
  * @param {string} opts.nombreAnfitrion
  * @returns {Promise<{ modo: 'misma_empresa'|'descubrimiento', titulo: string, subtitulo: string, items: object[] }|null>}
  */
@@ -246,11 +235,6 @@ async function obtenerMasAlojamientosParaFichaSSR(opts) {
     } = opts;
 
     const refPx = Math.max(0, Number(precioReferenciaNoche) || 0);
-    const fechaLlegadaQ = opts.fechaEstanciaLlegada
-        || (opts.query?.fechaLlegada ? String(opts.query.fechaLlegada).slice(0, 10) : null);
-    const fechaSalidaQ = opts.fechaEstanciaSalida
-        || (opts.query?.fechaSalida ? String(opts.query.fechaSalida).slice(0, 10) : null);
-    const marketingPromos = Array.isArray(opts.marketingPromos) ? opts.marketingPromos : [];
     const { lat: refLat, lng: refLng, cityKey } = _extractGeoCityFromPropiedad(propiedad);
     const qSuffix = ['fechaLlegada', 'fechaSalida', 'personas']
         .map((k) => {
@@ -277,17 +261,6 @@ async function obtenerMasAlojamientosParaFichaSSR(opts) {
             const px = canalPorDefectoIdHost
                 ? getPrecioBaseNoche(p.id, allTarifasHost, canalPorDefectoIdHost)
                 : 0;
-            const conPromo = aplicarPromocionesDisplayCompleto(
-                { id: p.id, pricing: null, precioBaseNoche: px },
-                {
-                    promos: marketingPromos,
-                    fechaLlegada: fechaLlegadaQ,
-                    fechaSalida: fechaSalidaQ,
-                    allTarifas: allTarifasHost,
-                    canalPorDefectoId: canalPorDefectoIdHost,
-                }
-            );
-            const pxMostrar = conPromo.promoDisplay?.precioPromo || px;
             const rs = resumenes[i] || {};
             const rating =
                 rs.promedio_general != null && Number(rs.total) > 0
@@ -301,7 +274,7 @@ async function obtenerMasAlojamientosParaFichaSSR(opts) {
                 rel: null,
                 imagen: _cardImageFromPropiedad(p),
                 titulo: _pickCardTitleFromPropiedad(p),
-                precioLabel: _fmtPrecioDesde(pxMostrar),
+                precioLabel: _fmtPrecioDesde(px),
                 ratingLabel: rating,
                 reviewCount: Number(rs.total) || 0,
                 esExterno: false,
@@ -337,17 +310,9 @@ async function obtenerMasAlojamientosParaFichaSSR(opts) {
     const empIds = [...new Set(rows.map((r) => r.empresa_id))];
     const { allTarifas, defaultCanalByEmpresa } = await fetchTarifasForEmpresas(empIds);
     const { rows: empRows } = await pool.query(
-        `SELECT id, nombre, dominio, subdominio,
-                COALESCE(configuracion->'websiteSettings'->'marketing'->'promocionesDestacadas', '[]'::jsonb) AS marketing_promos
-         FROM empresas WHERE id::text = ANY($1::text[])`,
+        `SELECT id, nombre, dominio, subdominio FROM empresas WHERE id::text = ANY($1::text[])`,
         [empIds.map(String)]
     );
-    const promosByEmpresa = new Map();
-    empRows.forEach((er) => {
-        const raw = er.marketing_promos;
-        const arr = Array.isArray(raw) ? raw : [];
-        promosByEmpresa.set(String(er.id), arr);
-    });
     const empById = new Map(empRows.map((e) => [String(e.id), e]));
 
     const band = 0.5;
@@ -356,19 +321,7 @@ async function obtenerMasAlojamientosParaFichaSSR(opts) {
         const meta = r.metadata || {};
         const p = { id: r.id, nombre: r.nombre, empresa_id: r.empresa_id, metadata: meta, websiteData: meta.websiteData, buildContext: meta.buildContext, googleHotelData: meta.googleHotelData };
         const canalId = defaultCanalByEmpresa.get(String(r.empresa_id))?.id || null;
-        const minPxBase = canalId ? getPrecioBaseNoche(r.id, allTarifas, canalId) : 0;
-        const promosEmp = promosByEmpresa.get(String(r.empresa_id)) || [];
-        const conPx = aplicarPromocionesDisplayCompleto(
-            { id: r.id, pricing: null, precioBaseNoche: minPxBase },
-            {
-                promos: promosEmp,
-                fechaLlegada: fechaLlegadaQ,
-                fechaSalida: fechaSalidaQ,
-                allTarifas,
-                canalPorDefectoId: canalId,
-            }
-        );
-        const minPx = conPx.promoDisplay?.precioPromo || minPxBase;
+        const minPx = canalId ? getPrecioBaseNoche(r.id, allTarifas, canalId) : 0;
         if (refPx > 0 && minPx > 0) {
             const relDiff = Math.abs(minPx - refPx) / refPx;
             if (relDiff > band) continue;
@@ -496,459 +449,28 @@ const obtenerDetallesEmpresa = async (_db, empresaId) => {
 
 // --- Funciones de Reservas ---
 
-/** Misma tolerancia que en tests (`test-reconciliacion-precio-reserva-web.js`). */
-const PRECIO_WEB_RECONCILIACION_TOLERANCIA_CLP = 1;
-
-/**
- * Aplica cupón de checkout web: `porcentaje` o `monto_fijo` (valor en columna `descuento` del cupón, CLP).
- * @param {{ tipoDescuento?: string, porcentajeDescuento: number }} cup — salida de `validarCupon` (`porcentajeDescuento` mapea `descuento`).
- * @returns {{ ok: true, esperadoCLP: number, cuponSnapshot: object } | { ok: false, error: string }}
- */
-function aplicarCuponWebCheckout(cup, sumTotal, codigoCupon) {
-    const tipoRaw = String(cup.tipoDescuento || 'porcentaje')
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, '_');
-    const esMontoFijo = tipoRaw === 'monto_fijo' || tipoRaw === 'montofijo';
-    if (esMontoFijo) {
-        const monto = Math.max(0, Math.round(Number(cup.porcentajeDescuento) || 0));
-        const esperadoCLP = Math.max(0, Math.round(sumTotal) - monto);
-        return {
-            ok: true,
-            esperadoCLP,
-            cuponSnapshot: {
-                codigo: codigoCupon,
-                tipoDescuento: 'monto_fijo',
-                montoDescuentoCLP: monto,
-                totalAntesDescuentoCLP: sumTotal,
-                totalEsperadoTrasCuponCLP: esperadoCLP,
-            },
-        };
-    }
-    if (tipoRaw === 'porcentaje' || tipoRaw === '') {
-        const pct = Math.min(100, Math.max(0, Number(cup.porcentajeDescuento) || 0));
-        const esperadoCLP = Math.round(sumTotal * (1 - pct / 100));
-        return {
-            ok: true,
-            esperadoCLP,
-            cuponSnapshot: {
-                codigo: codigoCupon,
-                tipoDescuento: 'porcentaje',
-                porcentajeDescuento: pct,
-                totalAntesDescuentoCLP: sumTotal,
-                totalEsperadoTrasCuponCLP: esperadoCLP,
-            },
-        };
-    }
-    return {
-        ok: false,
-        error: 'Este tipo de cupón no se puede aplicar aún en la reserva web. Contacta al anfitrión.',
-    };
-}
-
-/**
- * Suma de `calculatePrice` por propiedad (fechas UTC medianoche), misma regla que el checkout web.
- * @param {object[]|undefined} propiedadesPrecargadas — misma longitud y orden que los ids
- */
-async function calcularSumaTarifaReservaWeb(db, empresaId, datosFormulario, propiedadesPrecargadas) {
-    const { propiedadId, fechaLlegada, fechaSalida } = datosFormulario;
-    const ids = String(propiedadId || '')
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-    if (!ids.length) {
-        return { ok: false, errors: ['Falta el alojamiento para verificar el precio.'] };
-    }
-    const llegS = String(fechaLlegada || '').slice(0, 10);
-    const salS = String(fechaSalida || '').slice(0, 10);
-    const startDate = parseISO(`${llegS}T00:00:00Z`);
-    const endDate = parseISO(`${salS}T00:00:00Z`);
-    if (!isValid(startDate) || !isValid(endDate) || endDate <= startDate) {
-        return { ok: false, errors: ['Las fechas no son válidas para verificar el precio.'] };
-    }
-
-    const propsList = [];
-    if (Array.isArray(propiedadesPrecargadas) && propiedadesPrecargadas.length === ids.length) {
-        for (let i = 0; i < ids.length; i++) {
-            if (!propiedadesPrecargadas[i]) {
-                return { ok: false, errors: ['No se encontró uno de los alojamientos para verificar el precio.'] };
-            }
-            propsList.push(propiedadesPrecargadas[i]);
-        }
-    } else {
-        for (const id of ids) {
-            const prop = await obtenerPropiedadPorId(db, empresaId, id);
-            if (!prop) {
-                return { ok: false, errors: ['No se encontró el alojamiento para verificar el precio.'] };
-            }
-            propsList.push(prop);
-        }
-    }
-
-    const { allTarifas } = await fetchTarifasYCanal(empresaId);
-    let nightsRef = null;
-    let valorDolarRef = null;
-    let monedaRef = null;
-    const porPropiedad = [];
-    let sumTotal = 0;
-
-    for (let i = 0; i < ids.length; i++) {
-        const prop = propsList[i];
-        const pricing = await calculatePrice(db, empresaId, [prop], startDate, endDate, allTarifas);
-        if (pricing.error) {
-            return {
-                ok: false,
-                errors: [
-                    'No se pudo verificar el precio (tipo de cambio o canal). Revisa la configuración del canal por defecto e intenta de nuevo.',
-                ],
-            };
-        }
-        if (nightsRef == null) {
-            nightsRef = pricing.nights;
-        } else if (pricing.nights > 0 && nightsRef > 0 && pricing.nights !== nightsRef) {
-            return {
-                ok: false,
-                errors: ['Inconsistencia de noches entre alojamientos. Actualiza la página de reserva.'],
-            };
-        }
-        valorDolarRef = pricing.valorDolarDia ?? valorDolarRef;
-        monedaRef = pricing.currencyOriginal || monedaRef;
-        const sub = Math.round(Number(pricing.totalPriceCLP) || 0);
-        sumTotal += sub;
-        porPropiedad.push({ propiedadId: ids[i], nombre: prop.nombre || '', totalCLP: sub });
-    }
-
-    return {
-        ok: true,
-        sumTotal,
-        nightsRef,
-        porPropiedad,
-        ids,
-        llegS,
-        salS,
-        valorDolarRef,
-        monedaRef,
-        propsList,
-    };
-}
-
-/**
- * Mismas fechas que `POST /propiedad/:id/calcular-precio` (UTC medianoche).
- * Una o varias propiedades: suma de `calculatePrice` por cada id (como búsqueda grupo en home).
- * Cupón opcional: `porcentaje` o `monto_fijo` (CLP) vía `validarCupon`. Si el cupón tiene `clienteId`, debe coincidir con el huésped.
- * @param {{ clienteId?: string, propiedadesPrecargadas?: object[] }} [opts]
- * @returns {{ ok: true, snapshot?: object } | { ok: false, errors: string[] }}
- */
-async function verificarReconciliacionPrecioReservaPublica(db, empresaId, datosFormulario, opts = {}) {
-    const { propiedadId, fechaLlegada, fechaSalida, precioFinal, noches, codigoCupon: rawCupon } = datosFormulario;
-    const { clienteId, propiedadesPrecargadas } = opts;
-    const codigoCupon = rawCupon != null ? String(rawCupon).trim() : '';
-
-    const precioEnviado = Math.round(Number(precioFinal) || 0);
-    if (precioEnviado <= 0) {
-        return { ok: false, errors: ['El precio enviado no es válido.'] };
-    }
-
-    const calc = await calcularSumaTarifaReservaWeb(
-        db,
-        empresaId,
-        { propiedadId, fechaLlegada, fechaSalida },
-        propiedadesPrecargadas
-    );
-    if (!calc.ok) return calc;
-
-    const {
-        sumTotal,
-        nightsRef,
-        porPropiedad,
-        ids,
-        llegS,
-        salS,
-        valorDolarRef,
-        monedaRef,
-    } = calc;
-
-    if (sumTotal <= 0 && precioEnviado > 0) {
-        return {
-            ok: false,
-            errors: [
-                'No hay tarifa publicada para las fechas elegidas; no se puede confirmar el precio. Elige otras fechas o contacta al anfitrión.',
-            ],
-        };
-    }
-
-    const nochesInt = parseInt(String(noches), 10);
-    if (
-        Number.isFinite(nochesInt)
-        && nochesInt > 0
-        && nightsRef > 0
-        && nochesInt !== nightsRef
-    ) {
-        return {
-            ok: false,
-            errors: [
-                'El número de noches no coincide con las fechas. Actualiza la página de reserva e intenta de nuevo.',
-            ],
-        };
-    }
-
-    let esperadoCLP = sumTotal;
-    let cuponSnapshot = null;
-    if (codigoCupon) {
-        let cup;
-        try {
-            cup = await validarCupon(db, empresaId, codigoCupon);
-        } catch (e) {
-            const msg = e && typeof e === 'object' && e.message ? e.message : 'Cupón no válido.';
-            return { ok: false, errors: [msg] };
-        }
-        if (cup.clienteId) {
-            if (!clienteId) {
-                return {
-                    ok: false,
-                    errors: [
-                        'Este cupón está vinculado a un huésped. Completa el formulario (nombre y correo) e intenta de nuevo.',
-                    ],
-                };
-            }
-            if (String(cup.clienteId) !== String(clienteId)) {
-                return {
-                    ok: false,
-                    errors: [
-                        'Este cupón no está asociado a tu cuenta. Usa el mismo contacto (email) con el que recibiste el cupón.',
-                    ],
-                };
-            }
-        }
-        const aplicado = aplicarCuponWebCheckout(cup, sumTotal, codigoCupon);
-        if (!aplicado.ok) {
-            return { ok: false, errors: [aplicado.error] };
-        }
-        esperadoCLP = aplicado.esperadoCLP;
-        cuponSnapshot = aplicado.cuponSnapshot;
-    }
-
-    if (esperadoCLP <= 0 && precioEnviado > 0) {
-        return {
-            ok: false,
-            errors: ['El precio con cupón no pudo calcularse. Revisa el cupón o las fechas.'],
-        };
-    }
-
-    if (Math.abs(precioEnviado - esperadoCLP) > PRECIO_WEB_RECONCILIACION_TOLERANCIA_CLP) {
-        const refTxt = esperadoCLP.toLocaleString('es-CL');
-        return {
-            ok: false,
-            errors: [
-                codigoCupon
-                    ? `El precio con cupón no coincide con el valor esperado (${refTxt} CLP). Actualiza la página o revisa el código.`
-                    : `El precio ya no coincide con la tarifa vigente (${refTxt} CLP). Actualiza la página o vuelve a elegir las fechas.`,
-            ],
-        };
-    }
-
-    return {
-        ok: true,
-        snapshot: {
-            totalTarificadorCLP: sumTotal,
-            precioEnviadoCLP: precioEnviado,
-            totalEsperadoCLP: esperadoCLP,
-            toleranciaCLP: PRECIO_WEB_RECONCILIACION_TOLERANCIA_CLP,
-            noches: nightsRef,
-            fechaLlegada: llegS,
-            fechaSalida: salS,
-            propiedadIds: ids,
-            propiedadIdPrincipal: ids[0],
-            esGrupo: ids.length > 1,
-            porPropiedad: ids.length > 1 ? porPropiedad : undefined,
-            valorDolarDia: valorDolarRef ?? null,
-            monedaCanal: monedaRef || null,
-            cupon: cuponSnapshot,
-            verificadoAt: new Date().toISOString(),
-        },
-    };
-}
-
-/**
- * Antes del POST final: alinea `precioFinal` con tarifa + cupón (`porcentaje` o `monto_fijo` en CLP).
- * Cupón ligado a cliente: el email debe corresponder a un cliente existente en el tenant.
- */
-async function previewPrecioReservaCheckoutWeb(db, empresaId, body) {
-    const {
-        propiedadId,
-        fechaLlegada,
-        fechaSalida,
-        noches,
-        codigoCupon: rawCupon,
-        email: rawEmail,
-    } = body || {};
-    const codigoCupon = rawCupon != null ? String(rawCupon).trim() : '';
-    const email = rawEmail != null ? String(rawEmail).trim() : '';
-
-    const calc = await calcularSumaTarifaReservaWeb(
-        db,
-        empresaId,
-        { propiedadId, fechaLlegada, fechaSalida },
-        undefined
-    );
-    if (!calc.ok) return calc;
-
-    const { sumTotal, nightsRef, ids } = calc;
-    let precioFinalCLP = sumTotal;
-    let cuponSnapshot = null;
-
-    if (codigoCupon) {
-        if (!email) {
-            return { ok: false, errors: ['Indica tu correo para validar el cupón.'] };
-        }
-        const clienteId = await buscarClienteIdPorEmail(db, empresaId, email);
-        let cup;
-        try {
-            cup = await validarCupon(db, empresaId, codigoCupon);
-        } catch (e) {
-            const msg = e && typeof e === 'object' && e.message ? e.message : 'Cupón no válido.';
-            return { ok: false, errors: [msg] };
-        }
-        if (cup.clienteId) {
-            if (!clienteId) {
-                return {
-                    ok: false,
-                    errors: [
-                        'Este cupón está vinculado a un huésped. Usa el correo con el que recibiste el cupón (debe existir en la base del alojamiento).',
-                    ],
-                };
-            }
-            if (String(cup.clienteId) !== String(clienteId)) {
-                return {
-                    ok: false,
-                    errors: [
-                        'Este cupón no está asociado a tu cuenta. Usa el mismo contacto (email) con el que recibiste el cupón.',
-                    ],
-                };
-            }
-        }
-        const aplicado = aplicarCuponWebCheckout(cup, sumTotal, codigoCupon);
-        if (!aplicado.ok) {
-            return { ok: false, errors: [aplicado.error] };
-        }
-        precioFinalCLP = aplicado.esperadoCLP;
-        cuponSnapshot = aplicado.cuponSnapshot;
-    }
-
-    const nochesInt = parseInt(String(noches), 10);
-    if (
-        Number.isFinite(nochesInt)
-        && nochesInt > 0
-        && nightsRef > 0
-        && nochesInt !== nightsRef
-    ) {
-        return {
-            ok: false,
-            errors: [
-                'El número de noches no coincide con las fechas. Actualiza la página de reserva e intenta de nuevo.',
-            ],
-        };
-    }
-
-    if (precioFinalCLP <= 0 && sumTotal > 0 && codigoCupon) {
-        return { ok: false, errors: ['El precio con cupón no pudo calcularse. Revisa el cupón o las fechas.'] };
-    }
-
-    return {
-        ok: true,
-        precioFinalCLP,
-        totalSinCuponCLP: sumTotal,
-        noches: nightsRef,
-        cupon: cuponSnapshot,
-        esGrupo: ids.length > 1,
-    };
-}
-
 const crearReservaPublica = async (db, empresaId, datosFormulario) => {
-    const {
-        propiedadId,
-        fechaLlegada,
-        fechaSalida,
-        personas,
-        precioFinal,
-        noches,
-        nombre,
-        email,
-        telefono,
-        codigoCupon: rawCuponForm,
-        menores: rawMenores,
-        camasExtra: rawCamasExtra,
-    } = datosFormulario;
-    const codigoCuponForm = rawCuponForm != null ? String(rawCuponForm).trim() : '';
-    const menores = Math.max(0, parseInt(String(rawMenores ?? '0'), 10) || 0);
-    const camasExtra = Math.max(0, parseInt(String(rawCamasExtra ?? '0'), 10) || 0);
-
-    const ids = String(propiedadId || '')
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-    if (!ids.length) {
-        throw new Error('Falta el alojamiento.');
-    }
+    const { propiedadId, fechaLlegada, fechaSalida, personas, precioFinal, noches, nombre, email, telefono } = datosFormulario;
 
     const startR = parseISO(String(fechaLlegada || '').slice(0, 10) + 'T12:00:00');
     const endR = parseISO(String(fechaSalida || '').slice(0, 10) + 'T12:00:00');
     if (!isValid(startR) || !isValid(endR) || endR <= startR) {
         throw new Error('Las fechas de la reserva no son válidas.');
     }
-
-    const propsData = [];
-    for (const id of ids) {
-        const p = await obtenerPropiedadPorId(db, empresaId, id);
-        if (!p) throw new Error('Uno de los alojamientos seleccionados ya no existe.');
-        propsData.push(p);
-    }
-
+    const propiedadData = await obtenerPropiedadPorId(db, empresaId, propiedadId);
+    if (!propiedadData) throw new Error('La propiedad seleccionada ya no existe.');
     const empresaDet = await obtenerDetallesEmpresa(db, empresaId);
-    const minEmpresa = Math.max(
-        1,
-        parseInt(String(empresaDet?.websiteSettings?.booking?.minNoches ?? '1'), 10) || 1,
-    );
-    let minNochesR = minEmpresa;
-    for (const p of propsData) {
-        const m = Math.max(
-            1,
-            parseInt(String(p?.websiteData?.booking?.minNoches ?? minEmpresa), 10) || minEmpresa,
-        );
-        minNochesR = Math.max(minNochesR, m);
-    }
+    const minNochesR = Math.max(1, parseInt(String(
+        propiedadData?.websiteData?.booking?.minNoches
+        ?? empresaDet?.websiteSettings?.booking?.minNoches
+        ?? '1'
+    ), 10) || 1);
     if (differenceInDays(endR, startR) < minNochesR) {
         throw new Error(`La estadía debe ser de al menos ${minNochesR} noche(s).`);
     }
 
-    const bkWeb = empresaDet.websiteSettings?.booking || {};
-    if (bkWeb.solicitudMenoresCamasActivo) {
-        const maxM = Math.min(20, Math.max(0, parseInt(String(bkWeb.menoresMax ?? 10), 10) || 10));
-        const maxC = Math.min(10, Math.max(0, parseInt(String(bkWeb.camasExtraMax ?? 5), 10) || 5));
-        if (menores > maxM) {
-            throw new Error(`En esta reserva puedes indicar como máximo ${maxM} menor(es).`);
-        }
-        if (camasExtra > maxC) {
-            throw new Error(`En esta reserva puedes solicitar como máximo ${maxC} cama(s) extra.`);
-        }
-    } else if (menores > 0 || camasExtra > 0) {
-        throw new Error('Menores o camas extra no están habilitados para este sitio web.');
-    }
-
     const resultadoCliente = await crearOActualizarClientePublico(db, empresaId, { nombre, email, telefono });
     const clienteId = resultadoCliente.cliente.id;
-
-    const datosConCupon = { ...datosFormulario, codigoCupon: codigoCuponForm };
-    const recPrecio = await verificarReconciliacionPrecioReservaPublica(db, empresaId, datosConCupon, {
-        clienteId,
-        propiedadesPrecargadas: propsData,
-    });
-    if (!recPrecio.ok) {
-        const err = new Error(recPrecio.errors[0]);
-        err.statusCode = 409;
-        err.details = recPrecio.errors;
-        throw err;
-    }
 
     const { rows: canalRows } = await pool.query(
         `SELECT id, nombre, COALESCE(metadata->>'moneda', 'CLP') AS moneda FROM canales WHERE empresa_id = $1 AND (metadata->>'esCanalPorDefecto')::boolean = true LIMIT 1`,
@@ -957,105 +479,21 @@ const crearReservaPublica = async (db, empresaId, datosFormulario) => {
     if (!canalRows[0]) throw new Error('No se encontró un canal por defecto.');
     const canal = canalRows[0];
     const idReservaCanal = `WEB-${Date.now().toString(36).toUpperCase().slice(-8)}`;
-    const legalCfg = empresaDet.websiteSettings?.legal || {};
-    const hlRes = empresaDet.websiteSettings?.email?.idiomaPorDefecto === 'en' ? 'en' : 'es';
-    const des = buildDesglosePrecioCheckout(parseFloat(precioFinal), legalCfg, hlRes, {
-        noches: parseInt(noches, 10) || 0,
-        huespedes: Math.max(1, parseInt(String(personas ?? '1'), 10) || 1),
-    });
-    const propiedadIdInsert = ids[0];
-    const nombreAlojamientos = propsData.map((p) => p.nombre).filter(Boolean).join(' + ');
-    const valoresObj = { valorHuesped: parseFloat(precioFinal) };
-    if (des.mostrar && des.netoCLP != null && des.ivaCLP != null) {
-        valoresObj.valorTotal = des.netoCLP;
-        valoresObj.iva = des.ivaCLP;
-    }
-    if (codigoCuponForm && recPrecio.snapshot?.cupon) {
-        const lista = recPrecio.snapshot.totalTarificadorCLP;
-        valoresObj.codigoCupon = codigoCuponForm;
-        valoresObj.descuentoCupon = Math.max(0, lista - Math.round(Number(precioFinal) || 0));
-    }
-    const { allTarifas: allTarifasPc } = await fetchTarifasYCanal(empresaId);
-    const llegPc = String(fechaLlegada).slice(0, 10);
-    const salPc = String(fechaSalida).slice(0, 10);
-    const idsPc = ids.length > 1
-        ? listTarifaIdsUnionGrupoEstadia(ids, llegPc, salPc, allTarifasPc)
-        : listTarifaIdsPorNocheEstadia(propiedadIdInsert, llegPc, salPc, allTarifasPc);
-    const legalEff = mergeLegalConPoliticaTarifaUnica(legalCfg, allTarifasPc, idsPc);
-
-    const metadataReserva = {
-        origen: 'website',
-        edicionesManuales: {},
-        politicaCancelacionCheckout: snapshotPoliticaCancelacionParaMetadata(legalEff),
-        ...(recPrecio.snapshot ? { precioCheckoutVerificado: recPrecio.snapshot } : {}),
-        ...(bkWeb.solicitudMenoresCamasActivo ? { reservaWebCheckout: { menores, camasExtra } } : {}),
-        ...(ids.length > 1
-            ? {
-                reservaWebGrupo: {
-                    propiedadIds: ids,
-                    alojamientosNombres: propsData.map((p) => p.nombre || ''),
-                },
-            }
-            : {}),
-    };
-
-    const insertSql = `INSERT INTO reservas (empresa_id, id_reserva_canal, propiedad_id, alojamiento_nombre,
+    const { rows: [newRow] } = await pool.query(
+        `INSERT INTO reservas (empresa_id, id_reserva_canal, propiedad_id, alojamiento_nombre,
             canal_id, canal_nombre, cliente_id, total_noches, estado, estado_gestion,
             moneda, valores, cantidad_huespedes, fecha_llegada, fecha_salida, metadata)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`;
-    const insertParams = [
-        empresaId,
-        idReservaCanal,
-        propiedadIdInsert,
-        nombreAlojamientos || propsData[0].nombre,
-        canal.id,
-        canal.nombre,
-        clienteId,
-        parseInt(noches, 10),
-        'Confirmada',
-        'Pendiente Bienvenida',
-        'CLP',
-        JSON.stringify(valoresObj),
-        parseInt(personas, 10),
-        fechaLlegada,
-        fechaSalida,
-        JSON.stringify(metadataReserva),
-    ];
-
-    const pgClient = await pool.connect();
-    let newRow;
-    try {
-        await pgClient.query('BEGIN');
-        const ins = await pgClient.query(insertSql, insertParams);
-        newRow = ins.rows[0];
-        if (codigoCuponForm) {
-            await marcarCuponComoUtilizado(null, db, empresaId, codigoCuponForm, idReservaCanal, clienteId, pgClient);
-        }
-        await pgClient.query('COMMIT');
-    } catch (e) {
-        try {
-            await pgClient.query('ROLLBACK');
-        } catch (_) {
-            /* ignore rollback errors */
-        }
-        throw e;
-    } finally {
-        pgClient.release();
-    }
-
-    return {
-        id: newRow.id,
-        idReservaCanal,
-        alojamientoId: propiedadId,
-        alojamientoNombre: nombreAlojamientos || propsData[0].nombre,
-        clienteId,
-        propiedadesEmail: propsData.map((p) => ({ nombre: p.nombre || p.id })),
-        fechaLlegada,
-        fechaSalida,
-        noches: parseInt(noches, 10) || 0,
-        personas: Math.max(1, parseInt(String(personas ?? '1'), 10) || 1),
-        precioFinal: parseFloat(precioFinal) || 0,
-    };
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+        [
+            empresaId, idReservaCanal, propiedadId, propiedadData.nombre,
+            canal.id, canal.nombre, clienteId, parseInt(noches),
+            'Confirmada', 'Pendiente Bienvenida',
+            'CLP', JSON.stringify({ valorHuesped: parseFloat(precioFinal) }),
+            parseInt(personas), fechaLlegada, fechaSalida,
+            JSON.stringify({ origen: 'website', edicionesManuales: {} }),
+        ]
+    );
+    return { id: newRow.id, idReservaCanal, alojamientoId: propiedadId, alojamientoNombre: propiedadData.nombre };
 };
 
 // --- Funciones de Disponibilidad y Precios ---
@@ -1118,9 +556,6 @@ async function calculatePrice(_db, empresaId, items, startDate, endDate, allTari
 
     let totalPrecioEnMonedaDefecto = 0;
     const priceDetails = [];
-    const llegStr = format(startDate, 'yyyy-MM-dd');
-    const salStr = format(endDate, 'yyyy-MM-dd');
-    const monedaCanal = canalPorDefecto.moneda === 'USD' ? 'USD' : 'CLP';
 
     for (const prop of items) {
         let propPrecioBaseTotal = 0;
@@ -1132,14 +567,7 @@ async function calculatePrice(_db, empresaId, items, startDate, endDate, allTari
             if (tarifasDelDia.length > 0) {
                 const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
                 const precioBaseObj = tarifa.precios?.[canalPorDefecto.id];
-                let base = 0;
-                if (typeof precioBaseObj === 'number') base = precioBaseObj;
-                else if (precioBaseObj && typeof precioBaseObj === 'object') {
-                    base = monedaCanal === 'USD'
-                        ? (Number(precioBaseObj.valorUSD) || 0)
-                        : (Number(precioBaseObj.valorCLP) || 0);
-                }
-                propPrecioBaseTotal += precioNocheConPromoTarifa(base, tarifa.metadata?.promo, llegStr, salStr);
+                propPrecioBaseTotal += (typeof precioBaseObj === 'number' ? precioBaseObj : 0);
             }
         }
         totalPrecioEnMonedaDefecto += propPrecioBaseTotal;
@@ -1176,8 +604,6 @@ module.exports = {
     obtenerPropiedadPorId,
     obtenerDetallesEmpresa,
     crearReservaPublica,
-    previewPrecioReservaCheckoutWeb,
-    verificarReconciliacionPrecioReservaPublica,
     obtenerOcupacionCalendarioPropiedad,
     obtenerMasAlojamientosParaFichaSSR,
 };
