@@ -14,54 +14,44 @@ function _normalizeUbicacion(str) {
         .replace(/[\u0300-\u036f]/g, '');
 }
 
-function _mapRowToAiProperty(row) {
+/**
+ * Carga mínima para conectores MCP / ChatGPT (evita ResponseTooLarge).
+ * Mantiene solo lo necesario para filtros de ubicación y amenidades en memoria.
+ */
+function _mapRowToAiPropertyLite(row) {
     const meta = row.metadata || {};
     const gh = meta.googleHotelData || {};
     const addr = gh.address || {};
-    const calle = addr.street || '';
-    const ciudad = addr.city || '';
-    const direccionCompleta = `${calle}, ${ciudad}`.replace(/^, /, '').replace(/, $/, '');
-
     const wd = meta.websiteData || {};
-    const enrichedImages = [];
-    if (wd.images && typeof wd.images === 'object') {
-        Object.values(wd.images).forEach((img) => {
-            if (!img) return;
-            enrichedImages.push({
-                url: img.storagePath || img.url || '',
-                description: img.description || img.alt || '',
-                tags: img.tags || [],
-                category: img.category || 'general',
-            });
-        });
+    let fotoUrl = '';
+    if (wd.cardImage?.storagePath) fotoUrl = String(wd.cardImage.storagePath).trim();
+    if (!fotoUrl && wd.images && typeof wd.images === 'object') {
+        const flat = Object.values(wd.images).flat().filter(Boolean);
+        if (flat[0]?.storagePath) fotoUrl = String(flat[0].storagePath).trim();
     }
-
-    const {
-        comision,
-        costoLimpieza,
-        costoLavanderia,
-        datosBancarios,
-        emailPropietario,
-        telefonoPropietario,
-        rutPropietario,
-        contrato,
-        notasInternas,
-        ...safeMeta
-    } = meta;
+    const amRaw = meta.amenidades;
+    const amenidadesLista = Array.isArray(amRaw)
+        ? amRaw
+              .map((a) => (typeof a === 'string' ? a : a?.nombre || ''))
+              .filter(Boolean)
+              .slice(0, 30)
+        : [];
 
     return {
-        ...safeMeta,
         id: row.id,
         nombre: row.nombre,
-        capacidad: row.capacidad,
+        capacidad: Number(row.capacidad) || 0,
+        precioBase: meta.precioBase != null ? Number(meta.precioBase) : null,
+        rating: meta.rating != null ? Number(meta.rating) : null,
         empresa: {
             id: row.empresa_id,
             nombre: row.empresa_nombre || 'Empresa',
-            contacto: row.empresa_email || '',
         },
-        direccion: direccionCompleta,
-        imagenesDestacadas: enrichedImages.filter((i) => i.url).slice(0, 5),
-        imagenesCount: enrichedImages.length,
+        ciudad: String(addr.city || addr.locality || '').trim(),
+        direccion_corta: [addr.street, addr.city].filter(Boolean).join(', ').slice(0, 140),
+        foto_url: fotoUrl,
+        googleHotelData: { address: { street: addr.street || '', city: addr.city || '' } },
+        amenidades: amenidadesLista,
     };
 }
 
@@ -99,10 +89,10 @@ async function fetchGlobalPublicAiInventoryPostgres(query) {
         params.push(targetEmpresaId);
         sql += ` AND p.empresa_id = $${params.length}`;
     }
-    sql += ' ORDER BY e.nombre ASC, p.nombre ASC LIMIT 800';
+    sql += ' ORDER BY e.nombre ASC, p.nombre ASC LIMIT 150';
 
     const { rows } = await pool.query(sql, params);
-    let propiedades = rows.map(_mapRowToAiProperty);
+    let propiedades = rows.map(_mapRowToAiPropertyLite);
 
     if (ubicacion) {
         const term = _normalizeUbicacion(ubicacion);
@@ -164,8 +154,9 @@ async function fetchGlobalPublicAiInventoryPostgres(query) {
         propiedades.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
     }
 
-    const off = parseInt(offset, 10) || 0;
-    const lim = parseInt(limit, 10) || 20;
+    const off = Math.max(parseInt(offset, 10) || 0, 0);
+    const limRaw = parseInt(limit, 10) || 20;
+    const lim = Math.min(Math.max(limRaw, 1), 30);
     const paginatedProperties = propiedades.slice(off, off + lim);
 
     return {
@@ -181,6 +172,7 @@ async function fetchGlobalPublicAiInventoryPostgres(query) {
             },
             ordenado_por: ordenar,
             source: 'postgres',
+            compact: true,
         },
         data: paginatedProperties,
     };

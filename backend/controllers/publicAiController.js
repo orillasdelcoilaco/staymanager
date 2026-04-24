@@ -13,6 +13,7 @@ const { obtenerPlantillasPorEmpresa, procesarPlantilla } = require('../services/
 const { format, addDays, parseISO, isValid } = require('date-fns');
 const { crearOActualizarCliente } = require('../services/clientesService');
 const { getProvider } = require('../services/aiContentService.providers');
+const { resolveEmpresaDbId } = require('../services/resolveEmpresaDbId');
 
 const sanitizeProperty = (property) => {
     if (!property) return null;
@@ -866,21 +867,43 @@ function _buildFallbackConfirmEmail({ nombreCliente, nombrePropiedad, checkin, c
 
 const createPublicReservation = async (req, res) => {
     try {
-        const body = req.body;
+        const body = req.body || {};
 
-        const empresaId   = body.empresa_id;
-        const propiedadId = body.propiedadId  || body.alojamiento_id;
-        const fechaInicio = body.fechaInicio  || body.checkin;
-        const fechaFin    = body.fechaFin     || body.checkout;
-        const cliente     = body.cliente      || body.huesped;
-        const personas    = Number(body.adultos || 0) + Number(body.ninos || 0) || 2;
-        const agenteIA    = req.agentName     || body.origen || 'Desconocido';
+        let cliente = body.cliente || body.huesped;
+        if (typeof cliente === 'string') {
+            try {
+                cliente = JSON.parse(cliente);
+            } catch {
+                cliente = null;
+            }
+        }
 
-        if (!empresaId || !propiedadId || !fechaInicio || !fechaFin || !cliente?.nombre || !cliente?.email) {
+        const empresaRaw = body.empresa_id || body.empresaId;
+        const empresaId = pool ? await resolveEmpresaDbId(empresaRaw) : empresaRaw;
+        const propiedadId = body.propiedadId || body.alojamiento_id || body.property_id;
+        const fechaInicio = body.fechaInicio || body.checkin;
+        const fechaFin = body.fechaFin || body.checkout;
+        const personas = Number(body.adultos || 0) + Number(body.ninos || 0) || 2;
+        const agenteIA = req.agentName || body.origen || 'Desconocido';
+
+        const nombreCliente =
+            [cliente?.nombre, cliente?.apellido].filter(Boolean).join(' ').trim()
+            || String(cliente?.nombreCompleto || '').trim();
+
+        const missing = [];
+        if (!empresaRaw) missing.push('empresa_id');
+        if (!propiedadId) missing.push('alojamiento_id');
+        if (!fechaInicio) missing.push('checkin');
+        if (!fechaFin) missing.push('checkout');
+        if (!nombreCliente) missing.push('huesped.nombre');
+        if (!cliente?.email) missing.push('huesped.email');
+
+        if (missing.length) {
             return res.status(400).json({
                 success: false,
                 error: 'MISSING_FIELDS',
-                message: 'Requeridos: empresa_id, alojamiento_id, checkin, checkout, huesped.nombre, huesped.email'
+                missing,
+                message: `Faltan campos obligatorios: ${missing.join(', ')}`,
             });
         }
 
@@ -947,8 +970,11 @@ const createPublicReservation = async (req, res) => {
 
         // 5. Cliente
         const { cliente: clienteCreado } = await crearOActualizarCliente(db, empresaId, {
-            nombre: cliente.nombre, email: cliente.email,
-            telefono: cliente.telefono || '', canalNombre: 'IA Reserva', idReservaCanal: null
+            nombre: nombreCliente,
+            email: cliente.email,
+            telefono: cliente.telefono || '',
+            canalNombre: 'IA Reserva',
+            idReservaCanal: null,
         });
 
         // 6. Insertar reserva directamente en PostgreSQL
@@ -995,7 +1021,7 @@ const createPublicReservation = async (req, res) => {
             : `Para recibir los datos de transferencia, contáctenos por WhatsApp o responda este correo.`;
 
         const plantillasDatos = {
-            reservaId, propuestaId: reservaId, clienteNombre: cliente.nombre,
+            reservaId, propuestaId: reservaId, clienteNombre: nombreCliente,
             fechaLlegada: fmtFecha(fechaInicio), fechaSalida: fmtFecha(fechaFin),
             fechasEstadiaTexto: `${fmtFecha(fechaInicio)} al ${fmtFecha(fechaFin)}`,
             totalNoches: String(precioCalc.nights), noches: String(precioCalc.nights),
@@ -1029,7 +1055,8 @@ const createPublicReservation = async (req, res) => {
                 to: cliente.email,
                 subject: `Tu reserva en ${propRows[0].nombre} está confirmada`,
                 html: _buildFallbackConfirmEmail({
-                    nombreCliente: cliente.nombre, nombrePropiedad: propRows[0].nombre,
+                    nombreCliente: nombreCliente,
+                    nombrePropiedad: propRows[0].nombre,
                     checkin: fechaInicio, checkout: fechaFin, noches: precioCalc.nights,
                     montoSena: senaPagar, datosBancariosTexto, plazoAbono: plazoAbonoTexto, empresaNombre
                 }),
@@ -1047,7 +1074,7 @@ const createPublicReservation = async (req, res) => {
                 checkin: fechaInicio,
                 checkout: fechaFin,
                 alojamiento: { id: propiedadId, nombre: propRows[0].nombre },
-                huesped: { nombre: cliente.nombre },
+                huesped: { nombre: nombreCliente },
                 total_noches: precioCalc.nights,
                 fecha_creacion: new Date().toISOString()
             },
