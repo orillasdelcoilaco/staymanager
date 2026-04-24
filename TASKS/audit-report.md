@@ -1,7 +1,7 @@
 # Reporte de Auditoría UI
-**Generado:** 2026-04-22 02:47
-**Archivos analizados:** 149
-**Problemas encontrados:** 35 (alta: 1 / media: 2 / baja: 32)
+**Generado:** 2026-04-24 18:55
+**Archivos analizados:** 157
+**Problemas encontrados:** 37 (alta: 0 / media: 2 / baja: 35)
 
 ---
 
@@ -9,21 +9,12 @@
 
 | Categoría | Severidad | Ocurrencias |
 |-----------|-----------|-------------|
-| Rojo hardcodeado (debería usar danger-*) | alta | 1 |
 | Botón con clases Tailwind directas (sin .btn-*) | media | 2 |
-| Color hexadecimal hardcodeado | baja | 32 |
+| Color hexadecimal hardcodeado | baja | 35 |
 
 ---
 
 ## Detalle por categoría
-
-### Rojo hardcodeado (debería usar danger-*) (1 ocurrencias)
-**Sugerencia:** Usar bg-danger-600 / text-danger-600 / btn-danger  
-**Severidad:** alta
-
-| Archivo | Línea | Clase detectada |
-|---------|-------|-----------------|
-| `frontend/src/views/resenas.js` | 95 | `text-red-700` |
 
 ### Botón con clases Tailwind directas (sin .btn-*) (2 ocurrencias)
 **Sugerencia:** Usar btn-primary / btn-danger / btn-success / btn-outline  
@@ -31,10 +22,10 @@
 
 | Archivo | Línea | Clase detectada |
 |---------|-------|-----------------|
+| `frontend/src/views/comunicaciones.js` | 174 | `class="com-tab px-3 py-1.5 text-sm rounded-md font-medium bg-primary-100 text-primary-800"` |
 | `frontend/src/views/normasAlojamiento.js` | 300 | `class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white font-medium hover:bg-primary-700 disabled:opacity-50"` |
-| `backend/views/propiedad.ejs` | 1117 | `class="lg:hidden text-sm font-semibold text-primary-700 border border-primary-200 bg-primary-50 px-3 py-2 rounded-xl hover:bg-primary-100 transition-colors"` |
 
-### Color hexadecimal hardcodeado (32 ocurrencias)
+### Color hexadecimal hardcodeado (35 ocurrencias)
 **Sugerencia:** Usar tokens de color de Tailwind config  
 **Severidad:** baja
 
@@ -61,17 +52,20 @@
 | `backend/views/marketplace/index.ejs` | 113 | `#a5b4fc` |
 | `backend/views/marketplace/index.ejs` | 114 | `#fff` |
 | `backend/views/marketplace/index.ejs` | 114 | `#111` |
-| `backend/views/marketplace/index.ejs` | 116 | `#111` |
-| `backend/views/marketplace/index.ejs` | 117 | `#6b7280` |
-| `backend/views/marketplace/index.ejs` | 118 | `#111` |
-| `backend/views/marketplace/index.ejs` | 119 | `#6b7280` |
-| `backend/views/marketplace/index.ejs` | 120 | `#111` |
-| `backend/views/marketplace/index.ejs` | 122 | `#6b7280` |
-| `backend/views/marketplace/index.ejs` | 123 | `#111` |
-| `backend/views/marketplace/index.ejs` | 274 | `#111` |
-| `backend/views/propiedad.ejs` | 60 | `#fff` |
-| `backend/views/propiedad.ejs` | 61 | `#222` |
-| `backend/views/propiedad.ejs` | 72 | `#fff` |
+| `backend/views/marketplace/index.ejs` | 115 | `#fff7ed` |
+| `backend/views/marketplace/index.ejs` | 115 | `#9a3412` |
+| `backend/views/marketplace/index.ejs` | 115 | `#fdba74` |
+| `backend/views/marketplace/index.ejs` | 117 | `#111` |
+| `backend/views/marketplace/index.ejs` | 118 | `#6b7280` |
+| `backend/views/marketplace/index.ejs` | 119 | `#111` |
+| `backend/views/marketplace/index.ejs` | 120 | `#6b7280` |
+| `backend/views/marketplace/index.ejs` | 121 | `#111` |
+| `backend/views/marketplace/index.ejs` | 123 | `#6b7280` |
+| `backend/views/marketplace/index.ejs` | 124 | `#111` |
+| `backend/views/marketplace/index.ejs` | 281 | `#111` |
+| `backend/views/propiedad.ejs` | 64 | `#fff` |
+| `backend/views/propiedad.ejs` | 65 | `#222` |
+| `backend/views/propiedad.ejs` | 76 | `#fff` |
 
 ---
 
@@ -79,10 +73,10 @@
 
 | Archivo | Problemas |
 |---------|----------|
-| `backend/views/marketplace/index.ejs` | 29 |
-| `backend/views/propiedad.ejs` | 4 |
+| `backend/views/marketplace/index.ejs` | 32 |
+| `backend/views/propiedad.ejs` | 3 |
+| `frontend/src/views/comunicaciones.js` | 1 |
 | `frontend/src/views/normasAlojamiento.js` | 1 |
-| `frontend/src/views/resenas.js` | 1 |
 
 ---
 *Generado por scripts/audit-ui.js*

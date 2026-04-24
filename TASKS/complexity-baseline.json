@@ -1,7 +1,12 @@
 {
-  "fecha": "2026-04-22T02:13:51.516Z",
-  "total": 13,
+  "fecha": "2026-04-24T18:55:54.200Z",
+  "total": 28,
   "criticos": [
+    {
+      "file": "frontend/src/views/components/configurarWebPublica/webPublica.general.unified.lineasExtraRows.js",
+      "type": "function-size",
+      "detail": "_createRowElement — 127 líneas (línea 73)"
+    },
     {
       "file": "frontend/src/views/components/configurarWebPublica/webPublica.paso1.identidad.js",
       "type": "file-size",
@@ -10,7 +15,32 @@
     {
       "file": "frontend/src/views/components/crm/crm.pipeline.js",
       "type": "function-size",
-      "detail": "setupPipeline — 126 líneas (línea 94)"
+      "detail": "setupPipeline — 159 líneas (línea 94)"
+    },
+    {
+      "file": "frontend/src/views/components/gestionarTarifas/matriz.js",
+      "type": "function-size",
+      "detail": "renderMatriz — 183 líneas (línea 47)"
+    },
+    {
+      "file": "frontend/src/views/components/gestionarTarifas/matriz.js",
+      "type": "function-size",
+      "detail": "_setupMatrizEvents — 178 líneas (línea 273)"
+    },
+    {
+      "file": "frontend/src/views/components/gestionDiaria/modals/mensajeModal.js",
+      "type": "function-size",
+      "detail": "renderMensajeModal — 140 líneas (línea 142)"
+    },
+    {
+      "file": "frontend/src/views/comunicaciones.js",
+      "type": "function-size",
+      "detail": "render — 122 líneas (línea 167)"
+    },
+    {
+      "file": "frontend/src/views/comunicaciones.js",
+      "type": "function-size",
+      "detail": "afterRender — 203 líneas (línea 459)"
     },
     {
       "file": "frontend/src/views/normasAlojamiento.js",
@@ -38,34 +68,79 @@
       "detail": "getBuildContext — 121 líneas (línea 122)"
     },
     {
+      "file": "backend/services/comunicacionesRetryService.js",
+      "type": "function-size",
+      "detail": "reintentarComunicacionEmail — 197 líneas (línea 213)"
+    },
+    {
+      "file": "backend/services/empresaService.js",
+      "type": "function-size",
+      "detail": "actualizarDetallesEmpresa — 156 líneas (línea 28)"
+    },
+    {
+      "file": "backend/services/gestionPropuestas.email.js",
+      "type": "function-size",
+      "detail": "enviarEmailReservaConfirmada — 130 líneas (línea 130)"
+    },
+    {
       "file": "backend/services/plantillasService.js",
       "type": "too-many-exports",
-      "detail": "16 exports"
+      "detail": "20 exports"
+    },
+    {
+      "file": "backend/services/publicWebsiteService.js",
+      "type": "file-size",
+      "detail": "1184 líneas"
     },
     {
       "file": "backend/services/publicWebsiteService.js",
       "type": "function-size",
-      "detail": "obtenerMasAlojamientosParaFichaSSR — 169 líneas (línea 221)"
+      "detail": "obtenerMasAlojamientosParaFichaSSR — 205 líneas (línea 234)"
+    },
+    {
+      "file": "backend/services/publicWebsiteService.js",
+      "type": "function-size",
+      "detail": "verificarReconciliacionPrecioReservaPublica — 129 líneas (línea 642)"
+    },
+    {
+      "file": "backend/services/publicWebsiteService.js",
+      "type": "function-size",
+      "detail": "crearReservaPublica — 193 líneas (línea 867)"
     },
     {
       "file": "backend/services/resenasService.js",
       "type": "file-size",
-      "detail": "792 líneas"
+      "detail": "888 líneas"
     },
     {
       "file": "backend/services/resenasService.js",
       "type": "function-size",
-      "detail": "generarResenasAutomaticas — 143 líneas (línea 629)"
+      "detail": "generarResenasAutomaticas — 143 líneas (línea 723)"
     },
     {
       "file": "backend/services/resenasService.js",
       "type": "too-many-exports",
-      "detail": "17 exports"
+      "detail": "19 exports"
+    },
+    {
+      "file": "backend/services/transactionalEmailService.js",
+      "type": "too-many-exports",
+      "detail": "16 exports"
+    },
+    {
+      "file": "backend/routes/website.booking.js",
+      "type": "function-size",
+      "detail": "registerBookingRoutes — 189 líneas (línea 13)"
+    },
+    {
+      "file": "backend/routes/website.home.helpers.js",
+      "type": "function-size",
+      "detail": "loadHomeSearchBundle — 126 líneas (línea 8)"
     },
     {
       "file": "backend/routes/website.property.page.js",
       "type": "function-size",
-      "detail": "renderPropiedadPublica — 149 líneas (línea 70)"
+      "detail": "renderPropiedadPublica — 189 líneas (línea 76)"
     }
   ]
 }
