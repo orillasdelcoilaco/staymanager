@@ -1043,12 +1043,13 @@ const createPublicReservation = async (req, res) => {
         const vencimientoPago = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
         const plazoAbonoTexto = new Date(vencimientoPago).toLocaleString('es-CL', { timeZone: 'America/Santiago', day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' });
 
+        // estado_gestion alineado con reserva web (publicWebsiteService) para que aparezca en gestión diaria
         await pool.query(
             `INSERT INTO reservas
                (empresa_id, id_reserva_canal, propiedad_id, alojamiento_nombre, canal_id, canal_nombre,
-                cliente_id, total_noches, estado, moneda, valor_dolar_dia, valores,
+                cliente_id, total_noches, estado, estado_gestion, moneda, valor_dolar_dia, valores,
                 cantidad_huespedes, fecha_llegada, fecha_salida, metadata)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'Confirmada','CLP',$9,$10,$11,$12,$13,$14)`,
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'Confirmada','Pendiente Bienvenida','CLP',$9,$10,$11,$12,$13,$14)`,
             [empresaId, reservaId, propiedadId, propRows[0].nombre, canalId, canalNombre,
              clienteCreado.id, precioCalc.nights, vd,
              JSON.stringify(valores), personas, fechaInicio, fechaFin,
