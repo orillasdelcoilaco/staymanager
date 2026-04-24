@@ -2,14 +2,27 @@ const pool = require('../db/postgres');
 const { parseISO, isValid } = require('date-fns');
 const { getAvailabilityData } = require('./publicWebsiteService');
 
+/**
+ * ChatGPT envía empresa_id como subdominio (ej: 'orillasdelcoilaco').
+ * Resuelve al PK real de empresas (que puede ser un Firestore doc ID).
+ */
+async function resolveEmpresaPgId(empresaId) {
+    if (!empresaId) return empresaId;
+    const { rows } = await pool.query(
+        'SELECT id FROM empresas WHERE id = $1 OR LOWER(subdominio) = LOWER($1) LIMIT 1',
+        [empresaId]
+    );
+    return rows[0]?.id || empresaId;
+}
+
 exports.disponibilidad = async (req, res) => {
     try {
-        const empresaId = req.query.empresa_id || req.query.empresaId;
-        const checkin   = req.query.checkin  || req.query.fechaLlegada;
-        const checkout  = req.query.checkout || req.query.fechaSalida;
-        const personas  = parseInt(req.query.adultos || req.query.personas || 0);
+        const empresaIdRaw = req.query.empresa_id || req.query.empresaId;
+        const checkin      = req.query.checkin  || req.query.fechaLlegada;
+        const checkout     = req.query.checkout || req.query.fechaSalida;
+        const personas     = parseInt(req.query.adultos || req.query.personas || 0);
 
-        if (!empresaId || !checkin || !checkout) {
+        if (!empresaIdRaw || !checkin || !checkout) {
             return res.status(400).json({ error: 'Requeridos: empresa_id, checkin, checkout' });
         }
 
@@ -19,6 +32,8 @@ exports.disponibilidad = async (req, res) => {
             return res.status(400).json({ error: 'Fechas inválidas' });
         }
 
+        const empresaId = await resolveEmpresaPgId(empresaIdRaw);
+
         const db = require('firebase-admin').firestore();
         const { availableProperties, unavailableProperties } = await getAvailabilityData(db, empresaId, inicio, fin);
 
@@ -27,18 +42,18 @@ exports.disponibilidad = async (req, res) => {
 
         return res.json({
             success: true,
-            empresa_id: empresaId,
+            empresa_id: empresaIdRaw,
             checkin,
             checkout,
-            total: availableProperties.length + unavailableProperties.length,
+            total: availableProperties.length + (unavailableProperties || []).length,
             disponibles: disponibles.length,
             alojamientos: [
                 ...disponibles.map(p => ({ id: p.id, nombre: p.nombre, disponible: true, capacidad: p.capacidad || 0 })),
-                ...unavailableProperties.map(p => ({ id: p.id, nombre: p.nombre, disponible: false, capacidad: p.capacidad || 0 }))
+                ...(unavailableProperties || []).map(p => ({ id: p.id, nombre: p.nombre, disponible: false, capacidad: p.capacidad || 0 }))
             ]
         });
     } catch (error) {
-        console.error('[disponibilidad]', error.message);
+        console.error('[disponibilidad]', error.stack || error.message);
         return res.status(500).json({ error: 'Error al consultar disponibilidad' });
     }
 };
@@ -83,6 +98,9 @@ exports.alternativas = async (req, res) => {
 };
 
 exports.crearReserva = async (req, res) => {
+    if (req.body?.empresa_id) {
+        req.body.empresa_id = await resolveEmpresaPgId(req.body.empresa_id);
+    }
     const publicAiController = require('../controllers/publicAiController');
     return publicAiController.createPublicReservation(req, res);
 };
@@ -130,9 +148,10 @@ exports.imagenes = async (req, res) => {
 
 exports.agentConfig = async (req, res) => {
     try {
-        const empresaId = req.query.empresa_id;
-        if (!empresaId) return res.status(400).json({ error: 'Requerido: empresa_id' });
+        const empresaIdRaw = req.query.empresa_id;
+        if (!empresaIdRaw) return res.status(400).json({ error: 'Requerido: empresa_id' });
 
+        const empresaId = await resolveEmpresaPgId(empresaIdRaw);
         const { rows } = await pool.query(
             'SELECT nombre FROM empresas WHERE id = $1 LIMIT 1',
             [empresaId]
