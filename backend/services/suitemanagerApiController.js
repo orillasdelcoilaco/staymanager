@@ -1,19 +1,9 @@
 const pool = require('../db/postgres');
 const { parseISO, isValid } = require('date-fns');
 const { getAvailabilityData } = require('./publicWebsiteService');
+const { resolveEmpresaDbId } = require('./resolveEmpresaDbId');
 
-/**
- * ChatGPT envía empresa_id como subdominio (ej: 'orillasdelcoilaco').
- * Resuelve al PK real de empresas (que puede ser un Firestore doc ID).
- */
-async function resolveEmpresaPgId(empresaId) {
-    if (!empresaId) return empresaId;
-    const { rows } = await pool.query(
-        'SELECT id FROM empresas WHERE id = $1 OR LOWER(subdominio) = LOWER($1) LIMIT 1',
-        [empresaId]
-    );
-    return rows[0]?.id || empresaId;
-}
+const resolveEmpresaPgId = resolveEmpresaDbId;
 
 exports.disponibilidad = async (req, res) => {
     try {

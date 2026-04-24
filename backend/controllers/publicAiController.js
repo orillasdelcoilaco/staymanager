@@ -1,4 +1,5 @@
 const pool = require('../db/postgres');
+const { fetchGlobalPublicAiInventoryPostgres } = require('../services/publicAiInventoryPg');
 const { obtenerPropiedadesPorEmpresa, obtenerPropiedadPorId } = require('../services/publicWebsiteService');
 const { hydrateInventory, calcularCapacidad } = require('../services/propiedadLogicService');
 const { getAvailabilityData } = require('../services/propuestasService');
@@ -92,9 +93,19 @@ const findPropertyById = async (db, propertyId) => {
 
 const getProperties = async (req, res) => {
     try {
+        const merged = { ...req.query, ...req.params };
+        if (!merged.fechaLlegada && merged.checkin) merged.fechaLlegada = merged.checkin;
+        if (!merged.fechaSalida && merged.checkout) merged.fechaSalida = merged.checkout;
+        if (merged.capacidad == null && merged.personas != null) merged.capacidad = merged.personas;
+
+        if (pool) {
+            const inner = await fetchGlobalPublicAiInventoryPostgres(merged);
+            return res.json(formatResponse(inner));
+        }
+
         const db = require('firebase-admin').firestore();
-        const { id } = req.params;
         const {
+            id,
             ubicacion,
             capacidad,
             fechaLlegada,
@@ -106,7 +117,7 @@ const getProperties = async (req, res) => {
             limit = 20,
             offset = 0,
             empresaId // [NEW] Support for filtering by company via query param
-        } = req.query;
+        } = merged;
 
         // Determine target company ID (params takes precedence if route uses it, otherwise query)
         const targetEmpresaId = id || empresaId;

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const { detectEmpresaIdFromText } = require("../../ai/router/empresaNameDetector");
 const controller = require("../services/suitemanagerApiController"); // Importar controlador
+const { lookupEmpresaForAgentQuery } = require("../services/agentEmpresaLookupService");
 const fs = require("fs");
 const path = require("path");
 
@@ -15,12 +15,12 @@ router.get("/buscar-empresa", async (req, res) => {
             return res.status(400).json({ error: "Missing q parameter" });
         }
 
-        const empresaId = detectEmpresaIdFromText(query);
+        const found = await lookupEmpresaForAgentQuery(query);
 
-        if (empresaId) {
+        if (found?.id) {
             const agentPath = path.join(
                 __dirname,
-                `../../ai/agentes/empresa/${empresaId}.md`
+                `../../ai/agentes/empresa/${found.id}.md`
             );
 
             let agentContent = "";
@@ -30,8 +30,8 @@ router.get("/buscar-empresa", async (req, res) => {
 
             return res.json({
                 success: true,
-                empresaId: empresaId,
-                nombre: empresaId, // Placeholder
+                empresaId: found.id,
+                nombre: found.nombre || found.id,
                 agentContent,
             });
         }
