@@ -1,6 +1,10 @@
 const pool = require('../db/postgres');
 const { fetchGlobalPublicAiInventoryPostgres } = require('../services/publicAiInventoryPg');
-const { obtenerPropiedadesPorEmpresa, obtenerPropiedadPorId } = require('../services/publicWebsiteService');
+const {
+    obtenerPropiedadesPorEmpresa,
+    obtenerPropiedadPorId,
+    getAvailabilityData: getAvailabilityDataWeb,
+} = require('../services/publicWebsiteService');
 const { hydrateInventory, calcularCapacidad } = require('../services/propiedadLogicService');
 const { getAvailabilityData } = require('../services/propuestasService');
 const { calculatePrice } = require('../services/utils/calculoValoresService');
@@ -883,7 +887,11 @@ const createPublicReservation = async (req, res) => {
         const propiedadId = body.propiedadId || body.alojamiento_id || body.property_id;
         const fechaInicio = body.fechaInicio || body.checkin;
         const fechaFin = body.fechaFin || body.checkout;
-        const personas = Number(body.adultos || 0) + Number(body.ninos || 0) || 2;
+        let personas = parseInt(String(body.personas ?? ''), 10);
+        if (Number.isNaN(personas) || personas < 1) {
+            personas = Number(body.adultos || 0) + Number(body.ninos || 0);
+        }
+        if (!personas || personas < 1) personas = 2;
         const agenteIA = req.agentName || body.origen || 'Desconocido';
 
         const nombreCliente =
@@ -892,7 +900,6 @@ const createPublicReservation = async (req, res) => {
 
         const missing = [];
         if (!empresaRaw) missing.push('empresa_id');
-        if (!propiedadId) missing.push('alojamiento_id');
         if (!fechaInicio) missing.push('checkin');
         if (!fechaFin) missing.push('checkout');
         if (!nombreCliente) missing.push('huesped.nombre');
@@ -911,6 +918,50 @@ const createPublicReservation = async (req, res) => {
         const fin    = parseISO(fechaFin    + 'T00:00:00Z');
         if (!isValid(inicio) || !isValid(fin) || inicio >= fin) {
             return res.status(400).json({ success: false, error: 'INVALID_DATES' });
+        }
+
+        // Sin alojamiento_id: mismo criterio que disponibilidad pública (tarifas + ocupación), devolver alternativas para que la IA elija.
+        if (!propiedadId) {
+            if (!pool) {
+                return res.status(503).json({
+                    success: false,
+                    error: 'SERVICE_UNAVAILABLE',
+                    message: 'Resolución de alternativas requiere PostgreSQL.',
+                });
+            }
+            const dbFs = require('firebase-admin').firestore();
+            const { availableProperties } = await getAvailabilityDataWeb(dbFs, empresaId, inicio, fin);
+            const conCapacidad = (availableProperties || []).filter(
+                (p) => (p.capacidad || 0) >= personas
+            );
+            const alternativas = conCapacidad.map((p) => ({
+                alojamiento_id: p.id,
+                nombre: p.nombre,
+                capacidad: p.capacidad || 0,
+            }));
+            if (!alternativas.length) {
+                return res.status(422).json({
+                    success: false,
+                    error: 'NO_DISPONIBLE',
+                    message:
+                        (availableProperties || []).length > 0
+                            ? `Hay alojamientos libres en esas fechas, pero ninguno admite ${personas} huéspedes. Reduce personas o cambia fechas.`
+                            : 'No hay alojamientos disponibles en esas fechas para esta empresa.',
+                    personas_solicitadas: personas,
+                    checkin: fechaInicio,
+                    checkout: fechaFin,
+                });
+            }
+            return res.status(422).json({
+                success: false,
+                error: 'ALOJAMIENTO_REQUERIDO',
+                message:
+                    'Indica alojamiento_id con uno de los alojamientos listados (misma petición + huésped y fechas) para confirmar la reserva.',
+                alternativas,
+                personas_solicitadas: personas,
+                checkin: fechaInicio,
+                checkout: fechaFin,
+            });
         }
 
         // 1. Verificar propiedad en PostgreSQL
