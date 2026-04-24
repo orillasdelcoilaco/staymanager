@@ -1,5 +1,5 @@
 {
-  "fecha": "2026-04-24T18:55:54.200Z",
+  "fecha": "2026-04-24T19:03:30.330Z",
   "total": 28,
   "criticos": [
     {
@@ -90,7 +90,7 @@
     {
       "file": "backend/services/publicWebsiteService.js",
       "type": "file-size",
-      "detail": "1184 líneas"
+      "detail": "1241 líneas"
     },
     {
       "file": "backend/services/publicWebsiteService.js",
@@ -100,12 +100,12 @@
     {
       "file": "backend/services/publicWebsiteService.js",
       "type": "function-size",
-      "detail": "verificarReconciliacionPrecioReservaPublica — 129 líneas (línea 642)"
+      "detail": "verificarReconciliacionPrecioReservaPublica — 150 líneas (línea 657)"
     },
     {
       "file": "backend/services/publicWebsiteService.js",
       "type": "function-size",
-      "detail": "crearReservaPublica — 193 líneas (línea 867)"
+      "detail": "crearReservaPublica — 204 líneas (línea 913)"
     },
     {
       "file": "backend/services/resenasService.js",
