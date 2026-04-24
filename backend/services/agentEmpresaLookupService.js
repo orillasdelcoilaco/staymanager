@@ -3,40 +3,49 @@ const { detectEmpresaIdFromText } = require('../../ai/router/empresaNameDetector
 
 /**
  * Resuelve texto libre ("Prueba 1", "prueba1") → empresa Postgres para /buscar-empresa.
- * 1) Índice estático empresas.json (slug legado).
- * 2) Búsqueda en tabla empresas (nombre, subdominio, websiteSettings).
+ * 1) Coincidencia exacta en BD (nombre / subdominio) — evita índice estático desactualizado.
+ * 2) Índice estático empresas.json + resolución por id/subdominio.
+ * 3) Búsqueda parcial (ILIKE).
  */
 async function lookupEmpresaForAgentQuery(q) {
     const trimmed = String(q || '').trim();
     if (!trimmed) return null;
 
+    if (!pool) return null;
+
+    const qn = trimmed.toLowerCase();
+
+    const { rows: exactRows } = await pool.query(
+        `SELECT id, nombre FROM empresas
+         WHERE LOWER(TRIM(nombre)) = $1
+            OR LOWER(TRIM(COALESCE(subdominio, ''))) = $1
+         LIMIT 1`,
+        [qn]
+    );
+    if (exactRows[0]) return { id: exactRows[0].id, nombre: exactRows[0].nombre };
+
     const fromIndex = detectEmpresaIdFromText(trimmed);
-    if (fromIndex && pool) {
+    if (fromIndex) {
         const { rows } = await pool.query(
             `SELECT id, nombre FROM empresas
              WHERE id = $1
-                OR LOWER(TRIM(subdominio)) = LOWER(TRIM($1))
+                OR LOWER(TRIM(COALESCE(subdominio, ''))) = LOWER(TRIM($1::text))
                 OR (
                   configuracion->>'websiteSettings' IS NOT NULL
                   AND LENGTH(TRIM(COALESCE(configuracion->'websiteSettings'->>'subdomain', ''))) > 0
-                  AND LOWER(TRIM(configuracion->'websiteSettings'->>'subdomain')) = LOWER(TRIM($1))
+                  AND LOWER(TRIM(configuracion->'websiteSettings'->>'subdomain')) = LOWER(TRIM($1::text))
                 )
                 OR (
                   configuracion->>'websiteSettings' IS NOT NULL
                   AND LENGTH(TRIM(COALESCE(configuracion->'websiteSettings'->'general'->>'subdomain', ''))) > 0
-                  AND LOWER(TRIM(configuracion->'websiteSettings'->'general'->>'subdomain')) = LOWER(TRIM($1))
+                  AND LOWER(TRIM(configuracion->'websiteSettings'->'general'->>'subdomain')) = LOWER(TRIM($1::text))
                 )
              LIMIT 1`,
             [fromIndex]
         );
         if (rows[0]) return { id: rows[0].id, nombre: rows[0].nombre };
-    } else if (fromIndex && !pool) {
-        return { id: fromIndex, nombre: fromIndex };
     }
 
-    if (!pool) return null;
-
-    const qn = trimmed.toLowerCase();
     const like = `%${qn.replace(/\s+/g, '%')}%`;
 
     const { rows } = await pool.query(

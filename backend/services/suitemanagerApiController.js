@@ -2,6 +2,14 @@ const pool = require('../db/postgres');
 const { parseISO, isValid } = require('date-fns');
 const { getAvailabilityData } = require('./publicWebsiteService');
 const { resolveEmpresaDbId } = require('./resolveEmpresaDbId');
+const { fetchTarifasYCanal } = require('../routes/website.shared');
+const { mergeEffectiveRules } = require('./houseRulesService');
+const { obtenerResumenPorPropiedad } = require('./resenasService');
+const {
+    buildAgentPropertyDetailPayload,
+    enrichPropertyRowsForPublicAi,
+    resolvePrecioNocheReferencia,
+} = require('./publicAiProductSnapshot');
 
 const resolveEmpresaPgId = resolveEmpresaDbId;
 
@@ -52,15 +60,78 @@ exports.detalle = async (req, res) => {
     try {
         const alojamientoId = req.query.alojamiento_id;
         if (!alojamientoId) return res.status(400).json({ error: 'Requerido: alojamiento_id' });
+        if (!pool) return res.status(503).json({ error: 'PostgreSQL requerido' });
 
         const { rows } = await pool.query(
-            'SELECT id, nombre, capacidad, descripcion FROM propiedades WHERE id = $1 AND activo = true LIMIT 1',
+            `SELECT p.id, p.nombre, p.capacidad, p.descripcion, p.metadata, p.empresa_id,
+                    e.nombre AS empresa_nombre, e.configuracion
+               FROM propiedades p
+               JOIN empresas e ON e.id = p.empresa_id
+              WHERE p.id = $1::text AND p.activo = true
+              LIMIT 1`,
             [alojamientoId]
         );
         if (!rows[0]) return res.status(404).json({ error: 'Alojamiento no encontrado' });
 
-        const p = rows[0];
-        return res.json({ success: true, id: p.id, nombre: p.nombre, capacidad: p.capacidad, descripcion: p.descripcion || '' });
+        const row = rows[0];
+        const empresaConfig =
+            row.configuracion && typeof row.configuracion === 'object' ? row.configuracion : {};
+        const empresaHouseRules = empresaConfig.websiteSettings?.houseRules || null;
+        const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+        const mergedRules = mergeEffectiveRules(empresaHouseRules, meta.normasAlojamiento || {});
+
+        const [{ rows: galRows }, resumenResenas, { allTarifas, canalPorDefectoId, canalMoneda }] =
+            await Promise.all([
+                pool.query(
+                    `SELECT storage_url, thumbnail_url, alt_text, rol, orden
+                       FROM galeria
+                      WHERE propiedad_id::text = $1::text
+                        AND estado IN ('auto', 'manual')
+                      ORDER BY (rol = 'principal') DESC, orden ASC NULLS LAST, id ASC
+                      LIMIT 40`,
+                    [String(row.id)]
+                ),
+                obtenerResumenPorPropiedad(row.empresa_id, row.id),
+                fetchTarifasYCanal(row.empresa_id),
+            ]);
+
+        const defaultCanalByEmpresa = new Map();
+        if (canalPorDefectoId) {
+            defaultCanalByEmpresa.set(String(row.empresa_id), {
+                id: canalPorDefectoId,
+                moneda: canalMoneda || 'CLP',
+            });
+        }
+        const rowForPrecio = {
+            id: row.id,
+            empresa_id: row.empresa_id,
+            metadata: row.metadata,
+        };
+        const { clp: precioFinal, origen: precioOrigen } = resolvePrecioNocheReferencia(
+            rowForPrecio,
+            allTarifas,
+            defaultCanalByEmpresa
+        );
+
+        const payload = buildAgentPropertyDetailPayload({
+            row: {
+                id: row.id,
+                nombre: row.nombre,
+                capacidad: row.capacidad,
+                descripcion: row.descripcion,
+                metadata: row.metadata,
+                empresa_id: row.empresa_id,
+                empresa_nombre: row.empresa_nombre,
+            },
+            galeriaRows: galRows,
+            resumenResenas,
+            precioNocheReferencia: precioFinal,
+            moneda: canalMoneda || 'CLP',
+            mergedRules,
+            precioOrigen,
+        });
+
+        return res.json(payload);
     } catch (error) {
         console.error('[detalle]', error.message);
         return res.status(500).json({ error: 'Error al obtener detalle' });
@@ -97,22 +168,53 @@ exports.crearReserva = async (req, res) => {
 
 exports.busquedaGeneral = async (req, res) => {
     try {
-        const q        = req.query.q || '';
-        const checkin  = req.query.checkin;
+        if (!pool) {
+            return res.status(503).json({ error: 'PostgreSQL requerido para búsqueda enriquecida' });
+        }
+        const q =
+            (req.query.q || req.query.destino || '').trim();
+        const checkin = req.query.checkin;
         const checkout = req.query.checkout;
-        const personas = parseInt(req.query.personas || 0);
+        const personas = parseInt(String(req.query.personas || req.query.adultos || '0'), 10) || 0;
+        const limRaw = parseInt(String(req.query.limit || '15'), 10) || 15;
+        const limit = Math.min(Math.max(limRaw, 1), 20);
 
         const { rows } = await pool.query(
-            `SELECT p.id, p.nombre, p.capacidad, e.id AS empresa_id, e.nombre AS empresa_nombre
-             FROM propiedades p JOIN empresas e ON p.empresa_id = e.id
+            `SELECT p.id, p.nombre, p.capacidad, p.descripcion, p.metadata, p.empresa_id, e.nombre AS empresa_nombre
+             FROM propiedades p
+             JOIN empresas e ON p.empresa_id = e.id
              WHERE p.activo = true
-               AND ($1 = '' OR p.nombre ILIKE $2 OR e.nombre ILIKE $2)
+               AND (
+                 $1::text = ''
+                 OR p.nombre ILIKE $2
+                 OR e.nombre ILIKE $2
+                 OR COALESCE(p.descripcion, '') ILIKE $2
+               )
                AND ($3 = 0 OR p.capacidad >= $3)
-             ORDER BY p.nombre LIMIT 20`,
-            [q, `%${q}%`, personas]
+             ORDER BY e.nombre ASC, p.nombre ASC
+             LIMIT $4`,
+            [q, `%${q}%`, personas, limit]
         );
 
-        return res.json({ success: true, total: rows.length, resultados: rows });
+        const compact =
+            req.query.compact !== '0' &&
+            req.query.compact !== 'false' &&
+            String(req.query.compact).toLowerCase() !== 'full';
+        const resultados = await enrichPropertyRowsForPublicAi(rows, { compact });
+
+        return res.json({
+            success: true,
+            total: resultados.length,
+            resultados,
+                meta: {
+                limit,
+                compact,
+                payload: 'producto_ia_v2',
+                checkin: checkin || null,
+                checkout: checkout || null,
+                personas,
+            },
+        });
     } catch (error) {
         console.error('[busquedaGeneral]', error.message);
         return res.status(500).json({ error: 'Error en búsqueda general' });
@@ -125,8 +227,13 @@ exports.imagenes = async (req, res) => {
         if (!alojamientoId) return res.status(400).json({ error: 'Requerido: alojamiento_id' });
 
         const { rows } = await pool.query(
-            'SELECT storage_url, alt_text, rol FROM galeria WHERE propiedad_id = $1 AND estado = $2 ORDER BY orden ASC LIMIT 20',
-            [alojamientoId, 'activo']
+            `SELECT storage_url, thumbnail_url, alt_text, rol, orden
+               FROM galeria
+              WHERE propiedad_id::text = $1::text
+                AND estado IN ('auto', 'manual')
+              ORDER BY (rol = 'principal') DESC, orden ASC NULLS LAST
+              LIMIT 20`,
+            [String(alojamientoId)]
         );
 
         return res.json({ success: true, total: rows.length, fotos: rows.map(r => ({ url: r.storage_url, descripcion: r.alt_text || '', tipo: r.rol || 'general' })) });

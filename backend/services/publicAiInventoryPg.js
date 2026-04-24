@@ -3,16 +3,16 @@
  * El controlador legacy usaba solo Firestore → 0 resultados cuando el catálogo vive en PG.
  */
 const pool = require('../db/postgres');
-const { parseISO, isValid } = require('date-fns');
-const { getAvailabilityData } = require('./publicWebsiteService');
 const { resolveEmpresaDbId } = require('./resolveEmpresaDbId');
-
-function _normalizeUbicacion(str) {
-    return String(str || '')
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '');
-}
+const { fetchTarifasForEmpresas } = require('../routes/website.shared');
+const { enrichPropertyRowsForPublicAi, resolvePrecioNocheReferencia } = require('./publicAiProductSnapshot');
+const {
+    filterByUbicacion,
+    filterByCapacidad,
+    filterByAmenidades,
+    filterByDisponibilidad,
+    sortPropiedades,
+} = require('./publicAiInventoryPg.filters');
 
 /**
  * Carga mínima para conectores MCP / ChatGPT (evita ResponseTooLarge).
@@ -52,6 +52,7 @@ function _mapRowToAiPropertyLite(row) {
         foto_url: fotoUrl,
         googleHotelData: { address: { street: addr.street || '', city: addr.city || '' } },
         amenidades: amenidadesLista,
+        _src: row,
     };
 }
 
@@ -71,13 +72,17 @@ async function fetchGlobalPublicAiInventoryPostgres(query) {
         limit = 20,
         offset = 0,
         empresaId,
+        compact: compactRaw,
     } = query;
+
+    const listaCompacta =
+        compactRaw !== '0' && compactRaw !== 'false' && String(compactRaw).toLowerCase() !== 'full';
 
     const targetRaw = id || empresaId || null;
     const targetEmpresaId = targetRaw ? await resolveEmpresaDbId(String(targetRaw).trim()) : null;
 
     let sql = `
-        SELECT p.id, p.nombre, p.capacidad, p.metadata, p.empresa_id,
+        SELECT p.id, p.nombre, p.capacidad, p.descripcion, p.metadata, p.empresa_id,
                e.nombre AS empresa_nombre, e.email AS empresa_email
         FROM propiedades p
         INNER JOIN empresas e ON e.id = p.empresa_id
@@ -92,72 +97,29 @@ async function fetchGlobalPublicAiInventoryPostgres(query) {
     sql += ' ORDER BY e.nombre ASC, p.nombre ASC LIMIT 150';
 
     const { rows } = await pool.query(sql, params);
-    let propiedades = rows.map(_mapRowToAiPropertyLite);
+    const empIdsTarifas = [...new Set(rows.map((r) => r.empresa_id))];
+    const { allTarifas, defaultCanalByEmpresa } = await fetchTarifasForEmpresas(empIdsTarifas);
 
-    if (ubicacion) {
-        const term = _normalizeUbicacion(ubicacion);
-        propiedades = propiedades.filter((p) => {
-            const gh = p.googleHotelData || {};
-            const addr = gh.address || {};
-            const calle = _normalizeUbicacion(addr.street || '');
-            const ciudad = _normalizeUbicacion(addr.city || '');
-            return calle.includes(term) || ciudad.includes(term);
-        });
-    }
+    let propiedades = rows.map((r) => ({
+        ..._mapRowToAiPropertyLite(r),
+        __sortPrecio: resolvePrecioNocheReferencia(r, allTarifas, defaultCanalByEmpresa).clp,
+    }));
 
-    if (capacidad) {
-        const cap = parseInt(capacidad, 10);
-        if (!Number.isNaN(cap) && cap > 0) {
-            propiedades = propiedades.filter((p) => (p.capacidad || 0) >= cap);
-        }
-    }
-
-    if (amenidades) {
-        const amenidadesRequeridas = String(amenidades)
-            .split(',')
-            .map((a) => a.trim().toLowerCase())
-            .filter(Boolean);
-        propiedades = propiedades.filter((p) => {
-            const lista = Array.isArray(p.amenidades) ? p.amenidades : [];
-            return amenidadesRequeridas.every((req) =>
-                lista.some((a) => String(a).toLowerCase().includes(req))
-            );
-        });
-    }
-
-    if (fechaLlegada && fechaSalida) {
-        const start = parseISO(String(fechaLlegada).slice(0, 10) + 'T00:00:00Z');
-        const end = parseISO(String(fechaSalida).slice(0, 10) + 'T00:00:00Z');
-        if (isValid(start) && isValid(end) && start < end) {
-            const empresasUnicas = [...new Set(propiedades.map((p) => p.empresa.id))];
-            const disponibleKey = new Set();
-            for (const empId of empresasUnicas) {
-                const { availableProperties } = await getAvailabilityData(null, empId, start, end);
-                for (const ap of availableProperties) {
-                    disponibleKey.add(`${empId}::${ap.id}`);
-                }
-            }
-            propiedades = propiedades.filter((p) => disponibleKey.has(`${p.empresa.id}::${p.id}`));
-            propiedades.forEach((p) => {
-                p.disponible = true;
-            });
-        }
-    }
-
-    if (ordenar === 'precio_asc' || ordenar === 'precio_desc') {
-        propiedades.sort((a, b) => {
-            const pa = Number(a.precioBase) || 0;
-            const pb = Number(b.precioBase) || 0;
-            return ordenar === 'precio_asc' ? pa - pb : pb - pa;
-        });
-    } else if (ordenar === 'rating') {
-        propiedades.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
-    }
+    propiedades = filterByUbicacion(propiedades, ubicacion);
+    propiedades = filterByCapacidad(propiedades, capacidad);
+    propiedades = filterByAmenidades(propiedades, amenidades);
+    propiedades = await filterByDisponibilidad(propiedades, fechaLlegada, fechaSalida);
+    propiedades = sortPropiedades(propiedades, ordenar);
 
     const off = Math.max(parseInt(offset, 10) || 0, 0);
     const limRaw = parseInt(limit, 10) || 20;
     const lim = Math.min(Math.max(limRaw, 1), 30);
-    const paginatedProperties = propiedades.slice(off, off + lim);
+    const paginatedLite = propiedades.slice(off, off + lim);
+    const srcRows = paginatedLite.map((p) => p._src).filter(Boolean);
+    const dataEnriquecida =
+        srcRows.length > 0
+            ? await enrichPropertyRowsForPublicAi(srcRows, { compact: listaCompacta })
+            : [];
 
     return {
         meta: {
@@ -172,9 +134,10 @@ async function fetchGlobalPublicAiInventoryPostgres(query) {
             },
             ordenado_por: ordenar,
             source: 'postgres',
-            compact: true,
+            compact: listaCompacta,
+            payload: 'producto_ia_v2',
         },
-        data: paginatedProperties,
+        data: dataEnriquecida,
     };
 }
 
