@@ -1,7 +1,11 @@
 openapi: 3.1.0
 info:
   title: SuiteManager Public API for ChatGPT
-  version: 1.1.0
+  version: 1.2.0
+  description: |
+    API pública para Actions. Listados usan **producto_ia_v2**: precio por tarifas PG, ubicación, amenidades
+    (metadata + inventario componentes), políticas mergeadas (empresa + propiedad), alias `precioBase`/`ciudad`/`direccion_corta`.
+    Tras listar, llamar **obtenerDetalleAlojamiento** para ficha completa (galería, inventario_verificado, normas).
 
 servers:
   - url: https://suite-manager.onrender.com
@@ -27,60 +31,114 @@ paths:
                 type: object
                 properties:
                   success: { type: boolean }
-                  empresaId: { type: string }
+                  empresaId: { type: string, nullable: true }
                   nombre: { type: string }
                   agentContent: { type: string }
 
-  /api/public/busqueda-general:
+  /ai/busqueda-general:
     get:
-      operationId: busquedaGeneral
-      summary: Busca alojamientos en todas las empresas.
-      description: Busca en todas las empresas registradas aplicando filtros por texto, fechas y capacidad.
+      operationId: busquedaGeneralAi
+      summary: Búsqueda global en PostgreSQL (mismo enriquecimiento que listado público v2).
+      description: |
+        Devuelve `resultados[]` con **producto_ia_v2**. Query `compact=0` o `compact=full` amplía descripción y amenidades.
       parameters:
         - in: query
           name: q
-          schema:
-            type: string
+          schema: { type: string }
+        - in: query
+          name: destino
+          schema: { type: string }
         - in: query
           name: checkin
-          schema:
-            type: string
+          schema: { type: string, format: date }
         - in: query
           name: checkout
-          schema:
-            type: string
+          schema: { type: string, format: date }
         - in: query
           name: personas
-          schema:
-            type: integer
+          schema: { type: integer }
+        - in: query
+          name: adultos
+          schema: { type: integer }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 15, maximum: 20 }
+        - in: query
+          name: compact
+          description: "0 o full = payload menos recortado (más texto y amenidades)."
+          schema: { type: string, default: "1" }
       responses:
         "200":
-          description: Resultados globales de búsqueda
+          description: Lista enriquecida (producto_ia_v2)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  total: { type: integer }
-                  resultados:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        empresa_id: { type: string }
-                        alojamiento_id: { type: string }
-                        nombre: { type: string }
-                        descripcion: { type: string }
-                        fotos:
-                          type: array
-                          items: { type: string }
-                        capacidad: { type: integer }
+                $ref: "#/components/schemas/BusquedaGeneralAiResponse"
+
+  /api/public/busqueda-general:
+    get:
+      operationId: busquedaGeneralPublic
+      summary: Busca alojamientos listados en web (isListed); respuesta envuelta por meta de verificación.
+      description: |
+        Cuerpo JSON: envoltorio `{ meta, data }` donde `data` es objeto `{ meta, data[] }`.
+        Cada elemento de `data.data` es **ProductoIaListingCard** (producto_ia_v2).
+        Parámetros útiles: `ubicacion`, `capacidad`, `fechaLlegada`/`fechaSalida` o `checkin`/`checkout`,
+        `amenidades` (coma), `ordenar` (popularidad|precio_asc|precio_desc|rating), `limit`, `offset`, `compact=0`.
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: ubicacion
+          schema: { type: string }
+        - in: query
+          name: checkin
+          schema: { type: string }
+        - in: query
+          name: checkout
+          schema: { type: string }
+        - in: query
+          name: fechaLlegada
+          schema: { type: string }
+        - in: query
+          name: fechaSalida
+          schema: { type: string }
+        - in: query
+          name: personas
+          schema: { type: integer }
+        - in: query
+          name: capacidad
+          schema: { type: integer }
+        - in: query
+          name: amenidades
+          schema: { type: string }
+        - in: query
+          name: ordenar
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer }
+        - in: query
+          name: offset
+          schema: { type: integer }
+        - in: query
+          name: compact
+          schema: { type: string }
+        - in: query
+          name: empresaId
+          schema: { type: string }
+      responses:
+        "200":
+          description: Envelope + listado v2
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicAiBusquedaEnvelope"
 
   /api/agent-config:
     get:
       operationId: obtenerConfigAgente
-      summary: Devuelve las instrucciones personalizadas del agente para una empresa.
+      summary: Instrucciones personalizadas del agente para una empresa.
       parameters:
         - in: query
           name: empresa_id
@@ -103,43 +161,97 @@ paths:
   /api/disponibilidad:
     get:
       operationId: consultarDisponibilidad
-      summary: Consulta disponibilidad
+      summary: Consulta disponibilidad por empresa
       parameters:
         - in: query
           name: empresa_id
-          schema:
-            type: string
+          schema: { type: string }
         - in: query
           name: checkin
           required: true
-          schema:
-            type: string
+          schema: { type: string }
         - in: query
           name: checkout
           required: true
-          schema:
-            type: string
+          schema: { type: string }
         - in: query
           name: adultos
-          schema:
-            type: integer
+          schema: { type: integer }
       responses:
         "200":
-          description: OK
+          description: Alojamientos con bandera disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  disponibles: { type: integer }
+                  alojamientos:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        nombre: { type: string }
+                        disponible: { type: boolean }
+                        capacidad: { type: integer }
 
   /api/alojamientos/detalle:
     get:
       operationId: obtenerDetalleAlojamiento
-      summary: Obtiene ficha completa del alojamiento
+      summary: Ficha comercial completa (descripción, precio, ubicación, amenidades, normas, galería, reseñas).
+      description: |
+        Usar **siempre** tras elegir un alojamiento para preguntas de parrilla, mascotas, camas, wifi, etc.
+        `precio.origen` indica si el monto vino de metadata o de tarifas PG.
       parameters:
         - in: query
           name: alojamiento_id
           required: true
           schema:
             type: string
+            description: UUID de propiedad en PostgreSQL
       responses:
         "200":
-          description: OK
+          description: ProductoIaDetalle (producto_ia_v2)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductoIaDetalle"
+        "404":
+          description: Alojamiento no encontrado
+
+  /api/alojamientos/imagenes:
+    get:
+      operationId: obtenerImagenesAlojamiento
+      summary: Galería activa (estados auto/manual), orden y rol principal.
+      parameters:
+        - in: query
+          name: alojamiento_id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: empresa_id
+          schema: { type: string }
+      responses:
+        "200":
+          description: Lista plana de fotos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  total: { type: integer }
+                  fotos:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        url: { type: string }
+                        descripcion: { type: string }
+                        tipo: { type: string }
+                        orden: { type: integer }
 
   /api/alojamientos/alternativas:
     get:
@@ -149,26 +261,38 @@ paths:
         - in: query
           name: destino
           required: true
-          schema:
-            type: string
+          schema: { type: string }
         - in: query
           name: checkin
           required: true
-          schema:
-            type: string
+          schema: { type: string }
         - in: query
           name: checkout
           required: true
-          schema:
-            type: string
+          schema: { type: string }
       responses:
         "200":
           description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  alojamientos:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        nombre: { type: string }
+                        capacidad: { type: integer }
+                        empresa_id: { type: string }
 
-  /api/public/reservas:
+  /api/reservas:
     post:
       operationId: crearReserva
-      summary: Crea una reserva
+      summary: Crea una reserva (requiere cabeceras de agente si AGENT_API_KEYS está configurado).
       requestBody:
         required: true
         content:
@@ -194,4 +318,195 @@ paths:
                     telefono: { type: string }
       responses:
         "201":
-          description: OK
+          description: Reserva creada
+        "400":
+          description: Campos faltantes
+        "409":
+          description: No disponible
+
+components:
+  schemas:
+    ProductoIaUbicacion:
+      type: object
+      properties:
+        direccion: { type: string }
+        ciudad: { type: string }
+        region: { type: string }
+        pais: { type: string, nullable: true }
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+        direccion_linea: { type: string }
+
+    ProductoIaPrecio:
+      type: object
+      properties:
+        noche_referencia_clp: { type: integer, nullable: true }
+        moneda: { type: string, example: CLP }
+        origen:
+          type: string
+          nullable: true
+          description: metadata.precioBase | tarifas.canal_por_defecto | tarifas.min_cualquier_canal
+
+    ProductoIaPoliticas:
+      type: object
+      nullable: true
+      properties:
+        mascotas: { type: boolean, nullable: true }
+        fumadores: { type: boolean, nullable: true }
+        mascotas_codigo: { type: string, nullable: true }
+        fumar_codigo: { type: string, nullable: true }
+        hora_checkin: { type: string, nullable: true }
+        hora_checkout: { type: string, nullable: true }
+
+    ProductoIaDistribucion:
+      type: object
+      properties:
+        dormitorios: { type: integer }
+        banos: { type: integer }
+
+    ProductoIaListingCard:
+      type: object
+      properties:
+        id: { type: string }
+        nombre: { type: string }
+        capacidad: { type: integer }
+        empresa:
+          type: object
+          properties:
+            id: { type: string }
+            nombre: { type: string }
+        precio:
+          $ref: "#/components/schemas/ProductoIaPrecio"
+        ubicacion:
+          $ref: "#/components/schemas/ProductoIaUbicacion"
+        descripcion: { type: string, nullable: true }
+        amenidades:
+          type: array
+          items: { type: string }
+        distribucion:
+          $ref: "#/components/schemas/ProductoIaDistribucion"
+        politicas:
+          $ref: "#/components/schemas/ProductoIaPoliticas"
+        resumen_normas: { type: string, nullable: true }
+        foto_url: { type: string, nullable: true }
+        rating: { type: number, nullable: true }
+        listada_web: { type: boolean }
+        payload_version: { type: string, example: producto_ia_v2 }
+        precioBase:
+          type: integer
+          nullable: true
+          description: Alias de precio.noche_referencia_clp (CLP) para clientes legacy.
+        ciudad:
+          type: string
+          description: Alias de ubicacion.ciudad.
+        direccion_corta:
+          type: string
+          description: Alias de ubicacion.direccion_linea.
+
+    ProductoIaImagen:
+      type: object
+      properties:
+        url: { type: string }
+        thumbnail_url: { type: string, nullable: true }
+        alt: { type: string }
+        tipo: { type: string }
+        orden: { type: integer }
+        principal: { type: boolean }
+
+    ProductoIaInventarioItem:
+      type: object
+      properties:
+        description: { type: string }
+        quantity: { type: integer }
+        location: { type: string }
+        verified: { type: boolean }
+
+    ProductoIaNormasBloque:
+      type: object
+      properties:
+        titulo: { type: string }
+        rows:
+          type: array
+          items:
+            type: object
+            properties:
+              icon: { type: string }
+              text: { type: string }
+
+    ProductoIaDetalle:
+      allOf:
+        - $ref: "#/components/schemas/ProductoIaListingCard"
+        - type: object
+          properties:
+            success: { type: boolean, example: true }
+            descripcion: { type: string }
+            inventario_verificado:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProductoIaInventarioItem"
+            normas:
+              type: object
+              properties:
+                resumen_lineas:
+                  type: array
+                  items: { type: string }
+                secciones:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ProductoIaNormasBloque"
+            imagenes:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProductoIaImagen"
+            resenas:
+              type: object
+              properties:
+                total: { type: integer }
+                promedio_general: { type: number, nullable: true }
+
+    BusquedaGeneralAiResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        total: { type: integer }
+        resultados:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductoIaListingCard"
+        meta:
+          type: object
+          properties:
+            limit: { type: integer }
+            compact: { type: boolean }
+            payload: { type: string, example: producto_ia_v2 }
+
+    PublicAiListInnerMeta:
+      type: object
+      properties:
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+        filtros: { type: object }
+        ordenado_por: { type: string }
+        source: { type: string, example: postgres }
+        compact: { type: boolean }
+        payload: { type: string, example: producto_ia_v2 }
+
+    PublicAiBusquedaEnvelope:
+      type: object
+      properties:
+        meta:
+          type: object
+          properties:
+            generated_at: { type: string, format: date-time }
+            api_version: { type: string }
+            ai_verification_mode: { type: boolean }
+        data:
+          type: object
+          properties:
+            meta:
+              $ref: "#/components/schemas/PublicAiListInnerMeta"
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProductoIaListingCard"
