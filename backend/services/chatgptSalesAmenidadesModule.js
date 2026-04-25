@@ -6,7 +6,7 @@ const AMENITY_RULES = [
     { code: 'quincho', patterns: [/quincho|parrilla|bbq|barbacoa|asado|grill/i] },
     { code: 'pet_friendly', patterns: [/pet\s*friendly|mascota|mascotas/i] },
     { code: 'rio', patterns: [/r[ií]o|river|ribera|fluvial/i] },
-    { code: 'piscina', patterns: [/piscina|pool/i] },
+    { code: 'piscina', patterns: [/piscina|pool|pileta|alberca|swimming/i] },
     { code: 'aire_acondicionado', patterns: [/aire\s*acondicionado|ac\b|climatiz/i] },
     { code: 'vista_rio', patterns: [/vista.*r[ií]o|river\s*view/i] },
 ];
@@ -77,7 +77,11 @@ function buildAmenidadesEstructuradas({
     inventarioDetallado = [],
     distribucion = {},
     mergedRules = null,
+    contextoTuristico = null,
 }) {
+    const destacadosCtx = Array.isArray(contextoTuristico?.destacados)
+        ? contextoTuristico.destacados.join(' ')
+        : '';
     const haystack = [
         _toText(row?.nombre),
         _toText(row?.descripcion),
@@ -89,6 +93,7 @@ function buildAmenidadesEstructuradas({
         Array.isArray(amenidades) ? amenidades.join(' ') : '',
         Array.isArray(amenidadesPublicas) ? amenidadesPublicas.join(' ') : '',
         Array.isArray(inventarioDetallado) ? inventarioDetallado.join(' ') : '',
+        destacadosCtx,
         _inventorySummary(meta),
     ]
         .filter(Boolean)

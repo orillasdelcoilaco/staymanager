@@ -40,14 +40,20 @@ function run() {
     const politicas = buildPoliticasHorariosIa({
         politicas: { hora_checkin: '15:00', hora_checkout: '11:00' },
         precioEstimado: { politica_cancelacion: { resumen: 'Gratis hasta 7 dias antes' } },
+        amenidadesEstructuradas: { amenidades: ['pet_friendly'] },
+        meta: {},
     });
     assert(politicas.cancelacion, 'cancelacion requerida');
+    assert(politicas.mascotas === true, 'mascotas debe resolverse true por pet_friendly');
+    assert(politicas.mascotas_condicion, 'mascotas_condicion requerida');
 
     const geo = buildGeoComercialIa({
         ubicacion: { lat: -39.2, lng: -71.8, ciudad: 'Pucon' },
         meta: {},
+        contextoTuristico: { destacados: ['Termas cercanas', 'Rutas de trekking'] },
     });
     assert(geo.lat != null && geo.lng != null, 'lat/lng requeridos');
+    assert(Array.isArray(geo.pois), 'pois debe ser arreglo');
 
     console.log('ok chatgpt-sales-modules');
 }

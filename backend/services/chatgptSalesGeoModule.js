@@ -30,14 +30,30 @@ function _extractPois(meta) {
     return [];
 }
 
-function buildGeoComercialIa({ ubicacion, meta }) {
+function _poisDesdeDestacados(contextoTuristico) {
+    const dest = Array.isArray(contextoTuristico?.destacados) ? contextoTuristico.destacados : [];
+    return dest
+        .map((d) => _text(d))
+        .filter(Boolean)
+        .slice(0, 6)
+        .map((nombre) => ({
+            nombre,
+            distancia_km: null,
+            tiempo_min: null,
+            tipo: 'destacado_complejo',
+        }));
+}
+
+function buildGeoComercialIa({ ubicacion, meta, contextoTuristico }) {
+    const poisMetadata = _extractPois(meta);
+    const pois = poisMetadata.length ? poisMetadata : _poisDesdeDestacados(contextoTuristico);
     return {
         lat: _num(ubicacion?.lat),
         lng: _num(ubicacion?.lng),
         ciudad: _text(ubicacion?.ciudad) || null,
         region: _text(ubicacion?.region) || null,
         direccion_linea: _text(ubicacion?.direccion_linea) || null,
-        pois: _extractPois(meta),
+        pois,
         payload_version: 'geo_ia_v1',
     };
 }

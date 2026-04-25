@@ -224,6 +224,7 @@ function _buildListingCommercialBlocks({
         inventarioDetallado: inventario_detallado,
         distribucion,
         mergedRules,
+        contextoTuristico: contexto_turistico,
     });
     const descripcion_comercial = buildDescripcionComercialIa({
         row,
@@ -260,6 +261,7 @@ function _buildDetailCommercialBlocks({
         inventarioDetallado: inventario_detallado,
         distribucion,
         mergedRules,
+        contextoTuristico: contexto_turistico,
     });
     const descripcion_comercial = buildDescripcionComercialIa({
         row,
@@ -268,7 +270,7 @@ function _buildDetailCommercialBlocks({
         contextoTuristico: contexto_turistico,
         amenidadesEstructuradas: amenidades_estructuradas,
     });
-    const geo_comercial = buildGeoComercialIa({ ubicacion: ubic, meta });
+    const geo_comercial = buildGeoComercialIa({ ubicacion: ubic, meta, contextoTuristico: contexto_turistico });
     const tarifas_detalladas = buildTarifasDetalladas({
         precio: {
             noche_referencia_clp: nocheInt,
@@ -280,6 +282,8 @@ function _buildDetailCommercialBlocks({
     const politicas_horarios = buildPoliticasHorariosIa({
         politicas: _politicasPublicas(mergedRules),
         precioEstimado: precio_estimado,
+        amenidadesEstructuradas: amenidades_estructuradas,
+        meta,
     });
     const imagenes_etiquetadas = buildImagenesEtiquetadas(imagenes);
     return {
