@@ -3,6 +3,7 @@ const emailService = require('./emailService');
 const {
     enviarPorDisparador,
     enviarNotificacionInterna,
+    obtenerPlantillaPorDisparador,
 } = require('./transactionalEmailService');
 
 function buildFallbackConfirmEmail({
@@ -55,6 +56,7 @@ async function enviarConfirmacionReservaIaEmail({
         if (!clienteEmail) {
             return { sent: false, reason: 'MISSING_EMAIL' };
         }
+        const plantillaReserva = await obtenerPlantillaPorDisparador(empresaId, 'reserva_confirmada');
 
         try {
             const templateResult = await enviarPorDisparador(db, empresaId, 'reserva_confirmada', {
@@ -66,7 +68,14 @@ async function enviarConfirmacionReservaIaEmail({
                 skipRegistro: true,
             });
             if (templateResult?.sent) {
-                return { sent: true, mode: 'template_reserva_confirmada', messageId: templateResult.messageId || null };
+                return {
+                    sent: true,
+                    mode: 'template_reserva_confirmada',
+                    messageId: templateResult.messageId || null,
+                    templateTrigger: 'reserva_confirmada',
+                    templateId: templateResult.plantillaId || plantillaReserva?.id || null,
+                    templateName: plantillaReserva?.nombre || null,
+                };
             }
             templateErrorReason = templateResult?.reason || 'EMAIL_PROVIDER_REJECTED';
         } catch (error) {
@@ -84,9 +93,19 @@ async function enviarConfirmacionReservaIaEmail({
             return {
                 sent: false,
                 reason: templateErrorReason ? `template=${templateErrorReason}; fallback=${base}` : base,
+                templateTrigger: 'reserva_confirmada',
+                templateId: plantillaReserva?.id || null,
+                templateName: plantillaReserva?.nombre || null,
             };
         }
-        return { sent: true, mode: 'fallback_html', messageId: r.messageId || null };
+        return {
+            sent: true,
+            mode: 'fallback_html',
+            messageId: r.messageId || null,
+            templateTrigger: 'reserva_confirmada',
+            templateId: plantillaReserva?.id || null,
+            templateName: plantillaReserva?.nombre || null,
+        };
     } catch (error) {
         const reason = error.message || 'EMAIL_SEND_EXCEPTION';
         return {
@@ -110,6 +129,7 @@ async function enviarNotificacionAdminReservaIaEmail({
     montoTotal,
 }) {
     try {
+        const plantillaInterna = await obtenerPlantillaPorDisparador(empresaId, 'notificacion_interna');
         const fmtCLP = (v) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(v || 0);
         const resumen = [
             `Nueva reserva confirmada por IA.`,
@@ -141,7 +161,14 @@ async function enviarNotificacionAdminReservaIaEmail({
         }, { tipo: 'reserva', id: reservaId || null });
 
         if (!r?.sent) return { sent: false, reason: r?.reason || 'EMAIL_PROVIDER_REJECTED' };
-        return { sent: true, mode: 'template_notificacion_interna', messageId: r.messageId || null };
+        return {
+            sent: true,
+            mode: 'template_notificacion_interna',
+            messageId: r.messageId || null,
+            templateTrigger: 'notificacion_interna',
+            templateId: r.plantillaId || plantillaInterna?.id || null,
+            templateName: plantillaInterna?.nombre || null,
+        };
     } catch (error) {
         return { sent: false, reason: error?.message || 'ADMIN_EMAIL_SEND_EXCEPTION' };
     }
