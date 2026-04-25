@@ -364,6 +364,22 @@ const getPropertyDetail = async (req, res) => {
         aiContext.booking_workflow = {
             paso_1: `GET /api/public/propiedades/${propertyDoc.id}/disponibilidad?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD`,
             paso_2: `GET /api/public/propiedades/${propertyDoc.id}/cotizar?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD`,
+            paso_2b: `POST /api/public/reservas/cotizar (opcional; dry-run: desglose checkout + política cancelación; no persiste; mismos headers/límite que POST /api/public/reservas)`,
+            paso_2b_body: {
+                empresa_id: empresaDoc.id,
+                alojamiento_id: propertyDoc.id,
+                checkin: 'YYYY-MM-DD',
+                checkout: 'YYYY-MM-DD',
+                adultos: 2,
+                ninos: 0,
+                origen: 'chatgpt',
+                huesped: {
+                    nombre: 'string (opcional en cotización)',
+                    apellido: 'string (opcional)',
+                    email: 'string (opcional)',
+                    telefono: 'string (opcional)',
+                },
+            },
             paso_3: `POST /api/public/reservas`,
             paso_3_body: {
                 propiedadId: propertyDoc.id,
@@ -1199,6 +1215,8 @@ const createPublicReservation = async (req, res) => {
                 fecha_creacion: new Date().toISOString()
             },
             email_enviado: cliente.email,
+            sugerencia_previa:
+                'Opcional: antes de confirmar, POST /api/reservas/cotizar o POST /api/public/reservas/cotizar (mismos datos y cabeceras que la reserva) devuelve desglose económico y política de cancelación sin persistir.',
             mensaje: `Reserva confirmada. Se envió un correo a ${cliente.email} con los detalles y los datos para la transferencia. El huésped tiene 48 horas (hasta el ${plazoAbonoTexto}) para abonar el 10% de seña (${fmtCLP(senaPagar)}). Si no se recibe el pago, la reserva se anulará automáticamente.`
         });
 

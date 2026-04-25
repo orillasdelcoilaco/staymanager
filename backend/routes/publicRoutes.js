@@ -85,6 +85,22 @@ module.exports = (db) => {
         publicAiController.createBookingIntent
     );
 
+    // POST /api/public/reservas/cotizar — dry-run (misma lógica que reserva, sin persistir)
+    router.post('/reservas/cotizar',
+        createReservationLimiter,
+        requireAgentKey,
+        async (req, res) => {
+            try {
+                const { cotizarReservaIaPublica } = require('../services/publicAiReservaCotizacionService');
+                const result = await cotizarReservaIaPublica(req.body || {});
+                return res.status(result.http).json(result.body);
+            } catch (e) {
+                console.error('[public reservas/cotizar]', e.message);
+                return res.status(500).json({ success: false, error: 'INTERNAL_ERROR' });
+            }
+        }
+    );
+
     // POST /api/public/reservas - Crear reserva pública (nuevo)
     router.post('/reservas',
         createReservationLimiter,

@@ -2,7 +2,7 @@
 
 **Propósito:** un solo lugar donde ambos lados dejan **qué están haciendo**, **qué tocar con cuidado** y **qué necesita el otro**. Reduce pisadas entre mejoras de producto (Cursor) y evolución del flujo comercial por agentes (Claude Code / ChatGPT, prompts, OpenAPI, pruebas de venta).
 
-**Documentos relacionados:** `SHARED_CONTEXT.md`, `CLAUDE.md`, `TASKS/backlog-producto-pendientes.md`, `REVISION_COLABORADOR.md` (flujo general colaborador).
+**Documentos relacionados:** `SHARED_CONTEXT.md`, `CLAUDE.md`, `TASKS/backlog-producto-pendientes.md`, `TASKS/leer-primero.md` (multi-agente: release 1.0.0 vs §5), `TASKS/plan-release-1.0.0.md`, `REVISION_COLABORADOR.md` (flujo general colaborador).
 
 ---
 
@@ -13,7 +13,7 @@
 | **A — Impacto en IA de venta** | **Cursor → Claude Code** | Cursor anuncia en este archivo (§2, §3, §4.1, §6) dónde toca código o contratos que afectan al agente (precios, `publicAiController`, OpenAPI, checkout alineado a IA, etc.). Claude Code lee esto para anticipar regresiones o reprobar flujos. |
 | **B — Señal hacia implementación** | **Claude Code → Cursor** | Claude Code deja en §5.1 / §6 síntomas, hipótesis y pedidos de cambio. **Cursor** vuelca en código lo acordado y, además, **debe** reflejar estado de producto y pendientes en `TASKS/backlog-producto-pendientes.md` (hoja de ruta principal). Este archivo **no** sustituye al backlog: solo coordina la fricción Cursor ↔ Claude en IA venta. |
 
-**Regla explícita para Cursor (también en `.cursor/rules/40-cursor-backlog-coordinacion.mdc`):** al iniciar sesión, leer siempre `TASKS/backlog-producto-pendientes.md` y seguir actualizándolo con avances y pendientes como hasta ahora. La coordinación IA es complementaria.
+**Regla explícita para Cursor (también en `.cursor/rules/40-cursor-backlog-coordinacion.mdc`):** al iniciar sesión, leer siempre `TASKS/backlog-producto-pendientes.md` y seguir actualizándolo con avances y pendientes como hasta ahora. Si hay **varios chats** trabajando release + backlog a la vez, leer además **`TASKS/leer-primero.md`** y, al cerrar un ciclo, rellenar **§11** de este archivo. La coordinación IA es complementaria.
 
 **Claude Code:** no está obligado por la regla `.cursor/` del repo; el usuario le indica leer este archivo y el backlog cuando haga falta contexto de producto.
 
@@ -113,6 +113,11 @@ Quitar el lock cuando termines.
 
 _Formato: `YYYY-MM-DD — Actor — una frase`._
 
+- 2026-04-24 — Cursor — OpenAPI **1.4.4:** disponibilidad documenta `endpoints` + `requiere_confirmacion_reserva`.
+- 2026-04-24 — Cursor — `GET /api/alojamientos/detalle` incluye **booking_workflow** (`buildBookingWorkflowForIaDetallePg` en `publicAiProductSnapshot.js`); OpenAPI **1.4.3**; disponibilidad IA `endpoints.cotizar_reserva_dry_run`.
+- 2026-04-24 — Cursor — §9 **1C** actualizado (cotizar precio / dry-run entregado); `booking_workflow` en `getPropertyDetail` con **paso_2b** + `paso_2b_body` (POST `/api/public/reservas/cotizar`).
+- 2026-04-24 — Cursor — OpenAPI **1.4.2:** path explícito `POST /api/public/reservas/cotizar` (cabeceras agente) además de `/api/reservas/cotizar` (ChatGPT + Gemini YAML).
+- 2026-04-24 — Cursor — Cotización dry-run reserva IA: `POST /api/reservas/cotizar` + `POST /api/public/reservas/cotizar` (`publicAiReservaCotizacionService.js`); `sugerencia_previa` en 201 de `createPublicReservation`.
 - 2026-04-24 — Cursor — Disponibilidad IA v1: fotos PG preview, precio total estadía por alojamiento libre, códigos restricción/motivo no disponible, `is_demo_heuristica`; búsqueda `vibe`; detalle `requiere_confirmacion_final`; POST reserva valida email/tel.
 - 2026-04-24 — Cursor — Reseña outbound: `[LINK_RESEÑA]` en confirmación de reserva y recordatorio pre-llegada (`resolverLinkResenaOutbound` en `transactionalEmailService.js`).
 - 2026-04-24 — Cursor — Retención PII identidad check-in web documentada en `SHARED_CONTEXT.md` §2.2 y apunte en `CLAUDE.md` (job `npm run job:retencion-checkin-identidad-pii`, flags `websiteSettings.booking`).
@@ -122,6 +127,7 @@ _Formato: `YYYY-MM-DD — Actor — una frase`._
 - 2026-04-24 — Claude — Estrategia multi-canal definida en §9; roadmap por tier; handoff JSON-LD a Cursor.
 - 2026-04-24 — Claude — Fix `consultarDisponibilidad`: `resolveEmpresaPgId` + `unavailableProperties` devuelto en `_buildAvailabilityResult`; push a Render.
 - 2026-04-24 — Cursor — Creado este documento y plantillas de handoff; pendiente primera fila real en §2.
+- 2026-04-24 — Cursor — **§11** coordinación cierre 1.0.0 + agente B: enlaces `leer-primero.md` / `plan-release-1.0.0.md`; primera fila estado gate CI + pendientes smoke/tag (ver §11.2).
 
 ---
 
@@ -129,7 +135,8 @@ _Formato: `YYYY-MM-DD — Actor — una frase`._
 
 | Qué | Dónde |
 |-----|--------|
-| Crear reserva desde agente | `POST /api/public/reservas` → `publicAiController.createPublicReservation` |
+| Crear reserva desde agente | `POST /api/public/reservas` o `POST /api/reservas` → `publicAiController.createPublicReservation` |
+| Cotizar reserva (dry-run) | `POST /api/reservas/cotizar` o `POST /api/public/reservas/cotizar` → `publicAiReservaCotizacionService.cotizarReservaIaPublica`; OpenAPI **1.4.4** |
 | OpenAPI ChatGPT | `openapi/openapi-chatgpt.yaml` |
 | Motor de precio compartido (panel / propuestas / muchas rutas) | `services/utils/calculoValoresService.js` |
 | Precio checkout SSR + reconciliación | `publicWebsiteService.js` |
@@ -185,10 +192,13 @@ _Actualizado: 2026-04-24. Revisar y ajustar al inicio de cada sprint IA._
 
 **Quién lo implementa:** yo (Claude Code) — ruta nueva en `website.home.js` o `website.js`, generada dinámicamente desde la BD.
 
-#### 1C. Mejorar OpenAPI ChatGPT — acción `cotizarPrecio`
-**Qué:** ChatGPT actualmente no tiene endpoint para cotizar precio antes de confirmar. Hay que agregar `GET /api/cotizar` que devuelva precio total + desglose para unas fechas y alojamiento.
+#### 1C. Cotizar precio / dry-run antes de reservar (OpenAPI + API)
+**Estado:** **Entregado (2026-04-24, Cursor).** No hace falta `GET /api/cotizar` global.
 
-**Cómo:** nuevo endpoint en `suitemanagerApiController.js` + fila en `openapi-chatgpt.yaml`.
+- **Precio rápido por propiedad:** `GET /api/public/propiedades/:id/cotizar?fechaInicio=&fechaFin=` (ya existía).
+- **Dry-run alineado a checkout y política (sin persistir):** `POST /api/reservas/cotizar` y `POST /api/public/reservas/cotizar` → `publicAiReservaCotizacionService.cotizarReservaIaPublica`; OpenAPI ChatGPT/Gemini **1.4.2** documenta ambos paths.
+
+**Pendiente de producto (opcional):** si se quiere un único alias tipo `GET /api/cotizar` por ergonomía de Actions, valorar; hoy los contratos YAML son la fuente.
 
 ---
 
@@ -250,4 +260,40 @@ Este archivo **no** sustituye al backlog: solo coordina **quién lo está movien
 
 ---
 
-*Última revisión: 2026-04-24 — Claude Code asume liderazgo IA venta; §9 estrategia multi-canal; handoff inicial a Cursor; §10 coordinación multi-agente sobre TASKS.*
+## 11. Release **1.0.0** — resumen conjunto (Cursor A + Cursor B)
+
+**Cuándo usar:** al terminar (o pausar) el reparto descrito en **`TASKS/leer-primero.md`**: Agente A = cierre 1.0.0 (`plan-release-1.0.0.md`), Agente B = **§5 ítem 2** del backlog (preferencias/copy motor **§1.6**, salvo que el usuario redirija a otra fila §5).
+
+**Qué hacer:** copiar la plantilla de la siguiente subsección debajo de la línea `---` del bloque vigente, rellenar, y marcar en **`plan-release-1.0.0.md` §2** los checkboxes del smoke si aplica.
+
+### 11.1 Plantilla (copiar desde la siguiente línea `---`)
+
+```
+### Resumen release / backlog — YYYY-MM-DD
+| Ítem | Estado | Nota |
+|------|--------|------|
+| `npm run test:ci` (rama candidata) | SÍ / NO / N/A | rama / commit |
+| `npm run test:ssr` (SSR arriba) | SÍ / NO / omitido | |
+| Smoke manual plan §2 (staging) | SÍ / NO / parcial | checklist en plan-release |
+| Tag `v1.0.0` aplicado | SÍ / NO | repo remoto / notas release |
+| Agente B — backlog §5 ítem 2 (§1.6 u otro acordado) | LISTO / EN CURSO / N/A | archivos o PR |
+| Próxima asignación sugerida | | ej. §5.3 dominio, §2.3 widget, §4.3 D |
+
+Detalle libre (bloqueos, deploy, migraciones):
+-
+```
+
+### 11.2 Entrada vigente (la más reciente arriba; seguir añadiendo bloques 11.1 encima de esta tabla)
+
+| Ítem | Estado | Nota |
+|------|--------|------|
+| `npm run test:ci` (rama candidata) | SÍ | Ejecutado local 2026-04-24; repetir en rama que se etiquete. |
+| `npm run test:ssr` (SSR arriba) | omitido | Opcional hasta smoke de vistas públicas. |
+| Smoke manual plan §2 (staging) | pendiente | Checklist en `plan-release-1.0.0.md` §2 — marcar al validar en staging. |
+| Tag `v1.0.0` aplicado | NO | Tras smoke + acuerdo usuario. |
+| Agente B — backlog §5 ítem 2 (§1.6) | pendiente | Otro chat / agente según `leer-primero.md`. |
+| Próxima asignación sugerida | | Completar smoke §2 → tag; luego §5.3 dominio, §2.3 widget, §1.4 iCal, §4.3 D según prioridad. |
+
+---
+
+*Última revisión: 2026-04-24 — §11 resumen release 1.0.0 + `leer-primero.md`; Claude Code liderazgo IA venta §9; §10 multi-agente TASKS.*

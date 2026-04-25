@@ -224,6 +224,20 @@ exports.alternativas = async (req, res) => {
     }
 };
 
+exports.cotizarReserva = async (req, res) => {
+    try {
+        if (req.body?.empresa_id) {
+            req.body.empresa_id = await resolveEmpresaPgId(req.body.empresa_id);
+        }
+        const { cotizarReservaIaPublica } = require('./publicAiReservaCotizacionService');
+        const result = await cotizarReservaIaPublica(req.body || {});
+        return res.status(result.http).json(result.body);
+    } catch (error) {
+        console.error('[cotizarReserva]', error.message);
+        return res.status(500).json({ success: false, error: 'INTERNAL_ERROR' });
+    }
+};
+
 exports.crearReserva = async (req, res) => {
     if (req.body?.empresa_id) {
         req.body.empresa_id = await resolveEmpresaPgId(req.body.empresa_id);

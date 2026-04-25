@@ -136,6 +136,7 @@ async function buildDisponibilidadAgentResponse(opts) {
         endpoints: {
             galeria: 'GET /api/alojamientos/imagenes?alojamiento_id={id}',
             detalle: 'GET /api/alojamientos/detalle?alojamiento_id={id}&checkin=&checkout=',
+            cotizar_reserva_dry_run: 'POST /api/reservas/cotizar (o /api/public/reservas/cotizar; mismo cuerpo que crear reserva; ver booking_workflow en respuesta de detalle)',
         },
         payload_version: 'disponibilidad_ia_v1',
     };

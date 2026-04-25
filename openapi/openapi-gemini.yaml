@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SuiteManager Public API for Gemini
-  version: 1.4.0
+  version: 1.4.4
   description: |
     API pública para extensiones Gemini. Listados usan **producto_ia_v2**: precio por tarifas PG, ubicación, amenidades
     (metadata + inventario componentes), políticas mergeadas (empresa + propiedad), alias `precioBase`/`ciudad`/`direccion_corta`.
@@ -11,6 +11,14 @@ info:
     galería con `espacio` y `tipo_ia`, ubicación ampliada desde website/buildContext cuando exista.
 
     **v1.4:** detalle con `checkin`/`checkout` opcionales devuelve `precio_estimado` (canal por defecto + desglose checkout).
+
+    **v1.4.1:** `POST /api/reservas/cotizar` — cotización dry-run (sin persistir); equivalente `POST /api/public/reservas/cotizar`.
+
+    **v1.4.2:** Path explícito `POST /api/public/reservas/cotizar` en OpenAPI (cabeceras de agente alineadas a `POST /api/public/reservas`).
+
+    **v1.4.3:** Detalle incluye `booking_workflow` (mismas ideas que ChatGPT YAML).
+
+    **v1.4.4:** Disponibilidad documenta `endpoints` y `requiere_confirmacion_reserva`.
 
 servers:
   - url: https://suite-manager.onrender.com
@@ -203,6 +211,13 @@ paths:
                   alojamientos:
                     type: array
                     items: { type: object }
+                  requiere_confirmacion_reserva: { type: boolean }
+                  endpoints:
+                    type: object
+                    properties:
+                      galeria: { type: string }
+                      detalle: { type: string }
+                      cotizar_reserva_dry_run: { type: string }
 
   /api/alojamientos/detalle:
     get:
@@ -211,7 +226,7 @@ paths:
       description: |
         Usar **siempre** tras elegir un alojamiento para preguntas de parrilla, mascotas, camas, wifi, etc.
         `precio.origen` indica si el monto vino de metadata o de tarifas PG.
-        Con checkin/checkout opcionales se incluye `precio_estimado` por estadía.
+        Con checkin/checkout opcionales se incluye `precio_estimado` por estadía. Incluye **booking_workflow** (dry-run cotizar + ejemplo reserva).
       parameters:
         - in: query
           name: alojamiento_id
@@ -305,6 +320,89 @@ paths:
                         nombre: { type: string }
                         capacidad: { type: integer }
                         empresa_id: { type: string }
+
+  /api/reservas/cotizar:
+    post:
+      operationId: cotizarReservaGemini
+      summary: >-
+        Cotización previa (dry-run): mismas validaciones y precio que crear reserva, sin persistir.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                empresa_id: { type: string }
+                alojamiento_id: { type: string }
+                checkin: { type: string }
+                checkout: { type: string }
+                adultos: { type: integer }
+                ninos: { type: integer }
+                origen:
+                  type: string
+                  default: gemini
+                huesped:
+                  type: object
+                  properties:
+                    nombre: { type: string }
+                    apellido: { type: string }
+                    email: { type: string }
+                    telefono: { type: string }
+      responses:
+        "200":
+          description: Cotización (cotizacion_ok) o motivo estructurado si no aplica
+        "400":
+          description: PostgreSQL requerido o empresa no resuelta
+        "503":
+          description: Servicio no disponible
+
+  /api/public/reservas/cotizar:
+    post:
+      operationId: cotizarReservaPublicGemini
+      summary: >-
+        Cotización dry-run bajo `/api/public` (mismo cuerpo y respuesta que `/api/reservas/cotizar`; rate limit y agente como `POST /api/public/reservas`).
+      parameters:
+        - in: header
+          name: X-Agent-API-Key
+          required: false
+          schema: { type: string }
+        - in: header
+          name: X-Agent-Name
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                empresa_id: { type: string }
+                alojamiento_id: { type: string }
+                checkin: { type: string }
+                checkout: { type: string }
+                adultos: { type: integer }
+                ninos: { type: integer }
+                origen:
+                  type: string
+                  default: gemini
+                huesped:
+                  type: object
+                  properties:
+                    nombre: { type: string }
+                    apellido: { type: string }
+                    email: { type: string }
+                    telefono: { type: string }
+      responses:
+        "200":
+          description: Igual que `POST /api/reservas/cotizar`
+        "400":
+          description: Validación o sin PostgreSQL
+        "403":
+          description: Clave de agente inválida
+        "503":
+          description: Servicio no disponible
 
   /api/reservas:
     post:
@@ -580,6 +678,16 @@ components:
                   items: { type: string }
                 mensaje: { type: string }
             requiere_confirmacion_final: { type: boolean }
+            booking_workflow:
+              type: object
+              description: Flujo sugerido PG (disponibilidad, detalle, dry-run cotizar, reserva).
+              properties:
+                paso_1: { type: string }
+                paso_2: { type: string }
+                paso_2b: { type: string }
+                paso_2b_body: { type: object }
+                paso_3: { type: string }
+                paso_3_body: { type: object }
 
     BusquedaGeneralAiResponse:
       type: object

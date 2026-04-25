@@ -384,6 +384,51 @@ async function enrichPropertyRowsForPublicAi(rows, options = {}) {
 }
 
 /**
+ * Flujo sugerido para agentes cuando el detalle viene de PostgreSQL (`GET /api/alojamientos/detalle`).
+ * @param {{ empresaId: string, alojamientoId: string }} p
+ */
+function buildBookingWorkflowForIaDetallePg({ empresaId, alojamientoId }) {
+    const eid = String(empresaId || '').trim();
+    const aid = String(alojamientoId || '').trim();
+    return {
+        paso_1: `GET /api/disponibilidad?empresa_id=${eid}&checkin=YYYY-MM-DD&checkout=YYYY-MM-DD (opcional: adultos). En alojamientos[] localizar id=${aid} para disponible, precio_total_estadia_clp y motivo_no_disponible.`,
+        paso_2: `GET /api/alojamientos/detalle?alojamiento_id=${aid}&checkin=YYYY-MM-DD&checkout=YYYY-MM-DD (opcional adultos) — ficha + precio_estimado por estadía.`,
+        paso_2b: `POST /api/reservas/cotizar o POST /api/public/reservas/cotizar (dry-run: desglose checkout + política cancelación; no persiste; en /api/public mismos headers/límite que POST /api/public/reservas).`,
+        paso_2b_body: {
+            empresa_id: eid,
+            alojamiento_id: aid,
+            checkin: 'YYYY-MM-DD',
+            checkout: 'YYYY-MM-DD',
+            adultos: 2,
+            ninos: 0,
+            origen: 'chatgpt',
+            huesped: {
+                nombre: 'string (opcional en cotización)',
+                apellido: 'string (opcional)',
+                email: 'string (opcional)',
+                telefono: 'string (opcional)',
+            },
+        },
+        paso_3: `POST /api/reservas o POST /api/public/reservas`,
+        paso_3_body: {
+            empresa_id: eid,
+            alojamiento_id: aid,
+            checkin: 'YYYY-MM-DD',
+            checkout: 'YYYY-MM-DD',
+            adultos: 2,
+            ninos: 0,
+            origen: 'chatgpt',
+            huesped: {
+                nombre: 'string',
+                apellido: 'string',
+                email: 'string',
+                telefono: 'string (opcional)',
+            },
+        },
+    };
+}
+
+/**
  * Detalle “producto” para Actions (OpenAPI /api/alojamientos/detalle).
  */
 function buildAgentPropertyDetailPayload({
@@ -497,6 +542,10 @@ function buildAgentPropertyDetailPayload({
         rating_fuente: rating_fuente || null,
         ...(precio_estimado != null ? { precio_estimado } : {}),
         ...(aviso_precio_estimado != null ? { aviso_precio_estimado } : {}),
+        booking_workflow: buildBookingWorkflowForIaDetallePg({
+            empresaId: row.empresa_id,
+            alojamientoId: row.id,
+        }),
     };
 }
 

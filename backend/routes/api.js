@@ -14,6 +14,9 @@ router.get("/alojamientos/alternativas", controller.alternativas);
 // imagenes por alojamiento
 router.get("/alojamientos/imagenes", controller.imagenes);
 
+// cotizar reserva (dry-run, sin persistir)
+router.post("/reservas/cotizar", controller.cotizarReserva);
+
 // crear reserva
 router.post("/reservas", controller.crearReserva);
 

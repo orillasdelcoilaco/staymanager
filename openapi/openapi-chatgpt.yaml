@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SuiteManager Public API for ChatGPT
-  version: 1.4.0
+  version: 1.4.4
   description: |
     API pública para Actions. Listados usan **producto_ia_v2**: precio por tarifas PG, ubicación, amenidades
     (metadata + inventario componentes), políticas mergeadas (empresa + propiedad), alias `precioBase`/`ciudad`/`direccion_corta`.
@@ -13,6 +13,14 @@ info:
 
     **v1.4:** `GET /api/alojamientos/detalle` acepta `checkin` + `checkout` (YYYY-MM-DD, aliases `fechaLlegada`/`fechaSalida`) y opcional `adultos`;
     si vienen fechas válidas, la respuesta incluye `precio_estimado` (misma función `publicWebsiteService.calculatePrice` que `/propiedad/:id/calcular-precio` + desglose checkout referencial).
+
+    **v1.4.1:** `POST /api/reservas/cotizar` — cotización dry-run alineada a `POST /api/reservas` (validaciones, calendario, precio, desglose y política de cancelación; no persiste). Equivalente bajo `POST /api/public/reservas/cotizar` con los mismos headers que crear reserva.
+
+    **v1.4.2:** Path explícito `POST /api/public/reservas/cotizar` documentado en OpenAPI (mismo cuerpo y respuesta que `/api/reservas/cotizar`; cabeceras de agente y rate limit alineados a `POST /api/public/reservas`).
+
+    **v1.4.3:** `GET /api/alojamientos/detalle` incluye `booking_workflow` (disponibilidad, detalle con fechas, dry-run cotizar, cuerpo ejemplo reserva) con `empresa_id` y `alojamiento_id` ya resueltos.
+
+    **v1.4.4:** `GET /api/disponibilidad` documenta `endpoints` (galería, detalle, `cotizar_reserva_dry_run`) y `requiere_confirmacion_reserva`.
 
 servers:
   - url: https://suite-manager.onrender.com
@@ -225,6 +233,14 @@ paths:
                         fotos_preview: { type: array, nullable: true }
                         precio_total_estadia_clp: { type: integer, nullable: true }
                         motivo_no_disponible: { type: object, nullable: true }
+                  requiere_confirmacion_reserva: { type: boolean }
+                  endpoints:
+                    type: object
+                    description: Atajos de URL documentados para el agente.
+                    properties:
+                      galeria: { type: string }
+                      detalle: { type: string }
+                      cotizar_reserva_dry_run: { type: string }
 
   /api/alojamientos/detalle:
     get:
@@ -234,6 +250,7 @@ paths:
         Usar **siempre** tras elegir un alojamiento para preguntas de parrilla, mascotas, camas, wifi, etc.
         `precio.origen` indica si el monto vino de metadata o de tarifas PG.
         Con **checkin** y **checkout** (YYYY-MM-DD) se añade `precio_estimado` por estadía (disponibilidad + tarifas canal por defecto).
+        Siempre incluye **booking_workflow** con URLs y cuerpos de ejemplo (paso_2b = dry-run `POST …/reservas/cotizar`).
       parameters:
         - in: query
           name: alojamiento_id
@@ -330,6 +347,95 @@ paths:
                         nombre: { type: string }
                         capacidad: { type: integer }
                         empresa_id: { type: string }
+
+  /api/reservas/cotizar:
+    post:
+      operationId: cotizarReserva
+      summary: >-
+        Cotización previa (dry-run): mismas validaciones y precio que crear reserva, sin persistir reserva ni cliente.
+        Incluye desglose de checkout y aviso de política de cancelación cuando aplica.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                empresa_id: { type: string }
+                alojamiento_id: { type: string }
+                checkin: { type: string }
+                checkout: { type: string }
+                adultos: { type: integer }
+                ninos: { type: integer }
+                origen:
+                  type: string
+                  default: chatgpt
+                huesped:
+                  type: object
+                  properties:
+                    nombre: { type: string }
+                    apellido: { type: string }
+                    email: { type: string }
+                    telefono: { type: string }
+      responses:
+        "200":
+          description: >-
+            Cotización calculada (cotizacion_ok true/false) o error de validación en cuerpo JSON.
+            Si cotizacion_ok es false, revisar motivo (restricciones web, fechas, capacidad, solapamiento, etc.).
+        "400":
+          description: PostgreSQL requerido o empresa no resuelta
+        "503":
+          description: Servicio no disponible (p. ej. sin base de datos)
+
+  /api/public/reservas/cotizar:
+    post:
+      operationId: cotizarReservaPublic
+      summary: >-
+        Misma cotización dry-run que `POST /api/reservas/cotizar`, expuesta bajo `/api/public` con los mismos
+        middlewares que crear reserva (`POST /api/public/reservas`): rate limit y `X-Agent-API-Key` si el servidor tiene `AGENT_API_KEYS`.
+      parameters:
+        - in: header
+          name: X-Agent-API-Key
+          required: false
+          schema: { type: string }
+          description: Si `AGENT_API_KEYS` está definido, debe coincidir con una clave válida (misma regla que crear reserva).
+        - in: header
+          name: X-Agent-Name
+          required: false
+          schema: { type: string }
+          description: Nombre del agente (p. ej. ChatGPT); opcional.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                empresa_id: { type: string }
+                alojamiento_id: { type: string }
+                checkin: { type: string }
+                checkout: { type: string }
+                adultos: { type: integer }
+                ninos: { type: integer }
+                origen:
+                  type: string
+                  default: chatgpt
+                huesped:
+                  type: object
+                  properties:
+                    nombre: { type: string }
+                    apellido: { type: string }
+                    email: { type: string }
+                    telefono: { type: string }
+      responses:
+        "200":
+          description: Igual que `POST /api/reservas/cotizar` (cotizacion_ok y cuerpo alineado).
+        "400":
+          description: Validación o PostgreSQL requerido según cuerpo
+        "403":
+          description: Clave de agente inválida si el servidor exige `AGENT_API_KEYS`
+        "503":
+          description: Servicio no disponible (p. ej. sin base de datos)
 
   /api/reservas:
     post:
@@ -642,6 +748,18 @@ components:
             requiere_confirmacion_final:
               type: boolean
               description: Siempre true; mostrar total y políticas antes de POST /api/reservas.
+            booking_workflow:
+              type: object
+              description: >-
+                Flujo sugerido (PG): disponibilidad por empresa, detalle con fechas, dry-run cotización reserva
+                y cuerpo ejemplo para crear reserva. Los ids empresa_id y alojamiento_id ya vienen resueltos en texto.
+              properties:
+                paso_1: { type: string }
+                paso_2: { type: string }
+                paso_2b: { type: string }
+                paso_2b_body: { type: object }
+                paso_3: { type: string }
+                paso_3_body: { type: object }
 
     BusquedaGeneralAiResponse:
       type: object
