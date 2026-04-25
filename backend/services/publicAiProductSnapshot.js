@@ -189,6 +189,31 @@ function _fotoPrincipal(meta) {
     return fotoUrl;
 }
 
+function _normalizeHttpsImageUrl(rawUrl) {
+    const raw = String(rawUrl || '').trim();
+    if (!raw) return '';
+    if (/^https?:\/\//i.test(raw)) return raw;
+
+    if (/^gs:\/\//i.test(raw)) {
+        const withoutProto = raw.replace(/^gs:\/\//i, '');
+        const firstSlash = withoutProto.indexOf('/');
+        if (firstSlash > 0) {
+            const bucket = withoutProto.slice(0, firstSlash);
+            const objectPath = withoutProto.slice(firstSlash + 1);
+            return `https://storage.googleapis.com/${bucket}/${encodeURI(objectPath)}`;
+        }
+    }
+
+    // Soporte para storagePath relativo (ej: empresas/x/propiedades/y.jpg)
+    if (!raw.includes('://') && !raw.startsWith('/')) {
+        const bucket =
+            String(process.env.FIREBASE_STORAGE_BUCKET || process.env.GCLOUD_STORAGE_BUCKET || '').trim();
+        if (bucket) return `https://storage.googleapis.com/${bucket}/${encodeURI(raw)}`;
+    }
+
+    return raw;
+}
+
 function _politicasPublicas(merged) {
     if (!merged) return null;
     const mascotas =
@@ -601,9 +626,11 @@ function buildAgentPropertyDetailPayload({
         const espacioLabel = (r.espacio && String(r.espacio).trim()) || '';
         const rol = r.rol || 'adicional';
         const alt = r.alt_text || '';
+        const publicUrl = _normalizeHttpsImageUrl(r.storage_url);
+        const publicThumbUrl = _normalizeHttpsImageUrl(r.thumbnail_url || null);
         return {
-            url: r.storage_url,
-            thumbnail_url: r.thumbnail_url || null,
+            url: publicUrl || r.storage_url,
+            thumbnail_url: publicThumbUrl || r.thumbnail_url || null,
             alt,
             tipo: rol,
             espacio: espacioLabel || null,
@@ -648,6 +675,10 @@ function buildAgentPropertyDetailPayload({
         imagenes,
         empresaConfig,
     });
+    const fotoPrincipal = imagenes_etiquetadas.find((img) => img.principal) || imagenes_etiquetadas[0] || null;
+    const galeria = imagenes_etiquetadas
+        .map((img) => img.url)
+        .filter((u) => typeof u === 'string' && /^https?:\/\//i.test(u));
 
     return {
         success: true,
@@ -681,6 +712,8 @@ function buildAgentPropertyDetailPayload({
         },
         imagenes,
         imagenes_etiquetadas,
+        foto_principal: fotoPrincipal,
+        galeria,
         resenas: resumenResenas || { total: 0, promedio_general: null },
         listada_web: !!(meta.googleHotelData && meta.googleHotelData.isListed),
         payload_version: 'producto_ia_v2',
