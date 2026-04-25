@@ -1,6 +1,8 @@
 // backend/services/resenasService.js
 const pool = require('../db/postgres');
+const { sqlReservaPrincipalSemanticaIgual } = require('./estadosService');
 const { getSSROptimizedData } = require('./buildContextService');
+const { registrarComunicacion } = require('./comunicacionesService');
 
 /** propiedades.id / reservas.propiedad_id son slugs (texto); la tabla vieja tiene uuid y rompe INSERT/UPDATE. */
 let _ensurePropiedadTextPromise;
@@ -107,6 +109,76 @@ async function marcarTokenUsado(token) {
     );
 }
 
+/** Una vez por reserva: cliente cargó el pixel 1×1 del correo de evaluación (apertura sin clic en el enlace). */
+async function registrarPixelAperturaEvaluacionEmail(token) {
+    if (!token || !pool) return;
+    const { rows } = await pool.query(
+        `SELECT r.empresa_id, r.reserva_id::text AS reserva_id, rv.cliente_id
+           FROM resenas r
+           JOIN reservas rv ON rv.empresa_id = r.empresa_id AND rv.id::text = r.reserva_id::text
+          WHERE r.token = $1`,
+        [token]
+    );
+    const row = rows[0];
+    if (!row?.cliente_id) return;
+    const relId = String(row.reserva_id);
+    const { rows: dup } = await pool.query(
+        `SELECT 1 FROM comunicaciones
+          WHERE empresa_id = $1 AND cliente_id = $2 AND evento = 'evaluacion-correo-abierto'
+            AND relacion_tipo = 'reserva' AND relacion_id = $3
+          LIMIT 1`,
+        [row.empresa_id, row.cliente_id, relId]
+    );
+    if (dup[0]) return;
+    try {
+        await registrarComunicacion(null, row.empresa_id, row.cliente_id, {
+            tipo: 'email',
+            evento: 'evaluacion-correo-abierto',
+            asunto: 'Correo de evaluación abierto (pixel)',
+            destinatario: '',
+            relacionadoCon: { tipo: 'reserva', id: relId },
+            estado: 'leido',
+        });
+    } catch (e) {
+        console.warn('[resenas] registrar pixel evaluación:', e.message);
+    }
+}
+
+/** Una vez por reserva: huésped abrió el formulario desde enlace del correo (?ref=email). */
+async function registrarAperturaFormularioEvaluacionEmail(token) {
+    if (!token || !pool) return;
+    const { rows } = await pool.query(
+        `SELECT r.empresa_id, r.reserva_id::text AS reserva_id, rv.cliente_id
+           FROM resenas r
+           JOIN reservas rv ON rv.empresa_id = r.empresa_id AND rv.id::text = r.reserva_id::text
+          WHERE r.token = $1`,
+        [token]
+    );
+    const row = rows[0];
+    if (!row?.cliente_id) return;
+    const relId = String(row.reserva_id);
+    const { rows: dup } = await pool.query(
+        `SELECT 1 FROM comunicaciones
+          WHERE empresa_id = $1 AND cliente_id = $2 AND evento = 'evaluacion-formulario-abierto'
+            AND relacion_tipo = 'reserva' AND relacion_id = $3
+          LIMIT 1`,
+        [row.empresa_id, row.cliente_id, relId]
+    );
+    if (dup[0]) return;
+    try {
+        await registrarComunicacion(null, row.empresa_id, row.cliente_id, {
+            tipo: 'email',
+            evento: 'evaluacion-formulario-abierto',
+            asunto: 'Abrió enlace de evaluación (desde correo)',
+            destinatario: '',
+            relacionadoCon: { tipo: 'reserva', id: relId },
+            estado: 'leido',
+        });
+    } catch (e) {
+        console.warn('[resenas] registrar apertura evaluación:', e.message);
+    }
+}
+
 async function guardarResena(token, datos) {
     if (await clienteBloqueadoParaResenaToken(token)) {
         _throwClienteBloqueado('No puedes enviar esta reseña porque el cliente está bloqueado.');
@@ -124,12 +196,35 @@ async function guardarResena(token, datos) {
             punt_valor = $7, texto_positivo = $8, texto_negativo = $9,
             estado = 'pendiente'
          WHERE token = $10 AND punt_general IS NULL
-         RETURNING id`,
+         RETURNING id, empresa_id, reserva_id`,
         [punt_general, punt_limpieza, punt_ubicacion, punt_llegada,
          punt_comunicacion, punt_equipamiento, punt_valor,
          texto_positivo || null, texto_negativo || null, token]
     );
-    return rows[0] || null;
+    const upd = rows[0];
+    if (upd) {
+        try {
+            const { rows: rv } = await pool.query(
+                `SELECT r.cliente_id FROM reservas r
+                 WHERE r.empresa_id = $1 AND r.id::text = $2 LIMIT 1`,
+                [upd.empresa_id, String(upd.reserva_id)]
+            );
+            const cid = rv[0]?.cliente_id;
+            if (cid) {
+                await registrarComunicacion(null, upd.empresa_id, cid, {
+                    tipo: 'email',
+                    evento: 'evaluacion-completada',
+                    asunto: 'Reseña enviada por huésped',
+                    destinatario: '',
+                    relacionadoCon: { tipo: 'reserva', id: String(upd.reserva_id) },
+                    estado: 'recibido',
+                });
+            }
+        } catch (e) {
+            console.warn('[resenas] registrarComunicacion evaluación:', e.message);
+        }
+    }
+    return upd || null;
 }
 
 async function registrarClickGoogle(token) {
@@ -397,6 +492,53 @@ async function obtenerResumenPorPropiedad(empresaId, propiedadId) {
     };
 }
 
+/**
+ * Promedio y total de reseñas publicadas por varias propiedades (una sola query).
+ * @param {{ empresa_id: string, propiedad_id: string }[]} pairs
+ * @returns {Promise<Map<string, { total: number, promedio_general: number|null }>>} clave `${empresa_id}\0${propiedad_id}`
+ */
+async function obtenerPromedioResenasBatchPorPropiedades(pairs) {
+    const map = new Map();
+    if (!pool || !pairs?.length) return map;
+    const uniq = [];
+    const seen = new Set();
+    for (const p of pairs) {
+        const eid = String(p.empresa_id || '').trim();
+        const pid = String(p.propiedad_id || '').trim();
+        if (!eid || !pid) continue;
+        const k = `${eid}\0${pid}`;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        uniq.push({ empresa_id: eid, propiedad_id: pid });
+    }
+    if (!uniq.length) return map;
+
+    const vals = uniq.map((_, i) => `($${i * 2 + 1}::text, $${i * 2 + 2}::text)`).join(', ');
+    const params = uniq.flatMap((p) => [p.empresa_id, p.propiedad_id]);
+    const { rows } = await pool.query(
+        `WITH wanted(empresa_id, propiedad_id) AS (VALUES ${vals})
+         SELECT w.empresa_id,
+                w.propiedad_id,
+                COUNT(r.id)::int AS total,
+                ROUND(AVG(r.punt_general), 1)::float AS promedio_general
+           FROM wanted w
+           LEFT JOIN resenas r
+             ON r.empresa_id::text = w.empresa_id
+            AND r.propiedad_id::text = w.propiedad_id
+            AND r.estado = 'publicada'
+            AND r.punt_general IS NOT NULL
+          GROUP BY w.empresa_id, w.propiedad_id`,
+        params
+    );
+    for (const r of rows) {
+        map.set(`${r.empresa_id}\0${r.propiedad_id}`, {
+            total: Number(r.total) || 0,
+            promedio_general: r.promedio_general != null ? Number(r.promedio_general) : null,
+        });
+    }
+    return map;
+}
+
 async function responderResena(id, empresaId, texto, autor) {
     const { rows } = await pool.query(
         `UPDATE resenas SET respuesta_texto = $1, respuesta_fecha = NOW(), respuesta_autor = $2
@@ -428,7 +570,7 @@ async function listarClientesCandidatosResenaAutomatica(empresaId, limit = 80) {
            FROM reservas r
            JOIN clientes c ON c.id = r.cliente_id AND c.empresa_id = r.empresa_id
           WHERE r.empresa_id = $1
-            AND r.estado = 'Confirmada'
+            AND ${sqlReservaPrincipalSemanticaIgual('confirmada')}
             AND r.fecha_salida::date < CURRENT_DATE
             AND COALESCE(c.bloqueado, false) = false
             AND NOT EXISTS (
@@ -650,7 +792,8 @@ async function generarResenasAutomaticas(empresaId, clienteIds) {
                         r.alojamiento_nombre, c.nombre AS cliente_nombre
                    FROM reservas r
                    JOIN clientes c ON c.id = r.cliente_id AND c.empresa_id = r.empresa_id
-                  WHERE r.empresa_id = $1 AND r.cliente_id = $2 AND r.estado = 'Confirmada'
+                  WHERE r.empresa_id = $1 AND r.cliente_id = $2
+                    AND ${sqlReservaPrincipalSemanticaIgual('confirmada')}
                     AND r.fecha_salida::date < CURRENT_DATE
                     AND COALESCE(c.bloqueado, false) = false
                     AND NOT EXISTS (
@@ -775,6 +918,8 @@ module.exports = {
     obtenerPorToken,
     clienteBloqueadoParaResenaToken,
     marcarTokenUsado,
+    registrarAperturaFormularioEvaluacionEmail,
+    registrarPixelAperturaEvaluacionEmail,
     guardarResena,
     registrarClickGoogle,
     buscarReservaParaResena,
@@ -782,6 +927,7 @@ module.exports = {
     obtenerResenas,
     obtenerResumen,
     obtenerResumenPorPropiedad,
+    obtenerPromedioResenasBatchPorPropiedades,
     responderResena,
     cambiarEstado,
     eliminarResena,

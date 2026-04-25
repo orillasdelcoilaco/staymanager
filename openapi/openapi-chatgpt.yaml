@@ -360,6 +360,40 @@ components:
         lng: { type: number, nullable: true }
         direccion_linea: { type: string }
 
+    ProductoIaPrecioPorEstadia:
+      type: object
+      description: Presente en detalle con checkin/checkout y cotización OK (resumen; el desglose completo sigue en precio_estimado).
+      properties:
+        checkin: { type: string }
+        checkout: { type: string }
+        noches: { type: integer }
+        moneda: { type: string }
+        total_estadia_clp: { type: integer, nullable: true }
+        promedio_noche_clp: { type: integer, nullable: true }
+        extras_estimados_clp: { type: integer, nullable: true }
+        lineas_extra_preview:
+          type: array
+          nullable: true
+          items:
+            type: object
+            properties:
+              etiqueta: { type: string }
+              monto_clp: { type: integer }
+              es_extra: { type: boolean }
+        modelo_checkout: { type: string, nullable: true }
+        iva_desglosado_clp: { type: integer, nullable: true }
+        neto_desglosado_clp: { type: integer, nullable: true }
+
+    ProductoIaSenalesRanking:
+      type: object
+      properties:
+        senales:
+          type: array
+          items: { type: string }
+          description: >-
+            Claves determinísticas (p. ej. bien_valorada, orientada_familias, bien_equipada, relax_tinaja).
+            No incluye “más reservada” sin métrica de reservas.
+
     ProductoIaPrecio:
       type: object
       properties:
@@ -369,6 +403,9 @@ components:
           type: string
           nullable: true
           description: metadata.precioBase | tarifas.canal_por_defecto | tarifas.min_cualquier_canal
+        por_estadia:
+          $ref: "#/components/schemas/ProductoIaPrecioPorEstadia"
+          nullable: true
 
     ProductoIaPoliticas:
       type: object
@@ -397,7 +434,9 @@ components:
         entorno:
           type: array
           items: { type: string }
-          description: bosque, rio, lago, montaña, costa, ciudad.
+          description: >-
+            Heurístico desde textos y ubicación (metadata, dirección, ciudad): bosque, rio, lago, montaña,
+            costa, ciudad, ski, termas, valle, etc.
         destacados:
           type: array
           items: { type: string }
@@ -443,6 +482,12 @@ components:
         resumen_normas: { type: string, nullable: true }
         foto_url: { type: string, nullable: true }
         rating: { type: number, nullable: true }
+        rating_fuente:
+          type: string
+          nullable: true
+          description: metadata.rating si existe; si no, resenas.promedio_general (mismo valor que rating).
+        senales_ranking_ia:
+          $ref: "#/components/schemas/ProductoIaSenalesRanking"
         listada_web: { type: boolean }
         payload_version: { type: string, example: producto_ia_v2 }
         precioBase:

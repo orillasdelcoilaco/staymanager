@@ -19,12 +19,15 @@ const AMENITY_NORMALIZE = [
 ];
 
 const ENTORNO_TAGS = [
-    { tag: 'bosque', patterns: [/bosque|arboleda|naturaleza|sendero|árbol/i] },
-    { tag: 'rio', patterns: [/río|rio|orilla\s*fluvial|playa\s*fluvial/i] },
-    { tag: 'lago', patterns: [/lago|lacustre|orilla\s*del\s*lago/i] },
-    { tag: 'montaña', patterns: [/montaña|montana|volcán|volcan|cordillera|andes/i] },
+    { tag: 'bosque', patterns: [/bosque|arboleda|naturaleza|sendero|árbol|arbolada/i] },
+    { tag: 'rio', patterns: [/río|rio|orilla\s*fluvial|playa\s*fluvial|ribereñ[oa]/i] },
+    { tag: 'lago', patterns: [/lago|lacustre|orilla\s*del\s*lago|litoral\s*lacustre/i] },
+    { tag: 'montaña', patterns: [/montaña|montana|volcán|volcan|cordillera|andes|precordillera|pre-cordillera/i] },
     { tag: 'costa', patterns: [/costa|mar|playa|océano|oceano/i] },
     { tag: 'ciudad', patterns: [/centro|ciudad|urbano|avenida/i] },
+    { tag: 'ski', patterns: [/ski|pista|centro\s*de\s*ski|nevados|lift|snowboard|nieve|corralco|el\s*colorado/i] },
+    { tag: 'termas', patterns: [/termas|termal|hidrotermal|aguas\s*calientes|balneario/i] },
+    { tag: 'valle', patterns: [/valle|countryside|rural|campo/i] },
 ];
 
 const TIPO_VIAJE_TAGS = [
@@ -55,6 +58,30 @@ function _haystackParts(meta, row) {
             : '',
     ];
     return parts.filter(Boolean).join(' · ');
+}
+
+/** Texto de ciudad/región/dirección públicas para heurísticas de entorno (complementa descripciones). */
+function _geoTextForInfer(meta) {
+    const wd = meta?.websiteData || {};
+    const a = wd.address || meta?.direccionPublica || meta?.address || {};
+    const gh = meta?.googleHotelData?.address || {};
+    const u = meta?.ubicacion || {};
+    const parts = [
+        a.city,
+        a.addressLocality,
+        a.streetAddress,
+        a.region,
+        gh.city,
+        gh.locality,
+        gh.street,
+        gh.administrativeArea,
+        u.ciudad,
+        u.region,
+        u.direccion,
+    ]
+        .map((x) => (x != null ? String(x).trim() : ''))
+        .filter(Boolean);
+    return parts.join(' ');
 }
 
 function enrichUbicacionForAi(meta, ubicBase) {
@@ -191,7 +218,7 @@ function inferContextoTuristico(meta, row, distribucion, amenidadesPublicas) {
         entorno: [],
         destacados: [],
     };
-    const hay = _haystackParts(meta, row);
+    const hay = `${_haystackParts(meta, row)} · ${_geoTextForInfer(meta)}`;
     const entornoHeur = [];
     for (const r of ENTORNO_TAGS) {
         if (matchPatterns(hay, r.patterns)) entornoHeur.push(r.tag);
@@ -217,7 +244,7 @@ function inferContextoTuristico(meta, row, distribucion, amenidadesPublicas) {
     });
 
     const tipo_viaje = _mergePreferPersisted(persisted.tipo_viaje, tipoHeur, 6);
-    const entorno = _mergePreferPersisted(persisted.entorno, entornoHeur, 6);
+    const entorno = _mergePreferPersisted(persisted.entorno, entornoHeur, 10);
     let destacados = (persisted.destacados || []).length
         ? persisted.destacados.slice(0, 8)
         : [...new Set(destacadosHeur)].slice(0, 6);
@@ -229,7 +256,7 @@ function inferContextoTuristico(meta, row, distribucion, amenidadesPublicas) {
             : tvU.length === 1
               ? tvU[0]
               : `${tvU.slice(0, -1).join(', ')} y ${tvU[tvU.length - 1]}`;
-    const entornoOut = [...new Set(entorno)].slice(0, 4);
+    const entornoOut = [...new Set(entorno)].slice(0, 6);
     const destacadosOut = [...new Set(destacados)].slice(0, 6);
 
     return {
@@ -285,6 +312,32 @@ function buildDescripcionComercialAuto({
     return parts.join('. ') + '.';
 }
 
+/**
+ * Señales determinísticas para ranking / copy IA (sin métricas de reservas históricas).
+ */
+function deriveSenalesRankingIa({ capacidad, contexto_turistico, amenidades_publicas, resumenResenas }) {
+    const senales = [];
+    const tv = new Set(contexto_turistico?.tipo_viaje || []);
+    const prom =
+        resumenResenas?.promedio_general != null ? Number(resumenResenas.promedio_general) : null;
+    const tot = Number(resumenResenas?.total) || 0;
+    const ap = (amenidades_publicas || []).length;
+    const cap = Number(capacidad) || 0;
+    if (prom != null && Number.isFinite(prom) && prom >= 4.5 && tot >= 5) senales.push('muy_bien_valorada');
+    else if (prom != null && Number.isFinite(prom) && prom >= 4 && tot >= 2) senales.push('bien_valorada');
+    if (cap >= 6 && (tv.has('grupos') || tv.has('familias'))) senales.push('alta_capacidad_grupos');
+    if (cap >= 5 && tv.has('familias')) senales.push('orientada_familias');
+    if (cap > 0 && cap <= 3 && tv.has('parejas')) senales.push('ambiente_parejas');
+    if (ap >= 6) senales.push('bien_equipada');
+    else if (ap >= 4) senales.push('equipada_comoda');
+    const dest = contexto_turistico?.destacados || [];
+    const hayTinaja =
+        dest.some((d) => /tinaja|hidromasaje|jacuzzi/i.test(String(d))) ||
+        (amenidades_publicas || []).some((a) => /tinaja|hidromasaje|jacuzzi/i.test(String(a)));
+    if (hayTinaja) senales.push('relax_tinaja');
+    return { senales: [...new Set(senales)].slice(0, 8) };
+}
+
 module.exports = {
     enrichUbicacionForAi,
     enrichUbicacionFromEmpresaConfig,
@@ -292,6 +345,7 @@ module.exports = {
     deriveAmenidadesPublicas,
     buildInventarioDetallado,
     inferContextoTuristico,
+    deriveSenalesRankingIa,
     buildDescripcionComercialAuto,
     mapEspacioToTipoIa,
 };

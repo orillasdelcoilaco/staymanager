@@ -354,6 +354,32 @@ components:
         lng: { type: number, nullable: true }
         direccion_linea: { type: string }
 
+    ProductoIaPrecioPorEstadia:
+      type: object
+      properties:
+        checkin: { type: string }
+        checkout: { type: string }
+        noches: { type: integer }
+        moneda: { type: string }
+        total_estadia_clp: { type: integer, nullable: true }
+        promedio_noche_clp: { type: integer, nullable: true }
+        extras_estimados_clp: { type: integer, nullable: true }
+        lineas_extra_preview:
+          type: array
+          nullable: true
+          items:
+            type: object
+        modelo_checkout: { type: string, nullable: true }
+        iva_desglosado_clp: { type: integer, nullable: true }
+        neto_desglosado_clp: { type: integer, nullable: true }
+
+    ProductoIaSenalesRanking:
+      type: object
+      properties:
+        senales:
+          type: array
+          items: { type: string }
+
     ProductoIaPrecio:
       type: object
       properties:
@@ -363,6 +389,9 @@ components:
           type: string
           nullable: true
           description: metadata.precioBase | tarifas.canal_por_defecto | tarifas.min_cualquier_canal
+        por_estadia:
+          $ref: "#/components/schemas/ProductoIaPrecioPorEstadia"
+          nullable: true
 
     ProductoIaPoliticas:
       type: object
@@ -390,6 +419,7 @@ components:
         entorno:
           type: array
           items: { type: string }
+          description: Heurístico (texto + ciudad/región); ski, termas, lago, montaña, etc.
         destacados:
           type: array
           items: { type: string }
@@ -432,6 +462,9 @@ components:
         resumen_normas: { type: string, nullable: true }
         foto_url: { type: string, nullable: true }
         rating: { type: number, nullable: true }
+        rating_fuente: { type: string, nullable: true }
+        senales_ranking_ia:
+          $ref: "#/components/schemas/ProductoIaSenalesRanking"
         listada_web: { type: boolean }
         payload_version: { type: string, example: producto_ia_v2 }
         precioBase:

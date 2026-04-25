@@ -13,9 +13,11 @@ const {
     deriveAmenidadesPublicas,
     buildInventarioDetallado,
     inferContextoTuristico,
+    deriveSenalesRankingIa,
     buildDescripcionComercialAuto,
     mapEspacioToTipoIa,
 } = require('./publicAiMarketingLayer');
+const { obtenerPromedioResenasBatchPorPropiedades } = require('./resenasService');
 
 const DESC_MAX_LIST = 420;
 const DESC_MAX_DETAIL = 8000;
@@ -89,6 +91,49 @@ function _distribucion(meta) {
     return { dormitorios: numPiezas, banos: numBanos };
 }
 
+function _ratingPublico(meta, resumenResenas) {
+    const metaR = meta?.rating != null ? Number(meta.rating) : null;
+    if (metaR != null && Number.isFinite(metaR)) return metaR;
+    const pr = resumenResenas?.promedio_general != null ? Number(resumenResenas.promedio_general) : null;
+    if (pr != null && Number.isFinite(pr)) return pr;
+    return null;
+}
+
+function _ratingFuente(meta, resumenResenas) {
+    const metaR = meta?.rating != null ? Number(meta.rating) : null;
+    if (metaR != null && Number.isFinite(metaR)) return 'metadata.rating';
+    const pr = resumenResenas?.promedio_general != null ? Number(resumenResenas.promedio_general) : null;
+    if (pr != null && Number.isFinite(pr)) return 'resenas.promedio_general';
+    return null;
+}
+
+/** Resumen estable bajo `precio` cuando existe cotización por estadía (complementa `precio_estimado`). */
+function _precioPorEstadiaResumen(precioEstimado) {
+    if (!precioEstimado || !precioEstimado.calculo_ok) return null;
+    const dc = precioEstimado.desglose_checkout;
+    const lineas = Array.isArray(dc?.lineas) ? dc.lineas : [];
+    return {
+        checkin: precioEstimado.checkin,
+        checkout: precioEstimado.checkout,
+        noches: precioEstimado.noches,
+        moneda: precioEstimado.moneda,
+        total_estadia_clp:
+            precioEstimado.total_estadia_clp ?? precioEstimado.subtotal_alojamiento_clp ?? null,
+        promedio_noche_clp: precioEstimado.promedio_noche_clp ?? null,
+        extras_estimados_clp: dc?.extras_estimados_clp ?? null,
+        lineas_extra_preview: lineas.length
+            ? lineas.slice(0, 10).map((ln) => ({
+                  etiqueta: ln.etiqueta,
+                  monto_clp: ln.monto_clp,
+                  es_extra: !!ln.es_extra,
+              }))
+            : null,
+        modelo_checkout: dc?.modelo ?? null,
+        iva_desglosado_clp: precioEstimado.referencia?.iva_desglosado_clp ?? null,
+        neto_desglosado_clp: precioEstimado.referencia?.neto_desglosado_clp ?? null,
+    };
+}
+
 /**
  * Precio de referencia para ordenar / listar: metadata → canal default → cualquier canal.
  */
@@ -157,7 +202,7 @@ function _politicasPublicas(merged) {
 /**
  * Tarjeta de listado / búsqueda global para agentes.
  * @param {object} row — fila SQL con id, nombre, capacidad, descripcion, metadata, empresa_id, empresa_nombre; opcional empresa_configuracion (jsonb JOIN)
- * @param {object} ctx — { allTarifas, defaultCanalByEmpresa: Map, houseRulesByEmpresa: Map, empresaConfigByEmpresaId?: Map, compact?: boolean }
+ * @param {object} ctx — incluye resenasPromedioByPropiedad: Map clave empresa_id\\0propiedad_id
  */
 function buildListingCardForAi(row, ctx) {
     const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
@@ -199,6 +244,17 @@ function buildListingCardForAi(row, ctx) {
     const amenidades_publicas = deriveAmenidadesPublicas(amenidades, row.nombre);
     const distribucion = _distribucion(meta);
     const contexto_turistico = inferContextoTuristico(meta, row, distribucion, amenidades_publicas);
+    const resKey = `${empresaId}\0${String(row.id)}`;
+    const resSnap = ctx.resenasPromedioByPropiedad?.get(resKey);
+    const resumenParaRating = resSnap
+        ? { total: resSnap.total, promedio_general: resSnap.promedio_general }
+        : null;
+    const senales_ranking_ia = deriveSenalesRankingIa({
+        capacidad: row.capacidad,
+        contexto_turistico,
+        amenidades_publicas,
+        resumenResenas: resumenParaRating || { total: 0, promedio_general: null },
+    });
     const descSource =
         (typeof row.descripcion === 'string' && row.descripcion.trim()) ||
         meta.websiteData?.description ||
@@ -222,7 +278,8 @@ function buildListingCardForAi(row, ctx) {
         .filter(Boolean)
         .slice(0, 3)
         .join(' · ');
-    const ratingVal = meta.rating != null ? Number(meta.rating) : null;
+    const ratingVal = _ratingPublico(meta, resumenParaRating);
+    const rating_fuente = _ratingFuente(meta, resumenParaRating);
     const nocheInt = precioNocheReferencia > 0 ? Math.round(precioNocheReferencia) : null;
 
     return {
@@ -250,6 +307,8 @@ function buildListingCardForAi(row, ctx) {
         resumen_normas: resumenNormas || null,
         foto_url: _fotoPrincipal(meta) || null,
         rating: ratingVal,
+        rating_fuente: rating_fuente || null,
+        senales_ranking_ia,
         listada_web: !!(meta.googleHotelData && meta.googleHotelData.isListed),
         payload_version: 'producto_ia_v2',
         precioBase: nocheInt,
@@ -305,15 +364,20 @@ async function enrichPropertyRowsForPublicAi(rows, options = {}) {
     const empIds = rows.map((r) => r.empresa_id);
     const compact = !!options.compact;
     const empresaConfigByEmpresaId = _empresaConfigMapFromRows(rows);
-    const [{ allTarifas, defaultCanalByEmpresa }, houseRulesByEmpresa] = await Promise.all([
-        fetchTarifasForEmpresas(empIds),
-        fetchHouseRulesByEmpresaIds(empIds),
-    ]);
+    const [{ allTarifas, defaultCanalByEmpresa }, houseRulesByEmpresa, resenasPromedioByPropiedad] =
+        await Promise.all([
+            fetchTarifasForEmpresas(empIds),
+            fetchHouseRulesByEmpresaIds(empIds),
+            obtenerPromedioResenasBatchPorPropiedades(
+                rows.map((r) => ({ empresa_id: r.empresa_id, propiedad_id: r.id }))
+            ),
+        ]);
     const ctx = {
         allTarifas,
         defaultCanalByEmpresa,
         houseRulesByEmpresa,
         empresaConfigByEmpresaId,
+        resenasPromedioByPropiedad,
         compact,
     };
     return rows.map((row) => buildListingCardForAi(row, ctx));
@@ -384,7 +448,15 @@ function buildAgentPropertyDetailPayload({
     });
     const inventario = getVerifiedInventory(meta.componentes || []).slice(0, 60);
     const nocheInt = precioNocheReferencia > 0 ? Math.round(precioNocheReferencia) : null;
-    const ratingVal = meta.rating != null ? Number(meta.rating) : null;
+    const ratingVal = _ratingPublico(meta, resumenResenas);
+    const rating_fuente = _ratingFuente(meta, resumenResenas);
+    const senales_ranking_ia = deriveSenalesRankingIa({
+        capacidad: row.capacidad,
+        contexto_turistico,
+        amenidades_publicas,
+        resumenResenas: resumenResenas || { total: 0, promedio_general: null },
+    });
+    const resumenPrecioEstadia = _precioPorEstadiaResumen(precio_estimado);
 
     return {
         success: true,
@@ -398,6 +470,7 @@ function buildAgentPropertyDetailPayload({
             noche_referencia_clp: nocheInt,
             moneda: moneda || 'CLP',
             origen: precioOrigen || null,
+            ...(resumenPrecioEstadia ? { por_estadia: resumenPrecioEstadia } : {}),
         },
         ubicacion: ubic,
         amenidades,
@@ -406,6 +479,7 @@ function buildAgentPropertyDetailPayload({
         distribucion,
         inventario_verificado: inventario,
         contexto_turistico,
+        senales_ranking_ia,
         politicas: _politicasPublicas(mergedRules),
         normas: {
             resumen_lineas: [rulesView.sumLine1, rulesView.sumLine2, rulesView.sumLine3].filter(Boolean),
@@ -419,6 +493,7 @@ function buildAgentPropertyDetailPayload({
         ciudad: ubic.ciudad || '',
         direccion_corta: ubic.direccion_linea || '',
         rating: ratingVal,
+        rating_fuente: rating_fuente || null,
         ...(precio_estimado != null ? { precio_estimado } : {}),
         ...(aviso_precio_estimado != null ? { aviso_precio_estimado } : {}),
     };

@@ -10,6 +10,8 @@
 
 **Hecho (2026-04-24, IA venta / listado):** en tarjetas de `busquedaGeneral` (`suitemanagerApiController`) e inventario PG (`publicAiInventoryPg`): JOIN `e.configuracion AS empresa_configuracion` + `enrichPropertyRowsForPublicAi` / `buildListingCardForAi` aplican `enrichUbicacionFromEmpresaConfig` tras metadata de la propiedad (misma lógica que detalle).
 
+**Hecho (2026-04-24, IA venta / payload):** `rating` alineado a `resenas.promedio_general` con `rating_fuente`; `senales_ranking_ia` (heurístico); `precio.por_estadia` en detalle cuando hay cotización OK; entorno turístico ampliado (geo + tags ski/termas/valle); batch reseñas en listado (`obtenerPromedioResenasBatchPorPropiedades`).
+
 **Pausa 2026-04-22 (§4 legal / checkout):** panel «Legal y checkout público» en web pública unificada, guardado de `legal` vía `PUT /api/website/home-settings`, validación estricta de `lineasExtra` (front + back, ver subsección §4.1). Retomar desde la lista **«Pendiente al retomar»** allí.
 
 **Aviso 2026-04-24 — identificadores vs nombres (todos los agentes):** regla vigente: **ids / `semantica` / disparadores en negocio; nombres solo UI.** **Fase 1 entregada (código):** `estado_gestion_id` en PostgreSQL + escrituras/lecturas y SPA parcial (gestionar reservas, gestión diaria avanzar estado, calendario). **Deploy:** aplicar migración `node backend/scripts/apply-sql-migration.js db/migrations/reservas-estado-gestion-id.sql` en cada entorno con Postgres. Detalle y pendientes: **`TASKS/audit-identificadores-vs-nombres-ui.md`** (§ avance). Coordinación: **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §2.
@@ -72,7 +74,7 @@ Módulos que suelen ser **esperados** en un PMS + web directa y que conviene val
 | **Mapa de calor / restricciones** (eventos locales → min noches) | Subidas de demanda (feriados). |
 | **House manual digital** (PDF o página) | Adjunto post‑confirmación; complementa normas en web. |
 | **Check‑in online** (datos huésped, documento, hora estimada) | Reduce fricción y fraude; común en Booking/Airbnb. |
-| **Reviews outbound** (solicitud post‑estancia) | Ya hay flujo reseñas; enlazar con email y recordatorios. |
+| **Reviews outbound** (solicitud post‑estancia) | **Hecho (v1 parcial 2026-04-24):** `[LINK_RESEÑA]` en confirmación + recordatorio pre-llegada vía `resolverLinkResenaOutbound` (además del job post-estancia existente). |
 | **Comparador / parity con OTA** (opcional) | “Reserva directa X% más barato” si hay feed de precio externo (complejo). |
 
 ### §4.1 Pausa — avance cerrado y pendiente al retomar
@@ -106,13 +108,15 @@ Módulos que suelen ser **esperados** en un PMS + web directa y que conviene val
 
 **Hecho (2026-04-24 — grupo + cupón web v1):** reconciliación **sumada** por cada `propiedadId` (coma); `INSERT` con `propiedad_id` = primer UUID y `metadata.reservaWebGrupo` + nombres concatenados en `alojamiento_nombre`. Cupón opcional (`codigoCupon`): **`porcentaje`** o **`monto_fijo`**; precio enviado vs subtotal (tarifa + recargos) tras cupón; `valores.codigoCupon` / `descuentoCupon`; `marcarCuponComoUtilizado` en misma transacción PG. Campos en `reservar.ejs` + preview.
 
-**Orden de producto acordado (2026):** (1) integridad web: coherencia + reconciliación (incl. grupo sumado y cupón % v1) **hecho**. (2) **Hecho (2026-04-24):** cupón **`monto_fijo`** en reconciliación + preview checkout (`aplicarCuponWebCheckout`); **`POST /preview-precio-reserva-checkout`** + `checkout.js` (sesión previa); transacción **INSERT reserva + `marcarCuponComoUtilizado`** misma conexión PG (`marcarCuponComoUtilizado` acepta `queryClient` opcional). (3) **Hecho (2026-04-24):** política cancelación **multi-tarifa** (restrictiva y mayoría de noches §4.3 B). **Siguiente sugerido:** §4.3 fase C (post-reserva) u otras reglas finas si se formalizan.
+**Orden de producto acordado (2026):** (1) integridad web: coherencia + reconciliación (incl. grupo sumado y cupón % v1) **hecho**. (2) **Hecho (2026-04-24):** cupón **`monto_fijo`** en reconciliación + preview checkout (`aplicarCuponWebCheckout`); **`POST /preview-precio-reserva-checkout`** + `checkout.js` (sesión previa); transacción **INSERT reserva + `marcarCuponComoUtilizado`** misma conexión PG (`marcarCuponComoUtilizado` acepta `queryClient` opcional). (3) **Hecho (2026-04-24):** política cancelación **multi-tarifa** (restrictiva y mayoría de noches §4.3 B). **Siguiente sugerido:** §4.3 C restante (p. ej. check-in multi-huésped) u otras reglas finas si se formalizan.
 
 **Hecho (2026-04-24 — política cancelación multi-tarifa):** sin **tarifa dominante** (>50 % noches con override), `mergeLegalConPoliticaTarifaUnica` aplica la regla **más restrictiva para el huésped**: `texto_solo` prevalece; si no, `gratis_hasta_horas` con el **mínimo** de horas válidas entre tarifas; si solo `gratis_ilimitada`, ese modo. Misma función en `/reservar`, ficha con fechas, `crearReservaPublica` y snapshot metadata. Test `test-politica-cancelacion-tarifa.js`.
 
 **Hecho (2026-04-24 — fase B cancelación):** mayoría **estricta** de noches (`> 50 %`) con override → política de esa tarifa; empate o minoría → fusión restrictiva como antes. Textos largos distintos al principal → `listarBloquesPoliticaCancelacionLargoDistintosAlPrincipal` + partial SSR; snapshot `politicaCancelacionCheckout.bloquesLargoPorTarifa` en `crearReservaPublica`. Matriz: campo **Nombre en web público** → `metadata.nombre` + hint en copy.
 
 **Pendiente (mismo bloque producto §4 / lista §4.1 ítem 2):** otras reglas finas del anfitrión si se formalizan además de mayoría + bloques.
+
+**Siguiente sugerido (§4.3 C):** check-in multi-huésped; house manual en adjunto/cuerpo ya cubierto en parte por URLs/PDF.
 
 ### §4.3 Roadmap OTA-lite — alcance realista (no todo es una iteración)
 
@@ -122,7 +126,7 @@ Módulos que suelen ser **esperados** en un PMS + web directa y que conviene val
 |------|-----------|--------|
 | **A — Inventario / fechas web** | Min/max noches, anticipación mínima, ventana en meses; validación única servidor + cliente; panel unificado. | **Hecho (2026-04-24):** `reservaWebRestriccionesService.js`, `booking.js`, `public-booking-calendar.js`, `webPublica.general.unified.*`, test `test-reserva-web-restricciones.js`. |
 | **B — Cancelación / copy** | Texto legal largo por tarifa; reglas finas multi-tarifa (ponderación). | **Hecho (2026-04-24):** mayoría noches + bloques secundarios SSR; `metadata.nombre` en **matriz**; snapshot `bloquesLargoPorTarifa` + `tarifaIds`; aviso ids vs nombres (`SHARED_CONTEXT` / audit §6b). |
-| **C — Huésped / post-reserva** | Check-in online con datos (doc., hora), house manual en correo, reseñas outbound enlazadas. | **Parcial (2026-04-24):** identidad web + consentimiento + borrado/edición panel + **retención opcional por empresa** (`checkinIdentidadRetencionAutomaticaActivo`, `checkinIdentidadRetencionDiasTrasCheckout` en `websiteSettings.booking`; wizard web pública; job `npm run job:retencion-checkin-identidad-pii` + auditoría `eliminadoMotivo` / `diasPoliticaRetencion`). **Pendiente:** check-in multi-huésped, reseñas outbound. |
+| **C — Huésped / post-reserva** | Check-in online con datos (doc., hora), house manual en correo, reseñas outbound enlazadas. | **Parcial (2026-04-24):** identidad web + consentimiento + borrado/edición panel + **retención opcional por empresa** (`checkinIdentidadRetencionAutomaticaActivo`, `checkinIdentidadRetencionDiasTrasCheckout` en `websiteSettings.booking`; wizard web pública; job `npm run job:retencion-checkin-identidad-pii` + auditoría `eliminadoMotivo` / `diasPoliticaRetencion`). **Hecho (2026-04-24):** `[LINK_RESEÑA]` en **confirmación** (`gestionPropuestas.email` → `resolverLinkResenaOutbound`, `?ref=confirmacion`) y **recordatorio pre-llegada** (`?ref=prellegada`); URL externa o token `/r/…` alineado a post-estancia. **Pendiente:** check-in multi-huésped. |
 | **D — Parity “OTA dura”** | Depósito/preauth pasarela, Content API Google, mapa calor, comparador externo. | Pendiente (integraciones + datos). |
 
 **Cierre / operación (fuera de §4 OTA-lite de catálogo):** métricas iCal en PG (**§1.4**), wizard DNS legacy (**§3.1**), widget tarifas con fechas (**§2.3**), marketplace i18n global (**§4** fila multi-idioma).
@@ -166,7 +170,7 @@ No duplica disparadores: solo inserta si la empresa aún no tiene una plantilla 
 | Marketplace precio desde + descubrimiento ficha | `backend/services/marketplaceService.js`, `backend/views/marketplace/index.ejs`, `backend/routes/marketplace.js`, `backend/services/publicWebsiteService.js` (`obtenerMasAlojamientosParaFichaSSR`), `backend/routes/website.property.page.js` |
 | Dominio Render | `backend/services/renderDomainService.js`, flujo `home-settings` en `backend/api/ssr/config.routes.js` |
 | Google Hotels / feed ARI | `backend/services/googleHotelsService.js` (`generateAriFeed`), `backend/routes/website.seo.js` (`/feed-ari.xml`, `/widget-reserva-ayuda.json`), `backend/routes/integrations.js`, `frontend/src/shared/ariFeedUrl.js`, `empresa.js`, `sincronizarCalendarios.js`, `webPublica.general.unified.{js,markup.js}` |
-| Motor correo + hooks | `backend/services/transactionalEmailService.js`, `backend/services/transactionalEmailHooks.js`, `backend/services/transactionalEmailEventMatrix.js` (`GET /plantillas/matriz-eventos-correo`) |
+| Motor correo + hooks | `backend/services/transactionalEmailService.js` (`resolverLinkResenaOutbound`, `construirVariablesDesdeReserva`), `backend/services/transactionalEmailHooks.js`, `backend/services/transactionalEmailEventMatrix.js` (`GET /plantillas/matriz-eventos-correo`) |
 | Jobs correo / digest | `backend/jobs/scheduledTransactionalEmails.js` (arranque en `backend/index.js`) |
 | Semilla plantillas correo | `scripts/seed-plantillas-correos-transaccionales.js` |
 | SEO tenant (hreflang / og:locale) | `backend/views/partials/hreflang-default.ejs`, `website.booking.js`, `home.ejs`, `contacto.ejs`, `propiedad.ejs`, `reservar.ejs`, `confirmacion.ejs` |
@@ -176,4 +180,4 @@ No duplica disparadores: solo inserta si la empresa aún no tiene una plantilla 
 
 ---
 
-*Última actualización: 2026-04-24 — `plan-release-1.0.0.md` (flujo release vs. fases B–D). §4.3 B cancelación; **§4.3 C parcial** (URLs check-in/manual/PDF, hora y llegada ligera en motor, metadata, panel y SSR). Restricciones estadía web (fase A). Feed ARI; `widget-reserva-ayuda.json`; §6 referencias. Términos y condiciones configurables. §4.2 multi-tarifa; cupón `monto_fijo`; preview checkout; reconciliación; `por_persona_noche` + presupuesto + coherencia; §4.1 reglas finas pendientes.*
+*Última actualización: 2026-04-24 — `plan-release-1.0.0.md` (flujo release vs. fases B–D). §4.3 B cancelación; **§4.3 C parcial** (URLs check-in/manual/PDF, hora y llegada ligera en motor, metadata, panel y SSR; **reseña outbound** en confirmación + recordatorio). Restricciones estadía web (fase A). Feed ARI; `widget-reserva-ayuda.json`; §6 referencias. Términos y condiciones configurables. §4.2 multi-tarifa; cupón `monto_fijo`; preview checkout; reconciliación; `por_persona_noche` + presupuesto + coherencia; §4.1 reglas finas pendientes.*
