@@ -26,6 +26,7 @@ const {
     obtenerEstadoPrincipalRowPorSemantica,
     sqlReservaPrincipalSemanticaIgual,
     sqlReservaPrincipalSemanticaEn,
+    reservasTieneColumna,
 } = require('../services/estadosService');
 const { getBloqueosPorPeriodo } = require('../services/bloqueosService');
 
@@ -1164,38 +1165,74 @@ const createPublicReservation = async (req, res) => {
         const estadoPrincipalConfirmadaIa = await obtenerEstadoPrincipalRowPorSemantica(empresaId, 'confirmada');
         const nombreEstadoPrincipalIa = estadoPrincipalConfirmadaIa?.nombre || 'Confirmada';
 
+        const hasEstadoPrincipalId = await reservasTieneColumna('estado_principal_id');
+        const hasEstadoGestionId = await reservasTieneColumna('estado_gestion_id');
+
+        const cols = [
+            'empresa_id',
+            'id_reserva_canal',
+            'propiedad_id',
+            'alojamiento_nombre',
+            'canal_id',
+            'canal_nombre',
+            'cliente_id',
+            'total_noches',
+            'estado',
+        ];
+        const vals = [
+            empresaId,
+            reservaId,
+            propiedadId,
+            propiedadNombre,
+            canalId,
+            canalNombre,
+            clienteCreado.id,
+            precioCalc?.nights || nightsFromDates,
+            nombreEstadoPrincipalIa,
+        ];
+
+        if (hasEstadoPrincipalId) {
+            cols.push('estado_principal_id');
+            vals.push(estadoPrincipalConfirmadaIa?.id || null);
+        }
+
+        cols.push('estado_gestion');
+        vals.push(estadoGestionInicial.nombre);
+
+        if (hasEstadoGestionId) {
+            cols.push('estado_gestion_id');
+            vals.push(estadoGestionInicial.id);
+        }
+
+        cols.push(
+            'moneda',
+            'valor_dolar_dia',
+            'valores',
+            'cantidad_huespedes',
+            'fecha_llegada',
+            'fecha_salida',
+            'metadata'
+        );
+        vals.push(
+            'CLP',
+            vd,
+            JSON.stringify(valores),
+            personas,
+            fechaInicio,
+            fechaFin,
+            JSON.stringify({
+                origen: 'ia-reserva',
+                agenteIA,
+                estadoPago: 'pendiente',
+                vencimientoPago,
+                ...(pricingFallback ? { pricingFallback } : {}),
+            })
+        );
+
+        const placeholders = vals.map((_, i) => `$${i + 1}`).join(',');
         await pool.query(
-            `INSERT INTO reservas
-               (empresa_id, id_reserva_canal, propiedad_id, alojamiento_nombre, canal_id, canal_nombre,
-                cliente_id, total_noches, estado, estado_principal_id, estado_gestion, estado_gestion_id, moneda, valor_dolar_dia, valores,
-                cantidad_huespedes, fecha_llegada, fecha_salida, metadata)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'CLP',$13,$14,$15,$16,$17,$18)`,
-            [
-                empresaId,
-                reservaId,
-                propiedadId,
-                propiedadNombre,
-                canalId,
-                canalNombre,
-                clienteCreado.id,
-                precioCalc?.nights || nightsFromDates,
-                nombreEstadoPrincipalIa,
-                estadoPrincipalConfirmadaIa?.id || null,
-                estadoGestionInicial.nombre,
-                estadoGestionInicial.id,
-                vd,
-                JSON.stringify(valores),
-                personas,
-                fechaInicio,
-                fechaFin,
-                JSON.stringify({
-                    origen: 'ia-reserva',
-                    agenteIA,
-                    estadoPago: 'pendiente',
-                    vencimientoPago,
-                    ...(pricingFallback ? { pricingFallback } : {}),
-                }),
-            ]
+            `INSERT INTO reservas (${cols.join(',')}) VALUES (${placeholders})`,
+            vals
         );
 
         // 6. Email de confirmación con plantilla o fallback HTML

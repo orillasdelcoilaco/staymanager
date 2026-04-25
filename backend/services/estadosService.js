@@ -25,24 +25,15 @@ function _sqlArrayLiterals(values) {
  */
 function sqlReservaPrincipalSemanticaIgual(semantica, alias = 'r') {
     const s = _sqlQuoteLiteral(semantica);
+    // Compatible con esquemas sin estado_principal_id: resuelve por nombre/semántica.
     return `(
-      (${alias}.estado_principal_id IS NOT NULL AND ${alias}.estado_principal_id IN (
-        SELECT er.id FROM estados_reserva er
+      LOWER(COALESCE(${alias}.estado, '')) IN (
+        SELECT LOWER(er.nombre)
+          FROM estados_reserva er
          WHERE er.empresa_id = ${alias}.empresa_id
            AND COALESCE(er.semantica, '') = ${s}
-      ))
-      OR (
-        ${alias}.estado_principal_id IS NULL
-        AND LOWER(COALESCE(${alias}.estado, '')) IN (
-          SELECT LOWER(er.nombre) FROM estados_reserva er
-           WHERE er.empresa_id = ${alias}.empresa_id
-             AND COALESCE(er.semantica, '') = ${s}
-        )
       )
-      OR (
-        ${alias}.estado_principal_id IS NULL
-        AND LOWER(COALESCE(${alias}.estado, '')) = LOWER(${s})
-      )
+      OR LOWER(COALESCE(${alias}.estado, '')) = LOWER(${s})
     )`;
 }
 
@@ -54,25 +45,39 @@ function sqlReservaPrincipalSemanticaIgual(semantica, alias = 'r') {
  */
 function sqlReservaPrincipalSemanticaEn(semanticas, alias = 'r') {
     const valuesSql = _sqlArrayLiterals(semanticas);
+    // Compatible con esquemas sin estado_principal_id: resuelve por nombre/semántica.
     return `(
-      (${alias}.estado_principal_id IS NOT NULL AND ${alias}.estado_principal_id IN (
-        SELECT er.id FROM estados_reserva er
+      LOWER(COALESCE(${alias}.estado, '')) IN (
+        SELECT LOWER(er.nombre)
+          FROM estados_reserva er
          WHERE er.empresa_id = ${alias}.empresa_id
            AND COALESCE(er.semantica, '') IN (${valuesSql})
-      ))
-      OR (
-        ${alias}.estado_principal_id IS NULL
-        AND LOWER(COALESCE(${alias}.estado, '')) IN (
-          SELECT LOWER(er.nombre) FROM estados_reserva er
-           WHERE er.empresa_id = ${alias}.empresa_id
-             AND COALESCE(er.semantica, '') IN (${valuesSql})
-        )
       )
-      OR (
-        ${alias}.estado_principal_id IS NULL
-        AND LOWER(COALESCE(${alias}.estado, '')) IN (${valuesSql})
-      )
+      OR LOWER(COALESCE(${alias}.estado, '')) IN (${valuesSql})
     )`;
+}
+
+const _reservasColumnCache = { ts: 0, names: new Set() };
+async function _loadReservasColumns() {
+    if (!pool) return new Set();
+    const now = Date.now();
+    if (_reservasColumnCache.ts && now - _reservasColumnCache.ts < 60_000) {
+        return _reservasColumnCache.names;
+    }
+    const { rows } = await pool.query(
+        `SELECT column_name
+           FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'reservas'`
+    );
+    _reservasColumnCache.names = new Set(rows.map((r) => String(r.column_name)));
+    _reservasColumnCache.ts = now;
+    return _reservasColumnCache.names;
+}
+
+async function reservasTieneColumna(nombreColumna) {
+    const cols = await _loadReservasColumns();
+    return cols.has(String(nombreColumna || '').trim());
 }
 
 function mapearEstado(row) {
@@ -236,6 +241,7 @@ module.exports = {
     eliminarEstado,
     sqlReservaPrincipalSemanticaIgual,
     sqlReservaPrincipalSemanticaEn,
+    reservasTieneColumna,
     obtenerEstadoPrincipalRowPorSemantica,
     obtenerEstadoGestionInicialPostConfirmacionRow,
     obtenerNombreEstadoGestionPorSemantica,
