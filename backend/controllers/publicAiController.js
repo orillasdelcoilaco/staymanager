@@ -19,6 +19,7 @@ const { format, addDays, parseISO, isValid } = require('date-fns');
 const { crearOActualizarCliente } = require('../services/clientesService');
 const { getProvider } = require('../services/aiContentService.providers');
 const { resolveEmpresaDbId } = require('../services/resolveEmpresaDbId');
+const { resolveBookingUnitForIa } = require('../services/publicAiBookingResolverService');
 const {
     obtenerEstadoGestionInicialPostConfirmacionRow,
     obtenerEstadoPrincipalRowPorSemantica,
@@ -363,6 +364,14 @@ const getPropertyDetail = async (req, res) => {
         // Flujo de reserva para agentes IA
         aiContext.booking_workflow = {
             paso_1: `GET /api/public/propiedades/${propertyDoc.id}/disponibilidad?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD`,
+            paso_resolve: `POST /api/public/reservas/resolve-booking-unit (traduce catalog_id -> booking_id para crear reserva)`,
+            paso_resolve_body: {
+                empresa_id: empresaDoc.id,
+                catalog_id: propertyDoc.id,
+                checkin: 'YYYY-MM-DD',
+                checkout: 'YYYY-MM-DD',
+                personas: 2,
+            },
             paso_2: `GET /api/public/propiedades/${propertyDoc.id}/cotizar?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD`,
             paso_2b: `POST /api/public/reservas/cotizar (opcional; dry-run: desglose checkout + política cancelación; no persiste; mismos headers/límite que POST /api/public/reservas)`,
             paso_2b_body: {
@@ -382,6 +391,7 @@ const getPropertyDetail = async (req, res) => {
             },
             paso_3: `POST /api/public/reservas`,
             paso_3_body: {
+                booking_id: propertyDoc.id,
                 propiedadId: propertyDoc.id,
                 fechaInicio: 'YYYY-MM-DD',
                 fechaFin: 'YYYY-MM-DD',
@@ -925,9 +935,9 @@ const createPublicReservation = async (req, res) => {
             }
         }
 
-        const empresaRaw = body.empresa_id || body.empresaId;
+        const empresaRaw = body.empresa_id_raw || body.empresa_id || body.empresaId;
         const empresaId = pool ? await resolveEmpresaDbId(empresaRaw) : empresaRaw;
-        const propiedadId = body.propiedadId || body.alojamiento_id || body.property_id;
+        let propiedadId = body.booking_id || body.propiedadId || body.alojamiento_id || body.property_id;
         const fechaInicio = body.fechaInicio || body.checkin;
         const fechaFin = body.fechaFin || body.checkout;
         let personas = parseInt(String(body.personas ?? ''), 10);
@@ -1024,33 +1034,45 @@ const createPublicReservation = async (req, res) => {
             });
         }
 
-        // 1. Verificar propiedad en PostgreSQL
-        const { rows: propRows } = await pool.query(
-            'SELECT id, nombre FROM propiedades WHERE id = $1 AND empresa_id = $2 AND activo = true',
-            [propiedadId, empresaId]
-        );
-        if (!propRows[0]) {
-            return res.status(404).json({ success: false, error: 'PROPERTY_NOT_FOUND' });
+        // 1. Resolver catálogo -> unidad reservable (booking_id) + disponibilidad
+        const unidad = await resolveBookingUnitForIa({
+            pool,
+            empresaRaw,
+            empresaId,
+            catalogId: propiedadId,
+            checkin: fechaInicio,
+            checkout: fechaFin,
+            personas,
+        });
+        if (!unidad.ok && unidad.code === 'PROPERTY_NOT_FOUND') {
+            return res.status(404).json({
+                success: false,
+                error: 'PROPERTY_NOT_FOUND',
+                message: 'No se encontró una unidad reservable para ese catalog_id en la empresa indicada.',
+            });
         }
-
-        // 2. Verificar disponibilidad — solo bloquear en Confirmada
-        const { rows: conflictos } = await pool.query(
-            `SELECT 1 FROM reservas r
-             WHERE r.empresa_id = $1 AND r.propiedad_id = $2
-               AND ${sqlReservaPrincipalSemanticaIgual('confirmada')}
-               AND r.fecha_llegada < $4 AND r.fecha_salida > $3
-             LIMIT 1`,
-            [empresaId, propiedadId, fechaInicio, fechaFin]
-        );
-        if (conflictos.length > 0) {
+        if (!unidad.ok && unidad.code === 'NO_CAPACITY') {
+            return res.status(422).json({
+                success: false,
+                error: 'NO_CAPACITY',
+                message: `La unidad no admite ${personas} huéspedes.`,
+                capacidad: unidad.capacidad || null,
+            });
+        }
+        if (!unidad.ok) {
+            return res.status(422).json({ success: false, error: unidad.code || 'RESOLVE_ERROR' });
+        }
+        if (!unidad.disponible) {
             return res.status(409).json({
                 success: false,
                 error: 'NOT_AVAILABLE',
                 message: 'La propiedad no está disponible en esas fechas'
             });
         }
+        propiedadId = unidad.booking_id;
+        const propiedadNombre = unidad.nombre || '';
 
-        // 3. Canal por defecto (el mismo que usa el sitio web)
+        // 2. Canal por defecto (el mismo que usa el sitio web)
         const { rows: canalRows } = await pool.query(
             `SELECT id, nombre FROM canales WHERE empresa_id = $1 AND (metadata->>'esCanalPorDefecto')::boolean = true LIMIT 1`,
             [empresaId]
@@ -1061,11 +1083,11 @@ const createPublicReservation = async (req, res) => {
         const canalId   = canalRows[0].id;
         const canalNombre = canalRows[0].nombre;
 
-        // 4. Precio vía tarifas PostgreSQL
+        // 3. Precio vía tarifas PostgreSQL
         const db = require('firebase-admin').firestore();
         const valorDolar   = await obtenerValorDolar(db, empresaId, inicio);
         const allTarifas   = await obtenerTarifasParaConsumidores(empresaId);
-        const precioCalc   = await calculatePrice(db, empresaId, [{ id: propiedadId, nombre: propRows[0].nombre }], inicio, fin, allTarifas, canalId, valorDolar, false);
+        const precioCalc   = await calculatePrice(db, empresaId, [{ id: propiedadId, nombre: propiedadNombre }], inicio, fin, allTarifas, canalId, valorDolar, false);
 
         if (!precioCalc || precioCalc.totalPriceCLP === 0) {
             return res.status(422).json({
@@ -1079,7 +1101,7 @@ const createPublicReservation = async (req, res) => {
         const senaPagar  = Math.round(valorTotal * 0.10);
         const vd             = valorDolar || 950;
 
-        // 5. Cliente
+        // 4. Cliente
         const { cliente: clienteCreado } = await crearOActualizarCliente(db, empresaId, {
             nombre: nombreCliente,
             email: cliente.email,
@@ -1088,7 +1110,7 @@ const createPublicReservation = async (req, res) => {
             idReservaCanal: null,
         });
 
-        // 6. Insertar reserva directamente en PostgreSQL
+        // 5. Insertar reserva directamente en PostgreSQL
         const { randomUUID } = require('crypto');
         const reservaId = randomUUID();
         const valores = {
@@ -1126,7 +1148,7 @@ const createPublicReservation = async (req, res) => {
                 empresaId,
                 reservaId,
                 propiedadId,
-                propRows[0].nombre,
+                propiedadNombre,
                 canalId,
                 canalNombre,
                 clienteCreado.id,
@@ -1144,7 +1166,7 @@ const createPublicReservation = async (req, res) => {
             ]
         );
 
-        // 7. Email de confirmación con plantilla o fallback HTML
+        // 6. Email de confirmación con plantilla o fallback HTML
         const { rows: empRows } = await pool.query('SELECT nombre, email, configuracion FROM empresas WHERE id = $1', [empresaId]);
         const empData = empRows[0] || {};
         const empresaNombre = empData.nombre || empresaId;
@@ -1192,7 +1214,7 @@ const createPublicReservation = async (req, res) => {
                 subject: `Tu reserva en ${propRows[0].nombre} está confirmada`,
                 html: _buildFallbackConfirmEmail({
                     nombreCliente: nombreCliente,
-                    nombrePropiedad: propRows[0].nombre,
+            nombrePropiedad: propiedadNombre,
                     checkin: fechaInicio, checkout: fechaFin, noches: precioCalc.nights,
                     montoSena: senaPagar, datosBancariosTexto, plazoAbono: plazoAbonoTexto, empresaNombre
                 }),
@@ -1200,7 +1222,7 @@ const createPublicReservation = async (req, res) => {
             }).catch(err => console.warn(`[Reserva IA] Email fallback fallido: ${err.message}`));
         }
 
-        console.log(`✅ [Reserva IA] ${reservaId} — ${propRows[0].nombre} ${fechaInicio}→${fechaFin} | email→${cliente.email} | vence: ${plazoAbonoTexto}`);
+        console.log(`✅ [Reserva IA] ${reservaId} — ${propiedadNombre} ${fechaInicio}→${fechaFin} | email→${cliente.email} | vence: ${plazoAbonoTexto}`);
 
         return res.status(201).json({
             success: true,
@@ -1209,7 +1231,7 @@ const createPublicReservation = async (req, res) => {
                 estado: 'Confirmada',
                 checkin: fechaInicio,
                 checkout: fechaFin,
-                alojamiento: { id: propiedadId, nombre: propRows[0].nombre },
+                alojamiento: { id: propiedadId, nombre: propiedadNombre },
                 huesped: { nombre: nombreCliente },
                 total_noches: precioCalc.nights,
                 fecha_creacion: new Date().toISOString()

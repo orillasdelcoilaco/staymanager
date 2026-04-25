@@ -392,6 +392,14 @@ function buildBookingWorkflowForIaDetallePg({ empresaId, alojamientoId }) {
     const aid = String(alojamientoId || '').trim();
     return {
         paso_1: `GET /api/disponibilidad?empresa_id=${eid}&checkin=YYYY-MM-DD&checkout=YYYY-MM-DD (opcional: adultos). En alojamientos[] localizar id=${aid} para disponible, precio_total_estadia_clp y motivo_no_disponible.`,
+        paso_resolve: `POST /api/reservas/resolve-booking-unit o POST /api/public/reservas/resolve-booking-unit para traducir catalog_id -> booking_id estable.`,
+        paso_resolve_body: {
+            empresa_id: eid,
+            catalog_id: aid,
+            checkin: 'YYYY-MM-DD',
+            checkout: 'YYYY-MM-DD',
+            personas: 2,
+        },
         paso_2: `GET /api/alojamientos/detalle?alojamiento_id=${aid}&checkin=YYYY-MM-DD&checkout=YYYY-MM-DD (opcional adultos) — ficha + precio_estimado por estadía.`,
         paso_2b: `POST /api/reservas/cotizar o POST /api/public/reservas/cotizar (dry-run: desglose checkout + política cancelación; no persiste; en /api/public mismos headers/límite que POST /api/public/reservas).`,
         paso_2b_body: {
@@ -412,6 +420,7 @@ function buildBookingWorkflowForIaDetallePg({ empresaId, alojamientoId }) {
         paso_3: `POST /api/reservas o POST /api/public/reservas`,
         paso_3_body: {
             empresa_id: eid,
+            booking_id: aid,
             alojamiento_id: aid,
             checkin: 'YYYY-MM-DD',
             checkout: 'YYYY-MM-DD',

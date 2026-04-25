@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SuiteManager Public API for Gemini
-  version: 1.4.4
+  version: 1.4.5
   description: |
     API pública para extensiones Gemini. Listados usan **producto_ia_v2**: precio por tarifas PG, ubicación, amenidades
     (metadata + inventario componentes), políticas mergeadas (empresa + propiedad), alias `precioBase`/`ciudad`/`direccion_corta`.
@@ -19,6 +19,8 @@ info:
     **v1.4.3:** Detalle incluye `booking_workflow` (mismas ideas que ChatGPT YAML).
 
     **v1.4.4:** Disponibilidad documenta `endpoints` y `requiere_confirmacion_reserva`.
+
+    **v1.4.5:** nuevo `POST /api/reservas/resolve-booking-unit` (y espejo público) para traducir `catalog_id` a `booking_id` antes de reservar.
 
 servers:
   - url: https://suite-manager.onrender.com
@@ -320,6 +322,65 @@ paths:
                         nombre: { type: string }
                         capacidad: { type: integer }
                         empresa_id: { type: string }
+
+  /api/reservas/resolve-booking-unit:
+    post:
+      operationId: resolveBookingUnitGemini
+      summary: Traduce catalog_id visible a booking_id transaccional.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                empresa_id: { type: string }
+                catalog_id: { type: string }
+                checkin: { type: string }
+                checkout: { type: string }
+                personas: { type: integer }
+      responses:
+        "200":
+          description: booking_id resuelto y disponibilidad para el rango.
+        "404":
+          description: No se encontró unidad reservable para catalog_id en la empresa.
+        "422":
+          description: Capacidad insuficiente o fechas inválidas.
+
+  /api/public/reservas/resolve-booking-unit:
+    post:
+      operationId: resolveBookingUnitPublicGemini
+      summary: Igual que /api/reservas/resolve-booking-unit bajo /api/public.
+      parameters:
+        - in: header
+          name: X-Agent-API-Key
+          required: false
+          schema: { type: string }
+        - in: header
+          name: X-Agent-Name
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                empresa_id: { type: string }
+                catalog_id: { type: string }
+                checkin: { type: string }
+                checkout: { type: string }
+                personas: { type: integer }
+      responses:
+        "200":
+          description: booking_id resuelto y disponibilidad para el rango.
+        "403":
+          description: Clave de agente inválida.
+        "404":
+          description: No se encontró unidad reservable para catalog_id en la empresa.
+        "422":
+          description: Capacidad insuficiente o fechas inválidas.
 
   /api/reservas/cotizar:
     post:
@@ -683,6 +744,8 @@ components:
               description: Flujo sugerido PG (disponibilidad, detalle, dry-run cotizar, reserva).
               properties:
                 paso_1: { type: string }
+                paso_resolve: { type: string }
+                paso_resolve_body: { type: object }
                 paso_2: { type: string }
                 paso_2b: { type: string }
                 paso_2b_body: { type: object }

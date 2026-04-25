@@ -85,6 +85,21 @@ module.exports = (db) => {
         publicAiController.createBookingIntent
     );
 
+    // POST /api/public/reservas/resolve-booking-unit — puente catálogo -> booking_id transaccional
+    router.post('/reservas/resolve-booking-unit',
+        createReservationLimiter,
+        requireAgentKey,
+        async (req, res) => {
+            try {
+                const controller = require('../services/suitemanagerApiController');
+                return controller.resolveBookingUnit(req, res);
+            } catch (e) {
+                console.error('[public reservas/resolve-booking-unit]', e.message);
+                return res.status(500).json({ success: false, error: 'INTERNAL_ERROR' });
+            }
+        }
+    );
+
     // POST /api/public/reservas/cotizar — dry-run (misma lógica que reserva, sin persistir)
     router.post('/reservas/cotizar',
         createReservationLimiter,

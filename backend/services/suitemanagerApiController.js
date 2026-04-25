@@ -226,6 +226,8 @@ exports.alternativas = async (req, res) => {
 
 exports.cotizarReserva = async (req, res) => {
     try {
+        req.body = req.body || {};
+        req.body.empresa_id_raw = req.body.empresa_id || req.body.empresaId || null;
         if (req.body?.empresa_id) {
             req.body.empresa_id = await resolveEmpresaPgId(req.body.empresa_id);
         }
@@ -239,11 +241,67 @@ exports.cotizarReserva = async (req, res) => {
 };
 
 exports.crearReserva = async (req, res) => {
+    req.body = req.body || {};
+    req.body.empresa_id_raw = req.body.empresa_id || req.body.empresaId || null;
     if (req.body?.empresa_id) {
         req.body.empresa_id = await resolveEmpresaPgId(req.body.empresa_id);
     }
     const publicAiController = require('../controllers/publicAiController');
     return publicAiController.createPublicReservation(req, res);
+};
+
+exports.resolveBookingUnit = async (req, res) => {
+    try {
+        if (!pool) {
+            return res.status(503).json({ success: false, error: 'SERVICE_UNAVAILABLE', message: 'PostgreSQL requerido.' });
+        }
+        const body = req.body || {};
+        const empresaRaw = body.empresa_id || body.empresaId;
+        const catalogId = body.catalog_id || body.alojamiento_id || body.propiedadId || body.property_id;
+        const checkin = body.checkin || body.fechaInicio;
+        const checkout = body.checkout || body.fechaFin;
+        let personas = parseInt(String(body.personas ?? ''), 10);
+        if (Number.isNaN(personas) || personas < 1) {
+            personas = Number(body.adultos || 0) + Number(body.ninos || 0);
+        }
+        if (!personas || personas < 1) personas = 2;
+
+        if (!empresaRaw || !catalogId || !checkin || !checkout) {
+            return res.status(400).json({
+                success: false,
+                error: 'MISSING_FIELDS',
+                message: 'Requeridos: empresa_id, catalog_id, checkin, checkout',
+            });
+        }
+        const empresaId = await resolveEmpresaPgId(empresaRaw);
+        const { resolveBookingUnitForIa } = require('./publicAiBookingResolverService');
+        const resolved = await resolveBookingUnitForIa({
+            pool,
+            empresaRaw,
+            empresaId,
+            catalogId,
+            checkin,
+            checkout,
+            personas,
+        });
+
+        if (!resolved.ok) {
+            const status = resolved.code === 'PROPERTY_NOT_FOUND' ? 404 : 422;
+            return res.status(status).json({ success: false, error: resolved.code, ...resolved });
+        }
+        return res.json({
+            success: true,
+            booking_id: resolved.booking_id,
+            catalog_id: resolved.catalog_id,
+            empresa_id: resolved.empresa_id,
+            disponible: resolved.disponible,
+            capacidad: resolved.capacidad,
+            nombre: resolved.nombre,
+        });
+    } catch (error) {
+        console.error('[resolveBookingUnit]', error.message);
+        return res.status(500).json({ success: false, error: 'INTERNAL_ERROR' });
+    }
 };
 
 exports.busquedaGeneral = async (req, res) => {

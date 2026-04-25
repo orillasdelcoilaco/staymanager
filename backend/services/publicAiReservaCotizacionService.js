@@ -15,6 +15,7 @@ const {
     buildAvisoPoliticaCancelacion,
 } = require('./checkoutDesgloseService');
 const { sqlReservaPrincipalSemanticaIgual } = require('./estadosService');
+const { resolveBookingUnitForIa } = require('./publicAiBookingResolverService');
 
 function _motivoRestriccion(restr) {
     if (!restr || restr.ok) return null;
@@ -52,8 +53,8 @@ async function cotizarReservaIaPublica(body) {
         return { http: 503, body: { success: false, error: 'SERVICE_UNAVAILABLE', message: 'PostgreSQL requerido.' } };
     }
 
-    const empresaRaw = body.empresa_id || body.empresaId;
-    const propiedadId = body.propiedadId || body.alojamiento_id || body.property_id;
+    const empresaRaw = body.empresa_id_raw || body.empresa_id || body.empresaId;
+    let propiedadId = body.booking_id || body.propiedadId || body.alojamiento_id || body.property_id;
     const fechaInicio = body.fechaInicio || body.checkin;
     const fechaFin = body.fechaFin || body.checkout;
     let personas = parseInt(String(body.personas ?? ''), 10);
@@ -111,12 +112,43 @@ async function cotizarReservaIaPublica(body) {
     const bookingCfg = ws.booking || {};
     const legal = ws.legal || {};
 
+    const unidad = await resolveBookingUnitForIa({
+        pool,
+        empresaRaw,
+        empresaId,
+        catalogId: propiedadId,
+        checkin: fechaInicio,
+        checkout: fechaFin,
+        personas,
+    });
+    if (!unidad.ok && unidad.code === 'PROPERTY_NOT_FOUND') {
+        return { http: 404, body: { success: false, error: 'PROPERTY_NOT_FOUND' } };
+    }
+    if (!unidad.ok && unidad.code === 'NO_CAPACITY') {
+        return {
+            http: 200,
+            body: {
+                success: true,
+                cotizacion_ok: false,
+                motivo: {
+                    codigo: 'NO_CAPACITY',
+                    mensaje_es: `La unidad no admite ${personas} huéspedes.`,
+                    capacidad: unidad.capacidad || null,
+                },
+            },
+        };
+    }
+    if (!unidad.ok) {
+        return { http: 422, body: { success: false, error: unidad.code || 'RESOLVE_ERROR' } };
+    }
+    propiedadId = unidad.booking_id;
+
     const { rows: propRows } = await pool.query(
         `SELECT id, nombre, capacidad, metadata
            FROM propiedades
           WHERE id::text = $1::text AND empresa_id::text = $2::text AND activo = true
           LIMIT 1`,
-        [String(propiedadId), String(empresaId)]
+        [String(propiedadId), String(unidad.empresa_id)]
     );
     if (!propRows[0]) {
         return { http: 404, body: { success: false, error: 'PROPERTY_NOT_FOUND' } };
@@ -129,7 +161,7 @@ async function cotizarReservaIaPublica(body) {
         success: true,
         payload_version: 'cotizacion_reserva_ia_v1',
         requiere_confirmacion_final: true,
-        empresa: { id: String(empresaId), nombre: String(empRows[0].nombre || '').trim() },
+        empresa: { id: String(unidad.empresa_id), nombre: String(empRows[0].nombre || '').trim() },
         propiedad: { id: String(propRows[0].id), nombre: propRows[0].nombre },
         checkin: String(fechaInicio).slice(0, 10),
         checkout: String(fechaFin).slice(0, 10),
@@ -154,7 +186,7 @@ async function cotizarReservaIaPublica(body) {
             AND ${sqlReservaPrincipalSemanticaIgual('confirmada')}
             AND r.fecha_llegada::date < $4::date AND r.fecha_salida::date > $3::date
           LIMIT 1`,
-        [String(empresaId), String(propiedadId), fechaInicio, fechaFin]
+        [String(unidad.empresa_id), String(propiedadId), fechaInicio, fechaFin]
     );
     if (conflictos.length > 0) {
         return {
@@ -172,7 +204,7 @@ async function cotizarReservaIaPublica(body) {
 
     const { rows: canalRows } = await pool.query(
         `SELECT id, nombre FROM canales WHERE empresa_id::text = $1::text AND (metadata->>'esCanalPorDefecto')::boolean = true LIMIT 1`,
-        [String(empresaId)]
+        [String(unidad.empresa_id)]
     );
     if (!canalRows[0]) {
         return {
@@ -187,11 +219,11 @@ async function cotizarReservaIaPublica(body) {
     const canalId = canalRows[0].id;
 
     const db = admin.firestore();
-    const valorDolar = await obtenerValorDolar(db, empresaId, inicio);
-    const allTarifas = await obtenerTarifasParaConsumidores(empresaId);
+    const valorDolar = await obtenerValorDolar(db, unidad.empresa_id, inicio);
+    const allTarifas = await obtenerTarifasParaConsumidores(unidad.empresa_id);
     const precioCalc = await calculatePrice(
         db,
-        empresaId,
+        unidad.empresa_id,
         [{ id: propiedadId, nombre: propRows[0].nombre }],
         inicio,
         fin,

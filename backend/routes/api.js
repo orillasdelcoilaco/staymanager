@@ -14,6 +14,9 @@ router.get("/alojamientos/alternativas", controller.alternativas);
 // imagenes por alojamiento
 router.get("/alojamientos/imagenes", controller.imagenes);
 
+// resolver unidad reservable desde id de catálogo (chatgpt)
+router.post("/reservas/resolve-booking-unit", controller.resolveBookingUnit);
+
 // cotizar reserva (dry-run, sin persistir)
 router.post("/reservas/cotizar", controller.cotizarReserva);
 

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SuiteManager Public API for ChatGPT
-  version: 1.4.4
+  version: 1.4.5
   description: |
     API pública para Actions. Listados usan **producto_ia_v2**: precio por tarifas PG, ubicación, amenidades
     (metadata + inventario componentes), políticas mergeadas (empresa + propiedad), alias `precioBase`/`ciudad`/`direccion_corta`.
@@ -21,6 +21,8 @@ info:
     **v1.4.3:** `GET /api/alojamientos/detalle` incluye `booking_workflow` (disponibilidad, detalle con fechas, dry-run cotizar, cuerpo ejemplo reserva) con `empresa_id` y `alojamiento_id` ya resueltos.
 
     **v1.4.4:** `GET /api/disponibilidad` documenta `endpoints` (galería, detalle, `cotizar_reserva_dry_run`) y `requiere_confirmacion_reserva`.
+
+    **v1.4.5:** nuevo `POST /api/reservas/resolve-booking-unit` (y espejo `/api/public/reservas/resolve-booking-unit`) para traducir `catalog_id` de catálogo hacia `booking_id` transaccional previo a reservar.
 
 servers:
   - url: https://suite-manager.onrender.com
@@ -347,6 +349,65 @@ paths:
                         nombre: { type: string }
                         capacidad: { type: integer }
                         empresa_id: { type: string }
+
+  /api/reservas/resolve-booking-unit:
+    post:
+      operationId: resolveBookingUnit
+      summary: Traduce catalog_id visible a booking_id transaccional.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                empresa_id: { type: string }
+                catalog_id: { type: string }
+                checkin: { type: string }
+                checkout: { type: string }
+                personas: { type: integer }
+      responses:
+        "200":
+          description: booking_id resuelto y disponibilidad para el rango.
+        "404":
+          description: No se encontró unidad reservable para catalog_id en la empresa.
+        "422":
+          description: Capacidad insuficiente o fechas inválidas.
+
+  /api/public/reservas/resolve-booking-unit:
+    post:
+      operationId: resolveBookingUnitPublic
+      summary: Igual que /api/reservas/resolve-booking-unit bajo /api/public (con cabeceras de agente).
+      parameters:
+        - in: header
+          name: X-Agent-API-Key
+          required: false
+          schema: { type: string }
+        - in: header
+          name: X-Agent-Name
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                empresa_id: { type: string }
+                catalog_id: { type: string }
+                checkin: { type: string }
+                checkout: { type: string }
+                personas: { type: integer }
+      responses:
+        "200":
+          description: booking_id resuelto y disponibilidad para el rango.
+        "403":
+          description: Clave de agente inválida si AGENT_API_KEYS está activo.
+        "404":
+          description: No se encontró unidad reservable para catalog_id en la empresa.
+        "422":
+          description: Capacidad insuficiente o fechas inválidas.
 
   /api/reservas/cotizar:
     post:
@@ -755,6 +816,8 @@ components:
                 y cuerpo ejemplo para crear reserva. Los ids empresa_id y alojamiento_id ya vienen resueltos en texto.
               properties:
                 paso_1: { type: string }
+                paso_resolve: { type: string }
+                paso_resolve_body: { type: object }
                 paso_2: { type: string }
                 paso_2b: { type: string }
                 paso_2b_body: { type: object }
