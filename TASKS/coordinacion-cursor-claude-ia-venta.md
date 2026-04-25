@@ -299,7 +299,7 @@ Detalle libre (bloqueos, deploy, migraciones):
 | Smoke manual plan §2 (staging) | pendiente | Checklist §2.3 en `plan-release-1.0.0.md` + tabla §2.1. |
 | Tag `v1.0.0` aplicado | SÍ (local) | Commit gate CI; push tras smoke §2.3 (`leer-primero.md` §5.1). |
 | Agente B — backlog §5 ítem 2 (§1.6) | pendiente | Otro chat según reparto. |
-| Próxima asignación sugerida | | Smoke §2.3 → tag → §4.3 D / §5. |
+| Próxima asignación sugerida | | Smoke §2.3 → `git push origin v1.0.0` → §4.3 D / §5. |
 ```
 
 | Ítem | Estado | Nota |
@@ -309,7 +309,7 @@ Detalle libre (bloqueos, deploy, migraciones):
 | Smoke manual plan §2 (staging) | pendiente | Checklist en `plan-release-1.0.0.md` §2.3 / §2.1. |
 | Tag `v1.0.0` aplicado | SÍ (local) | Anotado en commit gate CI; **push** tras smoke §2.3 + acuerdo integrador. |
 | Agente B — backlog §5 ítem 2 (§1.6) | pendiente | Otro chat / agente según `leer-primero.md`. |
-| Próxima asignación sugerida | | Completar smoke §2.3 → tag; luego §5.3 dominio, §2.3 widget, §1.4 iCal, §4.3 D según prioridad. |
+| Próxima asignación sugerida | | Completar smoke §2.3 → push tag `v1.0.0`; luego §5.3 dominio, §2.3 widget, §1.4 iCal, §4.3 D según prioridad. |
 
 ---
 
