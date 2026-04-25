@@ -15,7 +15,17 @@ function unifyHeaderBlock() {
         </div>`;
 }
 
-function unifyBasicSection(empresa, general) {
+function unifyBasicSection(empresa, general, booking) {
+    const depActivo = booking?.depositoActivo !== false;
+    const depTipo = booking?.depositoTipo === 'monto_fijo' ? 'monto_fijo' : 'porcentaje';
+    const depPct = Number.parseInt(String(booking?.depositoPorcentaje ?? 10), 10) || 10;
+    const depMonto = Number.parseInt(String(booking?.depositoMontoSugeridoCLP ?? 0), 10) || 0;
+    const depHoras = Number.parseInt(String(booking?.depositoHorasLimite ?? booking?.abonoHorasLimite ?? 48), 10) || 48;
+    const depNota = clean(booking?.depositoNotaHtml || '');
+    const garantiaModo = clean(booking?.garantiaModo || 'abono_manual');
+    const garantiaDetalleOperacion = clean(booking?.garantiaDetalleOperacion || '');
+    const mascotasPolicyMode = clean(booking?.chatgptMascotasPolicyMode || 'auto');
+    const mascotasCondicion = clean(booking?.chatgptMascotasCondicion || '');
     return `
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
             <h2 class="font-semibold text-gray-800 mb-4">Información Básica del Negocio</h2>
@@ -39,7 +49,7 @@ function unifyBasicSection(empresa, general) {
                     <div>
                         <label class="block text-xs font-medium text-gray-500 mb-1">Subdominio</label>
                         <input type="text" id="subdomain" class="form-input" value="${esc(clean(general.subdomain || empresa.subdominio || ''))}" placeholder="nombre-empresa">
-                        <p class="text-xs text-gray-400 mt-1">Ej: prueba1 (será prueba1.onrender.com)</p>
+                        <p class="text-xs text-gray-400 mt-1">Ej: orillas-coilaco → orillas-coilaco.suitemanagers.com</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-500 mb-1">Dominio Personalizado (opcional)</label>
@@ -48,6 +58,70 @@ function unifyBasicSection(empresa, general) {
                     <div>
                         <label class="block text-xs font-medium text-gray-500 mb-1">Google Analytics ID</label>
                         <input type="text" id="ga-id" class="form-input" value="${esc(clean(general.gaTrackingId))}" placeholder="G-XXXXXXXXXX">
+                    </div>
+                </div>
+                <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                    <p class="text-xs font-semibold text-gray-700 mb-2">Depósito / abono para reserva web</p>
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+                        <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                            <input type="checkbox" id="deposito-activo" ${depActivo ? 'checked' : ''}>
+                            Requiere abono
+                        </label>
+                        <div>
+                            <label class="block text-[11px] text-gray-500 mb-1">Tipo</label>
+                            <select id="deposito-tipo" class="form-input">
+                                <option value="porcentaje" ${depTipo === 'porcentaje' ? 'selected' : ''}>Porcentaje</option>
+                                <option value="monto_fijo" ${depTipo === 'monto_fijo' ? 'selected' : ''}>Monto fijo CLP</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-gray-500 mb-1">% abono</label>
+                            <input type="number" id="deposito-porcentaje" class="form-input" min="1" max="100" value="${esc(depPct)}">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-gray-500 mb-1">Monto fijo CLP</label>
+                            <input type="number" id="deposito-monto" class="form-input" min="0" step="1000" value="${esc(depMonto)}">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-gray-500 mb-1">Horas límite pago</label>
+                            <input type="number" id="deposito-horas" class="form-input" min="1" max="168" value="${esc(depHoras)}">
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="block text-[11px] text-gray-500 mb-1">Texto legal/explicativo del abono (opcional)</label>
+                        <textarea id="deposito-nota-html" rows="3" class="form-input w-full resize-none" placeholder="Ej: La reserva se confirma al recibir el abono dentro del plazo indicado.">${esc(depNota)}</textarea>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                        <div>
+                            <label class="block text-[11px] text-gray-500 mb-1">Política operativa de garantía</label>
+                            <select id="garantia-modo" class="form-input">
+                                <option value="abono_manual" ${garantiaModo === 'abono_manual' ? 'selected' : ''}>Abono manual (actual)</option>
+                                <option value="sin_garantia" ${garantiaModo === 'sin_garantia' ? 'selected' : ''}>Sin garantía previa</option>
+                                <option value="preautorizacion_externa" ${garantiaModo === 'preautorizacion_externa' ? 'selected' : ''}>Preautorización externa (sin integración)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-gray-500 mb-1">Nota interna operativa (opcional)</label>
+                            <input type="text" id="garantia-detalle-operacion" class="form-input" maxlength="280" value="${esc(garantiaDetalleOperacion)}" placeholder="Ej: Validar voucher antes de marcar Confirmada.">
+                        </div>
+                    </div>
+                </div>
+                <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                    <p class="text-xs font-semibold text-gray-700 mb-2">Política de mascotas para ventas IA (ChatGPT)</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[11px] text-gray-500 mb-1">Modo</label>
+                            <select id="chatgpt-mascotas-policy-mode" class="form-input">
+                                <option value="auto" ${mascotasPolicyMode === 'auto' ? 'selected' : ''}>Auto (según configuración actual)</option>
+                                <option value="permitidas" ${mascotasPolicyMode === 'permitidas' ? 'selected' : ''}>Permitidas</option>
+                                <option value="no_permitidas" ${mascotasPolicyMode === 'no_permitidas' ? 'selected' : ''}>No permitidas</option>
+                                <option value="consultar_siempre" ${mascotasPolicyMode === 'consultar_siempre' ? 'selected' : ''}>Consultar siempre</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-gray-500 mb-1">Condición comercial (opcional)</label>
+                            <input type="text" id="chatgpt-mascotas-condicion" class="form-input" maxlength="280" value="${esc(mascotasCondicion)}" placeholder="Ej: Permitidas razas pequeñas; razas grandes bajo consulta.">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -255,13 +329,14 @@ export function buildUnifiedMarkup(empresaData) {
     const empresa = empresaData || {};
     const settings = empresa.websiteSettings || {};
     const general = settings.general || {};
+    const booking = settings.booking || {};
     const theme = settings.theme || {};
     const strategy = empresa.strategy || {};
 
     return `
     <div class="max-w-4xl mx-auto">
         ${unifyHeaderBlock()}
-        ${unifyBasicSection(empresa, general)}
+        ${unifyBasicSection(empresa, general, booking)}
         ${unifyVisualSection(theme)}
         ${unifyStrategySection(empresa, strategy)}
         ${unifyReadonlyContentSection(strategy, theme)}

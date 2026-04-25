@@ -90,6 +90,16 @@ export function bindUnifiedTestIa({ attach, fetchAPI, updateGeneratedContent }) 
 export function bindUnifiedSave({
     attach, fetchAPI, empresa, onComplete, updateDomainPanel,
 }) {
+    const normalizeSubdomain = (raw) => String(raw || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9-]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 63);
+
     attach('btn-save', async () => {
         const btn = document.getElementById('btn-save');
         const originalText = btn.innerHTML;
@@ -97,8 +107,13 @@ export function bindUnifiedSave({
         btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Guardando...';
 
         try {
-            const subdomain = document.getElementById('subdomain')?.value?.trim() || '';
+            const subdomainRaw = document.getElementById('subdomain')?.value?.trim() || '';
+            const subdomain = normalizeSubdomain(subdomainRaw);
             const customDomain = document.getElementById('domain')?.value?.trim() || '';
+
+            // Mantener el input visible alineado con el valor canónico persistido.
+            const subInput = document.getElementById('subdomain');
+            if (subInput && subInput.value !== subdomain) subInput.value = subdomain;
 
             const payload = {
                 historiaEmpresa: document.getElementById('historia')?.value || '',
@@ -126,6 +141,18 @@ export function bindUnifiedSave({
                     googleMapsUrl: document.getElementById('maps-url')?.value || '',
                     gaTrackingId: document.getElementById('ga-id')?.value || '',
                     wizardCompleted: true,
+                },
+                booking: {
+                    depositoActivo: !!document.getElementById('deposito-activo')?.checked,
+                    depositoTipo: document.getElementById('deposito-tipo')?.value === 'monto_fijo' ? 'monto_fijo' : 'porcentaje',
+                    depositoPorcentaje: parseInt(document.getElementById('deposito-porcentaje')?.value || '10', 10) || 10,
+                    depositoMontoSugeridoCLP: parseInt(document.getElementById('deposito-monto')?.value || '0', 10) || 0,
+                    depositoHorasLimite: parseInt(document.getElementById('deposito-horas')?.value || '48', 10) || 48,
+                    depositoNotaHtml: document.getElementById('deposito-nota-html')?.value || '',
+                    garantiaModo: document.getElementById('garantia-modo')?.value || 'abono_manual',
+                    garantiaDetalleOperacion: document.getElementById('garantia-detalle-operacion')?.value || '',
+                    chatgptMascotasPolicyMode: document.getElementById('chatgpt-mascotas-policy-mode')?.value || 'auto',
+                    chatgptMascotasCondicion: document.getElementById('chatgpt-mascotas-condicion')?.value || '',
                 },
                 theme: {
                     logoUrl: document.getElementById('logo-url')?.value || '',

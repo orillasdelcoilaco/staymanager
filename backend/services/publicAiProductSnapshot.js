@@ -252,6 +252,7 @@ function _buildDetailCommercialBlocks({
     resumenPrecioEstadia,
     ubic,
     imagenes,
+    empresaConfig,
 }) {
     const amenidades_estructuradas = buildAmenidadesEstructuradas({
         row,
@@ -284,6 +285,7 @@ function _buildDetailCommercialBlocks({
         precioEstimado: precio_estimado,
         amenidadesEstructuradas: amenidades_estructuradas,
         meta,
+        empresaConfig,
     });
     const imagenes_etiquetadas = buildImagenesEtiquetadas(imagenes);
     return {
@@ -644,6 +646,7 @@ function buildAgentPropertyDetailPayload({
         resumenPrecioEstadia,
         ubic,
         imagenes,
+        empresaConfig,
     });
 
     return {

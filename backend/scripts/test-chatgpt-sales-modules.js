@@ -42,9 +42,10 @@ function run() {
         precioEstimado: { politica_cancelacion: { resumen: 'Gratis hasta 7 dias antes' } },
         amenidadesEstructuradas: { amenidades: ['pet_friendly'] },
         meta: {},
+        empresaConfig: { websiteSettings: { booking: { chatgptMascotasPolicyMode: 'consultar_siempre', chatgptMascotasCondicion: 'Consultar por tipo y tamaño de mascota.' } } },
     });
     assert(politicas.cancelacion, 'cancelacion requerida');
-    assert(politicas.mascotas === true, 'mascotas debe resolverse true por pet_friendly');
+    assert(politicas.mascotas === null, 'mascotas debe respetar modo consultar_siempre');
     assert(politicas.mascotas_condicion, 'mascotas_condicion requerida');
 
     const geo = buildGeoComercialIa({
