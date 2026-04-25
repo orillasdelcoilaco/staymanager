@@ -42,6 +42,8 @@ _Actualizar al iniciar y al terminar trabajo relevante._
 | 2026-04-24  | Claude | `consultarDisponibilidad` / bug  | LISTO    | Fix: `resolveEmpresaPgId` + `unavailableProperties`; commit `e27f151` |
 | 2026-04-24  | Claude | Estrategia multi-canal IA venta  | EN CURSO | Ver §9 — roadmap por canal y tier |
 | 2026-04-24  | Cursor | `GET /api/disponibilidad` enriquecida + vibe búsqueda + confirmación reserva | LISTO | `publicAiDisponibilidadService.js`, `evaluarRestriccionesReservaWebCodigo`, `suitemanagerApiController`, OpenAPI; `requiere_confirmacion_final` en detalle; validación email/tel `publicAiController`. |
+| 2026-04-25  | Cursor | Backlog producto (`TASKS/backlog-producto-pendientes.md`) | LISTO | Actualizado §4: mapa de calor cerrado funcionalmente (panel + calendario + validación por llegada), pendientes movidos a QA E2E/copy. |
+| 2026-04-25  | Cursor | Release 1.0.0 — `test:ci` + plan + CI workflow | LISTO | `package.json` `test:ci` ampliado (smoke §2 scripts); `TASKS/plan-release-1.0.0.md` §2.1; `backend/scripts/test-integrations-settings-sanitize.js`; `.github/workflows/ci-smoke.yml` → `npm run test:ci`. Smoke manual §2.3 y push tag `v1.0.0` pendientes operación/staging. |
 
 **Convención de estados:** `EN CURSO` | `LISTO` | `PAUSA` | `BLOQUEADO`.
 
@@ -113,6 +115,9 @@ Quitar el lock cuando termines.
 
 _Formato: `YYYY-MM-DD — Actor — una frase`._
 
+- 2026-04-25 — Cursor — **Release 1.0.0 (puerta técnica):** `npm run test:ci` ampliado (`package.json`) con tests alineados a smoke plan §2.1; `plan-release-1.0.0.md` actualizado; `ci-smoke.yml` ejecuta `test:ci`; script `test-integrations-settings-sanitize.js`. Pendiente: smoke manual §2.3 staging + tag `v1.0.0` + push integrador.
+- 2026-04-25 — Cursor — Checklist Google Hotels §9 + script `verify-google-hotels-feed-checklist.js`; SSR `htmlLang` en `website.context.js` + i18n home/contacto/404/header/footer/confirmación/property-card; UX bandeja `comunicaciones.js` (error carga, vacíos, toasts reintento); comentarios multi-tenant calendario/feed.
+- 2026-04-25 — Cursor — Backlog de producto actualizado: §4 “Mapa de calor / restricciones” y §4.3 D reflejan cierre funcional (edición panel, overlay calendario, min noches por llegada en backend + widget), quedando QA E2E como pendiente.
 - 2026-04-24 — Cursor — OpenAPI **1.4.4:** disponibilidad documenta `endpoints` + `requiere_confirmacion_reserva`.
 - 2026-04-24 — Cursor — `GET /api/alojamientos/detalle` incluye **booking_workflow** (`buildBookingWorkflowForIaDetallePg` en `publicAiProductSnapshot.js`); OpenAPI **1.4.3**; disponibilidad IA `endpoints.cotizar_reserva_dry_run`.
 - 2026-04-24 — Cursor — §9 **1C** actualizado (cotizar precio / dry-run entregado); `booking_workflow` en `getPropertyDetail` con **paso_2b** + `paso_2b_body` (POST `/api/public/reservas/cotizar`).
@@ -285,15 +290,27 @@ Detalle libre (bloqueos, deploy, migraciones):
 
 ### 11.2 Entrada vigente (la más reciente arriba; seguir añadiendo bloques 11.1 encima de esta tabla)
 
+```
+### Resumen release / backlog — 2026-04-25
 | Ítem | Estado | Nota |
 |------|--------|------|
-| `npm run test:ci` (rama candidata) | SÍ | Ejecutado local 2026-04-24; repetir en rama que se etiquete. |
+| `npm run test:ci` (rama candidata) | SÍ | Cadena ampliada (smoke §2 + regresión); verde local; `package.json` + `ci-smoke.yml`. |
+| `npm run test:ssr` (SSR arriba) | omitido | Opcional; no bloquea puerta CI. |
+| Smoke manual plan §2 (staging) | pendiente | Checklist §2.3 en `plan-release-1.0.0.md` + tabla §2.1. |
+| Tag `v1.0.0` aplicado | SÍ (local) | Commit gate CI; push tras smoke §2.3 (`leer-primero.md` §5.1). |
+| Agente B — backlog §5 ítem 2 (§1.6) | pendiente | Otro chat según reparto. |
+| Próxima asignación sugerida | | Smoke §2.3 → tag → §4.3 D / §5. |
+```
+
+| Ítem | Estado | Nota |
+|------|--------|------|
+| `npm run test:ci` (rama candidata) | SÍ | 2026-04-25: cadena ampliada + verde local (`package.json`, workflow CI). |
 | `npm run test:ssr` (SSR arriba) | omitido | Opcional hasta smoke de vistas públicas. |
-| Smoke manual plan §2 (staging) | pendiente | Checklist en `plan-release-1.0.0.md` §2 — marcar al validar en staging. |
-| Tag `v1.0.0` aplicado | NO | Tras smoke + acuerdo usuario. |
+| Smoke manual plan §2 (staging) | pendiente | Checklist en `plan-release-1.0.0.md` §2.3 / §2.1. |
+| Tag `v1.0.0` aplicado | SÍ (local) | Anotado en commit gate CI; **push** tras smoke §2.3 + acuerdo integrador. |
 | Agente B — backlog §5 ítem 2 (§1.6) | pendiente | Otro chat / agente según `leer-primero.md`. |
-| Próxima asignación sugerida | | Completar smoke §2 → tag; luego §5.3 dominio, §2.3 widget, §1.4 iCal, §4.3 D según prioridad. |
+| Próxima asignación sugerida | | Completar smoke §2.3 → tag; luego §5.3 dominio, §2.3 widget, §1.4 iCal, §4.3 D según prioridad. |
 
 ---
 
-*Última revisión: 2026-04-24 — §11 resumen release 1.0.0 + `leer-primero.md`; Claude Code liderazgo IA venta §9; §10 multi-agente TASKS.*
+*Última revisión: 2026-04-25 — §11 actualizado (test:ci ampliado, CI workflow); Claude Code liderazgo IA venta §9; §10 multi-agente TASKS.*

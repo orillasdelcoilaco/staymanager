@@ -5,7 +5,7 @@
     "mcp": "node ./ai/openai/mcp-server/index.js",
     "test:ssr": "node backend/scripts/verify_ssr_integrity.js",
     "test:house-rules-jsonld": "node backend/scripts/test-house-rules-jsonld-patch.js",
-    "test:ci": "npm run test:house-rules-jsonld"
+    "test:ci": "npm run test:house-rules-jsonld && node backend/scripts/test-marketplace-ui-strings.js && node backend/scripts/test-marketplace-sort.js && node backend/scripts/test-ari-feed-xml-sanity.js && node backend/scripts/test-ari-feed-request.js && node backend/scripts/test-google-hotels-content-feed-request.js && node backend/scripts/test-comparador-ota-service.js && node backend/scripts/test-heatmap-restricciones.js && node backend/scripts/test-digest-etiquetas-alertas.js && node backend/scripts/test-seed-digest-template-tags.js && node backend/scripts/test-normalize-subdomain.js && node backend/scripts/test-reserva-web-restricciones.js && node backend/scripts/test-propiedad-booking-sanitize.js && node backend/scripts/test-booking-settings-sanitize.js && node backend/scripts/test-lineas-extra-validation.js && node backend/scripts/test-legal-politica-cancelacion.js && node backend/scripts/test-desglose-coherencia.js && node backend/scripts/test-politica-cancelacion-tarifa.js && node backend/scripts/test-presupuesto-desglose.js && node backend/scripts/test-reconciliacion-precio-reserva-web.js && node backend/scripts/test-crear-reserva-web-metadata-contract.js && node backend/scripts/test-confirmacion-valores-parse.js && node backend/scripts/test-confirmacion-reserva-comunicaciones.js && node backend/scripts/test-integrations-settings-sanitize.js"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

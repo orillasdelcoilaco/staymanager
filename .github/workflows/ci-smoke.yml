@@ -1,0 +1,17 @@
+name: CI smoke
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Cadena test:ci (plan release 1.0.0 §2 + regresión)
+        run: npm run test:ci
