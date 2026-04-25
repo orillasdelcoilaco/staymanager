@@ -24,6 +24,7 @@ const { buildImagenesEtiquetadas } = require('./chatgptSalesImagesModule');
 const { buildTarifasDetalladas } = require('./chatgptSalesTarifasModule');
 const { buildPoliticasHorariosIa } = require('./chatgptSalesPoliciesModule');
 const { buildGeoComercialIa } = require('./chatgptSalesGeoModule');
+const { buildFotoPrincipalVentas } = require('./chatgptSalesPrimaryImageModule');
 
 const DESC_MAX_LIST = 420;
 const DESC_MAX_DETAIL = 8000;
@@ -675,10 +676,16 @@ function buildAgentPropertyDetailPayload({
         imagenes,
         empresaConfig,
     });
-    const fotoPrincipal = imagenes_etiquetadas.find((img) => img.principal) || imagenes_etiquetadas[0] || null;
-    const galeria = imagenes_etiquetadas
+    const fotoPrincipal = buildFotoPrincipalVentas(imagenes_etiquetadas, {
+        nombrePropiedad: row.nombre,
+    });
+    const urlsHttps = imagenes_etiquetadas
         .map((img) => img.url)
         .filter((u) => typeof u === 'string' && /^https?:\/\//i.test(u));
+    const principalUrl = fotoPrincipal?.url && /^https?:\/\//i.test(fotoPrincipal.url) ? fotoPrincipal.url : null;
+    const galeria = principalUrl
+        ? [principalUrl, ...urlsHttps.filter((u) => u !== principalUrl)]
+        : urlsHttps;
 
     return {
         success: true,

@@ -5,6 +5,7 @@ const { buildImagenesEtiquetadas } = require('../services/chatgptSalesImagesModu
 const { buildTarifasDetalladas } = require('../services/chatgptSalesTarifasModule');
 const { buildPoliticasHorariosIa } = require('../services/chatgptSalesPoliciesModule');
 const { buildGeoComercialIa } = require('../services/chatgptSalesGeoModule');
+const { buildFotoPrincipalVentas } = require('../services/chatgptSalesPrimaryImageModule');
 
 function run() {
     const meta = {
@@ -30,6 +31,19 @@ function run() {
 
     const imgs = buildImagenesEtiquetadas([{ url: 'https://x/y.jpg', alt: 'Dormitorio principal', principal: true }]);
     assert(imgs[0].tipo, 'tipo imagen requerido');
+
+    const tinajaTipo = buildImagenesEtiquetadas([
+        { url: 'https://x/a.webp', alt: 'Tinaja', espacio: '', tipo_ia: 'tinaja', principal: false },
+    ]);
+    assert(tinajaTipo[0].tipo === 'tinaja', 'tinaja debe inferirse desde alt/tipo_ia');
+
+    const ranked = buildImagenesEtiquetadas([
+        { url: 'https://x/p.webp', alt: 'Estacionamiento', espacio: '', tipo_ia: 'general', principal: true },
+        { url: 'https://x/t.webp', alt: 'Tinaja', espacio: '', tipo_ia: 'tinaja', principal: false },
+    ]);
+    const fp = buildFotoPrincipalVentas(ranked, { nombrePropiedad: 'Cabaña 8' });
+    assert(fp && /tinaja/i.test(fp.alt), 'foto principal debe priorizar tinaja sobre estacionamiento');
+    assert(fp.foto_principal_origen === 'auto_ranking_ventas', 'debe marcar origen auto cuando catálogo es débil');
 
     const tarifas = buildTarifasDetalladas({
         precio: { noche_referencia_clp: 120000, moneda: 'CLP' },

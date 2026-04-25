@@ -4,12 +4,19 @@ function _normText(v) {
 
 function _inferTipo({ espacio, tipoIa, alt }) {
     const hay = `${_normText(espacio)} ${_normText(tipoIa)} ${_normText(alt)}`.toLowerCase();
-    if (/dormitorio|habitaci[oó]n|bedroom/.test(hay)) return 'dormitorio';
-    if (/ba[ñn]o|bathroom/.test(hay)) return 'bano';
-    if (/cocina|kitchen/.test(hay)) return 'cocina';
-    if (/comedor|living|sala|estar/.test(hay)) return 'living_comedor';
-    if (/terraza|exterior|patio|quincho|parrilla/.test(hay)) return 'exterior';
-    if (/vista|rio|lago|bosque|monta/.test(hay)) return 'vista';
+    const ti = String(tipoIa || '').toLowerCase().trim();
+
+    if (ti === 'tinaja' || /tinaja|jacuzzi|hidromasaje|hot\s*tub/i.test(hay)) return 'tinaja';
+    if (ti === 'piscina' || /piscina|pileta|pool|alberca|swimming/i.test(hay)) return 'piscina';
+    if (ti === 'vista' || /vista|mirador|panor[aá]mica|panoramic/i.test(hay)) return 'vista';
+    if (ti === 'parrilla' || ti === 'terraza' || ti === 'exterior' || /quincho|parrilla|bbq|terraza|patio|deck|jard[ií]n|jardin/i.test(hay)) {
+        return 'exterior';
+    }
+    if (ti === 'dormitorio' || /dormitorio|habitaci[oó]n|suite|bedroom|pieza/i.test(hay)) return 'dormitorio';
+    if (ti === 'bano' || /ba[ñn]o|bathroom/i.test(hay)) return 'bano';
+    if (ti === 'cocina' || /cocina|kitchen/i.test(hay)) return 'cocina';
+    if (ti === 'living' || /living|sala|estar|comedor/i.test(hay)) return 'living_comedor';
+    if (/rio|lago|bosque|monta[nñ]a/i.test(hay)) return 'vista';
     return 'general';
 }
 
