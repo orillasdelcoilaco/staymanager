@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SuiteManager Public API for Gemini
-  version: 1.4.5
+  version: 1.4.6
   description: |
     API pública para extensiones Gemini. Listados usan **producto_ia_v2**: precio por tarifas PG, ubicación, amenidades
     (metadata + inventario componentes), políticas mergeadas (empresa + propiedad), alias `precioBase`/`ciudad`/`direccion_corta`.
@@ -21,6 +21,7 @@ info:
     **v1.4.4:** Disponibilidad documenta `endpoints` y `requiere_confirmacion_reserva`.
 
     **v1.4.5:** nuevo `POST /api/reservas/resolve-booking-unit` (y espejo público) para traducir `catalog_id` a `booking_id` antes de reservar.
+    **v1.4.6:** `/ai/buscar-empresa` prioriza empresas listas para venta y expone diagnóstico mínimo de tarifas.
 
 servers:
   - url: https://suite-manager.onrender.com
@@ -48,6 +49,13 @@ paths:
                   success: { type: boolean }
                   empresaId: { type: string, nullable: true }
                   nombre: { type: string }
+                  ready_for_sales: { type: boolean }
+                  diagnostico_tarifas:
+                    type: object
+                    nullable: true
+                    properties:
+                      canal_por_defecto_configurado: { type: boolean }
+                      tarifas_totales: { type: integer }
                   agentContent: { type: string }
 
   /ai/busqueda-general:

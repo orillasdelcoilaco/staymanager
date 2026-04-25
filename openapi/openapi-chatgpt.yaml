@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SuiteManager Public API for ChatGPT
-  version: 1.4.5
+  version: 1.4.6
   description: |
     API pública para Actions. Listados usan **producto_ia_v2**: precio por tarifas PG, ubicación, amenidades
     (metadata + inventario componentes), políticas mergeadas (empresa + propiedad), alias `precioBase`/`ciudad`/`direccion_corta`.
@@ -23,6 +23,7 @@ info:
     **v1.4.4:** `GET /api/disponibilidad` documenta `endpoints` (galería, detalle, `cotizar_reserva_dry_run`) y `requiere_confirmacion_reserva`.
 
     **v1.4.5:** nuevo `POST /api/reservas/resolve-booking-unit` (y espejo `/api/public/reservas/resolve-booking-unit`) para traducir `catalog_id` de catálogo hacia `booking_id` transaccional previo a reservar.
+    **v1.4.6:** `/ai/buscar-empresa` prioriza empresas listas para venta (`ready_for_sales`: canal por defecto + tarifas > 0) y devuelve diagnóstico resumido de tarifas.
 
 servers:
   - url: https://suite-manager.onrender.com
@@ -50,6 +51,13 @@ paths:
                   success: { type: boolean }
                   empresaId: { type: string, nullable: true }
                   nombre: { type: string }
+                  ready_for_sales: { type: boolean }
+                  diagnostico_tarifas:
+                    type: object
+                    nullable: true
+                    properties:
+                      canal_por_defecto_configurado: { type: boolean }
+                      tarifas_totales: { type: integer }
                   agentContent: { type: string }
 
   /ai/busqueda-general:

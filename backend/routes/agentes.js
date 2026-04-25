@@ -32,6 +32,8 @@ router.get("/buscar-empresa", async (req, res) => {
                 success: true,
                 empresaId: found.id,
                 nombre: found.nombre || found.id,
+                ready_for_sales: !!found.ready_for_sales,
+                diagnostico_tarifas: found.diagnostico_tarifas || null,
                 agentContent,
             });
         }
