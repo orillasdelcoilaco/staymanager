@@ -205,6 +205,93 @@ function _politicasPublicas(merged) {
     };
 }
 
+function _buildListingCommercialBlocks({
+    row,
+    meta,
+    amenidades,
+    amenidades_publicas,
+    inventario_detallado,
+    distribucion,
+    mergedRules,
+    contexto_turistico,
+    descripcion,
+}) {
+    const amenidades_estructuradas = buildAmenidadesEstructuradas({
+        row,
+        meta,
+        amenidades,
+        amenidadesPublicas: amenidades_publicas,
+        inventarioDetallado: inventario_detallado,
+        distribucion,
+        mergedRules,
+    });
+    const descripcion_comercial = buildDescripcionComercialIa({
+        row,
+        meta,
+        descripcionBase: descripcion,
+        contextoTuristico: contexto_turistico,
+        amenidadesEstructuradas: amenidades_estructuradas,
+    });
+    return { amenidades_estructuradas, descripcion_comercial };
+}
+
+function _buildDetailCommercialBlocks({
+    row,
+    meta,
+    amenidades,
+    amenidades_publicas,
+    inventario_detallado,
+    distribucion,
+    mergedRules,
+    contexto_turistico,
+    descripcion,
+    precio_estimado,
+    nocheInt,
+    moneda,
+    resumenPrecioEstadia,
+    ubic,
+    imagenes,
+}) {
+    const amenidades_estructuradas = buildAmenidadesEstructuradas({
+        row,
+        meta,
+        amenidades,
+        amenidadesPublicas: amenidades_publicas,
+        inventarioDetallado: inventario_detallado,
+        distribucion,
+        mergedRules,
+    });
+    const descripcion_comercial = buildDescripcionComercialIa({
+        row,
+        meta,
+        descripcionBase: descripcion,
+        contextoTuristico: contexto_turistico,
+        amenidadesEstructuradas: amenidades_estructuradas,
+    });
+    const geo_comercial = buildGeoComercialIa({ ubicacion: ubic, meta });
+    const tarifas_detalladas = buildTarifasDetalladas({
+        precio: {
+            noche_referencia_clp: nocheInt,
+            moneda: moneda || 'CLP',
+            ...(resumenPrecioEstadia ? { por_estadia: resumenPrecioEstadia } : {}),
+        },
+        precioEstimado: precio_estimado,
+    });
+    const politicas_horarios = buildPoliticasHorariosIa({
+        politicas: _politicasPublicas(mergedRules),
+        precioEstimado: precio_estimado,
+    });
+    const imagenes_etiquetadas = buildImagenesEtiquetadas(imagenes);
+    return {
+        amenidades_estructuradas,
+        descripcion_comercial,
+        geo_comercial,
+        tarifas_detalladas,
+        politicas_horarios,
+        imagenes_etiquetadas,
+    };
+}
+
 /**
  * Tarjeta de listado / búsqueda global para agentes.
  * @param {object} row — fila SQL con id, nombre, capacidad, descripcion, metadata, empresa_id, empresa_nombre; opcional empresa_configuracion (jsonb JOIN)
@@ -249,15 +336,6 @@ function buildListingCardForAi(row, ctx) {
     const inventario_detallado = buildInventarioDetallado(meta, inventarioMax);
     const amenidades_publicas = deriveAmenidadesPublicas(amenidades, row.nombre);
     const distribucion = _distribucion(meta);
-    const amenidades_estructuradas = buildAmenidadesEstructuradas({
-        row,
-        meta,
-        amenidades,
-        amenidadesPublicas: amenidades_publicas,
-        inventarioDetallado: inventario_detallado,
-        distribucion,
-        mergedRules: merged,
-    });
     const contexto_turistico = inferContextoTuristico(meta, row, distribucion, amenidades_publicas);
     const resKey = `${empresaId}\0${String(row.id)}`;
     const resSnap = ctx.resenasPromedioByPropiedad?.get(resKey);
@@ -288,12 +366,16 @@ function buildListingCardForAi(row, ctx) {
         });
         descripcion_fuente = 'auto_template';
     }
-    const descripcion_comercial = buildDescripcionComercialIa({
+    const { amenidades_estructuradas, descripcion_comercial } = _buildListingCommercialBlocks({
         row,
         meta,
-        descripcionBase: descripcion,
-        contextoTuristico: contexto_turistico,
-        amenidadesEstructuradas: amenidades_estructuradas,
+        amenidades,
+        amenidades_publicas,
+        inventario_detallado,
+        distribucion,
+        mergedRules: merged,
+        contexto_turistico,
+        descripcion,
     });
     const rulesView = buildHouseRulesPublicView(merged, Number(row.capacidad) || 0);
     const resumenNormas = [rulesView.sumLine1, rulesView.sumLine2, rulesView.sumLine3]
@@ -494,15 +576,6 @@ function buildAgentPropertyDetailPayload({
     const inventario_detallado = buildInventarioDetallado(meta, 60);
     const amenidades_publicas = deriveAmenidadesPublicas(amenidades, row.nombre);
     const distribucion = _distribucion(meta);
-    const amenidades_estructuradas = buildAmenidadesEstructuradas({
-        row,
-        meta,
-        amenidades,
-        amenidadesPublicas: amenidades_publicas,
-        inventarioDetallado: inventario_detallado,
-        distribucion,
-        mergedRules,
-    });
     const contexto_turistico = inferContextoTuristico(meta, row, distribucion, amenidades_publicas);
     let desc = _clip(row.descripcion || meta.websiteData?.description || '', DESC_MAX_DETAIL);
     let descripcion_fuente = desc ? 'meta_o_columna' : null;
@@ -533,7 +606,6 @@ function buildAgentPropertyDetailPayload({
             principal: principalIdx >= 0 && idx === principalIdx,
         };
     });
-    const imagenes_etiquetadas = buildImagenesEtiquetadas(imagenes);
     const inventario = getVerifiedInventory(meta.componentes || []).slice(0, 60);
     const nocheInt = precioNocheReferencia > 0 ? Math.round(precioNocheReferencia) : null;
     const ratingVal = _ratingPublico(meta, resumenResenas);
@@ -545,25 +617,29 @@ function buildAgentPropertyDetailPayload({
         resumenResenas: resumenResenas || { total: 0, promedio_general: null },
     });
     const resumenPrecioEstadia = _precioPorEstadiaResumen(precio_estimado);
-    const descripcion_comercial = buildDescripcionComercialIa({
+    const {
+        amenidades_estructuradas,
+        descripcion_comercial,
+        geo_comercial,
+        tarifas_detalladas,
+        politicas_horarios,
+        imagenes_etiquetadas,
+    } = _buildDetailCommercialBlocks({
         row,
         meta,
-        descripcionBase: desc,
-        contextoTuristico: contexto_turistico,
-        amenidadesEstructuradas: amenidades_estructuradas,
-    });
-    const geo_comercial = buildGeoComercialIa({ ubicacion: ubic, meta });
-    const tarifas_detalladas = buildTarifasDetalladas({
-        precio: {
-            noche_referencia_clp: nocheInt,
-            moneda: moneda || 'CLP',
-            ...(resumenPrecioEstadia ? { por_estadia: resumenPrecioEstadia } : {}),
-        },
-        precioEstimado: precio_estimado,
-    });
-    const politicas_horarios = buildPoliticasHorariosIa({
-        politicas: _politicasPublicas(mergedRules),
-        precioEstimado: precio_estimado,
+        amenidades,
+        amenidades_publicas,
+        inventario_detallado,
+        distribucion,
+        mergedRules,
+        contexto_turistico,
+        descripcion: desc,
+        precio_estimado,
+        nocheInt,
+        moneda,
+        resumenPrecioEstadia,
+        ubic,
+        imagenes,
     });
 
     return {
