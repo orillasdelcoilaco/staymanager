@@ -123,7 +123,14 @@ async function cotizarReservaIaPublica(body) {
         personas,
     });
     if (!unidad.ok && unidad.code === 'PROPERTY_NOT_FOUND') {
-        return { http: 404, body: { success: false, error: 'PROPERTY_NOT_FOUND' } };
+        return {
+            http: 404,
+            body: {
+                success: false,
+                error: 'PROPERTY_NOT_FOUND',
+                catalog_id_candidatos: unidad.catalog_id_candidatos || [],
+            },
+        };
     }
     if (!unidad.ok && unidad.code === 'NO_CAPACITY') {
         return {

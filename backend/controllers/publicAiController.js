@@ -999,6 +999,8 @@ const createPublicReservation = async (req, res) => {
                 success: false,
                 error: 'PROPERTY_NOT_FOUND',
                 message: 'No se encontró una unidad reservable para ese catalog_id en la empresa indicada.',
+                catalog_id_solicitado: propiedadId,
+                catalog_id_candidatos: unidad.catalog_id_candidatos || [],
             });
         }
         if (!unidad.ok && unidad.code === 'NO_CAPACITY') {
