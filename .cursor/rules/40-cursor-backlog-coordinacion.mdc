@@ -1,0 +1,34 @@
+---
+description: Cursor — backlog producto al inicio y coordinación IA venta (no aplica a Claude Code externo)
+alwaysApply: true
+---
+
+# Cursor — Backlog y coordinación (solo agente Cursor en este repo)
+
+Estas instrucciones son para sesiones de trabajo en **Cursor** sobre este repositorio. Otros agentes (p. ej. Claude Code en Antigravity) no dependen de este archivo para su flujo; ellos usan `CLAUDE.md` / instrucciones del usuario.
+
+## 1. Al iniciar una sesión de trabajo relevante
+
+1. **Leer** `TASKS/backlog-producto-pendientes.md` (contexto de hitos, pendientes, pausas y referencias de código). Es la **hoja de ruta de producto** que Cursor debe respetar y mantener.
+2. Si la tarea puede afectar **venta por IA** (API pública, tarifas, precios, reservas IA, OpenAPI ChatGPT): leer también `TASKS/coordinacion-cursor-claude-ia-venta.md` (§2–§3 y bitácora §6).
+
+## 2. Durante y al cerrar trabajo
+
+1. **Seguir actualizando** `TASKS/backlog-producto-pendientes.md` cuando corresponda: marcar entregas, pendientes al retomar, fechas y referencias a archivos, con el mismo estilo y nivel de detalle que ya usa el equipo (tablas, subsecciones, “Hecho / Pendiente”).
+2. No sustituir el backlog por el archivo de coordinación: el backlog define **qué** construye el producto; la coordinación define **avisos cruzados** con Claude Code en la dimensión IA venta.
+3. Tras cambios que impacten a Claude Code en IA venta: dejar handoff en `TASKS/coordinacion-cursor-claude-ia-venta.md` (plantilla §4.1) y, si aplica, una línea en §6.
+
+## 3. Relación entre los dos archivos TASKS
+
+| Archivo | Rol para Cursor |
+|---------|------------------|
+| `TASKS/backlog-producto-pendientes.md` | Fuente prioritaria de contexto y roadmap; actualizar avances y pendientes. |
+| `TASKS/coordinacion-cursor-claude-ia-venta.md` | Doble vía: avisar a Claude Code qué tocas que le afecta; leer qué devuelve Claude para Cursor; no reemplaza al backlog. **§10:** si otro agente puede estar editando el backlog u otro `TASKS/*.md`, revisar §2 y locks §3 antes de escribir. |
+
+## 4. Mismo archivo TASKS que otro agente
+
+Antes de **editar** `TASKS/backlog-producto-pendientes.md` (o el mismo `.md` que otro proceso esté resolviendo): abrir `TASKS/coordinacion-cursor-claude-ia-venta.md` y cumplir **§10** (revisar §2, anunciar `EN CURSO`, cerrar en §6; usar LOCK en §3 si hace falta exclusividad). Si §2 muestra ese archivo **EN CURSO** por otro actor, **no** modificar el markdown hasta coordinar con el usuario.
+
+## 5. Subir mejoras a GitHub sin afectar a otros agentes Cursor
+
+Varios agentes en paralelo: seguir **`TASKS/leer-primero.md` §5** (rama por tarea, `push` frecuente a esa rama, merge a `main` integrando `origin/main`, sin force-push a `main`, worktree o clones separados si comparten máquina). Los merges a `main` no borran commits ya pusheados en otras ramas; el riesgo es trabajo **sin commit/push** en el mismo directorio.
