@@ -14,7 +14,7 @@ const { obtenerValorDolar } = require('../services/dolarService');
 const { obtenerTarifasParaConsumidores } = require('../services/tarifasService');
 const { guardarOActualizarPropuesta } = require('../services/gestionPropuestasService');
 const { crearPreferencia } = require('../services/mercadopagoService');
-const { obtenerPlantillasPorEmpresa, obtenerPlantillasPorDisparadorMotor, procesarPlantilla } = require('../services/plantillasService');
+const { obtenerPlantillasPorEmpresa, obtenerPlantillasPorDisparadorMotor } = require('../services/plantillasService');
 const { format, addDays, parseISO, isValid } = require('date-fns');
 const { crearOActualizarCliente } = require('../services/clientesService');
 const { getProvider } = require('../services/aiContentService.providers');
@@ -29,6 +29,8 @@ const {
     reservasTieneColumna,
 } = require('../services/estadosService');
 const { getBloqueosPorPeriodo } = require('../services/bloqueosService');
+const { enviarConfirmacionReservaIaEmail } = require('../services/chatgptSalesCoreEmailService');
+const { getChatgptReservaGuardDiag } = require('../services/chatgptSalesReservationGuardModule');
 
 const CANAL_IA_VENTA_CREAR_DATOS = {
     nombre: 'ia-reserva',
@@ -883,47 +885,6 @@ const getPropertyImages = async (req, res) => {
     }
 };
 
-const emailService = require('../services/emailService');
-
-function _buildFallbackConfirmEmail({ nombreCliente, nombrePropiedad, checkin, checkout, noches, montoSena, datosBancariosTexto, plazoAbono, empresaNombre }) {
-    const fmt = (v) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(v || 0);
-    const fmtFecha = (s) => new Date(s + 'T00:00:00Z').toLocaleDateString('es-CL', { timeZone: 'UTC', day: '2-digit', month: 'long', year: 'numeric' });
-    const datosHtml = (datosBancariosTexto || '').replace(/\n/g, '<br>');
-
-    return `<!DOCTYPE html>
-<html lang="es">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
-<table width="600" style="background:#fff;border-radius:8px;overflow:hidden;max-width:600px">
-  <tr><td style="background:#1e3a5f;padding:28px 32px;text-align:center">
-    <h1 style="color:#fff;margin:0;font-size:22px">${empresaNombre}</h1>
-    <p style="color:#93c5fd;margin:6px 0 0;font-size:14px">Reserva Confirmada</p>
-  </td></tr>
-  <tr><td style="padding:32px">
-    <p style="font-size:16px;color:#374151">Hola <strong>${nombreCliente}</strong>,</p>
-    <p style="color:#374151">Tu reserva ha sido confirmada. Para asegurarla definitivamente, por favor realiza el abono del 10% dentro del plazo indicado.</p>
-    <table width="100%" style="background:#f0f9ff;border-radius:8px;padding:20px;margin:20px 0;border-collapse:collapse">
-      <tr><td style="padding:6px 0;color:#6b7280;font-size:14px">Alojamiento</td><td style="padding:6px 0;font-weight:bold;color:#111827;text-align:right">${nombrePropiedad}</td></tr>
-      <tr><td style="padding:6px 0;color:#6b7280;font-size:14px">Check-in</td><td style="padding:6px 0;font-weight:bold;color:#111827;text-align:right">${fmtFecha(checkin)}</td></tr>
-      <tr><td style="padding:6px 0;color:#6b7280;font-size:14px">Check-out</td><td style="padding:6px 0;font-weight:bold;color:#111827;text-align:right">${fmtFecha(checkout)}</td></tr>
-      <tr><td style="padding:6px 0;color:#6b7280;font-size:14px">Noches</td><td style="padding:6px 0;font-weight:bold;color:#111827;text-align:right">${noches}</td></tr>
-      <tr><td style="border-top:1px solid #e5e7eb;padding:12px 0 6px;color:#6b7280;font-size:14px">Seña a abonar (10%)</td><td style="border-top:1px solid #e5e7eb;padding:12px 0 6px;font-weight:bold;color:#059669;font-size:18px;text-align:right">${fmt(montoSena)}</td></tr>
-    </table>
-    ${datosBancariosTexto ? `<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:16px;margin:20px 0"><p style="margin:0 0 8px;font-weight:bold;color:#166534">Datos para transferencia:</p><p style="margin:0;color:#15803d;font-size:14px">${datosHtml}</p></div>` : ''}
-    <div style="background:#fef3c7;border-radius:8px;padding:16px;margin:20px 0">
-      <p style="margin:0;color:#92400e;font-size:14px">⏰ <strong>Plazo de abono: ${plazoAbono}</strong><br>Si no se recibe el pago en ese plazo, la reserva se anulará automáticamente.</p>
-    </div>
-    <p style="color:#6b7280;font-size:13px">Si tienes dudas, responde este correo o contáctanos directamente.</p>
-  </td></tr>
-  <tr><td style="background:#f9fafb;padding:16px 32px;text-align:center">
-    <p style="margin:0;color:#9ca3af;font-size:12px">${empresaNombre} · Reserva gestionada por SuiteManager</p>
-  </td></tr>
-</table>
-</td></tr></table>
-</body></html>`;
-}
-
 const createPublicReservation = async (req, res) => {
     try {
         const body = req.body || {};
@@ -1167,6 +1128,7 @@ const createPublicReservation = async (req, res) => {
 
         const hasEstadoPrincipalId = await reservasTieneColumna('estado_principal_id');
         const hasEstadoGestionId = await reservasTieneColumna('estado_gestion_id');
+        const reserva_guard_diag = await getChatgptReservaGuardDiag();
 
         const cols = [
             'empresa_id',
@@ -1273,25 +1235,32 @@ const createPublicReservation = async (req, res) => {
         };
 
         const plantillaEmail = await resolverPlantillaCorreoPreferida(dbFs, empresaId);
+        const resultadoEmail = await enviarConfirmacionReservaIaEmail({
+            db: dbFs,
+            empresaId,
+            clienteEmail: cliente.email,
+            plantillaId: plantillaEmail?.id || null,
+            plantillasDatos,
+            fallbackData: {
+                nombreCliente,
+                nombrePropiedad: propiedadNombre,
+                checkin: fechaInicio,
+                checkout: fechaFin,
+                noches: precioCalc?.nights || nightsFromDates,
+                montoSena: senaPagar,
+                datosBancariosTexto,
+                plazoAbono: plazoAbonoTexto,
+                empresaNombre,
+            },
+        });
 
-        if (plantillaEmail) {
-            const { contenido, asunto } = await procesarPlantilla(dbFs, empresaId, plantillaEmail.id, plantillasDatos);
-            emailService.enviarCorreo(dbFs, { to: cliente.email, subject: asunto, html: contenido, empresaId }).catch(err => console.warn(`[Reserva IA] Email plantilla fallido: ${err.message}`));
-        } else {
-            emailService.enviarCorreo(dbFs, {
-                to: cliente.email,
-                subject: `Tu reserva en ${propiedadNombre} está confirmada`,
-                html: _buildFallbackConfirmEmail({
-                    nombreCliente: nombreCliente,
-            nombrePropiedad: propiedadNombre,
-                    checkin: fechaInicio, checkout: fechaFin, noches: precioCalc?.nights || nightsFromDates,
-                    montoSena: senaPagar, datosBancariosTexto, plazoAbono: plazoAbonoTexto, empresaNombre
-                }),
-                empresaId
-            }).catch(err => console.warn(`[Reserva IA] Email fallback fallido: ${err.message}`));
+        if (!resultadoEmail.sent) {
+            console.warn(`[Reserva IA] Email NO enviado: ${resultadoEmail.reason || 'sin-detalle'}`);
         }
 
-        console.log(`✅ [Reserva IA] ${reservaId} — ${propiedadNombre} ${fechaInicio}→${fechaFin} | email→${cliente.email} | vence: ${plazoAbonoTexto}`);
+        console.log(
+            `✅ [Reserva IA] ${reservaId} — ${propiedadNombre} ${fechaInicio}→${fechaFin} | email→${cliente.email} sent=${resultadoEmail.sent} | vence: ${plazoAbonoTexto}`
+        );
 
         return res.status(201).json({
             success: true,
@@ -1305,10 +1274,15 @@ const createPublicReservation = async (req, res) => {
                 total_noches: precioCalc.nights,
                 fecha_creacion: new Date().toISOString()
             },
-            email_enviado: cliente.email,
+            email_enviado: Boolean(resultadoEmail.sent),
+            email_destinatario: cliente.email,
+            ...(resultadoEmail.sent ? {} : { email_error: resultadoEmail.reason || 'EMAIL_NOT_SENT' }),
+            reserva_guard_diag,
             sugerencia_previa:
                 'Opcional: antes de confirmar, POST /api/reservas/cotizar o POST /api/public/reservas/cotizar (mismos datos y cabeceras que la reserva) devuelve desglose económico y política de cancelación sin persistir.',
-            mensaje: `Reserva confirmada. Se envió un correo a ${cliente.email} con los detalles y los datos para la transferencia. El huésped tiene 48 horas (hasta el ${plazoAbonoTexto}) para abonar el 10% de seña (${fmtCLP(senaPagar)}). Si no se recibe el pago, la reserva se anulará automáticamente.`
+            mensaje: resultadoEmail.sent
+                ? `Reserva confirmada. Se envió un correo a ${cliente.email} con los detalles y los datos para la transferencia. El huésped tiene 48 horas (hasta el ${plazoAbonoTexto}) para abonar el 10% de seña (${fmtCLP(senaPagar)}). Si no se recibe el pago, la reserva se anulará automáticamente.`
+                : `Reserva confirmada, pero no se pudo enviar el correo a ${cliente.email}. Error: ${resultadoEmail.reason || 'EMAIL_NOT_SENT'}. El huésped tiene 48 horas (hasta el ${plazoAbonoTexto}) para abonar el 10% de seña (${fmtCLP(senaPagar)}).`,
         });
 
     } catch (error) {

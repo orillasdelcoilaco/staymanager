@@ -18,6 +18,12 @@ const {
     mapEspacioToTipoIa,
 } = require('./publicAiMarketingLayer');
 const { obtenerPromedioResenasBatchPorPropiedades } = require('./resenasService');
+const { buildAmenidadesEstructuradas } = require('./chatgptSalesAmenidadesModule');
+const { buildDescripcionComercialIa } = require('./chatgptSalesDescriptionModule');
+const { buildImagenesEtiquetadas } = require('./chatgptSalesImagesModule');
+const { buildTarifasDetalladas } = require('./chatgptSalesTarifasModule');
+const { buildPoliticasHorariosIa } = require('./chatgptSalesPoliciesModule');
+const { buildGeoComercialIa } = require('./chatgptSalesGeoModule');
 
 const DESC_MAX_LIST = 420;
 const DESC_MAX_DETAIL = 8000;
@@ -243,6 +249,15 @@ function buildListingCardForAi(row, ctx) {
     const inventario_detallado = buildInventarioDetallado(meta, inventarioMax);
     const amenidades_publicas = deriveAmenidadesPublicas(amenidades, row.nombre);
     const distribucion = _distribucion(meta);
+    const amenidades_estructuradas = buildAmenidadesEstructuradas({
+        row,
+        meta,
+        amenidades,
+        amenidadesPublicas: amenidades_publicas,
+        inventarioDetallado: inventario_detallado,
+        distribucion,
+        mergedRules: merged,
+    });
     const contexto_turistico = inferContextoTuristico(meta, row, distribucion, amenidades_publicas);
     const resKey = `${empresaId}\0${String(row.id)}`;
     const resSnap = ctx.resenasPromedioByPropiedad?.get(resKey);
@@ -273,6 +288,13 @@ function buildListingCardForAi(row, ctx) {
         });
         descripcion_fuente = 'auto_template';
     }
+    const descripcion_comercial = buildDescripcionComercialIa({
+        row,
+        meta,
+        descripcionBase: descripcion,
+        contextoTuristico: contexto_turistico,
+        amenidadesEstructuradas: amenidades_estructuradas,
+    });
     const rulesView = buildHouseRulesPublicView(merged, Number(row.capacidad) || 0);
     const resumenNormas = [rulesView.sumLine1, rulesView.sumLine2, rulesView.sumLine3]
         .filter(Boolean)
@@ -297,8 +319,10 @@ function buildListingCardForAi(row, ctx) {
         },
         ubicacion: ubic,
         descripcion,
+        descripcion_comercial,
         descripcion_fuente,
         amenidades,
+        amenidades_estructuradas,
         amenidades_publicas,
         inventario_detallado,
         contexto_turistico,
@@ -470,6 +494,15 @@ function buildAgentPropertyDetailPayload({
     const inventario_detallado = buildInventarioDetallado(meta, 60);
     const amenidades_publicas = deriveAmenidadesPublicas(amenidades, row.nombre);
     const distribucion = _distribucion(meta);
+    const amenidades_estructuradas = buildAmenidadesEstructuradas({
+        row,
+        meta,
+        amenidades,
+        amenidadesPublicas: amenidades_publicas,
+        inventarioDetallado: inventario_detallado,
+        distribucion,
+        mergedRules,
+    });
     const contexto_turistico = inferContextoTuristico(meta, row, distribucion, amenidades_publicas);
     let desc = _clip(row.descripcion || meta.websiteData?.description || '', DESC_MAX_DETAIL);
     let descripcion_fuente = desc ? 'meta_o_columna' : null;
@@ -500,6 +533,7 @@ function buildAgentPropertyDetailPayload({
             principal: principalIdx >= 0 && idx === principalIdx,
         };
     });
+    const imagenes_etiquetadas = buildImagenesEtiquetadas(imagenes);
     const inventario = getVerifiedInventory(meta.componentes || []).slice(0, 60);
     const nocheInt = precioNocheReferencia > 0 ? Math.round(precioNocheReferencia) : null;
     const ratingVal = _ratingPublico(meta, resumenResenas);
@@ -511,6 +545,26 @@ function buildAgentPropertyDetailPayload({
         resumenResenas: resumenResenas || { total: 0, promedio_general: null },
     });
     const resumenPrecioEstadia = _precioPorEstadiaResumen(precio_estimado);
+    const descripcion_comercial = buildDescripcionComercialIa({
+        row,
+        meta,
+        descripcionBase: desc,
+        contextoTuristico: contexto_turistico,
+        amenidadesEstructuradas: amenidades_estructuradas,
+    });
+    const geo_comercial = buildGeoComercialIa({ ubicacion: ubic, meta });
+    const tarifas_detalladas = buildTarifasDetalladas({
+        precio: {
+            noche_referencia_clp: nocheInt,
+            moneda: moneda || 'CLP',
+            ...(resumenPrecioEstadia ? { por_estadia: resumenPrecioEstadia } : {}),
+        },
+        precioEstimado: precio_estimado,
+    });
+    const politicas_horarios = buildPoliticasHorariosIa({
+        politicas: _politicasPublicas(mergedRules),
+        precioEstimado: precio_estimado,
+    });
 
     return {
         success: true,
@@ -518,6 +572,7 @@ function buildAgentPropertyDetailPayload({
         nombre: row.nombre,
         capacidad: Number(row.capacidad) || 0,
         descripcion: desc,
+        descripcion_comercial,
         descripcion_fuente,
         empresa: { id: String(row.empresa_id), nombre: row.empresa_nombre || '' },
         precio: {
@@ -528,6 +583,7 @@ function buildAgentPropertyDetailPayload({
         },
         ubicacion: ubic,
         amenidades,
+        amenidades_estructuradas,
         amenidades_publicas,
         inventario_detallado,
         distribucion,
@@ -535,11 +591,13 @@ function buildAgentPropertyDetailPayload({
         contexto_turistico,
         senales_ranking_ia,
         politicas: _politicasPublicas(mergedRules),
+        politicas_horarios,
         normas: {
             resumen_lineas: [rulesView.sumLine1, rulesView.sumLine2, rulesView.sumLine3].filter(Boolean),
             secciones: rulesView.secciones || [],
         },
         imagenes,
+        imagenes_etiquetadas,
         resenas: resumenResenas || { total: 0, promedio_general: null },
         listada_web: !!(meta.googleHotelData && meta.googleHotelData.isListed),
         payload_version: 'producto_ia_v2',
@@ -551,6 +609,8 @@ function buildAgentPropertyDetailPayload({
         rating_fuente: rating_fuente || null,
         ...(precio_estimado != null ? { precio_estimado } : {}),
         ...(aviso_precio_estimado != null ? { aviso_precio_estimado } : {}),
+        geo_comercial,
+        tarifas_detalladas,
         booking_workflow: buildBookingWorkflowForIaDetallePg({
             empresaId: row.empresa_id,
             alojamientoId: row.id,
