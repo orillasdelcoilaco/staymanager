@@ -32,6 +32,11 @@ const {
     enviarNotificacionAdminReservaIaEmail,
 } = require('../services/chatgptSalesCoreEmailService');
 const { getChatgptReservaGuardDiag } = require('../services/chatgptSalesReservationGuardModule');
+const {
+    isPublicAiSanitizeResponses,
+    maybeSanitizePublicAiResponse,
+    publicAiGenericInternalErrorBody,
+} = require('../services/publicAiPublicModeSanitize');
 
 const CANAL_IA_VENTA_CREAR_DATOS = {
     nombre: 'ia-reserva',
@@ -70,14 +75,14 @@ const sanitizeProperty = (property) => {
  * @returns {Object} - The formatted response.
  */
 const formatResponse = (data) => {
-    return {
+    return maybeSanitizePublicAiResponse({
         meta: {
             generated_at: new Date().toISOString(),
             api_version: "v1-public-ai",
-            ai_verification_mode: true
+            ai_verification_mode: true,
         },
-        data: data
-    };
+        data,
+    });
 };
 
 // Helper para encontrar propiedad con estrategia híbrida (Escalabilidad + Robustez)
@@ -299,6 +304,9 @@ const getProperties = async (req, res) => {
 
     } catch (error) {
         console.error('Error in getProperties:', error);
+        if (isPublicAiSanitizeResponses()) {
+            return res.status(500).json(publicAiGenericInternalErrorBody());
+        }
         res.status(500).json({ error: 'Internal Server Error', details: error.message });
     }
 };
@@ -311,15 +319,17 @@ const getPropertyDetail = async (req, res) => {
         const propertyDoc = await findPropertyById(db, id);
 
         if (!propertyDoc || !propertyDoc.exists) {
-            // DEBUG: Diagnóstico de fallo en búsqueda
+            if (isPublicAiSanitizeResponses()) {
+                return res.status(404).json({ error: 'Property not found' });
+            }
             const empresasCount = (await db.collection('empresas').get()).size;
             return res.status(404).json({
-                error: "Property not found",
+                error: 'Property not found',
                 debug: {
                     searchedId: id,
                     companiesChecked: empresasCount,
-                    message: "Fallback search failed to find document in any company."
-                }
+                    message: 'Fallback search failed to find document in any company.',
+                },
             });
         }
 
@@ -608,7 +618,11 @@ const createBookingIntent = async (req, res) => {
 
     } catch (error) {
         console.error("Error in createBookingIntent:", error);
-        res.status(500).json({ error: error.message || "Internal Server Error" });
+        if (isPublicAiSanitizeResponses()) {
+            res.status(500).json(publicAiGenericInternalErrorBody());
+        } else {
+            res.status(500).json({ error: error.message || 'Internal Server Error' });
+        }
     }
 };
 
@@ -729,7 +743,11 @@ const quotePriceForDates = async (req, res) => {
 
     } catch (error) {
         console.error('Error in quotePriceForDates:', error);
-        res.status(500).json({ error: 'Internal Server Error', message: error.message });
+        if (isPublicAiSanitizeResponses()) {
+            res.status(500).json(publicAiGenericInternalErrorBody());
+        } else {
+            res.status(500).json({ error: 'Internal Server Error', message: error.message });
+        }
     }
 };
 
@@ -995,13 +1013,15 @@ const createPublicReservation = async (req, res) => {
             personas,
         });
         if (!unidad.ok && unidad.code === 'PROPERTY_NOT_FOUND') {
-            return res.status(404).json({
-                success: false,
-                error: 'PROPERTY_NOT_FOUND',
-                message: 'No se encontró una unidad reservable para ese catalog_id en la empresa indicada.',
-                catalog_id_solicitado: propiedadId,
-                catalog_id_candidatos: unidad.catalog_id_candidatos || [],
-            });
+            return res.status(404).json(
+                maybeSanitizePublicAiResponse({
+                    success: false,
+                    error: 'PROPERTY_NOT_FOUND',
+                    message: 'No se encontró una unidad reservable para ese catalog_id en la empresa indicada.',
+                    catalog_id_solicitado: propiedadId,
+                    catalog_id_candidatos: unidad.catalog_id_candidatos || [],
+                })
+            );
         }
         if (!unidad.ok && unidad.code === 'NO_CAPACITY') {
             return res.status(422).json({
@@ -1267,40 +1287,49 @@ const createPublicReservation = async (req, res) => {
             `✅ [Reserva IA] ${reservaId} — ${propiedadNombre} ${fechaInicio}→${fechaFin} | email→${cliente.email} sent=${resultadoEmail.sent} | vence: ${plazoAbonoTexto}`
         );
 
-        return res.status(201).json({
-            success: true,
-            reserva: {
-                id: reservaId,
-                estado: 'Confirmada',
-                checkin: fechaInicio,
-                checkout: fechaFin,
-                alojamiento: { id: propiedadId, nombre: propiedadNombre },
-                huesped: { nombre: nombreCliente },
-                total_noches: precioCalc.nights,
-                fecha_creacion: new Date().toISOString()
-            },
-            email_enviado: Boolean(resultadoEmail.sent),
-            email_destinatario: cliente.email,
-            ...(resultadoEmail.sent ? {} : { email_error: resultadoEmail.reason || 'EMAIL_NOT_SENT' }),
-            email_template_disparador: resultadoEmail.templateTrigger || 'reserva_confirmada',
-            email_template_id: resultadoEmail.templateId || null,
-            email_template_nombre: resultadoEmail.templateName || null,
-            email_admin_enviado: Boolean(resultadoEmailAdmin.sent),
-            email_admin_destinatario: adminEmail || null,
-            ...(resultadoEmailAdmin.sent ? {} : { email_admin_error: resultadoEmailAdmin.reason || 'ADMIN_EMAIL_NOT_SENT' }),
-            email_admin_template_disparador: resultadoEmailAdmin.templateTrigger || 'notificacion_interna',
-            email_admin_template_id: resultadoEmailAdmin.templateId || null,
-            email_admin_template_nombre: resultadoEmailAdmin.templateName || null,
-            reserva_guard_diag,
-            sugerencia_previa:
-                'Opcional: antes de confirmar, POST /api/reservas/cotizar o POST /api/public/reservas/cotizar (mismos datos y cabeceras que la reserva) devuelve desglose económico y política de cancelación sin persistir.',
-            mensaje: resultadoEmail.sent
-                ? `Reserva confirmada. Se envió un correo a ${cliente.email} con los detalles y los datos para la transferencia. El huésped tiene 48 horas (hasta el ${plazoAbonoTexto}) para abonar el 10% de seña (${fmtCLP(senaPagar)}). Si no se recibe el pago, la reserva se anulará automáticamente.`
-                : `Reserva confirmada, pero no se pudo enviar el correo a ${cliente.email}. Error: ${resultadoEmail.reason || 'EMAIL_NOT_SENT'}. El huésped tiene 48 horas (hasta el ${plazoAbonoTexto}) para abonar el 10% de seña (${fmtCLP(senaPagar)}).`,
-        });
+        const mensajeReserva = resultadoEmail.sent
+            ? `Reserva confirmada. Se envió un correo a ${cliente.email} con los detalles y los datos para la transferencia. El huésped tiene 48 horas (hasta el ${plazoAbonoTexto}) para abonar el 10% de seña (${fmtCLP(senaPagar)}). Si no se recibe el pago, la reserva se anulará automáticamente.`
+            : isPublicAiSanitizeResponses()
+                ? `Reserva confirmada. Si no recibes el correo de confirmación, contacta al alojamiento. Tienes hasta el ${plazoAbonoTexto} para abonar la seña (${fmtCLP(senaPagar)}).`
+                : `Reserva confirmada, pero no se pudo enviar el correo a ${cliente.email}. Error: ${resultadoEmail.reason || 'EMAIL_NOT_SENT'}. El huésped tiene 48 horas (hasta el ${plazoAbonoTexto}) para abonar el 10% de seña (${fmtCLP(senaPagar)}).`;
+
+        return res.status(201).json(
+            maybeSanitizePublicAiResponse({
+                success: true,
+                reserva: {
+                    id: reservaId,
+                    estado: 'Confirmada',
+                    checkin: fechaInicio,
+                    checkout: fechaFin,
+                    alojamiento: { id: propiedadId, nombre: propiedadNombre },
+                    huesped: { nombre: nombreCliente },
+                    total_noches: precioCalc.nights,
+                    fecha_creacion: new Date().toISOString(),
+                },
+                email_enviado: Boolean(resultadoEmail.sent),
+                email_destinatario: cliente.email,
+                ...(resultadoEmail.sent ? {} : { email_error: resultadoEmail.reason || 'EMAIL_NOT_SENT' }),
+                email_template_disparador: resultadoEmail.templateTrigger || 'reserva_confirmada',
+                email_template_id: resultadoEmail.templateId || null,
+                email_template_nombre: resultadoEmail.templateName || null,
+                email_admin_enviado: Boolean(resultadoEmailAdmin.sent),
+                email_admin_destinatario: adminEmail || null,
+                ...(resultadoEmailAdmin.sent ? {} : { email_admin_error: resultadoEmailAdmin.reason || 'ADMIN_EMAIL_NOT_SENT' }),
+                email_admin_template_disparador: resultadoEmailAdmin.templateTrigger || 'notificacion_interna',
+                email_admin_template_id: resultadoEmailAdmin.templateId || null,
+                email_admin_template_nombre: resultadoEmailAdmin.templateName || null,
+                reserva_guard_diag,
+                sugerencia_previa:
+                    'Opcional: antes de confirmar, POST /api/reservas/cotizar o POST /api/public/reservas/cotizar (mismos datos y cabeceras que la reserva) devuelve desglose económico y política de cancelación sin persistir.',
+                mensaje: mensajeReserva,
+            })
+        );
 
     } catch (error) {
         console.error('Error in createPublicReservation:', error.message);
+        if (isPublicAiSanitizeResponses()) {
+            return res.status(500).json(publicAiGenericInternalErrorBody());
+        }
         return res.status(500).json({ success: false, error: 'INTERNAL_ERROR', message: error.message });
     }
 };
@@ -1324,18 +1353,23 @@ const getVersion = async (req, res) => {
         const empresasSnap = await db.collection('empresas').get();
         const empresasIds = empresasSnap.docs.map(d => d.id);
 
-        res.json({
-            version: '1.0.3-env-check',
-            commit: 'env-check',
-            timestamp: new Date().toISOString(),
-            environment: process.env.NODE_ENV,
-            firebase: {
-                projectId: require('firebase-admin').app().options.projectId || 'unknown',
-                companiesFound: empresasSnap.size,
-                companiesIds: empresasIds
-            }
-        });
+        res.json(
+            maybeSanitizePublicAiResponse({
+                version: '1.0.3-env-check',
+                commit: 'env-check',
+                timestamp: new Date().toISOString(),
+                environment: process.env.NODE_ENV,
+                firebase: {
+                    projectId: require('firebase-admin').app().options.projectId || 'unknown',
+                    companiesFound: empresasSnap.size,
+                    companiesIds: empresasIds,
+                },
+            })
+        );
     } catch (error) {
+        if (isPublicAiSanitizeResponses()) {
+            return res.status(500).json(publicAiGenericInternalErrorBody());
+        }
         res.status(500).json({ error: error.message });
     }
 };
@@ -1389,7 +1423,11 @@ const recalculatePhotos = async (req, res) => {
 
     } catch (error) {
         console.error('[AI] Error recalculando fotos:', error);
-        res.status(500).json({ error: error.message });
+        if (isPublicAiSanitizeResponses()) {
+            res.status(500).json(publicAiGenericInternalErrorBody());
+        } else {
+            res.status(500).json({ error: error.message });
+        }
     }
 };
 

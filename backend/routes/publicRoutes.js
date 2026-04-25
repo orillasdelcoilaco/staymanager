@@ -107,8 +107,9 @@ module.exports = (db) => {
         async (req, res) => {
             try {
                 const { cotizarReservaIaPublica } = require('../services/publicAiReservaCotizacionService');
+                const { maybeSanitizePublicAiResponse } = require('../services/publicAiPublicModeSanitize');
                 const result = await cotizarReservaIaPublica(req.body || {});
-                return res.status(result.http).json(result.body);
+                return res.status(result.http).json(maybeSanitizePublicAiResponse(result.body));
             } catch (e) {
                 console.error('[public reservas/cotizar]', e.message);
                 return res.status(500).json({ success: false, error: 'INTERNAL_ERROR' });

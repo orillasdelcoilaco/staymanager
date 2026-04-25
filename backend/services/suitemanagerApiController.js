@@ -232,8 +232,9 @@ exports.cotizarReserva = async (req, res) => {
             req.body.empresa_id = await resolveEmpresaPgId(req.body.empresa_id);
         }
         const { cotizarReservaIaPublica } = require('./publicAiReservaCotizacionService');
+        const { maybeSanitizePublicAiResponse } = require('./publicAiPublicModeSanitize');
         const result = await cotizarReservaIaPublica(req.body || {});
-        return res.status(result.http).json(result.body);
+        return res.status(result.http).json(maybeSanitizePublicAiResponse(result.body));
     } catch (error) {
         console.error('[cotizarReserva]', error.message);
         return res.status(500).json({ success: false, error: 'INTERNAL_ERROR' });
@@ -252,6 +253,7 @@ exports.crearReserva = async (req, res) => {
 
 exports.resolveBookingUnit = async (req, res) => {
     try {
+        const { maybeSanitizePublicAiResponse } = require('./publicAiPublicModeSanitize');
         if (!pool) {
             return res.status(503).json({ success: false, error: 'SERVICE_UNAVAILABLE', message: 'PostgreSQL requerido.' });
         }
@@ -287,7 +289,9 @@ exports.resolveBookingUnit = async (req, res) => {
 
         if (!resolved.ok) {
             const status = resolved.code === 'PROPERTY_NOT_FOUND' ? 404 : 422;
-            return res.status(status).json({ success: false, error: resolved.code, ...resolved });
+            return res.status(status).json(
+                maybeSanitizePublicAiResponse({ success: false, error: resolved.code, ...resolved })
+            );
         }
         return res.json({
             success: true,
