@@ -1,6 +1,5 @@
 const pool = require('../db/postgres');
 const { parseISO, isValid } = require('date-fns');
-const { getAvailabilityData } = require('./publicWebsiteService');
 const { resolveEmpresaDbId } = require('./resolveEmpresaDbId');
 const { fetchTarifasYCanal } = require('../routes/website.shared');
 const { mergeEffectiveRules } = require('./houseRulesService');
@@ -15,8 +14,44 @@ const {
     parseStayDatesForAgentDetalle,
     buildPrecioEstimadoDetallePublico,
 } = require('./publicAiPrecioEstimadoService');
+const { buildDisponibilidadAgentResponse } = require('./publicAiDisponibilidadService');
 
 const resolveEmpresaPgId = resolveEmpresaDbId;
+
+function _cardMatchesAnyVibe(card, vibes) {
+    const chunks = [
+        card.nombre,
+        card.descripcion,
+        ...(card.amenidades_publicas || []),
+        ...(card.contexto_turistico?.tipo_viaje || []),
+        ...(card.contexto_turistico?.entorno || []),
+        ...(card.contexto_turistico?.destacados || []),
+        ...(card.amenidades || []).slice(0, 40),
+    ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+    return vibes.some((v) => {
+        const needle = v.replace(/_/g, ' ');
+        if (chunks.includes(v) || chunks.includes(needle)) return true;
+        if (v === 'naturaleza' && /bosque|naturaleza|montaña|montana|lago|río|rio|sendero|volcán|volcan/.test(chunks))
+            return true;
+        if (v === 'wifi' && /wifi|wi-?fi|internet/.test(chunks)) return true;
+        if (v === 'tinaja' && /tinaja|hidromasaje|jacuzzi|hot\s*tub/.test(chunks)) return true;
+        if ((v === 'rio' || v === 'río') && /río|rio|fluvial|ribereñ|river/.test(chunks)) return true;
+        if (v === 'mascotas' && /mascota|pet/.test(chunks)) return true;
+        return chunks.includes(needle.replace(/-/g, ' '));
+    });
+}
+
+function _filtrarResultadosPorVibes(resultados, vibeRaw) {
+    const vibes = String(vibeRaw || '')
+        .split(/[,+]/)
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean);
+    if (!vibes.length) return resultados;
+    return resultados.filter((card) => _cardMatchesAnyVibe(card, vibes));
+}
 
 exports.disponibilidad = async (req, res) => {
     try {
@@ -28,6 +63,7 @@ exports.disponibilidad = async (req, res) => {
         if (!empresaIdRaw || !checkin || !checkout) {
             return res.status(400).json({ error: 'Requeridos: empresa_id, checkin, checkout' });
         }
+        if (!pool) return res.status(503).json({ error: 'PostgreSQL requerido para disponibilidad enriquecida' });
 
         const inicio = parseISO(checkin + 'T00:00:00Z');
         const fin    = parseISO(checkout + 'T00:00:00Z');
@@ -37,24 +73,16 @@ exports.disponibilidad = async (req, res) => {
 
         const empresaId = await resolveEmpresaPgId(empresaIdRaw);
 
-        const db = require('firebase-admin').firestore();
-        const { availableProperties, unavailableProperties } = await getAvailabilityData(db, empresaId, inicio, fin);
-
-        let disponibles = availableProperties;
-        if (personas > 0) disponibles = disponibles.filter(p => (p.capacidad || 0) >= personas);
-
-        return res.json({
-            success: true,
-            empresa_id: empresaIdRaw,
+        const payload = await buildDisponibilidadAgentResponse({
+            empresaIdRaw,
+            empresaId,
             checkin,
             checkout,
-            total: availableProperties.length + (unavailableProperties || []).length,
-            disponibles: disponibles.length,
-            alojamientos: [
-                ...disponibles.map(p => ({ id: p.id, nombre: p.nombre, disponible: true, capacidad: p.capacidad || 0 })),
-                ...(unavailableProperties || []).map(p => ({ id: p.id, nombre: p.nombre, disponible: false, capacidad: p.capacidad || 0 }))
-            ]
+            personas,
+            inicio,
+            fin,
         });
+        return res.json(payload);
     } catch (error) {
         console.error('[disponibilidad]', error.stack || error.message);
         return res.status(500).json({ error: 'Error al consultar disponibilidad' });
@@ -239,19 +267,22 @@ exports.busquedaGeneral = async (req, res) => {
             req.query.compact !== '0' &&
             req.query.compact !== 'false' &&
             String(req.query.compact).toLowerCase() !== 'full';
-        const resultados = await enrichPropertyRowsForPublicAi(rows, { compact });
+        let resultados = await enrichPropertyRowsForPublicAi(rows, { compact });
+        const vibeRaw = req.query.vibe || req.query.vibes || '';
+        resultados = _filtrarResultadosPorVibes(resultados, vibeRaw);
 
         return res.json({
             success: true,
             total: resultados.length,
             resultados,
-                meta: {
+            meta: {
                 limit,
                 compact,
                 payload: 'producto_ia_v2',
                 checkin: checkin || null,
                 checkout: checkout || null,
                 personas,
+                vibe: String(vibeRaw || '').trim() || null,
             },
         });
     } catch (error) {

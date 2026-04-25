@@ -45,7 +45,7 @@ paths:
       operationId: busquedaGeneralGemini
       summary: Búsqueda global en PostgreSQL (mismo enriquecimiento que listado público v2).
       description: |
-        Devuelve `resultados[]` con **producto_ia_v2**. Query `compact=0` o `compact=full` amplía descripción y amenidades.
+        Devuelve `resultados[]` con **producto_ia_v2**. Opcional `vibe` / `vibes` (coma o +) filtra por amenidades/entorno.
       parameters:
         - in: query
           name: q
@@ -72,6 +72,9 @@ paths:
           name: compact
           description: "0 o full = payload menos recortado (más texto y amenidades)."
           schema: { type: string, default: "1" }
+        - in: query
+          name: vibe
+          schema: { type: string }
       responses:
         "200":
           description: Lista enriquecida (producto_ia_v2)
@@ -166,7 +169,10 @@ paths:
   /api/disponibilidad:
     get:
       operationId: consultarDisponibilidad
-      summary: Consulta disponibilidad por empresa
+      summary: Disponibilidad enriquecida (fotos, precio por estadía, restricciones, motivos).
+      description: |
+        Payload `disponibilidad_ia_v1`: `consulta_valida`, `motivo_consulta`, `reglas_estadia`, alojamientos con `foto_url`,
+        `precio_total_estadia_clp` si aplica, `motivo_no_disponible` si no.
       parameters:
         - in: query
           name: empresa_id
@@ -184,23 +190,19 @@ paths:
           schema: { type: integer }
       responses:
         "200":
-          description: Alojamientos con bandera disponible
+          description: disponibilidad_ia_v1
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   success: { type: boolean }
+                  payload_version: { type: string }
+                  consulta_valida: { type: boolean }
                   disponibles: { type: integer }
                   alojamientos:
                     type: array
-                    items:
-                      type: object
-                      properties:
-                        id: { type: string }
-                        nombre: { type: string }
-                        disponible: { type: boolean }
-                        capacidad: { type: integer }
+                    items: { type: object }
 
   /api/alojamientos/detalle:
     get:
@@ -577,6 +579,7 @@ components:
                   type: array
                   items: { type: string }
                 mensaje: { type: string }
+            requiere_confirmacion_final: { type: boolean }
 
     BusquedaGeneralAiResponse:
       type: object
@@ -593,6 +596,7 @@ components:
             limit: { type: integer }
             compact: { type: boolean }
             payload: { type: string, example: producto_ia_v2 }
+            vibe: { type: string, nullable: true }
 
     PublicAiListInnerMeta:
       type: object

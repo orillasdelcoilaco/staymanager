@@ -48,6 +48,7 @@ paths:
       summary: Búsqueda global en PostgreSQL (mismo enriquecimiento que listado público v2).
       description: |
         Devuelve `resultados[]` con **producto_ia_v2**. Query `compact=0` o `compact=full` amplía descripción y amenidades.
+        Opcional **`vibe`** o **`vibes`**: lista separada por coma o `+` (ej. `tinaja,naturaleza,wifi`) filtra por texto en amenidades públicas, entorno turístico y nombre.
       parameters:
         - in: query
           name: q
@@ -74,6 +75,10 @@ paths:
           name: compact
           description: "0 o full = payload menos recortado (más texto y amenidades)."
           schema: { type: string, default: "1" }
+        - in: query
+          name: vibe
+          description: Filtro semántico (coma o +); alias `vibes`.
+          schema: { type: string }
       responses:
         "200":
           description: Lista enriquecida (producto_ia_v2)
@@ -168,7 +173,13 @@ paths:
   /api/disponibilidad:
     get:
       operationId: consultarDisponibilidad
-      summary: Consulta disponibilidad por empresa
+      summary: Disponibilidad enriquecida por empresa (fotos reales, precio total por estadía, restricciones y motivos).
+      description: |
+        Incluye `consulta_valida` y `motivo_consulta` si las fechas violan mínimo de noches, anticipación, etc.
+        Cada alojamiento trae `foto_url`, `fotos_preview` (galería PG), `precio_total_estadia_clp` si está libre y hay tarifas,
+        y `motivo_no_disponible` si está ocupado, bloqueado o sin tarifa en el rango.
+        `empresa.is_demo_heuristica` es heurística por nombre/subdominio (no reemplaza política de negocio).
+        Usar `GET /api/alojamientos/imagenes` para galería completa.
       parameters:
         - in: query
           name: empresa_id
@@ -186,14 +197,20 @@ paths:
           schema: { type: integer }
       responses:
         "200":
-          description: Alojamientos con bandera disponible
+          description: Payload `disponibilidad_ia_v1` (consulta_valida, reglas_estadia, empresa, alojamientos enriquecidos).
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   success: { type: boolean }
+                  payload_version: { type: string, example: disponibilidad_ia_v1 }
+                  consulta_valida: { type: boolean }
+                  motivo_consulta: { type: object, nullable: true }
+                  reglas_estadia: { type: object, nullable: true }
+                  empresa: { type: object }
                   disponibles: { type: integer }
+                  total: { type: integer }
                   alojamientos:
                     type: array
                     items:
@@ -201,8 +218,13 @@ paths:
                       properties:
                         id: { type: string }
                         nombre: { type: string }
+                        nombre_comercial: { type: string, nullable: true }
                         disponible: { type: boolean }
                         capacidad: { type: integer }
+                        foto_url: { type: string, nullable: true }
+                        fotos_preview: { type: array, nullable: true }
+                        precio_total_estadia_clp: { type: integer, nullable: true }
+                        motivo_no_disponible: { type: object, nullable: true }
 
   /api/alojamientos/detalle:
     get:
@@ -617,6 +639,9 @@ components:
                   type: array
                   items: { type: string }
                 mensaje: { type: string }
+            requiere_confirmacion_final:
+              type: boolean
+              description: Siempre true; mostrar total y políticas antes de POST /api/reservas.
 
     BusquedaGeneralAiResponse:
       type: object
@@ -633,6 +658,7 @@ components:
             limit: { type: integer }
             compact: { type: boolean }
             payload: { type: string, example: producto_ia_v2 }
+            vibe: { type: string, nullable: true }
 
     PublicAiListInnerMeta:
       type: object

@@ -489,6 +489,7 @@ function buildAgentPropertyDetailPayload({
         resenas: resumenResenas || { total: 0, promedio_general: null },
         listada_web: !!(meta.googleHotelData && meta.googleHotelData.isListed),
         payload_version: 'producto_ia_v2',
+        requiere_confirmacion_final: true,
         precioBase: nocheInt,
         ciudad: ubic.ciudad || '',
         direccion_corta: ubic.direccion_linea || '',

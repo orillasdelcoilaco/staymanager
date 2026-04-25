@@ -41,6 +41,7 @@ _Actualizar al iniciar y al terminar trabajo relevante._
 | 2026-04-24  | Cursor | Identificadores vs nombres (PG)  | Fase1 LISTO | Columna `reservas.estado_gestion_id` + código dual (nombre sincronizado). Migración: `backend/db/migrations/reservas-estado-gestion-id.sql`. SPA gestión/reservas/calendario alineados parcialmente — ver `TASKS/audit-identificadores-vs-nombres-ui.md` § avance. **Siguiente:** ejecutar SQL en Supabase; fase 2 canal/plantilla IA, `reservas.estado` principal, jobs SQL. |
 | 2026-04-24  | Claude | `consultarDisponibilidad` / bug  | LISTO    | Fix: `resolveEmpresaPgId` + `unavailableProperties`; commit `e27f151` |
 | 2026-04-24  | Claude | Estrategia multi-canal IA venta  | EN CURSO | Ver §9 — roadmap por canal y tier |
+| 2026-04-24  | Cursor | `GET /api/disponibilidad` enriquecida + vibe búsqueda + confirmación reserva | LISTO | `publicAiDisponibilidadService.js`, `evaluarRestriccionesReservaWebCodigo`, `suitemanagerApiController`, OpenAPI; `requiere_confirmacion_final` en detalle; validación email/tel `publicAiController`. |
 
 **Convención de estados:** `EN CURSO` | `LISTO` | `PAUSA` | `BLOQUEADO`.
 
@@ -112,6 +113,9 @@ Quitar el lock cuando termines.
 
 _Formato: `YYYY-MM-DD — Actor — una frase`._
 
+- 2026-04-24 — Cursor — Disponibilidad IA v1: fotos PG preview, precio total estadía por alojamiento libre, códigos restricción/motivo no disponible, `is_demo_heuristica`; búsqueda `vibe`; detalle `requiere_confirmacion_final`; POST reserva valida email/tel.
+- 2026-04-24 — Cursor — Reseña outbound: `[LINK_RESEÑA]` en confirmación de reserva y recordatorio pre-llegada (`resolverLinkResenaOutbound` en `transactionalEmailService.js`).
+- 2026-04-24 — Cursor — Retención PII identidad check-in web documentada en `SHARED_CONTEXT.md` §2.2 y apunte en `CLAUDE.md` (job `npm run job:retencion-checkin-identidad-pii`, flags `websiteSettings.booking`).
 - 2026-04-24 — Cursor — `GET /api/alojamientos/detalle?checkin&checkout` (+aliases) devuelve `precio_estimado` (`publicAiPrecioEstimadoService.js`: misma `calculatePrice` que web SSR + `buildDesglosePrecioCheckout`). OpenAPI 1.4.0.
 - 2026-04-24 — Cursor — Persistencia `metadata.contextoComercial` (tipo_viaje, entorno, destacados) + UI modal alojamiento; IA usa persistido y heurística solo si vacío. Geocoding Nominatim al guardar propiedad (`propiedadesMetadataPipeline.js` + `propiedadesService` merge metadata completo + `googleHotelData.geo`).
 - 2026-04-24 — Cursor — Snapshot IA: `publicAiMarketingLayer.js` + integración en `publicAiProductSnapshot.js` (`contexto_turistico`, `amenidades_publicas`, `inventario_detallado`, `descripcion_fuente` + texto auto si falta descripción, `enrichUbicacionForAi`). Galería: `espacio`, `tipo_ia`, `principal` por `rol` en detalle y `imagenes`. Revisar OpenAPI si documentan nuevos campos.
@@ -229,4 +233,21 @@ _Actualizado: 2026-04-24. Revisar y ajustar al inicio de cada sprint IA._
 
 ---
 
-*Última revisión: 2026-04-24 — Claude Code asume liderazgo IA venta; §9 estrategia multi-canal; handoff inicial a Cursor.*
+## 10. Varios agentes y el mismo archivo TASKS (p. ej. backlog)
+
+**Problema:** dos sesiones (dos instancias de Cursor, o Cursor + otro agente) editan a la vez `TASKS/backlog-producto-pendientes.md` u otro markdown de `TASKS/` → merge conflictivo o trabajo duplicado.
+
+**Protocolo (recomendado para todo agente que toque el repo vía Cursor):**
+
+1. **Antes** de modificar `backlog-producto-pendientes.md`: leer **§2 Estado actual** de este archivo. Si hay una fila **EN CURSO** cuya columna «Área» sea el backlog (o nombre explícito del `.md`) y el actor **no** eres tú, **no** editar ese archivo; avisar al usuario o anotar en **§8 Bloqueos / decisiones pendientes**.
+2. **Cuando tú** vayas a ser quien edita el backlog: añade **de inmediato** una fila en **§2** (fecha ISO, actor `Cursor` u otro identificador que acuerdes con el usuario, área `backlog-producto-pendientes.md`, estado `EN CURSO`, nota: secciones o hitos que tocarás).
+3. **Al cerrar o pausar:** pasar la fila a `LISTO` o `PAUSA` y una línea en **§6 Bitácora**.
+4. **Bloqueo explícito varios días:** en **§3** usar la convención **LOCK** indicando el path exacto del archivo (ej. `LOCK hasta 2026-04-26 — Cursor — TASKS/backlog-producto-pendientes.md — retomar §4 legal`).
+
+**Otros agentes** (Claude Code, Antigravity): el usuario debe pedirles que lean **§2 / §3** aquí antes de tocar el mismo markdown.
+
+Este archivo **no** sustituye al backlog: solo coordina **quién lo está moviendo** para que el resto espere o alinee con el usuario.
+
+---
+
+*Última revisión: 2026-04-24 — Claude Code asume liderazgo IA venta; §9 estrategia multi-canal; handoff inicial a Cursor; §10 coordinación multi-agente sobre TASKS.*

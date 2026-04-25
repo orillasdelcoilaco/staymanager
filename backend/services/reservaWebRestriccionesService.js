@@ -110,6 +110,79 @@ function validarRestriccionesFechasReservaWeb(bookingCfg, propsData, fechaLlegad
 }
 
 /**
+ * Misma regla que `validarRestriccionesFechasReservaWeb`, con códigos estables para API / IA.
+ * @returns {{ ok: boolean, codigo: string|null, noches_solicitadas?: number, minimo_noches?: number, maximo_noches?: number, meses_reservable_adelante?: number, anticipacion_dias_necesarios?: number, mensaje_es?: string, reglas_resumen?: object }}
+ */
+function evaluarRestriccionesReservaWebCodigo(bookingCfg, propsData, fechaLlegada, fechaSalida) {
+    const { lleg, sal, startR, endR } = _parseLlegadaSalida(fechaLlegada, fechaSalida);
+    if (!lleg || !sal || !isValid(startR) || !isValid(endR) || endR <= startR) {
+        return {
+            ok: false,
+            codigo: 'fechas_invalidas',
+            mensaje_es: 'Las fechas de llegada o salida no son válidas.',
+        };
+    }
+    const nights = differenceInDays(endR, startR);
+    const minNochesR = _mergeMinNoches(bookingCfg || {}, propsData || []);
+    if (nights < minNochesR) {
+        return {
+            ok: false,
+            codigo: 'minimo_noches',
+            noches_solicitadas: nights,
+            minimo_noches: minNochesR,
+            mensaje_es: `La estadía debe ser de al menos ${minNochesR} noche(s).`,
+        };
+    }
+    const maxCap = _mergeMaxNochesEstadia(bookingCfg || {}, propsData || []);
+    if (maxCap > 0 && nights > maxCap) {
+        return {
+            ok: false,
+            codigo: 'maximo_noches',
+            noches_solicitadas: nights,
+            maximo_noches: maxCap,
+            mensaje_es: `La estadía no puede superar ${maxCap} noche(s).`,
+        };
+    }
+    const mesesLim = _mergeMesesReservableAdelante(bookingCfg || {}, propsData || []);
+    const antNeed = _mergeMinDiasAnticipacionReserva(bookingCfg || {}, propsData || {});
+    if (mesesLim > 0) {
+        const lim = addMonths(startOfDay(new Date()), mesesLim);
+        const limStr = format(lim, 'yyyy-MM-dd');
+        if (lleg > limStr) {
+            return {
+                ok: false,
+                codigo: 'ventana_reserva_meses',
+                meses_reservable_adelante: mesesLim,
+                mensaje_es: `La fecha de llegada no puede ser más allá de ${mesesLim} mes(es) desde hoy.`,
+            };
+        }
+    }
+    if (antNeed > 0) {
+        const diasHastaLlegada = differenceInDays(startR, startOfDay(new Date()));
+        if (diasHastaLlegada < antNeed) {
+            return {
+                ok: false,
+                codigo: 'anticipacion_minima',
+                anticipacion_dias_necesarios: antNeed,
+                dias_hasta_llegada: diasHastaLlegada,
+                mensaje_es: `La llegada debe ser al menos ${antNeed} día(s) después de hoy.`,
+            };
+        }
+    }
+    return {
+        ok: true,
+        codigo: null,
+        noches_solicitadas: nights,
+        reglas_resumen: {
+            minimo_noches: minNochesR,
+            maximo_noches_estadia: maxCap > 0 ? maxCap : null,
+            meses_reservable_adelante: mesesLim > 0 ? mesesLim : null,
+            anticipacion_dias: antNeed > 0 ? antNeed : null,
+        },
+    };
+}
+
+/**
  * Misma lógica que al validar `crearReservaPublica` / `calcular-precio`, para SSR (ficha + widget).
  * @param {object} [bookingCfg] websiteSettings.booking empresa
  * @param {object} [propiedadBooking] websiteData.booking de un alojamiento
@@ -128,5 +201,6 @@ function mergeRestriccionesBookingEmpresaUnaPropiedad(bookingCfg, propiedadBooki
 
 module.exports = {
     validarRestriccionesFechasReservaWeb,
+    evaluarRestriccionesReservaWebCodigo,
     mergeRestriccionesBookingEmpresaUnaPropiedad,
 };

@@ -1,4 +1,5 @@
 const pool = require('../db/postgres');
+const { randomUUID } = require('crypto');
 const { fetchGlobalPublicAiInventoryPostgres } = require('../services/publicAiInventoryPg');
 const {
     obtenerPropiedadesPorEmpresa,
@@ -8,17 +9,46 @@ const {
 const { hydrateInventory, calcularCapacidad } = require('../services/propiedadLogicService');
 const { getAvailabilityData } = require('../services/propuestasService');
 const { calculatePrice } = require('../services/utils/calculoValoresService');
-const { obtenerCanalesPorEmpresa, crearCanal } = require('../services/canalesService');
+const { obtenerCanalesPorEmpresa, crearCanal, resolverCanalIaVentaEnLista, IA_VENTA_CANAL_ORIGEN } = require('../services/canalesService');
 const { obtenerValorDolar } = require('../services/dolarService');
 const { obtenerTarifasParaConsumidores } = require('../services/tarifasService');
 const { guardarOActualizarPropuesta } = require('../services/gestionPropuestasService');
 const { crearPreferencia } = require('../services/mercadopagoService');
-const { obtenerPlantillasPorEmpresa, procesarPlantilla } = require('../services/plantillasService');
+const { obtenerPlantillasPorEmpresa, obtenerPlantillasPorDisparadorMotor, procesarPlantilla } = require('../services/plantillasService');
 const { format, addDays, parseISO, isValid } = require('date-fns');
 const { crearOActualizarCliente } = require('../services/clientesService');
 const { getProvider } = require('../services/aiContentService.providers');
 const { resolveEmpresaDbId } = require('../services/resolveEmpresaDbId');
-const { obtenerNombreEstadoGestionInicialReservaConfirmada } = require('../services/estadosService');
+const {
+    obtenerEstadoGestionInicialPostConfirmacionRow,
+    obtenerEstadoPrincipalRowPorSemantica,
+    sqlReservaPrincipalSemanticaIgual,
+    sqlReservaPrincipalSemanticaEn,
+} = require('../services/estadosService');
+const { getBloqueosPorPeriodo } = require('../services/bloqueosService');
+
+const CANAL_IA_VENTA_CREAR_DATOS = {
+    nombre: 'ia-reserva',
+    tipo: 'Directo',
+    comision: 0,
+    origen: 'ia',
+    moneda: 'CLP',
+    color: '#8e44ad',
+    origenCanal: IA_VENTA_CANAL_ORIGEN,
+    esCanalIaVenta: true,
+};
+
+async function resolverPlantillaCorreoPreferida(_db, empresaId) {
+    try {
+        const porMotor = await obtenerPlantillasPorDisparadorMotor(_db, empresaId, 'reserva_confirmada');
+        const conEmail = porMotor.find((p) => p.enviarPorEmail);
+        if (conEmail) return conEmail;
+    } catch (_) {
+        /* sin plantillas con disparador reserva_confirmada */
+    }
+    const todas = await obtenerPlantillasPorEmpresa(_db, empresaId);
+    return todas.find((p) => p.enviarPorEmail) || null;
+}
 
 const sanitizeProperty = (property) => {
     if (!property) return null;
@@ -391,6 +421,9 @@ const getPropertyDetail = async (req, res) => {
 
 const getPropertyCalendar = async (req, res) => {
     try {
+        if (!pool) {
+            return res.status(503).json({ error: 'SERVICE_UNAVAILABLE', message: 'El calendario de ocupación requiere PostgreSQL.' });
+        }
         const db = require('firebase-admin').firestore();
         const { id } = req.params;
 
@@ -447,6 +480,13 @@ const createBookingIntent = async (req, res) => {
         const targetEmpresaId = empresaDoc.id;
         const empresaData = empresaDoc.data();
 
+        if (!pool) {
+            return res.status(503).json({
+                error: 'SERVICE_UNAVAILABLE',
+                message: 'Las reservas y propuestas se persisten solo en PostgreSQL.',
+            });
+        }
+
         const startDate = parseISO(fechaLlegada + 'T00:00:00Z');
         const endDate = parseISO(fechaSalida + 'T00:00:00Z');
 
@@ -455,37 +495,18 @@ const createBookingIntent = async (req, res) => {
         }
 
         let canales = await obtenerCanalesPorEmpresa(db, targetEmpresaId);
-        let iaChannel = canales.find(c => c.nombre === 'ia-reserva');
+        let iaChannel = resolverCanalIaVentaEnLista(canales);
 
         if (!iaChannel) {
-            iaChannel = await crearCanal(db, targetEmpresaId, {
-                nombre: 'ia-reserva',
-                tipo: 'Directo',
-                comision: 0,
-                origen: 'ia',
-                moneda: 'CLP',
-                color: '#8e44ad'
-            });
+            iaChannel = await crearCanal(db, targetEmpresaId, { ...CANAL_IA_VENTA_CREAR_DATOS });
         }
 
-        const tarifasSnapshot = await db.collection('empresas').doc(targetEmpresaId).collection('tarifas').get();
-        const allTarifas = tarifasSnapshot.docs.map(doc => {
-            const data = doc.data();
-            let inicio = null, termino = null;
-            try {
-                inicio = data.fechaInicio?.toDate ? data.fechaInicio.toDate() : (data.fechaInicio ? parseISO(data.fechaInicio + 'T00:00:00Z') : null);
-                termino = data.fechaTermino?.toDate ? data.fechaTermino.toDate() : (data.fechaTermino ? parseISO(data.fechaTermino + 'T00:00:00Z') : null);
-            } catch (e) { return null; }
-            return { ...data, id: doc.id, fechaInicio: inicio, fechaTermino: termino };
-        }).filter(Boolean);
+        const allTarifas = await obtenerTarifasParaConsumidores(targetEmpresaId);
 
-        // Verificar bloqueos antes de crear la reserva
-        const bloqueosSnap = await db.collection('empresas').doc(targetEmpresaId).collection('bloqueos')
-            .where('fechaFin', '>=', require('firebase-admin').firestore.Timestamp.fromDate(startDate))
-            .get();
-        const bloqueado = bloqueosSnap.docs.some(doc => {
-            const b = doc.data();
-            if (b.fechaInicio.toDate() >= endDate) return false;
+        const bloqueosPg = await getBloqueosPorPeriodo(null, targetEmpresaId, startDate, endDate, propiedadId);
+        const bloqueado = bloqueosPg.some((b) => {
+            const bInicio = new Date(String(b.fechaInicio).split('T')[0] + 'T00:00:00Z');
+            if (bInicio >= endDate) return false;
             return b.todos || (b.alojamientoIds || []).includes(propiedadId);
         });
         if (bloqueado) {
@@ -503,11 +524,10 @@ const createBookingIntent = async (req, res) => {
         const montoSeña = Math.round(totalEstadia * 0.10);
         const saldoPendiente = totalEstadia - montoSeña;
 
-        const reservaId = db.collection('empresas').doc(targetEmpresaId).collection('reservas').doc().id;
+        const reservaId = randomUUID();
         const paymentLink = await crearPreferencia(targetEmpresaId, reservaId, `Reserva 10%: ${propertyName}`, montoSeña, 'CLP');
 
-        const plantillas = await obtenerPlantillasPorEmpresa(db, targetEmpresaId);
-        const plantilla = plantillas.find(p => p.nombre === 'Plantilla Predeterminada' && p.enviarPorEmail) || plantillas.find(p => p.enviarPorEmail);
+        const plantilla = await resolverPlantillaCorreoPreferida(db, targetEmpresaId);
         const plantillaId = plantilla ? plantilla.id : null;
 
         const proposalData = {
@@ -603,6 +623,13 @@ const quotePriceForDates = async (req, res) => {
         const propData = propDoc.data();
         const empresaId = propDoc.ref.parent.parent.id;
 
+        if (!pool) {
+            return res.status(503).json({
+                error: 'SERVICE_UNAVAILABLE',
+                message: 'La cotización por disponibilidad requiere PostgreSQL.',
+            });
+        }
+
         const availabilityData = await getAvailabilityData(db, empresaId, inicio, fin, false, null);
         const isAvailable = availabilityData.availableProperties.some(p => p.id === id);
 
@@ -614,18 +641,16 @@ const quotePriceForDates = async (req, res) => {
         }
 
         let canalesIA = await obtenerCanalesPorEmpresa(db, empresaId);
-        let canalIA = canalesIA.find(c => c.nombre === 'IA Reserva');
+        let canalIA = resolverCanalIaVentaEnLista(canalesIA);
 
         if (!canalIA) {
-            const nuevoCanalIA = await crearCanal(db, empresaId, {
-                nombre: 'IA Reserva',
-                moneda: 'CLP',
+            canalIA = await crearCanal(db, empresaId, {
+                ...CANAL_IA_VENTA_CREAR_DATOS,
                 modificadorTipo: 'porcentaje',
                 modificadorValor: 0,
                 configuracionIva: 'incluido',
-                descripcion: 'Canal para reservas generadas por agentes IA'
+                descripcion: 'Canal para reservas generadas por agentes IA',
             });
-            canalIA = { id: nuevoCanalIA.id, ...nuevoCanalIA };
         }
 
         const valorDolar = await obtenerValorDolar(db, empresaId, inicio);
@@ -729,22 +754,41 @@ const checkAvailability = async (req, res) => {
 
         const empresaId = propDoc.ref.parent.parent.id;
 
-        const [reservasSnapshot, bloqueosSnapshot] = await Promise.all([
-            db.collection('empresas').doc(empresaId).collection('reservas')
-                .where('alojamientoId', '==', id)
-                .where('estado', '==', 'Confirmada')
-                .get(),
-            db.collection('empresas').doc(empresaId).collection('bloqueos')
-                .where('fechaFin', '>=', require('firebase-admin').firestore.Timestamp.fromDate(inicio))
-                .get()
-        ]);
+        if (!pool) {
+            return res.status(503).json({
+                error: 'SERVICE_UNAVAILABLE',
+                message: 'La disponibilidad por reservas se consulta solo en PostgreSQL.',
+            });
+        }
 
-        const bloqueado = bloqueosSnapshot.docs.some(doc => {
-            const b = doc.data();
-            const bInicio = b.fechaInicio.toDate();
+        const inicioStr = inicio.toISOString().split('T')[0];
+        const finStr = fin.toISOString().split('T')[0];
+
+        const bloqueosPg = await getBloqueosPorPeriodo(null, empresaId, inicio, fin, id);
+        const bloqueado = bloqueosPg.some((b) => {
+            const bInicio = new Date(String(b.fechaInicio).split('T')[0] + 'T00:00:00Z');
             if (bInicio >= fin) return false;
             return b.todos || (b.alojamientoIds || []).includes(id);
         });
+        const { rows: resRows } = await pool.query(
+            `SELECT r.id, r.fecha_llegada, r.fecha_salida, r.estado, r.metadata
+             FROM reservas r
+             WHERE r.empresa_id = $1 AND r.propiedad_id = $2
+               AND r.fecha_llegada < $3 AND r.fecha_salida > $4
+               AND ${sqlReservaPrincipalSemanticaEn(['confirmada', 'propuesta'])}`,
+            [empresaId, id, finStr, inicioStr]
+        );
+        const conflictos = resRows.map((row) => ({
+            id: row.id,
+            fechaLlegada: row.fecha_llegada instanceof Date
+                ? row.fecha_llegada.toISOString().split('T')[0]
+                : String(row.fecha_llegada).split('T')[0],
+            fechaSalida: row.fecha_salida instanceof Date
+                ? row.fecha_salida.toISOString().split('T')[0]
+                : String(row.fecha_salida).split('T')[0],
+            estado: row.estado,
+            origen: row.metadata?.origen || 'reporte',
+        }));
 
         if (bloqueado) {
             return res.json(formatResponse({
@@ -754,24 +798,6 @@ const checkAvailability = async (req, res) => {
                 mensaje: 'La propiedad está bloqueada por mantenimiento en las fechas solicitadas'
             }));
         }
-
-        const conflictos = reservasSnapshot.docs
-            .filter(doc => {
-                const data = doc.data();
-                const rLlegada = data.fechaLlegada.toDate();
-                const rSalida = data.fechaSalida.toDate();
-                return rLlegada < fin && rSalida > inicio;
-            })
-            .map(doc => {
-                const data = doc.data();
-                return {
-                    id: doc.id,
-                    fechaLlegada: data.fechaLlegada.toDate().toISOString().split('T')[0],
-                    fechaSalida: data.fechaSalida.toDate().toISOString().split('T')[0],
-                    estado: data.estado,
-                    origen: data.origen
-                };
-            });
 
         const disponible = conflictos.length === 0;
 
@@ -915,6 +941,23 @@ const createPublicReservation = async (req, res) => {
             });
         }
 
+        const emailTrim = String(cliente.email || '').trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(emailTrim)) {
+            return res.status(400).json({
+                success: false,
+                error: 'INVALID_EMAIL',
+                message: 'El email del huésped no tiene un formato válido.',
+            });
+        }
+        const telRaw = String(cliente.telefono || '').trim();
+        if (telRaw && !/^\+?[\d\s\-]{8,}$/.test(telRaw)) {
+            return res.status(400).json({
+                success: false,
+                error: 'INVALID_PHONE',
+                message: 'El teléfono debe incluir al menos 8 dígitos (puede llevar + al inicio).',
+            });
+        }
+
         const inicio = parseISO(fechaInicio + 'T00:00:00Z');
         const fin    = parseISO(fechaFin    + 'T00:00:00Z');
         if (!isValid(inicio) || !isValid(fin) || inicio >= fin) {
@@ -976,10 +1019,10 @@ const createPublicReservation = async (req, res) => {
 
         // 2. Verificar disponibilidad — solo bloquear en Confirmada
         const { rows: conflictos } = await pool.query(
-            `SELECT 1 FROM reservas
-             WHERE empresa_id = $1 AND propiedad_id = $2
-               AND estado = 'Confirmada'
-               AND fecha_llegada < $4 AND fecha_salida > $3
+            `SELECT 1 FROM reservas r
+             WHERE r.empresa_id = $1 AND r.propiedad_id = $2
+               AND ${sqlReservaPrincipalSemanticaIgual('confirmada')}
+               AND r.fecha_llegada < $4 AND r.fecha_salida > $3
              LIMIT 1`,
             [empresaId, propiedadId, fechaInicio, fechaFin]
         );
@@ -1025,7 +1068,7 @@ const createPublicReservation = async (req, res) => {
             nombre: nombreCliente,
             email: cliente.email,
             telefono: cliente.telefono || '',
-            canalNombre: 'IA Reserva',
+            canalNombre: canalNombre,
             idReservaCanal: null,
         });
 
@@ -1044,8 +1087,8 @@ const createPublicReservation = async (req, res) => {
         const vencimientoPago = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
         const plazoAbonoTexto = new Date(vencimientoPago).toLocaleString('es-CL', { timeZone: 'America/Santiago', day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' });
 
-        const nombreEstadoGestion = await obtenerNombreEstadoGestionInicialReservaConfirmada(empresaId);
-        if (!nombreEstadoGestion) {
+        const estadoGestionInicial = await obtenerEstadoGestionInicialPostConfirmacionRow(empresaId);
+        if (!estadoGestionInicial?.nombre) {
             return res.status(422).json({
                 success: false,
                 error: 'NO_ESTADO_GESTION',
@@ -1054,12 +1097,15 @@ const createPublicReservation = async (req, res) => {
             });
         }
 
+        const estadoPrincipalConfirmadaIa = await obtenerEstadoPrincipalRowPorSemantica(empresaId, 'confirmada');
+        const nombreEstadoPrincipalIa = estadoPrincipalConfirmadaIa?.nombre || 'Confirmada';
+
         await pool.query(
             `INSERT INTO reservas
                (empresa_id, id_reserva_canal, propiedad_id, alojamiento_nombre, canal_id, canal_nombre,
-                cliente_id, total_noches, estado, estado_gestion, moneda, valor_dolar_dia, valores,
+                cliente_id, total_noches, estado, estado_principal_id, estado_gestion, estado_gestion_id, moneda, valor_dolar_dia, valores,
                 cantidad_huespedes, fecha_llegada, fecha_salida, metadata)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'Confirmada',$9,'CLP',$10,$11,$12,$13,$14,$15)`,
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'CLP',$13,$14,$15,$16,$17,$18)`,
             [
                 empresaId,
                 reservaId,
@@ -1069,7 +1115,10 @@ const createPublicReservation = async (req, res) => {
                 canalNombre,
                 clienteCreado.id,
                 precioCalc.nights,
-                nombreEstadoGestion,
+                nombreEstadoPrincipalIa,
+                estadoPrincipalConfirmadaIa?.id || null,
+                estadoGestionInicial.nombre,
+                estadoGestionInicial.id,
                 vd,
                 JSON.stringify(valores),
                 personas,
@@ -1116,11 +1165,7 @@ const createPublicReservation = async (req, res) => {
             fechaVencimiento: plazoAbonoTexto,
         };
 
-        // Buscar plantilla con disparador reserva_confirmada, si no hay usar cualquier plantilla de email
-        const todasPlantillas = await obtenerPlantillasPorEmpresa(dbFs, empresaId);
-        const plantillaEmail = todasPlantillas.find(p => p.emailConfig?.disparadores?.reserva_confirmada && p.enviarPorEmail)
-            || todasPlantillas.find(p => p.enviarPorEmail)
-            || null;
+        const plantillaEmail = await resolverPlantillaCorreoPreferida(dbFs, empresaId);
 
         if (plantillaEmail) {
             const { contenido, asunto } = await procesarPlantilla(dbFs, empresaId, plantillaEmail.id, plantillasDatos);
