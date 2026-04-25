@@ -103,6 +103,45 @@ function enrichUbicacionForAi(meta, ubicBase) {
     return u;
 }
 
+/**
+ * Completa ciudad/región/geo desde configuración de empresa (panel) cuando la propiedad no trae ubicación.
+ */
+function enrichUbicacionFromEmpresaConfig(ubicBase, empresaConfig) {
+    const u = { ...ubicBase };
+    const cfg = empresaConfig && typeof empresaConfig === 'object' ? empresaConfig : {};
+    const pick = (v) => (v != null && String(v).trim() ? String(v).trim() : '');
+    const ubi = cfg.ubicacion && typeof cfg.ubicacion === 'object' ? cfg.ubicacion : {};
+    if (!u.ciudad) u.ciudad = pick(ubi.ciudad) || pick(ubi.localidad) || pick(ubi.municipio);
+    if (!u.region) u.region = pick(ubi.region) || pick(ubi.estado) || pick(ubi.provincia);
+    if (!u.direccion) u.direccion = pick(ubi.direccion) || pick(ubi.linea1) || pick(ubi.calle);
+    if (u.lat == null && ubi.lat != null && Number.isFinite(Number(ubi.lat))) u.lat = Number(ubi.lat);
+    if (u.lng == null && ubi.lng != null && Number.isFinite(Number(ubi.lng))) u.lng = Number(ubi.lng);
+    const ws = cfg.websiteSettings && typeof cfg.websiteSettings === 'object' ? cfg.websiteSettings : {};
+    const org = ws.organizationalAddress || ws.orgAddress || {};
+    if (!u.ciudad) u.ciudad = pick(org.addressLocality) || pick(org.city);
+    if (!u.region) u.region = pick(org.addressRegion) || pick(org.region) || pick(org.state);
+    if (!u.direccion) u.direccion = pick(org.streetAddress) || pick(org.street);
+    u.direccion_linea = [u.direccion, u.ciudad, u.region].filter(Boolean).join(', ').slice(0, 220);
+    return u;
+}
+
+/** Índice de la foto portada: rol principal, luego cardImage del sitio, luego la primera. */
+function resolveGaleriaPrincipalIndex(galeriaRows, meta) {
+    const rows = Array.isArray(galeriaRows) ? galeriaRows : [];
+    const ip = rows.findIndex((r) => (r.rol || '') === 'principal');
+    if (ip >= 0) return ip;
+    const path = (meta?.websiteData?.cardImage?.storagePath || '').trim();
+    if (path) {
+        const slug = path.split('/').pop() || path;
+        const iq = rows.findIndex((r) => {
+            const u = String(r.storage_url || '');
+            return u && (u.includes(path) || (slug.length > 4 && u.includes(slug)));
+        });
+        if (iq >= 0) return iq;
+    }
+    return rows.length ? 0 : -1;
+}
+
 function _mergePreferPersisted(persistedArr, fallbackArr, max) {
     const p = (persistedArr || [])
         .map((s) => String(s || '').trim())
@@ -190,28 +229,39 @@ function inferContextoTuristico(meta, row, distribucion, amenidadesPublicas) {
             : tvU.length === 1
               ? tvU[0]
               : `${tvU.slice(0, -1).join(', ')} y ${tvU[tvU.length - 1]}`;
+    const entornoOut = [...new Set(entorno)].slice(0, 4);
+    const destacadosOut = [...new Set(destacados)].slice(0, 6);
 
     return {
         tipo_viaje: tvU,
-        entorno: [...new Set(entorno)].slice(0, 4),
-        destacados: [...new Set(destacados)].slice(0, 6),
-        sugerencia_copy:
-            destacados[0] || entorno[0]
-                ? `Ideal para ${tvStr} que buscan ${entorno[0] || destacados[0] || 'una estadía cómoda'}.`
-                : null,
+        entorno: entornoOut,
+        destacados: destacadosOut,
+        sugerencia_copy: (() => {
+            const ent = entornoOut[0];
+            const dest0 = destacadosOut[0];
+            if (ent) return `Ideal para ${tvStr} que buscan entorno ${ent}.`;
+            if (dest0) return `Ideal para ${tvStr}: destacamos ${dest0}.`;
+            return null;
+        })(),
     };
 }
 
-/** Normaliza etiqueta de espacio (galería) a categoría conversacional para IA. */
-function mapEspacioToTipoIa(espacioLabel, rol) {
-    const s = String(espacioLabel || '').toLowerCase();
+/** Normaliza etiqueta de espacio + alt a categoría conversacional para IA. */
+function mapEspacioToTipoIa(espacioLabel, rol, altText) {
+    const s = `${String(espacioLabel || '')} ${String(altText || '')}`.toLowerCase();
+    if (/tinaja|jacuzzi|hidromasaje|hot\s*tub/i.test(s)) return 'tinaja';
+    if (/vista|mirador|panor[aá]mica|panoramic|lago|volc[aá]n/i.test(s)) return 'vista';
+    if (/parrilla|quincho|asador|bbq|grill|barbacoa/i.test(s)) return 'parrilla';
+    if (/piscina|pileta/i.test(s)) return 'piscina';
+    if (/sauna/i.test(s)) return 'sauna';
     if (/dormitor|habitaci|pieza|bedroom/i.test(s)) return 'dormitorio';
     if (/baño|bano|bath/i.test(s)) return 'bano';
     if (/cocina|kitchen/i.test(s)) return 'cocina';
     if (/living|estar|sala/i.test(s)) return 'living';
     if (/terraza|balc[oó]n|balcon|deck|patio/i.test(s)) return 'terraza';
-    if (/exterior|jard[ií]n|jardin|quincho|parrilla/i.test(s)) return 'exterior';
+    if (/exterior|jard[ií]n|jardin/i.test(s)) return 'exterior';
     if (/comedor|dining/i.test(s)) return 'comedor';
+    if (/entrada|hall|recepci[oó]n/i.test(s)) return 'entrada';
     if (rol === 'principal') return 'principal';
     return 'general';
 }
@@ -237,6 +287,8 @@ function buildDescripcionComercialAuto({
 
 module.exports = {
     enrichUbicacionForAi,
+    enrichUbicacionFromEmpresaConfig,
+    resolveGaleriaPrincipalIndex,
     deriveAmenidadesPublicas,
     buildInventarioDetallado,
     inferContextoTuristico,

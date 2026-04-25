@@ -343,6 +343,8 @@ components:
   schemas:
     ProductoIaUbicacion:
       type: object
+      description: >-
+        Primero metadata de la propiedad; si siguen vacíos, ciudad/región/geo desde configuración de empresa.
       properties:
         direccion: { type: string }
         ciudad: { type: string }
@@ -453,7 +455,9 @@ components:
         espacio: { type: string, nullable: true }
         tipo_ia: { type: string }
         orden: { type: integer }
-        principal: { type: boolean }
+        principal:
+          type: boolean
+          description: Portada inferida (rol principal, cardImage, o primera foto).
 
     ProductoIaInventarioItem:
       type: object
@@ -486,6 +490,10 @@ components:
         calculo_ok: { type: boolean }
         codigo: { type: string, nullable: true }
         subtotal_alojamiento_clp: { type: integer, nullable: true }
+        total_estadia_clp:
+          type: integer
+          nullable: true
+          description: Alias de subtotal_alojamiento_clp.
         promedio_noche_clp: { type: integer, nullable: true }
         desglose_checkout: { type: object, nullable: true }
         referencia: { type: object, nullable: true }
@@ -528,6 +536,14 @@ components:
             precio_estimado:
               $ref: "#/components/schemas/ProductoIaPrecioEstimado"
               nullable: true
+            aviso_precio_estimado:
+              type: object
+              nullable: true
+              properties:
+                requiere_query:
+                  type: array
+                  items: { type: string }
+                mensaje: { type: string }
 
     BusquedaGeneralAiResponse:
       type: object

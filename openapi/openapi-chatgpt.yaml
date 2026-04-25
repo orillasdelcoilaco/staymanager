@@ -348,6 +348,9 @@ components:
   schemas:
     ProductoIaUbicacion:
       type: object
+      description: >-
+        Primero metadata de la propiedad (Google Hotel, websiteData, buildContext, ubicacion);
+        si siguen vacíos, se completan ciudad/región/geo desde configuración de empresa (panel).
       properties:
         direccion: { type: string }
         ciudad: { type: string }
@@ -465,7 +468,11 @@ components:
           type: string
           description: Categoría conversacional (dormitorio, terraza, exterior, general, …)
         orden: { type: integer }
-        principal: { type: boolean }
+        principal:
+          type: boolean
+          description: >-
+            true en la portada inferida (rol principal en galería, o misma URL que cardImage del sitio,
+            o primera foto).
 
     ProductoIaInventarioItem:
       type: object
@@ -505,6 +512,10 @@ components:
           nullable: true
           description: NOT_AVAILABLE | NO_PRICING | SIN_CANAL_DEFECTO | CAPACIDAD | CALC_ERROR | ERROR
         subtotal_alojamiento_clp: { type: integer, nullable: true }
+        total_estadia_clp:
+          type: integer
+          nullable: true
+          description: Alias de subtotal_alojamiento_clp (tarifas de alojamiento para las fechas).
         promedio_noche_clp: { type: integer, nullable: true }
         desglose_checkout:
           type: object
@@ -552,6 +563,15 @@ components:
             precio_estimado:
               $ref: "#/components/schemas/ProductoIaPrecioEstimado"
               nullable: true
+            aviso_precio_estimado:
+              type: object
+              nullable: true
+              description: Presente cuando no se enviaron checkin/checkout; indica cómo obtener cotización por estadía.
+              properties:
+                requiere_query:
+                  type: array
+                  items: { type: string }
+                mensaje: { type: string }
 
     BusquedaGeneralAiResponse:
       type: object

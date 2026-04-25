@@ -83,7 +83,8 @@ async function fetchGlobalPublicAiInventoryPostgres(query) {
 
     let sql = `
         SELECT p.id, p.nombre, p.capacidad, p.descripcion, p.metadata, p.empresa_id,
-               e.nombre AS empresa_nombre, e.email AS empresa_email
+               e.nombre AS empresa_nombre, e.email AS empresa_email,
+               e.configuracion AS empresa_configuracion
         FROM propiedades p
         INNER JOIN empresas e ON e.id = p.empresa_id
         WHERE p.activo = true

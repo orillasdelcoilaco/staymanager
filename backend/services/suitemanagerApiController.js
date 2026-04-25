@@ -10,7 +10,7 @@ const {
     enrichPropertyRowsForPublicAi,
     resolvePrecioNocheReferencia,
 } = require('./publicAiProductSnapshot');
-const { mapEspacioToTipoIa } = require('./publicAiMarketingLayer');
+const { mapEspacioToTipoIa, resolveGaleriaPrincipalIndex } = require('./publicAiMarketingLayer');
 const {
     parseStayDatesForAgentDetalle,
     buildPrecioEstimadoDetallePublico,
@@ -140,6 +140,14 @@ exports.detalle = async (req, res) => {
             }
         }
 
+        const aviso_precio_estimado = stay
+            ? null
+            : {
+                  requiere_query: ['checkin', 'checkout'],
+                  mensaje:
+                      'Para total de estadía, noches, promedio por noche y desglose referencial (incl. extras de checkout), envía checkin y checkout en YYYY-MM-DD. Opcional: adultos o personas.',
+              };
+
         const payload = buildAgentPropertyDetailPayload({
             row: {
                 id: row.id,
@@ -157,6 +165,8 @@ exports.detalle = async (req, res) => {
             mergedRules,
             precioOrigen,
             precio_estimado,
+            empresaConfig,
+            aviso_precio_estimado,
         });
 
         return res.json(payload);
@@ -208,7 +218,8 @@ exports.busquedaGeneral = async (req, res) => {
         const limit = Math.min(Math.max(limRaw, 1), 20);
 
         const { rows } = await pool.query(
-            `SELECT p.id, p.nombre, p.capacidad, p.descripcion, p.metadata, p.empresa_id, e.nombre AS empresa_nombre
+            `SELECT p.id, p.nombre, p.capacidad, p.descripcion, p.metadata, p.empresa_id,
+                    e.nombre AS empresa_nombre, e.configuracion AS empresa_configuracion
              FROM propiedades p
              JOIN empresas e ON p.empresa_id = e.id
              WHERE p.activo = true
@@ -253,16 +264,27 @@ exports.imagenes = async (req, res) => {
     try {
         const alojamientoId = req.query.alojamiento_id;
         if (!alojamientoId) return res.status(400).json({ error: 'Requerido: alojamiento_id' });
+        if (!pool) return res.status(503).json({ error: 'PostgreSQL requerido' });
 
-        const { rows } = await pool.query(
-            `SELECT storage_url, thumbnail_url, alt_text, rol, orden, espacio
-               FROM galeria
-              WHERE propiedad_id::text = $1::text
-                AND estado IN ('auto', 'manual')
-              ORDER BY (rol = 'principal') DESC, orden ASC NULLS LAST
-              LIMIT 20`,
-            [String(alojamientoId)]
-        );
+        const [{ rows }, metaRes] = await Promise.all([
+            pool.query(
+                `SELECT storage_url, thumbnail_url, alt_text, rol, orden, espacio
+                   FROM galeria
+                  WHERE propiedad_id::text = $1::text
+                    AND estado IN ('auto', 'manual')
+                  ORDER BY (rol = 'principal') DESC, orden ASC NULLS LAST
+                  LIMIT 20`,
+                [String(alojamientoId)]
+            ),
+            pool.query(`SELECT metadata FROM propiedades WHERE id::text = $1::text LIMIT 1`, [
+                String(alojamientoId),
+            ]),
+        ]);
+        const meta =
+            metaRes.rows[0]?.metadata && typeof metaRes.rows[0].metadata === 'object'
+                ? metaRes.rows[0].metadata
+                : {};
+        const principalIdx = resolveGaleriaPrincipalIndex(rows, meta);
 
         return res.json({
             success: true,
@@ -270,14 +292,15 @@ exports.imagenes = async (req, res) => {
             fotos: rows.map((r, idx) => {
                 const espacioLabel = (r.espacio && String(r.espacio).trim()) || '';
                 const rol = r.rol || 'adicional';
+                const alt = r.alt_text || '';
                 return {
                     url: r.storage_url,
-                    descripcion: r.alt_text || '',
+                    descripcion: alt,
                     tipo: rol,
                     espacio: espacioLabel || null,
-                    tipo_ia: mapEspacioToTipoIa(espacioLabel, rol),
+                    tipo_ia: mapEspacioToTipoIa(espacioLabel, rol, alt),
                     orden: r.orden != null ? Number(r.orden) : idx + 1,
-                    principal: rol === 'principal',
+                    principal: principalIdx >= 0 && idx === principalIdx,
                 };
             }),
         });

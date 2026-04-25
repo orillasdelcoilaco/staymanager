@@ -122,6 +122,8 @@ function buildExitoPayload(baseMeta, monedaEfectiva, noches, totalAloj, desglose
         noches,
         disponible: true,
         calculo_ok: true,
+        /** Alias explícito para clientes IA (igual que subtotal_alojamiento_clp / tarifas). */
+        total_estadia_clp: totalAloj,
         subtotal_alojamiento_clp: totalAloj,
         promedio_noche_clp: noches > 0 ? Math.round(totalAloj / noches) : null,
         desglose_checkout: desglose.mostrar

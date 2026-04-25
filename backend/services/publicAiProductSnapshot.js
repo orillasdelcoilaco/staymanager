@@ -8,6 +8,8 @@ const { mergeEffectiveRules, buildHouseRulesPublicView } = require('./houseRules
 const { contarDistribucion, getVerifiedInventory } = require('./propiedadLogicService');
 const {
     enrichUbicacionForAi,
+    enrichUbicacionFromEmpresaConfig,
+    resolveGaleriaPrincipalIndex,
     deriveAmenidadesPublicas,
     buildInventarioDetallado,
     inferContextoTuristico,
@@ -154,8 +156,8 @@ function _politicasPublicas(merged) {
 
 /**
  * Tarjeta de listado / búsqueda global para agentes.
- * @param {object} row — fila SQL con id, nombre, capacidad, descripcion, metadata, empresa_id, empresa_nombre
- * @param {object} ctx — { allTarifas, defaultCanalByEmpresa: Map, houseRulesByEmpresa: Map, compact?: boolean }
+ * @param {object} row — fila SQL con id, nombre, capacidad, descripcion, metadata, empresa_id, empresa_nombre; opcional empresa_configuracion (jsonb JOIN)
+ * @param {object} ctx — { allTarifas, defaultCanalByEmpresa: Map, houseRulesByEmpresa: Map, empresaConfigByEmpresaId?: Map, compact?: boolean }
  */
 function buildListingCardForAi(row, ctx) {
     const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
@@ -183,6 +185,13 @@ function buildListingCardForAi(row, ctx) {
         };
     }
     ubic = enrichUbicacionForAi(meta, ubic);
+    const empCfgFull =
+        row.empresa_configuracion && typeof row.empresa_configuracion === 'object'
+            ? row.empresa_configuracion
+            : ctx.empresaConfigByEmpresaId?.get(empresaId);
+    if (empCfgFull) {
+        ubic = enrichUbicacionFromEmpresaConfig(ubic, empCfgFull);
+    }
     const amLim = ctx.compact ? 14 : 32;
     const amenidades = _mergeAmenidades(meta, amLim);
     const inventarioMax = ctx.compact ? 10 : 25;
@@ -272,19 +281,41 @@ async function fetchHouseRulesByEmpresaIds(empresaIds) {
 }
 
 /**
- * Enriquece filas de propiedades (listados IA) con precio tarifario, normas y textos recortados.
+ * Mapa empresa_id → configuración (jsonb) deduplicado desde filas con JOIN a empresas.
  * @param {object[]} rows
+ */
+function _empresaConfigMapFromRows(rows) {
+    const m = new Map();
+    for (const r of rows || []) {
+        const id = String(r.empresa_id || '').trim();
+        if (!id || m.has(id)) continue;
+        const cfg = r.empresa_configuracion;
+        if (cfg && typeof cfg === 'object') m.set(id, cfg);
+    }
+    return m;
+}
+
+/**
+ * Enriquece filas de propiedades (listados IA) con precio tarifario, normas y textos recortados.
+ * @param {object[]} rows — pueden incluir `empresa_configuracion` por JOIN (recomendado para ubicación empresa)
  * @param {{ compact?: boolean }} options
  */
 async function enrichPropertyRowsForPublicAi(rows, options = {}) {
     if (!pool || !rows.length) return [];
     const empIds = rows.map((r) => r.empresa_id);
     const compact = !!options.compact;
+    const empresaConfigByEmpresaId = _empresaConfigMapFromRows(rows);
     const [{ allTarifas, defaultCanalByEmpresa }, houseRulesByEmpresa] = await Promise.all([
         fetchTarifasForEmpresas(empIds),
         fetchHouseRulesByEmpresaIds(empIds),
     ]);
-    const ctx = { allTarifas, defaultCanalByEmpresa, houseRulesByEmpresa, compact };
+    const ctx = {
+        allTarifas,
+        defaultCanalByEmpresa,
+        houseRulesByEmpresa,
+        empresaConfigByEmpresaId,
+        compact,
+    };
     return rows.map((row) => buildListingCardForAi(row, ctx));
 }
 
@@ -300,6 +331,8 @@ function buildAgentPropertyDetailPayload({
     mergedRules,
     precioOrigen,
     precio_estimado = null,
+    empresaConfig = null,
+    aviso_precio_estimado = null,
 }) {
     const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
     let ubic = _ubicacion(meta);
@@ -312,6 +345,9 @@ function buildAgentPropertyDetailPayload({
         };
     }
     ubic = enrichUbicacionForAi(meta, ubic);
+    if (empresaConfig && typeof empresaConfig === 'object') {
+        ubic = enrichUbicacionFromEmpresaConfig(ubic, empresaConfig);
+    }
     const amenidades = _mergeAmenidades(meta, 48);
     const inventario_detallado = buildInventarioDetallado(meta, 60);
     const amenidades_publicas = deriveAmenidadesPublicas(amenidades, row.nombre);
@@ -330,18 +366,20 @@ function buildAgentPropertyDetailPayload({
         descripcion_fuente = 'auto_template';
     }
     const rulesView = buildHouseRulesPublicView(mergedRules, Number(row.capacidad) || 0);
+    const principalIdx = resolveGaleriaPrincipalIndex(galeriaRows, meta);
     const imagenes = (galeriaRows || []).map((r, idx) => {
         const espacioLabel = (r.espacio && String(r.espacio).trim()) || '';
         const rol = r.rol || 'adicional';
+        const alt = r.alt_text || '';
         return {
             url: r.storage_url,
             thumbnail_url: r.thumbnail_url || null,
-            alt: r.alt_text || '',
+            alt,
             tipo: rol,
             espacio: espacioLabel || null,
-            tipo_ia: mapEspacioToTipoIa(espacioLabel, rol),
+            tipo_ia: mapEspacioToTipoIa(espacioLabel, rol, alt),
             orden: r.orden != null ? Number(r.orden) : idx + 1,
-            principal: rol === 'principal',
+            principal: principalIdx >= 0 && idx === principalIdx,
         };
     });
     const inventario = getVerifiedInventory(meta.componentes || []).slice(0, 60);
@@ -382,6 +420,7 @@ function buildAgentPropertyDetailPayload({
         direccion_corta: ubic.direccion_linea || '',
         rating: ratingVal,
         ...(precio_estimado != null ? { precio_estimado } : {}),
+        ...(aviso_precio_estimado != null ? { aviso_precio_estimado } : {}),
     };
 }
 
