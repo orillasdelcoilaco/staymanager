@@ -1246,6 +1246,7 @@ const createPublicReservation = async (req, res) => {
         const resultadoEmailAdmin = await enviarNotificacionAdminReservaIaEmail({
             db: dbFs,
             empresaId,
+            adminEmail,
             reservaId,
             nombreCliente,
             clienteEmail: cliente.email,
