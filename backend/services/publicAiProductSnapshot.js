@@ -24,7 +24,7 @@ const { buildImagenesEtiquetadas } = require('./chatgptSalesImagesModule');
 const { buildTarifasDetalladas } = require('./chatgptSalesTarifasModule');
 const { buildPoliticasHorariosIa } = require('./chatgptSalesPoliciesModule');
 const { buildGeoComercialIa } = require('./chatgptSalesGeoModule');
-const { buildFotoPrincipalVentas } = require('./chatgptSalesPrimaryImageModule');
+const { buildFotoPrincipalVentas, enrichYOrdenarImagenesVentas } = require('./chatgptSalesPrimaryImageModule');
 
 const DESC_MAX_LIST = 420;
 const DESC_MAX_DETAIL = 8000;
@@ -676,10 +676,11 @@ function buildAgentPropertyDetailPayload({
         imagenes,
         empresaConfig,
     });
-    const fotoPrincipal = buildFotoPrincipalVentas(imagenes_etiquetadas, {
+    const imagenes_etiquetadas_ordenadas = enrichYOrdenarImagenesVentas(imagenes_etiquetadas);
+    const fotoPrincipal = buildFotoPrincipalVentas(imagenes_etiquetadas_ordenadas, {
         nombrePropiedad: row.nombre,
     });
-    const urlsHttps = imagenes_etiquetadas
+    const urlsHttps = imagenes_etiquetadas_ordenadas
         .map((img) => img.url)
         .filter((u) => typeof u === 'string' && /^https?:\/\//i.test(u));
     const principalUrl = fotoPrincipal?.url && /^https?:\/\//i.test(fotoPrincipal.url) ? fotoPrincipal.url : null;
@@ -718,7 +719,7 @@ function buildAgentPropertyDetailPayload({
             secciones: rulesView.secciones || [],
         },
         imagenes,
-        imagenes_etiquetadas,
+        imagenes_etiquetadas: imagenes_etiquetadas_ordenadas,
         foto_principal: fotoPrincipal,
         galeria,
         resenas: resumenResenas || { total: 0, promedio_general: null },

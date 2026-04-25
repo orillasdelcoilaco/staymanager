@@ -99,7 +99,31 @@ function buildFotoPrincipalVentas(imagenesEtiquetadas, opts = {}) {
     };
 }
 
+/**
+ * Expone score público (débil = 0), marca imágenes poco vendedoras y ordena: fuertes primero, débiles al final.
+ * @param {Array<object>} imagenesEtiquetadas
+ * @returns {Array<object>}
+ */
+function enrichYOrdenarImagenesVentas(imagenesEtiquetadas) {
+    const list = Array.isArray(imagenesEtiquetadas) ? imagenesEtiquetadas : [];
+    const enriched = list.map((img) => {
+        const raw = scoreImagenVentas(img);
+        return {
+            ...img,
+            score_visual: Math.max(0, raw),
+            es_debil_visual: raw <= 0,
+        };
+    });
+    return enriched.sort((a, b) => {
+        if (a.es_debil_visual !== b.es_debil_visual) return a.es_debil_visual ? 1 : -1;
+        const d = (b.score_visual || 0) - (a.score_visual || 0);
+        if (d !== 0) return d;
+        return (Number(a.orden) || 0) - (Number(b.orden) || 0);
+    });
+}
+
 module.exports = {
     buildFotoPrincipalVentas,
     scoreImagenVentas,
+    enrichYOrdenarImagenesVentas,
 };

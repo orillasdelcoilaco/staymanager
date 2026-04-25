@@ -5,7 +5,7 @@ const { buildImagenesEtiquetadas } = require('../services/chatgptSalesImagesModu
 const { buildTarifasDetalladas } = require('../services/chatgptSalesTarifasModule');
 const { buildPoliticasHorariosIa } = require('../services/chatgptSalesPoliciesModule');
 const { buildGeoComercialIa } = require('../services/chatgptSalesGeoModule');
-const { buildFotoPrincipalVentas } = require('../services/chatgptSalesPrimaryImageModule');
+const { buildFotoPrincipalVentas, enrichYOrdenarImagenesVentas } = require('../services/chatgptSalesPrimaryImageModule');
 
 function run() {
     const meta = {
@@ -44,6 +44,11 @@ function run() {
     const fp = buildFotoPrincipalVentas(ranked, { nombrePropiedad: 'Cabaña 8' });
     assert(fp && /tinaja/i.test(fp.alt), 'foto principal debe priorizar tinaja sobre estacionamiento');
     assert(fp.foto_principal_origen === 'auto_ranking_ventas', 'debe marcar origen auto cuando catálogo es débil');
+
+    const orden = enrichYOrdenarImagenesVentas(ranked);
+    assert(orden[orden.length - 1].alt.includes('Estacionamiento'), 'imagen debil debe ir al final');
+    assert(orden[orden.length - 1].score_visual === 0, 'score_visual debil debe ser 0');
+    assert(orden[orden.length - 1].es_debil_visual === true, 'es_debil_visual en parking');
 
     const tarifas = buildTarifasDetalladas({
         precio: { noche_referencia_clp: 120000, moneda: 'CLP' },
