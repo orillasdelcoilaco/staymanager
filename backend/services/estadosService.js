@@ -7,6 +7,74 @@ const pool = require('../db/postgres');
  */
 const SEMANTICA_GESTION_INICIO_POST_CONFIRMACION = 'pendiente_bienvenida';
 
+function _sqlQuoteLiteral(v) {
+    return `'${String(v || '').replace(/'/g, "''")}'`;
+}
+
+function _sqlArrayLiterals(values) {
+    const arr = Array.isArray(values) ? values : [values];
+    return arr.map((v) => _sqlQuoteLiteral(v)).join(', ');
+}
+
+/**
+ * Compatibilidad legacy: SQL WHERE para estado principal por semántica.
+ * Usa estado_principal_id (nuevo) y fallback por nombre en reservas.estado (legacy).
+ *
+ * @param {string} semantica
+ * @param {string} alias - alias de la tabla reservas (default "r")
+ */
+function sqlReservaPrincipalSemanticaIgual(semantica, alias = 'r') {
+    const s = _sqlQuoteLiteral(semantica);
+    return `(
+      (${alias}.estado_principal_id IS NOT NULL AND ${alias}.estado_principal_id IN (
+        SELECT er.id FROM estados_reserva er
+         WHERE er.empresa_id = ${alias}.empresa_id
+           AND COALESCE(er.semantica, '') = ${s}
+      ))
+      OR (
+        ${alias}.estado_principal_id IS NULL
+        AND LOWER(COALESCE(${alias}.estado, '')) IN (
+          SELECT LOWER(er.nombre) FROM estados_reserva er
+           WHERE er.empresa_id = ${alias}.empresa_id
+             AND COALESCE(er.semantica, '') = ${s}
+        )
+      )
+      OR (
+        ${alias}.estado_principal_id IS NULL
+        AND LOWER(COALESCE(${alias}.estado, '')) = LOWER(${s})
+      )
+    )`;
+}
+
+/**
+ * Compatibilidad legacy: SQL WHERE para varias semánticas.
+ *
+ * @param {string[]} semanticas
+ * @param {string} alias
+ */
+function sqlReservaPrincipalSemanticaEn(semanticas, alias = 'r') {
+    const valuesSql = _sqlArrayLiterals(semanticas);
+    return `(
+      (${alias}.estado_principal_id IS NOT NULL AND ${alias}.estado_principal_id IN (
+        SELECT er.id FROM estados_reserva er
+         WHERE er.empresa_id = ${alias}.empresa_id
+           AND COALESCE(er.semantica, '') IN (${valuesSql})
+      ))
+      OR (
+        ${alias}.estado_principal_id IS NULL
+        AND LOWER(COALESCE(${alias}.estado, '')) IN (
+          SELECT LOWER(er.nombre) FROM estados_reserva er
+           WHERE er.empresa_id = ${alias}.empresa_id
+             AND COALESCE(er.semantica, '') IN (${valuesSql})
+        )
+      )
+      OR (
+        ${alias}.estado_principal_id IS NULL
+        AND LOWER(COALESCE(${alias}.estado, '')) IN (${valuesSql})
+      )
+    )`;
+}
+
 function mapearEstado(row) {
     if (!row) return null;
     return {
@@ -113,11 +181,63 @@ async function obtenerNombreEstadoGestionInicialReservaConfirmada(empresaId) {
     return rows[0]?.nombre || null;
 }
 
+/**
+ * Estado principal (tabla estados_reserva) por semántica.
+ */
+async function obtenerEstadoPrincipalRowPorSemantica(empresaId, semantica) {
+    if (!pool || !empresaId || !semantica) return null;
+    const { rows } = await pool.query(
+        `SELECT id, nombre, semantica
+           FROM estados_reserva
+          WHERE empresa_id = $1
+            AND COALESCE(semantica, '') = $2
+          ORDER BY orden ASC NULLS LAST
+          LIMIT 1`,
+        [empresaId, semantica]
+    );
+    return rows[0] || null;
+}
+
+/**
+ * Fila completa del estado de gestión inicial tras confirmación.
+ */
+async function obtenerEstadoGestionInicialPostConfirmacionRow(empresaId) {
+    if (!pool || !empresaId) return null;
+    let row = null;
+    const bySem = await pool.query(
+        `SELECT id, nombre, semantica
+           FROM estados_reserva
+          WHERE empresa_id = $1
+            AND es_gestion = true
+            AND COALESCE(semantica, '') = $2
+          ORDER BY orden ASC NULLS LAST
+          LIMIT 1`,
+        [empresaId, SEMANTICA_GESTION_INICIO_POST_CONFIRMACION]
+    );
+    row = bySem.rows[0] || null;
+    if (row) return row;
+
+    const fallback = await pool.query(
+        `SELECT id, nombre, semantica
+           FROM estados_reserva
+          WHERE empresa_id = $1
+            AND es_gestion = true
+          ORDER BY orden ASC NULLS LAST
+          LIMIT 1`,
+        [empresaId]
+    );
+    return fallback.rows[0] || null;
+}
+
 module.exports = {
     crearEstado,
     obtenerEstados,
     actualizarEstado,
     eliminarEstado,
+    sqlReservaPrincipalSemanticaIgual,
+    sqlReservaPrincipalSemanticaEn,
+    obtenerEstadoPrincipalRowPorSemantica,
+    obtenerEstadoGestionInicialPostConfirmacionRow,
     obtenerNombreEstadoGestionPorSemantica,
     obtenerNombreEstadoGestionInicialReservaConfirmada,
     SEMANTICA_GESTION_INICIO_POST_CONFIRMACION,
