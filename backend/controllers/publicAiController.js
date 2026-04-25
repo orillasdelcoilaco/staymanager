@@ -13,7 +13,6 @@ const { obtenerCanalesPorEmpresa, crearCanal, resolverCanalIaVentaEnLista, IA_VE
 const { obtenerValorDolar } = require('../services/dolarService');
 const { obtenerTarifasParaConsumidores } = require('../services/tarifasService');
 const { guardarOActualizarPropuesta } = require('../services/gestionPropuestasService');
-const { crearPreferencia } = require('../services/mercadopagoService');
 const { obtenerPlantillasPorEmpresa, obtenerPlantillasPorDisparadorMotor } = require('../services/plantillasService');
 const { format, addDays, parseISO, isValid } = require('date-fns');
 const { crearOActualizarCliente } = require('../services/clientesService');
@@ -29,7 +28,10 @@ const {
     reservasTieneColumna,
 } = require('../services/estadosService');
 const { getBloqueosPorPeriodo } = require('../services/bloqueosService');
-const { enviarConfirmacionReservaIaEmail } = require('../services/chatgptSalesCoreEmailService');
+const {
+    enviarConfirmacionReservaIaEmail,
+    enviarNotificacionAdminReservaIaEmail,
+} = require('../services/chatgptSalesCoreEmailService');
 const { getChatgptReservaGuardDiag } = require('../services/chatgptSalesReservationGuardModule');
 
 const CANAL_IA_VENTA_CREAR_DATOS = {
@@ -555,8 +557,6 @@ const createBookingIntent = async (req, res) => {
         const saldoPendiente = totalEstadia - montoSeña;
 
         const reservaId = randomUUID();
-        const paymentLink = await crearPreferencia(targetEmpresaId, reservaId, `Reserva 10%: ${propertyName}`, montoSeña, 'CLP');
-
         const plantilla = await resolverPlantillaCorreoPreferida(db, targetEmpresaId);
         const plantillaId = plantilla ? plantilla.id : null;
 
@@ -588,7 +588,7 @@ const createBookingIntent = async (req, res) => {
             notas: "Reserva iniciada por IA.",
             enviarEmail: true,
             plantillaId: plantillaId,
-            linkPago: paymentLink
+            linkPago: ''
         };
 
         await guardarOActualizarPropuesta(db, targetEmpresaId, 'ai-agent@system', proposalData);
@@ -611,8 +611,8 @@ const createBookingIntent = async (req, res) => {
                 saldo_al_checkin: saldoPendiente,
                 porcentaje_seña: "10%"
             },
-            link_pago: paymentLink,
-            instrucciones: "El link de pago expira en 24 horas. La reserva no está confirmada hasta el pago de la seña.",
+            link_pago: '',
+            instrucciones: "No hay link de pago integrado. El pago de seña se registra manualmente (transferencia, efectivo o tarjeta presencial con POS externo).",
             contacto_empresa: {
                 whatsapp: empresaData.telefonoContacto || '',
                 email: empresaData.emailContacto || ''
@@ -723,7 +723,7 @@ const quotePriceForDates = async (req, res) => {
                 desglose: {
                     senaPagar: senaPagar,
                     porcentajeSena: '10%',
-                    descripcionSena: 'Seña para confirmar reserva (pago con MercadoPago)',
+                    descripcionSena: 'Seña para confirmar reserva (registro manual del pago recibido)',
                     saldoPendiente: saldoPendiente,
                     porcentajeSaldo: '90%',
                     descripcionSaldo: 'Saldo a pagar al momento del check-in'
@@ -734,7 +734,7 @@ const quotePriceForDates = async (req, res) => {
                 }
             },
             instrucciones: [
-                `1. Paga seña de $${senaPagar.toLocaleString('es-CL')} CLP`,
+                `1. Realiza la seña de $${senaPagar.toLocaleString('es-CL')} CLP por canal manual (transferencia, efectivo o POS externo)`,
                 `2. Recibirás confirmación por email`,
                 `3. Paga saldo de $${saldoPendiente.toLocaleString('es-CL')} CLP al check-in`
             ]
@@ -1201,7 +1201,7 @@ const createPublicReservation = async (req, res) => {
         const { rows: empRows } = await pool.query('SELECT nombre, email, configuracion FROM empresas WHERE id = $1', [empresaId]);
         const empData = empRows[0] || {};
         const empresaNombre = empData.nombre || empresaId;
-        const adminEmail    = empData.email || null;
+        const adminEmail    = empData.configuracion?.contactoEmail || empData.email || null;
 
         const dbFs = require('firebase-admin').firestore();
         const fmtCLP = (v) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(v || 0);
@@ -1257,6 +1257,23 @@ const createPublicReservation = async (req, res) => {
         if (!resultadoEmail.sent) {
             console.warn(`[Reserva IA] Email NO enviado: ${resultadoEmail.reason || 'sin-detalle'}`);
         }
+        const resultadoEmailAdmin = await enviarNotificacionAdminReservaIaEmail({
+            db: dbFs,
+            empresaId,
+            adminEmail,
+            reservaId,
+            nombreCliente,
+            clienteEmail: cliente.email,
+            nombrePropiedad: propiedadNombre,
+            checkin: fechaInicio,
+            checkout: fechaFin,
+            noches: precioCalc?.nights || nightsFromDates,
+            montoSena: senaPagar,
+            montoTotal: valorTotal,
+        });
+        if (!resultadoEmailAdmin.sent) {
+            console.warn(`[Reserva IA] Email admin NO enviado: ${resultadoEmailAdmin.reason || 'sin-detalle'}`);
+        }
 
         console.log(
             `✅ [Reserva IA] ${reservaId} — ${propiedadNombre} ${fechaInicio}→${fechaFin} | email→${cliente.email} sent=${resultadoEmail.sent} | vence: ${plazoAbonoTexto}`
@@ -1277,6 +1294,9 @@ const createPublicReservation = async (req, res) => {
             email_enviado: Boolean(resultadoEmail.sent),
             email_destinatario: cliente.email,
             ...(resultadoEmail.sent ? {} : { email_error: resultadoEmail.reason || 'EMAIL_NOT_SENT' }),
+            email_admin_enviado: Boolean(resultadoEmailAdmin.sent),
+            email_admin_destinatario: adminEmail || null,
+            ...(resultadoEmailAdmin.sent ? {} : { email_admin_error: resultadoEmailAdmin.reason || 'ADMIN_EMAIL_NOT_SENT' }),
             reserva_guard_diag,
             sugerencia_previa:
                 'Opcional: antes de confirmar, POST /api/reservas/cotizar o POST /api/public/reservas/cotizar (mismos datos y cabeceras que la reserva) devuelve desglose económico y política de cancelación sin persistir.',

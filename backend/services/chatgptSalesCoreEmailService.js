@@ -91,8 +91,48 @@ async function enviarConfirmacionReservaIaEmail({
     }
 }
 
+async function enviarNotificacionAdminReservaIaEmail({
+    db,
+    empresaId,
+    adminEmail,
+    reservaId,
+    nombreCliente,
+    clienteEmail,
+    nombrePropiedad,
+    checkin,
+    checkout,
+    noches,
+    montoSena,
+    montoTotal,
+}) {
+    try {
+        if (!adminEmail) return { sent: false, reason: 'MISSING_ADMIN_EMAIL' };
+        const fmtCLP = (v) =>
+            new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(v || 0);
+        const html = `<!doctype html><html><body style="font-family:Arial,sans-serif">
+<h2>Nueva reserva creada por IA</h2>
+<p><strong>Reserva:</strong> ${reservaId}</p>
+<p><strong>Huésped:</strong> ${nombreCliente} (${clienteEmail})</p>
+<p><strong>Alojamiento:</strong> ${nombrePropiedad}</p>
+<p><strong>Fechas:</strong> ${checkin} al ${checkout} (${noches} noche(s))</p>
+<p><strong>Total:</strong> ${fmtCLP(montoTotal)} · <strong>Seña:</strong> ${fmtCLP(montoSena)}</p>
+</body></html>`;
+        const r = await emailService.enviarCorreo(db, {
+            to: adminEmail,
+            subject: `[Admin] Nueva reserva IA ${reservaId}`,
+            html,
+            empresaId,
+        });
+        if (!r?.success) return { sent: false, reason: r?.error || 'EMAIL_PROVIDER_REJECTED' };
+        return { sent: true, mode: 'admin_notification', messageId: r.messageId || null };
+    } catch (error) {
+        return { sent: false, reason: error?.message || 'ADMIN_EMAIL_SEND_EXCEPTION' };
+    }
+}
+
 module.exports = {
     enviarConfirmacionReservaIaEmail,
+    enviarNotificacionAdminReservaIaEmail,
     buildFallbackConfirmEmail,
 };
 
