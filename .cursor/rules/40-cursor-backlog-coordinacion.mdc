@@ -29,6 +29,6 @@ Estas instrucciones son para sesiones de trabajo en **Cursor** sobre este reposi
 
 Antes de **editar** `TASKS/backlog-producto-pendientes.md` (o el mismo `.md` que otro proceso esté resolviendo): abrir `TASKS/coordinacion-cursor-claude-ia-venta.md` y cumplir **§10** (revisar §2, anunciar `EN CURSO`, cerrar en §6; usar LOCK en §3 si hace falta exclusividad). Si §2 muestra ese archivo **EN CURSO** por otro actor, **no** modificar el markdown hasta coordinar con el usuario.
 
-## 5. Subir mejoras a GitHub sin afectar a otros agentes Cursor
+## 5. GitHub y agentes en paralelo
 
-Varios agentes en paralelo: seguir **`TASKS/leer-primero.md` §5** (rama por tarea, `push` frecuente a esa rama, merge a `main` integrando `origin/main`, sin force-push a `main`, worktree o clones separados si comparten máquina). Los merges a `main` no borran commits ya pusheados en otras ramas; el riesgo es trabajo **sin commit/push** en el mismo directorio.
+**Sincronía entre agentes:** `TASKS/leer-primero.md` (§5.2–§5.3 bitácora). **Push a GitHub:** por acuerdo actual solo la **sesión integradora** (pruebas ChatGPT/Render); el resto trabaja en local y no hace `git push` — detalle en **`TASKS/leer-primero.md` §5.1**. Sin `git push --force` a `main`.
