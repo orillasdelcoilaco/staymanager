@@ -4,6 +4,7 @@
  */
 
 const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 const pool = require('../db/postgres');
 
 class EmailService {
@@ -25,21 +26,40 @@ class EmailService {
         if (this.provider === 'resend') {
             this.client = new Resend(process.env.RESEND_API_KEY);
         }
+        if (this.provider === 'gmail') {
+            this.client = nodemailer.createTransport({
+                host: process.env.SMTP_HOST || 'smtp.gmail.com',
+                port: Number(process.env.SMTP_PORT || 587),
+                secure: String(process.env.SMTP_SECURE || 'false') === 'true',
+                auth: {
+                    user: process.env.EMAIL_USER,
+                    pass: process.env.EMAIL_PASS,
+                },
+            });
+        }
 
         return this.client;
     }
 
     async inicializarConfigEmail(_db, empresaId) {
         const { rows } = await pool.query(
-            'SELECT id, nombre, email_contacto FROM empresas WHERE id = $1',
+            `SELECT
+                id,
+                nombre,
+                email,
+                configuracion
+             FROM empresas
+             WHERE id = $1`,
             [empresaId]
         );
         if (!rows[0]) throw new Error('Empresa no encontrada');
+        const cfg = rows[0].configuracion || {};
+        const contactoEmail = cfg.contactoEmail || rows[0].email || null;
         return {
             nombre: rows[0].nombre,
             emailConfig: {
                 nombreRemitente: rows[0].nombre || 'SuiteManager',
-                replyTo: rows[0].email_contacto || null
+                replyTo: contactoEmail
             }
         };
     }
@@ -53,7 +73,22 @@ class EmailService {
             replyTo
         } = opciones;
 
-        const empresaData = await this.inicializarConfigEmail(db, empresaId);
+        let empresaData;
+        try {
+            empresaData = await this.inicializarConfigEmail(db, empresaId);
+        } catch (error) {
+            // Fallback robusto: si falla lookup SQL (p. ej. columnas legacy), no bloquear envío.
+            console.warn(
+                `[EmailService] Fallback de configuración para empresa ${empresaId}: ${error.message}`
+            );
+            empresaData = {
+                nombre: 'SuiteManager',
+                emailConfig: {
+                    nombreRemitente: 'SuiteManager',
+                    replyTo: replyTo || undefined,
+                },
+            };
+        }
         const client = await this.getClient();
 
         const from = empresaData.emailConfig?.nombreRemitente
@@ -77,11 +112,33 @@ class EmailService {
                     html,
                     reply_to: replyTo || empresaData.emailConfig?.replyTo
                 });
+                if (resultado?.error) {
+                    return {
+                        success: false,
+                        error: resultado.error?.message || 'Resend rejected the email request.',
+                        proveedor: 'resend',
+                    };
+                }
 
                 return {
                     success: true,
                     messageId: resultado.data?.id,
                     proveedor: 'resend'
+                };
+            }
+
+            if (this.provider === 'gmail') {
+                const info = await client.sendMail({
+                    from,
+                    to,
+                    subject,
+                    html,
+                    replyTo: replyTo || empresaData.emailConfig?.replyTo || undefined,
+                });
+                return {
+                    success: true,
+                    messageId: info.messageId,
+                    proveedor: 'gmail',
                 };
             }
 
