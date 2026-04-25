@@ -82,8 +82,38 @@
     <%
         /* ── Galería ── */
         const _imgs     = propiedad.websiteData?.images || {};
-        const _fromWSD  = Object.values(_imgs).flat().filter(img => img && img.storagePath);
-        const _cardImg  = propiedad.websiteData?.cardImage?.storagePath ? propiedad.websiteData.cardImage : null;
+        const _fromApiGaleria = Array.isArray(propiedad.galeria)
+            ? propiedad.galeria
+                .map((u, i) => {
+                    const _u = String(u || '').trim();
+                    if (!_u) return null;
+                    return {
+                        id: `api-g-${i}`,
+                        imageId: `api-g-${i}`,
+                        storagePath: _u,
+                        storageUrl: _u,
+                        thumbnailUrl: _u,
+                        altText: propiedad?.foto_principal?.alt || '',
+                        title: propiedad?.foto_principal?.alt || '',
+                        orden: i + 1
+                    };
+                })
+                .filter(Boolean)
+            : [];
+        const _fromWSD  = _fromApiGaleria.length > 0
+            ? _fromApiGaleria
+            : Object.values(_imgs).flat().filter(img => img && img.storagePath);
+        const _cardImg  = (propiedad?.foto_principal?.url && String(propiedad.foto_principal.url).trim())
+            ? {
+                imageId: propiedad.foto_principal.imageId || 'api-principal',
+                storagePath: String(propiedad.foto_principal.url).trim(),
+                storageUrl: String(propiedad.foto_principal.url).trim(),
+                thumbnailUrl: String(propiedad.foto_principal.thumbnail_url || propiedad.foto_principal.url).trim(),
+                altText: propiedad.foto_principal.alt || '',
+                title: propiedad.foto_principal.alt || '',
+                orden: 0
+            }
+            : (propiedad.websiteData?.cardImage?.storagePath ? propiedad.websiteData.cardImage : null);
         const _commonAreaImgs = Array.isArray(galeriaAreasComunes) ? galeriaAreasComunes.filter((img) => img && img.storagePath) : [];
         const _componentesOrden = Array.isArray(propiedad.componentes) ? propiedad.componentes : [];
         const _compRankById = {};
@@ -1449,8 +1479,8 @@
         } catch(e) { console.error('Error inyectando datos:', e); }
     </script>
     <script src="/public/js/share.js" defer></script>
-    <script src="/public/js/booking.js" defer></script>
     <script src="/public/js/public-booking-calendar.js" defer></script>
+    <script src="/public/js/booking.js" defer></script>
     <script src="/public/js/gallery.js" defer></script>
 </body>
 </html>

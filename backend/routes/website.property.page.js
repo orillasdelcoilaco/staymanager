@@ -64,6 +64,24 @@ function buildEmpresaAreasComunesGallery(empresa, propiedad) {
     return out;
 }
 
+function _toGalleryItem(raw, idx = 0) {
+    const url = String(
+        raw?.url || raw?.storagePath || raw?.storageUrl || raw?.thumbnailUrl || raw?.thumbnail_url || ''
+    ).trim();
+    if (!url) return null;
+    return {
+        id: String(raw?.id || raw?.imageId || `api-${idx}`),
+        imageId: String(raw?.imageId || raw?.id || `api-${idx}`),
+        storagePath: url,
+        storageUrl: url,
+        thumbnailUrl: String(raw?.thumbnail_url || raw?.thumbnailUrl || url).trim() || url,
+        altText: String(raw?.alt || raw?.altText || '').trim(),
+        title: String(raw?.title || raw?.alt || raw?.altText || '').trim(),
+        espacio: String(raw?.espacio || '').trim(),
+        orden: Number.isFinite(Number(raw?.orden)) ? Number(raw.orden) : idx + 1,
+    };
+}
+
 /**
  * GET /propiedad/:id — render ficha pública.
  */
@@ -157,6 +175,36 @@ async function renderPropiedadPublica(req, res, db, deps) {
             } catch (_) {}
         }
         const galeriaAreasComunes = buildEmpresaAreasComunesGallery(empresaCompleta, propiedad);
+
+        // Bloque visual normalizado para frontend SSR (compatibilidad con payload IA comercial)
+        const visualGalleryFromPropiedad = Array.isArray(propiedad?.galeria)
+            ? propiedad.galeria.map((u, i) => _toGalleryItem({ url: u, orden: i + 1 }, i)).filter(Boolean)
+            : [];
+        const visualGalleryFromWebsite = websiteImgs
+            .map((img, i) => _toGalleryItem(img, i))
+            .filter(Boolean);
+        const visualGalleryFromGaleria = galeriaFotos
+            .map((img, i) => _toGalleryItem(img, i))
+            .filter(Boolean);
+        const visualGallery =
+            visualGalleryFromPropiedad.length > 0
+                ? visualGalleryFromPropiedad
+                : visualGalleryFromWebsite.length > 0
+                    ? visualGalleryFromWebsite
+                    : visualGalleryFromGaleria;
+        const visualPrincipal = _toGalleryItem(
+            propiedad?.foto_principal || propiedad?.fotoPrincipal || propiedad?.websiteData?.cardImage || null,
+            0
+        );
+        if (visualPrincipal && visualGallery.length > 0) {
+            const principalPath = String(visualPrincipal.storagePath || '').trim();
+            const withoutDup = visualGallery.filter((it) => String(it.storagePath || '').trim() !== principalPath);
+            propiedad.galeria = [principalPath, ...withoutDup.map((it) => it.storagePath)];
+            propiedad.foto_principal = { ...visualPrincipal, url: principalPath, principal: true };
+        } else if (visualGallery.length > 0) {
+            propiedad.galeria = visualGallery.map((it) => it.storagePath);
+            propiedad.foto_principal = { ...visualGallery[0], url: visualGallery[0].storagePath, principal: true };
+        }
 
         // JSON-LD: buildContext vive en metadata pero el servicio público hace spread → propiedad.buildContext
         let schemaData =
