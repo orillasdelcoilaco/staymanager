@@ -1,6 +1,7 @@
 // backend/services/propiedadesService.js
 const pool = require('../db/postgres');
 const { calcularCapacidad, contarDistribucion, hydrateInventory } = require('./propiedadLogicService');
+const { finalizePropertyMetadataForSave } = require('./propiedadesMetadataPipeline');
 
 const slugify = (text) => {
     return text.toString().toLowerCase()
@@ -99,7 +100,7 @@ const crearPropiedad = async (_db, empresaId, datosPropiedad) => {
         counter++;
     }
 
-    const metadata = {
+    const metadataPatch = {
         numBanos: datosPropiedad.numBanos || banosCalculados,
         camas: datosPropiedad.camas || {},
         equipamiento: datosPropiedad.equipamiento || {},
@@ -107,8 +108,16 @@ const crearPropiedad = async (_db, empresaId, datosPropiedad) => {
         componentes,
         amenidades: datosPropiedad.amenidades || [],
         googleHotelData: datosPropiedad.googleHotelData || {},
-        websiteData: datosPropiedad.websiteData || { aiDescription: '', images: {}, cardImage: null }
+        websiteData: datosPropiedad.websiteData || { aiDescription: '', images: {}, cardImage: null },
     };
+    if (datosPropiedad.ubicacion && typeof datosPropiedad.ubicacion === 'object') {
+        metadataPatch.ubicacion = datosPropiedad.ubicacion;
+    }
+    if (Object.prototype.hasOwnProperty.call(datosPropiedad, 'contextoComercial')) {
+        metadataPatch.contextoComercial = datosPropiedad.contextoComercial;
+    }
+
+    const metadata = await finalizePropertyMetadataForSave({}, metadataPatch);
 
     await pool.query(`
         INSERT INTO propiedades (id, empresa_id, nombre, capacidad, num_piezas, descripcion, activo, metadata)
@@ -186,6 +195,14 @@ const actualizarPropiedad = async (_db, empresaId, propiedadId, datosActualizado
         }
     }
 
+    const { rows: metaRows } = await pool.query(
+        'SELECT metadata FROM propiedades WHERE id = $1 AND empresa_id = $2',
+        [propiedadId, empresaId]
+    );
+    const prevRaw = metaRows[0]?.metadata;
+    const prevMeta = prevRaw && typeof prevRaw === 'object' ? prevRaw : {};
+    const mergedMetadata = await finalizePropertyMetadataForSave(prevMeta, restoMeta);
+
     await pool.query(`
         UPDATE propiedades SET
             nombre      = COALESCE($2, nombre),
@@ -193,7 +210,7 @@ const actualizarPropiedad = async (_db, empresaId, propiedadId, datosActualizado
             num_piezas  = COALESCE($4, num_piezas),
             descripcion = COALESCE($5, descripcion),
             activo      = COALESCE($6, activo),
-            metadata    = metadata || $7::jsonb,
+            metadata    = $7::jsonb,
             updated_at  = NOW()
         WHERE id = $1 AND empresa_id = $8
     `, [
@@ -203,7 +220,7 @@ const actualizarPropiedad = async (_db, empresaId, propiedadId, datosActualizado
         numPiezasFinal || null,
         descripcion !== undefined ? descripcion : null,
         activo !== undefined ? activo : null,
-        JSON.stringify(restoMeta),
+        JSON.stringify(mergedMetadata),
         empresaId
     ]);
 

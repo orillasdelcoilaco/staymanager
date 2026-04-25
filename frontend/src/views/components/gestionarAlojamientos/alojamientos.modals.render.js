@@ -1,6 +1,8 @@
 // frontend/src/views/components/gestionarAlojamientos/alojamientos.modals.render.js
 // Responsabilidad: HTML estático del modal de alojamiento (renderizado inicial).
 
+import { renderSeccionContextoComercialModal } from './alojamientos.modals.render.contexto.js';
+
 export const renderModalAlojamiento = () => {
     return `
         <div id="propiedad-modal" class="modal hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-40 flex items-center justify-center">
@@ -38,6 +40,8 @@ export const renderModalAlojamiento = () => {
                                 </div>
                             </div>
                         </div>
+
+                        ${renderSeccionContextoComercialModal()}
 
                         <!-- SECCIÓN 2: CONSTRUCTOR DE ESPACIOS (CORE) -->
                         <div class="bg-white p-6 rounded-lg shadow-sm border border-primary-100">

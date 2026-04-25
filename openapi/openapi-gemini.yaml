@@ -1,11 +1,16 @@
 openapi: 3.1.0
 info:
   title: SuiteManager Public API for Gemini
-  version: 1.2.0
+  version: 1.4.0
   description: |
     API pública para extensiones Gemini. Listados usan **producto_ia_v2**: precio por tarifas PG, ubicación, amenidades
     (metadata + inventario componentes), políticas mergeadas (empresa + propiedad), alias `precioBase`/`ciudad`/`direccion_corta`.
     Tras listar, llamar **obtenerDetalleAlojamiento** para ficha completa (galería, inventario_verificado, normas).
+
+    **v1.3:** capa comercial en JSON: `contexto_turistico`, `amenidades_publicas`, `inventario_detallado`, `descripcion_fuente`,
+    galería con `espacio` y `tipo_ia`, ubicación ampliada desde website/buildContext cuando exista.
+
+    **v1.4:** detalle con `checkin`/`checkout` opcionales devuelve `precio_estimado` (canal por defecto + desglose checkout).
 
 servers:
   - url: https://suite-manager.onrender.com
@@ -204,6 +209,7 @@ paths:
       description: |
         Usar **siempre** tras elegir un alojamiento para preguntas de parrilla, mascotas, camas, wifi, etc.
         `precio.origen` indica si el monto vino de metadata o de tarifas PG.
+        Con checkin/checkout opcionales se incluye `precio_estimado` por estadía.
       parameters:
         - in: query
           name: alojamiento_id
@@ -211,6 +217,15 @@ paths:
           schema:
             type: string
             description: UUID de propiedad en PostgreSQL
+        - in: query
+          name: checkin
+          schema: { type: string, format: date }
+        - in: query
+          name: checkout
+          schema: { type: string, format: date }
+        - in: query
+          name: adultos
+          schema: { type: integer, minimum: 1, default: 2 }
       responses:
         "200":
           description: ProductoIaDetalle (producto_ia_v2)
@@ -364,6 +379,20 @@ components:
         dormitorios: { type: integer }
         banos: { type: integer }
 
+    ProductoIaContextoTuristico:
+      type: object
+      properties:
+        tipo_viaje:
+          type: array
+          items: { type: string }
+        entorno:
+          type: array
+          items: { type: string }
+        destacados:
+          type: array
+          items: { type: string }
+        sugerencia_copy: { type: string, nullable: true }
+
     ProductoIaListingCard:
       type: object
       properties:
@@ -380,9 +409,20 @@ components:
         ubicacion:
           $ref: "#/components/schemas/ProductoIaUbicacion"
         descripcion: { type: string, nullable: true }
+        descripcion_fuente:
+          type: string
+          nullable: true
         amenidades:
           type: array
           items: { type: string }
+        amenidades_publicas:
+          type: array
+          items: { type: string }
+        inventario_detallado:
+          type: array
+          items: { type: string }
+        contexto_turistico:
+          $ref: "#/components/schemas/ProductoIaContextoTuristico"
         distribucion:
           $ref: "#/components/schemas/ProductoIaDistribucion"
         politicas:
@@ -410,6 +450,8 @@ components:
         thumbnail_url: { type: string, nullable: true }
         alt: { type: string }
         tipo: { type: string }
+        espacio: { type: string, nullable: true }
+        tipo_ia: { type: string }
         orden: { type: integer }
         principal: { type: boolean }
 
@@ -433,6 +475,23 @@ components:
               icon: { type: string }
               text: { type: string }
 
+    ProductoIaPrecioEstimado:
+      type: object
+      properties:
+        checkin: { type: string }
+        checkout: { type: string }
+        moneda: { type: string }
+        noches: { type: integer }
+        disponible: { type: boolean, nullable: true }
+        calculo_ok: { type: boolean }
+        codigo: { type: string, nullable: true }
+        subtotal_alojamiento_clp: { type: integer, nullable: true }
+        promedio_noche_clp: { type: integer, nullable: true }
+        desglose_checkout: { type: object, nullable: true }
+        referencia: { type: object, nullable: true }
+        aviso: { type: string, nullable: true }
+        mensaje: { type: string, nullable: true }
+
     ProductoIaDetalle:
       allOf:
         - $ref: "#/components/schemas/ProductoIaListingCard"
@@ -444,6 +503,9 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/ProductoIaInventarioItem"
+            inventario_detallado:
+              type: array
+              items: { type: string }
             normas:
               type: object
               properties:
@@ -463,6 +525,9 @@ components:
               properties:
                 total: { type: integer }
                 promedio_general: { type: number, nullable: true }
+            precio_estimado:
+              $ref: "#/components/schemas/ProductoIaPrecioEstimado"
+              nullable: true
 
     BusquedaGeneralAiResponse:
       type: object

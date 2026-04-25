@@ -481,6 +481,26 @@ function hidratarCapacidades(componentes) {
     });
 }
 
+function leerContextoComercialDelDom() {
+    const tipo_viaje = Array.from(document.querySelectorAll('input[name="ctx-tv"]:checked')).map((c) => c.value);
+    const entorno = Array.from(document.querySelectorAll('input[name="ctx-ent"]:checked')).map((c) => c.value);
+    const raw = document.getElementById('ctx-destacados')?.value || '';
+    const destacados = raw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    return { tipo_viaje, entorno, destacados };
+}
+
+function aplicarContextoComercialAlDom(cc) {
+    const data = cc || {};
+    document.querySelectorAll('input[name="ctx-tv"]').forEach((cb) => {
+        cb.checked = (data.tipo_viaje || []).includes(cb.value);
+    });
+    document.querySelectorAll('input[name="ctx-ent"]').forEach((cb) => {
+        cb.checked = (data.entorno || []).includes(cb.value);
+    });
+    const ta = document.getElementById('ctx-destacados');
+    if (ta) ta.value = (data.destacados || []).join('\n');
+}
+
 function poblarFormularioEdicion(form, propiedad, icalContainer) {
     editandoPropiedad = propiedad;
     document.getElementById('modal-title').textContent = 'Editar Alojamiento';
@@ -505,6 +525,8 @@ function poblarFormularioEdicion(form, propiedad, icalContainer) {
 
     form.googleHotelId.value = propiedad.googleHotelData?.hotelId || '';
     form.googleHotelIsListed.checked = propiedad.googleHotelData?.isListed || false;
+
+    aplicarContextoComercialAlDom(propiedad.contextoComercial);
 }
 
 function poblarFormularioCreacion(form, icalContainer) {
@@ -516,6 +538,7 @@ function poblarFormularioCreacion(form, icalContainer) {
     componentesTemporales = [];
     tempAiDescription = '';
     icalContainer.querySelectorAll('.ical-input').forEach(input => { input.value = ''; });
+    aplicarContextoComercialAlDom({ tipo_viaje: [], entorno: [], destacados: [] });
 }
 
 // --- EXPORTS ---
@@ -619,6 +642,7 @@ export const setupModalAlojamiento = (callback) => {
                 hotelId: document.getElementById('googleHotelId').value.trim(),
                 isListed: document.getElementById('googleHotelIsListed').checked,
             },
+            contextoComercial: leerContextoComercialDelDom(),
             websiteData: {
                 ...(editandoPropiedad?.websiteData || {}),
                 aiDescription: tempAiDescription || editandoPropiedad?.websiteData?.aiDescription || '',

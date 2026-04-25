@@ -35,6 +35,10 @@ _Actualizar al iniciar y al terminar trabajo relevante._
 
 | Fecha (ISO) | Actor  | Área                             | Estado   | Nota breve (archivos / endpoint) |
 |-------------|--------|----------------------------------|----------|----------------------------------|
+| 2026-04-24  | Cursor | Detalle IA `precio_estimado` con fechas | LISTO | `publicAiPrecioEstimadoService.js`, `suitemanagerApiController.detalle`, OpenAPI 1.4.0. |
+| 2026-04-24  | Cursor | Contexto comercial persistido + geocode al guardar | LISTO | `propiedadesMetadataPipeline.js`, `propiedadesService.js`, modal `alojamientos.modals.*`, `publicAiMarketingLayer` merge persistido/heurística. |
+| 2026-04-24  | Cursor | Payload comercial IA (listado/detalle) | LISTO | `publicAiMarketingLayer.js`, `publicAiProductSnapshot.js`, `suitemanagerApiController` (galería `espacio`). Sin cambio de rutas HTTP. |
+| 2026-04-24  | Cursor | Identificadores vs nombres (PG)  | Fase1 LISTO | Columna `reservas.estado_gestion_id` + código dual (nombre sincronizado). Migración: `backend/db/migrations/reservas-estado-gestion-id.sql`. SPA gestión/reservas/calendario alineados parcialmente — ver `TASKS/audit-identificadores-vs-nombres-ui.md` § avance. **Siguiente:** ejecutar SQL en Supabase; fase 2 canal/plantilla IA, `reservas.estado` principal, jobs SQL. |
 | 2026-04-24  | Claude | `consultarDisponibilidad` / bug  | LISTO    | Fix: `resolveEmpresaPgId` + `unavailableProperties`; commit `e27f151` |
 | 2026-04-24  | Claude | Estrategia multi-canal IA venta  | EN CURSO | Ver §9 — roadmap por canal y tier |
 
@@ -49,9 +53,9 @@ Estas piezas afectan **directamente** lo que ve ChatGPT / acciones OpenAPI y lo 
 | Tema | Archivos / rutas típicas | Riesgo si no se coordina |
 |------|---------------------------|---------------------------|
 | Precio reserva / tarifas | `calculoValoresService.js`, `tarifasService.js` (`obtenerTarifasParaConsumidores`), `website.shared.js` (`fetchTarifasYCanal`), `publicWebsiteService.js` | Totales distintos IA vs checkout; promos `metadata.promo` desalineadas |
-| Reserva pública IA | `publicAiController.js` (`createPublicReservation`, `quotePriceForDates`, `createBookingIntent`) | 422/409, montos incorrectos, doble canal (`IA Reserva` vs default) |
+| Reserva pública IA | `publicAiController.js` (`createPublicReservation`, `quotePriceForDates`, `createBookingIntent`) | 422/409, montos incorrectos, doble canal (`IA Reserva` vs default). **2026-04-24:** al tocar este archivo, alinear con regla *id/semántica, no nombre de canal/plantilla* (`SHARED_CONTEXT.md`, `TASKS/audit-identificadores-vs-nombres-ui.md`) |
 | OpenAPI / GPT | `openapi/openapi-chatgpt.yaml`, `suitemanagerApiController.js`, `publicRoutes.js` | El agente llama endpoints rotos o con body distinto |
-| Checkout web SSR | `website.booking.js`, `crearReservaPublica`, reconciliación precio | Regresiones en reserva humana al “alinear” IA |
+| Checkout web SSR | `website.booking.js`, `reservar.ejs`, `public/js/checkout.js`, `crearReservaPublica`, reconciliación precio, aceptación términos | Regresiones en reserva humana al “alinear” IA |
 
 **Locks explícitos (opcional):** si necesitas exclusividad temporal, añade:
 
@@ -108,6 +112,9 @@ Quitar el lock cuando termines.
 
 _Formato: `YYYY-MM-DD — Actor — una frase`._
 
+- 2026-04-24 — Cursor — `GET /api/alojamientos/detalle?checkin&checkout` (+aliases) devuelve `precio_estimado` (`publicAiPrecioEstimadoService.js`: misma `calculatePrice` que web SSR + `buildDesglosePrecioCheckout`). OpenAPI 1.4.0.
+- 2026-04-24 — Cursor — Persistencia `metadata.contextoComercial` (tipo_viaje, entorno, destacados) + UI modal alojamiento; IA usa persistido y heurística solo si vacío. Geocoding Nominatim al guardar propiedad (`propiedadesMetadataPipeline.js` + `propiedadesService` merge metadata completo + `googleHotelData.geo`).
+- 2026-04-24 — Cursor — Snapshot IA: `publicAiMarketingLayer.js` + integración en `publicAiProductSnapshot.js` (`contexto_turistico`, `amenidades_publicas`, `inventario_detallado`, `descripcion_fuente` + texto auto si falta descripción, `enrichUbicacionForAi`). Galería: `espacio`, `tipo_ia`, `principal` por `rol` en detalle y `imagenes`. Revisar OpenAPI si documentan nuevos campos.
 - 2026-04-24 — Claude — Estrategia multi-canal definida en §9; roadmap por tier; handoff JSON-LD a Cursor.
 - 2026-04-24 — Claude — Fix `consultarDisponibilidad`: `resolveEmpresaPgId` + `unavailableProperties` devuelto en `_buildAvailabilityResult`; push a Render.
 - 2026-04-24 — Cursor — Creado este documento y plantillas de handoff; pendiente primera fila real en §2.

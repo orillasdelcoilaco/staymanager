@@ -1,11 +1,18 @@
 openapi: 3.1.0
 info:
   title: SuiteManager Public API for ChatGPT
-  version: 1.2.0
+  version: 1.4.0
   description: |
     API pública para Actions. Listados usan **producto_ia_v2**: precio por tarifas PG, ubicación, amenidades
     (metadata + inventario componentes), políticas mergeadas (empresa + propiedad), alias `precioBase`/`ciudad`/`direccion_corta`.
     Tras listar, llamar **obtenerDetalleAlojamiento** para ficha completa (galería, inventario_verificado, normas).
+
+    **v1.3:** capa comercial en JSON: `contexto_turistico` (tipo_viaje, entorno, destacados, sugerencia_copy),
+    `amenidades_publicas` (venta), `inventario_detallado` (strings), `descripcion_fuente` (`meta_o_columna` | `auto_template`),
+    galería con `espacio` y `tipo_ia`, ubicación ampliada desde website/buildContext cuando exista.
+
+    **v1.4:** `GET /api/alojamientos/detalle` acepta `checkin` + `checkout` (YYYY-MM-DD, aliases `fechaLlegada`/`fechaSalida`) y opcional `adultos`;
+    si vienen fechas válidas, la respuesta incluye `precio_estimado` (misma función `publicWebsiteService.calculatePrice` que `/propiedad/:id/calcular-precio` + desglose checkout referencial).
 
 servers:
   - url: https://suite-manager.onrender.com
@@ -204,6 +211,7 @@ paths:
       description: |
         Usar **siempre** tras elegir un alojamiento para preguntas de parrilla, mascotas, camas, wifi, etc.
         `precio.origen` indica si el monto vino de metadata o de tarifas PG.
+        Con **checkin** y **checkout** (YYYY-MM-DD) se añade `precio_estimado` por estadía (disponibilidad + tarifas canal por defecto).
       parameters:
         - in: query
           name: alojamiento_id
@@ -211,6 +219,18 @@ paths:
           schema:
             type: string
             description: UUID de propiedad en PostgreSQL
+        - in: query
+          name: checkin
+          schema: { type: string, format: date }
+          description: Check-in (YYYY-MM-DD). Alias fechaLlegada, fechaInicio, check_in.
+        - in: query
+          name: checkout
+          schema: { type: string, format: date }
+          description: Check-out exclusivo (YYYY-MM-DD). Alias fechaSalida, fechaFin, check_out.
+        - in: query
+          name: adultos
+          schema: { type: integer, minimum: 1, default: 2 }
+          description: Huéspedes para líneas extra por persona (opcional). Alias personas.
       responses:
         "200":
           description: ProductoIaDetalle (producto_ia_v2)
@@ -364,6 +384,22 @@ components:
         dormitorios: { type: integer }
         banos: { type: integer }
 
+    ProductoIaContextoTuristico:
+      type: object
+      properties:
+        tipo_viaje:
+          type: array
+          items: { type: string }
+          description: Heurístico (familias, parejas, grupos).
+        entorno:
+          type: array
+          items: { type: string }
+          description: bosque, rio, lago, montaña, costa, ciudad.
+        destacados:
+          type: array
+          items: { type: string }
+        sugerencia_copy: { type: string, nullable: true }
+
     ProductoIaListingCard:
       type: object
       properties:
@@ -380,9 +416,23 @@ components:
         ubicacion:
           $ref: "#/components/schemas/ProductoIaUbicacion"
         descripcion: { type: string, nullable: true }
+        descripcion_fuente:
+          type: string
+          nullable: true
+          description: meta_o_columna | auto_template
         amenidades:
           type: array
           items: { type: string }
+        amenidades_publicas:
+          type: array
+          items: { type: string }
+          description: Amenities normalizadas para venta (sin inventario fino de cocina).
+        inventario_detallado:
+          type: array
+          items: { type: string }
+          description: Líneas tipo "3× Plato" desde componentes verificados.
+        contexto_turistico:
+          $ref: "#/components/schemas/ProductoIaContextoTuristico"
         distribucion:
           $ref: "#/components/schemas/ProductoIaDistribucion"
         politicas:
@@ -409,7 +459,11 @@ components:
         url: { type: string }
         thumbnail_url: { type: string, nullable: true }
         alt: { type: string }
-        tipo: { type: string }
+        tipo: { type: string, description: rol galería (principal | adicional) }
+        espacio: { type: string, nullable: true, description: Etiqueta de espacio (ej. Dormitorio principal) }
+        tipo_ia:
+          type: string
+          description: Categoría conversacional (dormitorio, terraza, exterior, general, …)
         orden: { type: integer }
         principal: { type: boolean }
 
@@ -433,6 +487,34 @@ components:
               icon: { type: string }
               text: { type: string }
 
+    ProductoIaPrecioEstimado:
+      type: object
+      description: Cotización por estadía (solo si se enviaron checkin/checkout válidos).
+      properties:
+        checkin: { type: string }
+        checkout: { type: string }
+        moneda: { type: string }
+        motor:
+          type: string
+          example: publicWebsiteService.calculatePrice
+        noches: { type: integer }
+        disponible: { type: boolean, nullable: true }
+        calculo_ok: { type: boolean }
+        codigo:
+          type: string
+          nullable: true
+          description: NOT_AVAILABLE | NO_PRICING | SIN_CANAL_DEFECTO | CAPACIDAD | CALC_ERROR | ERROR
+        subtotal_alojamiento_clp: { type: integer, nullable: true }
+        promedio_noche_clp: { type: integer, nullable: true }
+        desglose_checkout:
+          type: object
+          nullable: true
+        referencia:
+          type: object
+          nullable: true
+        aviso: { type: string, nullable: true }
+        mensaje: { type: string, nullable: true }
+
     ProductoIaDetalle:
       allOf:
         - $ref: "#/components/schemas/ProductoIaListingCard"
@@ -444,6 +526,10 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/ProductoIaInventarioItem"
+            inventario_detallado:
+              type: array
+              items: { type: string }
+              description: Misma fuente que listado; strings listos para copy comercial.
             normas:
               type: object
               properties:
@@ -463,6 +549,9 @@ components:
               properties:
                 total: { type: integer }
                 promedio_general: { type: number, nullable: true }
+            precio_estimado:
+              $ref: "#/components/schemas/ProductoIaPrecioEstimado"
+              nullable: true
 
     BusquedaGeneralAiResponse:
       type: object

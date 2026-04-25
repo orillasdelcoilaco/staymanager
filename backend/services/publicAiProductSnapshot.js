@@ -6,6 +6,14 @@ const pool = require('../db/postgres');
 const { getPrecioBaseNoche, fetchTarifasForEmpresas } = require('../routes/website.shared');
 const { mergeEffectiveRules, buildHouseRulesPublicView } = require('./houseRulesService');
 const { contarDistribucion, getVerifiedInventory } = require('./propiedadLogicService');
+const {
+    enrichUbicacionForAi,
+    deriveAmenidadesPublicas,
+    buildInventarioDetallado,
+    inferContextoTuristico,
+    buildDescripcionComercialAuto,
+    mapEspacioToTipoIa,
+} = require('./publicAiMarketingLayer');
 
 const DESC_MAX_LIST = 420;
 const DESC_MAX_DETAIL = 8000;
@@ -174,21 +182,37 @@ function buildListingCardForAi(row, ctx) {
             direccion_linea: [ubic.direccion, ubic.ciudad, ubic.region].filter(Boolean).join(', ').slice(0, 200),
         };
     }
+    ubic = enrichUbicacionForAi(meta, ubic);
     const amLim = ctx.compact ? 14 : 32;
     const amenidades = _mergeAmenidades(meta, amLim);
+    const inventarioMax = ctx.compact ? 10 : 25;
+    const inventario_detallado = buildInventarioDetallado(meta, inventarioMax);
+    const amenidades_publicas = deriveAmenidadesPublicas(amenidades, row.nombre);
+    const distribucion = _distribucion(meta);
+    const contexto_turistico = inferContextoTuristico(meta, row, distribucion, amenidades_publicas);
     const descSource =
         (typeof row.descripcion === 'string' && row.descripcion.trim()) ||
         meta.websiteData?.description ||
         meta.websiteData?.shortDescription ||
         '';
     const descMax = ctx.compact ? 380 : DESC_MAX_LIST;
-    const descripcion = _clip(descSource, descMax) || null;
+    let descripcion = _clip(descSource, descMax) || null;
+    let descripcion_fuente = descripcion ? 'meta_o_columna' : null;
+    if (!descripcion) {
+        descripcion = buildDescripcionComercialAuto({
+            nombre: row.nombre,
+            capacidad: row.capacidad,
+            distribucion,
+            amenidades_publicas,
+            empresaNombre: row.empresa_nombre,
+        });
+        descripcion_fuente = 'auto_template';
+    }
     const rulesView = buildHouseRulesPublicView(merged, Number(row.capacidad) || 0);
     const resumenNormas = [rulesView.sumLine1, rulesView.sumLine2, rulesView.sumLine3]
         .filter(Boolean)
         .slice(0, 3)
         .join(' · ');
-    const distribucion = _distribucion(meta);
     const ratingVal = meta.rating != null ? Number(meta.rating) : null;
     const nocheInt = precioNocheReferencia > 0 ? Math.round(precioNocheReferencia) : null;
 
@@ -207,7 +231,11 @@ function buildListingCardForAi(row, ctx) {
         },
         ubicacion: ubic,
         descripcion,
+        descripcion_fuente,
         amenidades,
+        amenidades_publicas,
+        inventario_detallado,
+        contexto_turistico,
         distribucion,
         politicas: _politicasPublicas(merged),
         resumen_normas: resumenNormas || null,
@@ -271,6 +299,7 @@ function buildAgentPropertyDetailPayload({
     moneda,
     mergedRules,
     precioOrigen,
+    precio_estimado = null,
 }) {
     const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
     let ubic = _ubicacion(meta);
@@ -282,18 +311,39 @@ function buildAgentPropertyDetailPayload({
             direccion_linea: [ubic.direccion, ubic.ciudad, ubic.region].filter(Boolean).join(', ').slice(0, 200),
         };
     }
+    ubic = enrichUbicacionForAi(meta, ubic);
     const amenidades = _mergeAmenidades(meta, 48);
-    const desc = _clip(row.descripcion || meta.websiteData?.description || '', DESC_MAX_DETAIL);
-    const rulesView = buildHouseRulesPublicView(mergedRules, Number(row.capacidad) || 0);
-    const imagenes = (galeriaRows || []).map((r, idx) => ({
-        url: r.storage_url,
-        thumbnail_url: r.thumbnail_url || null,
-        alt: r.alt_text || '',
-        tipo: r.rol || 'general',
-        orden: r.orden != null ? Number(r.orden) : idx + 1,
-        principal: idx === 0,
-    }));
+    const inventario_detallado = buildInventarioDetallado(meta, 60);
+    const amenidades_publicas = deriveAmenidadesPublicas(amenidades, row.nombre);
     const distribucion = _distribucion(meta);
+    const contexto_turistico = inferContextoTuristico(meta, row, distribucion, amenidades_publicas);
+    let desc = _clip(row.descripcion || meta.websiteData?.description || '', DESC_MAX_DETAIL);
+    let descripcion_fuente = desc ? 'meta_o_columna' : null;
+    if (!desc) {
+        desc = buildDescripcionComercialAuto({
+            nombre: row.nombre,
+            capacidad: row.capacidad,
+            distribucion,
+            amenidades_publicas,
+            empresaNombre: row.empresa_nombre,
+        });
+        descripcion_fuente = 'auto_template';
+    }
+    const rulesView = buildHouseRulesPublicView(mergedRules, Number(row.capacidad) || 0);
+    const imagenes = (galeriaRows || []).map((r, idx) => {
+        const espacioLabel = (r.espacio && String(r.espacio).trim()) || '';
+        const rol = r.rol || 'adicional';
+        return {
+            url: r.storage_url,
+            thumbnail_url: r.thumbnail_url || null,
+            alt: r.alt_text || '',
+            tipo: rol,
+            espacio: espacioLabel || null,
+            tipo_ia: mapEspacioToTipoIa(espacioLabel, rol),
+            orden: r.orden != null ? Number(r.orden) : idx + 1,
+            principal: rol === 'principal',
+        };
+    });
     const inventario = getVerifiedInventory(meta.componentes || []).slice(0, 60);
     const nocheInt = precioNocheReferencia > 0 ? Math.round(precioNocheReferencia) : null;
     const ratingVal = meta.rating != null ? Number(meta.rating) : null;
@@ -304,6 +354,7 @@ function buildAgentPropertyDetailPayload({
         nombre: row.nombre,
         capacidad: Number(row.capacidad) || 0,
         descripcion: desc,
+        descripcion_fuente,
         empresa: { id: String(row.empresa_id), nombre: row.empresa_nombre || '' },
         precio: {
             noche_referencia_clp: nocheInt,
@@ -312,8 +363,11 @@ function buildAgentPropertyDetailPayload({
         },
         ubicacion: ubic,
         amenidades,
+        amenidades_publicas,
+        inventario_detallado,
         distribucion,
         inventario_verificado: inventario,
+        contexto_turistico,
         politicas: _politicasPublicas(mergedRules),
         normas: {
             resumen_lineas: [rulesView.sumLine1, rulesView.sumLine2, rulesView.sumLine3].filter(Boolean),
@@ -327,6 +381,7 @@ function buildAgentPropertyDetailPayload({
         ciudad: ubic.ciudad || '',
         direccion_corta: ubic.direccion_linea || '',
         rating: ratingVal,
+        ...(precio_estimado != null ? { precio_estimado } : {}),
     };
 }
 

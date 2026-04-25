@@ -10,6 +10,11 @@ const {
     enrichPropertyRowsForPublicAi,
     resolvePrecioNocheReferencia,
 } = require('./publicAiProductSnapshot');
+const { mapEspacioToTipoIa } = require('./publicAiMarketingLayer');
+const {
+    parseStayDatesForAgentDetalle,
+    buildPrecioEstimadoDetallePublico,
+} = require('./publicAiPrecioEstimadoService');
 
 const resolveEmpresaPgId = resolveEmpresaDbId;
 
@@ -83,7 +88,7 @@ exports.detalle = async (req, res) => {
         const [{ rows: galRows }, resumenResenas, { allTarifas, canalPorDefectoId, canalMoneda }] =
             await Promise.all([
                 pool.query(
-                    `SELECT storage_url, thumbnail_url, alt_text, rol, orden
+                    `SELECT storage_url, thumbnail_url, alt_text, rol, orden, espacio
                        FROM galeria
                       WHERE propiedad_id::text = $1::text
                         AND estado IN ('auto', 'manual')
@@ -113,6 +118,28 @@ exports.detalle = async (req, res) => {
             defaultCanalByEmpresa
         );
 
+        const stay = parseStayDatesForAgentDetalle(req.query);
+        let precio_estimado = null;
+        if (stay) {
+            try {
+                const adultos = parseInt(req.query.adultos || req.query.personas || '2', 10);
+                precio_estimado = await buildPrecioEstimadoDetallePublico({
+                    empresaId: String(row.empresa_id),
+                    propiedadId: String(row.id),
+                    nombrePropiedad: row.nombre,
+                    inicio: stay.inicio,
+                    fin: stay.fin,
+                    moneda: canalMoneda || 'CLP',
+                    legal: empresaConfig.websiteSettings?.legal,
+                    adultos,
+                    capacidadMax: row.capacidad,
+                });
+            } catch (peErr) {
+                console.warn('[detalle] precio_estimado:', peErr.message);
+                precio_estimado = { calculo_ok: false, codigo: 'ERROR', mensaje: peErr.message };
+            }
+        }
+
         const payload = buildAgentPropertyDetailPayload({
             row: {
                 id: row.id,
@@ -129,6 +156,7 @@ exports.detalle = async (req, res) => {
             moneda: canalMoneda || 'CLP',
             mergedRules,
             precioOrigen,
+            precio_estimado,
         });
 
         return res.json(payload);
@@ -227,7 +255,7 @@ exports.imagenes = async (req, res) => {
         if (!alojamientoId) return res.status(400).json({ error: 'Requerido: alojamiento_id' });
 
         const { rows } = await pool.query(
-            `SELECT storage_url, thumbnail_url, alt_text, rol, orden
+            `SELECT storage_url, thumbnail_url, alt_text, rol, orden, espacio
                FROM galeria
               WHERE propiedad_id::text = $1::text
                 AND estado IN ('auto', 'manual')
@@ -236,7 +264,23 @@ exports.imagenes = async (req, res) => {
             [String(alojamientoId)]
         );
 
-        return res.json({ success: true, total: rows.length, fotos: rows.map(r => ({ url: r.storage_url, descripcion: r.alt_text || '', tipo: r.rol || 'general' })) });
+        return res.json({
+            success: true,
+            total: rows.length,
+            fotos: rows.map((r, idx) => {
+                const espacioLabel = (r.espacio && String(r.espacio).trim()) || '';
+                const rol = r.rol || 'adicional';
+                return {
+                    url: r.storage_url,
+                    descripcion: r.alt_text || '',
+                    tipo: rol,
+                    espacio: espacioLabel || null,
+                    tipo_ia: mapEspacioToTipoIa(espacioLabel, rol),
+                    orden: r.orden != null ? Number(r.orden) : idx + 1,
+                    principal: rol === 'principal',
+                };
+            }),
+        });
     } catch (error) {
         console.error('[imagenes]', error.message);
         return res.status(500).json({ error: 'Error al obtener imágenes' });
