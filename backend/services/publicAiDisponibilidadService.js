@@ -8,6 +8,7 @@ const { differenceInDays } = require('date-fns');
 const { getAvailabilityData, calculatePrice } = require('./publicWebsiteService');
 const { fetchTarifasYCanal } = require('../routes/website.shared');
 const { evaluarRestriccionesReservaWebCodigo } = require('./reservaWebRestriccionesService');
+const { resolvePrecioNocheReferencia } = require('./publicAiProductSnapshot');
 
 function _fotoCardDesdeProp(p) {
     const wd = p.websiteData || {};
@@ -228,28 +229,52 @@ async function buildDisponibilidadAgentResponse(opts) {
         return out;
     };
 
+    const defaultCanalByEmpresa = new Map();
+    if (canalPorDefectoId) {
+        defaultCanalByEmpresa.set(String(empresaId), { id: canalPorDefectoId, moneda: canalMoneda || 'CLP' });
+    }
     const sinTarifaListados = sinTarifaRows.map((r) => {
         const meta = r.metadata && typeof r.metadata === 'object' ? r.metadata : {};
         const p = { id: r.id, nombre: r.nombre, capacidad: r.capacidad, ...meta, websiteData: meta.websiteData };
         const pid = String(r.id);
         const fotos = galeriaMap.get(pid) || [];
         const fotoUrl = fotos[0]?.url || _fotoCardDesdeProp(p);
+        const fallback = resolvePrecioNocheReferencia(
+            { id: r.id, empresa_id: empresaId, metadata: meta },
+            allTarifas,
+            defaultCanalByEmpresa
+        );
+        const fallbackNoche = Math.round(Number(fallback.clp) || 0);
+        const fallbackTotal = fallbackNoche > 0 ? fallbackNoche * Math.max(1, noches) : null;
+        const disponibleFallback = fallbackTotal != null;
         return {
             id: pid,
             nombre: r.nombre,
             nombre_comercial: _nombreComercial(p),
-            disponible: false,
+            disponible: disponibleFallback,
             capacidad: r.capacidad || 0,
             foto_url: fotoUrl || null,
             fotos_preview: fotos.length ? fotos : null,
-            precio_total_estadia_clp: null,
+            precio_total_estadia_clp: fallbackTotal,
             moneda: canalMoneda || 'CLP',
             noches,
-            motivo_no_disponible: {
-                codigo: 'sin_tarifa_en_fechas',
-                mensaje:
-                    'No hay tarifa publicada que cubra todas las noches de esta estadía (revisar temporadas o canal por defecto).',
-            },
+            ...(disponibleFallback
+                ? {
+                      pricing_fallback: {
+                          activo: true,
+                          origen: fallback.origen,
+                          precio_noche_referencia_clp: fallbackNoche,
+                          mensaje:
+                              'Se usa precio de referencia (metadata/tarifa mínima) por falta de tarifa completa en el rango.',
+                      },
+                  }
+                : {
+                      motivo_no_disponible: {
+                          codigo: 'sin_tarifa_en_fechas',
+                          mensaje:
+                              'No hay tarifa publicada que cubra todas las noches de esta estadía (revisar temporadas o canal por defecto).',
+                      },
+                  }),
         };
     });
 

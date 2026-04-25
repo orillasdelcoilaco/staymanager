@@ -16,6 +16,7 @@ const {
 } = require('./checkoutDesgloseService');
 const { sqlReservaPrincipalSemanticaIgual } = require('./estadosService');
 const { resolveBookingUnitForIa } = require('./publicAiBookingResolverService');
+const { resolvePrecioNocheReferencia } = require('./publicAiProductSnapshot');
 
 function _motivoRestriccion(restr) {
     if (!restr || restr.ok) return null;
@@ -233,19 +234,36 @@ async function cotizarReservaIaPublica(body) {
         false
     );
 
-    if (!precioCalc || !precioCalc.totalPriceCLP) {
-        return {
-            http: 200,
-            body: {
-                ...base,
-                cotizacion_ok: false,
-                motivo: { codigo: 'no_pricing', mensaje_es: 'No hay tarifas configuradas para esta propiedad en esas fechas.' },
-            },
-        };
+    const noches = precioCalc?.nights || Math.max(1, Math.round((fin - inicio) / 86400000));
+    let valorTotal = Math.round(Number(precioCalc?.totalPriceCLP) || 0);
+    let pricingFallback = null;
+    if (!valorTotal) {
+        const fallback = resolvePrecioNocheReferencia(
+            { id: propRows[0].id, empresa_id: unidad.empresa_id, metadata: propRows[0].metadata || {} },
+            allTarifas,
+            new Map([[String(unidad.empresa_id), { id: canalId, moneda: 'CLP' }]])
+        );
+        const precioNoche = Math.round(Number(fallback.clp) || 0);
+        if (precioNoche > 0 && noches > 0) {
+            valorTotal = precioNoche * noches;
+            pricingFallback = {
+                activo: true,
+                origen: fallback.origen || 'metadata.precioBase',
+                precio_noche_referencia_clp: precioNoche,
+                mensaje:
+                    'No hubo tarifa completa en el rango; se cotiza con precio de referencia.',
+            };
+        } else {
+            return {
+                http: 200,
+                body: {
+                    ...base,
+                    cotizacion_ok: false,
+                    motivo: { codigo: 'no_pricing', mensaje_es: 'No hay tarifas configuradas para esta propiedad en esas fechas.' },
+                },
+            };
+        }
     }
-
-    const valorTotal = Math.round(Number(precioCalc.totalPriceCLP) || 0);
-    const noches = precioCalc.nights || 0;
     const desglose = buildDesglosePrecioCheckout(valorTotal, legal, 'es', { noches, huespedes: personas });
     const extrasSum = (desglose.lineasExtraResueltas || []).reduce(
         (s, x) => s + (Math.round(Number(x.montoCLP) || 0) || 0),
@@ -288,6 +306,7 @@ async function cotizarReservaIaPublica(body) {
                 horas_gratis: legal.politicaCancelacionHorasGratis ?? null,
                 aviso: avisoPol.mostrar ? { texto: avisoPol.texto, variant: avisoPol.variant } : null,
             },
+            ...(pricingFallback ? { pricing_fallback: pricingFallback } : {}),
             aviso:
                 'Cotización informativa alineada a tarifas y desglose del checkout público. No incluye cupones. El POST /api/reservas confirma y persiste.',
         },

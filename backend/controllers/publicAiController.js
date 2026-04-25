@@ -20,6 +20,7 @@ const { crearOActualizarCliente } = require('../services/clientesService');
 const { getProvider } = require('../services/aiContentService.providers');
 const { resolveEmpresaDbId } = require('../services/resolveEmpresaDbId');
 const { resolveBookingUnitForIa } = require('../services/publicAiBookingResolverService');
+const { resolvePrecioNocheReferencia } = require('../services/publicAiProductSnapshot');
 const {
     obtenerEstadoGestionInicialPostConfirmacionRow,
     obtenerEstadoPrincipalRowPorSemantica,
@@ -1087,17 +1088,42 @@ const createPublicReservation = async (req, res) => {
         const db = require('firebase-admin').firestore();
         const valorDolar   = await obtenerValorDolar(db, empresaId, inicio);
         const allTarifas   = await obtenerTarifasParaConsumidores(empresaId);
-        const precioCalc   = await calculatePrice(db, empresaId, [{ id: propiedadId, nombre: propiedadNombre }], inicio, fin, allTarifas, canalId, valorDolar, false);
-
-        if (!precioCalc || precioCalc.totalPriceCLP === 0) {
-            return res.status(422).json({
-                success: false,
-                error: 'NO_PRICING',
-                message: 'No hay tarifas configuradas para esta propiedad en esas fechas'
-            });
+        const precioCalc = await calculatePrice(
+            db,
+            empresaId,
+            [{ id: propiedadId, nombre: propiedadNombre }],
+            inicio,
+            fin,
+            allTarifas,
+            canalId,
+            valorDolar,
+            false
+        );
+        const nightsFromDates = Math.max(1, Math.round((fin - inicio) / 86400000));
+        let valorTotal = Math.round(Number(precioCalc?.totalPriceCLP) || 0);
+        let pricingFallback = null;
+        if (!valorTotal) {
+            const fallback = resolvePrecioNocheReferencia(
+                { id: propiedadId, empresa_id: empresaId, metadata: unidad.metadata || {} },
+                allTarifas,
+                new Map([[String(empresaId), { id: canalId, moneda: 'CLP' }]])
+            );
+            const precioNocheFallback = Math.round(Number(fallback.clp) || 0);
+            if (precioNocheFallback > 0) {
+                valorTotal = precioNocheFallback * nightsFromDates;
+                pricingFallback = {
+                    activo: true,
+                    origen: fallback.origen || 'metadata.precioBase',
+                    precio_noche_referencia_clp: precioNocheFallback,
+                };
+            } else {
+                return res.status(422).json({
+                    success: false,
+                    error: 'NO_PRICING',
+                    message: 'No hay tarifas configuradas para esta propiedad en esas fechas',
+                });
+            }
         }
-
-        const valorTotal = precioCalc.totalPriceCLP;
         const senaPagar  = Math.round(valorTotal * 0.10);
         const vd             = valorDolar || 950;
 
@@ -1152,7 +1178,7 @@ const createPublicReservation = async (req, res) => {
                 canalId,
                 canalNombre,
                 clienteCreado.id,
-                precioCalc.nights,
+                precioCalc?.nights || nightsFromDates,
                 nombreEstadoPrincipalIa,
                 estadoPrincipalConfirmadaIa?.id || null,
                 estadoGestionInicial.nombre,
@@ -1162,7 +1188,13 @@ const createPublicReservation = async (req, res) => {
                 personas,
                 fechaInicio,
                 fechaFin,
-                JSON.stringify({ origen: 'ia-reserva', agenteIA, estadoPago: 'pendiente', vencimientoPago }),
+                JSON.stringify({
+                    origen: 'ia-reserva',
+                    agenteIA,
+                    estadoPago: 'pendiente',
+                    vencimientoPago,
+                    ...(pricingFallback ? { pricingFallback } : {}),
+                }),
             ]
         );
 
@@ -1186,8 +1218,8 @@ const createPublicReservation = async (req, res) => {
             reservaId, propuestaId: reservaId, clienteNombre: nombreCliente,
             fechaLlegada: fmtFecha(fechaInicio), fechaSalida: fmtFecha(fechaFin),
             fechasEstadiaTexto: `${fmtFecha(fechaInicio)} al ${fmtFecha(fechaFin)}`,
-            totalNoches: String(precioCalc.nights), noches: String(precioCalc.nights),
-            personas: String(personas), nombrePropiedad: propRows[0].nombre,
+            totalNoches: String(precioCalc?.nights || nightsFromDates), noches: String(precioCalc?.nights || nightsFromDates),
+            personas: String(personas), nombrePropiedad: propiedadNombre,
             precioFinal: fmtCLP(valorTotal), montoTotal: fmtCLP(valorTotal),
             saldoPendiente: fmtCLP(valorTotal),
             porcentajeAbono: '10%', montoAbono: fmtCLP(senaPagar),
@@ -1211,11 +1243,11 @@ const createPublicReservation = async (req, res) => {
         } else {
             emailService.enviarCorreo(dbFs, {
                 to: cliente.email,
-                subject: `Tu reserva en ${propRows[0].nombre} está confirmada`,
+                subject: `Tu reserva en ${propiedadNombre} está confirmada`,
                 html: _buildFallbackConfirmEmail({
                     nombreCliente: nombreCliente,
             nombrePropiedad: propiedadNombre,
-                    checkin: fechaInicio, checkout: fechaFin, noches: precioCalc.nights,
+                    checkin: fechaInicio, checkout: fechaFin, noches: precioCalc?.nights || nightsFromDates,
                     montoSena: senaPagar, datosBancariosTexto, plazoAbono: plazoAbonoTexto, empresaNombre
                 }),
                 empresaId

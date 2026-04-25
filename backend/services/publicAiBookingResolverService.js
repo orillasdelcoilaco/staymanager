@@ -88,6 +88,7 @@ async function resolveBookingUnitForIa({
         catalog_id: String(catalogId),
         empresa_id: String(prop.empresa_id),
         nombre: prop.nombre || null,
+        metadata: prop.metadata && typeof prop.metadata === 'object' ? prop.metadata : {},
         capacidad,
         disponible: conflictos.length === 0,
     };
