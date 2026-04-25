@@ -46,21 +46,26 @@ async function enviarConfirmacionReservaIaEmail({
     plantillasDatos,
     fallbackData,
 }) {
+    let templateErrorReason = null;
     try {
         if (!clienteEmail) {
             return { sent: false, reason: 'MISSING_EMAIL' };
         }
 
         if (plantillaId) {
-            const { contenido, asunto } = await procesarPlantilla(db, empresaId, plantillaId, plantillasDatos);
-            const r = await emailService.enviarCorreo(db, {
-                to: clienteEmail,
-                subject: asunto,
-                html: contenido,
-                empresaId,
-            });
-            if (!r?.success) return { sent: false, reason: r?.error || 'EMAIL_PROVIDER_REJECTED' };
-            return { sent: true, mode: 'template', messageId: r.messageId || null };
+            try {
+                const { contenido, asunto } = await procesarPlantilla(db, empresaId, plantillaId, plantillasDatos);
+                const r = await emailService.enviarCorreo(db, {
+                    to: clienteEmail,
+                    subject: asunto,
+                    html: contenido,
+                    empresaId,
+                });
+                if (r?.success) return { sent: true, mode: 'template', messageId: r.messageId || null };
+                templateErrorReason = r?.error || 'EMAIL_PROVIDER_REJECTED';
+            } catch (error) {
+                templateErrorReason = error?.message || 'TEMPLATE_RENDER_FAILED';
+            }
         }
 
         const r = await emailService.enviarCorreo(db, {
@@ -69,10 +74,20 @@ async function enviarConfirmacionReservaIaEmail({
             html: buildFallbackConfirmEmail(fallbackData),
             empresaId,
         });
-        if (!r?.success) return { sent: false, reason: r?.error || 'EMAIL_PROVIDER_REJECTED' };
+        if (!r?.success) {
+            const base = r?.error || 'EMAIL_PROVIDER_REJECTED';
+            return {
+                sent: false,
+                reason: templateErrorReason ? `template=${templateErrorReason}; fallback=${base}` : base,
+            };
+        }
         return { sent: true, mode: 'fallback_html', messageId: r.messageId || null };
     } catch (error) {
-        return { sent: false, reason: error.message || 'EMAIL_SEND_EXCEPTION' };
+        const reason = error.message || 'EMAIL_SEND_EXCEPTION';
+        return {
+            sent: false,
+            reason: templateErrorReason ? `template=${templateErrorReason}; fallback=${reason}` : reason,
+        };
     }
 }
 
