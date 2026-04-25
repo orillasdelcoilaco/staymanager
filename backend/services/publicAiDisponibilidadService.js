@@ -290,6 +290,13 @@ async function buildDisponibilidadAgentResponse(opts) {
         disponibles: disponibles.length,
         alojamientos: listados,
         canal_tarifas_configurado: !!canalPorDefectoId,
+        diagnostico_tarifas: {
+            empresa_id_resuelta: String(empresaId),
+            propiedades_activas: propRows.length,
+            tarifas_totales: allTarifas.length,
+            canal_por_defecto_id: canalPorDefectoId || null,
+            sin_tarifa_rows: sinTarifaRows.length,
+        },
     };
 }
 
