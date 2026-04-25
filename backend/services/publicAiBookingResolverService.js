@@ -14,9 +14,12 @@ function buildEmpresaIdCandidates(empresaRaw, empresaId) {
 }
 
 /**
- * Genera variantes de catalog_id para tolerar inconsistencias UI (cabana-10 vs cabana10)
- * y alinear con ID Google Hotels (casa-10) guardado en metadata.googleHotelData.hotelId.
- * Orden: entrada original primero, luego variantes más genéricas.
+ * Variantes neutras del catalog_id (misma empresa, mismo slug lógico):
+ * - mayúsculas/minúsculas
+ * - guiones / espacios / guiones bajos equivalentes (depto-10 vs depto10)
+ * - una sola forma alterna "texto-número" solo si el id colapsado es letras + dígitos finales
+ *   (no aplica sinónimos entre palabras distintas: eso debe resolverse con id único o alias declarado en metadata).
+ * No expande "casa" vs "cabana" ni otros sinónimos semánticos entre empresas.
  */
 function expandCatalogIdCandidates(raw) {
     const s0 = String(raw || '').trim();
@@ -38,17 +41,17 @@ function expandCatalogIdCandidates(raw) {
     const collapsed = lower.replace(/[-_\s]+/g, '');
     if (collapsed && collapsed !== lower) add(collapsed);
 
-    const tail = collapsed.match(/^(.+?)(\d+)$/);
-    if (tail) {
-        const stemRaw = tail[1];
-        const num = tail[2];
-        const stemNorm = stemRaw.toLowerCase().replace(/ñ/g, 'n').replace(/[-_\s]/g, '');
-        if (stemNorm === 'cabana' || stemNorm === 'casa') {
-            for (const p of ['cabana', 'cabaña', 'casa']) {
-                add(`${p}-${num}`);
-                add(`${p}${num}`);
-            }
-        }
+    // Evitar inventar variantes sobre UUID hex típico sin guiones (32 chars)
+    if (collapsed.length === 32 && /^[a-f0-9]+$/i.test(collapsed)) {
+        return out;
+    }
+
+    // Solo "prefijoLetras + dígitos" → añadir variante con guión (depto10 ↔ depto-10, cabana10 ↔ cabana-10)
+    const simple = collapsed.match(/^([a-z\u00f1]+)(\d+)$/i);
+    if (simple) {
+        const stem = simple[1].toLowerCase();
+        const num = simple[2];
+        add(`${stem}-${num}`);
     }
 
     return out;
