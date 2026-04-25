@@ -1,5 +1,9 @@
 const { procesarPlantilla } = require('./plantillasService');
 const emailService = require('./emailService');
+const {
+    enviarPorDisparador,
+    enviarNotificacionInterna,
+} = require('./transactionalEmailService');
 
 function buildFallbackConfirmEmail({
     nombreCliente,
@@ -42,7 +46,7 @@ async function enviarConfirmacionReservaIaEmail({
     db,
     empresaId,
     clienteEmail,
-    plantillaId,
+    reservaId,
     plantillasDatos,
     fallbackData,
 }) {
@@ -52,20 +56,21 @@ async function enviarConfirmacionReservaIaEmail({
             return { sent: false, reason: 'MISSING_EMAIL' };
         }
 
-        if (plantillaId) {
-            try {
-                const { contenido, asunto } = await procesarPlantilla(db, empresaId, plantillaId, plantillasDatos);
-                const r = await emailService.enviarCorreo(db, {
-                    to: clienteEmail,
-                    subject: asunto,
-                    html: contenido,
-                    empresaId,
-                });
-                if (r?.success) return { sent: true, mode: 'template', messageId: r.messageId || null };
-                templateErrorReason = r?.error || 'EMAIL_PROVIDER_REJECTED';
-            } catch (error) {
-                templateErrorReason = error?.message || 'TEMPLATE_RENDER_FAILED';
+        try {
+            const templateResult = await enviarPorDisparador(db, empresaId, 'reserva_confirmada', {
+                clienteId: null,
+                destinatarioOverride: clienteEmail,
+                variables: plantillasDatos,
+                relacionadoCon: { tipo: 'reserva', id: reservaId || null },
+                eventoComunicacion: 'reserva-confirmada',
+                skipRegistro: true,
+            });
+            if (templateResult?.sent) {
+                return { sent: true, mode: 'template_reserva_confirmada', messageId: templateResult.messageId || null };
             }
+            templateErrorReason = templateResult?.reason || 'EMAIL_PROVIDER_REJECTED';
+        } catch (error) {
+            templateErrorReason = error?.message || 'TEMPLATE_RENDER_FAILED';
         }
 
         const r = await emailService.enviarCorreo(db, {
@@ -94,7 +99,6 @@ async function enviarConfirmacionReservaIaEmail({
 async function enviarNotificacionAdminReservaIaEmail({
     db,
     empresaId,
-    adminEmail,
     reservaId,
     nombreCliente,
     clienteEmail,
@@ -106,25 +110,38 @@ async function enviarNotificacionAdminReservaIaEmail({
     montoTotal,
 }) {
     try {
-        if (!adminEmail) return { sent: false, reason: 'MISSING_ADMIN_EMAIL' };
-        const fmtCLP = (v) =>
-            new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(v || 0);
-        const html = `<!doctype html><html><body style="font-family:Arial,sans-serif">
-<h2>Nueva reserva creada por IA</h2>
-<p><strong>Reserva:</strong> ${reservaId}</p>
-<p><strong>Huésped:</strong> ${nombreCliente} (${clienteEmail})</p>
-<p><strong>Alojamiento:</strong> ${nombrePropiedad}</p>
-<p><strong>Fechas:</strong> ${checkin} al ${checkout} (${noches} noche(s))</p>
-<p><strong>Total:</strong> ${fmtCLP(montoTotal)} · <strong>Seña:</strong> ${fmtCLP(montoSena)}</p>
-</body></html>`;
-        const r = await emailService.enviarCorreo(db, {
-            to: adminEmail,
-            subject: `[Admin] Nueva reserva IA ${reservaId}`,
-            html,
-            empresaId,
-        });
-        if (!r?.success) return { sent: false, reason: r?.error || 'EMAIL_PROVIDER_REJECTED' };
-        return { sent: true, mode: 'admin_notification', messageId: r.messageId || null };
+        const fmtCLP = (v) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(v || 0);
+        const resumen = [
+            `Nueva reserva confirmada por IA.`,
+            `Reserva: ${reservaId}`,
+            `Huésped: ${nombreCliente} (${clienteEmail})`,
+            `Alojamiento: ${nombrePropiedad}`,
+            `Fechas: ${checkin} al ${checkout} (${noches} noche(s))`,
+            `Total: ${fmtCLP(montoTotal)} | Seña: ${fmtCLP(montoSena)}`,
+        ].join('\n');
+
+        const r = await enviarNotificacionInterna(db, empresaId, {
+            reservaId,
+            propuestaId: reservaId,
+            clienteNombre: nombreCliente,
+            nombreCliente,
+            clienteEmail,
+            nombrePropiedad,
+            fechaLlegada: checkin,
+            fechaSalida: checkout,
+            fechasEstadiaTexto: `${checkin} al ${checkout}`,
+            totalNoches: String(noches || ''),
+            noches: String(noches || ''),
+            montoTotal: fmtCLP(montoTotal),
+            precioFinal: fmtCLP(montoTotal),
+            montoAbono: fmtCLP(montoSena),
+            porcentajeAbono: '10%',
+            mensajeConsulta: resumen,
+            consultaMensaje: resumen,
+        }, { tipo: 'reserva', id: reservaId || null });
+
+        if (!r?.sent) return { sent: false, reason: r?.reason || 'EMAIL_PROVIDER_REJECTED' };
+        return { sent: true, mode: 'template_notificacion_interna', messageId: r.messageId || null };
     } catch (error) {
         return { sent: false, reason: error?.message || 'ADMIN_EMAIL_SEND_EXCEPTION' };
     }

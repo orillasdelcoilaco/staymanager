@@ -13,7 +13,6 @@ const { obtenerCanalesPorEmpresa, crearCanal, resolverCanalIaVentaEnLista, IA_VE
 const { obtenerValorDolar } = require('../services/dolarService');
 const { obtenerTarifasParaConsumidores } = require('../services/tarifasService');
 const { guardarOActualizarPropuesta } = require('../services/gestionPropuestasService');
-const { obtenerPlantillasPorEmpresa, obtenerPlantillasPorDisparadorMotor } = require('../services/plantillasService');
 const { format, addDays, parseISO, isValid } = require('date-fns');
 const { crearOActualizarCliente } = require('../services/clientesService');
 const { getProvider } = require('../services/aiContentService.providers');
@@ -44,18 +43,6 @@ const CANAL_IA_VENTA_CREAR_DATOS = {
     origenCanal: IA_VENTA_CANAL_ORIGEN,
     esCanalIaVenta: true,
 };
-
-async function resolverPlantillaCorreoPreferida(_db, empresaId) {
-    try {
-        const porMotor = await obtenerPlantillasPorDisparadorMotor(_db, empresaId, 'reserva_confirmada');
-        const conEmail = porMotor.find((p) => p.enviarPorEmail);
-        if (conEmail) return conEmail;
-    } catch (_) {
-        /* sin plantillas con disparador reserva_confirmada */
-    }
-    const todas = await obtenerPlantillasPorEmpresa(_db, empresaId);
-    return todas.find((p) => p.enviarPorEmail) || null;
-}
 
 const sanitizeProperty = (property) => {
     if (!property) return null;
@@ -1234,12 +1221,11 @@ const createPublicReservation = async (req, res) => {
             fechaVencimiento: plazoAbonoTexto,
         };
 
-        const plantillaEmail = await resolverPlantillaCorreoPreferida(dbFs, empresaId);
         const resultadoEmail = await enviarConfirmacionReservaIaEmail({
             db: dbFs,
             empresaId,
             clienteEmail: cliente.email,
-            plantillaId: plantillaEmail?.id || null,
+            reservaId,
             plantillasDatos,
             fallbackData: {
                 nombreCliente,
@@ -1260,7 +1246,6 @@ const createPublicReservation = async (req, res) => {
         const resultadoEmailAdmin = await enviarNotificacionAdminReservaIaEmail({
             db: dbFs,
             empresaId,
-            adminEmail,
             reservaId,
             nombreCliente,
             clienteEmail: cliente.email,
