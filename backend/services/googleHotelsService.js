@@ -48,12 +48,15 @@ const generatePropertyListFeed = async (_db, empresaId) => {
 };
 
 // --- NUEVA FUNCIÓN PARA EL FEED ARI ---
-const generateAriFeed = async (_db, empresaId) => {
+const generateAriFeed = async (_db, empresaId, options = {}) => {
+    const mode = String(options.mode || 'website').toLowerCase() === 'google_hotels' ? 'google_hotels' : 'website';
+    const daysRaw = Math.round(Number(options.days));
+    const days = Number.isFinite(daysRaw) ? Math.min(365, Math.max(14, daysRaw)) : 180;
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
-    // Google recomienda enviar disponibilidad para los próximos 180-365 días. Empecemos con 90.
+    // Google recomienda 180-365; dejamos parámetro acotado para UI/operación.
     const endDateLimit = new Date(today);
-    endDateLimit.setDate(today.getDate() + 90);
+    endDateLimit.setDate(today.getDate() + days);
 
     const [propiedades, canalRes] = await Promise.all([
         obtenerPropiedadesPorEmpresa(null, empresaId),
@@ -75,10 +78,10 @@ const generateAriFeed = async (_db, empresaId) => {
     }
 
     // Obtener disponibilidad general para el rango completo
-    const { availabilityMap, allTarifas } = await getAvailabilityData(db, empresaId, today, endDateLimit);
+    const { availabilityMap, allTarifas } = await getAvailabilityData(_db, empresaId, today, endDateLimit);
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-    xml += `<Transaction timestamp="${new Date().toISOString()}" id="ari-update">\n`;
+    xml += `<Transaction timestamp="${new Date().toISOString()}" id="ari-update-${mode}-${days}d">\n`;
 
     for (const prop of propiedadesListadas) {
         xml += `  <Result>\n`;
