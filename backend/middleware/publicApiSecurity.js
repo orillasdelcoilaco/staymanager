@@ -1,13 +1,30 @@
 const rateLimit = require('express-rate-limit');
 const slowDown = require('express-slow-down');
+
+/**
+ * NOTE IMPORTANTE (Render / proxy / IPv6):
+ * express-rate-limit recomienda usar su helper ipKeyGenerator para evitar
+ * bypass por formatos IPv6 (ej. /64 rotante).
+ * Si no existe (versiones antiguas), hacemos fallback al string crudo.
+ */
 const ipKeyGenerator = typeof rateLimit.ipKeyGenerator === 'function'
     ? rateLimit.ipKeyGenerator
     : (ip) => String(ip || '');
 
+/**
+ * Normalización defensiva para construir keys estables de rate-limit.
+ * - trim: evita diferencias por espacios
+ * - lowercase: evita duplicados por mayúsculas/minúsculas
+ */
 function _norm(v) {
     return String(v || '').trim().toLowerCase();
 }
 
+/**
+ * IPs de confianza separadas por coma.
+ * Uso previsto: servidores controlados (QA interno, tareas automatizadas).
+ * Ejemplo: TRUSTED_IPS=1.2.3.4,5.6.7.8
+ */
 function _trustedIps() {
     return (process.env.TRUSTED_IPS || '')
         .split(',')
@@ -19,6 +36,10 @@ function _isTrustedIp(req) {
     return _trustedIps().includes(req.ip);
 }
 
+/**
+ * Tenant para segmentar límites por empresa.
+ * Si no viene, usamos "sin-empresa" para no romper la key.
+ */
 function _empresaFromReq(req) {
     return _norm(
         req.body?.empresa_id
@@ -29,6 +50,11 @@ function _empresaFromReq(req) {
     ) || 'sin-empresa';
 }
 
+/**
+ * Email de huésped/cliente para endurecer creación de reserva.
+ * Esto evita que una misma IP bloquee a todos los usuarios de una empresa,
+ * pero sí corta ráfagas sobre el mismo huésped.
+ */
 function _emailFromReq(req) {
     return _norm(
         req.body?.huesped?.email
@@ -37,6 +63,11 @@ function _emailFromReq(req) {
     ) || 'sin-email';
 }
 
+/**
+ * Key fuerte para POST /reservas:
+ *   IP(normalizada) + empresa + email huésped
+ * Objetivo: anti-abuso sin penalizar toda una empresa por un único actor.
+ */
 function bookingKeyByTenantIpEmail(req) {
     const ipKey = ipKeyGenerator(req.ip);
     const tenant = _empresaFromReq(req);
@@ -44,13 +75,24 @@ function bookingKeyByTenantIpEmail(req) {
     return `${ipKey}|${tenant}|${email}`;
 }
 
-// Rate limiter para pasos del flujo IA (resolve/cotizar/intent)
+// Config por env (sin romper defaults actuales).
+const BOOKING_WORKFLOW_WINDOW_MS = Number(process.env.BOOKING_WORKFLOW_WINDOW_MS || 15 * 60 * 1000);
+const BOOKING_WORKFLOW_MAX = Number(process.env.BOOKING_WORKFLOW_MAX || 20);
+const CREATE_RESERVATION_WINDOW_MS = Number(process.env.CREATE_RESERVATION_WINDOW_MS || 15 * 60 * 1000);
+const CREATE_RESERVATION_MAX = Number(process.env.CREATE_RESERVATION_MAX || 5);
+
+/**
+ * Rate limit "workflow":
+ * - Aplica a resolve/cotizar/intent (pasos previos a reservar)
+ * - Key: IP + empresa
+ * - Umbral más alto porque son pasos exploratorios del agente
+ */
 const bookingWorkflowLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 20,
+    windowMs: BOOKING_WORKFLOW_WINDOW_MS,
+    max: BOOKING_WORKFLOW_MAX,
     keyGenerator: (req) => `${ipKeyGenerator(req.ip)}|${_empresaFromReq(req)}`,
     message: {
-        error: 'Demasiadas solicitudes en el flujo de reserva. Intente nuevamente en 15 minutos.',
+        error: 'Demasiadas solicitudes en el flujo de reserva. Intente nuevamente en unos minutos.',
         code: 'RATE_LIMIT_EXCEEDED',
     },
     standardHeaders: true,
@@ -58,13 +100,18 @@ const bookingWorkflowLimiter = rateLimit({
     skip: (req) => _isTrustedIp(req),
 });
 
-// Rate limiter para creación de reservas (por IP + empresa + email)
+/**
+ * Rate limit "crear reserva":
+ * - Endpoint más sensible (efecto transaccional real)
+ * - Key: IP + empresa + email huésped
+ * - Umbral más bajo para frenar spam/abuso de creación
+ */
 const createReservationLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 5,
+    windowMs: CREATE_RESERVATION_WINDOW_MS,
+    max: CREATE_RESERVATION_MAX,
     keyGenerator: bookingKeyByTenantIpEmail,
     message: {
-        error: 'Demasiadas reservas para este huésped. Intente nuevamente en 15 minutos.',
+        error: 'Demasiadas reservas para este huésped. Intente nuevamente en unos minutos.',
         code: 'RATE_LIMIT_EXCEEDED'
     },
     standardHeaders: true,
@@ -72,7 +119,7 @@ const createReservationLimiter = rateLimit({
     skip: (req) => _isTrustedIp(req),
 });
 
-// Rate limiter para consultas (30 por minuto)
+// Límite de lectura general (GET públicos).
 const readLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minuto
     max: 30,
@@ -84,14 +131,14 @@ const readLimiter = rateLimit({
     legacyHeaders: false
 });
 
-// Slow down progresivo (ralentizar después de 20 requests/min)
+// Ralentización progresiva (degrada suavemente antes de bloquear).
 const speedLimiter = slowDown({
     windowMs: 1 * 60 * 1000, // 1 minuto
     delayAfter: 20,
     delayMs: () => 500 // Agregar 500ms de delay por cada request adicional (Fixed for v2)
 });
 
-// Validar que la solicitud parece venir de un agente legítimo
+// Filtro básico anti-bot (no reemplaza WAF/CDN).
 const validateHumanLike = (req, res, next) => {
     const userAgent = req.get('User-Agent') || '';
 
@@ -134,7 +181,7 @@ const validateHumanLike = (req, res, next) => {
     next();
 };
 
-// Sanitizar inputs para prevenir inyección
+// Sanitización mínima de body para evitar vectores triviales.
 const sanitizeInputs = (req, res, next) => {
     if (req.body) {
         // Eliminar propiedades peligrosas
