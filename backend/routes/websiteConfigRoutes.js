@@ -31,6 +31,7 @@ const {
 const { uploadFile, deleteFileByPath } = require('../services/storageService');
 const { optimizeImage } = require('../services/imageProcessingService');
 const { uploadFotoToGaleria, eliminarFoto } = require('../services/galeriaService');
+const { evaluateGoogleHotelsHealth } = require('../services/googleHotelsHealthService');
 const { mountPropiedadUploadImage } = require('./websiteConfigRoutes.propiedadUploadImage');
 
 const storage = multer.memoryStorage();
@@ -56,6 +57,17 @@ module.exports = (db) => {
             const empresaData = await obtenerDetallesEmpresa(db, empresaId);
             res.status(200).json(empresaData.websiteSettings || {});
         } catch (error) { next(error); }
+    });
+
+    // Semáforo operativo Google Hotels (panel empresa, autenticado)
+    router.get('/google-hotels-health', async (req, res, next) => {
+        try {
+            const { empresaId } = req.user;
+            const report = await evaluateGoogleHotelsHealth(empresaId);
+            res.status(200).json(report);
+        } catch (error) {
+            next(error);
+        }
     });
 
     // PUT Guardar Configuración General (SEO, Content, Theme colors, etc)
