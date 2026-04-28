@@ -124,6 +124,11 @@ function unifyBasicSection(empresa, general, booking) {
                         </div>
                     </div>
                 </div>
+                <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                    <p class="text-xs font-semibold text-gray-700 mb-1">Mapa del calendario: periodos de mayor demanda</p>
+                    <p class="text-xs text-gray-500 mb-3">Indica fechas de alta demanda, intensidad (1 = leve, 5 = muy alta) y noches mínimas para llegadas en ese tramo. El sitio público puede usar esta señal en el calendario; el servidor valida y normaliza los datos al guardar.</p>
+                    <div id="heatmap-eventos-rows-root" class="space-y-3"></div>
+                </div>
             </div>
         </div>`;
 }
@@ -156,6 +161,65 @@ function unifyVisualSection(theme) {
                     <input type="hidden" id="hero-url" value="${esc(clean(theme.heroImageUrl))}">
                 </div>
             </div>
+        </div>`;
+}
+
+function unifyIntegrationsFeedsSection(empresa, general) {
+    const integ = empresa.websiteSettings?.integrations || {};
+    const ari = clean(integ.ariFeedToken || '');
+    const gh = clean(integ.googleHotelsContentToken || '');
+    const subRaw = general.subdomain || empresa.subdominio || '';
+    const subSan = String(subRaw).toLowerCase().replace(/[^a-z0-9-]/g, '') || 'tu-subdominio';
+    const baseDefault = `https://${subSan}.suitemanagers.com`;
+    const customHost = String(general.domain || empresa.dominio || '').trim();
+    const customLine = customHost
+        ? `<p class="text-xs text-gray-500 mt-2">Con dominio propio verificado, mismos paths bajo <span class="font-mono">${esc(customHost)}</span>.</p>`
+        : '';
+
+    return `
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+            <h2 class="font-semibold text-gray-800 mb-1">Feeds públicos (OTA / Google Hotel Center)</h2>
+            <p class="text-xs text-gray-500 mb-4">Opcional: protege con token las URLs que consumen OTAs o Google. Si el token de contenido Google está vacío, el feed responde sin <code class="text-xs bg-gray-100 px-1 rounded">?token=</code> (recomendado solo en entornos controlados).</p>
+            <p class="text-xs text-gray-500 mb-4">Checklist operativo (repo): <span class="font-mono text-gray-700">TASKS/checklist-onboarding-google-hotel-center.md</span>. Prueba HTTP (desde la raíz del repo): <span class="font-mono text-gray-700">node backend/scripts/test-feed-google-hotels-content-http.js &quot;&lt;url-base-tenant&gt;&quot;</span> — segundo argumento opcional: token si está configurado.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Token feed ARI (<span class="font-mono">?token=</span>)</label>
+                    <input type="text" id="integration-ari-token" class="form-input font-mono text-sm" autocomplete="off" maxlength="256" value="${esc(ari)}" placeholder="(opcional)">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Token feed contenido Google Hotels</label>
+                    <input type="text" id="integration-google-hotels-token" class="form-input font-mono text-sm" autocomplete="off" maxlength="256" value="${esc(gh)}" placeholder="(opcional)">
+                </div>
+            </div>
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs space-y-2">
+                <p class="font-semibold text-gray-700">URLs de referencia (host SuiteManager)</p>
+                <p class="break-all font-mono text-gray-800">${esc(`${baseDefault}/feed-google-hotels-content.xml`)}</p>
+                <p class="break-all font-mono text-gray-800">${esc(`${baseDefault}/feed-ari.xml`)}</p>
+                <p class="break-all font-mono text-gray-800">${esc(`${baseDefault}/widget-reserva-ayuda.json`)}</p>
+                ${customLine}
+            </div>
+        </div>`;
+}
+
+function unifyGoogleHotelsHealthSection() {
+    return `
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <h2 class="font-semibold text-gray-800">Semáforo Google Hotels</h2>
+                    <p class="text-xs text-gray-500">Estado operativo de feeds + inventario + JSON-LD por empresa.</p>
+                </div>
+                <button id="btn-google-hotels-health-refresh" class="btn-outline btn-sm gap-1">
+                    <i class="fa-solid fa-rotate-right"></i> Actualizar
+                </button>
+            </div>
+            <div id="google-hotels-health-summary" class="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700">
+                Cargando diagnóstico...
+            </div>
+            <div id="google-hotels-health-errors" class="mt-3 space-y-2"></div>
+            <p class="text-xs text-gray-500 mt-3">
+                Tip: para auditoría masiva usa <span class="font-mono">node backend/scripts/audit-google-hotels-health.js</span>.
+            </p>
         </div>`;
 }
 
@@ -339,6 +403,8 @@ export function buildUnifiedMarkup(empresaData) {
         ${unifyBasicSection(empresa, general, booking)}
         ${unifyVisualSection(theme)}
         ${unifyStrategySection(empresa, strategy)}
+        ${unifyIntegrationsFeedsSection(empresa, general)}
+        ${unifyGoogleHotelsHealthSection()}
         ${unifyReadonlyContentSection(strategy, theme)}
         ${unifyActionRow()}
         ${unifyDomainPanel(empresa)}

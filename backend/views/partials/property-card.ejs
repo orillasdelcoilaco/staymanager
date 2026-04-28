@@ -1,5 +1,6 @@
 <%# backend/views/partials/property-card.ejs %>
 <%
+    const _pcEn = (typeof htmlLocale !== 'undefined' && htmlLocale === 'en');
     const _img      = prop.websiteData?.cardImage?.storagePath || 'https://placehold.co/400x400/e5e7eb/9ca3af?text=Sin+imagen';
     const _alt      = prop.websiteData?.cardImage?.altText || prop.nombre;
     const _tiene    = isSearchResult && prop.pricing && prop.pricing.totalPriceCLP > 0;
@@ -7,11 +8,11 @@
     const _pxnBase  = prop.precioBaseNoche > 0 ? prop.precioBaseNoche : 0;
     const _pxn      = _pxnExact > 0 ? _pxnExact : _pxnBase;
     const _esBase   = !_tiene && _pxnBase > 0;
-    const _fmtCLP   = (v) => `$${Math.round(v || 0).toLocaleString('es-CL')}`;
+    const _fmtCLP   = (v) => `$${Math.round(v || 0).toLocaleString(_pcEn ? 'en-US' : 'es-CL')}`;
     const _link     = `/propiedad/${prop.id}?fechaLlegada=${query.fechaLlegada||''}&fechaSalida=${query.fechaSalida||''}&personas=${query.personas||''}`;
-    const _dorm     = prop.numPiezas ? `${prop.numPiezas} dorm.` : '';
-    const _banos    = prop.numBanos  ? `${prop.numBanos} baños`  : '';
-    const _detalles = [_dorm, _banos, `${prop.capacidad} pers.`].filter(Boolean).join(' · ');
+    const _dorm     = prop.numPiezas ? (_pcEn ? `${prop.numPiezas} bed` + (prop.numPiezas > 1 ? 's' : '') : `${prop.numPiezas} dorm.`) : '';
+    const _banos    = prop.numBanos  ? (_pcEn ? `${prop.numBanos} bath` + (prop.numBanos > 1 ? 's' : '') : `${prop.numBanos} baños`) : '';
+    const _detalles = [_dorm, _banos, `${prop.capacidad} ${_pcEn ? (prop.capacidad === 1 ? 'guest' : 'guests') : 'pers.'}`].filter(Boolean).join(' · ');
 %>
 <a href="<%= _link %>" class="group block focus:outline-none">
     <div class="relative overflow-hidden rounded-xl bg-gray-100" style="aspect-ratio:1/1">
@@ -19,7 +20,7 @@
              class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
         <% if (_tiene) { %>
         <span class="absolute top-3 left-3 bg-white/95 text-success-700 text-xs font-bold px-2.5 py-1 rounded-full shadow-sm backdrop-blur-sm">
-            ✓ Disponible
+            <%= _pcEn ? '✓ Available' : '✓ Disponible' %>
         </span>
         <% } %>
     </div>
@@ -28,11 +29,11 @@
         <p class="text-xs text-gray-500 mt-0.5"><%= _detalles %></p>
         <p class="mt-1.5 text-sm font-bold text-gray-900">
             <% if (_tiene && _pxnExact > 0) { %>
-                <%= _fmtCLP(_pxnExact) %> <span class="font-normal text-gray-500">/ noche</span>
+                <%= _fmtCLP(_pxnExact) %> <span class="font-normal text-gray-500">/ <%= _pcEn ? 'night' : 'noche' %></span>
             <% } else if (_esBase) { %>
-                <span class="font-normal text-gray-400 text-xs">desde</span> <%= _fmtCLP(_pxnBase) %> <span class="font-normal text-gray-500">/ noche</span>
+                <span class="font-normal text-gray-400 text-xs"><%= _pcEn ? 'from' : 'desde' %></span> <%= _fmtCLP(_pxnBase) %> <span class="font-normal text-gray-500">/ <%= _pcEn ? 'night' : 'noche' %></span>
             <% } else { %>
-                <span class="font-normal text-gray-500 text-xs">Consultar disponibilidad</span>
+                <span class="font-normal text-gray-500 text-xs"><%= _pcEn ? 'Check availability' : 'Consultar disponibilidad' %></span>
             <% } %>
         </p>
     </div>

@@ -1,12 +1,20 @@
 <%- /* backend/views/home.ejs — Rediseño Airbnb-style */ %>
+<% const _hl = (typeof htmlLang !== 'undefined' && htmlLang === 'en') ? 'en' : 'es'; %>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="<%= _hl %>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <%
-        const _pageTitle    = corporateContent?.hero?.title || empresa.websiteSettings?.seo?.homeTitle || empresa.nombre;
-        const _pageDesc     = corporateContent?.hero?.subtitle || empresa.websiteSettings?.seo?.homeDescription || `Reservas directas en ${empresa.nombre}`;
+        // Prioridad: lo editado en Configuración Web (SEO / contenido) gana sobre caché de IA (24h).
+        const _pageTitle    = empresa.websiteSettings?.seo?.homeTitle
+            || empresa.websiteSettings?.content?.homeH1
+            || empresa.nombre
+            || corporateContent?.hero?.title;
+        const _pageDesc     = empresa.websiteSettings?.seo?.homeDescription
+            || empresa.websiteSettings?.content?.homeIntro
+            || corporateContent?.hero?.subtitle
+            || (_hl === 'en' ? `Direct bookings at ${empresa.nombre}` : `Reservas directas en ${empresa.nombre}`);
         const _pageUrl      = baseUrl || '';
         const _heroImage    = empresa.websiteSettings?.theme?.heroImageUrl || '';
         const _logoUrl      = locals.brandIdentity?.logoUrl || empresa.websiteSettings?.theme?.logoUrl || '';
@@ -19,9 +27,10 @@
 
         const _ciudad       = locals.ubicacion?.ciudad || empresaContext?.ubicacion?.ciudad || '';
         const _region       = locals.ubicacion?.region || empresaContext?.ubicacion?.region || '';
-        const _descripcion  = corporateContent?.about?.description
+        const _descripcion  = empresa.websiteSettings?.content?.homeIntro
+                           || empresa.websiteSettings?.seo?.homeDescription
+                           || corporateContent?.about?.description
                            || corporateContent?.hero?.subtitle
-                           || empresa.websiteSettings?.content?.homeIntro
                            || empresa.slogan || '';
 
         const _telefono     = locals.contacto?.telefonoPrincipal || empresa.contactoTelefono || '';
@@ -35,7 +44,8 @@
         const _maxCap       = resultados.filter(r => !r.isGroup).reduce((m, p) => m + (p.capacidad || 0), 0);
         const _rating       = resenasResumen?.total >= 3 ? resenasResumen.promedio_general?.toFixed(1) : null;
         const _totalResenas = resenasResumen?.total || 0;
-        const _fmtCLP       = (v) => `$${Math.round(v || 0).toLocaleString('es-CL')}`;
+        const _fmtLocale    = _hl === 'en' ? 'en-US' : 'es-CL';
+        const _fmtCLP       = (v) => `$${Math.round(v || 0).toLocaleString(_fmtLocale)}`;
 
         // Amenidades únicas top 8 para la sección About
         const _amenTop = (() => {
@@ -73,7 +83,7 @@
     <% if (_keywords) { %><meta name="keywords" content="<%= _keywords %>"><% } %>
     <link rel="canonical" href="<%= _pageUrl %>">
     <meta property="og:type"        content="website">
-    <meta property="og:locale"      content="es_CL">
+    <meta property="og:locale"      content="<%= _hl === 'en' ? 'en_US' : 'es_CL' %>">
     <meta property="og:site_name"   content="<%= empresa.nombre %>">
     <meta property="og:title"       content="<%= _pageTitle %>">
     <meta property="og:description" content="<%= _pageDesc %>">
@@ -131,9 +141,9 @@
                 <img src="<%= _logoUrl %>" alt="<%= empresa.nombre %>" class="h-14 w-auto mb-5 drop-shadow-lg object-contain">
                 <% } %>
                 <h1 class="text-4xl md:text-6xl font-extrabold leading-tight drop-shadow-lg mb-3 max-w-3xl">
-                    <%= corporateContent?.hero?.title || empresa.websiteSettings?.content?.homeH1 || empresa.nombre %>
+                    <%= empresa.websiteSettings?.content?.homeH1 || empresa.nombre || corporateContent?.hero?.title %>
                 </h1>
-                <% const _subtitulo = corporateContent?.hero?.subtitle || empresa.websiteSettings?.content?.homeIntro || empresa.slogan; %>
+                <% const _subtitulo = empresa.websiteSettings?.content?.homeIntro || empresa.slogan || corporateContent?.hero?.subtitle; %>
                 <% if (_subtitulo) { %>
                 <p class="text-lg md:text-2xl max-w-2xl opacity-90 drop-shadow font-medium">
                     <%= _subtitulo %>
@@ -154,35 +164,35 @@
                     <i class="fas fa-search text-gray-400"></i>
                     <span class="flex-1">
                         <% if (query.fechaLlegada) { %><strong><%= query.fechaLlegada %></strong> → <strong><%= query.fechaSalida %></strong><% } %>
-                        <% if (query.personas) { %> · <strong><%= query.personas %> huéspedes</strong><% } %>
+                        <% if (query.personas) { %> · <strong><%= query.personas %> <%= _hl === 'en' ? 'guests' : 'huéspedes' %></strong><% } %>
                     </span>
-                    <a href="/" class="text-primary-600 font-semibold hover:underline whitespace-nowrap">Modificar</a>
+                    <a href="/" class="text-primary-600 font-semibold hover:underline whitespace-nowrap"><%= _hl === 'en' ? 'Edit' : 'Modificar' %></a>
                 </div>
                 <% } else { %>
                 <form action="/" method="GET" class="max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
                     <div class="flex flex-col md:flex-row">
                         <div class="flex-1 px-5 pt-4 pb-3 border-b md:border-b-0 md:border-r border-gray-200">
-                            <label for="fechaLlegada" class="block text-xs font-bold text-gray-800 mb-1 tracking-wide">LLEGADA</label>
+                            <label for="fechaLlegada" class="block text-xs font-bold text-gray-800 mb-1 tracking-wide"><%= _hl === 'en' ? 'CHECK-IN' : 'LLEGADA' %></label>
                             <input type="date" name="fechaLlegada" id="fechaLlegada" class="hero-search-input"
                                    value="<%= query.fechaLlegada || '' %>">
                         </div>
                         <div class="divider-v"></div>
                         <div class="flex-1 px-5 pt-4 pb-3 border-b md:border-b-0 md:border-r border-gray-200">
-                            <label for="fechaSalida" class="block text-xs font-bold text-gray-800 mb-1 tracking-wide">SALIDA</label>
+                            <label for="fechaSalida" class="block text-xs font-bold text-gray-800 mb-1 tracking-wide"><%= _hl === 'en' ? 'CHECK-OUT' : 'SALIDA' %></label>
                             <input type="date" name="fechaSalida" id="fechaSalida" class="hero-search-input"
                                    value="<%= query.fechaSalida || '' %>">
                         </div>
                         <div class="divider-v"></div>
                         <div class="flex-1 px-5 pt-4 pb-3 border-b md:border-b-0 border-gray-200">
-                            <label for="personas" class="block text-xs font-bold text-gray-800 mb-1 tracking-wide">HUÉSPEDES</label>
-                            <input type="number" name="personas" id="personas" min="1" placeholder="Agregar huéspedes"
+                            <label for="personas" class="block text-xs font-bold text-gray-800 mb-1 tracking-wide"><%= _hl === 'en' ? 'GUESTS' : 'HUÉSPEDES' %></label>
+                            <input type="number" name="personas" id="personas" min="1" placeholder="<%= _hl === 'en' ? 'Number of guests' : 'Agregar huéspedes' %>"
                                    class="hero-search-input" value="<%= query.personas || '' %>">
                         </div>
                         <div class="flex items-center p-2">
                             <button type="submit"
                                     class="btn-primary w-full md:w-auto rounded-xl px-6 py-3.5 text-sm font-bold flex items-center justify-center gap-2">
                                 <i class="fas fa-search"></i>
-                                <span>Buscar</span>
+                                <span><%= _hl === 'en' ? 'Search' : 'Buscar' %></span>
                             </button>
                         </div>
                     </div>
@@ -203,21 +213,21 @@
                         <i class="fas fa-star text-warning-400 text-xs"></i>
                         <span class="font-bold text-gray-900"><%= _rating %></span>
                         <span class="text-gray-400">·</span>
-                        <span><%= _totalResenas %> reseñas</span>
+                        <span><%= _totalResenas %> <%= _hl === 'en' ? 'reviews' : 'reseñas' %></span>
                     </div>
                     <span class="text-gray-200 hidden sm:block">|</span>
                     <% } %>
                     <% if (_propCount > 0) { %>
                     <div class="flex items-center gap-1.5">
                         <i class="fas fa-home text-gray-400 text-xs"></i>
-                        <span><strong class="text-gray-900"><%= _propCount %></strong> alojamiento<%= _propCount > 1 ? 's' : '' %></span>
+                        <span><strong class="text-gray-900"><%= _propCount %></strong> <% if (_hl === 'en') { %><%= _propCount === 1 ? 'stay' : 'stays' %><% } else { %>alojamiento<% if (_propCount > 1) { %>s<% } %><% } %></span>
                     </div>
                     <span class="text-gray-200 hidden sm:block">|</span>
                     <% } %>
                     <% if (_maxCap > 0) { %>
                     <div class="flex items-center gap-1.5">
                         <i class="fas fa-users text-gray-400 text-xs"></i>
-                        <span>Hasta <strong class="text-gray-900"><%= _maxCap %></strong> personas</span>
+                        <span><%= _hl === 'en' ? 'Up to' : 'Hasta' %> <strong class="text-gray-900"><%= _maxCap %></strong> <%= _hl === 'en' ? 'guests' : 'personas' %></span>
                     </div>
                     <span class="text-gray-200 hidden sm:block">|</span>
                     <% } %>
@@ -241,17 +251,22 @@
             <div class="flex items-center justify-between mb-6">
                 <div>
                     <h2 class="text-xl font-bold text-gray-900">
-                        <%= resultados.filter(r => !r.isGroup).length %> alojamiento<%= resultados.filter(r => !r.isGroup).length !== 1 ? 's' : '' %> disponible<%= resultados.filter(r => !r.isGroup).length !== 1 ? 's' : '' %>
+                        <% const _nAvail = resultados.filter(r => !r.isGroup).length; %>
+                        <% if (_hl === 'en') { %>
+                            <%= _nAvail %> stay<%= _nAvail !== 1 ? 's' : '' %> available
+                        <% } else { %>
+                            <%= _nAvail %> alojamiento<%= _nAvail !== 1 ? 's' : '' %> disponible<%= _nAvail !== 1 ? 's' : '' %>
+                        <% } %>
                     </h2>
                     <% if (query.fechaLlegada && query.fechaSalida) { %>
                     <p class="text-sm text-gray-500 mt-0.5">
                         <%= query.fechaLlegada %> → <%= query.fechaSalida %>
-                        <% if (query.personas) { %> · <%= query.personas %> huéspedes<% } %>
+                        <% if (query.personas) { %> · <%= query.personas %> <%= _hl === 'en' ? 'guests' : 'huéspedes' %><% } %>
                     </p>
                     <% } %>
                 </div>
                 <a href="/" class="text-sm text-primary-600 font-medium hover:underline">
-                    <i class="fas fa-times mr-1"></i>Limpiar búsqueda
+                    <i class="fas fa-times mr-1"></i><%= _hl === 'en' ? 'Clear search' : 'Limpiar búsqueda' %>
                 </a>
             </div>
             <% } %>
@@ -274,10 +289,10 @@
                 <div class="col-span-1 sm:col-span-2 lg:col-span-3 xl:col-span-4 bg-white rounded-2xl border-2 border-primary-500 shadow-lg overflow-hidden">
                     <div class="p-6">
                         <div class="flex items-center gap-2 mb-1">
-                            <span class="bg-primary-100 text-primary-700 text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">Recomendado</span>
-                            <h3 class="text-lg font-bold text-gray-900">¡Grupo para <%= query.personas %> personas!</h3>
+                            <span class="bg-primary-100 text-primary-700 text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wide"><%= _hl === 'en' ? 'Recommended' : 'Recomendado' %></span>
+                            <h3 class="text-lg font-bold text-gray-900"><%= _hl === 'en' ? `Group stay for ${query.personas} guests!` : `¡Grupo para ${query.personas} personas!` %></h3>
                         </div>
-                        <p class="text-sm text-gray-500 mb-5">Combinación de <%= _g.properties.length %> alojamientos · capacidad total <%= _g.combinedCapacity %> personas.</p>
+                        <p class="text-sm text-gray-500 mb-5"><%= _hl === 'en' ? `Combination of ${_g.properties.length} stays · total capacity ${_g.combinedCapacity} guests.` : `Combinación de ${_g.properties.length} alojamientos · capacidad total ${_g.combinedCapacity} personas.` %></p>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="space-y-2">
                                 <% _g.properties.forEach(prop => { %>
@@ -286,7 +301,7 @@
                                          alt="<%= prop.nombre %>" class="w-20 h-14 object-cover rounded-lg flex-shrink-0">
                                     <div>
                                         <p class="font-semibold text-sm text-gray-800"><%= prop.nombre %></p>
-                                        <p class="text-xs text-gray-500"><%= prop.capacidad %> personas</p>
+                                        <p class="text-xs text-gray-500"><%= prop.capacidad %> <%= _hl === 'en' ? (prop.capacidad === 1 ? 'guest' : 'guests') : 'personas' %></p>
                                     </div>
                                 </div>
                                 <% }) %>
@@ -294,12 +309,12 @@
                             <% if (_tG) { %>
                             <div class="flex flex-col justify-between">
                                 <div class="space-y-2 text-sm bg-gray-50 rounded-xl p-4">
-                                    <div class="flex justify-between"><span class="text-gray-500">Noches</span><span class="font-semibold"><%= _g.combinedPricing.nights %></span></div>
-                                    <div class="flex justify-between border-t border-gray-200 pt-2 text-base font-bold text-gray-900"><span>Total estadía</span><span><%= _fmtCLP(_g.combinedPricing.totalPriceCLP) %></span></div>
-                                    <div class="flex justify-between text-primary-600 font-semibold text-sm"><span>Abono (10%)</span><span><%= _fmtCLP(_aG) %></span></div>
+                                    <div class="flex justify-between"><span class="text-gray-500"><%= _hl === 'en' ? 'Nights' : 'Noches' %></span><span class="font-semibold"><%= _g.combinedPricing.nights %></span></div>
+                                    <div class="flex justify-between border-t border-gray-200 pt-2 text-base font-bold text-gray-900"><span><%= _hl === 'en' ? 'Stay total' : 'Total estadía' %></span><span><%= _fmtCLP(_g.combinedPricing.totalPriceCLP) %></span></div>
+                                    <div class="flex justify-between text-primary-600 font-semibold text-sm"><span><%= _hl === 'en' ? 'Deposit (10%)' : 'Abono (10%)' %></span><span><%= _fmtCLP(_aG) %></span></div>
                                 </div>
                                 <a href="<%= _linkG %>" class="btn-primary mt-4 w-full text-center rounded-xl py-3 font-bold text-sm">
-                                    Reservar grupo completo
+                                    <%= _hl === 'en' ? 'Book entire group' : 'Reservar grupo completo' %>
                                 </a>
                             </div>
                             <% } %>
@@ -308,7 +323,7 @@
                 </div>
 
                 <% } else { %>
-                <%- include('partials/property-card', { prop: item, query: query, isSearchResult: isSearchResult }) %>
+                <%- include('partials/property-card', { prop: item, query: query, isSearchResult: isSearchResult, htmlLocale: _hl }) %>
                 <% } %>
                 <% }) %>
 
@@ -318,13 +333,13 @@
             <div class="text-center py-20 px-4 border-2 border-dashed border-gray-200 rounded-2xl">
                 <i class="fas fa-calendar-xmark text-4xl text-gray-300 mb-4"></i>
                 <h3 class="text-xl font-semibold text-gray-700 mb-2">
-                    <%= isSearchResult ? 'Sin disponibilidad para esas fechas' : 'Sin alojamientos publicados' %>
+                    <%= isSearchResult ? (_hl === 'en' ? 'No availability for those dates' : 'Sin disponibilidad para esas fechas') : (_hl === 'en' ? 'No published stays yet' : 'Sin alojamientos publicados') %>
                 </h3>
                 <p class="text-sm text-gray-500 max-w-sm mx-auto">
-                    <%= isSearchResult ? 'Intenta con otras fechas o menos huéspedes.' : 'Aún no hay alojamientos marcados para mostrar en la web pública.' %>
+                    <%= isSearchResult ? (_hl === 'en' ? 'Try other dates or fewer guests.' : 'Intenta con otras fechas o menos huéspedes.') : (_hl === 'en' ? 'No listings are enabled for the public site yet.' : 'Aún no hay alojamientos marcados para mostrar en la web pública.') %>
                 </p>
                 <% if (isSearchResult) { %>
-                <a href="/" class="mt-5 inline-block btn-outline rounded-xl px-5 py-2.5 text-sm font-semibold">Ver todos los alojamientos</a>
+                <a href="/" class="mt-5 inline-block btn-outline rounded-xl px-5 py-2.5 text-sm font-semibold"><%= _hl === 'en' ? 'View all stays' : 'Ver todos los alojamientos' %></a>
                 <% } %>
             </div>
             <% } %>
@@ -355,7 +370,7 @@
                         <% } %>
 
                         <% if (_amenTop.length > 0) { %>
-                        <h3 class="text-sm font-bold text-gray-700 uppercase tracking-widest mb-4">Lo que ofrecemos</h3>
+                        <h3 class="text-sm font-bold text-gray-700 uppercase tracking-widest mb-4"><%= _hl === 'en' ? 'What we offer' : 'Lo que ofrecemos' %></h3>
                         <div class="grid grid-cols-2 gap-3 mb-8">
                             <% _amenTop.forEach(amenidad => { %>
                             <div class="flex items-center gap-2.5 text-sm text-gray-700">
@@ -369,7 +384,7 @@
                         <div class="flex flex-wrap gap-3">
                             <a href="#propiedades" class="btn-primary rounded-xl px-6 py-3 text-sm font-bold flex items-center gap-2">
                                 <i class="fas fa-home"></i>
-                                Ver alojamientos
+                                <%= _hl === 'en' ? 'View stays' : 'Ver alojamientos' %>
                             </a>
                             <% if (_waLink) { %>
                             <a href="<%= _waLink %>" target="_blank" rel="noopener"

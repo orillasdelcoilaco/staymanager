@@ -137,6 +137,11 @@ const obtenerPlantilla = async (_db, empresaId, plantillaId) => {
 
 const reemplazarEtiquetas = (texto, datos) => reemplazarEtiquetasEnTexto(texto, datos);
 
+function _normalizarTextoPlantillaRender(texto) {
+    // Corrige errores comunes de edición en plantillas (ej: "50%%").
+    return String(texto || '').replace(/%%/g, '%');
+}
+
 const textoAHtml = (texto) => {
     if (!texto) return '';
     let html = texto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -149,9 +154,9 @@ const textoAHtml = (texto) => {
 
 const procesarPlantilla = async (db, empresaId, plantillaId, datos) => {
     const plantilla = await obtenerPlantilla(db, empresaId, plantillaId);
-    const textoConEtiquetas = reemplazarEtiquetas(plantilla.texto, datos);
+    const textoConEtiquetas = _normalizarTextoPlantillaRender(reemplazarEtiquetas(plantilla.texto, datos));
     const asuntoBase = (plantilla.asunto && String(plantilla.asunto).trim()) ? plantilla.asunto : plantilla.nombre;
-    const asuntoFinal = reemplazarEtiquetas(asuntoBase, datos);
+    const asuntoFinal = _normalizarTextoPlantillaRender(reemplazarEtiquetas(asuntoBase, datos));
     return { plantilla, contenido: textoAHtml(textoConEtiquetas), contenidoTexto: textoConEtiquetas, asunto: asuntoFinal };
 };
 

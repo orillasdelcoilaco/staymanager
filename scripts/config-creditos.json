@@ -1,0 +1,25 @@
+{
+  "alertaBajo": 20,
+  "alertaCritico": 5,
+  "estimacionPorHora": 10,
+  "maxOperacionesPorDia": 100,
+  "notificarEnArchivo": true,
+  "archivoNotificacion": "TASKS/alertas-creditos.md",
+  "tareasCriticas": [
+    "audit-ui.js",
+    "audit-complexity.js",
+    "migrate-colors.js",
+    "npm run build",
+    "npm test",
+    "deploy"
+  ],
+  "complejidadOperaciones": {
+    "auditoria": 2.5,
+    "build": 1.5,
+    "test": 1.0,
+    "deploy": 3.0,
+    "refactor": 2.0,
+    "consulta-bd": 0.5,
+    "general": 1.0
+  }
+}

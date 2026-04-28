@@ -14,6 +14,59 @@ let currentGrupo = null;
 let currentAllEstados = [];
 let currentUserEmail = '';
 let onActionComplete = () => {};
+let currentNotas = [];
+
+function getNotaTipo(texto) {
+    const t = String(texto || '');
+    if (t.includes('[Comparador OTA]')) return 'comparador';
+    if (t.includes('[Garantía]') || t.includes('[Garantia]')) return 'garantia';
+    if (/\b(pago|abono|transacci[oó]n)\b/i.test(t)) return 'pagos';
+    return 'manual';
+}
+
+function renderNotasFiltradas() {
+    const listEl = document.getElementById('bitacora-list');
+    const filterEl = document.getElementById('bitacora-filter-select');
+    const chipsWrap = document.getElementById('bitacora-stats-chips');
+    if (!listEl) return;
+    const counts = currentNotas.reduce((acc, n) => {
+        const k = getNotaTipo(n.texto);
+        acc[k] = (acc[k] || 0) + 1;
+        return acc;
+    }, { comparador: 0, garantia: 0, pagos: 0, manual: 0 });
+    const total = currentNotas.length;
+    const filtro = String(filterEl?.value || 'all');
+    if (chipsWrap) {
+        const chip = (tipo, label, n) => `
+            <button
+                type="button"
+                data-chip-tipo="${tipo}"
+                class="${filtro === tipo ? 'btn-primary' : 'btn-outline'} text-xs py-1 px-2"
+            >
+                ${label} (${n})
+            </button>`;
+        chipsWrap.innerHTML = `${chip('all', 'Todo', total)} ${chip('comparador', 'Comparador', counts.comparador || 0)} ${chip('garantia', 'Garantía', counts.garantia || 0)} ${chip('pagos', 'Pagos', counts.pagos || 0)} ${chip('manual', 'Manual', counts.manual || 0)}`;
+        chipsWrap.querySelectorAll('[data-chip-tipo]').forEach((btn) => {
+            btn.onclick = () => {
+                if (filterEl) filterEl.value = btn.dataset.chipTipo;
+                renderNotasFiltradas();
+            };
+        });
+    }
+    const notas = filtro === 'all'
+        ? currentNotas
+        : currentNotas.filter((n) => getNotaTipo(n.texto) === filtro);
+    if (notas.length === 0) {
+        listEl.innerHTML = '<p class="text-gray-500 text-center">No hay notas para este filtro.</p>';
+        return;
+    }
+    listEl.innerHTML = notas.map((nota) => `
+        <div class="bg-gray-50 p-3 rounded-md border">
+            <p class="text-gray-800 whitespace-pre-wrap">${nota.texto}</p>
+            <p class="text-xs text-gray-500 mt-1">Por: ${nota.autor} - ${nota.fecha}</p>
+        </div>
+    `).join('');
+}
 
 export function initializeModals(callback, userEmail) {
     onActionComplete = callback;
@@ -132,6 +185,11 @@ export function openBitacoraModal(grupo) {
     document.getElementById('bitacora-modal-title').textContent = `Bitácora de Gestión (Reserva ${grupo.reservaIdOriginal})`;
     document.getElementById('bitacora-new-note').value = '';
     document.getElementById('bitacora-status').textContent = '';
+    const filterEl = document.getElementById('bitacora-filter-select');
+    if (filterEl) {
+        filterEl.value = 'all';
+        filterEl.onchange = () => renderNotasFiltradas();
+    }
     modal.classList.remove('hidden');
     loadNotes();
 }
@@ -141,15 +199,11 @@ async function loadNotes() {
     listEl.innerHTML = '<p class="text-gray-500">Cargando notas...</p>';
     try {
         const notas = await fetchAPI(`/gestion/notas/${currentGrupo.reservaIdOriginal}`);
-        if (notas.length === 0) {
+        currentNotas = Array.isArray(notas) ? notas : [];
+        if (currentNotas.length === 0) {
             listEl.innerHTML = '<p class="text-gray-500 text-center">No hay notas para esta reserva.</p>';
         } else {
-            listEl.innerHTML = notas.map(nota => `
-                <div class="bg-gray-50 p-3 rounded-md border">
-                    <p class="text-gray-800 whitespace-pre-wrap">${nota.texto}</p>
-                    <p class="text-xs text-gray-500 mt-1">Por: ${nota.autor} - ${nota.fecha}</p>
-                </div>
-            `).join('');
+            renderNotasFiltradas();
         }
     } catch (error) {
         listEl.innerHTML = `<p class="text-danger-500">Error al cargar las notas.</p>`;

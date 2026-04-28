@@ -3,6 +3,7 @@
  * Empresa: websiteSettings.booking; por alojamiento: websiteData.booking (misma forma).
  */
 const { isValid, differenceInDays, addMonths, parseISO, format, startOfDay } = require('date-fns');
+const { minNochesLlegadaParaFecha } = require('./heatmapRestriccionesService');
 
 function _parseLlegadaSalida(fechaLlegada, fechaSalida) {
     const lleg = String(fechaLlegada || '').slice(0, 10);
@@ -23,6 +24,12 @@ function _mergeMinNoches(bookingCfg, propsData) {
         minNochesR = Math.max(minNochesR, m);
     }
     return minNochesR;
+}
+
+function _mergeMinNochesConDemanda(bookingCfg, propsData, fechaLlegadaYmd) {
+    const base = _mergeMinNoches(bookingCfg, propsData);
+    const heat = minNochesLlegadaParaFecha(bookingCfg || {}, String(fechaLlegadaYmd || '').slice(0, 10));
+    return Math.max(base, heat);
 }
 
 function _mergeMaxNochesEstadia(bookingCfg, propsData) {
@@ -55,6 +62,32 @@ function _mergeMinDiasAnticipacionReserva(bookingCfg, propsData) {
     return need;
 }
 
+function _normalizarDiasSemanaArray(val) {
+    if (!Array.isArray(val)) return null;
+    const out = [];
+    for (const raw of val) {
+        const n = parseInt(String(raw), 10);
+        if (Number.isInteger(n) && n >= 0 && n <= 6) out.push(n);
+    }
+    return out.length ? Array.from(new Set(out)) : [];
+}
+
+function _mergeDiasSemanaLlegadaPermitidos(bookingCfg, propsData) {
+    // null => no regla (todos los días permitidos)
+    let permitidos = _normalizarDiasSemanaArray(bookingCfg?.diasSemanaLlegadaPermitidos);
+    for (const p of propsData || []) {
+        const cur = _normalizarDiasSemanaArray(p?.websiteData?.booking?.diasSemanaLlegadaPermitidos);
+        if (cur === null) continue;
+        if (permitidos === null) {
+            permitidos = cur;
+        } else {
+            const set = new Set(cur);
+            permitidos = permitidos.filter((d) => set.has(d));
+        }
+    }
+    return permitidos;
+}
+
 /**
  * @param {object} bookingCfg websiteSettings.booking
  * @param {object[]} propsData alojamientos con websiteData.booking opcional
@@ -71,11 +104,23 @@ function validarRestriccionesFechasReservaWeb(bookingCfg, propsData, fechaLlegad
     }
 
     const nights = differenceInDays(endR, startR);
-    const minNochesR = _mergeMinNoches(bookingCfg || {}, propsData || []);
+    const diasLlegadaPermitidos = _mergeDiasSemanaLlegadaPermitidos(bookingCfg || {}, propsData || []);
+    if (Array.isArray(diasLlegadaPermitidos) && diasLlegadaPermitidos.length > 0) {
+        const d = startR.getDay();
+        if (!diasLlegadaPermitidos.includes(d)) {
+            return en
+                ? 'Check-in is not allowed on that weekday.'
+                : 'La llegada no está permitida para ese día de la semana.';
+        }
+    }
+    const minNochesR = _mergeMinNochesConDemanda(bookingCfg || {}, propsData || [], lleg);
     if (nights < minNochesR) {
+        const baseOnly = _mergeMinNoches(bookingCfg || {}, propsData || []);
+        const heatOnly = minNochesLlegadaParaFecha(bookingCfg || {}, lleg);
+        const demanda = heatOnly > baseOnly;
         return en
-            ? `Minimum stay is ${minNochesR} night(s).`
-            : `La estadía debe ser de al menos ${minNochesR} noche(s).`;
+            ? `Minimum stay is ${minNochesR} night(s)${demanda ? ' (including high-demand dates for this check-in).' : '.'}`
+            : `La estadía debe ser de al menos ${minNochesR} noche(s)${demanda ? ' (incluye periodos de mayor demanda para esa llegada).' : '.'}`;
     }
 
     const maxCap = _mergeMaxNochesEstadia(bookingCfg || {}, propsData || []);
@@ -123,14 +168,34 @@ function evaluarRestriccionesReservaWebCodigo(bookingCfg, propsData, fechaLlegad
         };
     }
     const nights = differenceInDays(endR, startR);
-    const minNochesR = _mergeMinNoches(bookingCfg || {}, propsData || []);
+    const diasLlegadaPermitidos = _mergeDiasSemanaLlegadaPermitidos(bookingCfg || {}, propsData || []);
+    if (Array.isArray(diasLlegadaPermitidos) && diasLlegadaPermitidos.length > 0) {
+        const d = startR.getDay();
+        if (!diasLlegadaPermitidos.includes(d)) {
+            return {
+                ok: false,
+                codigo: 'dia_llegada_no_permitido',
+                dia_semana_llegada: d,
+                dias_semana_llegada_permitidos: diasLlegadaPermitidos,
+                mensaje_es: 'La llegada no está permitida para ese día de la semana.',
+            };
+        }
+    }
+    const minNochesR = _mergeMinNochesConDemanda(bookingCfg || {}, propsData || [], lleg);
     if (nights < minNochesR) {
+        const baseOnly = _mergeMinNoches(bookingCfg || {}, propsData || []);
+        const heatOnly = minNochesLlegadaParaFecha(bookingCfg || {}, lleg);
+        const demanda = heatOnly > baseOnly;
         return {
             ok: false,
             codigo: 'minimo_noches',
             noches_solicitadas: nights,
             minimo_noches: minNochesR,
-            mensaje_es: `La estadía debe ser de al menos ${minNochesR} noche(s).`,
+            minimo_noches_base: baseOnly,
+            minimo_noches_demanda_mapa: heatOnly > baseOnly ? heatOnly : null,
+            mensaje_es: demanda
+                ? `La estadía debe ser de al menos ${minNochesR} noche(s) (periodo de mayor demanda para esa llegada).`
+                : `La estadía debe ser de al menos ${minNochesR} noche(s).`,
         };
     }
     const maxCap = _mergeMaxNochesEstadia(bookingCfg || {}, propsData || []);
@@ -169,12 +234,17 @@ function evaluarRestriccionesReservaWebCodigo(bookingCfg, propsData, fechaLlegad
             };
         }
     }
+    const minEfectivo = _mergeMinNochesConDemanda(bookingCfg || {}, propsData || [], lleg);
+    const minBaseOk = _mergeMinNoches(bookingCfg || {}, propsData || []);
+    const heatOk = minNochesLlegadaParaFecha(bookingCfg || {}, lleg);
     return {
         ok: true,
         codigo: null,
         noches_solicitadas: nights,
         reglas_resumen: {
-            minimo_noches: minNochesR,
+            minimo_noches: minEfectivo,
+            minimo_noches_base: minBaseOk,
+            minimo_noches_demanda_mapa: heatOk > minBaseOk ? heatOk : null,
             maximo_noches_estadia: maxCap > 0 ? maxCap : null,
             meses_reservable_adelante: mesesLim > 0 ? mesesLim : null,
             anticipacion_dias: antNeed > 0 ? antNeed : null,
@@ -196,6 +266,7 @@ function mergeRestriccionesBookingEmpresaUnaPropiedad(bookingCfg, propiedadBooki
         maxNochesEstadia: _mergeMaxNochesEstadia(cfg, propsData),
         mesesReservableAdelante: _mergeMesesReservableAdelante(cfg, propsData),
         minDiasAnticipacionReserva: _mergeMinDiasAnticipacionReserva(cfg, propsData),
+        diasSemanaLlegadaPermitidos: _mergeDiasSemanaLlegadaPermitidos(cfg, propsData),
     };
 }
 

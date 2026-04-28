@@ -1,0 +1,7 @@
+<%# Parámetros: canonicalUrl (string), hrefLangCode ('es' | 'en') %>
+<% const __u = typeof canonicalUrl === 'string' ? canonicalUrl.trim() : ''; %>
+<% const __hl = hrefLangCode === 'en' ? 'en' : 'es'; %>
+<% if (__u) { %>
+<link rel="alternate" hreflang="<%= __hl %>" href="<%= __u %>">
+<link rel="alternate" hreflang="x-default" href="<%= __u %>">
+<% } %>

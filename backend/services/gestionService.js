@@ -13,6 +13,7 @@ const splitIntoChunks = (arr, size) => {
 // Normalizes a PG reserva row to the shape the aggregation logic expects
 function normalizarReservaPG(row) {
     const valores = row.valores || {};
+    const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
     return {
         id:                    row.id,
         idReservaCanal:        row.id_reserva_canal,
@@ -29,6 +30,7 @@ function normalizarReservaPG(row) {
         estadoGestion:         row.estado_gestion,
         moneda:                row.moneda || 'CLP',
         valores,
+        metadata,
         documentos:            row.documentos || {},
         alertaBloqueo:         valores.alertaBloqueo || false,
         motivoBloqueo:         valores.motivoBloqueo || '',
@@ -190,7 +192,12 @@ function _agruparYProcesar(allReservasConCLP, clientsMap, notesCountMap, abonosM
             return acc;
         }, { valorTotalHuesped: 0, costoCanal: 0, payoutFinalReal: 0, valorListaBaseTotal: 0, ajusteManualRealizado: false, potencialCalculado: false, clienteGestionado: false, documentos: {} });
 
-        const resultado = { ...grupo, ...valoresAgregados, esUSD: monedaGrupo === 'USD' };
+        const resultado = {
+            ...grupo,
+            ...valoresAgregados,
+            esUSD: monedaGrupo === 'USD',
+            garantiaOperacion: primerReserva.metadata?.garantiaOperacion ?? null,
+        };
 
         if (resultado.esUSD) {
             const valorDolarParaCalculo = (estadoGestionGrupo === 'Facturado')
@@ -229,6 +236,78 @@ const actualizarEstadoGrupo = async (db, empresaId, idsIndividuales, nuevoEstado
          WHERE id = ANY($1) AND empresa_id = $4`,
         [idsIndividuales, updateData.estado || null, updateData.estadoGestion ?? null, empresaId]
     );
+};
+
+const ESTADOS_GARANTIA_OPERACION = new Set([
+    'pendiente_garantia',
+    'garantia_validada',
+    'garantia_rechazada',
+]);
+
+const actualizarEstadoGarantiaOperacionGrupo = async (_db, empresaId, payload) => {
+    const reservaIdOriginal = String(payload?.reservaIdOriginal || '').trim();
+    const nuevoEstado = String(payload?.estadoOperacion || '').trim();
+    const autor = String(payload?.autor || '').trim();
+    const nota = String(payload?.nota || '').trim().slice(0, 240);
+
+    if (!reservaIdOriginal) {
+        const err = new Error('reservaIdOriginal es requerido.');
+        err.statusCode = 400;
+        throw err;
+    }
+    if (!ESTADOS_GARANTIA_OPERACION.has(nuevoEstado)) {
+        const err = new Error('estadoOperacion inválido.');
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const nowIso = new Date().toISOString();
+        const { rows, rowCount } = await client.query(
+            `UPDATE reservas
+               SET metadata = jsonb_set(
+                    jsonb_set(
+                        jsonb_set(COALESCE(metadata, '{}'::jsonb), '{garantiaOperacion,estadoOperacion}', to_jsonb($1::text), true),
+                        '{garantiaOperacion,estadoOperacionUpdatedAt}', to_jsonb($2::text), true
+                    ),
+                    '{garantiaOperacion,estadoOperacionNota}', to_jsonb($3::text), true
+               ),
+                   updated_at = NOW()
+             WHERE empresa_id = $4
+               AND id_reserva_canal = $5
+             RETURNING metadata -> 'garantiaOperacion' AS garantia_operacion`,
+            [nuevoEstado, nowIso, nota || '', empresaId, reservaIdOriginal],
+        );
+
+        if (!rowCount) {
+            const err = new Error('No se encontraron reservas para actualizar estado de garantía.');
+            err.statusCode = 404;
+            throw err;
+        }
+
+        if (nota) {
+            const estadoTxt = nuevoEstado === 'garantia_validada'
+                ? 'Garantía validada'
+                : (nuevoEstado === 'garantia_rechazada' ? 'Garantía rechazada' : 'Pendiente de garantía');
+            const textoBitacora = `[Garantía] Estado operativo actualizado a "${estadoTxt}". Nota: ${nota}`;
+            await client.query(
+                `INSERT INTO bitacora (empresa_id, id_reserva_canal, texto, autor)
+                 VALUES ($1, $2, $3, $4)`,
+                [empresaId, reservaIdOriginal, textoBitacora, autor],
+            );
+        }
+
+        await client.query('COMMIT');
+        return rows[0]?.garantia_operacion || null;
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
 };
 
 const getNotas = async (_db, empresaId, reservaIdOriginal) => {
@@ -277,6 +356,7 @@ const getTransacciones = async (_db, empresaId, idsIndividuales) => {
         tipo:              row.tipo,
         monto:             row.monto,
         medioDePago:       row.metadata?.medioDePago || '',
+        observacion:       row.metadata?.observacion || '',
         enlaceComprobante: row.metadata?.enlaceComprobante || null,
         fecha:             row.fecha || new Date(),
     }));
@@ -298,4 +378,5 @@ module.exports = {
     addNota,
     getTransacciones,
     marcarClienteComoGestionado,
+    actualizarEstadoGarantiaOperacionGrupo,
 };

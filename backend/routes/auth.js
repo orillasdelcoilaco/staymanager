@@ -20,7 +20,7 @@ module.exports = (admin, db) => {
             res.status(201).json(result);
         } catch (error) {
             console.error("Error en la ruta de registro:", error);
-            res.status(500).json({ error: error.message || 'Error interno del servidor.' });
+            res.status(error.statusCode || 500).json({ error: error.message || 'Error interno del servidor.' });
         }
     });
 

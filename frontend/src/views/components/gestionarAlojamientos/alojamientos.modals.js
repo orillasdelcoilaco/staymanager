@@ -17,6 +17,7 @@ import {
     getCategoryForSpaceType,
     buildElementoFromTipo
 } from './alojamientos.modals.helpers.js';
+import { aplicarBookingAlojamientoAlDom, leerBookingAlojamientoDelDom } from './alojamientos.bookingFields.js';
 
 export { renderModalAlojamiento };
 
@@ -527,6 +528,7 @@ function poblarFormularioEdicion(form, propiedad, icalContainer) {
     form.googleHotelIsListed.checked = propiedad.googleHotelData?.isListed || false;
 
     aplicarContextoComercialAlDom(propiedad.contextoComercial);
+    aplicarBookingAlojamientoAlDom(propiedad.websiteData?.booking);
 }
 
 function poblarFormularioCreacion(form, icalContainer) {
@@ -539,6 +541,7 @@ function poblarFormularioCreacion(form, icalContainer) {
     tempAiDescription = '';
     icalContainer.querySelectorAll('.ical-input').forEach(input => { input.value = ''; });
     aplicarContextoComercialAlDom({ tipo_viaje: [], entorno: [], destacados: [] });
+    aplicarBookingAlojamientoAlDom({});
 }
 
 // --- EXPORTS ---
@@ -647,7 +650,8 @@ export const setupModalAlojamiento = (callback) => {
                 ...(editandoPropiedad?.websiteData || {}),
                 aiDescription: tempAiDescription || editandoPropiedad?.websiteData?.aiDescription || '',
                 images: editandoPropiedad?.websiteData?.images || {},
-                cardImage: editandoPropiedad?.websiteData?.cardImage || null
+                cardImage: editandoPropiedad?.websiteData?.cardImage || null,
+                booking: leerBookingAlojamientoDelDom(),
             }
         };
 

@@ -1,0 +1,7 @@
+<%# aviso: { mostrar, variant?: 'info'|'success', texto } %>
+<% if (aviso && aviso.mostrar && aviso.texto) { %>
+<% const _v = aviso.variant === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-sky-50 border-sky-200 text-sky-900'; %>
+<div class="mb-4 rounded-lg border px-3 py-2.5 text-sm leading-snug <%= _v %>" role="status">
+    <%= aviso.texto %>
+</div>
+<% } %>

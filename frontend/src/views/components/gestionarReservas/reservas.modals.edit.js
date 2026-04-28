@@ -1,7 +1,7 @@
 // reservas.modals.edit.js — Modal de edición de reserva y gestión de documentos/transacciones
 
 import { fetchAPI } from '../../../api.js';
-import { formatDate, formatCurrency } from './reservas.utils.js';
+import { formatDate, formatCurrency, buildGarantiaOperacionReadonlyHtml } from './reservas.utils.js';
 import { renderDocumentoLink } from './reservas.modals.view.js';
 
 export function toggleDolarFields(form) {
@@ -65,7 +65,10 @@ export function renderizarListaTransacciones(form, transacciones) {
             <div class="bg-gray-50 p-2 rounded grid grid-cols-4 gap-2 items-center">
                 <span>${t.tipo}</span>
                 <span class="font-semibold">${formatCurrency(t.monto)}</span>
-                <span>${renderDocumentoLink(t.enlaceComprobante, 'Sin Comp.')}</span>
+                <span>
+                    ${renderDocumentoLink(t.enlaceComprobante, 'Sin Comp.')}
+                    ${t.observacion ? `<span class="block text-xs text-gray-500 mt-1">Obs: ${t.observacion}</span>` : ''}
+                </span>
                 <button type="button" data-id="${t.id}" class="delete-pago-btn text-danger-600 text-xs justify-self-end">Eliminar</button>
             </div>`).join('');
 }
@@ -92,6 +95,19 @@ export async function abrirModalEditar(reservaId, alojamientos, clientes) {
             resumenGrupoEl.classList.remove('hidden');
         } else {
             resumenGrupoEl.classList.add('hidden');
+        }
+
+        const goEditWrap = document.getElementById('edit-garantia-operacion-wrap');
+        const goEditInner = document.getElementById('edit-garantia-operacion');
+        if (goEditWrap && goEditInner) {
+            const gh = buildGarantiaOperacionReadonlyHtml(editandoReserva.garantiaOperacion);
+            if (gh) {
+                goEditInner.innerHTML = gh;
+                goEditWrap.classList.remove('hidden');
+            } else {
+                goEditInner.innerHTML = '';
+                goEditWrap.classList.add('hidden');
+            }
         }
 
         document.getElementById('alojamiento-select').innerHTML =

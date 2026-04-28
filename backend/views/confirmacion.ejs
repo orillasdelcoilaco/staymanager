@@ -1,10 +1,11 @@
+<% const hl = (typeof htmlLang !== 'undefined' && htmlLang === 'en') ? 'en' : 'es'; %>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="<%= hl %>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reserva Confirmada | <%= empresa.nombre %></title>
-    <meta name="description" content="Tu reserva ha sido recibida." />
+    <title><%= hl === 'en' ? 'Booking received' : 'Reserva confirmada' %> | <%= empresa.nombre %></title>
+    <meta name="description" content="<%= hl === 'en' ? 'Your booking request was received.' : 'Tu reserva ha sido recibida.' %>" />
     <link rel="stylesheet" href="/public/css/website.css">
     <%- include('partials/web-fonts') %>
 </head>
@@ -14,40 +15,149 @@
 
     <main class="container py-12 md:py-24">
         <div class="max-w-2xl mx-auto bg-white p-8 md:p-12 rounded-lg shadow-lg text-center">
+            <%
+                const _locFecha = hl === 'en' ? 'en-US' : 'es-CL';
+                const _fmtFechaCorta = (isoYmd) => {
+                    const s = String(isoYmd || '').slice(0, 10);
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return 'N/A';
+                    const d = new Date(`${s}T00:00:00Z`);
+                    if (Number.isNaN(d.getTime())) return 'N/A';
+                    return d.toLocaleDateString(_locFecha, { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+                };
+            %>
             
             <svg class="w-16 h-16 text-success-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
 
-            <h1 class="text-3xl font-bold text-gray-900 mt-4">¡Reserva Recibida!</h1>
+            <h1 class="text-3xl font-bold text-gray-900 mt-4"><%= hl === 'en' ? 'Booking received!' : '¡Reserva recibida!' %></h1>
             
             <p class="text-lg text-gray-600 mt-4">
-                Hemos recibido tu solicitud de reserva. Nos pondremos en contacto contigo a la brevedad
-                para confirmar los detalles y coordinar el pago del abono.
+                <%= hl === 'en'
+                    ? 'We have received your booking request. We will contact you shortly to confirm your stay details.'
+                    : 'Hemos recibido tu solicitud de reserva. Nos pondremos en contacto contigo a la brevedad para confirmar los detalles de tu estadía.' %>
             </p>
+
+            <% 
+                const depNota = String(empresa.websiteSettings?.booking?.depositoNotaHtml || '').trim();
+                const depShow = (typeof depositoReserva !== 'undefined' && depositoReserva && depositoReserva.activo !== false);
+                const garantiaModo = String(empresa.websiteSettings?.booking?.garantiaModo || 'abono_manual');
+                const garantiaDetalleOperacion = String(empresa.websiteSettings?.booking?.garantiaDetalleOperacion || '').trim();
+                const garantiaTexto = garantiaModo === 'sin_garantia'
+                    ? (hl === 'en' ? 'No advance guarantee required to confirm this booking.' : 'Sin garantía previa para confirmar la reserva.')
+                    : (garantiaModo === 'preautorizacion_externa'
+                        ? (hl === 'en' ? 'Guarantee via external pre-authorization (no in-app payment gateway).' : 'Garantía por preautorización externa (sin integración de pasarela en StayManager).')
+                        : (hl === 'en' ? 'Guarantee via manual deposit recorded by operations.' : 'Garantía mediante abono manual registrado por operación.'));
+            %>
+            <% if (depShow) { %>
+                <div class="mt-6 border border-primary-200 bg-primary-50 rounded-lg p-4 text-left">
+                    <h3 class="font-semibold text-primary-900 mb-2"><%= hl === 'en' ? 'Deposit information' : 'Información de abono' %></h3>
+                    <p class="text-sm text-primary-800">
+                        <% if (depositoReserva.tipo === 'monto_fijo') { %>
+                            <%= hl === 'en' ? 'Deposit required:' : 'Abono requerido:' %> $<%= Number(depositoReserva.montoDeposito || 0).toLocaleString(_locFecha) %> CLP <%= hl === 'en' ? '(fixed amount).' : '(monto fijo).' %>
+                        <% } else { %>
+                            <%= hl === 'en' ? 'Deposit required:' : 'Abono requerido:' %> <%= Number(depositoReserva.porcentaje || 10) %>% <%= hl === 'en' ? 'of total' : 'del total' %>
+                            ($<%= Number(depositoReserva.montoDeposito || 0).toLocaleString(_locFecha) %> CLP).
+                        <% } %>
+                    </p>
+                    <p class="text-sm text-primary-800 mt-1">
+                        <%= hl === 'en' ? 'Suggested time to pay deposit:' : 'Plazo sugerido para abonar:' %> <strong><%= Number(depositoReserva.horasLimite || 48) %> <%= hl === 'en' ? 'hours' : 'horas' %></strong>.
+                    </p>
+                    <% if (depNota) { %>
+                        <p class="text-xs text-primary-900/80 mt-2"><%= depNota %></p>
+                    <% } %>
+                    <p class="text-xs text-primary-900/80 mt-2"><strong><%= hl === 'en' ? 'Guarantee policy:' : 'Política de garantía:' %></strong> <%= garantiaTexto %></p>
+                    <% if (garantiaDetalleOperacion) { %>
+                        <p class="text-xs text-primary-900/70 mt-1"><%= garantiaDetalleOperacion %></p>
+                    <% } %>
+                </div>
+            <% } else { %>
+                <div class="mt-6 border border-gray-200 bg-gray-50 rounded-lg p-4 text-left">
+                    <h3 class="font-semibold text-gray-800 mb-2"><%= hl === 'en' ? 'Guarantee policy' : 'Política de garantía' %></h3>
+                    <p class="text-sm text-gray-700"><%= garantiaTexto %></p>
+                    <% if (garantiaDetalleOperacion) { %>
+                        <p class="text-xs text-gray-600 mt-1"><%= garantiaDetalleOperacion %></p>
+                    <% } %>
+                </div>
+            <% } %>
 
             <% if (reserva) { %>
                 <div class="mt-6 border-t pt-6 text-left space-y-2">
-                    <h3 class="text-lg font-semibold text-gray-800">Detalles de tu Solicitud:</h3>
+                    <h3 class="text-lg font-semibold text-gray-800"><%= hl === 'en' ? 'Your request details' : 'Detalles de tu solicitud' %></h3>
                     <div class="flex justify-between">
-                        <span class="text-gray-600">ID de Reserva:</span>
+                        <span class="text-gray-600"><%= hl === 'en' ? 'Booking ID:' : 'ID de reserva:' %></span>
                         <span class="font-medium font-mono text-sm"><%= reserva.id %></span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-gray-600">Llegada:</span>
-                        <span class="font-medium"><%= new Date(reserva.fechaLlegada + 'T00:00:00-03:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'short' }) %></span>
+                        <span class="text-gray-600"><%= hl === 'en' ? 'Check-in:' : 'Llegada:' %></span>
+                        <span class="font-medium"><%= _fmtFechaCorta(reserva.fechaLlegada) %></span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-gray-600">Salida:</span>
-                        <span class="font-medium"><%= new Date(reserva.fechaSalida + 'T00:00:00-03:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'short' }) %></span>
+                        <span class="text-gray-600"><%= hl === 'en' ? 'Check-out:' : 'Salida:' %></span>
+                        <span class="font-medium"><%= _fmtFechaCorta(reserva.fechaSalida) %></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600"><%= hl === 'en' ? 'Property:' : 'Alojamiento:' %></span>
+                        <span class="font-medium text-right"><%= reserva.alojamientoNombre || 'N/A' %></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600"><%= hl === 'en' ? 'Nights:' : 'Noches:' %></span>
+                        <span class="font-medium"><%= reserva.totalNoches || 'N/A' %></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600"><%= hl === 'en' ? 'Guests:' : 'Huéspedes:' %></span>
+                        <span class="font-medium"><%= reserva.cantidadHuespedes || 'N/A' %></span>
                     </div>
                      <div class="flex justify-between">
-                        <span class="text-gray-600">Total:</span>
-                        <span class="font-medium">$<%= reserva.precioFinal.toLocaleString('es-CL') %></span>
+                        <span class="text-gray-600"><%= hl === 'en' ? 'Total:' : 'Total:' %></span>
+                        <span class="font-medium">$<%= reserva.precioFinal.toLocaleString(_locFecha) %></span>
                     </div>
                 </div>
             <% } %>
 
+            <% 
+              const gl = (typeof guestBookingLinks !== 'undefined' && guestBookingLinks && typeof guestBookingLinks === 'object') ? guestBookingLinks : {};
+              const hasGuestLinks = !!(gl.manualHuespedUrl || gl.manualHuespedPdfUrl || gl.checkinOnlineUrl);
+            %>
+            <% if (hasGuestLinks) { %>
+                <div class="mt-6 border-t pt-6 text-left rounded-lg bg-primary-50/60 border border-primary-100 p-4 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-900">
+                        <%= hl === 'en' ? 'Useful links for your stay' : 'Enlaces útiles para tu estadía' %>
+                    </h3>
+                    <p class="text-sm text-gray-700">
+                        <%= hl === 'en' ? 'You can open these now; the same links may appear in your confirmation email.' : 'Puedes abrirlos ahora; los mismos enlaces pueden venir en tu correo de confirmación.' %>
+                    </p>
+                    <ul class="text-sm space-y-2 list-none pl-0">
+                        <li>
+                            <a href="/guia-huesped" class="text-primary-700 font-medium hover:underline">
+                                <%= hl === 'en' ? 'Guest guide page' : 'Página guía del huésped' %>
+                            </a>
+                        </li>
+                        <% if (gl.manualHuespedUrl) { %>
+                            <li>
+                                <a href="<%= gl.manualHuespedUrl %>" target="_blank" rel="noopener noreferrer" class="text-primary-700 font-medium hover:underline">
+                                    <%= hl === 'en' ? 'Guest information (web)' : 'Información para huéspedes (web)' %>
+                                </a>
+                            </li>
+                        <% } %>
+                        <% if (gl.manualHuespedPdfUrl) { %>
+                            <li>
+                                <a href="<%= gl.manualHuespedPdfUrl %>" target="_blank" rel="noopener noreferrer" class="text-primary-700 font-medium hover:underline">
+                                    <%= hl === 'en' ? 'House manual (PDF)' : 'Manual / guía (PDF)' %>
+                                </a>
+                            </li>
+                        <% } %>
+                        <% if (gl.checkinOnlineUrl) { %>
+                            <li>
+                                <a href="<%= gl.checkinOnlineUrl %>" target="_blank" rel="noopener noreferrer" class="text-primary-700 font-medium hover:underline">
+                                    <%= hl === 'en' ? 'Online check-in' : 'Check-in online' %>
+                                </a>
+                            </li>
+                        <% } %>
+                    </ul>
+                </div>
+            <% } %>
+
             <div class="mt-8">
-                <a href="/" class="btn">Volver al Inicio</a>
+                <a href="/" class="btn"><%= hl === 'en' ? 'Back to home' : 'Volver al inicio' %></a>
             </div>
 
         </div>

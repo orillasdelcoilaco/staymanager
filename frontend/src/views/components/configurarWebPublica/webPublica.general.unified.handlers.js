@@ -1,5 +1,7 @@
 // Eventos del formulario unificado (extraído de setupUnifiedEvents).
 
+import { collectHeatmapEventosForSave } from './webPublica.general.unified.heatmapEventosRows.js';
+
 export function bindUnifiedRegen({ attach, fetchAPI, updateGeneratedContent }) {
     attach('btn-regen', async () => {
         const historia = document.getElementById('historia')?.value?.trim();
@@ -115,6 +117,14 @@ export function bindUnifiedSave({
             const subInput = document.getElementById('subdomain');
             if (subInput && subInput.value !== subdomain) subInput.value = subdomain;
 
+            const heatmapEventos = collectHeatmapEventosForSave();
+            if (!heatmapEventos.ok) {
+                alert(heatmapEventos.message);
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                return;
+            }
+
             const payload = {
                 historiaEmpresa: document.getElementById('historia')?.value || '',
                 slogan: document.getElementById('slogan')?.value || '',
@@ -153,6 +163,7 @@ export function bindUnifiedSave({
                     garantiaDetalleOperacion: document.getElementById('garantia-detalle-operacion')?.value || '',
                     chatgptMascotasPolicyMode: document.getElementById('chatgpt-mascotas-policy-mode')?.value || 'auto',
                     chatgptMascotasCondicion: document.getElementById('chatgpt-mascotas-condicion')?.value || '',
+                    eventosDemandaMapaCalor: heatmapEventos.items,
                 },
                 theme: {
                     logoUrl: document.getElementById('logo-url')?.value || '',
@@ -168,6 +179,10 @@ export function bindUnifiedSave({
                     title: payload.strategy.homeSeoTitle,
                     description: payload.strategy.homeSeoDesc,
                     keywords: payload.strategy.palabrasClaveAdicionales,
+                },
+                integrations: {
+                    ariFeedToken: (document.getElementById('integration-ari-token')?.value || '').trim(),
+                    googleHotelsContentToken: (document.getElementById('integration-google-hotels-token')?.value || '').trim(),
                 },
             };
 
@@ -324,4 +339,75 @@ export function bindUnifiedHeroUpload({ fetchAPI, setStatus }) {
             setStatus(statusEl, `Error: ${err.message}`, 'danger');
         }
     });
+}
+
+function _badgeClass(semaforo) {
+    if (semaforo === 'green') return 'bg-success-100 text-success-800 border-success-200';
+    if (semaforo === 'yellow') return 'bg-warning-100 text-warning-800 border-warning-200';
+    return 'bg-danger-100 text-danger-800 border-danger-200';
+}
+
+export async function loadGoogleHotelsHealth({ fetchAPI }) {
+    const summary = document.getElementById('google-hotels-health-summary');
+    const errorsRoot = document.getElementById('google-hotels-health-errors');
+    const btn = document.getElementById('btn-google-hotels-health-refresh');
+    const originalText = btn ? btn.innerHTML : '';
+    if (!summary || !errorsRoot) return;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Actualizando...';
+    }
+    try {
+        const r = await fetchAPI('/website/google-hotels-health');
+        const sem = String(r?.semaforo || 'red');
+        const listed = Number(r?.inventario?.listadas || 0);
+        const missingHotelId = Number(r?.inventario?.missingHotelId || 0);
+        const missingAddress = Number(r?.inventario?.missingAddress || 0);
+        const jsonLdErrors = Array.isArray(r?.jsonLdStrict?.errores) ? r.jsonLdStrict.errores : [];
+        const contentFeed = r?.feeds?.content || '-';
+        const ariFeed = r?.feeds?.ari || '-';
+        summary.innerHTML = `
+            <div class="flex items-center justify-between gap-3">
+                <span class="inline-flex items-center px-2 py-1 rounded border text-xs font-semibold ${_badgeClass(sem)}">
+                    ${sem.toUpperCase()}
+                </span>
+                <span class="text-xs text-gray-500">Listadas: <strong>${listed}</strong></span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 text-xs">
+                <div class="bg-white border border-gray-200 rounded p-2">
+                    <p class="font-semibold text-gray-700 mb-1">Feeds</p>
+                    <p class="truncate"><span class="text-gray-500">Content:</span> ${contentFeed}</p>
+                    <p class="truncate"><span class="text-gray-500">ARI:</span> ${ariFeed}</p>
+                </div>
+                <div class="bg-white border border-gray-200 rounded p-2">
+                    <p class="font-semibold text-gray-700 mb-1">Issues críticos</p>
+                    <p><span class="text-gray-500">Sin hotelId:</span> ${missingHotelId}</p>
+                    <p><span class="text-gray-500">Sin dirección:</span> ${missingAddress}</p>
+                    <p><span class="text-gray-500">JSON-LD:</span> ${jsonLdErrors.length}</p>
+                </div>
+            </div>
+        `;
+        if (!jsonLdErrors.length) {
+            errorsRoot.innerHTML = `<div class="text-xs text-success-700 bg-success-50 border border-success-200 rounded p-2">JSON-LD strict OK en propiedades listadas.</div>`;
+        } else {
+            errorsRoot.innerHTML = jsonLdErrors.slice(0, 8).map((item) => `
+                <div class="text-xs bg-warning-50 border border-warning-200 rounded p-2">
+                    <p class="font-semibold text-warning-800">${item.nombre || item.propiedadId}</p>
+                    <p class="text-warning-700">${(item.errores || []).join(' · ')}</p>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        summary.innerHTML = `<div class="text-xs text-danger-700">No se pudo cargar el semáforo Google Hotels: ${error.message}</div>`;
+        errorsRoot.innerHTML = '';
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+}
+
+export function bindGoogleHotelsHealthRefresh({ attach, fetchAPI }) {
+    attach('btn-google-hotels-health-refresh', () => loadGoogleHotelsHealth({ fetchAPI }));
 }

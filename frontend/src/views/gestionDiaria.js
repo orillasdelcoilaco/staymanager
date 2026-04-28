@@ -18,7 +18,16 @@ export async function render() {
         <div class="bg-white p-8 rounded-lg shadow">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
                 <h2 class="text-2xl font-semibold text-gray-900">Panel de Gestión Diaria</h2>
-                <input type="text" id="search-input" placeholder="Buscar por nombre, reserva, teléfono..." class="mt-4 md:mt-0 form-input md:w-1/3">
+                <div class="mt-4 md:mt-0 flex flex-col md:flex-row gap-2 md:w-2/3 md:justify-end">
+                    <select id="garantia-filter" class="form-select md:w-64">
+                        <option value="todos">Garantía: Todos</option>
+                        <option value="pendiente_garantia">Garantía: Pendiente</option>
+                        <option value="garantia_validada">Garantía: Validada</option>
+                        <option value="garantia_rechazada">Garantía: Rechazada</option>
+                        <option value="sin_garantia_configurada">Garantía: Sin política web</option>
+                    </select>
+                    <input type="text" id="search-input" placeholder="Buscar por nombre, reserva, teléfono..." class="form-input md:w-[22rem]">
+                </div>
             </div>
             <div id="diagnostico-container"></div>
             <div id="revision-container" class="hidden"><h3 class="text-xl font-bold text-amber-600 mb-4 border-b pb-2">⚠️ Requiere Revisión Manual</h3><div id="revision-list" class="space-y-4"></div></div>
@@ -39,6 +48,17 @@ export async function render() {
         <div id="bitacora-modal" class="modal hidden">
             <div class="modal-content !max-w-2xl">
                 <h3 id="bitacora-modal-title" class="text-xl font-semibold mb-4">Bitácora de Gestión</h3>
+                <div class="mb-3">
+                    <label class="block text-xs text-gray-500 mb-1">Filtrar por tipo</label>
+                    <select id="bitacora-filter-select" class="form-select">
+                        <option value="all">Todo</option>
+                        <option value="comparador">Comparador OTA</option>
+                        <option value="garantia">Garantía</option>
+                        <option value="pagos">Pagos</option>
+                        <option value="manual">Manual</option>
+                    </select>
+                </div>
+                <div id="bitacora-stats-chips" class="mb-3 flex flex-wrap gap-2"></div>
                 <div id="bitacora-list" class="max-h-60 overflow-y-auto space-y-3 mb-4 pr-2"></div>
                 <div class="border-t pt-4">
                     <textarea id="bitacora-new-note" rows="3" class="form-input" placeholder="Añadir nueva nota..."></textarea>
@@ -183,29 +203,39 @@ export async function afterRender() {
     });
 
     const searchInput = document.getElementById('search-input');
+    const garantiaFilter = document.getElementById('garantia-filter');
 
-    const aplicarFiltro = (valor) => {
-        const filtro = valor.toLowerCase();
-        if (filtro) {
-            const gruposFiltrados = allGrupos.filter(g =>
+    const estadoGarantiaGrupo = (grupo) => {
+        const modo = String(grupo?.garantiaOperacion?.modo || '').trim();
+        if (!modo) return 'sin_garantia_configurada';
+        return String(grupo?.garantiaOperacion?.estadoOperacion || 'pendiente_garantia').trim();
+    };
+
+    const aplicarFiltro = () => {
+        const filtro = String(searchInput?.value || '').toLowerCase().trim();
+        const filtroGarantia = String(garantiaFilter?.value || 'todos').trim();
+
+        const gruposFiltrados = allGrupos.filter((g) => {
+            const okTexto = !filtro || (
                 (g.clienteNombre && g.clienteNombre.toLowerCase().includes(filtro)) ||
                 (g.reservaIdOriginal && g.reservaIdOriginal.toLowerCase().includes(filtro)) ||
                 (g.telefono && g.telefono.includes(filtro))
             );
-            renderGrupos(gruposFiltrados, allEstados);
-        } else {
-            renderGrupos(allGrupos, allEstados);
-        }
+            const okGarantia = filtroGarantia === 'todos' || estadoGarantiaGrupo(g) === filtroGarantia;
+            return okTexto && okGarantia;
+        });
+        renderGrupos(gruposFiltrados, allEstados);
     };
 
-    searchInput.addEventListener('input', () => aplicarFiltro(searchInput.value));
+    searchInput.addEventListener('input', aplicarFiltro);
+    garantiaFilter.addEventListener('change', aplicarFiltro);
 
     // Filtrado desde calendario: mostrar solo la reserva indicada
     const highlightId = sessionStorage.getItem('highlightReserva');
     if (highlightId) {
         sessionStorage.removeItem('highlightReserva');
         searchInput.value = highlightId;
-        aplicarFiltro(highlightId);
+        aplicarFiltro();
     }
 
     const listsContainer = [
@@ -249,8 +279,7 @@ export async function afterRender() {
     
     const recargarYFiltrar = async () => {
         await loadAndRender();
-        const currentSearch = searchInput.value;
-        if (currentSearch) aplicarFiltro(currentSearch);
+        aplicarFiltro();
     };
     recargarCallback = recargarYFiltrar;
 

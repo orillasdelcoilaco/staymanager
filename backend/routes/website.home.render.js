@@ -1,4 +1,5 @@
 const { loadHomeSearchBundle, loadHomeSeoAndContent } = require('./website.home.helpers');
+const { normalizeBookingUrlForSsr } = require('../services/bookingSettingsSanitize');
 
 /**
  * Renderiza GET / (home SSR).
@@ -50,8 +51,12 @@ async function renderHomePage(req, res, db, deps) {
         });
 
         res.render('home', {
-            title: empresaCompleta?.websiteSettings?.seo?.homeTitle || empresaCompleta.nombre,
-            description: empresaCompleta?.websiteSettings?.seo?.homeDescription || `Reservas en ${empresaCompleta.nombre}`,
+            title: empresaCompleta?.websiteSettings?.seo?.homeTitle
+                || empresaCompleta?.websiteSettings?.content?.homeH1
+                || empresaCompleta.nombre,
+            description: empresaCompleta?.websiteSettings?.seo?.homeDescription
+                || empresaCompleta?.websiteSettings?.content?.homeIntro
+                || `Reservas en ${empresaCompleta.nombre}`,
             resultados: resultadosParaMostrar,
             isSearchResult,
             query: req.query,
@@ -76,4 +81,24 @@ async function renderContactoPage(req, res) {
     }
 }
 
-module.exports = { renderHomePage, renderContactoPage };
+async function renderGuestGuidePage(req, res) {
+    const empresaCompleta = req.empresaCompleta;
+    try {
+        const bk = empresaCompleta?.websiteSettings?.booking || {};
+        const guestBookingLinks = {
+            manualHuespedUrl: normalizeBookingUrlForSsr(bk.manualHuespedUrl),
+            manualHuespedPdfUrl: normalizeBookingUrlForSsr(bk.manualHuespedPdfUrl),
+            checkinOnlineUrl: normalizeBookingUrlForSsr(bk.checkinOnlineUrl),
+        };
+        const htmlLang = empresaCompleta?.websiteSettings?.email?.idiomaPorDefecto === 'en' ? 'en' : 'es';
+        res.render('guia-huesped', {
+            title: htmlLang === 'en' ? `Guest guide | ${empresaCompleta.nombre}` : `Guía del huésped | ${empresaCompleta.nombre}`,
+            guestBookingLinks,
+            htmlLang,
+        });
+    } catch (error) {
+        res.status(500).render('404', { title: 'Error Interno del Servidor', empresa: empresaCompleta || { nombre: 'Error Crítico' } });
+    }
+}
+
+module.exports = { renderHomePage, renderContactoPage, renderGuestGuidePage };

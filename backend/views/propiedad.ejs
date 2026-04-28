@@ -1,7 +1,8 @@
 <%- /* backend/views/propiedad.ejs — Airbnb-style property detail */ %>
 <% locals.paginaPropiedad = true; %>
+<% const _plhl = (typeof htmlLang !== 'undefined' && htmlLang === 'en') ? 'en' : 'es'; %>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="<%= _plhl %>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,7 +25,7 @@
     <% if (_kwStr) { %><meta name="keywords" content="<%= _kwStr %>"><% } %>
     <link rel="canonical" href="<%= baseUrl %>/propiedad/<%= propiedad.id %>">
     <meta property="og:type"        content="website">
-    <meta property="og:locale"      content="es_CL">
+    <meta property="og:locale"      content="<%= _plhl === 'en' ? 'en_US' : 'es_CL' %>">
     <meta property="og:site_name"   content="<%= empresa.nombre %>">
     <meta property="og:title"       content="<%= _pageTitle %>">
     <meta property="og:description" content="<%= _pageDesc %>">
@@ -1140,6 +1141,7 @@
                                     <% if (_minNoches > 1) { %>
                                     <span class="block mt-1 text-gray-600 font-medium">Estadía mínima: <%= _minNoches %> noches.</span>
                                     <% } %>
+                                    <span class="block mt-1 text-xs text-gray-500">En fechas de mayor demanda, la estadía mínima puede aumentar según el día de llegada.</span>
                                 </p>
                             </div>
                             <div class="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
@@ -1165,6 +1167,13 @@
                         </div>
                         <p id="pbc-loading" class="hidden text-sm text-gray-500 mb-2"><i class="fas fa-spinner fa-spin mr-2"></i>Actualizando disponibilidad…</p>
                         <p id="pbc-error" class="hidden text-sm text-danger-600 mb-2"></p>
+                        <div class="mb-3 flex flex-wrap items-center gap-3 text-[11px] text-gray-600">
+                            <span class="font-semibold text-gray-700">Demanda:</span>
+                            <span class="inline-flex items-center gap-1"><i class="fas fa-circle text-[8px] text-primary-300"></i>Leve</span>
+                            <span class="inline-flex items-center gap-1"><i class="fas fa-circle text-[8px] text-primary-500"></i>Media</span>
+                            <span class="inline-flex items-center gap-1"><i class="fas fa-circle text-[8px] text-warning-500"></i>Alta</span>
+                            <span class="inline-flex items-center gap-1"><i class="fas fa-circle text-[8px] text-warning-700"></i>Muy alta</span>
+                        </div>
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
                             <div>
                                 <p id="pbc-label-0" class="text-center text-base font-semibold text-gray-900 mb-3 tabular-nums"></p>
@@ -1479,6 +1488,7 @@
         } catch(e) { console.error('Error inyectando datos:', e); }
     </script>
     <script src="/public/js/share.js" defer></script>
+    <script src="/public/js/website-i18n.js" defer></script>
     <script src="/public/js/public-booking-calendar.js" defer></script>
     <script src="/public/js/booking.js" defer></script>
     <script src="/public/js/gallery.js" defer></script>

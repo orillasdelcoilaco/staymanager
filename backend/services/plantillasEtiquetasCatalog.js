@@ -31,14 +31,19 @@ const ETIQUETAS_CATALOGO = [
     { tag: '[USUARIO_NOMBRE]', descripcion: 'Nombre de contacto del equipo (configuración empresa)' },
     { tag: '[USUARIO_EMAIL]', descripcion: 'Email de contacto para respuestas' },
     { tag: '[USUARIO_TELEFONO]', descripcion: 'Teléfono de contacto' },
-    { tag: '[URL_PAGO]', descripcion: 'Enlace para pago en línea' },
-    { tag: '[ENLACE_PAGO]', descripcion: 'Mismo valor que URL de pago (sinónimo)' },
+    { tag: '[URL_PAGO]', descripcion: 'Reservado para futura integración de pasarela (actualmente vacío en operación manual)' },
+    { tag: '[ENLACE_PAGO]', descripcion: 'Sinónimo de [URL_PAGO] (actualmente vacío en operación manual)' },
     { tag: '[LINK_RESEÑA]', descripcion: 'Enlace público para dejar valoración (post‑estancia)' },
     { tag: '[LINK_RESENA]', descripcion: 'Sinónimo ASCII de [LINK_RESEÑA]' },
     { tag: '[MENSAJE_CONSULTA]', descripcion: 'Texto enviado desde el formulario de contacto web' },
     { tag: '[CONSULTA_ASUNTO_USUARIO]', descripcion: 'Asunto opcional indicado por el visitante' },
     { tag: '[DATOS_TRANSFERENCIA]', descripcion: 'Datos bancarios para realizar transferencia de pago' },
     { tag: '[PLAZO_ABONO]', descripcion: 'Fecha y hora límite para realizar el abono' },
+    { tag: '[NOTA_DEPOSITO]', descripcion: 'Texto legal/explicativo de depósito configurado por empresa' },
+    { tag: '[DIGEST_ICAL_NUEVAS_RESERVAS_7D]', descripcion: 'Digest operación: nuevas filas importadas por iCal en 7 días' },
+    { tag: '[DIGEST_ICAL_SINCRONIZACIONES_CON_ERROR_7D]', descripcion: 'Digest operación: sincronizaciones iCal con error en 7 días' },
+    { tag: '[DIGEST_LLEGADAS_MANANA_SIN_HORA_ESTIMADA]', descripcion: 'Digest operación: reservas que llegan mañana sin hora estimada informada' },
+    { tag: '[DIGEST_PAGO_PENDIENTE_VENCIDO]', descripcion: 'Digest operación: reservas confirmadas con pago pendiente ya vencido' },
 ];
 
 /**
@@ -79,6 +84,11 @@ function buildReemplazoMap(datos = {}) {
         '[CONSULTA_ASUNTO_USUARIO]': datos.asuntoConsultaUsuario || datos.CONSULTA_ASUNTO_USUARIO || '',
         '[DATOS_TRANSFERENCIA]': datos.datosBancarios || datos.datosBancariosTexto || '',
         '[PLAZO_ABONO]': datos.plazoAbono || datos.fechaVencimiento || '',
+        '[NOTA_DEPOSITO]': datos.notaDeposito || datos.depositoNota || '',
+        '[DIGEST_ICAL_NUEVAS_RESERVAS_7D]': datos.digestIcalNuevasReservas7d || '',
+        '[DIGEST_ICAL_SINCRONIZACIONES_CON_ERROR_7D]': datos.digestIcalSincronizacionesConError7d || '',
+        '[DIGEST_LLEGADAS_MANANA_SIN_HORA_ESTIMADA]': datos.digestLlegadasMananaSinHoraEstimada || '',
+        '[DIGEST_PAGO_PENDIENTE_VENCIDO]': datos.digestPagoPendienteVencido || '',
     };
 }
 

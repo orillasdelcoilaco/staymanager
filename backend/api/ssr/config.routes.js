@@ -40,6 +40,8 @@ const pool = require('../../db/postgres');
 const { uploadFotoToGaleria, updateFoto, collectAllowedHighlightImagePaths } = require('../../services/galeriaService');
 const { syncDomain, removeCustomDomain } = require('../../services/renderDomainService');
 const { ssrCache } = require('../../services/cacheService');
+const { sanitizeBookingSettingsIncoming } = require('../../services/bookingSettingsSanitize');
+const { sanitizeIntegrationsSettingsIncoming } = require('../../services/integrationsSettingsSanitize');
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -125,6 +127,27 @@ module.exports = (db) => {
             }
             if (settings.content) websiteSettings.content = settings.content;
             if (settings.seo)     websiteSettings.seo     = settings.seo;
+            if (settings.booking) {
+                const bookingCheck = sanitizeBookingSettingsIncoming(settings.booking);
+                if (!bookingCheck.ok) {
+                    return res.status(400).json({
+                        error: 'Configuración de reserva inválida.',
+                        details: bookingCheck.errors,
+                    });
+                }
+                websiteSettings.booking = bookingCheck.booking;
+            }
+
+            if (settings.integrations !== undefined) {
+                const integCheck = sanitizeIntegrationsSettingsIncoming(settings.integrations);
+                if (!integCheck.ok) {
+                    return res.status(400).json({
+                        error: 'Tokens de integración inválidos.',
+                        details: integCheck.errors,
+                    });
+                }
+                websiteSettings.integrations = integCheck.integrations;
+            }
 
             await actualizarDetallesEmpresa(db, empresaId, { websiteSettings });
             invalidateSsrCache(empresaId);

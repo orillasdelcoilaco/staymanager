@@ -65,6 +65,7 @@ function createWebsiteContextMiddleware({ db, obtenerDetallesEmpresa }) {
                 res.locals.seo = seo;
                 res.locals.contacto = contacto;
                 res.locals.ubicacion = ubicacion;
+                res.locals.htmlLang = req.empresaCompleta?.websiteSettings?.email?.idiomaPorDefecto === 'en' ? 'en' : 'es';
             } catch (ssrError) {
                 console.warn(`[DEBUG middleware] Error obteniendo datos SSR optimizados: ${ssrError.message}`);
                 try {
@@ -83,6 +84,7 @@ function createWebsiteContextMiddleware({ db, obtenerDetallesEmpresa }) {
                 res.locals.seo = {};
                 res.locals.contacto = {};
                 res.locals.ubicacion = {};
+                res.locals.htmlLang = req.empresaCompleta?.websiteSettings?.email?.idiomaPorDefecto === 'en' ? 'en' : 'es';
             }
 
             res.locals.empresa = req.empresaCompleta;

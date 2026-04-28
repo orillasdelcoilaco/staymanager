@@ -3,6 +3,45 @@
 
 import { renderSeccionContextoComercialModal } from './alojamientos.modals.render.contexto.js';
 
+function renderBookingAlojamientoBlock() {
+    return `
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Booking web por alojamiento</label>
+            <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-xs text-gray-500">Min noches (opcional)</label>
+                        <input type="number" id="bookingMinNoches" min="1" max="365" class="form-input w-full mt-1" placeholder="Hereda empresa">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500">Max noches (0 sin tope)</label>
+                        <input type="number" id="bookingMaxNochesEstadia" min="0" max="365" class="form-input w-full mt-1" placeholder="Hereda empresa">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500">Anticipación min días</label>
+                        <input type="number" id="bookingMinDiasAnticipacionReserva" min="0" max="365" class="form-input w-full mt-1" placeholder="Hereda empresa">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500">Ventana meses</label>
+                        <input type="number" id="bookingMesesReservableAdelante" min="0" max="120" class="form-input w-full mt-1" placeholder="Hereda empresa">
+                    </div>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Días permitidos de llegada (vacío = hereda empresa)</p>
+                    <div class="grid grid-cols-4 gap-2 text-xs text-gray-700">
+                        <label class="flex items-center gap-1"><input type="checkbox" class="booking-dia-llegada rounded text-primary-600" value="0">Dom</label>
+                        <label class="flex items-center gap-1"><input type="checkbox" class="booking-dia-llegada rounded text-primary-600" value="1">Lun</label>
+                        <label class="flex items-center gap-1"><input type="checkbox" class="booking-dia-llegada rounded text-primary-600" value="2">Mar</label>
+                        <label class="flex items-center gap-1"><input type="checkbox" class="booking-dia-llegada rounded text-primary-600" value="3">Mié</label>
+                        <label class="flex items-center gap-1"><input type="checkbox" class="booking-dia-llegada rounded text-primary-600" value="4">Jue</label>
+                        <label class="flex items-center gap-1"><input type="checkbox" class="booking-dia-llegada rounded text-primary-600" value="5">Vie</label>
+                        <label class="flex items-center gap-1"><input type="checkbox" class="booking-dia-llegada rounded text-primary-600" value="6">Sáb</label>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+}
+
 export const renderModalAlojamiento = () => {
     return `
         <div id="propiedad-modal" class="modal hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-40 flex items-center justify-center">
@@ -85,6 +124,7 @@ export const renderModalAlojamiento = () => {
                                         <div><label class="flex items-center space-x-2"><input type="checkbox" id="googleHotelIsListed" class="rounded text-primary-600"><span>Publicar en Web/Google</span></label></div>
                                     </div>
                                 </div>
+                                ${renderBookingAlojamientoBlock()}
                                 <!-- Ubicación: se inyecta dinámicamente si tipoNegocio === 'cartera' -->
                                 <div id="ubicacion-propiedad-container" class="hidden">
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Ubicación del Alojamiento</label>

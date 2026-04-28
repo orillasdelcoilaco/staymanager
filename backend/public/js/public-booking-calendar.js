@@ -56,6 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let occ = { reservas: [], bloqueos: [] };
     /** @type {Map<string, number>} */
     let nightlyMap = new Map();
+    /** @type {Map<string, { nivel: number, minNochesLlegada: number, motivos: string[] }>} */
+    let heatmapMap = new Map();
     let calCurrency = 'CLP';
     let calDolar = null;
     let checkIn = fechaIn.value || null;
@@ -93,6 +95,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return !nightBlocked(iso, o);
     };
 
+    const minNochesEfectivas = (cinIso) => {
+        if (!cinIso) return minNoches;
+        const row = heatmapMap.get(cinIso);
+        const hm = row && row.minNochesLlegada > 0 ? row.minNochesLlegada : 1;
+        return Math.max(minNoches, hm);
+    };
+
+    window.__pbcMinNochesEfectivas = (iso) => minNochesEfectivas(iso);
+
     const rangeValid = (cin, cout, o) => {
         if (!cin || !cout || cin >= cout) return false;
         let d = parseIso(cin);
@@ -104,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
             nights += 1;
             d.setDate(d.getDate() + 1);
         }
-        return nights >= minNoches;
+        return nights >= minNochesEfectivas(cin);
     };
 
     const inStrictStay = (iso, o) => o.reservas.some((r) => r.checkIn < iso && iso < r.checkOut);
@@ -186,6 +197,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 reservas: Array.isArray(data.reservas) ? data.reservas : [],
                 bloqueos: Array.isArray(data.bloqueos) ? data.bloqueos : [],
             };
+            heatmapMap = new Map(
+                (Array.isArray(data.heatmap) ? data.heatmap : [])
+                    .filter((h) => h && h.fecha)
+                    .map((h) => [
+                        String(h.fecha).slice(0, 10),
+                        {
+                            nivel: Math.max(1, Math.min(5, parseInt(String(h.nivel), 10) || 1)),
+                            minNochesLlegada: Math.max(1, parseInt(String(h.minNochesLlegada), 10) || 1),
+                            motivos: Array.isArray(h.motivos) ? h.motivos : [],
+                        },
+                    ]),
+            );
             nightlyMap = new Map(
                 (Array.isArray(data.nightly) ? data.nightly : [])
                     .filter((n) => n && n.date && Number(n.amount) > 0)
@@ -197,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (gen !== fetchGen) return;
             console.error(e);
             occ = { reservas: [], bloqueos: [] };
+            heatmapMap = new Map();
             nightlyMap = new Map();
             calCurrency = 'CLP';
             calDolar = null;
@@ -281,6 +305,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 else cls += ' text-gray-300';
             } else {
                 cls += ' text-gray-900 hover:bg-gray-100 cursor-pointer';
+            }
+
+            const hm = heatmapMap.get(iso);
+            const selOrEdge = inSelectedRange(iso) || inPreviewRange(iso)
+                || (checkIn && iso === checkIn) || (checkOut && iso === checkOut);
+            if (hm && hm.nivel >= 1 && !btn.disabled) {
+                const hint = hm.motivos && hm.motivos.length
+                    ? `Mayor demanda (${hm.motivos.slice(0, 2).join(', ')}). Mín. ${hm.minNochesLlegada} noche(s) si llegas este día.`
+                    : `Mayor demanda. Mín. ${hm.minNochesLlegada} noche(s) si llegas este día.`;
+                btn.title = btn.title ? `${btn.title} · ${hint}` : hint;
+                if (!selOrEdge) {
+                    if (hm.nivel >= 5) cls += ' bg-warning-200';
+                    else if (hm.nivel >= 4) cls += ' bg-warning-100';
+                    else if (hm.nivel >= 3) cls += ' bg-warning-50';
+                    else if (hm.nivel >= 2) cls += ' bg-primary-100';
+                    else cls += ' bg-primary-50';
+                }
             }
 
             if (inSelectedRange(iso) || inPreviewRange(iso)) cls += ' bg-primary-50';

@@ -1,0 +1,113 @@
+<%- /* Términos y condiciones — contenido desde websiteSettings.terminosCondiciones */ %>
+<!DOCTYPE html>
+<html lang="<%= htmlLang || 'es' %>">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <%
+        const _hl = typeof htmlLang !== 'undefined' ? htmlLang : 'es';
+        const _titulo = _hl === 'en'
+            ? ((typeof terminos !== 'undefined' && terminos.tituloPaginaEn) ? terminos.tituloPaginaEn : (terminos && terminos.tituloPagina) || 'Terms and conditions')
+            : ((typeof terminos !== 'undefined' && terminos.tituloPagina) ? terminos.tituloPagina : 'Términos y condiciones');
+        const _pageTitle = `${_titulo} | ${empresa.nombre}`;
+        const _pageDesc  = _hl === 'en'
+            ? `Terms and conditions for bookings and use of accommodations operated by ${empresa.nombre}.`
+            : `Términos y condiciones de reserva y uso de los alojamientos de ${empresa.nombre}.`;
+        const _pageUrl   = (locals.baseUrl || '') + '/terminos-y-condiciones';
+        const _hrefLangCode = (typeof htmlLang !== 'undefined' && htmlLang === 'en') ? 'en' : 'es';
+        const _ogLocaleTag  = _hrefLangCode === 'en' ? 'en_US' : 'es_CL';
+        const _heroImage    = empresa.websiteSettings?.theme?.heroImageUrl || '';
+        const _logoUrl      = locals.brandIdentity?.logoUrl || empresa.websiteSettings?.theme?.logoUrl || '';
+        const _pub = terminos && terminos.publicado;
+    %>
+    <title><%= _pageTitle %></title>
+    <meta name="description" content="<%= _pageDesc %>">
+    <link rel="canonical" href="<%= _pageUrl %>">
+    <%- include('partials/hreflang-default', { canonicalUrl: _pageUrl, hrefLangCode: _hrefLangCode }) %>
+    <% if (!_pub) { %>
+    <meta name="robots" content="noindex, follow">
+    <% } %>
+    <meta property="og:type"        content="website">
+    <meta property="og:locale"      content="<%= _ogLocaleTag %>">
+    <meta property="og:site_name"   content="<%= empresa.nombre %>">
+    <meta property="og:title"       content="<%= _pageTitle %>">
+    <meta property="og:description" content="<%= _pageDesc %>">
+    <meta property="og:url"         content="<%= _pageUrl %>">
+    <% if (_heroImage) { %>
+    <meta property="og:image"       content="<%= _heroImage %>">
+    <% } %>
+    <script type="application/ld+json"><%- JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": _pageTitle,
+        "url": _pageUrl,
+        "isPartOf": { "@type": "WebSite", "name": empresa.nombre, "url": locals.baseUrl || '' }
+    }) %></script>
+    <link rel="stylesheet" href="/public/css/website.css">
+    <% if (locals.customCSS && locals.customCSS.trim().length > 0) { %>
+    <style><%= locals.customCSS %></style>
+    <% } %>
+    <%- include('partials/web-fonts', { brandFont: (locals.brandIdentity && locals.brandIdentity.typography && locals.brandIdentity.typography.fontFamily) || '' }) %>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <% if (_logoUrl) { %><link rel="icon" href="<%= _logoUrl %>" type="image/png"><% } %>
+</head>
+<body class="bg-gray-50 flex flex-col min-h-screen">
+    <%- include('partials/header') %>
+    <main class="flex-grow">
+        <div class="bg-primary-700 text-white py-12 px-4 text-center">
+            <h1 class="text-3xl md:text-4xl font-bold mb-2"><%= _titulo %></h1>
+            <p class="text-primary-100 text-sm max-w-2xl mx-auto"><%= empresa.nombre %></p>
+        </div>
+        <div class="container mx-auto px-4 py-10 max-w-3xl">
+            <% if (!_pub) { %>
+            <p class="mb-6 text-sm text-warning-800 bg-warning-50 border border-warning-200 rounded-lg px-4 py-3">
+                <i class="fa-solid fa-circle-info mr-1"></i>
+                <% if (_hl === 'en') { %>
+                This page is not marked as published in the admin panel yet. Search engines will not index it until you enable publication.
+                <% } else { %>
+                Esta página aún no está marcada como publicada en el panel. Los buscadores no la indexarán hasta que actives la opción correspondiente.
+                <% } %>
+            </p>
+            <% } %>
+            <p class="text-xs text-gray-500 mb-8">
+                <% if (_hl === 'en') { %>
+                Content is defined by the accommodation operator. The version that applies to your booking appears in your confirmation email.
+                <% } else { %>
+                Los textos son definidos por el operador del alojamiento. Revisa la versión aplicable a tu reserva en la confirmación que recibas por correo.
+                <% } %>
+            </p>
+            <article class="prose prose-gray max-w-none text-gray-800 space-y-10">
+                <% const keys = typeof orderedSectionKeys !== 'undefined' ? orderedSectionKeys : []; %>
+                <% for (const key of keys) {
+                    const sEs = terminos.secciones && terminos.secciones[key];
+                    const sEn = terminos.seccionesEn && terminos.seccionesEn[key];
+                    let sec = null;
+                    if (_hl === 'en') {
+                        sec = (sEn && String(sEn.html || '').trim()) ? sEn : ((sEs && String(sEs.html || '').trim()) ? sEs : null);
+                    } else {
+                        sec = (sEs && String(sEs.html || '').trim()) ? sEs : ((sEn && String(sEn.html || '').trim()) ? sEn : null);
+                    }
+                    if (!sec) continue;
+                    const html = (sec.html || '').trim();
+                    if (!html) continue;
+                %>
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 border-b border-gray-200 pb-2 mb-3"><%= sec.titulo || key %></h2>
+                    <div class="terminos-seccion text-sm leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_strong]:font-semibold">
+                        <%- html %>
+                    </div>
+                </section>
+                <% } %>
+            </article>
+            <p class="mt-12 text-xs text-gray-400 border-t border-gray-200 pt-6">
+                <% if (_hl === 'en') { %>
+                Reference template aligned with common booking-platform practice (availability, payments, cancellation, privacy and conduct). This is not legal advice.
+                <% } else { %>
+                Plantilla de referencia alineada a prácticas habituales en plataformas de reserva (disponibilidad, pagos, cancelación, privacidad y convivencia). No constituye asesoría legal.
+                <% } %>
+            </p>
+        </div>
+    </main>
+    <%- include('partials/footer') %>
+</body>
+</html>

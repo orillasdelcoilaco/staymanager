@@ -17,8 +17,16 @@ const {
     snapshotPoliticaCancelacionParaMetadata,
 } = require('./politicaCancelacionTarifaService');
 const { validarCupon, marcarCuponComoUtilizado } = require('./cuponesService');
-const { validarRestriccionesFechasReservaWeb } = require('./reservaWebRestriccionesService');
+const {
+    validarRestriccionesFechasReservaWeb,
+    evaluarRestriccionesReservaWebCodigo,
+} = require('./reservaWebRestriccionesService');
 const { obtenerNombreEstadoGestionInicialReservaConfirmada } = require('./estadosService');
+const {
+    enviarPorDisparador,
+    construirVariablesDesdeReserva,
+    resolverLinkResenaOutbound,
+} = require('./transactionalEmailService');
 
 // --- Helpers de Cliente ---
 
@@ -30,6 +38,39 @@ const crearOActualizarClientePublico = async (db, empresaId, datosCliente) => {
         origen: 'website',
     });
 };
+
+function _normalizarTelefonoPublico(rawTelefono) {
+    const raw = String(rawTelefono || '').trim().replace(/\s+/g, '');
+    if (!raw) return '';
+    const clean = raw.replace(/[^\d+]/g, '');
+    if (/^\+569\d{8}$/.test(clean)) return clean;
+    if (/^569\d{8}$/.test(clean)) return `+${clean}`;
+    if (/^9\d{8}$/.test(clean)) return `+56${clean}`;
+    return null;
+}
+
+function _calcularDvRut(cuerpo) {
+    let suma = 0;
+    let multiplicador = 2;
+    for (let i = cuerpo.length - 1; i >= 0; i -= 1) {
+        suma += Number(cuerpo[i]) * multiplicador;
+        multiplicador = multiplicador === 7 ? 2 : multiplicador + 1;
+    }
+    const resto = 11 - (suma % 11);
+    if (resto === 11) return '0';
+    if (resto === 10) return 'K';
+    return String(resto);
+}
+
+function _normalizarRutPublico(rawRut) {
+    const val = String(rawRut || '').trim().toUpperCase();
+    if (!val) return '';
+    if (val.includes('.')) return null;
+    if (!/^\d{7,8}-[\dK]$/.test(val)) return null;
+    const [cuerpo, dv] = val.split('-');
+    if (_calcularDvRut(cuerpo) !== dv) return null;
+    return `${cuerpo}-${dv}`;
+}
 
 // --- Helpers de Disponibilidad ---
 
@@ -115,6 +156,7 @@ function _buildAvailabilityResult(allProperties, allTarifas, allReservas, allBlo
  * Ocupación pública para calendario de una propiedad (reservas + bloqueos).
  * Reservas: intervalo de noches [checkIn, checkOut) en fechas YYYY-MM-DD.
  * Bloqueos: días cerrados inclusive [desde, hasta].
+ * Multi-tenant: todas las lecturas filtran por `empresaId` (reservas + bloqueos).
  */
 async function obtenerOcupacionCalendarioPropiedad(empresaId, propiedadId, fromIso, toIso) {
     if (!pool) return { reservas: [], bloqueos: [] };
@@ -932,6 +974,7 @@ const crearReservaPublica = async (db, empresaId, datosFormulario) => {
         nombre,
         email,
         telefono,
+        rut,
         codigoCupon: rawCuponForm,
         menores: rawMenores,
         camasExtra: rawCamasExtra,
@@ -954,6 +997,21 @@ const crearReservaPublica = async (db, empresaId, datosFormulario) => {
         throw new Error('Las fechas de la reserva no son válidas.');
     }
 
+    const telefonoNormalizado = _normalizarTelefonoPublico(telefono);
+    if (!telefonoNormalizado) {
+        const err = new Error('El teléfono debe tener formato +56912345678.');
+        err.statusCode = 400;
+        err.code = 'telefono_invalido';
+        throw err;
+    }
+    const rutNormalizado = _normalizarRutPublico(rut);
+    if (String(rut || '').trim() && !rutNormalizado) {
+        const err = new Error('El RUT debe tener formato 12345678-9 (sin puntos) y dígito verificador válido.');
+        err.statusCode = 400;
+        err.code = 'rut_invalido';
+        throw err;
+    }
+
     const propsData = [];
     for (const id of ids) {
         const p = await obtenerPropiedadPorId(db, empresaId, id);
@@ -964,10 +1022,13 @@ const crearReservaPublica = async (db, empresaId, datosFormulario) => {
     const empresaDet = await obtenerDetallesEmpresa(db, empresaId);
     const bkWeb = empresaDet.websiteSettings?.booking || {};
     const hl = empresaDet.websiteSettings?.email?.idiomaPorDefecto === 'en' ? 'en' : 'es';
-    const restrErr = validarRestriccionesFechasReservaWeb(bkWeb, propsData, fechaLlegada, fechaSalida, hl);
-    if (restrErr) {
-        const err = new Error(restrErr);
+    const restrEval = evaluarRestriccionesReservaWebCodigo(bkWeb, propsData, fechaLlegada, fechaSalida);
+    if (!restrEval.ok) {
+        const restrErr = validarRestriccionesFechasReservaWeb(bkWeb, propsData, fechaLlegada, fechaSalida, hl);
+        const err = new Error(restrErr || restrEval.mensaje_es || 'No se pudo validar las restricciones de reserva.');
         err.statusCode = 400;
+        err.code = restrEval.codigo || 'restriccion_reserva';
+        err.details = [restrEval.mensaje_es || err.message].filter(Boolean);
         throw err;
     }
 
@@ -994,11 +1055,12 @@ const crearReservaPublica = async (db, empresaId, datosFormulario) => {
                 ? 'You must accept the terms and conditions to complete your booking.'
                 : 'Debes aceptar los términos y condiciones para completar la reserva.');
             err.statusCode = 400;
+            err.code = 'terminos_no_aceptados';
             throw err;
         }
     }
 
-    const resultadoCliente = await crearOActualizarClientePublico(db, empresaId, { nombre, email, telefono });
+    const resultadoCliente = await crearOActualizarClientePublico(db, empresaId, { nombre, email, telefono: telefonoNormalizado });
     const clienteId = resultadoCliente.cliente.id;
 
     const datosConCupon = { ...datosFormulario, codigoCupon: codigoCuponForm };
@@ -1010,6 +1072,7 @@ const crearReservaPublica = async (db, empresaId, datosFormulario) => {
     if (!recPrecio.ok) {
         const err = new Error(recPrecio.errors[0]);
         err.statusCode = 409;
+        err.code = 'precio_desalineado';
         err.details = recPrecio.errors;
         throw err;
     }
@@ -1052,6 +1115,11 @@ const crearReservaPublica = async (db, empresaId, datosFormulario) => {
     const metadataReserva = {
         origen: 'website',
         edicionesManuales: {},
+        garantiaOperacion: {
+            modo: bkWeb.garantiaModo || 'abono_manual',
+            detalle: String(bkWeb.garantiaDetalleOperacion || '').trim() || null,
+            registradaEnCheckoutAt: new Date().toISOString(),
+        },
         politicaCancelacionCheckout: snapshotPoliticaCancelacionParaMetadata(legalEff),
         ...(tcCfg && tcCfg.publicado
             ? {
@@ -1132,6 +1200,73 @@ const crearReservaPublica = async (db, empresaId, datosFormulario) => {
         throw e;
     } finally {
         pgClient.release();
+    }
+
+    // No bloquea la creación de la reserva: si el envío falla, la reserva ya quedó persistida.
+    try {
+        const valoresFila = (() => {
+            if (newRow?.valores && typeof newRow.valores === 'object') return newRow.valores;
+            if (typeof newRow?.valores === 'string') {
+                try { return JSON.parse(newRow.valores); } catch { return {}; }
+            }
+            return {};
+        })();
+        const rowForEmail = {
+            id: newRow.id,
+            id_reserva_canal: idReservaCanal,
+            cliente_id: clienteId,
+            alojamiento_nombre: nombreAlojamientos || propsData[0].nombre,
+            fecha_llegada: String(fechaLlegada || '').slice(0, 10),
+            fecha_salida: String(fechaSalida || '').slice(0, 10),
+            total_noches: parseInt(noches, 10) || 0,
+            cantidad_huespedes: Math.max(1, parseInt(String(personas ?? '1'), 10) || 1),
+            valores: valoresFila,
+            propiedad_id: propiedadIdInsert,
+        };
+        const linkResena = await resolverLinkResenaOutbound(empresaId, {
+            reservaRef: idReservaCanal,
+            nombreHuesped: String(nombre || '').trim(),
+            propiedadIdFallback: propiedadIdInsert,
+        });
+        const variablesCorreo = await construirVariablesDesdeReserva(empresaId, rowForEmail, {
+            clienteNombre: String(nombre || '').trim(),
+            linkResena,
+        });
+        const envio = await enviarPorDisparador(null, empresaId, 'reserva_confirmada', {
+            clienteId,
+            destinatarioOverride: String(email || '').trim() || undefined,
+            variables: variablesCorreo,
+            relacionadoCon: { tipo: 'reserva', id: idReservaCanal },
+            eventoComunicacion: 'reserva-confirmada',
+        });
+        if (!envio.sent) {
+            console.warn('[crearReservaPublica] Correo de confirmación no enviado:', envio.reason || 'sin motivo');
+        } else {
+            console.log('[crearReservaPublica] Correo de confirmación enviado:', envio.messageId || '(sin messageId)');
+        }
+        const adminEmail = String(variablesCorreo.contactoEmail || '').trim().toLowerCase();
+        const clienteEmail = String(email || '').trim().toLowerCase();
+        if (adminEmail && adminEmail !== clienteEmail) {
+            const envioAdmin = await enviarPorDisparador(null, empresaId, 'reserva_confirmada', {
+                clienteId: null,
+                destinatarioOverride: adminEmail,
+                variables: {
+                    ...variablesCorreo,
+                    clienteNombre: String(nombre || '').trim() || variablesCorreo.clienteNombre || 'Huésped',
+                    nombreCliente: String(nombre || '').trim() || variablesCorreo.nombreCliente || 'Huésped',
+                },
+                relacionadoCon: { tipo: 'reserva', id: idReservaCanal },
+                eventoComunicacion: 'reserva-confirmada-admin',
+                skipRegistro: true,
+            });
+            if (!envioAdmin.sent) {
+                console.warn('[crearReservaPublica] Correo admin no enviado:', envioAdmin.reason || 'sin motivo');
+            } else {
+                console.log('[crearReservaPublica] Correo admin enviado:', envioAdmin.messageId || '(sin messageId)');
+            }
+        }
+    } catch (mailErr) {
+        console.warn('[crearReservaPublica] Error enviando correo de confirmación:', mailErr.message);
     }
 
     return {

@@ -2,6 +2,9 @@
 
 const express = require('express');
 const multer = require('multer');
+const pool = require('../db/postgres');
+const { fetchTarifasYCanal } = require('../services/tarifasService');
+const { calcularComparadorOtaTotales } = require('../services/comparadorOtaService');
 const {
     obtenerReservasPorEmpresa,
     obtenerReservaPorId,
@@ -32,6 +35,87 @@ module.exports = (db) => {
             res.status(200).json(reserva);
         } catch (error) {
             res.status(404).json({ error: error.message });
+        }
+    });
+
+    router.get('/:id/comparador-ota', async (req, res) => {
+        try {
+            const empresaId = req.user.empresaId;
+            const reservaId = req.params.id;
+            const canalIdQuery = String(req.query.canalId || '').trim();
+            const { rows } = await pool.query(
+                `SELECT id, propiedad_id, fecha_llegada, fecha_salida
+                 FROM reservas
+                 WHERE id = $1 AND empresa_id = $2
+                 LIMIT 1`,
+                [reservaId, empresaId],
+            );
+            const row = rows[0];
+            if (!row) return res.status(404).json({ error: 'Reserva no encontrada.' });
+            if (!row.propiedad_id || !row.fecha_llegada || !row.fecha_salida) {
+                return res.status(400).json({ error: 'La reserva no tiene datos suficientes para comparador OTA.' });
+            }
+
+            const fechaLlegada = String(row.fecha_llegada).slice(0, 10);
+            const fechaSalida = String(row.fecha_salida).slice(0, 10);
+            const startDate = new Date(`${fechaLlegada}T00:00:00Z`);
+            const endDate = new Date(`${fechaSalida}T00:00:00Z`);
+            if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime()) || endDate <= startDate) {
+                return res.status(400).json({ error: 'Rango de fechas inválido para comparador OTA.' });
+            }
+
+            const { allTarifas } = await fetchTarifasYCanal(empresaId);
+            const { rows: canalesRows } = await pool.query(
+                `SELECT id, nombre, COALESCE(metadata->>'moneda', 'CLP') AS moneda,
+                        COALESCE((metadata->>'esCanalPorDefecto')::boolean, false) AS es_canal_por_defecto
+                 FROM canales
+                 WHERE empresa_id = $1
+                 ORDER BY CASE WHEN (metadata->>'esCanalPorDefecto')::boolean THEN 0 ELSE 1 END, nombre ASC`,
+                [empresaId],
+            );
+            const canales = canalesRows.map((r) => ({
+                id: r.id,
+                nombre: r.nombre,
+                moneda: r.moneda || 'CLP',
+                esCanalPorDefecto: !!r.es_canal_por_defecto,
+            }));
+            const canalDirecto = canales.find((c) => c.esCanalPorDefecto);
+            if (!canalDirecto) return res.status(400).json({ error: 'No hay canal por defecto configurado.' });
+            const canalComparado = canalIdQuery
+                ? canales.find((c) => c.id === canalIdQuery && c.id !== canalDirecto.id)
+                : canales.find((c) => c.id !== canalDirecto.id);
+            if (!canalComparado) return res.status(400).json({ error: 'No hay canal comparado disponible.' });
+
+            const cmp = calcularComparadorOtaTotales({
+                allTarifas,
+                propiedadId: row.propiedad_id,
+                startDate,
+                endDate,
+                canalDirectoId: canalDirecto.id,
+                canalComparadoId: canalComparado.id,
+            });
+            if (!cmp.ok) return res.status(400).json({ error: cmp.error || 'No se pudo calcular comparador OTA.' });
+
+            return res.status(200).json({
+                ok: true,
+                rango: { fechaLlegada, fechaSalida, noches: cmp.nights },
+                canalDirecto: { id: canalDirecto.id, nombre: canalDirecto.nombre, moneda: canalDirecto.moneda },
+                canalComparado: { id: canalComparado.id, nombre: canalComparado.nombre, moneda: canalComparado.moneda },
+                canalesComparables: canales
+                    .filter((c) => c.id !== canalDirecto.id)
+                    .map((c) => ({ id: c.id, nombre: c.nombre, moneda: c.moneda })),
+                totales: {
+                    directoCLP: cmp.totalDirectoCLP,
+                    comparadoCLP: cmp.totalComparadoCLP,
+                    ahorroCLP: cmp.ahorroCLP,
+                    ahorroPctSobreComparado: cmp.pctSobreComparado,
+                },
+                comparableComplete: cmp.nochesSinTarifaComparada === 0,
+                nochesSinTarifaComparada: cmp.nochesSinTarifaComparada,
+                disclaimer: 'Comparador referencial para decisión comercial; no modifica valores de reservas.',
+            });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
         }
     });
 

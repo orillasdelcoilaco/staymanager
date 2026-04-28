@@ -160,32 +160,8 @@ try {
     app.use('/public', cors({ origin: '*' }), express.static(backendPublicPath));
 
     // ── Marketplace search API pública (antes del apiRouter con auth) ─────
-    const { obtenerPropiedadesParaMarketplace: mpSearch, PLATFORM_DOMAIN: mpDomain } = require('./services/marketplaceService');
-    app.get('/api/search.json', cors(), async (req, res) => {
-        try {
-            const { q = '', personas = '', fecha_in = '', fecha_out = '', limit = '40' } = req.query;
-            const personasNum = parseInt(personas) || 0;
-            const fechaIn = fecha_in.match(/^\d{4}-\d{2}-\d{2}$/) ? fecha_in : null;
-            const fechaOut = fecha_out.match(/^\d{4}-\d{2}-\d{2}$/) ? fecha_out : null;
-            const limitNum = Math.min(parseInt(limit) || 40, 100);
-            const propiedades = await mpSearch({ busqueda: q.trim(), personas: personasNum, fechaIn, fechaOut, limit: limitNum });
-            res.json({
-                version: '1.0',
-                platform: mpDomain,
-                query: { q: q.trim(), personas: personasNum, fechaIn, fechaOut },
-                total: propiedades.length,
-                propiedades: propiedades.map(p => ({
-                    id: p.id, titulo: p.titulo, empresa: p.empresaNombre,
-                    capacidad: p.capacidad, precioDesde: p.precioDesde, moneda: 'CLP',
-                    rating: p.rating, numResenas: p.numResenas,
-                    fotoUrl: p.fotoUrl, url: p.url,
-                })),
-            });
-        } catch (err) {
-            console.error('[API search] Error:', err);
-            res.status(500).json({ error: 'Error interno' });
-        }
-    });
+    const { sendMarketplaceSearchJson } = require('./routes/marketplaceSearchJson.handler');
+    app.get('/api/search.json', cors(), sendMarketplaceSearchJson);
 
     // --- ORDEN DE RUTAS ESTRATÉGICO ---
 

@@ -1,6 +1,6 @@
 <%- /* backend/views/reservar.ejs */ %>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="<%= htmlLang || 'es' %>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -26,7 +26,21 @@
             }
         };
         const precioFinalNum = parseFloat(query.precioFinal) || 0;
-        const abonoNum = precioFinalNum * 0.10; // 10%
+        const dep = depositoReserva || {};
+        const abonoNum = Number(dep.montoDeposito || 0);
+        const saldoNum = Number(dep.saldo || Math.max(0, precioFinalNum - abonoNum));
+        const depActivo = dep.activo !== false;
+        const depNota = String(empresa.websiteSettings?.booking?.depositoNotaHtml || '').trim();
+        const garantiaModo = String(empresa.websiteSettings?.booking?.garantiaModo || 'abono_manual');
+        const garantiaDetalleOperacion = String(empresa.websiteSettings?.booking?.garantiaDetalleOperacion || '').trim();
+        const garantiaTexto = garantiaModo === 'sin_garantia'
+            ? 'Sin garantía previa para confirmar la reserva.'
+            : (garantiaModo === 'preautorizacion_externa'
+                ? 'Garantía por preautorización externa (sin integración de pasarela en StayManager).'
+                : 'Garantía mediante abono manual registrado por operación.');
+        const depEtiqueta = dep.tipo === 'monto_fijo'
+            ? 'Abono para reservar (monto fijo):'
+            : `Abono para reservar (${Number(dep.porcentaje || 10)}%):`;
     %>
 </head>
 <body class="bg-gray-50">
@@ -72,10 +86,27 @@
                                             <span>Total Estadía:</span>
                                             <span><%= formatCurrency(precioFinalNum) %></span>
                                         </div>
-                                        <div class="flex justify-between items-center text-base font-semibold text-primary-600 mt-1">
-                                            <span>Abono para reservar (10%):</span>
-                                            <span><%= formatCurrency(abonoNum) %></span>
-                                        </div>
+                                        <% if (depActivo) { %>
+                                            <div class="flex justify-between items-center text-base font-semibold text-primary-600 mt-1">
+                                                <span><%= depEtiqueta %></span>
+                                                <span><%= formatCurrency(abonoNum) %></span>
+                                            </div>
+                                            <div class="flex justify-between items-center text-sm text-gray-600 mt-1">
+                                                <span>Saldo al llegar:</span>
+                                                <span><%= formatCurrency(saldoNum) %></span>
+                                            </div>
+                                        <% } else { %>
+                                            <div class="text-sm text-success-700 mt-2">
+                                                Esta empresa no requiere abono previo para reservar.
+                                            </div>
+                                        <% } %>
+                                        <% if (depNota) { %>
+                                            <p class="text-xs text-gray-600 mt-3"><%= depNota %></p>
+                                        <% } %>
+                                        <p class="text-xs text-gray-600 mt-2"><strong>Política de garantía:</strong> <%= garantiaTexto %></p>
+                                        <% if (garantiaDetalleOperacion) { %>
+                                            <p class="text-xs text-gray-500 mt-1"><%= garantiaDetalleOperacion %></p>
+                                        <% } %>
                                     </div>
                                 </div>
                             </div>
@@ -127,10 +158,27 @@
                                                 <span>Total Estadía:</span>
                                                 <span><%= formatCurrency(precioFinalNum) %></span>
                                             </div>
-                                            <div class="flex justify-between items-center text-base font-semibold text-primary-600 mt-1">
-                                                <span>Abono para reservar (10%):</span>
-                                                <span><%= formatCurrency(abonoNum) %></span>
-                                            </div>
+                                            <% if (depActivo) { %>
+                                                <div class="flex justify-between items-center text-base font-semibold text-primary-600 mt-1">
+                                                    <span><%= depEtiqueta %></span>
+                                                    <span><%= formatCurrency(abonoNum) %></span>
+                                                </div>
+                                                <div class="flex justify-between items-center text-sm text-gray-600 mt-1">
+                                                    <span>Saldo al llegar:</span>
+                                                    <span><%= formatCurrency(saldoNum) %></span>
+                                                </div>
+                                            <% } else { %>
+                                                <div class="text-sm text-success-700 mt-2">
+                                                    Esta empresa no requiere abono previo para reservar.
+                                                </div>
+                                            <% } %>
+                                            <% if (depNota) { %>
+                                                <p class="text-xs text-gray-600 mt-3"><%= depNota %></p>
+                                            <% } %>
+                                            <p class="text-xs text-gray-600 mt-2"><strong>Política de garantía:</strong> <%= garantiaTexto %></p>
+                                            <% if (garantiaDetalleOperacion) { %>
+                                                <p class="text-xs text-gray-500 mt-1"><%= garantiaDetalleOperacion %></p>
+                                            <% } %>
                                         </div>
                                     </div>
                                 </div>
@@ -153,15 +201,29 @@
                             <input type="email" id="email" name="email" class="form-input" required>
                         </div>
                         <div>
-                            <label for="telefono" class="form-label">Teléfono (Ej: 912345678)</label>
-                            <div class="flex items-center">
-                                <span class="form-input-prefix">+56</span>
-                                <input type="tel" id="telefono" name="telefono" class="form-input-addon" placeholder="912345678" required>
-                            </div>
+                            <label for="telefono" class="form-label">Teléfono (Ej: +56912345678)</label>
+                            <input
+                                type="tel"
+                                id="telefono"
+                                name="telefono"
+                                class="form-input"
+                                placeholder="+56912345678"
+                                inputmode="tel"
+                                autocomplete="tel"
+                                required
+                            >
                         </div>
                          <div>
                             <label for="rut" class="form-label">RUT (Sin puntos, con guión. Ej: 12345678-9)</label>
-                            <input type="text" id="rut" name="rut" class="form-input" placeholder="12345678-9">
+                            <input
+                                type="text"
+                                id="rut"
+                                name="rut"
+                                class="form-input"
+                                placeholder="12345678-9"
+                                inputmode="text"
+                                autocomplete="off"
+                            >
                         </div>
                         <div>
                             <label for="comentarios" class="form-label">Comentarios (Opcional)</label>
@@ -171,7 +233,7 @@
                         <div class="pt-4">
                             <button type="submit" id="submit-button" class="btn w-full text-lg">
                                 <span>
-                                    Confirmar y Pagar Abono (<%= formatCurrency(abonoNum) %>)
+                                    <%= depActivo ? `Confirmar y Pagar Abono (${formatCurrency(abonoNum)})` : 'Confirmar Reserva' %>
                                 </span>
                                 <span id="loading-spinner" class="hidden">
                                     <i class="fas fa-spinner fa-spin"></i> Procesando...
@@ -195,7 +257,7 @@
             %>
             <div class="mt-10 pt-8 border-t border-gray-200">
                 <h2 class="text-lg font-bold text-gray-900 mb-2">Normas del alojamiento</h2>
-                <p class="text-sm text-gray-600 mb-4">Revisa horarios y normas antes de confirmar el pago del abono.</p>
+                <p class="text-sm text-gray-600 mb-4">Revisa horarios y normas antes de confirmar tu reserva.</p>
                 <div class="bg-white p-5 rounded-lg border border-gray-200 max-w-xl">
                     <h3 class="font-semibold text-gray-800 mb-3 text-sm">Normas de la casa</h3>
                     <ul class="space-y-2 text-sm text-gray-600">
@@ -233,9 +295,11 @@
             noches: parseInt('<%= query.noches %>') || 0,
             precioFinal: parseFloat('<%= query.precioFinal %>') || 0,
             personas: parseInt('<%= query.personas %>') || 0,
-            abono: parseFloat('<%= abonoNum %>') || 0
+            abono: parseFloat('<%= abonoNum %>') || 0,
+            depositoActivo: <%= depActivo ? 'true' : 'false' %>
         };
     </script>
+    <script src="/public/js/website-i18n.js"></script>
     <script src="/public/js/checkout.js"></script>
 
 </body>

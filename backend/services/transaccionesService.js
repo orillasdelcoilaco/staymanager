@@ -2,8 +2,60 @@
 const pool = require('../db/postgres');
 const { deleteFileByUrl } = require('./storageService');
 
+const MEDIOS_PAGO_PERMITIDOS = new Set([
+    'Efectivo',
+    'Transferencia',
+    'Tarjeta Débito (POS externo)',
+    'Tarjeta Crédito (POS externo)',
+]);
+
+const MEDIOS_PAGO_CATALOGO = [
+    { value: 'Efectivo', requiereComprobanteSugerido: false },
+    { value: 'Transferencia', requiereComprobanteSugerido: true },
+    { value: 'Tarjeta Débito (POS externo)', requiereComprobanteSugerido: true },
+    { value: 'Tarjeta Crédito (POS externo)', requiereComprobanteSugerido: true },
+];
+
+function _normalizarMedioDePago(raw) {
+    const val = String(raw || '').trim();
+    if (!val) return '';
+    if (/^tarjeta$/i.test(val)) return 'Tarjeta Débito (POS externo)';
+    if (/^debito$/i.test(val)) return 'Tarjeta Débito (POS externo)';
+    if (/^credito$/i.test(val)) return 'Tarjeta Crédito (POS externo)';
+    if (/^tarjeta debito/i.test(val)) return 'Tarjeta Débito (POS externo)';
+    if (/^tarjeta credito/i.test(val)) return 'Tarjeta Crédito (POS externo)';
+    if (/^transferencia/i.test(val)) return 'Transferencia';
+    if (/^efectivo/i.test(val)) return 'Efectivo';
+    return val;
+}
+
+function getMediosPagoManualesCatalogo() {
+    return MEDIOS_PAGO_CATALOGO.map((x) => ({ ...x }));
+}
+
+function medioDePagoRequiereComprobanteSugerido(medio) {
+    const normalizado = _normalizarMedioDePago(medio);
+    const item = MEDIOS_PAGO_CATALOGO.find((x) => x.value === normalizado);
+    return !!item?.requiereComprobanteSugerido;
+}
+
 const registrarPago = async (_db, empresaId, detalles) => {
-    const { idsIndividuales, monto, medioDePago, esPagoFinal, enlaceComprobante, reservaIdOriginal } = detalles;
+    const {
+        idsIndividuales,
+        monto,
+        medioDePago,
+        esPagoFinal,
+        enlaceComprobante,
+        reservaIdOriginal,
+        requiereComprobanteSugerido,
+        observacion,
+    } = detalles;
+    const medioNormalizado = _normalizarMedioDePago(medioDePago);
+    if (!MEDIOS_PAGO_PERMITIDOS.has(medioNormalizado)) {
+        const err = new Error('Medio de pago no permitido. Usa: Efectivo, Transferencia, Tarjeta Débito (POS externo) o Tarjeta Crédito (POS externo).');
+        err.statusCode = 400;
+        throw err;
+    }
     await pool.query(
         `INSERT INTO transacciones (empresa_id, id_reserva_canal, tipo, monto, metadata)
          VALUES ($1, $2, $3, $4, $5)`,
@@ -12,7 +64,12 @@ const registrarPago = async (_db, empresaId, detalles) => {
             reservaIdOriginal,
             esPagoFinal ? 'Pago Final' : 'Abono',
             parseFloat(monto),
-            JSON.stringify({ medioDePago, enlaceComprobante: enlaceComprobante || null })
+            JSON.stringify({
+                medioDePago: medioNormalizado,
+                enlaceComprobante: enlaceComprobante || null,
+                requiereComprobanteSugerido: !!requiereComprobanteSugerido,
+                observacion: String(observacion || '').trim().slice(0, 200),
+            })
         ]
     );
     if (esPagoFinal && idsIndividuales?.length) {
@@ -45,4 +102,9 @@ const eliminarPago = async (_db, empresaId, transaccionId) => {
     }
 };
 
-module.exports = { registrarPago, eliminarPago };
+module.exports = {
+    registrarPago,
+    eliminarPago,
+    getMediosPagoManualesCatalogo,
+    medioDePagoRequiereComprobanteSugerido,
+};

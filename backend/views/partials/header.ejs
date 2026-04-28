@@ -1,4 +1,5 @@
 <%- /* backend/views/partials/header.ejs */ %>
+<% const _navHl = (typeof htmlLang !== 'undefined' && htmlLang === 'en') ? 'en' : 'es'; %>
 <header class="bg-white shadow-sm sticky top-0 z-50">
     <div class="container py-3 flex items-center justify-between">
         <a href="/" class="flex items-center space-x-3">
@@ -13,7 +14,7 @@
             </span>
         </a>
         <nav class="hidden sm:flex items-center space-x-4">
-            <a href="/#propiedades" class="text-gray-600 hover:text-primary-600 font-semibold transition text-sm">Ver Propiedades</a>
+            <a href="/#propiedades" class="text-gray-600 hover:text-primary-600 font-semibold transition text-sm"><%= _navHl === 'en' ? 'Browse stays' : 'Ver Propiedades' %></a>
             
             <%# --- INICIO BOTÓN WHATSAPP HEADER --- %>
             <%# Ocultar si estamos en la página de una propiedad (paginaPropiedad se define en propiedad.ejs) %>
@@ -21,12 +22,14 @@
                 <% 
                     const telefonoLimpio = empresa.contactoTelefono.replace(/\D/g, '');
                     const nombreAnfitrion = empresa.contactoNombre.split(' ')[0];
-                    const mensajeGenerico = `Hola ${nombreAnfitrion}, necesito ayuda con una reserva.`;
+                    const mensajeGenerico = _navHl === 'en'
+                        ? `Hi ${nombreAnfitrion}, I need help with a booking.`
+                        : `Hola ${nombreAnfitrion}, necesito ayuda con una reserva.`;
                     const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeGenerico)}`;
                 %>
                 <a href="<%= whatsappUrl %>" target="_blank" class="bg-success-600 hover:bg-success-700 text-white px-4 py-2 rounded-lg font-semibold transition flex items-center">
                     <i class="fa-brands fa-whatsapp w-5 h-5 mr-2 text-white"></i>
-                    Hola, soy <%= nombreAnfitrion %>, ¿te ayudo?
+                    <%= _navHl === 'en' ? `Hi, I'm ${nombreAnfitrion} — can I help?` : `Hola, soy ${nombreAnfitrion}, ¿te ayudo?` %>
                 </a>
             <% } %>
             <%# --- FIN BOTÓN WHATSAPP HEADER --- %>
@@ -38,7 +41,9 @@
                 <% 
                     const telefonoLimpio = empresa.contactoTelefono.replace(/\D/g, '');
                     const nombreAnfitrion = (empresa.contactoNombre || 'Anfitrión').split(' ')[0];
-                    const mensajeGenerico = `Hola ${nombreAnfitrion}, necesito ayuda con una reserva.`;
+                    const mensajeGenerico = _navHl === 'en'
+                        ? `Hi ${nombreAnfitrion}, I need help with a booking.`
+                        : `Hola ${nombreAnfitrion}, necesito ayuda con una reserva.`;
                     const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeGenerico)}`;
                 %>
                 <a href="<%= whatsappUrl %>" target="_blank" class="bg-success-600 hover:bg-success-700 text-white p-2 rounded-lg">

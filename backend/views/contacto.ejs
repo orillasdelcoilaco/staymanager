@@ -1,13 +1,16 @@
 <%- /* backend/views/contacto.ejs */ %>
+<% const _chl = (typeof htmlLang !== 'undefined' && htmlLang === 'en') ? 'en' : 'es'; %>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="<%= _chl %>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <%
-        const _contactTitle = `Contacto | ${empresa.nombre}`;
-        const _contactDesc  = `Contacta con ${empresa.nombre}. Reservas directas, consultas y más información sobre nuestros alojamientos.`;
+        const _contactTitle = _chl === 'en' ? `Contact | ${empresa.nombre}` : `Contacto | ${empresa.nombre}`;
+        const _contactDesc  = _chl === 'en'
+            ? `Get in touch with ${empresa.nombre}. Direct bookings, questions, and more about our stays.`
+            : `Contacta con ${empresa.nombre}. Reservas directas, consultas y más información sobre nuestros alojamientos.`;
         const _pageUrl      = (locals.baseUrl || '') + '/contacto';
         const _heroImage    = empresa.websiteSettings?.theme?.heroImageUrl || '';
         const _logoUrl      = locals.brandIdentity?.logoUrl || empresa.websiteSettings?.theme?.logoUrl || '';
@@ -17,7 +20,9 @@
         const _email        = locals.contacto?.emailContacto    || empresa.contactoEmail    || '';
         const _nombreContacto = empresa.contactoNombre          || empresa.nombre;
         const _whatsappNum  = _telefono.replace(/\D/g, '');
-        const _whatsappMsg  = encodeURIComponent(`Hola ${_nombreContacto.split(' ')[0]}, me gustaría obtener más información sobre sus alojamientos.`);
+        const _whatsappMsg  = encodeURIComponent(_chl === 'en'
+            ? `Hi ${_nombreContacto.split(' ')[0]}, I'd like more information about your stays.`
+            : `Hola ${_nombreContacto.split(' ')[0]}, me gustaría obtener más información sobre sus alojamientos.`);
         const _whatsappUrl  = _whatsappNum ? `https://wa.me/${_whatsappNum}?text=${_whatsappMsg}` : '';
 
         // Ubicación
@@ -34,7 +39,7 @@
 
     <%# --- Open Graph --- %>
     <meta property="og:type"        content="website">
-    <meta property="og:locale"      content="es_CL">
+    <meta property="og:locale"      content="<%= _chl === 'en' ? 'en_US' : 'es_CL' %>">
     <meta property="og:site_name"   content="<%= empresa.nombre %>">
     <meta property="og:title"       content="<%= _contactTitle %>">
     <meta property="og:description" content="<%= _contactDesc %>">
@@ -56,7 +61,7 @@
     <script type="application/ld+json"><%- JSON.stringify({
         "@context": "https://schema.org",
         "@type": "ContactPage",
-        "name": `Contacto | ${empresa.nombre}`,
+        "name": `${_chl === 'en' ? 'Contact' : 'Contacto'} | ${empresa.nombre}`,
         "url": _pageUrl,
         "mainEntity": {
             "@type": "Organization",
@@ -102,7 +107,7 @@
 
                 <%# --- Columna izquierda: datos de contacto --- %>
                 <div class="space-y-8">
-                    <h2 class="text-2xl font-bold text-gray-900">¿Cómo contactarnos?</h2>
+                    <h2 class="text-2xl font-bold text-gray-900"><%= _chl === 'en' ? 'How to reach us' : '¿Cómo contactarnos?' %></h2>
 
                     <%# WhatsApp --- CTA principal %>
                     <% if (_whatsappUrl) { %>
@@ -110,7 +115,7 @@
                        class="flex items-center gap-4 bg-success-600 hover:bg-success-700 text-white rounded-xl px-6 py-5 transition shadow-md">
                         <i class="fa-brands fa-whatsapp text-4xl"></i>
                         <div>
-                            <div class="font-bold text-lg">Escríbenos por WhatsApp</div>
+                            <div class="font-bold text-lg"><%= _chl === 'en' ? 'Message us on WhatsApp' : 'Escríbenos por WhatsApp' %></div>
                             <div class="text-success-100 text-sm"><%= _telefono %></div>
                         </div>
                     </a>
@@ -123,7 +128,7 @@
                             <i class="fa-solid fa-phone text-primary-600 text-lg"></i>
                         </div>
                         <div>
-                            <div class="font-semibold text-gray-900">Teléfono</div>
+                            <div class="font-semibold text-gray-900"><%= _chl === 'en' ? 'Phone' : 'Teléfono' %></div>
                             <a href="tel:<%= _telefono.replace(/\D/g, '') %>" class="text-primary-600 hover:underline"><%= _telefono %></a>
                         </div>
                     </div>
@@ -149,7 +154,7 @@
                             <i class="fa-solid fa-location-dot text-primary-600 text-lg"></i>
                         </div>
                         <div>
-                            <div class="font-semibold text-gray-900">Ubicación</div>
+                            <div class="font-semibold text-gray-900"><%= _chl === 'en' ? 'Location' : 'Ubicación' %></div>
                             <% if (_direccion) { %><p class="text-gray-600"><%= _direccion %></p><% } %>
                             <% if (_ciudad || _region) { %>
                             <p class="text-gray-500 text-sm">
@@ -159,7 +164,7 @@
                             <% if (_googleMapsUrl) { %>
                             <a href="<%= _googleMapsUrl %>" target="_blank" rel="noopener"
                                class="text-primary-600 hover:underline text-sm mt-1 inline-block">
-                                Ver en Google Maps →
+                                <%= _chl === 'en' ? 'View on Google Maps →' : 'Ver en Google Maps →' %>
                             </a>
                             <% } %>
                         </div>
@@ -170,7 +175,7 @@
                     <% const redes = locals.contacto?.redesSociales || {}; %>
                     <% if (Object.keys(redes).length > 0) { %>
                     <div>
-                        <div class="font-semibold text-gray-900 mb-3">Síguenos</div>
+                        <div class="font-semibold text-gray-900 mb-3"><%= _chl === 'en' ? 'Follow us' : 'Síguenos' %></div>
                         <div class="flex gap-3">
                             <% if (redes.instagram) { %>
                             <a href="<%= redes.instagram %>" target="_blank" rel="noopener"
@@ -199,15 +204,15 @@
                     <a href="<%= _googleMapsUrl %>" target="_blank" rel="noopener"
                        class="flex flex-col items-center justify-center bg-gray-100 border-2 border-dashed border-gray-300 rounded-xl p-10 text-center h-full min-h-[320px] hover:bg-primary-50 hover:border-primary-300 transition group">
                         <i class="fa-solid fa-map-location-dot text-5xl text-gray-400 group-hover:text-primary-500 mb-4 transition"></i>
-                        <p class="font-semibold text-gray-700 group-hover:text-primary-700">Ver ubicación en Google Maps</p>
+                        <p class="font-semibold text-gray-700 group-hover:text-primary-700"><%= _chl === 'en' ? 'View location on Google Maps' : 'Ver ubicación en Google Maps' %></p>
                         <p class="text-sm text-gray-500 mt-1"><%= [_ciudad, _region].filter(Boolean).join(', ') || 'Chile' %></p>
                     </a>
                     <% } else { %>
                     <div class="bg-primary-50 border border-primary-100 rounded-xl p-8 flex flex-col items-center justify-center text-center h-full min-h-[280px]">
                         <i class="fa-solid fa-house text-5xl text-primary-300 mb-4"></i>
-                        <h3 class="text-xl font-bold text-primary-800 mb-2">Nuestros alojamientos</h3>
-                        <p class="text-primary-600 mb-6">Explora toda nuestra oferta y reserva directamente sin intermediarios.</p>
-                        <a href="/#propiedades" class="btn-primary px-6 py-3 rounded-lg font-semibold">Ver propiedades</a>
+                        <h3 class="text-xl font-bold text-primary-800 mb-2"><%= _chl === 'en' ? 'Our stays' : 'Nuestros alojamientos' %></h3>
+                        <p class="text-primary-600 mb-6"><%= _chl === 'en' ? 'Browse our listings and book direct with no middlemen.' : 'Explora toda nuestra oferta y reserva directamente sin intermediarios.' %></p>
+                        <a href="/#propiedades" class="btn-primary px-6 py-3 rounded-lg font-semibold"><%= _chl === 'en' ? 'View properties' : 'Ver propiedades' %></a>
                     </div>
                     <% } %>
                 </div>

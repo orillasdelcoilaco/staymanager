@@ -1,5 +1,69 @@
 // backend/services/empresaService.js
 const pool = require('../db/postgres');
+const { ssrCache } = require('./cacheService');
+
+function normalizeSubdomain(rawValue) {
+    return String(rawValue || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9-]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 63);
+}
+
+function normalizeCompanyName(rawValue) {
+    return String(rawValue || '').trim().replace(/\s+/g, ' ');
+}
+
+async function ensureEmpresaIdentityUniqueness(empresaId, nombreValue, subdominioValue) {
+    if (nombreValue) {
+        const { rows } = await pool.query(
+            `SELECT id, nombre
+             FROM empresas
+             WHERE id <> $1
+               AND LOWER(TRIM(nombre)) = LOWER(TRIM($2))
+             LIMIT 1`,
+            [empresaId, nombreValue]
+        );
+        if (rows[0]) {
+            const err = new Error('Ya existe una empresa con ese nombre. Usa un nombre único.');
+            err.statusCode = 409;
+            throw err;
+        }
+    }
+
+    if (subdominioValue) {
+        const { rows } = await pool.query(
+            `SELECT id
+             FROM empresas
+             WHERE id <> $1
+               AND (
+                    LOWER(TRIM(COALESCE(subdominio, ''))) = LOWER(TRIM($2))
+                    OR LOWER(TRIM(COALESCE(configuracion->'websiteSettings'->>'subdomain', ''))) = LOWER(TRIM($2))
+                    OR LOWER(TRIM(COALESCE(configuracion->'websiteSettings'->'general'->>'subdomain', ''))) = LOWER(TRIM($2))
+               )
+             LIMIT 1`,
+            [empresaId, subdominioValue]
+        );
+        if (rows[0]) {
+            const err = new Error('El subdominio ya está en uso por otra empresa.');
+            err.statusCode = 409;
+            throw err;
+        }
+    }
+}
+
+function mapPgConflict(error) {
+    if (error && error.code === '23505') {
+        const err = new Error('Conflicto de unicidad: el nombre o subdominio ya existe.');
+        err.statusCode = 409;
+        return err;
+    }
+    return error;
+}
 
 function mapearEmpresa(row) {
     if (!row) return null;
@@ -27,20 +91,28 @@ const obtenerDetallesEmpresa = async (_db, empresaId) => {
 const actualizarDetallesEmpresa = async (_db, empresaId, datos) => {
     if (!empresaId) throw new Error('El ID de la empresa es requerido.');
     const { nombre, email, plan, dominio, subdominio, google_maps_url, ...resto } = datos;
+    const nombreFinal = normalizeCompanyName(nombre);
 
     let dominioFinal = dominio;
-    let subdominioFinal = subdominio;
+    let subdominioFinal = normalizeSubdomain(subdominio);
 
     if (resto.websiteSettings?.general?.subdomain) {
-        const sub = resto.websiteSettings.general.subdomain;
+        const sub = normalizeSubdomain(resto.websiteSettings.general.subdomain);
+        resto.websiteSettings.general.subdomain = sub;
         subdominioFinal = subdominioFinal || sub;
-        if (!resto.websiteSettings.general.domain) {
+        if (sub && !resto.websiteSettings.general.domain) {
             resto.websiteSettings.general.domain = `${sub}.suitemanagers.com`;
         }
         dominioFinal = dominioFinal || resto.websiteSettings.general.domain;
         resto.websiteSettings.subdomain = sub;
         resto.websiteSettings.domain = dominioFinal;
     }
+
+    await ensureEmpresaIdentityUniqueness(
+        empresaId,
+        nombreFinal || null,
+        subdominioFinal || null
+    );
 
     // Obtener configuración actual para hacer merge inteligente
     let configuracionActual = {};
@@ -92,7 +164,13 @@ const actualizarDetallesEmpresa = async (_db, empresaId, datos) => {
                         },
                     }),
                 },
-            })
+            }),
+            ...(resto.websiteSettings.integrations && {
+                integrations: {
+                    ...(configuracionActual.websiteSettings?.integrations || {}),
+                    ...resto.websiteSettings.integrations,
+                },
+            }),
         };
         console.log(`[SQL UPDATE empresas] websiteSettings después de deep merge:`, Object.keys(configuracionFinal.websiteSettings));
     } else if (resto.websiteSettings) {
@@ -120,7 +198,7 @@ const actualizarDetallesEmpresa = async (_db, empresaId, datos) => {
 
     const params = [
         empresaId,
-        nombre  || null,
+        nombreFinal || null,
         email   || null,
         plan    || null,
         dominioFinal    || null,
@@ -133,8 +211,21 @@ const actualizarDetallesEmpresa = async (_db, empresaId, datos) => {
     console.log(`[SQL UPDATE empresas] Params:`, params);
     console.log(`[SQL UPDATE empresas] resto (configuración):`, JSON.stringify(resto, null, 2));
 
-    const result = await pool.query(sql, params);
+    let result;
+    try {
+        result = await pool.query(sql, params);
+    } catch (error) {
+        throw mapPgConflict(error);
+    }
     console.log(`[SQL UPDATE empresas] Resultado: ${result.rowCount} fila(s) afectada(s)`);
+
+    if (result.rowCount > 0) {
+        try {
+            ssrCache.invalidateEmpresaCache(empresaId);
+        } catch (e) {
+            console.warn('[SQL UPDATE empresas] No se pudo invalidar cache SSR:', e.message);
+        }
+    }
 
     // Obtener y devolver los datos actualizados
     const { rows } = await pool.query('SELECT * FROM empresas WHERE id = $1', [empresaId]);
@@ -159,7 +250,7 @@ const obtenerEmpresaPorDominio = async (_db, hostname) => {
         hostLower.endsWith('.suitemanager.com') ||
         hostLower.endsWith('.suitemanagers.com')
     ) {
-        const subdomain = hostLower.split('.')[0];
+        const subdomain = normalizeSubdomain(hostLower.split('.')[0]);
         // LOWER() para comparación case-insensitive (por si el subdominio fue guardado con mayúsculas)
         const { rows } = await pool.query(
             'SELECT * FROM empresas WHERE LOWER(subdominio) = $1 LIMIT 1', [subdomain]
@@ -174,6 +265,25 @@ const obtenerEmpresaPorDominio = async (_db, hostname) => {
             [subdomain]
         );
         if (rows2[0]) return mapearEmpresa(rows2[0]);
+
+        // Fallback tolerante para datos legacy con espacios/acentos/símbolos.
+        const { rows: rows3 } = await pool.query(
+            `SELECT * FROM empresas
+             WHERE LOWER(regexp_replace(COALESCE(subdominio, ''), '[^a-z0-9]+', '', 'g'))
+                   = LOWER(regexp_replace($1, '[^a-z0-9]+', '', 'g'))
+             LIMIT 1`,
+            [subdomain]
+        );
+        if (rows3[0]) return mapearEmpresa(rows3[0]);
+
+        const { rows: rows4 } = await pool.query(
+            `SELECT * FROM empresas
+             WHERE LOWER(regexp_replace(COALESCE(configuracion->'websiteSettings'->>'subdomain', ''), '[^a-z0-9]+', '', 'g'))
+                   = LOWER(regexp_replace($1, '[^a-z0-9]+', '', 'g'))
+             LIMIT 1`,
+            [subdomain]
+        );
+        if (rows4[0]) return mapearEmpresa(rows4[0]);
     }
 
     const { rows } = await pool.query(
@@ -192,5 +302,6 @@ module.exports = {
     obtenerDetallesEmpresa,
     actualizarDetallesEmpresa,
     obtenerProximoIdNumericoCarga,
-    obtenerEmpresaPorDominio
+    obtenerEmpresaPorDominio,
+    normalizeSubdomain,
 };

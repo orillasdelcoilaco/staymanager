@@ -91,7 +91,16 @@ async function _obtenerReservaPorIdPG(db, empresaId, row) {
 
     const cliente      = clienteRes.rows[0] ? _mapearClienteSimple(clienteRes.rows[0]) : {};
     const notas        = notasRes.rows.map(r => ({ id: r.id, reservaIdOriginal: r.id_reserva_canal, texto: r.texto, autor: r.autor || '', fecha: r.created_at?.toLocaleString('es-CL') || '' }));
-    const transacciones = transRes.rows.map(r => ({ id: r.id, reservaIdOriginal: r.id_reserva_canal, tipo: r.tipo, monto: r.monto, medioDePago: r.metadata?.medioDePago || '', enlaceComprobante: r.metadata?.enlaceComprobante || null, fecha: r.fecha?.toLocaleString('es-CL') || '' }));
+    const transacciones = transRes.rows.map(r => ({
+        id: r.id,
+        reservaIdOriginal: r.id_reserva_canal,
+        tipo: r.tipo,
+        monto: r.monto,
+        medioDePago: r.metadata?.medioDePago || '',
+        observacion: r.metadata?.observacion || '',
+        enlaceComprobante: r.metadata?.enlaceComprobante || null,
+        fecha: r.fecha?.toLocaleString('es-CL') || '',
+    }));
     const reservasDelGrupo = grupoRes.rows.map(mapearReservaPG);
 
     return _construirDetalleReserva(db, empresaId, reservaData, row, cliente, notas, transacciones, reservasDelGrupo);

@@ -81,9 +81,10 @@ GET ${BASE_URL}/api/search.json
   &fecha_in=YYYY-MM-DD  — llegada (filtra disponibilidad real)
   &fecha_out=YYYY-MM-DD — salida
   &limit=N          — máximo resultados (default 40)
+  &lang=en|es       — etiquetas descriptivas de campos (respuesta incluye \`locale\`, \`ui.fieldLabels\`)
 \`\`\`
 
-Ejemplo: \`${BASE_URL}/api/search.json?q=pucon&personas=4\`
+Ejemplo: \`${BASE_URL}/api/search.json?q=pucon&personas=4&lang=en\`
 
 ## Muestra de propiedades disponibles
 ${ejemplos || '  (Consulta /api/search.json para el listado actualizado)'}

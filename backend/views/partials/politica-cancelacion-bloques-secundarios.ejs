@@ -1,0 +1,28 @@
+<%# bloques: { etiqueta?, tarifaIds? (solo JSON/metadata, no mostrar), html?, texto?, noches, totalNoches }[] %>
+<% const _bloques = Array.isArray(bloques) ? bloques : []; %>
+<% const _hl = (typeof htmlLang !== 'undefined' && htmlLang === 'en') ? 'en' : 'es'; %>
+<% if (_bloques.length) { %>
+<div class="mt-4 space-y-4 border-t border-gray-200 pt-4">
+    <p class="text-xs font-medium text-gray-600">
+        <%= _hl === 'en'
+            ? 'Additional cancellation policy text (other rate segments in your stay)'
+            : 'Texto legal adicional (otras tarifas en tu estadía)' %>
+    </p>
+    <% for (const b of _bloques) { %>
+    <% const _eti = (b.etiqueta && String(b.etiqueta).trim()) ? String(b.etiqueta).trim() : ''; %>
+    <% const _lbl = _eti ? _eti : (_hl === 'en' ? 'Rate segment' : 'Tramo de tarifa'); %>
+    <div class="rounded border border-gray-100 bg-white/80 p-3">
+        <p class="text-xs text-gray-500 mb-2">
+            <%= _lbl %>
+            · <%= b.noches %>/<%= b.totalNoches %>
+            <%= _hl === 'en' ? 'nights' : 'noches' %>
+        </p>
+        <% if (b.html) { %>
+        <div class="text-sm text-gray-700 leading-relaxed politica-cancelacion-html"><%- b.html %></div>
+        <% } else if (b.texto) { %>
+        <p class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed"><%= b.texto %></p>
+        <% } %>
+    </div>
+    <% } %>
+</div>
+<% } %>

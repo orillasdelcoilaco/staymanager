@@ -5,13 +5,29 @@
     const _wResenas = (typeof _nResenas !== 'undefined') ? _nResenas : 0;
     const _wTotal   = defaultPriceData?.totalPriceCLP || 0;
     const _wNoches  = defaultPriceData?.nights || 0;
-    const _wAbono   = _wTotal > 0 ? Math.round(_wTotal * 0.10) : 0;
+    const _bk       = empresa?.websiteSettings?.booking || {};
+    const _depAct   = _bk.depositoActivo !== false;
+    const _depTipo  = _bk.depositoTipo === 'monto_fijo' ? 'monto_fijo' : 'porcentaje';
+    const _depPct   = Math.min(100, Math.max(1, parseInt(String(_bk.depositoPorcentaje ?? 10), 10) || 10));
+    const _depFix   = Math.max(0, parseInt(String(_bk.depositoMontoSugeridoCLP ?? 0), 10) || 0);
+    const _wAbono   = _wTotal > 0
+        ? (_depAct ? (_depTipo === 'monto_fijo' ? Math.min(_wTotal, _depFix) : Math.round(_wTotal * (_depPct / 100))) : 0)
+        : 0;
+    const _wSaldoPct = _wTotal > 0 ? Math.max(0, Math.round(((_wTotal - _wAbono) / _wTotal) * 100)) : 0;
     const _wNoche   = (_wTotal > 0 && _wNoches > 0) ? Math.round(_wTotal / _wNoches) : (typeof _precioNoche !== 'undefined' ? _precioNoche : 0);
     const _wIsWknd  = (typeof isDefaultWeekend !== 'undefined') ? isDefaultWeekend : false;
     const _minNochesW = (typeof minNochesSSR === 'number' && minNochesSSR >= 1)
         ? minNochesSSR
         : Math.max(1, parseInt(String(empresa?.websiteSettings?.booking?.minNoches ?? propiedad?.websiteData?.booking?.minNoches ?? '1'), 10) || 1);
-    const wConfig   = { propiedadId: propiedad.id, defaultPrice: defaultPriceData || null, minNoches: _minNochesW };
+    const wConfig   = {
+        propiedadId: propiedad.id,
+        defaultPrice: defaultPriceData || null,
+        minNoches: _minNochesW,
+        depositoActivo: _depAct,
+        depositoTipo: _depTipo,
+        depositoPorcentaje: _depPct,
+        depositoMontoSugeridoCLP: _depFix,
+    };
 %>
 
 <div id="booking-widget-container"
@@ -30,7 +46,7 @@
                     <span id="hero-abono-amount" class="text-2xl font-bold leading-none opacity-80">Elige fechas</span>
                     <% } %>
                 </div>
-                <p class="text-xs text-primary-200 mt-1.5">de abono para confirmar tu estadía</p>
+                <p class="text-xs text-primary-200 mt-1.5"><%= _depAct ? 'de abono para confirmar tu estadía' : 'sin abono previo para reservar' %></p>
             </div>
             <% if (_wRating) { %>
             <div class="text-right flex-shrink-0 bg-white/15 rounded-xl px-3 py-2">
@@ -74,6 +90,7 @@
                 Puedes ajustar fechas aquí o usar el calendario de disponibilidad de abajo.
             </p>
             <p id="booking-dates-summary" class="text-sm font-semibold text-gray-900 tabular-nums min-h-[1.35rem] mt-1"></p>
+            <p id="booking-minnoches-hint" class="text-xs text-gray-600 min-h-[1.1rem] mt-0.5"></p>
             <div class="border-t border-gray-200 mt-2 pt-3">
                 <label for="personas" class="block text-[10px] font-black text-gray-500 uppercase tracking-wider mb-0.5">Huéspedes</label>
                 <input type="number" name="personas" id="personas" min="1" max="<%= propiedad.capacidad %>" required
@@ -107,7 +124,7 @@
         </div>
     </form>
 
-    <%# ── Desglose (noches, referencia USD si aplica, saldo 90%, abono 10%) ── %>
+    <%# ── Desglose (noches, referencia USD y depósito configurable) ── %>
     <div id="price-breakdown" class="mx-5 mb-5 pt-3 border-t border-gray-100 text-xs text-gray-500">
         <p id="price-breakdown-placeholder" class="text-center text-gray-400 <%= _wTotal > 0 ? 'hidden' : '' %>">Selecciona fechas para ver el precio</p>
         <div id="price-breakdown-lines" class="space-y-1.5 <%= _wTotal > 0 ? '' : 'hidden' %>">
@@ -118,15 +135,38 @@
                 <span id="price-nights-value" class="font-medium text-gray-700"><%= _wTotal > 0 ? _wFmt(_wTotal) : '' %></span>
             </div>
             <div id="price-usd-line" class="hidden text-[11px] text-gray-500 leading-snug border-l-2 border-primary-200 pl-2 py-0.5"></div>
-            <div class="flex justify-between text-gray-600 pt-1 border-t border-dashed border-gray-200">
-                <span>Saldo al llegar (90%)</span>
-                <span id="price-resto-value" class="font-medium text-gray-700"><%= _wTotal > 0 ? _wFmt(Math.round(_wTotal * 0.9)) : '' %></span>
-            </div>
-            <div class="flex justify-between font-semibold text-primary-600 pt-0.5">
-                <span>Abono para reservar (10%)</span>
-                <span id="price-abono-value"><%= _wTotal > 0 ? _wFmt(_wAbono) : '' %></span>
-            </div>
+            <% if (_depAct) { %>
+                <div class="flex justify-between text-gray-600 pt-1 border-t border-dashed border-gray-200">
+                    <span>Saldo al llegar (<span id="price-saldo-pct-label"><%= _wSaldoPct %></span>%)</span>
+                    <span id="price-resto-value" class="font-medium text-gray-700"><%= _wTotal > 0 ? _wFmt(Math.max(0, _wTotal - _wAbono)) : '' %></span>
+                </div>
+                <div class="flex justify-between font-semibold text-primary-600 pt-0.5">
+                    <span id="price-abono-label"><%= _depTipo === 'monto_fijo' ? 'Abono para reservar (monto fijo)' : `Abono para reservar (${_depPct}%)` %></span>
+                    <span id="price-abono-value"><%= _wTotal > 0 ? _wFmt(_wAbono) : '' %></span>
+                </div>
+            <% } else { %>
+                <div class="text-center text-success-700 pt-1 border-t border-dashed border-gray-200">
+                    Esta empresa no requiere abono previo.
+                </div>
+            <% } %>
         </div>
+    </div>
+
+    <%# ── Comparador OTA (referencial, solo cuando hay cobertura completa) ── %>
+    <div id="ota-comparator-card" class="mx-5 mb-5 hidden rounded-xl border border-primary-200 bg-primary-50 px-3 py-2.5 text-xs">
+        <div class="mb-2">
+            <label for="ota-comparator-canal-select" class="block text-[11px] text-primary-800 font-semibold mb-1">Comparar contra canal</label>
+            <select id="ota-comparator-canal-select" class="w-full rounded-lg border border-primary-200 bg-white px-2 py-1.5 text-xs text-gray-800">
+                <option value="">Selecciona canal</option>
+            </select>
+        </div>
+        <div class="flex items-center justify-between gap-2">
+            <p class="font-semibold text-primary-800">Comparador reserva directa</p>
+            <span id="ota-comparator-badge" class="hidden rounded-full bg-success-100 text-success-700 px-2 py-0.5 text-[10px] font-semibold">Ahorro</span>
+        </div>
+        <p id="ota-comparator-summary" class="text-primary-900 mt-1.5 leading-snug"></p>
+        <p id="ota-comparator-channels" class="text-primary-700/80 mt-1"></p>
+        <p id="ota-comparator-legal" class="text-[11px] text-primary-700/70 mt-1.5">Comparación referencial para estas fechas.</p>
     </div>
 
 </div>

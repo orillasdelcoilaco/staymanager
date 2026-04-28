@@ -1,0 +1,10 @@
+---
+description: Arranque único — leer LEER-PRIMERO.md antes de tocar el repo
+alwaysApply: true
+---
+
+# Arranque de sesión
+
+Antes de **implementar, editar `TASKS/`, migraciones o despliegue** en este repositorio: leer **`LEER-PRIMERO.md`** en la raíz del proyecto y seguir el **orden de lectura** y la **regla multi-agente** que allí se indican.
+
+Si el usuario dijo explícitamente «lee `LEER-PRIMERO.md`», ese archivo es la **entrada canónica**; no sustituye `SHARED_CONTEXT.md`, lo encadena en orden.

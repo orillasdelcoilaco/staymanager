@@ -9,7 +9,10 @@ import {
     bindUnifiedPreview,
     bindUnifiedLogoUpload,
     bindUnifiedHeroUpload,
+    bindGoogleHotelsHealthRefresh,
+    loadGoogleHotelsHealth,
 } from './webPublica.general.unified.handlers.js';
+import { initHeatmapEventosRowsEditor } from './webPublica.general.unified.heatmapEventosRows.js';
 
 // --- Helpers ---
 const setStatus = (el, text, type = 'primary') => {
@@ -125,6 +128,10 @@ export function setupUnifiedEvents(empresaData, onComplete = null) {
     bindUnifiedPreview({ attach, empresa });
     bindUnifiedLogoUpload({ fetchAPI, setStatus });
     bindUnifiedHeroUpload({ fetchAPI, setStatus });
+    bindGoogleHotelsHealthRefresh({ attach, fetchAPI });
+    loadGoogleHotelsHealth({ fetchAPI }).catch((e) => console.warn('[google-hotels-health]', e.message));
+
+    initHeatmapEventosRowsEditor(empresa.websiteSettings?.booking || {});
 }
 
 // --- Reset (para reconfigurar) ---

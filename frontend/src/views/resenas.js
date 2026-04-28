@@ -92,7 +92,7 @@ function renderTarjeta(r) {
 
             <div class="flex flex-wrap gap-2 pt-1 border-t border-gray-50">
                 <button type="button" class="btn-outline text-xs py-1 px-3" onclick="abrirEditarResena('${r.id}')">Editar</button>
-                <button type="button" class="btn-ghost text-xs py-1 px-3 text-red-700 hover:bg-red-50" onclick="eliminarResena('${r.id}')">Eliminar</button>
+                <button type="button" class="btn-ghost text-xs py-1 px-3 text-danger-700 hover:bg-danger-50" onclick="eliminarResena('${r.id}')">Eliminar</button>
                 <button type="button" class="btn-outline text-xs py-1 px-3" onclick="abrirRespuesta('${r.id}')">
                     ${r.respuesta_texto ? 'Editar respuesta' : 'Responder'}
                 </button>

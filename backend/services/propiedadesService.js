@@ -2,6 +2,7 @@
 const pool = require('../db/postgres');
 const { calcularCapacidad, contarDistribucion, hydrateInventory } = require('./propiedadLogicService');
 const { finalizePropertyMetadataForSave } = require('./propiedadesMetadataPipeline');
+const { sanitizePropertyWebsiteBookingIncoming } = require('./propiedadWebsiteBookingSanitize');
 
 const slugify = (text) => {
     return text.toString().toLowerCase()
@@ -100,6 +101,11 @@ const crearPropiedad = async (_db, empresaId, datosPropiedad) => {
         counter++;
     }
 
+    const sanitizedPropertyBooking = sanitizePropertyWebsiteBookingIncoming(datosPropiedad?.websiteData?.booking);
+    if (!sanitizedPropertyBooking.ok) {
+        throw new Error(sanitizedPropertyBooking.errors[0] || 'booking por alojamiento inválido');
+    }
+
     const metadataPatch = {
         numBanos: datosPropiedad.numBanos || banosCalculados,
         camas: datosPropiedad.camas || {},
@@ -108,7 +114,13 @@ const crearPropiedad = async (_db, empresaId, datosPropiedad) => {
         componentes,
         amenidades: datosPropiedad.amenidades || [],
         googleHotelData: datosPropiedad.googleHotelData || {},
-        websiteData: datosPropiedad.websiteData || { aiDescription: '', images: {}, cardImage: null },
+        websiteData: {
+            aiDescription: '',
+            images: {},
+            cardImage: null,
+            ...(datosPropiedad.websiteData || {}),
+            booking: sanitizedPropertyBooking.booking,
+        },
     };
     if (datosPropiedad.ubicacion && typeof datosPropiedad.ubicacion === 'object') {
         metadataPatch.ubicacion = datosPropiedad.ubicacion;
@@ -187,6 +199,16 @@ const actualizarPropiedad = async (_db, empresaId, propiedadId, datosActualizado
     }
 
     const { nombre, capacidad, numPiezas, descripcion, activo, ...restoMeta } = datosActualizados;
+    const sanitizedPropertyBooking = sanitizePropertyWebsiteBookingIncoming(datosActualizados?.websiteData?.booking);
+    if (!sanitizedPropertyBooking.ok) {
+        throw new Error(sanitizedPropertyBooking.errors[0] || 'booking por alojamiento inválido');
+    }
+    if (datosActualizados?.websiteData && typeof datosActualizados.websiteData === 'object') {
+        restoMeta.websiteData = {
+            ...datosActualizados.websiteData,
+            booking: sanitizedPropertyBooking.booking,
+        };
+    }
     if (componentesParaMeta) {
         restoMeta.componentes = componentesParaMeta;
         // Si calculamos numBanos anteriormente, actualizarlo en restoMeta

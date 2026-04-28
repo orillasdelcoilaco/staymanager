@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="<%= htmlLang === 'en' ? 'en' : 'es' %>">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <meta name="description" content="<%= htmlLang === 'en' ? 'Useful links for your stay: check-in and house manual.' : 'Enlaces útiles para tu estadía: check-in y manual del huésped.' %>">
+    <link rel="stylesheet" href="/public/css/website.css">
+    <%- include('partials/web-fonts') %>
+</head>
+<body class="bg-gray-50">
+    <%- include('partials/header') %>
+    <main class="container py-12 md:py-16">
+        <div class="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-sm border border-gray-100">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
+                <%= htmlLang === 'en' ? 'Guest guide' : 'Guía del huésped' %>
+            </h1>
+            <p class="text-gray-600 mb-6">
+                <%= htmlLang === 'en'
+                    ? 'Here you can find the same useful links we include in reservation communications.'
+                    : 'Aquí encuentras los mismos enlaces útiles que enviamos en las comunicaciones de reserva.' %>
+            </p>
+
+            <%
+              const gl = (guestBookingLinks && typeof guestBookingLinks === 'object') ? guestBookingLinks : {};
+              const hasLinks = !!(gl.manualHuespedUrl || gl.manualHuespedPdfUrl || gl.checkinOnlineUrl);
+            %>
+
+            <% if (hasLinks) { %>
+                <ul class="space-y-3">
+                    <% if (gl.manualHuespedUrl) { %>
+                        <li>
+                            <a href="<%= gl.manualHuespedUrl %>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-primary-700 hover:underline font-medium">
+                                <%= htmlLang === 'en' ? 'Guest information (web)' : 'Información para huéspedes (web)' %>
+                            </a>
+                        </li>
+                    <% } %>
+                    <% if (gl.manualHuespedPdfUrl) { %>
+                        <li>
+                            <a href="<%= gl.manualHuespedPdfUrl %>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-primary-700 hover:underline font-medium">
+                                <%= htmlLang === 'en' ? 'House manual (PDF)' : 'Manual / guía (PDF)' %>
+                            </a>
+                        </li>
+                    <% } %>
+                    <% if (gl.checkinOnlineUrl) { %>
+                        <li>
+                            <a href="<%= gl.checkinOnlineUrl %>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-primary-700 hover:underline font-medium">
+                                <%= htmlLang === 'en' ? 'Online check-in' : 'Check-in online' %>
+                            </a>
+                        </li>
+                    <% } %>
+                </ul>
+            <% } else { %>
+                <p class="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-md p-3">
+                    <%= htmlLang === 'en'
+                        ? 'This company has not configured guest links yet. Contact support if you need help with your stay.'
+                        : 'Esta empresa aún no configuró enlaces para huéspedes. Si necesitas ayuda con tu estadía, contáctanos por los canales del sitio.' %>
+                </p>
+            <% } %>
+        </div>
+    </main>
+    <%- include('partials/footer') %>
+</body>
+</html>

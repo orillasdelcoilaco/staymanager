@@ -1,9 +1,16 @@
 // backend/public/js/booking.js
 
 document.addEventListener('DOMContentLoaded', () => {
-    const DEPOSIT_PERCENTAGE = 0.10;
-
     const widgetContainer = document.getElementById('booking-widget-container');
+    const lang = window.StayWebI18n?.getLang ? window.StayWebI18n.getLang() : (String(document.documentElement.lang || 'es').toLowerCase().startsWith('en') ? 'en' : 'es');
+    const locale = window.StayWebI18n?.getLocale ? window.StayWebI18n.getLocale(lang) : (lang === 'en' ? 'en-US' : 'es-CL');
+    const i18n = window.StayWebI18n?.dictionaries?.bookingWidget || {};
+    const t = window.StayWebI18n?.createTranslator
+        ? window.StayWebI18n.createTranslator(i18n, lang)
+        : ((key, ...args) => {
+            const msg = i18n[lang]?.[key] ?? i18n.es[key];
+            return typeof msg === 'function' ? msg(...args) : msg;
+        });
     let configData = null;
 
     if (widgetContainer && widgetContainer.dataset.bookingConfig) {
@@ -21,11 +28,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!configData) {
         console.error('Error: No booking config found.');
         const priceDisplay = document.getElementById('price-display');
-        if (priceDisplay) priceDisplay.innerHTML = '<span class="text-danger-600 font-bold">Error al cargar</span>';
+        if (priceDisplay) priceDisplay.innerHTML = `<span class="text-danger-600 font-bold">${t('loadError')}</span>`;
         return;
     }
 
-    const { propiedadId, defaultPrice, minNoches: minNochesRaw } = configData;
+    const {
+        propiedadId,
+        defaultPrice,
+        minNoches: minNochesRaw,
+        depositoActivo: depositoActivoRaw,
+        depositoTipo: depositoTipoRaw,
+        depositoPorcentaje: depositoPorcentajeRaw,
+        depositoMontoSugeridoCLP: depositoMontoSugeridoCLPRaw,
+    } = configData;
+    const depositoActivo = depositoActivoRaw !== false;
+    const depositoTipo = depositoTipoRaw === 'monto_fijo' ? 'monto_fijo' : 'porcentaje';
+    const depositoPorcentaje = Math.min(100, Math.max(1, parseInt(String(depositoPorcentajeRaw ?? 10), 10) || 10));
+    const depositoMontoSugeridoCLP = Math.max(0, parseInt(String(depositoMontoSugeridoCLPRaw ?? 0), 10) || 0);
     const minNoches = Math.max(1, parseInt(String(minNochesRaw ?? 1), 10) || 1);
     let defaultPriceData = defaultPrice || { totalPriceCLP: 0, nights: 0, formattedTotalPrice: '' };
 
@@ -63,6 +82,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const priceUsdLine = document.getElementById('price-usd-line');
     const priceRestoValue = document.getElementById('price-resto-value');
     const bookingDatesSummary = document.getElementById('booking-dates-summary');
+    const bookingMinNochesHint = document.getElementById('booking-minnoches-hint');
+    const priceAbonoLabel = document.getElementById('price-abono-label');
+    const priceSaldoPctLabel = document.getElementById('price-saldo-pct-label');
+    const otaComparatorCard = document.getElementById('ota-comparator-card');
+    const otaComparatorSummary = document.getElementById('ota-comparator-summary');
+    const otaComparatorChannels = document.getElementById('ota-comparator-channels');
+    const otaComparatorBadge = document.getElementById('ota-comparator-badge');
+    const otaComparatorLegal = document.getElementById('ota-comparator-legal');
+    const otaComparatorCanalSelect = document.getElementById('ota-comparator-canal-select');
+    let otaCanalesLoaded = false;
 
     if (!fechaLlegadaInput || !fechaSalidaInput || !personasInput || !submitButton || !priceLoader || !bookingForm) {
         console.error('Error: Missing DOM elements in booking widget.');
@@ -72,7 +101,103 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPriceCLP = defaultPriceData?.totalPriceCLP || null;
     let currentNights = defaultPriceData?.nights || 0;
 
-    const formatCLP = (value) => `$${(Math.round(value || 0)).toLocaleString('es-CL')}`;
+    const formatCLP = (value) => `$${(Math.round(value || 0)).toLocaleString(locale)}`;
+    const hideOtaComparator = () => {
+        if (!otaComparatorCard) return;
+        otaComparatorCard.classList.add('hidden');
+        if (otaComparatorSummary) otaComparatorSummary.textContent = '';
+        if (otaComparatorChannels) otaComparatorChannels.textContent = '';
+        if (otaComparatorLegal) otaComparatorLegal.textContent = t('cmpFallback');
+        if (otaComparatorBadge) otaComparatorBadge.classList.add('hidden');
+    };
+    const updateOtaComparator = (payload) => {
+        if (!otaComparatorCard || !payload || payload.ok !== true || payload.comparableComplete !== true) {
+            hideOtaComparator();
+            return;
+        }
+        if (otaComparatorCanalSelect && Array.isArray(payload.canalesComparables) && !otaCanalesLoaded) {
+            otaComparatorCanalSelect.innerHTML = payload.canalesComparables
+                .map((c) => `<option value="${String(c.id || '')}">${String(c.nombre || t('channelLabel'))}</option>`)
+                .join('');
+            const exists = payload.canalesComparables.some((c) => String(c.id) === String(payload.canalComparado?.id || ''));
+            if (exists) otaComparatorCanalSelect.value = String(payload.canalComparado?.id || '');
+            otaCanalesLoaded = payload.canalesComparables.length > 0;
+        } else if (otaComparatorCanalSelect && payload.canalComparado?.id && !otaComparatorCanalSelect.value) {
+            otaComparatorCanalSelect.value = String(payload.canalComparado.id);
+        }
+        const ahorro = Number(payload.totales?.ahorroCLP || 0);
+        const pct = payload.totales?.ahorroPctSobreComparado;
+        const directo = Number(payload.totales?.directoCLP || 0);
+        const comparado = Number(payload.totales?.comparadoCLP || 0);
+        const nights = Number(payload.rango?.noches || 0);
+        const canalDirecto = payload.canalDirecto?.nombre || t('channelDirect');
+        const canalComparado = payload.canalComparado?.nombre || t('channelCompared');
+        if (directo <= 0 || comparado <= 0 || nights <= 0) {
+            hideOtaComparator();
+            return;
+        }
+
+        if (otaComparatorSummary) {
+            if (ahorro > 0) {
+                const pctTxt = Number.isFinite(Number(pct)) ? ` (${pct}% menos)` : '';
+                otaComparatorSummary.textContent = t('cmpSavings', formatCLP(directo), canalComparado, formatCLP(comparado), formatCLP(ahorro), pctTxt);
+            } else if (ahorro === 0) {
+                otaComparatorSummary.textContent = t('cmpSameTotal', formatCLP(directo));
+            } else {
+                otaComparatorSummary.textContent = t('cmpComparedLower', formatCLP(Math.abs(ahorro)));
+            }
+        }
+        if (otaComparatorChannels) {
+            otaComparatorChannels.textContent = t('cmpChannels', canalDirecto, canalComparado, nights);
+        }
+        if (otaComparatorLegal) {
+            otaComparatorLegal.textContent = String(
+                payload.legalCopy
+                || payload.disclaimer
+                || t('cmpFallback'),
+            );
+        }
+        if (otaComparatorBadge) {
+            if (ahorro > 0) otaComparatorBadge.classList.remove('hidden');
+            else otaComparatorBadge.classList.add('hidden');
+        }
+        otaComparatorCard.classList.remove('hidden');
+    };
+    const refreshOtaComparator = async () => {
+        if (!otaComparatorCard) return;
+        const fechaLlegada = fechaLlegadaInput.value;
+        const fechaSalida = fechaSalidaInput.value;
+        if (!fechaLlegada || !fechaSalida || fechaSalida <= fechaLlegada) {
+            hideOtaComparator();
+            return;
+        }
+        try {
+            const qs = new URLSearchParams({ fechaLlegada, fechaSalida });
+            if (otaComparatorCanalSelect && otaComparatorCanalSelect.value) {
+                qs.set('canalId', otaComparatorCanalSelect.value);
+            }
+            const response = await fetch(`/propiedad/${propiedadId}/comparador-ota.json?${qs.toString()}`);
+            if (!response.ok) {
+                hideOtaComparator();
+                return;
+            }
+            const payload = await response.json();
+            updateOtaComparator(payload);
+        } catch (_e) {
+            hideOtaComparator();
+        }
+    };
+    if (otaComparatorCanalSelect) {
+        otaComparatorCanalSelect.addEventListener('change', () => {
+            refreshOtaComparator();
+        });
+    }
+    const calculateDeposit = (total) => {
+        const totalNum = Math.max(0, Math.round(Number(total) || 0));
+        if (!depositoActivo) return 0;
+        if (depositoTipo === 'monto_fijo') return Math.min(totalNum, depositoMontoSugeridoCLP);
+        return Math.round(totalNum * (depositoPorcentaje / 100));
+    };
 
     const formatDateHuman = (iso) => {
         if (!iso || typeof iso !== 'string') return '';
@@ -80,16 +205,36 @@ document.addEventListener('DOMContentLoaded', () => {
         if (p.length !== 3 || !p[0]) return iso;
         const d = new Date(p[0], p[1] - 1, p[2]);
         if (Number.isNaN(d.getTime())) return iso;
-        return d.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        return d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    };
+
+    const formatDateShort = (iso) => {
+        if (!iso || typeof iso !== 'string') return '';
+        const p = iso.split('-').map(Number);
+        if (p.length !== 3 || !p[0]) return iso;
+        const d = new Date(p[0], p[1] - 1, p[2]);
+        if (Number.isNaN(d.getTime())) return iso;
+        return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' });
     };
 
     const updateDatesSummary = () => {
-        if (!bookingDatesSummary) return;
         const a = fechaLlegadaInput.value;
         const b = fechaSalidaInput.value;
-        if (a && b) bookingDatesSummary.textContent = `${formatDateHuman(a)} → ${formatDateHuman(b)}`;
-        else if (a) bookingDatesSummary.textContent = `Entrada: ${formatDateHuman(a)} — selecciona una salida`;
-        else bookingDatesSummary.textContent = '';
+        if (bookingDatesSummary) {
+            if (a && b) bookingDatesSummary.textContent = `${formatDateHuman(a)} → ${formatDateHuman(b)}`;
+            else if (a) bookingDatesSummary.textContent = t('checkInSummary', formatDateHuman(a));
+            else bookingDatesSummary.textContent = '';
+        }
+        if (bookingMinNochesHint) {
+            if (!a) {
+                bookingMinNochesHint.textContent = '';
+            } else {
+                const effMin = typeof window.__pbcMinNochesEfectivas === 'function'
+                    ? window.__pbcMinNochesEfectivas(a)
+                    : minNoches;
+                bookingMinNochesHint.textContent = t('minHint', formatDateShort(a), effMin);
+            }
+        }
     };
 
     const hideWeekendHint = () => {
@@ -104,13 +249,17 @@ document.addEventListener('DOMContentLoaded', () => {
             currentNights = priceData.numNoches;
             submitButton.disabled = false;
 
-            const abono = Math.round(currentPriceCLP * DEPOSIT_PERCENTAGE);
+            const abono = calculateDeposit(currentPriceCLP);
             const pxNoche = Math.round(currentPriceCLP / currentNights);
+            const saldo = Math.max(0, currentPriceCLP - abono);
+            const saldoPct = currentPriceCLP > 0 ? Math.round((saldo / currentPriceCLP) * 100) : 0;
 
-            if (heroAbonoAmount) heroAbonoAmount.textContent = formatCLP(abono);
+            if (heroAbonoAmount) {
+                heroAbonoAmount.textContent = depositoActivo ? formatCLP(abono) : t('noDeposit');
+            }
             if (priceTotalDisplay) priceTotalDisplay.textContent = formatCLP(currentPriceCLP);
             if (priceLabelDisplay) {
-                priceLabelDisplay.textContent = `(${currentNights} noche${currentNights !== 1 ? 's' : ''})`;
+                priceLabelDisplay.textContent = t('nightsLabel', currentNights);
             }
             if (priceDisplay) priceDisplay.classList.remove('hidden');
 
@@ -119,11 +268,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const nightsValue = document.getElementById('price-nights-value');
                 const abonoValue = document.getElementById('price-abono-value');
                 if (nightsLabel) {
-                    nightsLabel.textContent = `${formatCLP(pxNoche)} × ${currentNights} noche${currentNights !== 1 ? 's' : ''}`;
+                    nightsLabel.textContent = t('nightsBreakdown', formatCLP(pxNoche), currentNights);
                 }
                 if (nightsValue) nightsValue.textContent = formatCLP(currentPriceCLP);
                 if (abonoValue) abonoValue.textContent = formatCLP(abono);
-                if (priceRestoValue) priceRestoValue.textContent = formatCLP(Math.round(currentPriceCLP * (1 - DEPOSIT_PERCENTAGE)));
+                if (priceRestoValue) priceRestoValue.textContent = formatCLP(saldo);
+                if (priceAbonoLabel) {
+                    priceAbonoLabel.textContent = depositoTipo === 'monto_fijo'
+                        ? t('depositLabelFixed')
+                        : t('depositLabelPct', depositoPorcentaje);
+                }
+                if (priceSaldoPctLabel) priceSaldoPctLabel.textContent = String(saldoPct);
             }
 
             if (priceUsdLine) {
@@ -134,7 +289,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isUsd) {
                     const usd = Number(priceData.totalPriceOriginal);
                     const tc = Math.round(priceData.valorDolarDia);
-                    priceUsdLine.textContent = `Referencia: ~${usd.toLocaleString('es-CL', { maximumFractionDigits: 0 })} USD × $${tc.toLocaleString('es-CL')} CLP/USD`;
+                    priceUsdLine.textContent = t(
+                        'usdRef',
+                        usd.toLocaleString(locale, { maximumFractionDigits: 0 }),
+                        tc.toLocaleString(locale),
+                    );
                     priceUsdLine.classList.remove('hidden');
                 } else {
                     priceUsdLine.textContent = '';
@@ -150,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
             submitButton.disabled = true;
 
             const noDisp = priceData && priceData.totalPrice === 0;
-            if (heroAbonoAmount) heroAbonoAmount.textContent = noDisp ? 'No disponible' : 'Elige fechas';
+            if (heroAbonoAmount) heroAbonoAmount.textContent = noDisp ? t('notAvailable') : t('chooseDates');
             if (priceTotalDisplay) priceTotalDisplay.textContent = '';
             if (priceLabelDisplay) priceLabelDisplay.textContent = '';
             if (priceDisplay) priceDisplay.classList.add('hidden');
@@ -171,6 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!fechaLlegada || !fechaSalida || fechaSalida <= fechaLlegada) {
             updatePriceDisplay(null);
+            hideOtaComparator();
             if (fechaLlegada && fechaLlegada < today) fechaLlegadaInput.value = today;
             if (fechaSalida && fechaSalida <= fechaLlegada) fechaSalidaInput.value = '';
             updateDatesSummary();
@@ -179,7 +339,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (fechaLlegada < today) fechaLlegadaInput.value = today;
 
-        const minSalida = addDaysLocalIso(fechaLlegadaInput.value, minNoches);
+        const effMinNoches = typeof window.__pbcMinNochesEfectivas === 'function'
+            ? window.__pbcMinNochesEfectivas(fechaLlegadaInput.value)
+            : minNoches;
+        const minSalida = addDaysLocalIso(fechaLlegadaInput.value, effMinNoches);
         if (minSalida && fechaSalidaInput.min !== minSalida) fechaSalidaInput.min = minSalida;
         if (
             !fechaSalidaInput.value
@@ -202,12 +365,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ fechaLlegada: fechaLlegadaInput.value, fechaSalida: fechaSalidaInput.value }),
             });
             const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'No se pudo calcular el precio.');
+            if (!response.ok) throw new Error(data.error || t('priceCalcError'));
             updatePriceDisplay(data);
+            await refreshOtaComparator();
         } catch (error) {
             console.error('Error calculando precio:', error);
             updatePriceDisplay(null);
-            if (heroAbonoAmount) heroAbonoAmount.textContent = 'Error';
+            hideOtaComparator();
+            if (heroAbonoAmount) heroAbonoAmount.textContent = t('genericError');
             priceLoader.classList.add('hidden');
         }
         updateDatesSummary();
@@ -230,11 +395,13 @@ document.addEventListener('DOMContentLoaded', () => {
             formattedTotalPrice: defaultPriceData.formattedTotalPrice,
             currencyOriginal: 'CLP',
         });
+        refreshOtaComparator();
     } else if (fechaLlegadaInput.value && fechaSalidaInput.value) {
         calculatePriceAJAX();
     } else {
         submitButton.disabled = true;
-        if (heroAbonoAmount) heroAbonoAmount.textContent = 'Elige fechas';
+        if (heroAbonoAmount) heroAbonoAmount.textContent = t('chooseDates');
+        hideOtaComparator();
     }
 
     bookingForm.addEventListener('submit', (e) => {
@@ -244,25 +411,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const capacidadMax = parseInt(personasInput.max, 10);
 
         if (currentPriceCLP === null || currentNights <= 0) {
-            alert('Por favor, selecciona fechas válidas para calcular el precio antes de reservar.');
+            alert(t('selectValidDates'));
             return;
         }
         const nightsSel = countNightsBetween(fechaLlegadaInput.value, fechaSalidaInput.value);
-        if (nightsSel < minNoches) {
-            alert(`La estadía mínima es de ${minNoches} noche(s).`);
+        const effMinSubmit = typeof window.__pbcMinNochesEfectivas === 'function'
+            ? window.__pbcMinNochesEfectivas(fechaLlegadaInput.value)
+            : minNoches;
+        if (nightsSel < effMinSubmit) {
+            alert(t('minStayAlert', effMinSubmit));
             return;
         }
         if (Number.isNaN(personas) || personas <= 0) {
-            alert('Por favor, indica cuántos huéspedes serán.');
+            alert(t('guestsRequired'));
             return;
         }
         if (personas > capacidadMax) {
-            alert(`El número de huéspedes (${personas}) excede la capacidad máxima (${capacidadMax}).`);
+            alert(t('guestsExceeded', personas, capacidadMax));
             return;
         }
 
         submitButton.disabled = true;
-        submitButton.textContent = 'Procesando...';
+        submitButton.textContent = t('processing');
 
         const params = new URLSearchParams({
             propiedadId,
@@ -274,7 +444,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const ext = typeof window.PUBLIC_BOOKING_BASE_URL === 'string' ? window.PUBLIC_BOOKING_BASE_URL.trim() : '';
-        if (ext) {
+        const extValidoParaReserva = ext && /\/reservar(?:[/?#]|$)/i.test(ext);
+        if (extValidoParaReserva) {
             const join = ext.includes('?') ? '&' : '?';
             window.location.href = `${ext}${join}${params.toString()}`;
         } else {

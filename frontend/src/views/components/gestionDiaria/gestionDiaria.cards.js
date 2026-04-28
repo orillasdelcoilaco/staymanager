@@ -1,6 +1,24 @@
 // frontend/src/views/components/gestionDiaria/gestionDiaria.cards.js
 import { getStatusInfo, formatCurrency, formatDate, formatUSD } from './gestionDiaria.utils.js';
 import { getEstadosReserva } from '../estadosStore.js';
+import { labelGarantiaOperacionModo, labelGarantiaOperacionEstado } from '../gestionarReservas/reservas.utils.js';
+
+function renderGarantiaLineaTarjeta(grupo) {
+    const go = grupo.garantiaOperacion;
+    if (!go || typeof go !== 'object') return '';
+    const modo = String(go.modo || '').trim();
+    if (!modo) return '';
+    const texto = labelGarantiaOperacionModo(modo);
+    const estadoTxt = labelGarantiaOperacionEstado(go.estadoOperacion || 'pendiente_garantia');
+    return `
+            <div class="mt-2 text-xs text-gray-800 bg-primary-50 border border-primary-100 rounded-md px-2 py-1.5 flex items-start gap-2">
+                <i class="fa-solid fa-shield-halved text-primary-600 mt-0.5 flex-shrink-0" aria-hidden="true"></i>
+                <div>
+                    <div><span class="font-semibold">Garantía (web):</span> ${texto}</div>
+                    <div class="text-gray-600"><span class="font-semibold">Estado:</span> ${estadoTxt}</div>
+                </div>
+            </div>`;
+}
 
 function renderFinancialDetails(grupo) {
     if (grupo.esUSD) {
@@ -152,6 +170,7 @@ function createCard(grupo, allEstados) {
                 <div class="col-span-3"><span class="font-medium text-gray-500">Alojamientos:</span> ${alojamientosNombres}</div>
                 <div class="col-span-3"><span class="font-medium text-gray-500">ID Reserva:</span> <span class="font-mono text-xs">${grupo.reservaIdOriginal}</span></div>
             </div>
+            ${renderGarantiaLineaTarjeta(grupo)}
         </div>
         <div class="flex-shrink-0 w-full md:w-96 space-y-3">
             ${renderFinancialDetails(grupo)}

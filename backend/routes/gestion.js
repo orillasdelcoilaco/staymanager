@@ -3,10 +3,23 @@ const express = require('express');
 const pool = require('../db/postgres');
 const multer = require('multer');
 const path = require('path');
-const { getReservasPendientes, actualizarEstadoGrupo, getNotas, addNota, getTransacciones, marcarClienteComoGestionado } = require('../services/gestionService');
+const {
+    getReservasPendientes,
+    actualizarEstadoGrupo,
+    getNotas,
+    addNota,
+    getTransacciones,
+    marcarClienteComoGestionado,
+    actualizarEstadoGarantiaOperacionGrupo,
+} = require('../services/gestionService');
 const { uploadFile } = require('../services/storageService');
 const { actualizarValoresGrupo, calcularPotencialGrupo } = require('../services/analisisFinancieroService');
-const { registrarPago, eliminarPago } = require('../services/transaccionesService');
+const {
+    registrarPago,
+    eliminarPago,
+    getMediosPagoManualesCatalogo,
+    medioDePagoRequiereComprobanteSugerido,
+} = require('../services/transaccionesService');
 const { actualizarDocumentoReserva } = require('../services/documentosService');
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -107,6 +120,33 @@ module.exports = (db) => {
             res.status(500).json({ error: error.message });
         }
     });
+
+    router.post('/garantia-operacion-estado', async (req, res) => {
+        try {
+            const { empresaId, email } = req.user;
+            const garantiaOperacion = await actualizarEstadoGarantiaOperacionGrupo(db, empresaId, {
+                ...req.body,
+                autor: email || '',
+            });
+            res.status(200).json({
+                message: 'Estado de garantía actualizado.',
+                garantiaOperacion,
+            });
+        } catch (error) {
+            res.status(error.statusCode || 500).json({ error: error.message });
+        }
+    });
+
+    router.get('/medios-pago-manuales', async (_req, res) => {
+        try {
+            res.status(200).json({
+                medios: getMediosPagoManualesCatalogo(),
+                nota: 'StayManager no procesa cobros electrónicos. Solo registra pagos recibidos manualmente.',
+            });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
     
     router.delete('/transaccion/:id', async (req, res) => {
         try {
@@ -156,11 +196,12 @@ module.exports = (db) => {
                 publicUrl = await uploadFile(req.file.buffer, destination, req.file.mimetype);
             }
             detalles.enlaceComprobante = publicUrl;
+            detalles.requiereComprobanteSugerido = medioDePagoRequiereComprobanteSugerido(detalles.medioDePago);
             
             await registrarPago(db, empresaId, detalles);
             res.status(200).json({ message: 'Pago registrado con éxito.' });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            res.status(error.statusCode || 500).json({ error: error.message });
         }
     });
     

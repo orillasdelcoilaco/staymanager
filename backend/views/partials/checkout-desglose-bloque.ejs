@@ -1,0 +1,27 @@
+<%#
+  Parámetros: desglose (resultado de buildDesglosePrecioCheckout). No repite la línea de total (esTotal).
+%>
+<% if (desglose && desglose.mostrar && Array.isArray(desglose.lineas) && desglose.lineas.length) { %>
+<% const _fmtD = (v) => `$${(Math.round(Number(v)) || 0).toLocaleString('es-CL')}`; %>
+<% const _lineasD = desglose.lineas.filter((ln) => !ln.esTotal); %>
+<% if (_lineasD.length) { %>
+<div class="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-sm text-gray-700 space-y-1.5 mb-3">
+    <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide"><%= desglose.tituloBloque || 'Desglose de precio' %></p>
+    <% _lineasD.forEach((ln) => { %>
+    <div class="flex justify-between gap-3">
+        <span><%= ln.etiqueta %></span>
+        <span class="tabular-nums"><%= _fmtD(ln.montoCLP) %></span>
+    </div>
+    <% }); %>
+    <% if (desglose.notaIva) { %>
+    <p class="text-[11px] text-gray-500 leading-snug pt-0.5"><%= desglose.notaIva %></p>
+    <% } %>
+    <% if (desglose.notaDebajo) { %>
+    <p class="text-[11px] text-gray-600 leading-snug border-t border-slate-200 pt-1.5 mt-1"><%= desglose.notaDebajo %></p>
+    <% } %>
+    <% if (desglose.notaPie) { %>
+    <p class="text-[11px] text-gray-500 leading-snug border-t border-slate-100 pt-1.5 mt-1 italic"><%= desglose.notaPie %></p>
+    <% } %>
+</div>
+<% } %>
+<% } %>

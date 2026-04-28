@@ -1,7 +1,17 @@
 {
-  "fecha": "2026-04-24T19:30:38.851Z",
-  "total": 29,
+  "fecha": "2026-04-25T22:30:07.729Z",
+  "total": 36,
   "criticos": [
+    {
+      "file": "frontend/src/views/components/configurarWebPublica/webPublica.general.unified.handlers.js",
+      "type": "function-size",
+      "detail": "bindUnifiedSave — 141 líneas (línea 92)"
+    },
+    {
+      "file": "frontend/src/views/components/configurarWebPublica/webPublica.general.unified.handlers.js",
+      "type": "function-size",
+      "detail": "normalizeSubdomain — 137 líneas (línea 95)"
+    },
     {
       "file": "frontend/src/views/components/configurarWebPublica/webPublica.general.unified.lineasExtraRows.js",
       "type": "function-size",
@@ -15,32 +25,22 @@
     {
       "file": "frontend/src/views/components/crm/crm.pipeline.js",
       "type": "function-size",
-      "detail": "setupPipeline — 159 líneas (línea 94)"
+      "detail": "setupPipeline — 126 líneas (línea 94)"
     },
     {
-      "file": "frontend/src/views/components/gestionarTarifas/matriz.js",
-      "type": "function-size",
-      "detail": "renderMatriz — 183 líneas (línea 47)"
-    },
-    {
-      "file": "frontend/src/views/components/gestionarTarifas/matriz.js",
-      "type": "function-size",
-      "detail": "_setupMatrizEvents — 178 líneas (línea 273)"
-    },
-    {
-      "file": "frontend/src/views/components/gestionDiaria/modals/mensajeModal.js",
-      "type": "function-size",
-      "detail": "renderMensajeModal — 140 líneas (línea 142)"
+      "file": "frontend/src/views/comunicaciones.js",
+      "type": "file-size",
+      "detail": "719 líneas"
     },
     {
       "file": "frontend/src/views/comunicaciones.js",
       "type": "function-size",
-      "detail": "render — 122 líneas (línea 167)"
+      "detail": "render — 130 líneas (línea 167)"
     },
     {
       "file": "frontend/src/views/comunicaciones.js",
       "type": "function-size",
-      "detail": "afterRender — 203 líneas (línea 459)"
+      "detail": "afterRender — 216 líneas (línea 503)"
     },
     {
       "file": "frontend/src/views/normasAlojamiento.js",
@@ -51,6 +51,11 @@
       "file": "frontend/src/views/resenas.js",
       "type": "function-size",
       "detail": "afterRender — 125 líneas (línea 290)"
+    },
+    {
+      "file": "backend/services/agentEmpresaLookupService.js",
+      "type": "function-size",
+      "detail": "lookupEmpresaForAgentQuery — 152 líneas (línea 25)"
     },
     {
       "file": "backend/services/aiContentService.js",
@@ -70,82 +75,112 @@
     {
       "file": "backend/services/comunicacionesRetryService.js",
       "type": "function-size",
-      "detail": "reintentarComunicacionEmail — 197 líneas (línea 213)"
+      "detail": "reintentarComunicacionEmail — 197 líneas (línea 220)"
     },
     {
       "file": "backend/services/empresaService.js",
       "type": "function-size",
-      "detail": "actualizarDetallesEmpresa — 164 líneas (línea 29)"
-    },
-    {
-      "file": "backend/services/gestionPropuestas.email.js",
-      "type": "function-size",
-      "detail": "enviarEmailReservaConfirmada — 155 líneas (línea 136)"
+      "detail": "actualizarDetallesEmpresa — 145 líneas (línea 91)"
     },
     {
       "file": "backend/services/plantillasService.js",
       "type": "too-many-exports",
-      "detail": "20 exports"
+      "detail": "16 exports"
+    },
+    {
+      "file": "backend/services/publicAiDisponibilidadService.js",
+      "type": "function-size",
+      "detail": "buildDisponibilidadAgentResponse — 224 líneas (línea 78)"
+    },
+    {
+      "file": "backend/services/publicAiProductSnapshot.js",
+      "type": "file-size",
+      "detail": "753 líneas"
+    },
+    {
+      "file": "backend/services/publicAiProductSnapshot.js",
+      "type": "function-size",
+      "detail": "buildListingCardForAi — 125 líneas (línea 332)"
+    },
+    {
+      "file": "backend/services/publicAiProductSnapshot.js",
+      "type": "function-size",
+      "detail": "buildAgentPropertyDetailPayload — 163 líneas (línea 581)"
+    },
+    {
+      "file": "backend/services/publicAiReservaCotizacionService.js",
+      "type": "function-size",
+      "detail": "cotizarReservaIaPublica — 270 líneas (línea 52)"
     },
     {
       "file": "backend/services/publicWebsiteService.js",
       "type": "file-size",
-      "detail": "1263 líneas"
+      "detail": "1410 líneas"
     },
     {
       "file": "backend/services/publicWebsiteService.js",
       "type": "function-size",
-      "detail": "obtenerMasAlojamientosParaFichaSSR — 205 líneas (línea 234)"
+      "detail": "obtenerMasAlojamientosParaFichaSSR — 205 líneas (línea 278)"
     },
     {
       "file": "backend/services/publicWebsiteService.js",
       "type": "function-size",
-      "detail": "verificarReconciliacionPrecioReservaPublica — 150 líneas (línea 657)"
+      "detail": "verificarReconciliacionPrecioReservaPublica — 155 líneas (línea 701)"
     },
     {
       "file": "backend/services/publicWebsiteService.js",
       "type": "function-size",
-      "detail": "crearReservaPublica — 226 líneas (línea 913)"
+      "detail": "crearReservaPublica — 320 líneas (línea 966)"
     },
     {
       "file": "backend/services/resenasService.js",
       "type": "file-size",
-      "detail": "888 líneas"
+      "detail": "938 líneas"
     },
     {
       "file": "backend/services/resenasService.js",
       "type": "function-size",
-      "detail": "generarResenasAutomaticas — 143 líneas (línea 723)"
+      "detail": "generarResenasAutomaticas — 144 líneas (línea 771)"
     },
     {
       "file": "backend/services/resenasService.js",
       "type": "too-many-exports",
-      "detail": "19 exports"
+      "detail": "20 exports"
+    },
+    {
+      "file": "backend/services/transactionalEmailService.js",
+      "type": "function-size",
+      "detail": "enviarPorDisparador — 124 líneas (línea 209)"
+    },
+    {
+      "file": "backend/services/transactionalEmailService.js",
+      "type": "function-size",
+      "detail": "construirVariablesDesdeReserva — 199 líneas (línea 412)"
     },
     {
       "file": "backend/services/transactionalEmailService.js",
       "type": "too-many-exports",
-      "detail": "16 exports"
+      "detail": "17 exports"
     },
     {
       "file": "backend/routes/website.booking.js",
       "type": "function-size",
-      "detail": "registerBookingRoutes — 201 líneas (línea 13)"
+      "detail": "registerBookingRoutes — 129 líneas (línea 7)"
     },
     {
-      "file": "backend/routes/website.home.helpers.js",
+      "file": "backend/routes/website.property.js",
       "type": "function-size",
-      "detail": "loadHomeSearchBundle — 126 líneas (línea 8)"
+      "detail": "registerPropertyRoutes — 217 líneas (línea 9)"
     },
     {
       "file": "backend/routes/website.property.page.js",
       "type": "function-size",
-      "detail": "renderPropiedadPublica — 189 líneas (línea 76)"
+      "detail": "renderPropiedadPublica — 179 líneas (línea 88)"
     },
     {
       "file": "backend/routes/website.seo.js",
       "type": "function-size",
-      "detail": "registerSeoRoutes — 152 líneas (línea 1)"
+      "detail": "registerSeoRoutes — 169 líneas (línea 1)"
     }
   ]
 }

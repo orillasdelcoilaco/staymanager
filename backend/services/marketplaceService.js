@@ -20,6 +20,8 @@ function mapearPropiedad(row) {
         numResenas: parseInt(row.num_resenas) || 0,
         precioDesde: row.precio_desde ? parseInt(row.precio_desde) : null,
         url: `https://${(row.subdominio || '').toLowerCase()}.${PLATFORM_DOMAIN}/propiedad/${row.id}`,
+        tienePromoTarifa: false,
+        promoTarifaPctMax: 0,
     };
 }
 
@@ -67,7 +69,15 @@ function normalizarTexto(str) {
 const PG_NORMALIZE = `translate(LOWER(%COL%), 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN')`;
 function pgNorm(col) { return PG_NORMALIZE.replace(/%COL%/g, col); }
 
-const obtenerPropiedadesParaMarketplace = async ({ busqueda = '', personas = 0, fechaIn = null, fechaOut = null, limit = 40 } = {}) => {
+function buildMarketplaceOrderBy(sort) {
+    const s = String(sort || '').toLowerCase().trim();
+    if (s === 'valor') return 'precio_desde ASC NULLS LAST, rating DESC NULLS LAST, num_resenas DESC, p.nombre';
+    if (s === 'valor_desc') return 'precio_desde DESC NULLS LAST, rating DESC NULLS LAST, num_resenas DESC, p.nombre';
+    if (s === 'rating') return 'rating DESC NULLS LAST, num_resenas DESC, p.nombre';
+    return 'rating DESC NULLS LAST, num_resenas DESC, p.nombre';
+}
+
+const obtenerPropiedadesParaMarketplace = async ({ busqueda = '', personas = 0, fechaIn = null, fechaOut = null, limit = 40, sort = null } = {}) => {
     if (!pool) return [];
 
     const params = [];
@@ -111,10 +121,11 @@ const obtenerPropiedadesParaMarketplace = async ({ busqueda = '', personas = 0, 
     }
 
     params.push(limit);
+    const orderBy = buildMarketplaceOrderBy(sort);
     const { rows } = await pool.query(
         `${QUERY_BASE}${filtros}
          GROUP BY p.id, p.nombre, p.capacidad, p.metadata, e.id, e.nombre, e.subdominio
-         ORDER BY rating DESC NULLS LAST, num_resenas DESC, p.nombre
+         ORDER BY ${orderBy}
          LIMIT $${params.length}`,
         params
     );
@@ -152,5 +163,6 @@ module.exports = {
     obtenerPropiedadesParaMarketplace,
     obtenerDestacados,
     contarPorEmpresa,
+    buildMarketplaceOrderBy,
     PLATFORM_DOMAIN,
 };

@@ -53,7 +53,7 @@ Hitos Alcanzados:
 
 Log de la última prueba exitosa en Render:
 [DEBUG] Iniciando Firebase Admin SDK para el proyecto: suite-manager-app
-Nueva empresa "Prueba 1" y usuario admin "orillasdelcoilaco@gmail.com" creados con éxito.
+Ejemplo de log: nueva empresa de prueba y usuario admin creados con éxito (los nombres dependen del entorno).
 
 3. Infraestructura y Servicios
 Nombre del Proyecto: SuiteManager (anteriormente StayManager).

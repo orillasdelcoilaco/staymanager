@@ -42,7 +42,7 @@ _Actualizar al iniciar y al terminar trabajo relevante._
 | 2026-04-24  | Claude | `consultarDisponibilidad` / bug  | LISTO    | Fix: `resolveEmpresaPgId` + `unavailableProperties`; commit `e27f151` |
 | 2026-04-24  | Claude | Estrategia multi-canal IA venta  | EN CURSO | Ver §9 — roadmap por canal y tier |
 | 2026-04-24  | Cursor | `GET /api/disponibilidad` enriquecida + vibe búsqueda + confirmación reserva | LISTO | `publicAiDisponibilidadService.js`, `evaluarRestriccionesReservaWebCodigo`, `suitemanagerApiController`, OpenAPI; `requiere_confirmacion_final` en detalle; validación email/tel `publicAiController`. |
-| 2026-04-25  | Cursor | Backlog producto (`TASKS/backlog-producto-pendientes.md`) | LISTO | Actualizado §4: mapa de calor cerrado funcionalmente (panel + calendario + validación por llegada), pendientes movidos a QA E2E/copy. |
+| 2026-04-25  | Cursor | Backlog producto (`TASKS/backlog-producto-pendientes.md`) | LISTO | Mapa de calor §4 + QA E2E pendiente; **actualización adicional:** §1.1f bandeja, §1.6c i18n SSR, §4 checklist Google §9 + script verify, §6 referencias, pie. |
 | 2026-04-25  | Cursor | Release 1.0.0 — `test:ci` + plan + CI workflow | LISTO | `package.json` `test:ci` ampliado (smoke §2 scripts); `TASKS/plan-release-1.0.0.md` §2.1; `backend/scripts/test-integrations-settings-sanitize.js`; `.github/workflows/ci-smoke.yml` → `npm run test:ci`. Smoke manual §2.3 y push tag `v1.0.0` pendientes operación/staging. |
 
 **Convención de estados:** `EN CURSO` | `LISTO` | `PAUSA` | `BLOQUEADO`.

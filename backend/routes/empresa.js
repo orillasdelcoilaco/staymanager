@@ -3,7 +3,8 @@ const express = require('express');
 const multer = require('multer');
 const sharp = require('sharp');
 const { uploadFile } = require('../services/storageService');
-const { obtenerDetallesEmpresa, actualizarDetallesEmpresa } = require('../services/empresaService');
+const { obtenerDetallesEmpresa, actualizarDetallesEmpresa, normalizeSubdomain } = require('../services/empresaService');
+const { syncDomain } = require('../services/renderDomainService');
 
 // Configuración de Multer para manejar la subida del logo en memoria
 const storage = multer.memoryStorage();
@@ -11,6 +12,10 @@ const upload = multer({ storage: storage });
 
 module.exports = (db) => {
     const router = express.Router();
+    const _isManagedInternalDomain = (domainValue) => {
+        const d = String(domainValue || '').trim().toLowerCase();
+        return d.endsWith('.onrender.com') || d.endsWith('.suitemanagers.com') || d.endsWith('.suitemanager.com');
+    };
 
     // --- RUTA NUEVA PARA SUBIR EL LOGO ---
     // (Note que la ruta será POST /api/empresa/upload-logo)
@@ -110,7 +115,20 @@ module.exports = (db) => {
     router.put('/', async (req, res) => {
         try {
             const { empresaId } = req.user;
-            const datosActualizados = req.body;
+            const datosActualizados = { ...(req.body || {}) };
+            const empresaAntes = await obtenerDetallesEmpresa(db, empresaId);
+            const oldDomain = String(
+                empresaAntes?.dominio
+                || empresaAntes?.websiteSettings?.general?.domain
+                || empresaAntes?.websiteSettings?.domain
+                || ''
+            ).trim().toLowerCase();
+            const oldSubdomain = String(
+                empresaAntes?.subdominio
+                || empresaAntes?.websiteSettings?.general?.subdomain
+                || empresaAntes?.websiteSettings?.subdomain
+                || ''
+            ).trim().toLowerCase();
 
             // Eliminar logoUrl si se envió accidentalmente con el formulario principal
             // (Se maneja por la ruta /upload-logo)
@@ -118,14 +136,55 @@ module.exports = (db) => {
                 delete datosActualizados.websiteSettings.theme.logoUrl;
             }
 
+            // Si se cambia el nombre comercial desde esta vista y no hay dominio personalizado externo,
+            // auto-derivar subdominio/dominio y sincronizar Render para mantener el host público operativo.
+            const nombreNuevo = String(datosActualizados.nombre || '').trim();
+            const nombreCambio = nombreNuevo && nombreNuevo !== String(empresaAntes?.nombre || '').trim();
+            const wsGeneralInput = datosActualizados?.websiteSettings?.general || {};
+            const wsSubInput = String(wsGeneralInput.subdomain || '').trim();
+            const wsDomainInput = String(wsGeneralInput.domain || '').trim();
+            const hasCustomDomain = oldDomain && !_isManagedInternalDomain(oldDomain);
+
+            let expectedDomainForRender = oldDomain || '';
+            if (nombreCambio && !hasCustomDomain && !wsSubInput && !wsDomainInput) {
+                const subDerivado = normalizeSubdomain(nombreNuevo);
+                if (subDerivado) {
+                    const useOnRenderDomain = oldDomain.endsWith('.onrender.com');
+                    const domainDerivado = useOnRenderDomain
+                        ? `${subDerivado}.onrender.com`
+                        : `${subDerivado}.suitemanagers.com`;
+
+                    datosActualizados.subdominio = subDerivado;
+                    datosActualizados.dominio = domainDerivado;
+                    datosActualizados.websiteSettings = datosActualizados.websiteSettings || {};
+                    datosActualizados.websiteSettings.general = {
+                        ...(datosActualizados.websiteSettings.general || {}),
+                        subdomain: subDerivado,
+                        domain: domainDerivado,
+                    };
+
+                    expectedDomainForRender = domainDerivado;
+                }
+            }
+
             const empresaActualizada = await actualizarDetallesEmpresa(db, empresaId, datosActualizados);
+            let domainInfo = null;
+            if (expectedDomainForRender && _isManagedInternalDomain(expectedDomainForRender) && expectedDomainForRender !== oldDomain) {
+                try {
+                    domainInfo = await syncDomain(expectedDomainForRender, oldDomain || null);
+                } catch (renderErr) {
+                    domainInfo = { domain: expectedDomainForRender, error: renderErr.message, instructions: null };
+                    console.warn(`[empresa.put] Advertencia Render API: ${renderErr.message}`);
+                }
+            }
             res.status(200).json({
                 message: 'Datos de la empresa actualizados con éxito.',
-                empresa: empresaActualizada
+                empresa: empresaActualizada,
+                domainInfo,
             });
         } catch (error) {
             console.error("Error al actualizar detalles de la empresa:", error);
-            res.status(500).json({ error: error.message });
+            res.status(error.statusCode || 500).json({ error: error.message });
         }
     });
 

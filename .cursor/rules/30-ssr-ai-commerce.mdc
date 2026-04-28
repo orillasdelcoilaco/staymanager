@@ -1,0 +1,69 @@
+---
+description: Estandar SSR orientado a SEO automatico, legibilidad para IA y reservas directas
+globs: backend/routes/website.js,backend/api/ssr/**/*.js,backend/services/publicWebsiteService.js,backend/views/**/*.ejs
+alwaysApply: false
+---
+
+# SSR AI Commerce - StayManager
+
+## Objetivo de la SSR
+
+La SSR es un canal comercial para:
+
+1. Usuarios humanos (conversion y reserva directa).
+2. Buscadores (indexacion y posicionamiento SEO).
+3. Agentes IA (lectura semantica, recomendacion y reserva).
+
+Toda decision tecnica en SSR debe maximizar esos tres objetivos.
+
+## Reglas de arquitectura
+
+- Mantener separacion estricta entre `SPA` y `SSR`.
+- Resolver tenant por dominio/subdominio en cada request SSR.
+- Nunca mezclar datos entre empresas (aislamiento total).
+- Unica entidad compartida global permitida: clientes.
+
+## Reglas de contenido (IA-first)
+
+- El contenido principal del sitio debe poder generarse de forma automatica por IA.
+- Evitar dependencia de texto manual como prerequisito para publicar SSR.
+- Si falla generacion IA, aplicar fallback seguro sin romper render ni SEO basico.
+- Mantener consistencia entre contenido visible, metadata SEO y datos estructurados.
+
+## Reglas SEO tecnico
+
+- Cada pagina SSR debe incluir title y description validos.
+- Mantener `robots.txt` y `sitemap.xml` por tenant.
+- Incluir JSON-LD estructurado y consistente con el contenido renderizado.
+- Preferir campos semanticos completos (ubicacion, oferta, amenities, rating cuando aplique).
+- Evitar contenido vacio o placeholders indexables.
+
+## Reglas AI-readability
+
+- Exponer informacion clave de alojamientos de forma clara y estructurada.
+- Mantener endpoints JSON publicos utiles para agentes IA cuando corresponda.
+- Evitar ambiguedad en nombres de espacios, capacidades, precios y reglas de reserva.
+- No ocultar datos comerciales criticos solo en componentes visuales.
+
+## Reglas de conversion (benchmark Airbnb-like, no clon)
+
+- Mantener estructura de pagina enfocada en conversion (hero, confianza, detalle, CTA reserva).
+- Mantener flujo de precio/disponibilidad transparente y accionable.
+- Referencia funcional de UX: patron Airbnb-like.
+- No replicar branding/copy exacto de terceros.
+
+## Reglas de performance y cache
+
+- Usar cache SSR por tenant en rutas estables.
+- Invalidad cache de tenant cuando cambia contenido/configuracion de website.
+- No introducir llamadas IA costosas sin estrategia de cache/fallback.
+- Evitar que errores de IA o servicios externos tumben render SSR.
+
+## Checklist minimo al tocar SSR
+
+- [ ] Separacion SPA/SSR intacta.
+- [ ] Tenant aislado en lectura y render.
+- [ ] SEO basico completo (title, description, json-ld, sitemap/robots).
+- [ ] Contenido IA con fallback.
+- [ ] Flujo de reserva funcional (precio, disponibilidad, crear reserva).
+- [ ] Cache/invalidation revisado para cambios de contenido.

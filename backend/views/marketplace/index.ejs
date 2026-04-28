@@ -1,24 +1,29 @@
 <%- /* backend/views/marketplace/index.ejs — Homepage Marketplace suitemanagers.com */ %>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="<%= mp.htmlLang %>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SuiteManagers — Alojamientos en Chile</title>
-    <meta name="description" content="Encuentra cabañas, casas y departamentos únicos en los mejores destinos de Chile. Reserva directo con el anfitrión.">
+    <title><%= mp.pageTitle %></title>
+    <meta name="description" content="<%= mp.metaDescription %>">
+    <link rel="canonical" href="<%= canonicalUrl %>">
+    <link rel="alternate" hreflang="es" href="<%= hreflangEsUrl %>">
+    <link rel="alternate" hreflang="en" href="<%= hreflangEnUrl %>">
+    <link rel="alternate" hreflang="x-default" href="<%= hreflangEsUrl %>">
 
     <!-- Open Graph / Social -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="SuiteManagers">
-    <meta property="og:title" content="SuiteManagers — Alojamientos en Chile">
-    <meta property="og:description" content="Encuentra cabañas, casas y departamentos únicos en los mejores destinos de Chile. Reserva directo con el anfitrión.">
-    <meta property="og:url" content="https://<%= platformDomain %>/">
+    <meta property="og:locale" content="<%= mp.ogLocale %>">
+    <meta property="og:title" content="<%= mp.ogTitle %>">
+    <meta property="og:description" content="<%= mp.ogDescription %>">
+    <meta property="og:url" content="<%= canonicalUrl %>">
     <% if (propiedades.length > 0 && propiedades[0].fotoUrl) { %>
     <meta property="og:image" content="<%= propiedades[0].fotoUrl %>">
     <% } %>
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="SuiteManagers — Alojamientos en Chile">
-    <meta name="twitter:description" content="Reserva directo con el anfitrión. Sin intermediarios.">
+    <meta name="twitter:title" content="<%= mp.pageTitle %>">
+    <meta name="twitter:description" content="<%= mp.twitterDescription %>">
 
     <!-- Schema.org JSON-LD -->
     <script type="application/ld+json">
@@ -27,7 +32,7 @@
       "@type": "WebSite",
       "name": "SuiteManagers",
       "url": "https://<%= platformDomain %>",
-      "description": "Marketplace de alojamientos en Chile. Reserva directa con anfitriones.",
+      "description": <%- JSON.stringify(mp.jsonLdSiteDescription) %>,
       "potentialAction": {
         "@type": "SearchAction",
         "target": {
@@ -43,8 +48,8 @@
     {
       "@context": "https://schema.org",
       "@type": "ItemList",
-      "name": "Alojamientos en Chile",
-      "description": "Cabañas, casas y departamentos disponibles en SuiteManagers",
+      "name": <%- JSON.stringify(mp.jsonLdItemListName) %>,
+      "description": <%- JSON.stringify(mp.jsonLdItemListDescription) %>,
       "numberOfItems": <%= propiedades.length %>,
       "itemListElement": [
         <%- propiedades.slice(0, 10).map((p, i) => JSON.stringify({
@@ -76,8 +81,7 @@
     <style>
         body { font-family: 'Inter', sans-serif; background: #f8f8f8; }
         .mp-header { background: #fff; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; z-index: 50; }
-        .mp-logo { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.5px; color: #4f46e5; }
-        .mp-logo span { color: #111; }
+        .mp-logo { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.5px; }
         .search-pill {
             display: flex; align-items: center;
             background: #fff; border: 1.5px solid #d1d5db;
@@ -94,12 +98,11 @@
         .search-segment input { width: 100%; border: none; outline: none; font-size: 13px; color: #6b7280; background: transparent; font-family: inherit; }
         .search-segment input::placeholder { color: #9ca3af; }
         .search-btn {
-            margin: 6px; background: #4f46e5; color: #fff; border: none;
+            margin: 6px; border: none;
             border-radius: 9999px; width: 48px; height: 48px; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
-            font-size: 16px; flex-shrink: 0; transition: background 0.15s;
+            font-size: 16px; flex-shrink: 0;
         }
-        .search-btn:hover { background: #4338ca; }
         .prop-card {
             background: #fff; border-radius: 16px; overflow: hidden;
             transition: transform 0.15s, box-shadow 0.15s;
@@ -112,6 +115,7 @@
         .prop-card:hover .prop-photo img { transform: scale(1.04); }
         .prop-photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #e0e7ff, #f0f4ff); color: #a5b4fc; font-size: 3rem; }
         .badge-fav { position: absolute; top: 10px; left: 10px; background: #fff; border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 700; color: #111; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+        .mp-badge-promo { position: absolute; top: 10px; right: 10px; background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 700; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
         .prop-body { padding: 14px 16px 16px; }
         .prop-title { font-size: 14px; font-weight: 700; color: #111; line-height: 1.35; margin-bottom: 3px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .prop-sub { font-size: 12px; color: #6b7280; margin-bottom: 8px; }
@@ -127,39 +131,51 @@
 
 <!-- ═══ HEADER ═══ -->
 <header class="mp-header">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center gap-6">
-        <a href="/" class="mp-logo flex-shrink-0">suite<span>managers</span></a>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center gap-4 lg:gap-6">
+        <a href="<%= mpHomeUrl %>" class="mp-logo flex-shrink-0 text-primary-600">suite<span class="text-neutral-900">managers</span></a>
 
         <!-- Search pill (form GET) -->
-        <form method="GET" action="/" class="flex-1 max-w-3xl">
+        <form method="GET" action="/" class="flex-1 max-w-3xl min-w-[200px]">
             <div class="search-pill">
+                <% if (mp.htmlLang === 'en') { %>
+                <input type="hidden" name="lang" value="en">
+                <% } %>
+                <% if (sort) { %>
+                <input type="hidden" name="sort" value="<%= sort %>">
+                <% } %>
                 <div class="search-segment">
-                    <label for="s-destino">Destino</label>
+                    <label for="s-destino"><%= mp.labelDestino %></label>
                     <input id="s-destino" name="q" type="text"
-                           placeholder="Buscar destinos"
+                           placeholder="<%= mp.placeholderDestino %>"
                            value="<%= busqueda %>">
                 </div>
                 <div class="search-segment" style="max-width: 140px;">
-                    <label for="s-fecha-in">Llegada</label>
+                    <label for="s-fecha-in"><%= mp.labelLlegada %></label>
                     <input id="s-fecha-in" name="fecha_in" type="date"
                            value="<%= fechaIn %>" style="color-scheme:light;">
                 </div>
                 <div class="search-segment" style="max-width: 140px;">
-                    <label for="s-fecha-out">Salida</label>
+                    <label for="s-fecha-out"><%= mp.labelSalida %></label>
                     <input id="s-fecha-out" name="fecha_out" type="date"
                            value="<%= fechaOut %>" style="color-scheme:light;">
                 </div>
                 <div class="search-segment" style="max-width: 120px;">
-                    <label for="s-personas">Huéspedes</label>
+                    <label for="s-personas"><%= mp.labelHuespedes %></label>
                     <input id="s-personas" name="personas" type="number"
-                           placeholder="¿Cuántos?" min="1" max="20"
+                           placeholder="<%= mp.placeholderHuespedes %>" min="1" max="20"
                            value="<%= personas > 0 ? personas : '' %>">
                 </div>
-                <button type="submit" class="search-btn" aria-label="Buscar">
+                <button type="submit" class="search-btn bg-primary-600 text-white hover:bg-primary-700" aria-label="<%= mp.ariaBuscar %>">
                     <i class="fas fa-search"></i>
                 </button>
             </div>
         </form>
+
+        <nav class="flex-shrink-0 flex items-center gap-1 text-sm font-semibold" aria-label="<%= mp.langSwitchTitle %>">
+            <a href="<%= mpLinkEs %>" class="px-2 py-1 rounded-md <%= mp.htmlLang === 'es' ? 'bg-neutral-100 text-neutral-900' : 'text-primary-600 hover:underline' %>"><%= mp.langSwitchEs %></a>
+            <span class="text-neutral-300">|</span>
+            <a href="<%= mpLinkEn %>" class="px-2 py-1 rounded-md <%= mp.htmlLang === 'en' ? 'bg-neutral-100 text-neutral-900' : 'text-primary-600 hover:underline' %>"><%= mp.langSwitchEn %></a>
+        </nav>
     </div>
 </header>
 
@@ -167,9 +183,10 @@
 <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
     <%
+    const _priceLocale = mp.htmlLang === 'en' ? 'en-US' : 'es-CL';
     const formatPrecio = (n) => {
         if (!n) return null;
-        return '$' + Number(n).toLocaleString('es-CL');
+        return '$' + Number(n).toLocaleString(_priceLocale);
     };
     %>
 
@@ -178,7 +195,7 @@
     <section class="mb-14">
         <h2 class="section-title">
             <i class="fas fa-star text-warning-500 mr-2" style="font-size:1.1rem;"></i>
-            Favoritos entre huéspedes
+            <%= mp.sectionFavoritos %>
         </h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <% destacados.forEach(p => { %>
@@ -189,20 +206,23 @@
                     <% } else { %>
                         <div class="prop-photo-placeholder"><i class="fas fa-home"></i></div>
                     <% } %>
-                    <span class="badge-fav"><i class="fas fa-medal mr-1 text-warning-500"></i>Favorito</span>
+                    <% if (p.tienePromoTarifa && p.promoTarifaPctMax > 0) { %>
+                    <span class="mp-badge-promo"><i class="fas fa-tag mr-1"></i>-<%= p.promoTarifaPctMax %>%</span>
+                    <% } %>
+                    <span class="badge-fav"><i class="fas fa-medal mr-1 text-warning-500"></i><%= mp.badgeFavorito %></span>
                 </div>
                 <div class="prop-body">
                     <p class="prop-title"><%= p.titulo %></p>
-                    <p class="prop-sub"><%= p.empresaNombre %> · <%= p.capacidad %> personas</p>
+                    <p class="prop-sub"><%= p.empresaNombre %> · <%= p.capacidad %> <%= p.capacidad !== 1 ? mp.people : mp.person %></p>
                     <% if (p.rating) { %>
                     <div class="prop-rating">
                         <i class="fas fa-star text-warning-500" style="font-size:11px;"></i>
                         <%= p.rating %>
-                        <% if (p.numResenas > 0) { %><span>(<%= p.numResenas %> reseñas)</span><% } %>
+                        <% if (p.numResenas > 0) { %><span>(<%= p.numResenas %> <%= mp.reviews %>)</span><% } %>
                     </div>
                     <% } %>
                     <% if (p.precioDesde) { %>
-                    <p class="prop-price"><strong><%= formatPrecio(p.precioDesde) %></strong> <em>/ noche</em></p>
+                    <p class="prop-price"><strong><%= formatPrecio(p.precioDesde) %></strong> <em><%= mp.pricePerNight %></em></p>
                     <% } %>
                 </div>
             </a>
@@ -216,16 +236,16 @@
         <h2 class="section-title">
             <% if (hayBusqueda) { %>
                 <% if (busqueda) { %>
-                    Resultados para "<strong><%= busqueda %></strong>"
+                    <%= mp.sectionResultadosConQuery %> "<strong><%= busqueda %></strong>"
                 <% } else { %>
-                    Alojamientos para <%= personas %> persona<%= personas !== 1 ? 's' : '' %>
+                    <%= mp.sectionAlojamientosPara %> <%= personas %> <%= personas !== 1 ? mp.people : mp.person %>
                 <% } %>
-                <span class="text-base font-normal text-gray-400 ml-2">· <%= totalResultados %> alojamientos</span>
-                <a href="/" class="text-sm font-normal text-primary-600 hover:underline ml-4">
-                    <i class="fas fa-times-circle mr-1"></i>Limpiar filtros
+                <span class="text-base font-normal text-gray-400 ml-2">· <%= totalResultados %> <%= mp.lodgings %></span>
+                <a href="<%= mpHomeUrl %>" class="text-sm font-normal text-primary-600 hover:underline ml-4">
+                    <i class="fas fa-times-circle mr-1"></i><%= mp.clearFilters %>
                 </a>
             <% } else { %>
-                Todos los alojamientos
+                <%= mp.sectionTodos %>
                 <span class="text-base font-normal text-gray-400 ml-2">· <%= totalResultados %></span>
             <% } %>
         </h2>
@@ -233,8 +253,8 @@
         <% if (propiedades.length === 0) { %>
         <div class="text-center py-20">
             <i class="fas fa-search text-4xl text-gray-200 mb-4"></i>
-            <p class="text-gray-500 text-lg">No encontramos alojamientos con esos filtros.</p>
-            <a href="/" class="inline-block mt-4 text-primary-600 hover:underline font-medium">Ver todos los alojamientos</a>
+            <p class="text-gray-500 text-lg"><%= mp.noResults %></p>
+            <a href="<%= mpHomeUrl %>" class="inline-block mt-4 text-primary-600 hover:underline font-medium"><%= mp.verTodos %></a>
         </div>
         <% } else { %>
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -246,19 +266,22 @@
                     <% } else { %>
                         <div class="prop-photo-placeholder"><i class="fas fa-home"></i></div>
                     <% } %>
+                    <% if (p.tienePromoTarifa && p.promoTarifaPctMax > 0) { %>
+                    <span class="mp-badge-promo"><i class="fas fa-tag mr-1"></i>-<%= p.promoTarifaPctMax %>%</span>
+                    <% } %>
                 </div>
                 <div class="prop-body">
                     <p class="prop-title"><%= p.titulo %></p>
-                    <p class="prop-sub"><%= p.empresaNombre %> · <%= p.capacidad %> personas</p>
+                    <p class="prop-sub"><%= p.empresaNombre %> · <%= p.capacidad %> <%= p.capacidad !== 1 ? mp.people : mp.person %></p>
                     <% if (p.rating) { %>
                     <div class="prop-rating">
                         <i class="fas fa-star text-warning-500" style="font-size:11px;"></i>
                         <%= p.rating %>
-                        <% if (p.numResenas > 0) { %><span>(<%= p.numResenas %>)</span><% } %>
+                        <% if (p.numResenas > 0) { %><span>(<%= p.numResenas %> <%= mp.reviews %>)</span><% } %>
                     </div>
                     <% } %>
                     <% if (p.precioDesde) { %>
-                    <p class="prop-price"><strong><%= formatPrecio(p.precioDesde) %></strong> <em>/ noche</em></p>
+                    <p class="prop-price"><strong><%= formatPrecio(p.precioDesde) %></strong> <em><%= mp.pricePerNight %></em></p>
                     <% } %>
                 </div>
             </a>
@@ -271,8 +294,8 @@
 <!-- ═══ FOOTER ═══ -->
 <footer class="border-t border-gray-200 mt-20 py-10 bg-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-400">
-        <p class="mp-logo mb-2" style="font-size:1.1rem;">suite<span style="color:#111;">managers</span></p>
-        <p>Plataforma de arrendamiento directo en Chile · <a href="#" class="hover:underline">Términos</a> · <a href="#" class="hover:underline">Privacidad</a></p>
+        <p class="mp-logo mb-2 text-primary-600" style="font-size:1.1rem;">suite<span class="text-neutral-900">managers</span></p>
+        <p><%= mp.footerTagline %> · <a href="#" class="hover:underline"><%= mp.footerTerms %></a> · <a href="#" class="hover:underline"><%= mp.footerPrivacy %></a></p>
     </div>
 </footer>
 

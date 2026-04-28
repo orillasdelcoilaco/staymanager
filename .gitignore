@@ -66,3 +66,6 @@ frontend/src/views/components/gestionarTiposComponente/verify_collapse.html
 
 # ── Claude Code interno ───────────────────────────────────────────────────────
 .claude/
+
+# ── Instaladores locales / artefactos grandes ─────────────────────────────────
+OllamaSetup.exe

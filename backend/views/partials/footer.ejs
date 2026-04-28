@@ -1,10 +1,13 @@
 <%- /* backend/views/partials/footer.ejs */ %>
 <%
+    const _fhl = (typeof htmlLang !== 'undefined' && htmlLang === 'en') ? 'en' : 'es';
     const _fTelefono  = locals.contacto?.telefonoPrincipal || empresa.contactoTelefono || '';
     const _fEmail     = locals.contacto?.emailContacto    || empresa.contactoEmail    || '';
     const _fNombre    = empresa.contactoNombre            || empresa.nombre;
     const _fWhatsapp  = _fTelefono.replace(/\D/g, '');
-    const _fWaMsg     = encodeURIComponent(`Hola ${_fNombre.split(' ')[0]}, me interesa reservar un alojamiento.`);
+    const _fWaMsg     = encodeURIComponent(_fhl === 'en'
+        ? `Hi ${_fNombre.split(' ')[0]}, I'm interested in booking a stay.`
+        : `Hola ${_fNombre.split(' ')[0]}, me interesa reservar un alojamiento.`);
     const _fWaUrl     = _fWhatsapp ? `https://wa.me/${_fWhatsapp}?text=${_fWaMsg}` : '';
     const _fCiudad    = locals.ubicacion?.ciudad  || empresaContext?.ubicacion?.ciudad  || '';
     const _fRegion    = locals.ubicacion?.region  || empresaContext?.ubicacion?.region  || '';
@@ -44,17 +47,18 @@
 
             <%# --- Columna 2: Navegación --- %>
             <div>
-                <p class="font-semibold text-white mb-3">Navegación</p>
+                <p class="font-semibold text-white mb-3"><%= _fhl === 'en' ? 'Navigation' : 'Navegación' %></p>
                 <ul class="space-y-2 text-sm">
-                    <li><a href="/" class="hover:text-white transition">Inicio</a></li>
-                    <li><a href="/#propiedades" class="hover:text-white transition">Alojamientos</a></li>
-                    <li><a href="/contacto" class="hover:text-white transition">Contacto</a></li>
+                    <li><a href="/" class="hover:text-white transition"><%= _fhl === 'en' ? 'Home' : 'Inicio' %></a></li>
+                    <li><a href="/#propiedades" class="hover:text-white transition"><%= _fhl === 'en' ? 'Stays' : 'Alojamientos' %></a></li>
+                    <li><a href="/guia-huesped" class="hover:text-white transition"><%= _fhl === 'en' ? 'Guest guide' : 'Guía del huésped' %></a></li>
+                    <li><a href="/contacto" class="hover:text-white transition"><%= _fhl === 'en' ? 'Contact' : 'Contacto' %></a></li>
                 </ul>
             </div>
 
             <%# --- Columna 3: Contacto --- %>
             <div>
-                <p class="font-semibold text-white mb-3">Contacto</p>
+                <p class="font-semibold text-white mb-3"><%= _fhl === 'en' ? 'Contact' : 'Contacto' %></p>
                 <ul class="space-y-3 text-sm">
                     <% if (_fTelefono) { %>
                     <li class="flex items-center gap-2">
@@ -83,7 +87,7 @@
         </div>
 
         <div class="border-t border-gray-700 pt-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-sm text-gray-500">
-            <p>&copy; <%= new Date().getFullYear() %> <%= empresa.nombre %>. Todos los derechos reservados.</p>
+            <p>&copy; <%= new Date().getFullYear() %> <%= empresa.nombre %>. <%= _fhl === 'en' ? 'All rights reserved.' : 'Todos los derechos reservados.' %></p>
             <p>Powered by <a href="https://suitemanager.cl" class="hover:text-gray-300 transition">SuiteManager</a></p>
         </div>
     </div>

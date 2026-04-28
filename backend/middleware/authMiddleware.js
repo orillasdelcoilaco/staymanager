@@ -1,4 +1,23 @@
 const admin = require('firebase-admin');
+const pool = require('../db/postgres');
+
+async function resolveEmpresaFromPostgres(uid) {
+    if (!pool) return null;
+    const { rows } = await pool.query(
+        `SELECT u.empresa_id, u.rol, e.nombre
+         FROM usuarios u
+         JOIN empresas e ON e.id = u.empresa_id
+         WHERE u.id = $1
+         LIMIT 1`,
+        [uid]
+    );
+    if (!rows[0]) return null;
+    return {
+        empresaId: rows[0].empresa_id,
+        rol: rows[0].rol,
+        nombreEmpresa: rows[0].nombre,
+    };
+}
 
 const createAuthMiddleware = (admin, db) => async (req, res, next) => {
     if (req.path === '/auth/google/callback') {
@@ -14,29 +33,22 @@ const createAuthMiddleware = (admin, db) => async (req, res, next) => {
 
     try {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
-        
-        const usersQuery = db.collectionGroup('users').where('uid', '==', decodedToken.uid);
-        const userSnapshot = await usersQuery.get();
 
-        if (userSnapshot.empty) {
-            return res.status(403).json({ error: 'Usuario no encontrado en ninguna empresa.' });
+        if (!pool) {
+            return res.status(500).json({ error: 'PostgreSQL no está activo para resolver identidad de empresa.' });
         }
 
-        const userDoc = userSnapshot.docs[0];
-        const empresaId = userDoc.ref.parent.parent.id;
-
-        const empresaDoc = await db.collection('empresas').doc(empresaId).get();
-        if (!empresaDoc.exists) {
-            return res.status(404).json({ error: 'La empresa asociada a este usuario no fue encontrada.' });
+        const pgIdentity = await resolveEmpresaFromPostgres(decodedToken.uid);
+        if (!pgIdentity) {
+            return res.status(403).json({ error: 'Usuario no encontrado en PostgreSQL.' });
         }
-        const nombreEmpresa = empresaDoc.data().nombre;
 
         req.user = {
             uid: decodedToken.uid,
             email: decodedToken.email,
-            empresaId: empresaId,
-            rol: userDoc.data().rol,
-            nombreEmpresa: nombreEmpresa
+            empresaId: pgIdentity.empresaId,
+            rol: pgIdentity.rol || 'admin',
+            nombreEmpresa: pgIdentity.nombreEmpresa || '',
         };
 
         next();

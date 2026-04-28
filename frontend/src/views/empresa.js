@@ -32,6 +32,33 @@ function renderTipoNegocio(tipoActual) {
         </fieldset>`;
 }
 
+function renderSitioPublicoResumen() {
+    const sub =
+        (empresaInfo.subdominio || empresaInfo.websiteSettings?.general?.subdomain || '').trim();
+    const domCustom = (
+        empresaInfo.dominio ||
+        empresaInfo.websiteSettings?.general?.domain ||
+        ''
+    ).trim();
+    const hostSuite = sub ? `${sub}.suitemanagers.com` : '';
+    return `
+        <fieldset class="border p-4 rounded-md bg-gray-50 border-gray-200">
+            <legend class="px-2 font-semibold text-gray-700">Sitio público (URL y título en el navegador)</legend>
+            <p class="text-sm text-gray-600 mt-2 mb-3">
+                El nombre de la empresa se usa en correos y datos internos. La <strong>pestaña del navegador</strong> en la home
+                puede seguir un título de marketing o SEO definido en Configuración Web (incluye contenido generado en caché).
+                Tras guardar aquí o en la web, el servidor refresca la caché del sitio público.
+            </p>
+            <ul class="text-sm text-gray-800 space-y-1 mb-4 list-disc list-inside">
+                ${sub ? `<li>Subdominio SuiteManagers: <code class="bg-white px-1 rounded border">${hostSuite}</code></li>` : '<li>Subdominio: (no configurado aún)</li>'}
+                ${domCustom ? `<li>Dominio personalizado declarado: <code class="bg-white px-1 rounded border">${domCustom}</code></li>` : ''}
+            </ul>
+            <button type="button" id="btn-ir-website-url" class="btn-outline text-sm">
+                Cambiar subdominio, dominio o título SEO del sitio público
+            </button>
+        </fieldset>`;
+}
+
 function renderInfoGeneral() {
     return `
         <fieldset class="border p-4 rounded-md">
@@ -181,6 +208,7 @@ function renderFormulario() {
         <form id="empresa-form" class="space-y-6">
             ${renderTipoNegocio(tipoActual)}
             ${renderInfoGeneral()}
+            ${renderSitioPublicoResumen()}
             ${renderUbicacion(tipoActual, ubicacion)}
             ${renderLogo()}
             ${renderDatosBancarios()}
@@ -208,6 +236,7 @@ function renderFormulario() {
     });
 
     document.getElementById('btn-ir-website')?.addEventListener('click', () => handleNavigation('/website-general'));
+    document.getElementById('btn-ir-website-url')?.addEventListener('click', () => handleNavigation('/website-general'));
 
     document.getElementById('empresa-form').addEventListener('submit', async (e) => {
         e.preventDefault();

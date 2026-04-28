@@ -74,6 +74,9 @@ function _renderModalEditar(estadosReservaOptions, estadosGestionOptions) {
                 </div>
             </div>
             <div id="resumen-grupo-container" class="hidden mb-4"></div>
+            <div id="edit-garantia-operacion-wrap" class="hidden mb-4">
+                <div id="edit-garantia-operacion"></div>
+            </div>
             <form id="reserva-form-edit" class="space-y-6 max-h-[75vh] overflow-y-auto pr-4">
                 <fieldset class="border p-4 rounded-md"><legend class="px-2 font-semibold text-gray-700">Datos de la Reserva</legend>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -140,6 +143,9 @@ function _renderModalVer() {
                 <div id="view-loading-state" class="text-center p-8"><p>Cargando detalles...</p></div>
                 <div id="reserva-view-content" class="hidden space-y-6 max-h-[75vh] overflow-y-auto pr-4">
                     <div id="view-info-grupo" class="hidden"></div>
+                    <div id="view-garantia-operacion-wrap" class="hidden">
+                        <div id="view-garantia-operacion"></div>
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="space-y-4">
                             <section>
@@ -180,12 +186,35 @@ function _renderModalVer() {
                         </div>
                     </div>
                     <div class="space-y-4 border-t pt-4 mt-4">
+                        <section>
+                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">🆚 Comparador OTA (referencial)</h4>
+                            <div id="view-comparador-ota" class="text-sm text-gray-500">Calculando comparador...</div>
+                        </section>
                         <section><h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">📈 Desglose de Valores (Fuente de la Verdad)</h4><div id="view-desglose-valores" class="overflow-x-auto text-sm"></div></section>
                         <section><h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">💸 Análisis de Cobranza (Saldos)</h4><div id="view-analisis-cobranza" class="overflow-x-auto text-sm"></div></section>
                         <section><h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">📊 Análisis de Rentabilidad (KPI)</h4><div id="view-analisis-kpi" class="overflow-x-auto text-sm"></div></section>
                         <section><h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">✏️ Historial de Ajustes (Trazabilidad)</h4><div id="view-historial-ajustes" class="overflow-x-auto text-sm"></div></section>
-                        <section><h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Transacciones y Pagos (Grupo)</h4><div id="view-transacciones-list" class="space-y-2 text-sm max-h-40 overflow-y-auto"></div></section>
-                        <section><h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Bitácora de Gestión (Grupo)</h4><div id="view-notas-list" class="space-y-2 text-xs max-h-40 overflow-y-auto"></div></section>
+                        <section>
+                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Transacciones y Pagos (Grupo)</h4>
+                            <p class="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-md p-2 mb-2">
+                                Registro manual: este módulo no procesa cobros electrónicos ni links de pago.
+                            </p>
+                            <div id="view-transacciones-list" class="space-y-2 text-sm max-h-40 overflow-y-auto"></div>
+                        </section>
+                        <section>
+                            <h4 class="font-semibold text-gray-800 border-b pb-1 mb-2">Bitácora de Gestión (Grupo)</h4>
+                            <div class="mb-2">
+                                <select id="view-notas-filter-select" class="form-select text-xs">
+                                    <option value="all">Todo</option>
+                                    <option value="comparador">Comparador OTA</option>
+                                    <option value="garantia">Garantía</option>
+                                    <option value="pagos">Pagos</option>
+                                    <option value="manual">Manual</option>
+                                </select>
+                            </div>
+                            <div id="view-notas-stats-chips" class="mb-2 flex flex-wrap gap-2"></div>
+                            <div id="view-notas-list" class="space-y-2 text-xs max-h-40 overflow-y-auto"></div>
+                        </section>
                     </div>
                 </div>
             </div>
