@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const publicAiController = require('../controllers/publicAiController');
 const {
+    bookingWorkflowLimiter,
     createReservationLimiter,
     readLimiter,
     speedLimiter,
@@ -80,14 +81,14 @@ module.exports = (db) => {
 
     // POST /api/public/reservar/intent - Crear intención de reserva (legacy)
     router.post('/reservar/intent',
-        createReservationLimiter,
+        bookingWorkflowLimiter,
         requireAgentKey,
         publicAiController.createBookingIntent
     );
 
     // POST /api/public/reservas/resolve-booking-unit — puente catálogo -> booking_id transaccional
     router.post('/reservas/resolve-booking-unit',
-        createReservationLimiter,
+        bookingWorkflowLimiter,
         requireAgentKey,
         async (req, res) => {
             try {
@@ -102,7 +103,7 @@ module.exports = (db) => {
 
     // POST /api/public/reservas/cotizar — dry-run (misma lógica que reserva, sin persistir)
     router.post('/reservas/cotizar',
-        createReservationLimiter,
+        bookingWorkflowLimiter,
         requireAgentKey,
         async (req, res) => {
             try {

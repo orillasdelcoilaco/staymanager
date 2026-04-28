@@ -1,21 +1,75 @@
 const rateLimit = require('express-rate-limit');
 const slowDown = require('express-slow-down');
+const ipKeyGenerator = typeof rateLimit.ipKeyGenerator === 'function'
+    ? rateLimit.ipKeyGenerator
+    : (ip) => String(ip || '');
 
-// Rate limiter para creación de reservas (3 por 15 minutos)
+function _norm(v) {
+    return String(v || '').trim().toLowerCase();
+}
+
+function _trustedIps() {
+    return (process.env.TRUSTED_IPS || '')
+        .split(',')
+        .map((v) => String(v || '').trim())
+        .filter(Boolean);
+}
+
+function _isTrustedIp(req) {
+    return _trustedIps().includes(req.ip);
+}
+
+function _empresaFromReq(req) {
+    return _norm(
+        req.body?.empresa_id
+        || req.body?.empresaId
+        || req.body?.empresa_id_raw
+        || req.query?.empresa_id
+        || req.query?.empresaId
+    ) || 'sin-empresa';
+}
+
+function _emailFromReq(req) {
+    return _norm(
+        req.body?.huesped?.email
+        || req.body?.cliente?.email
+        || req.body?.email
+    ) || 'sin-email';
+}
+
+function bookingKeyByTenantIpEmail(req) {
+    const ipKey = ipKeyGenerator(req.ip);
+    const tenant = _empresaFromReq(req);
+    const email = _emailFromReq(req);
+    return `${ipKey}|${tenant}|${email}`;
+}
+
+// Rate limiter para pasos del flujo IA (resolve/cotizar/intent)
+const bookingWorkflowLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    max: 20,
+    keyGenerator: (req) => `${ipKeyGenerator(req.ip)}|${_empresaFromReq(req)}`,
+    message: {
+        error: 'Demasiadas solicitudes en el flujo de reserva. Intente nuevamente en 15 minutos.',
+        code: 'RATE_LIMIT_EXCEEDED',
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => _isTrustedIp(req),
+});
+
+// Rate limiter para creación de reservas (por IP + empresa + email)
 const createReservationLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 3,
+    max: 5,
+    keyGenerator: bookingKeyByTenantIpEmail,
     message: {
-        error: 'Demasiadas solicitudes desde esta IP. Intente nuevamente en 15 minutos.',
+        error: 'Demasiadas reservas para este huésped. Intente nuevamente en 15 minutos.',
         code: 'RATE_LIMIT_EXCEEDED'
     },
     standardHeaders: true,
     legacyHeaders: false,
-    skip: (req) => {
-        // Permitir IPs confiables (ej. servidores de OpenAI, Anthropic)
-        const trustedIPs = (process.env.TRUSTED_IPS || '').split(',').filter(Boolean);
-        return trustedIPs.includes(req.ip);
-    }
+    skip: (req) => _isTrustedIp(req),
 });
 
 // Rate limiter para consultas (30 por minuto)
@@ -100,6 +154,8 @@ const sanitizeInputs = (req, res, next) => {
 };
 
 module.exports = {
+    bookingKeyByTenantIpEmail,
+    bookingWorkflowLimiter,
     createReservationLimiter,
     readLimiter,
     speedLimiter,
