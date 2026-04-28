@@ -8,7 +8,7 @@ const fetch = require('node-fetch');
 // Adjusted paths for services
 const { obtenerPropiedadPorId, actualizarPropiedad } = require('../../services/propiedadesService');
 const { mountOnRouter: mountHouseRulesRoutes } = require('../../routes/houseRulesApi');
-const { obtenerDetallesEmpresa, actualizarDetallesEmpresa } = require('../../services/empresaService');
+const { obtenerDetallesEmpresa, actualizarDetallesEmpresa, normalizeSubdomain } = require('../../services/empresaService');
 const {
     generarDescripcionAlojamiento,
     generarMetadataImagen,
@@ -113,6 +113,20 @@ module.exports = (db) => {
             const empresaActual = await obtenerDetallesEmpresa(db, empresaId);
             const oldDomain = (empresaActual?.dominio || empresaActual?.websiteSettings?.general?.domain || '').trim().toLowerCase();
             const newDomain = (settings.general?.domain || '').trim().toLowerCase();
+
+            // Si solo llega domain (sin subdomain), derivar subdomain para columnas empresas.* y tenantResolver.
+            if (settings.general && newDomain) {
+                const internalHost =
+                    newDomain.endsWith('.suitemanagers.com') ||
+                    newDomain.endsWith('.suitemanager.com') ||
+                    newDomain.endsWith('.onrender.com');
+                if (internalHost) {
+                    const derived = normalizeSubdomain(newDomain.split('.')[0]);
+                    if (derived && !String(settings.general.subdomain || '').trim()) {
+                        settings.general.subdomain = derived;
+                    }
+                }
+            }
 
             // Construir objeto websiteSettings completo
             const websiteSettings = {};

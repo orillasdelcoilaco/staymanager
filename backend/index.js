@@ -369,7 +369,10 @@ try {
     });
 
     app.listen(PORT, '0.0.0.0', () => {
-        console.log(`[Startup] Servidor de StayManager escuchando en http://localhost:${PORT}`);
+        const bindHint = process.env.RENDER
+            ? `0.0.0.0:${PORT} (URL pública la define Render, no esta dirección)`
+            : `http://localhost:${PORT}`;
+        console.log(`[Startup] Servidor de StayManager escuchando en ${bindHint}`);
         require('./jobs/expirarPropuestasIA').iniciar();
     });
 
