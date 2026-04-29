@@ -4,7 +4,8 @@ const { format, nextFriday, nextSunday, isValid, parseISO, addDays } = require('
 async function fetchTarifasYCanal(empresaId) {
     const [tarifaRes, canalRes] = await Promise.all([
         pool.query(`
-            SELECT t.propiedad_id, t.precios_canales, temp.fecha_inicio, temp.fecha_termino
+            SELECT t.id, t.propiedad_id, t.precios_canales, t.metadata,
+                   temp.fecha_inicio, temp.fecha_termino
             FROM tarifas t
             JOIN temporadas temp ON t.temporada_id = temp.id
             WHERE t.empresa_id = $1
@@ -27,7 +28,15 @@ async function fetchTarifasYCanal(empresaId) {
                     precios[canalId] = typeof data === 'number' ? data : (data?.valorCLP || 0);
                 });
             }
-            return { precios, alojamientoId: row.propiedad_id, fechaInicio: fi, fechaTermino: ft };
+            const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+            return {
+                id: row.id,
+                precios,
+                alojamientoId: row.propiedad_id,
+                fechaInicio: fi,
+                fechaTermino: ft,
+                metadata: { ...meta },
+            };
         } catch {
             return null;
         }
@@ -47,7 +56,8 @@ async function fetchTarifasForEmpresas(empresaIds) {
     const idTxt = ids.map(String);
     const [tarifaRes, canalRes] = await Promise.all([
         pool.query(
-            `SELECT t.empresa_id, t.propiedad_id, t.precios_canales, temp.fecha_inicio, temp.fecha_termino
+            `SELECT t.id, t.empresa_id, t.propiedad_id, t.precios_canales, t.metadata,
+                    temp.fecha_inicio, temp.fecha_termino
              FROM tarifas t
              JOIN temporadas temp ON t.temporada_id = temp.id
              WHERE t.empresa_id::text = ANY($1::text[])`,
@@ -74,7 +84,16 @@ async function fetchTarifasForEmpresas(empresaIds) {
                         precios[canalId] = typeof data === 'number' ? data : (data?.valorCLP || 0);
                     });
                 }
-                return { precios, alojamientoId: row.propiedad_id, fechaInicio: fi, fechaTermino: ft };
+                const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+                return {
+                    id: row.id,
+                    empresaId: row.empresa_id,
+                    precios,
+                    alojamientoId: row.propiedad_id,
+                    fechaInicio: fi,
+                    fechaTermino: ft,
+                    metadata: { ...meta },
+                };
             } catch {
                 return null;
             }

@@ -1353,11 +1353,6 @@ body {
   margin-right: 1rem;
 }
 
-.mx-5 {
-  margin-left: 1.25rem;
-  margin-right: 1.25rem;
-}
-
 .mx-\[-1rem\] {
   margin-left: -1rem;
   margin-right: -1rem;
@@ -1802,6 +1797,10 @@ body {
   max-height: 95vh;
 }
 
+.max-h-\[calc\(100dvh-10rem\)\] {
+  max-height: calc(100dvh - 10rem);
+}
+
 .max-h-\[calc\(100vh-3rem\)\] {
   max-height: calc(100vh - 3rem);
 }
@@ -1818,12 +1817,8 @@ body {
   min-height: 0px;
 }
 
-.min-h-\[1\.1rem\] {
-  min-height: 1.1rem;
-}
-
-.min-h-\[1\.35rem\] {
-  min-height: 1.35rem;
+.min-h-\[1\.2rem\] {
+  min-height: 1.2rem;
 }
 
 .min-h-\[120px\] {
@@ -2632,6 +2627,10 @@ body {
 
 .overflow-y-auto {
   overflow-y: auto;
+}
+
+.overflow-x-hidden {
+  overflow-x: hidden;
 }
 
 .scroll-smooth {
@@ -3620,6 +3619,10 @@ body {
   padding-bottom: 0.75rem;
 }
 
+.pb-3\.5 {
+  padding-bottom: 0.875rem;
+}
+
 .pb-4 {
   padding-bottom: 1rem;
 }
@@ -4280,9 +4283,9 @@ body {
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
-.shadow-\[0_4px_14px_rgba\(79\2c 70\2c 229\2c 0\.4\)\] {
-  --tw-shadow: 0 4px 14px rgba(79,70,229,0.4);
-  --tw-shadow-colored: 0 4px 14px var(--tw-shadow-color);
+.shadow-\[0_3px_12px_rgba\(79\2c 70\2c 229\2c 0\.35\)\] {
+  --tw-shadow: 0 3px 12px rgba(79,70,229,0.35);
+  --tw-shadow-colored: 0 3px 12px var(--tw-shadow-color);
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
@@ -4900,9 +4903,9 @@ body.pbc-noscroll {
   opacity: 0.9;
 }
 
-.hover\:shadow-\[0_6px_20px_rgba\(79\2c 70\2c 229\2c 0\.5\)\]:hover {
-  --tw-shadow: 0 6px 20px rgba(79,70,229,0.5);
-  --tw-shadow-colored: 0 6px 20px var(--tw-shadow-color);
+.hover\:shadow-\[0_5px_16px_rgba\(79\2c 70\2c 229\2c 0\.45\)\]:hover {
+  --tw-shadow: 0 5px 16px rgba(79,70,229,0.45);
+  --tw-shadow-colored: 0 5px 16px var(--tw-shadow-color);
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
@@ -5199,6 +5202,11 @@ body.pbc-noscroll {
     padding: 1.5rem;
   }
 
+  .sm\:px-2\.5 {
+    padding-left: 0.625rem;
+    padding-right: 0.625rem;
+  }
+
   .sm\:px-6 {
     padding-left: 1.5rem;
     padding-right: 1.5rem;
@@ -5207,6 +5215,11 @@ body.pbc-noscroll {
   .sm\:px-7 {
     padding-left: 1.75rem;
     padding-right: 1.75rem;
+  }
+
+  .sm\:py-1 {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
   }
 
   .sm\:py-4 {
@@ -5225,6 +5238,15 @@ body.pbc-noscroll {
   .sm\:text-2xl {
     font-size: 1.5rem;
     line-height: 2rem;
+  }
+
+  .sm\:text-4xl {
+    font-size: 2.25rem;
+    line-height: 2.5rem;
+  }
+
+  .sm\:text-\[11px\] {
+    font-size: 11px;
   }
 
   .sm\:text-\[28px\] {
@@ -5247,6 +5269,11 @@ body.pbc-noscroll {
   .sm\:text-sm {
     font-size: 0.875rem;
     line-height: 1.25rem;
+  }
+
+  .sm\:text-xs {
+    font-size: 0.75rem;
+    line-height: 1rem;
   }
 }
 
@@ -5294,6 +5321,10 @@ body.pbc-noscroll {
 
   .md\:hidden {
     display: none;
+  }
+
+  .md\:max-h-none {
+    max-height: none;
   }
 
   .md\:w-1\/3 {
@@ -5386,6 +5417,10 @@ body.pbc-noscroll {
 
   .md\:justify-self-end {
     justify-self: end;
+  }
+
+  .md\:overflow-visible {
+    overflow: visible;
   }
 
   .md\:border-b-0 {

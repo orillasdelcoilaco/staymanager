@@ -3,7 +3,7 @@
 const express = require('express');
 const multer = require('multer');
 const pool = require('../db/postgres');
-const { fetchTarifasYCanal } = require('../services/tarifasService');
+const { fetchTarifasYCanal } = require('./website.shared');
 const { calcularComparadorOtaTotales } = require('../services/comparadorOtaService');
 const {
     obtenerReservasPorEmpresa,
