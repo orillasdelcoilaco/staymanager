@@ -1189,6 +1189,34 @@ module.exports = (db) => {
         } catch (error) { next(error); }
     });
 
+    // POST /website/empresa/areas-comunes/:espacioId/generate-description
+    router.post('/empresa/areas-comunes/:espacioId/generate-description', async (req, res, next) => {
+        try {
+            const { empresaId } = req.user;
+            const { espacioId } = req.params;
+            const { rows } = await pool.query(
+                `SELECT configuracion->'areas_comunes' AS areas FROM empresas WHERE id = $1`,
+                [empresaId]
+            );
+            const espacios = rows[0]?.areas?.espacios || [];
+            const espacio = espacios.find(e => e.id === espacioId);
+            if (!espacio) return res.status(404).json({ error: 'Espacio no encontrado' });
+
+            const elementos = (espacio.elementos || [])
+                .map(e => `${e.nombre}${e.capacity > 0 ? ` (cap. ${e.capacity})` : ''}`)
+                .join(', ');
+            const prompt = `Eres un redactor de contenido para un portal de alojamiento turístico.
+Escribe una descripción atractiva y concisa (2-3 oraciones, máximo 80 palabras) para una instalación compartida del recinto llamada "${espacio.nombre}".
+${elementos ? `Cuenta con los siguientes elementos: ${elementos}.` : ''}
+Tono cálido y orientado a huéspedes. Solo prosa fluida, sin listas ni puntos.
+Responde en JSON: { "descripcion": "texto aquí" }`;
+
+            const result = await generateForTask(AI_TASK.PROPERTY_DESCRIPTION, prompt);
+            if (!result?.descripcion) return res.status(503).json({ error: 'El servicio de IA no respondió. Intenta nuevamente.' });
+            res.json({ descripcion: result.descripcion });
+        } catch (error) { next(error); }
+    });
+
     // ───────────────────────────────────────────────────────────────────────────
 
     return router;

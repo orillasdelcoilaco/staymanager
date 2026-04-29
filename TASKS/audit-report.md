@@ -1,6 +1,6 @@
 # Reporte de Auditoría UI
-**Generado:** 2026-04-28 22:23
-**Archivos analizados:** 165
+**Generado:** 2026-04-29 21:30
+**Archivos analizados:** 167
 **Problemas encontrados:** 34 (alta: 0 / media: 5 / baja: 29)
 
 ---

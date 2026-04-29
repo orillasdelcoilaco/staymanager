@@ -4,7 +4,6 @@
  */
 import { fetchAPI } from '../api.js';
 import { openLightbox, openEditor } from './components/galeria/galeria.editor.js';
-import { renderGaleriaEmpresa } from './components/galeria/galeriaEmpresaAreas.js';
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
 let state = {
@@ -12,7 +11,6 @@ let state = {
     componentes: [], fotos: [], tab: 'auto',
     loading: false, syncing: false, error: null,
     uploadTotal: 0, uploadActual: 0, uploadNombre: '',
-    mode: 'selector',   // 'selector' | 'propiedad' | 'empresa'
 };
 let uploadOverlay = null;
 
@@ -27,7 +25,6 @@ export async function afterRender() {
         componentes: [], fotos: [], tab: 'auto',
         loading: false, syncing: false, error: null,
         uploadTotal: 0, uploadActual: 0, uploadNombre: '',
-        mode: 'selector',
     };
     uploadOverlay = null;
     await cargarPropiedades();
@@ -68,14 +65,6 @@ async function cargarGaleria(propiedadId) {
 function renderRoot() {
     const root = document.getElementById('galeria-root');
     if (!root) return;
-    if (state.mode === 'empresa') {
-        root.innerHTML = '<div id="galeria-empresa-container"></div>';
-        renderGaleriaEmpresa(
-            document.getElementById('galeria-empresa-container'),
-            () => { state.mode = 'selector'; renderRoot(); }
-        );
-        return;
-    }
     root.innerHTML = state.propiedadId ? renderGaleria() : renderSelector();
     state.propiedadId ? bindGaleria() : bindSelector();
 }
@@ -143,19 +132,6 @@ function renderSelector() {
             ${stat('fa-solid fa-check-circle', state.propiedades.reduce((s, p) => s + (p.componentes?.length || 0), 0), 'Espacios totales', 'success')}
             ${stat('fa-solid fa-images', totalFotos || '—', 'Fotos clasificadas', 'warning')}
         </div>
-        <!-- Card especial: Instalaciones del Recinto -->
-        <button id="btn-galeria-empresa"
-            class="w-full text-left bg-white rounded-2xl border-2 border-success-100
-                   hover:border-success-300 hover:shadow-lg transition-all duration-200
-                   p-4 flex items-center gap-4 mb-6">
-            <div class="h-14 w-14 rounded-xl bg-success-50 flex items-center justify-center text-3xl flex-shrink-0">🌿</div>
-            <div class="flex-1 min-w-0">
-                <h3 class="font-semibold text-gray-900">Instalaciones del Recinto</h3>
-                <p class="text-sm text-gray-400 mt-0.5">Fotos de piscinas, quinchos, jardines y otras áreas comunes</p>
-            </div>
-            <i class="fa-solid fa-arrow-right text-success-400 flex-shrink-0"></i>
-        </button>
-
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             ${cards || '<p class="text-gray-400 col-span-4 text-center py-10">No hay propiedades disponibles.</p>'}
         </div>
@@ -171,10 +147,6 @@ function stat(faIcon, val, label, color) {
 }
 
 function bindSelector() {
-    document.getElementById('btn-galeria-empresa')?.addEventListener('click', () => {
-        state.mode = 'empresa';
-        renderRoot();
-    });
     document.querySelectorAll('.prop-card').forEach(card => {
         card.addEventListener('click', () => {
             state.propiedadId    = card.dataset.id;

@@ -1,6 +1,6 @@
 # Reporte de Complejidad y Modularidad
-**Generado:** 2026-04-28 21:29
-**Archivos analizados:** 365
+**Generado:** 2026-04-29 21:30
+**Archivos analizados:** 369
 **Críticos:** 36 | **Warnings:** 0
 
 ---
@@ -33,10 +33,10 @@
 | `backend/services/publicAiProductSnapshot.js` | function-size | función `buildListingCardForAi` — 125 líneas (línea 332) |
 | `backend/services/publicAiProductSnapshot.js` | function-size | función `buildAgentPropertyDetailPayload` — 163 líneas (línea 581) |
 | `backend/services/publicAiReservaCotizacionService.js` | function-size | función `cotizarReservaIaPublica` — 270 líneas (línea 52) |
-| `backend/services/publicWebsiteService.js` | file-size | 1410 líneas (límite crítico: 700) |
-| `backend/services/publicWebsiteService.js` | function-size | función `obtenerMasAlojamientosParaFichaSSR` — 205 líneas (línea 278) |
-| `backend/services/publicWebsiteService.js` | function-size | función `verificarReconciliacionPrecioReservaPublica` — 155 líneas (línea 701) |
-| `backend/services/publicWebsiteService.js` | function-size | función `crearReservaPublica` — 320 líneas (línea 966) |
+| `backend/services/publicWebsiteService.js` | file-size | 1343 líneas (límite crítico: 700) |
+| `backend/services/publicWebsiteService.js` | function-size | función `obtenerMasAlojamientosParaFichaSSR` — 205 líneas (línea 279) |
+| `backend/services/publicWebsiteService.js` | function-size | función `verificarReconciliacionPrecioReservaPublica` — 155 líneas (línea 702) |
+| `backend/services/publicWebsiteService.js` | function-size | función `crearReservaPublica` — 320 líneas (línea 967) |
 | `backend/services/resenasService.js` | file-size | 938 líneas (límite crítico: 700) |
 | `backend/services/resenasService.js` | function-size | función `generarResenasAutomaticas` — 144 líneas (línea 771) |
 | `backend/services/resenasService.js` | too-many-exports | 20 funciones exportadas (límite crítico: 15) |
@@ -44,8 +44,8 @@
 | `backend/services/transactionalEmailService.js` | function-size | función `construirVariablesDesdeReserva` — 199 líneas (línea 412) |
 | `backend/services/transactionalEmailService.js` | too-many-exports | 17 funciones exportadas (límite crítico: 15) |
 | `backend/routes/website.booking.js` | function-size | función `registerBookingRoutes` — 129 líneas (línea 7) |
-| `backend/routes/website.property.js` | function-size | función `registerPropertyRoutes` — 217 líneas (línea 9) |
-| `backend/routes/website.property.page.js` | function-size | función `renderPropiedadPublica` — 179 líneas (línea 88) |
+| `backend/routes/website.property.js` | function-size | función `registerPropertyRoutes` — 220 líneas (línea 9) |
+| `backend/routes/website.property.page.js` | function-size | función `renderPropiedadPublica` — 182 líneas (línea 88) |
 | `backend/routes/website.seo.js` | function-size | función `registerSeoRoutes` — 169 líneas (línea 1) |
 
 ---
@@ -55,13 +55,13 @@
 > Orden de prioridad: atacar primero los archivos más grandes con más exports.
 
 ### 1. `backend/services/publicWebsiteService.js` 🔴
-- **1410 líneas (límite crítico: 700)**
+- **1343 líneas (límite crítico: 700)**
   - Dividir en módulos por responsabilidad. Cada módulo debe tener una sola razón para cambiar.
-- **función `obtenerMasAlojamientosParaFichaSSR` — 205 líneas (línea 278)**
+- **función `obtenerMasAlojamientosParaFichaSSR` — 205 líneas (línea 279)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
-- **función `verificarReconciliacionPrecioReservaPublica` — 155 líneas (línea 701)**
+- **función `verificarReconciliacionPrecioReservaPublica` — 155 líneas (línea 702)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
-- **función `crearReservaPublica` — 320 líneas (línea 966)**
+- **función `crearReservaPublica` — 320 líneas (línea 967)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
 
 ### 2. `backend/services/resenasService.js` 🔴

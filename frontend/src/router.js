@@ -40,6 +40,7 @@ const views = {
     '/gestionar-tipos-elemento': () => import('./views/gestionarTiposElemento.js?v=1.7'),
     '/importador-magico': () => import('./views/importadorMagico.js?v=1.2'),
     '/galeria-propiedad': () => import('./views/galeriaPropiedad.js'),
+    '/espacios-comunes': () => import('./views/espaciosComunes.js'),
     '/mapeos-centrales': () => import('./views/mapeosCentrales.js'),
     '/gestionar-estados': () => import('./views/gestionarEstados.js'),
     '/importador-historico': () => import('./views/importadorHistorico.js'),
@@ -81,6 +82,7 @@ const menuConfig = [
         children: [
             { icon: 'fa-solid fa-puzzle-piece',  name: 'Activos',           path: '/gestionar-tipos-elemento',   id: 'tipos-elemento' },
             { icon: 'fa-solid fa-box',           name: 'Espacios',          path: '/gestionar-tipos-componente', id: 'tipos-componente' },
+            { icon: 'fa-solid fa-tree',          name: 'Espacios Comunes',  path: '/espacios-comunes',           id: 'espacios-comunes' },
             { icon: 'fa-solid fa-building',      name: 'Alojamientos',      path: '/gestionar-alojamientos',     id: 'gestionar-alojamientos' },
             { icon: 'fa-solid fa-images',        name: 'Galería de Fotos',  path: '/galeria-propiedad',          id: 'galeria-propiedad' },
             { icon: 'fa-solid fa-list-check',    name: 'Normas del alojamiento', path: '/normas-alojamiento', id: 'normas-alojamiento' },

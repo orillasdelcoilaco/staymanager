@@ -1,7 +1,6 @@
 import { fetchAPI } from '../api.js';
 import { renderFilasTabla } from './components/gestionarAlojamientos/alojamientos.table.js';
 import { renderModalAlojamiento, setupModalAlojamiento, abrirModalAlojamiento } from './components/gestionarAlojamientos/alojamientos.modals.js';
-import { abrirModalAreasComunes } from './components/gestionarAlojamientos/areasComunes.modal.js';
 
 let propiedades = [];
 let canales = [];
@@ -51,25 +50,6 @@ export async function render() {
                     </div>
                 </div>
 
-                <!-- BLOQUE INSTALACIONES DEL RECINTO -->
-                <div class="mb-6 bg-white border border-success-100 rounded-xl shadow-sm overflow-hidden">
-                    <div class="flex items-center justify-between p-4 bg-success-50 border-b border-success-100">
-                        <div class="flex items-center gap-3">
-                            <span class="text-xl">🌿</span>
-                            <div>
-                                <h3 class="font-semibold text-success-800 text-sm">Instalaciones del Recinto</h3>
-                                <p class="text-xs text-success-600">Amenidades y áreas compartidas entre todos los alojamientos (piscina, quincho, estacionamiento, etc.)</p>
-                            </div>
-                        </div>
-                        <button id="gestionar-areas-btn" class="btn-outline text-sm border-success-300 text-success-700 hover:bg-success-100">
-                            Gestionar instalaciones
-                        </button>
-                    </div>
-                    <div id="areas-resumen" class="px-4 py-3 text-xs text-gray-400 italic">
-                        Cargando…
-                    </div>
-                </div>
-
                 <div class="bg-white shadow-md rounded my-6 overflow-x-auto table-container">
                     <table class="min-w-full w-full table-auto">
                         <thead>
@@ -97,43 +77,10 @@ export async function render() {
     }
 }
 
-function _renderResumenAreas(data) {
-    if (!data.activo || !data.espacios?.length) {
-        return '<span class="text-xs text-gray-400 italic">Sin instalaciones configuradas.</span>';
-    }
-    const chips = data.espacios.map(e =>
-        `<span class="inline-flex items-center gap-1 text-xs bg-success-50 text-success-700 border border-success-200 rounded-full px-2 py-0.5">${e.icono || '🌿'} ${e.nombre}</span>`
-    ).join('');
-    return `<div class="flex flex-wrap gap-1.5">${chips}</div>`;
-}
-
-async function cargarResumenAreas() {
-    const resumenEl = document.getElementById('areas-resumen');
-    if (!resumenEl) return;
-    try {
-        const data = await fetchAPI('/website/empresa/areas-comunes');
-        resumenEl.innerHTML = _renderResumenAreas(data);
-    } catch {
-        resumenEl.innerHTML = '<span class="text-xs text-gray-400">No disponible</span>';
-    }
-}
-
 export function afterRender() {
     setupModalAlojamiento(async () => {
         await cargarDatos();
     });
-
-    cargarResumenAreas();
-
-    const gestionarBtn = document.getElementById('gestionar-areas-btn');
-    if (gestionarBtn) {
-        gestionarBtn.addEventListener('click', () => {
-            abrirModalAreasComunes((saved) => {
-                const resumenEl = document.getElementById('areas-resumen');
-                if (resumenEl) resumenEl.innerHTML = _renderResumenAreas(saved);
-            });
-        });
-    }
 
     const addBtn = document.getElementById('add-propiedad-btn');
     if (addBtn) {
