@@ -1,5 +1,10 @@
 // frontend/src/views/components/gestionarTarifas/matriz.js
 import { fetchAPI } from '../../../api.js';
+import {
+    renderTarifaAdvancedRow,
+    collectTarifaMetadataFromRow,
+    bindPoliticaModoVisibility,
+} from './matriz.advanced.js';
 
 let canalesCache    = [];
 let canalPorDefecto = null;
@@ -28,6 +33,13 @@ function calcularPrecioCanal(precioBase, canal, valorDolarDia) {
         ? `USD ${val.toFixed(2)}`
         : `CLP ${Math.round(val).toLocaleString('es-CL')}`;
     return { label, raw: val };
+}
+
+function escapeAttr(s) {
+    return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;');
 }
 
 function renderCanalesTooltip(precioBase, valorDolarDia) {
@@ -139,12 +151,13 @@ export function renderMatriz(temporada, tarifas, propiedades) {
                                     <td class="py-2 px-2 text-center">
                                         <div class="flex items-center justify-center gap-2">
                                             ${tarifa ? `<button data-tarifa-id="${tarifa.id}" class="delete-tarifa-btn text-gray-300 hover:text-danger-500 text-xs" title="Quitar precio de esta temporada"><i class="fa-solid fa-xmark"></i></button>` : ''}
-                                            <button data-propiedad-id="${p.id}" data-propiedad-nombre="${p.nombre}" class="delete-propiedad-btn text-gray-400 hover:text-danger-600 transition-colors" title="Eliminar alojamiento permanentemente">
+                                            <button data-propiedad-id="${p.id}" data-propiedad-nombre="${escapeAttr(p.nombre)}" class="delete-propiedad-btn text-gray-400 hover:text-danger-600 transition-colors" title="Eliminar alojamiento permanentemente">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                             </button>
                                         </div>
                                     </td>
-                                </tr>`;
+                                </tr>
+                                ${renderTarifaAdvancedRow(p, tarifa)}`;
                             }).join('')}
                         `).join('')}
                     </tbody>
@@ -153,6 +166,23 @@ export function renderMatriz(temporada, tarifas, propiedades) {
         </div>`;
 
     _setupMatrizEvents(temporada, propiedades);
+}
+
+function _collectPreciosParaGuardar(tbody) {
+    const precios = [];
+    tbody.querySelectorAll('.tarifa-row').forEach(row => {
+        const input = row.querySelector('.precio-input');
+        const val = parseFloat(input?.value);
+        const propId = row.dataset.propiedadId;
+        if (propId && !isNaN(val) && val > 0) {
+            precios.push({
+                propiedadId: propId,
+                precioBase: val,
+                metadata: collectTarifaMetadataFromRow(tbody, propId),
+            });
+        }
+    });
+    return precios;
 }
 
 async function _limpiarSinPrecio(tbody) {
@@ -200,6 +230,8 @@ async function _limpiarSinPrecio(tbody) {
 function _setupMatrizEvents(temporada, propiedades) {
     const tbody = document.getElementById('matriz-tbody');
     if (!tbody) return;
+
+    bindPoliticaModoVisibility(tbody);
 
     // Live preview al escribir precio
     tbody.addEventListener('input', (e) => {
@@ -274,15 +306,7 @@ function _setupMatrizEvents(temporada, propiedades) {
 
     // Guardar todos los cambios
     document.getElementById('guardar-matriz-btn')?.addEventListener('click', async () => {
-        const precios = [];
-        tbody.querySelectorAll('.tarifa-row').forEach(row => {
-            const input = row.querySelector('.precio-input');
-            const val   = parseFloat(input?.value);
-            const propId = row.dataset.propiedadId;
-            if (propId && !isNaN(val) && val > 0) {
-                precios.push({ propiedadId: propId, precioBase: val });
-            }
-        });
+        const precios = _collectPreciosParaGuardar(tbody);
 
         if (precios.length === 0) { alert('No hay precios para guardar.'); return; }
         const btn = document.getElementById('guardar-matriz-btn');

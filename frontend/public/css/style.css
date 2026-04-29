@@ -2287,6 +2287,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   min-height: 0px;
 }
 
+.min-h-\[1\.1rem\] {
+  min-height: 1.1rem;
+}
+
 .min-h-\[1\.35rem\] {
   min-height: 1.35rem;
 }
@@ -2510,6 +2514,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .min-w-\[130px\] {
   min-width: 130px;
+}
+
+.min-w-\[140px\] {
+  min-width: 140px;
 }
 
 .min-w-\[150px\] {
@@ -3111,6 +3119,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .whitespace-pre-wrap {
   white-space: pre-wrap;
+}
+
+.break-all {
+  word-break: break-all;
 }
 
 .rounded {
@@ -4418,6 +4430,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: rgb(153 27 27 / var(--tw-text-opacity, 1));
 }
 
+.text-danger-800\/90 {
+  color: rgb(153 27 27 / 0.9);
+}
+
 .text-danger-900 {
   --tw-text-opacity: 1;
   color: rgb(127 29 29 / var(--tw-text-opacity, 1));
@@ -4518,6 +4534,14 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: rgb(67 56 202 / var(--tw-text-opacity, 1));
 }
 
+.text-primary-700\/70 {
+  color: rgb(67 56 202 / 0.7);
+}
+
+.text-primary-700\/80 {
+  color: rgb(67 56 202 / 0.8);
+}
+
 .text-primary-800 {
   --tw-text-opacity: 1;
   color: rgb(55 48 163 / var(--tw-text-opacity, 1));
@@ -4528,9 +4552,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: rgb(49 46 129 / var(--tw-text-opacity, 1));
 }
 
-.text-red-700 {
-  --tw-text-opacity: 1;
-  color: rgb(185 28 28 / var(--tw-text-opacity, 1));
+.text-primary-900\/70 {
+  color: rgb(49 46 129 / 0.7);
+}
+
+.text-primary-900\/80 {
+  color: rgb(49 46 129 / 0.8);
 }
 
 .text-sky-800 {
@@ -6033,11 +6060,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   background-color: rgb(67 56 202 / var(--tw-bg-opacity, 1));
 }
 
-.hover\:bg-red-50:hover {
-  --tw-bg-opacity: 1;
-  background-color: rgb(254 242 242 / var(--tw-bg-opacity, 1));
-}
-
 .hover\:bg-success-100:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(220 252 231 / var(--tw-bg-opacity, 1));
@@ -6596,6 +6618,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     width: 33.333333%;
   }
 
+  .md\:w-2\/3 {
+    width: 66.666667%;
+  }
+
   .md\:w-3\/4 {
     width: 75%;
   }
@@ -6610,6 +6636,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
   .md\:w-96 {
     width: 24rem;
+  }
+
+  .md\:w-\[22rem\] {
+    width: 22rem;
   }
 
   .md\:w-auto {
@@ -6646,6 +6676,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
   .md\:items-center {
     align-items: center;
+  }
+
+  .md\:justify-end {
+    justify-content: flex-end;
   }
 
   .md\:justify-between {

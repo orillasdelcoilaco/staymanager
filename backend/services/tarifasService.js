@@ -38,6 +38,29 @@ async function calcularPreciosPorCanal(empresaId, precioBase, fechaInicioStr) {
 
 // ─── Mapeo interno ────────────────────────────────────────────────────────────
 
+function _mergeTarifaMetadataPatch(prev, patch) {
+    const base = prev && typeof prev === 'object' ? { ...prev } : {};
+    if (!patch || typeof patch !== 'object') return base;
+    if (Object.prototype.hasOwnProperty.call(patch, 'nombre')) {
+        base.nombre = patch.nombre == null ? '' : String(patch.nombre);
+    }
+    if (patch.promo && typeof patch.promo === 'object') {
+        base.promo = { ...(base.promo || {}), ...patch.promo };
+    }
+    if (patch.politicaCancelacion && typeof patch.politicaCancelacion === 'object') {
+        const m = String(patch.politicaCancelacion.modo || '').toLowerCase();
+        if (m === 'inherit' || m === 'empresa' || m === 'default') {
+            base.politicaCancelacion = { modo: 'inherit' };
+        } else {
+            base.politicaCancelacion = {
+                ...(base.politicaCancelacion || {}),
+                ...patch.politicaCancelacion,
+            };
+        }
+    }
+    return base;
+}
+
 function mapearTarifa(row) {
     const fi = row.fecha_inicio instanceof Date
         ? row.fecha_inicio.toISOString().split('T')[0]
@@ -45,6 +68,7 @@ function mapearTarifa(row) {
     const ft = row.fecha_termino instanceof Date
         ? row.fecha_termino.toISOString().split('T')[0]
         : String(row.fecha_termino);
+    const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
     return {
         id:               row.id,
         temporadaId:      row.temporada_id,
@@ -56,6 +80,7 @@ function mapearTarifa(row) {
         precios:          row.precios_canales || {},
         fechaInicio:      fi,
         fechaTermino:     ft,
+        metadata:         { ...meta },
     };
 }
 
@@ -77,7 +102,7 @@ const obtenerTarifasPorTemporada = async (empresaId, temporadaId) => {
 };
 
 const guardarTarifasBulk = async (empresaId, temporadaId, precios) => {
-    // precios = [{ propiedadId, precioBase }]
+    // precios = [{ propiedadId, precioBase, metadata? }]
     if (!precios?.length) return [];
 
     // Obtener fecha_inicio de la temporada para el tipo de cambio
@@ -100,16 +125,30 @@ const guardarTarifasBulk = async (empresaId, temporadaId, precios) => {
             empresaId, base, fechaInicioStr
         );
 
+        const { rows: existMeta } = await pool.query(
+            `SELECT metadata FROM tarifas
+             WHERE empresa_id = $1 AND temporada_id = $2 AND propiedad_id = $3`,
+            [empresaId, temporadaId, item.propiedadId]
+        );
+        const prevMeta = existMeta[0]?.metadata && typeof existMeta[0].metadata === 'object'
+            ? existMeta[0].metadata
+            : {};
+        const patch = item.metadata !== undefined && item.metadata !== null && typeof item.metadata === 'object'
+            ? item.metadata
+            : null;
+        const mergedMeta = patch === null ? prevMeta : _mergeTarifaMetadataPatch(prevMeta, patch);
+
         const { rows } = await pool.query(
-            `INSERT INTO tarifas (empresa_id, temporada_id, propiedad_id, precio_base, valor_dolar_dia, precios_canales)
-             VALUES ($1, $2, $3, $4, $5, $6)
+            `INSERT INTO tarifas (empresa_id, temporada_id, propiedad_id, precio_base, valor_dolar_dia, precios_canales, metadata)
+             VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
              ON CONFLICT (temporada_id, propiedad_id) DO UPDATE
              SET precio_base    = EXCLUDED.precio_base,
                  valor_dolar_dia = EXCLUDED.valor_dolar_dia,
                  precios_canales = EXCLUDED.precios_canales,
+                 metadata       = EXCLUDED.metadata,
                  updated_at     = NOW()
              RETURNING id`,
-            [empresaId, temporadaId, item.propiedadId, base, valorDolarDia, JSON.stringify(preciosCanales)]
+            [empresaId, temporadaId, item.propiedadId, base, valorDolarDia, JSON.stringify(preciosCanales), JSON.stringify(mergedMeta)]
         );
         resultados.push(rows[0].id);
     }
@@ -161,7 +200,7 @@ const eliminarTarifasPorTemporada = async (empresaId, temporadaId) => {
 const obtenerTarifasParaConsumidores = async (empresaId) => {
     const { rows } = await pool.query(
         `SELECT ta.id, ta.propiedad_id, ta.precio_base, ta.precios_canales,
-                ta.valor_dolar_dia,
+                ta.valor_dolar_dia, ta.metadata,
                 te.fecha_inicio, te.fecha_termino
          FROM tarifas ta
          JOIN temporadas te ON te.id = ta.temporada_id
@@ -180,6 +219,7 @@ const obtenerTarifasParaConsumidores = async (empresaId) => {
         precioBase:   parseFloat(row.precio_base),
         precios:      row.precios_canales || {},
         valorDolarDia: row.valor_dolar_dia ? parseFloat(row.valor_dolar_dia) : null,
+        metadata:     row.metadata && typeof row.metadata === 'object' ? { ...row.metadata } : {},
     }));
 };
 
