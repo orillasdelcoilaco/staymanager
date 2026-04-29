@@ -14,6 +14,7 @@ class OpenAIProvider {
         this.model = config.model || 'gpt-4-turbo';
         this.baseUrl = config.baseUrl || 'https://api.openai.com/v1/chat/completions';
         this.providerName = config.providerName || 'OpenAI';
+        this.maxTokens = config.maxTokens || 2048;
         this.ready = true;
         console.log(`✅ [${this.providerName}] Initialized with model: ${this.model}`);
     }

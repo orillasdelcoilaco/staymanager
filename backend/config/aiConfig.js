@@ -54,7 +54,8 @@ const aiConfig = {
         apiKey: process.env.GROQ_API_KEY,
         model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
         baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
-        providerName: 'Groq'
+        providerName: 'Groq',
+        maxTokens: 4096
     },
 
     // OpenRouter: proxy unificado con acceso a 200+ modelos, tier gratuito sin tarjeta.
