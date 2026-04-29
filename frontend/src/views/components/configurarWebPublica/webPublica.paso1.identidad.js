@@ -311,7 +311,9 @@ function mountDestacadosEditor(state) {
     // Pre-agregar áreas comunes vinculadas que aún no están en la lista.
     // La foto queda vacía a propósito: el usuario elige cuál destacar (SSR usa esa selección).
     const savedComunIds = new Set(list.filter(r => r.kind === 'comun').map(r => r.id));
+    console.log('[Destacados] com.length:', com.length, '| savedComunIds:', [...savedComunIds], '| list antes:', list.length);
     com.forEach(area => {
+        console.log('[Destacados] area.id:', area.id, '| area.nombre:', area.nombre, '| ya guardada:', savedComunIds.has(area.id));
         if (savedComunIds.has(area.id)) return;
         list.push({
             kind: 'comun',
@@ -320,6 +322,7 @@ function mountDestacadosEditor(state) {
             pitch: area.descripcion || '',
         });
     });
+    console.log('[Destacados] list después de merge:', list.length);
 
     const rowsHtml = list.length
         ? list.map((r) => renderDestRowHtml(r)).join('')
