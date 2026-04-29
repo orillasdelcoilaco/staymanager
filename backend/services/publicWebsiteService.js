@@ -8,7 +8,8 @@ const { listarBloqueos, getBloqueosPorPeriodo } = require('./bloqueosService');
 const { isValid, differenceInDays, addDays, parseISO, format } = require('date-fns');
 const { getPrecioBaseNoche, fetchTarifasForEmpresas, fetchTarifasYCanal } = require('../routes/website.shared');
 const { obtenerResumenPorPropiedad } = require('./resenasService');
-const { aplicarPromocionesDisplayCompleto, precioNocheConPromoTarifa } = require('./promocionesDisplayService');
+const { aplicarPromocionesDisplayCompleto } = require('./promocionesDisplayService');
+const { calculatePrice } = require('./publicWebsiteCalculatePriceService');
 const { buildDesglosePrecioCheckout } = require('./checkoutDesgloseService');
 const {
     listTarifaIdsPorNocheEstadia,
@@ -1324,74 +1325,6 @@ function findNormalCombination(availableProperties, requiredCapacity) {
         return { combination: currentCombination, capacity: currentCapacity };
     }
     return { combination: [], capacity: 0 };
-}
-
-async function calculatePrice(_db, empresaId, items, startDate, endDate, allTarifas, valorDolarDiaOverride = null) {
-    const { rows } = await pool.query(
-        `SELECT id, nombre, COALESCE(metadata->>'moneda', 'CLP') AS moneda FROM canales WHERE empresa_id = $1 AND (metadata->>'esCanalPorDefecto')::boolean = true LIMIT 1`,
-        [empresaId]
-    );
-    if (!rows[0]) throw new Error("No se ha configurado un canal por defecto.");
-    const canalPorDefecto = rows[0];
-
-    const valorDolarDia = valorDolarDiaOverride ??
-        (canalPorDefecto.moneda === 'USD' ? await obtenerValorDolar(_db, empresaId, startDate) : null);
-
-    const totalNights = differenceInDays(endDate, startDate);
-    if (totalNights <= 0) {
-        return { totalPriceCLP: 0, totalPriceOriginal: 0, currencyOriginal: canalPorDefecto.moneda, valorDolarDia, nights: 0, details: [] };
-    }
-
-    let totalPrecioEnMonedaDefecto = 0;
-    const priceDetails = [];
-    const llegStr = format(startDate, 'yyyy-MM-dd');
-    const salStr = format(endDate, 'yyyy-MM-dd');
-    const monedaCanal = canalPorDefecto.moneda === 'USD' ? 'USD' : 'CLP';
-
-    for (const prop of items) {
-        let propPrecioBaseTotal = 0;
-        for (let d = new Date(startDate); d < endDate; d = addDays(d, 1)) {
-            const currentDate = new Date(d);
-            const tarifasDelDia = allTarifas.filter(t =>
-                t.alojamientoId === prop.id && t.fechaInicio <= currentDate && t.fechaTermino >= currentDate
-            );
-            if (tarifasDelDia.length > 0) {
-                const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0];
-                const precioBaseObj = tarifa.precios?.[canalPorDefecto.id];
-                let base = 0;
-                if (typeof precioBaseObj === 'number') base = precioBaseObj;
-                else if (precioBaseObj && typeof precioBaseObj === 'object') {
-                    base = monedaCanal === 'USD'
-                        ? (Number(precioBaseObj.valorUSD) || 0)
-                        : (Number(precioBaseObj.valorCLP) || 0);
-                }
-                propPrecioBaseTotal += precioNocheConPromoTarifa(base, tarifa.metadata?.promo, llegStr, salStr);
-            }
-        }
-        totalPrecioEnMonedaDefecto += propPrecioBaseTotal;
-        priceDetails.push({
-            nombre: prop.nombre, id: prop.id,
-            precioTotal: propPrecioBaseTotal,
-            precioPorNoche: totalNights > 0 ? propPrecioBaseTotal / totalNights : 0,
-        });
-    }
-
-    let totalPriceCLP = totalPrecioEnMonedaDefecto;
-    if (canalPorDefecto.moneda === 'USD') {
-        if (valorDolarDia === null || valorDolarDia <= 0) {
-            return { totalPriceCLP: 0, totalPriceOriginal: totalPrecioEnMonedaDefecto, currencyOriginal: canalPorDefecto.moneda, valorDolarDia, nights: totalNights, details: priceDetails, error: "Missing dollar value" };
-        }
-        totalPriceCLP = totalPrecioEnMonedaDefecto * valorDolarDia;
-    }
-
-    return {
-        totalPriceCLP: Math.round(totalPriceCLP),
-        totalPriceOriginal: totalPrecioEnMonedaDefecto,
-        currencyOriginal: canalPorDefecto.moneda,
-        valorDolarDia,
-        nights: totalNights,
-        details: priceDetails,
-    };
 }
 
 module.exports = {

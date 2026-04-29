@@ -129,7 +129,10 @@ async function renderPropiedadPublica(req, res, db, deps) {
                     priceData = {
                         totalPriceCLP: p.totalPriceCLP,
                         nights: p.nights,
-                        formattedTotalPrice: `$${(p.totalPriceCLP || 0).toLocaleString('es-CL')} CLP`
+                        formattedTotalPrice: `$${(p.totalPriceCLP || 0).toLocaleString('es-CL')} CLP`,
+                        totalPrecioListaCLP: p.totalPrecioListaCLP ?? null,
+                        totalDescuentoPromoCLP: p.totalDescuentoPromoCLP ?? null,
+                        promoEtiqueta: p.promoEtiqueta ?? null,
                     };
                 } else {
                     priceData.formattedTotalPrice = 'No disponible';

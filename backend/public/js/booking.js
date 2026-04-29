@@ -79,6 +79,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const heroAbonoAmount = document.getElementById('hero-abono-amount');
     const priceBreakdownPlaceholder = document.getElementById('price-breakdown-placeholder');
     const priceBreakdownLines = document.getElementById('price-breakdown-lines');
+    const pricePromoBlock = document.getElementById('price-promo-block');
+    const priceListaLabel = document.getElementById('price-lista-label');
+    const priceListaValue = document.getElementById('price-lista-value');
+    const pricePromoLabel = document.getElementById('price-promo-label');
+    const pricePromoValue = document.getElementById('price-promo-value');
     const priceUsdLine = document.getElementById('price-usd-line');
     const priceRestoValue = document.getElementById('price-resto-value');
     const bookingDatesSummary = document.getElementById('booking-dates-summary');
@@ -267,8 +272,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 const nightsLabel = document.getElementById('price-nights-label');
                 const nightsValue = document.getElementById('price-nights-value');
                 const abonoValue = document.getElementById('price-abono-value');
+                const lista = priceData.totalPrecioListaCLP != null ? Number(priceData.totalPrecioListaCLP) : NaN;
+                const desc = priceData.totalDescuentoPromoCLP != null ? Number(priceData.totalDescuentoPromoCLP) : NaN;
+                const showPromo = Number.isFinite(lista) && Number.isFinite(desc) && desc > 0 && lista > currentPriceCLP;
+                if (pricePromoBlock) {
+                    if (showPromo) {
+                        pricePromoBlock.classList.remove('hidden');
+                        if (priceListaLabel) priceListaLabel.textContent = t('listTariffLabel');
+                        if (priceListaValue) priceListaValue.textContent = formatCLP(lista);
+                        const lab = String(priceData.promoEtiqueta || '').trim() || t('promoDefault');
+                        if (pricePromoLabel) pricePromoLabel.textContent = t('promoLineLabel', lab);
+                        if (pricePromoValue) pricePromoValue.textContent = `\u2212${formatCLP(desc)}`;
+                    } else {
+                        pricePromoBlock.classList.add('hidden');
+                    }
+                }
                 if (nightsLabel) {
-                    nightsLabel.textContent = t('nightsBreakdown', formatCLP(pxNoche), currentNights);
+                    const suf = showPromo ? t('withOfferSuffix') : '';
+                    nightsLabel.textContent = t('nightsBreakdown', formatCLP(pxNoche), currentNights) + suf;
                 }
                 if (nightsValue) nightsValue.textContent = formatCLP(currentPriceCLP);
                 if (abonoValue) abonoValue.textContent = formatCLP(abono);
@@ -319,6 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (priceBreakdownPlaceholder) priceBreakdownPlaceholder.classList.remove('hidden');
             if (priceBreakdownLines) priceBreakdownLines.classList.add('hidden');
+            if (pricePromoBlock) pricePromoBlock.classList.add('hidden');
         }
         priceLoader.classList.add('hidden');
     };
@@ -394,6 +416,9 @@ document.addEventListener('DOMContentLoaded', () => {
             numNoches: defaultPriceData.nights,
             formattedTotalPrice: defaultPriceData.formattedTotalPrice,
             currencyOriginal: 'CLP',
+            totalPrecioListaCLP: defaultPriceData.totalPrecioListaCLP,
+            totalDescuentoPromoCLP: defaultPriceData.totalDescuentoPromoCLP,
+            promoEtiqueta: defaultPriceData.promoEtiqueta,
         });
         refreshOtaComparator();
     } else if (fechaLlegadaInput.value && fechaSalidaInput.value) {

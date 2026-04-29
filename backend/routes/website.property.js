@@ -113,6 +113,9 @@ function registerPropertyRoutes({ router, db, deps }) {
                 currencyOriginal: pricing.currencyOriginal || 'CLP',
                 totalPriceOriginal: pricing.totalPriceOriginal ?? null,
                 valorDolarDia: pricing.valorDolarDia ?? null,
+                totalPrecioListaCLP: pricing.totalPrecioListaCLP ?? null,
+                totalDescuentoPromoCLP: pricing.totalDescuentoPromoCLP ?? null,
+                promoEtiqueta: pricing.promoEtiqueta ?? null,
             });
         } catch (error) {
             console.error(`Error calculando precio AJAX para propiedad ${req.params.id}:`, error);

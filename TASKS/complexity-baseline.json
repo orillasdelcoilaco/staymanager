@@ -1,5 +1,5 @@
 {
-  "fecha": "2026-04-25T22:30:07.729Z",
+  "fecha": "2026-04-29T01:59:49.143Z",
   "total": 36,
   "criticos": [
     {
@@ -115,22 +115,22 @@
     {
       "file": "backend/services/publicWebsiteService.js",
       "type": "file-size",
-      "detail": "1410 líneas"
+      "detail": "1343 líneas"
     },
     {
       "file": "backend/services/publicWebsiteService.js",
       "type": "function-size",
-      "detail": "obtenerMasAlojamientosParaFichaSSR — 205 líneas (línea 278)"
+      "detail": "obtenerMasAlojamientosParaFichaSSR — 205 líneas (línea 279)"
     },
     {
       "file": "backend/services/publicWebsiteService.js",
       "type": "function-size",
-      "detail": "verificarReconciliacionPrecioReservaPublica — 155 líneas (línea 701)"
+      "detail": "verificarReconciliacionPrecioReservaPublica — 155 líneas (línea 702)"
     },
     {
       "file": "backend/services/publicWebsiteService.js",
       "type": "function-size",
-      "detail": "crearReservaPublica — 320 líneas (línea 966)"
+      "detail": "crearReservaPublica — 320 líneas (línea 967)"
     },
     {
       "file": "backend/services/resenasService.js",
@@ -170,12 +170,12 @@
     {
       "file": "backend/routes/website.property.js",
       "type": "function-size",
-      "detail": "registerPropertyRoutes — 217 líneas (línea 9)"
+      "detail": "registerPropertyRoutes — 220 líneas (línea 9)"
     },
     {
       "file": "backend/routes/website.property.page.js",
       "type": "function-size",
-      "detail": "renderPropiedadPublica — 179 líneas (línea 88)"
+      "detail": "renderPropiedadPublica — 182 líneas (línea 88)"
     },
     {
       "file": "backend/routes/website.seo.js",
