@@ -307,6 +307,23 @@ function mountDestacadosEditor(state) {
     }
     const existing = state.buildContext?.narrativa?.espaciosDestacadosVenta;
     const list = Array.isArray(existing) && existing.length ? [...existing] : [];
+
+    // Pre-agregar áreas comunes vinculadas que aún no están en la lista
+    const savedComunIds = new Set(list.filter(r => r.kind === 'comun').map(r => r.id));
+    com.forEach(area => {
+        if (savedComunIds.has(area.id)) return;
+        const primeraFoto = area.fotos?.[0];
+        list.push({
+            kind: 'comun',
+            id: area.id,
+            titulo: area.nombre || '',
+            pitch: area.descripcion || '',
+            imagen: primeraFoto
+                ? { storagePath: primeraFoto.storageUrl || primeraFoto.storagePath || '', imageId: primeraFoto.id || '' }
+                : undefined,
+        });
+    });
+
     const rowsHtml = list.length
         ? list.map((r) => renderDestRowHtml(r)).join('')
         : '<p class="text-xs text-gray-500 py-1">Sin destacados guardados. Generá con <strong>Generar con contexto</strong> o añadí filas con el botón de abajo.</p>';
