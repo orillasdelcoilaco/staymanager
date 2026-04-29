@@ -308,19 +308,16 @@ function mountDestacadosEditor(state) {
     const existing = state.buildContext?.narrativa?.espaciosDestacadosVenta;
     const list = Array.isArray(existing) && existing.length ? [...existing] : [];
 
-    // Pre-agregar áreas comunes vinculadas que aún no están en la lista
+    // Pre-agregar áreas comunes vinculadas que aún no están en la lista.
+    // La foto queda vacía a propósito: el usuario elige cuál destacar (SSR usa esa selección).
     const savedComunIds = new Set(list.filter(r => r.kind === 'comun').map(r => r.id));
     com.forEach(area => {
         if (savedComunIds.has(area.id)) return;
-        const primeraFoto = area.fotos?.[0];
         list.push({
             kind: 'comun',
             id: area.id,
             titulo: area.nombre || '',
             pitch: area.descripcion || '',
-            imagen: primeraFoto
-                ? { storagePath: primeraFoto.storageUrl || primeraFoto.storagePath || '', imageId: primeraFoto.id || '' }
-                : undefined,
         });
     });
 
