@@ -75,8 +75,49 @@ function unwrapSeoJsonLdResult(raw) {
     return raw;
 }
 
+/**
+ * Une un nivel de envoltorio típico del modelo (data/result/narrativa/…).
+ * @param {object|null} raw
+ * @returns {object|null}
+ */
+function flattenNarrativaAiPayload(raw) {
+    if (!raw || typeof raw !== 'object') return raw;
+    const nestKeys = ['narrativa', 'content', 'payload', 'data', 'result', 'output', 'response'];
+    let merged = { ...raw };
+    for (const nk of nestKeys) {
+        const inner = raw[nk];
+        if (inner && typeof inner === 'object' && !Array.isArray(inner)) {
+            merged = { ...merged, ...inner };
+        }
+    }
+    return merged;
+}
+
+/**
+ * Texto principal de narrativa comercial desde respuesta IA (claves alias + envoltorios).
+ * @param {object|null|undefined} raw
+ * @returns {string}
+ */
+function extractDescripcionComercialNarrativa(raw) {
+    const flat = flattenNarrativaAiPayload(raw);
+    if (!flat || typeof flat !== 'object') return '';
+    let s = pickFirstString(flat, [
+        'descripcionComercial',
+        'descripcion',
+        'texto',
+        'copy',
+        'body',
+        'contenido',
+        'descripcion_comercial',
+    ]);
+    if (!s && typeof flat.text === 'string') s = flat.text.trim();
+    return String(s || '').trim();
+}
+
 module.exports = {
     pickFirstString,
     findEntityByIdLoose,
     unwrapSeoJsonLdResult,
+    flattenNarrativaAiPayload,
+    extractDescripcionComercialNarrativa,
 };

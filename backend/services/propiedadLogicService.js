@@ -94,18 +94,22 @@ function getVerifiedInventory(componentes) {
 }
 
 /**
- * Genera un plan de fotos inteligente usando los metadatos de activos normalizados por IA.
- * Para cada espacio incluye: foto general + shots del tipo de espacio + activos con requires_photo=true.
+ * Genera un plan de fotos determinista para slots del wizard.
  * @param {Array} componentes - Espacios del alojamiento con sus elementos
- * @param {Array} tipos - tiposComponente (espacios maestros con shotList)
- * @param {Array} tiposElemento - tiposElemento (activos con requires_photo, photo_guidelines, photo_quantity)
+ * @param {Array} tipos - tiposComponente (reservado / compat)
+ * @param {Array} tiposElemento - tiposElemento (requires_photo, etc.)
+ * @param {{ soloVistaGeneralPorEspacio?: boolean }} [opts]
+ *        Si true: solo una foto “vista general” por espacio (fallback cuando la IA no define plan SSR/venta).
+ *        Si false/omitido: también slots por activos con requires_photo (uso interno/backfill).
  * @returns {Object} Mapa { componentId: [ { shot, priority, description, guidelines, type } ] }
  */
-function generarPlanFotos(componentes, _tipos = [], tiposElemento = []) {
+function generarPlanFotos(componentes, _tipos = [], tiposElemento = [], opts = {}) {
     if (!Array.isArray(componentes)) return {};
 
+    const soloGeneral = opts.soloVistaGeneralPorEspacio === true;
+
     // Lookup rápido de activos por ID
-    const activoMap = new Map(tiposElemento.map(t => [t.id, t]));
+    const activoMap = new Map((tiposElemento || []).map(t => [t.id, t]));
 
     const plan = {};
 
@@ -122,32 +126,31 @@ function generarPlanFotos(componentes, _tipos = [], tiposElemento = []) {
             required: true
         });
 
-        // 2. Activos con requires_photo = true (fuente de verdad: activos reales del espacio)
-        // La shotList de tiposComponente se omite intencionalmente — es un template genérico
-        // del tipo y puede referenciar activos que no existen en esta instancia específica.
-        const elementos = comp.elementos || [];
-        elementos.forEach(el => {
-            const activo = activoMap.get(el.tipoId || el.id);
-            if (!activo?.requires_photo) return;
+        if (!soloGeneral) {
+            // 2. Activos con requires_photo = true
+            const elementos = comp.elementos || [];
+            elementos.forEach(el => {
+                const activo = activoMap.get(el.tipoId || el.id);
+                if (!activo?.requires_photo) return;
 
-            const cantidad = el.cantidad || 1;
-            const label = cantidad > 1 ? `${activo.nombre} (×${cantidad})` : activo.nombre;
-            const numFotos = activo.photo_quantity || 1;
+                const cantidad = el.cantidad || 1;
+                const label = cantidad > 1 ? `${activo.nombre} (×${cantidad})` : activo.nombre;
+                const numFotos = activo.photo_quantity || 1;
 
-            // Si requiere más de una foto, agregamos un slot por cada foto requerida
-            for (let i = 0; i < numFotos; i++) {
-                const shotLabel = numFotos > 1 ? `${label} - Foto ${i + 1}` : label;
-                shots.push({
-                    shot: shotLabel,
-                    priority: 'Alta',
-                    description: shotLabel,
-                    guidelines: activo.photo_guidelines || `Foto clara de ${activo.nombre} mostrando estado y calidad. Buena iluminación.`,
-                    type: 'activo',
-                    activoId: activo.id,
-                    required: true
-                });
-            }
-        });
+                for (let i = 0; i < numFotos; i++) {
+                    const shotLabel = numFotos > 1 ? `${label} - Foto ${i + 1}` : label;
+                    shots.push({
+                        shot: shotLabel,
+                        priority: 'Alta',
+                        description: shotLabel,
+                        guidelines: activo.photo_guidelines || `Foto clara de ${activo.nombre} mostrando estado y calidad. Buena iluminación.`,
+                        type: 'activo',
+                        activoId: activo.id,
+                        required: true
+                    });
+                }
+            });
+        }
 
         plan[comp.id] = shots;
     });

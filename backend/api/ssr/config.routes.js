@@ -33,7 +33,12 @@ const {
 const { uploadFile, deleteFileByPath } = require('../../services/storageService');
 const { generarPlanFotos } = require('../../services/propiedadLogicService');
 const { buildFotoPlanWithFallback } = require('../../services/fotoPlanIAHelpers');
-const { pickFirstString, findEntityByIdLoose, unwrapSeoJsonLdResult } = require('../../services/aiResponseNormalize');
+const {
+    pickFirstString,
+    findEntityByIdLoose,
+    unwrapSeoJsonLdResult,
+    extractDescripcionComercialNarrativa,
+} = require('../../services/aiResponseNormalize');
 const { optimizeImage } = require('../../services/imageProcessingService');
 const { generateForTask } = require('../../services/aiContentService');
 const { AI_TASK } = require('../../services/ai/aiEnums');
@@ -842,9 +847,8 @@ module.exports = (db) => {
                                     'No se pudo generar texto desde el inventario verificado. Reintenta en unos segundos.',
                             });
                         }
-                        const textoNarr = String(
-                            narrativa?.descripcionComercial || narrativa?.descripcion || ''
-                        ).trim();
+                        const textoNarr = extractDescripcionComercialNarrativa(narrativa)
+                            || String(narrativa?.descripcionComercial || narrativa?.descripcion || '').trim();
                         if (narrativa && textoNarr) {
                             await updateBuildContextSection(empresaId, propiedadId, 'narrativa', {
                                 ...narrativa,
@@ -1036,9 +1040,16 @@ module.exports = (db) => {
                     error: 'El alojamiento no tiene espacios configurados. Completa los pasos 1-3 primero.'
                 });
             }
-            const narrativa = await generarNarrativaDesdeContexto(context);
-            const textoNarr = pickFirstString(narrativa, ['descripcionComercial', 'descripcion', 'texto']);
-            if (!narrativa || textoNarr.length < 40) {
+            let narrativa = await generarNarrativaDesdeContexto(context);
+            let textoNarr = extractDescripcionComercialNarrativa(narrativa)
+                || pickFirstString(narrativa, ['descripcionComercial', 'descripcion', 'texto']);
+            if ((!narrativa || textoNarr.length < 32) && context?.producto?.espacios?.length) {
+                await new Promise((r) => setTimeout(r, 400));
+                narrativa = await generarNarrativaDesdeContexto(context);
+                textoNarr = extractDescripcionComercialNarrativa(narrativa)
+                    || pickFirstString(narrativa, ['descripcionComercial', 'descripcion', 'texto']);
+            }
+            if (!narrativa || textoNarr.length < 32) {
                 return res.status(503).json({
                     error: 'El servicio de IA no devolvió respuesta. Intenta nuevamente en unos segundos.',
                 });

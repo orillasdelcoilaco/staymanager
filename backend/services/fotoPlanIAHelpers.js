@@ -82,7 +82,11 @@ function normalizeShot(s) {
  * @returns {{ planValidado: Record<string, Array>, aiContributed: boolean }}
  */
 function buildFotoPlanWithFallback(planRaw, espacios, componentes, tiposElemento) {
-    const rulePlanRaw = generarPlanFotos(componentes || [], [], tiposElemento || []);
+    // La IA define prioridades SSR/venta; el fallback por reglas solo añade “vista general” por espacio
+    // (no un slot por cada activo con requires_photo — eso saturaba el plan).
+    const rulePlanRaw = generarPlanFotos(componentes || [], [], tiposElemento || [], {
+        soloVistaGeneralPorEspacio: true,
+    });
     /** Misma clave string que usa json.stringify en PG / frontend para evitar fallos de lookup UUID vs string */
     const rulePlan = {};
     for (const [k, shots] of Object.entries(rulePlanRaw)) {

@@ -10,6 +10,10 @@ const { promptMetadataImagen, promptMetadataImagenConContexto } = require('./ai/
 const { promptJsonLdYSeo } = require('./ai/prompts/jsonld');
 const { withSsrCommerceObjective } = require('./ai/prompts/ssrCommerceContext');
 const { getProvider } = require('./aiContentService.providers');
+const {
+    flattenNarrativaAiPayload,
+    extractDescripcionComercialNarrativa,
+} = require('./aiResponseNormalize');
 
 // Load dotenv only if not in production
 if (!process.env.RENDER) {
@@ -634,20 +638,26 @@ Responde SOLO JSON (sin markdown):
 }`);
 
     const MAX_ATTEMPTS = 3;
-    const MIN_DESC_LEN = 40;
+    const MIN_DESC_LEN = 32;
     const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         try {
             const raw = await generateForTask(AI_TASK.PROPERTY_DESCRIPTION, prompt);
             if (raw) {
-                const descripcionComercial = String(raw.descripcionComercial || raw.descripcion || '').trim();
+                const flat = flattenNarrativaAiPayload(raw) || raw;
+                const descripcionComercial = extractDescripcionComercialNarrativa(flat);
                 if (descripcionComercial.length >= MIN_DESC_LEN) {
                     const espaciosDestacadosVenta = sanitizeEspaciosDestacadosVenta(
-                        raw.espaciosDestacadosVenta,
+                        flat.espaciosDestacadosVenta ?? raw.espaciosDestacadosVenta,
                         buildContext
                     );
-                    return { ...raw, descripcionComercial, espaciosDestacadosVenta };
+                    return {
+                        ...raw,
+                        ...flat,
+                        descripcionComercial,
+                        espaciosDestacadosVenta,
+                    };
                 }
             }
         } catch (e) {
@@ -657,7 +667,7 @@ Responde SOLO JSON (sin markdown):
                 e?.message || e
             );
         }
-        if (attempt < MAX_ATTEMPTS) await pause(600 + attempt * 150);
+        if (attempt < MAX_ATTEMPTS) await pause(320 + attempt * 100);
     }
     console.warn('[generarNarrativaDesdeContexto] sin narrativa válida tras reintentos (solo inventario verificado).');
     return null;
