@@ -1040,18 +1040,13 @@ module.exports = (db) => {
                     error: 'El alojamiento no tiene espacios configurados. Completa los pasos 1-3 primero.'
                 });
             }
-            let narrativa = await generarNarrativaDesdeContexto(context);
-            let textoNarr = extractDescripcionComercialNarrativa(narrativa)
+            const narrativa = await generarNarrativaDesdeContexto(context);
+            const textoNarr = extractDescripcionComercialNarrativa(narrativa)
                 || pickFirstString(narrativa, ['descripcionComercial', 'descripcion', 'texto']);
-            if ((!narrativa || textoNarr.length < 32) && context?.producto?.espacios?.length) {
-                await new Promise((r) => setTimeout(r, 400));
-                narrativa = await generarNarrativaDesdeContexto(context);
-                textoNarr = extractDescripcionComercialNarrativa(narrativa)
-                    || pickFirstString(narrativa, ['descripcionComercial', 'descripcion', 'texto']);
-            }
             if (!narrativa || textoNarr.length < 32) {
                 return res.status(503).json({
-                    error: 'El servicio de IA no devolvió respuesta. Intenta nuevamente en unos segundos.',
+                    error:
+                        'No se pudo generar narrativa. Si las cuotas de Gemini/Groq están agotadas, recarga en unos minutos o revisa facturación.',
                 });
             }
             const narrativaNorm = {

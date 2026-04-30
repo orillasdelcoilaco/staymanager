@@ -14,6 +14,7 @@ const {
     flattenNarrativaAiPayload,
     extractDescripcionComercialNarrativa,
 } = require('./aiResponseNormalize');
+const { narrativaDeterministaDesdeContexto } = require('./narrativaDeterministaFallback');
 
 // Load dotenv only if not in production
 if (!process.env.RENDER) {
@@ -637,7 +638,7 @@ Responde SOLO JSON (sin markdown):
   "espaciosDestacadosVenta": []
 }`);
 
-    const MAX_ATTEMPTS = 3;
+    const MAX_ATTEMPTS = 2;
     const MIN_DESC_LEN = 32;
     const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -667,10 +668,12 @@ Responde SOLO JSON (sin markdown):
                 e?.message || e
             );
         }
-        if (attempt < MAX_ATTEMPTS) await pause(320 + attempt * 100);
+        if (attempt < MAX_ATTEMPTS) await pause(280 + attempt * 80);
     }
-    console.warn('[generarNarrativaDesdeContexto] sin narrativa válida tras reintentos (solo inventario verificado).');
-    return null;
+    console.warn(
+        '[generarNarrativaDesdeContexto] Proveedores IA sin respuesta útil — usando texto base desde inventario (sin IA).'
+    );
+    return narrativaDeterministaDesdeContexto(buildContext);
 };
 
 /**

@@ -161,12 +161,20 @@ export function bindPaso1(state, callbacks) {
                 Boolean(String(textoGenerado || '').trim()) ||
                 (Array.isArray(pts) && pts.length > 0);
             if (huboContenido) {
-                showAppToast(
-                    tieneContexto
-                        ? 'Descripción generada desde el inventario verificado.'
-                        : 'Descripción generada.',
-                    'success'
-                );
+                if (res._generatedWithoutAi) {
+                    showAppToast(
+                        'Las APIs de IA no respondieron (cuotas o facturación). Se cargó un texto base desde tu inventario — revísalo y pulsa de nuevo más tarde.',
+                        'warning',
+                        9000
+                    );
+                } else {
+                    showAppToast(
+                        tieneContexto
+                            ? 'Descripción generada desde el inventario verificado.'
+                            : 'Descripción generada.',
+                        'success'
+                    );
+                }
             } else {
                 showAppToast('La IA no devolvió contenido para mostrar. Reintenta.', 'warning');
             }
