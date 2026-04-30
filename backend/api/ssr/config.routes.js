@@ -747,9 +747,15 @@ module.exports = (db) => {
                 espacios,
             });
 
-            // Un solo intento IA: tres pasadas × cadena larga superaba el timeout HTTP de Render (~100s)
-            // y el navegador mostraba "Failed to fetch" sin cuerpo JSON. El plan por reglas cubre si la IA falla.
-            let planIA = await generateForTask(AI_TASK.PHOTO_PLAN, prompt);
+            // Un solo intento IA: la cadena completa (8+ proveedores × delay + latencia) puede superar el timeout
+            // del proxy/navegador → "Failed to fetch". Recortar intentos; el plan por reglas rellena si la IA falla.
+            const photoPlanMaxProviders = Math.max(
+                1,
+                Number(process.env.AI_PHOTO_PLAN_MAX_PROVIDERS || 4)
+            );
+            let planIA = await generateForTask(AI_TASK.PHOTO_PLAN, prompt, {
+                maxProviders: photoPlanMaxProviders,
+            });
 
             let { planValidado, aiContributed } = buildFotoPlanWithFallback(
                 planIA,

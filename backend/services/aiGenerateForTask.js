@@ -22,6 +22,7 @@ function orderedUniqueProviders(ids) {
  * @param {string} prompt
  * @param {object} [opts]
  * @param {Buffer} [opts.imageBuffer] — solo IMAGE_METADATA
+ * @param {number} [opts.maxProviders] — recorta la cadena (p. ej. plan fotos: evita timeout HTTP en Render)
  * @returns {Promise<object|null>}
  */
 async function generateForTask(taskType, prompt, opts = {}) {
@@ -30,7 +31,11 @@ async function generateForTask(taskType, prompt, opts = {}) {
         return gemini.generateJSON ? gemini.generateJSON(prompt, opts.imageBuffer) : null;
     }
 
-    const providerChain = buildJsonTaskProviderChain(taskType);
+    let providerChain = buildJsonTaskProviderChain(taskType);
+    const cap = opts.maxProviders != null ? Number(opts.maxProviders) : NaN;
+    if (Number.isFinite(cap) && cap > 0 && providerChain.length > cap) {
+        providerChain = providerChain.slice(0, cap);
+    }
     if (!providerChain.length) {
         console.error(
             `[AI Task:${taskType}] Ningún proveedor con API key configurada. Revisa GROQ/GEMINI/OPENROUTER/… en el entorno.`
