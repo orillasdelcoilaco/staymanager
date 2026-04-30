@@ -778,37 +778,52 @@ module.exports = (db) => {
             const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
             if (!propiedad) return res.status(404).json({ error: 'Propiedad no encontrada.' });
 
-            // Con inventario en buildContext: misma narrativa que el wizard (Postgres), sin depender de Firestore.
+            // Con inventario en buildContext: solo narrativa anclada al inventario (SSR / canales IA). Sin fallback genérico.
             if (pool) {
                 try {
                     const buildContext = await getBuildContext(db, empresaId, propiedadId);
                     if (buildContext?.producto?.espacios?.length) {
-                        const narrativa = await generarNarrativaDesdeContexto(buildContext);
-                        if (!narrativa) {
-                            return res.status(502).json({ error: 'La IA no devolvió narrativa.' });
+                        let narrativa;
+                        try {
+                            narrativa = await generarNarrativaDesdeContexto(buildContext);
+                        } catch (aiErr) {
+                            console.error('[generate-ai-text] IA narrativa:', aiErr?.message || aiErr);
+                            return res.status(503).json({
+                                error:
+                                    'No se pudo generar texto desde el inventario verificado. Reintenta en unos segundos.',
+                            });
                         }
-                        await updateBuildContextSection(empresaId, propiedadId, 'narrativa', {
-                            ...narrativa,
-                            generadoEn: new Date().toISOString(),
-                        });
-                        invalidateSsrCache(empresaId);
-                        const textoLimpio = narrativa.descripcionComercial || '';
-                        const puntosFuertes = Array.isArray(narrativa.puntosFuertes)
-                            ? narrativa.puntosFuertes
-                            : [];
-                        return res.json({
-                            texto: textoLimpio,
-                            puntosFuertes,
-                            descripcionComercial: textoLimpio,
-                            ...narrativa,
+                        const textoNarr = String(
+                            narrativa?.descripcionComercial || narrativa?.descripcion || ''
+                        ).trim();
+                        if (narrativa && textoNarr) {
+                            await updateBuildContextSection(empresaId, propiedadId, 'narrativa', {
+                                ...narrativa,
+                                descripcionComercial: textoNarr,
+                                generadoEn: new Date().toISOString(),
+                            });
+                            invalidateSsrCache(empresaId);
+                            const puntosFuertes = Array.isArray(narrativa.puntosFuertes)
+                                ? narrativa.puntosFuertes
+                                : [];
+                            return res.json({
+                                ...narrativa,
+                                descripcionComercial: textoNarr,
+                                texto: textoNarr,
+                                puntosFuertes,
+                            });
+                        }
+                        return res.status(503).json({
+                            error:
+                                'La IA no devolvió narrativa basada en el inventario. Reintenta; si persiste, revisa claves y cuotas del proveedor de IA.',
                         });
                     }
                 } catch (invErr) {
-                    console.warn('[generate-ai-text] narrativa con inventario omitida:', invErr.message);
+                    console.warn('[generate-ai-text] buildContext no disponible, flujo sin inventario:', invErr.message);
                 }
             }
 
-            // Legacy: copy de empresa desde PostgreSQL (configuracion / websiteSettings), no Firestore.
+            // Sin inventario en buildContext: generador clásico (componentes + empresa). No usar como sustituto del bloque anterior.
             let historia = '';
             let slogan = '';
             let marketing = 'General';

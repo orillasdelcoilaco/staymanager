@@ -16,6 +16,18 @@ if (!process.env.RENDER) {
     require('dotenv').config({ path: path.join(__dirname, '../.env') });
 }
 
+/** Cadena única de ids de proveedor sin duplicados (primer ocurrencia gana). */
+function orderedUniqueProviders(ids) {
+    const seen = new Set();
+    const out = [];
+    for (const id of ids) {
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        out.push(id);
+    }
+    return out;
+}
+
 /**
  * Genera contenido de IA para una tarea específica usando el proveedor correcto.
  * Aplica sanitización de inputs contra prompt injection antes de construir el prompt.
@@ -36,13 +48,21 @@ async function generateForTask(taskType, prompt, opts = {}) {
         return gemini.generateJSON ? gemini.generateJSON(prompt, opts.imageBuffer) : null;
     }
 
-    // Para el resto, intentar proveedor preferido de la tarea, luego cascade normal
-    // aiConfig.provider siempre al final como último recurso (ej: Gemini cuando Groq falla)
-    const providerChain = [preferredProvider, ...aiConfig.fallbackProviders, aiConfig.provider].filter(
-        (p, i, arr) => arr.indexOf(p) === i // deduplicar
-    );
+    // Preferido → AI_FALLBACK_PROVIDERS → AI_PROVIDER → implicitFallbackProviders (p. ej. gemini si solo quedaba groq)
+    const providerChain = orderedUniqueProviders([
+        preferredProvider,
+        ...aiConfig.fallbackProviders,
+        aiConfig.provider,
+        ...aiConfig.implicitFallbackProviders,
+    ]);
 
-    for (const providerType of providerChain) {
+    const delayMs = Number(process.env.AI_CHAIN_DELAY_MS || 320);
+
+    for (let i = 0; i < providerChain.length; i++) {
+        const providerType = providerChain[i];
+        if (i > 0 && delayMs > 0) {
+            await new Promise((r) => setTimeout(r, delayMs));
+        }
         try {
             const provider = getProvider(providerType);
             const result = await provider.generateJSON(prompt);
@@ -60,7 +80,8 @@ async function generateForTask(taskType, prompt, opts = {}) {
             if (error.code === 'AI_INJECTION_DETECTED') {
                 throw error; // Nunca hacer fallback en caso de injection
             }
-            throw error;
+            console.warn(`[AI Task:${taskType}] ⚠️ Error en '${providerType}': ${error.message}`);
+            continue;
         }
     }
 
@@ -74,7 +95,11 @@ async function generateForTask(taskType, prompt, opts = {}) {
  * Garantiza que una falla de cuota nunca detenga el flujo sin intentar alternativas.
  */
 async function generateWithFallback(prompt) {
-    const providerChain = [aiConfig.provider, ...aiConfig.fallbackProviders];
+    const providerChain = orderedUniqueProviders([
+        aiConfig.provider,
+        ...aiConfig.fallbackProviders,
+        ...aiConfig.implicitFallbackProviders,
+    ]);
 
     for (const providerType of providerChain) {
         try {
@@ -608,10 +633,34 @@ Responde SOLO JSON (sin markdown):
   "espaciosDestacadosVenta": []
 }`);
 
-    const raw = await generateForTask(AI_TASK.PROPERTY_DESCRIPTION, prompt);
-    if (!raw) return null;
-    const espaciosDestacadosVenta = sanitizeEspaciosDestacadosVenta(raw.espaciosDestacadosVenta, buildContext);
-    return { ...raw, espaciosDestacadosVenta };
+    const MAX_ATTEMPTS = 3;
+    const MIN_DESC_LEN = 40;
+    const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+            const raw = await generateForTask(AI_TASK.PROPERTY_DESCRIPTION, prompt);
+            if (raw) {
+                const descripcionComercial = String(raw.descripcionComercial || raw.descripcion || '').trim();
+                if (descripcionComercial.length >= MIN_DESC_LEN) {
+                    const espaciosDestacadosVenta = sanitizeEspaciosDestacadosVenta(
+                        raw.espaciosDestacadosVenta,
+                        buildContext
+                    );
+                    return { ...raw, descripcionComercial, espaciosDestacadosVenta };
+                }
+            }
+        } catch (e) {
+            if (e && e.code === 'AI_INJECTION_DETECTED') throw e;
+            console.warn(
+                `[generarNarrativaDesdeContexto] intento ${attempt}/${MAX_ATTEMPTS}:`,
+                e?.message || e
+            );
+        }
+        if (attempt < MAX_ATTEMPTS) await pause(600 + attempt * 150);
+    }
+    console.warn('[generarNarrativaDesdeContexto] sin narrativa válida tras reintentos (solo inventario verificado).');
+    return null;
 };
 
 /**

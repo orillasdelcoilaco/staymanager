@@ -2,6 +2,7 @@
  * webPublica.paso1.identidad.js — Paso 1: Descripción IA + Puntos Fuertes
  */
 import { fetchAPI } from '../../../api.js';
+import { showAppToast } from '../../../utils/toast.js';
 
 /** Máximo destacados en ficha SSR (CRO + legibilidad; alinear con backend). */
 const MAX_DESTACADOS_VENTA = 8;
@@ -135,8 +136,7 @@ export function bindPaso1(state, callbacks) {
             const endpoint = tieneContexto
                 ? `/website/propiedad/${state.propiedadId}/build-context/generate-narrativa`
                 : `/website/propiedad/${state.propiedadId}/generate-ai-text`;
-            const res = await fetchAPI(endpoint, { method: 'POST' });
-            if (!res) throw new Error('El servicio de IA no respondió. Intenta nuevamente.');
+            const res = await fetchAPI(endpoint, { method: 'POST' }) || {};
 
             // Soporte para ambos formatos: nuevo (descripcionComercial) y legacy (texto)
             const textoGenerado = res.descripcionComercial || res.texto || '';
@@ -157,8 +157,25 @@ export function bindPaso1(state, callbacks) {
                 state.buildContext.narrativa = { ...(state.buildContext.narrativa || {}), ...res };
                 mountDestacadosEditor(state);
             }
+            const huboContenido =
+                Boolean(String(textoGenerado || '').trim()) ||
+                (Array.isArray(pts) && pts.length > 0);
+            if (huboContenido) {
+                showAppToast(
+                    tieneContexto
+                        ? 'Descripción generada desde el inventario verificado.'
+                        : 'Descripción generada.',
+                    'success'
+                );
+            } else {
+                showAppToast('La IA no devolvió contenido para mostrar. Reintenta.', 'warning');
+            }
         } catch (err) {
-            alert('Error al generar: ' + (err.message || 'Intenta nuevamente'));
+            showAppToast(
+                'No se pudo generar: ' + (err.message || 'Intenta nuevamente.'),
+                'danger',
+                6500
+            );
         } finally {
             btn.disabled = false;
             loading.classList.add('hidden');
@@ -190,8 +207,19 @@ export function bindPaso1(state, callbacks) {
                 state.buildContext.narrativa = { ...(state.buildContext.narrativa || {}), ...res };
                 mountDestacadosEditor(state);
             }
+            const tienePts = Array.isArray(res.puntosFuertes) && res.puntosFuertes.length > 0;
+            const tieneTexto = Boolean(String(textoNarr || '').trim());
+            if (tienePts || tieneTexto) {
+                showAppToast('Puntos fuertes y texto actualizados.', 'success');
+            } else {
+                showAppToast('La IA no devolvió contenido para mostrar. Reintenta.', 'warning');
+            }
         } catch (err) {
-            alert('Error al generar: ' + (err.message || 'Intenta nuevamente'));
+            showAppToast(
+                'No se pudo generar: ' + (err.message || 'Intenta nuevamente.'),
+                'danger',
+                6500
+            );
         } finally {
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-bolt"></i> Generar con IA';

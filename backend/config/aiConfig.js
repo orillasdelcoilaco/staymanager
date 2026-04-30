@@ -10,6 +10,19 @@ const aiConfig = {
     // Pon los gratuitos al final como respaldo. Ej: ['siliconflow', 'moonshot']
     fallbackProviders: (process.env.AI_FALLBACK_PROVIDERS || '').split(',').map(s => s.trim()).filter(Boolean),
 
+    /**
+     * Se añaden al final de la cadena de cada tarea si aún no están (orden preservado).
+     * Evita el caso [groq] único cuando AI_PROVIDER=groq y la tarea ya prefiere groq (dedup eliminaba el segundo).
+     * Desactivar: AI_IMPLICIT_FALLBACKS=0 o AI_IMPLICIT_FALLBACKS=false
+     */
+    implicitFallbackProviders:
+        process.env.AI_IMPLICIT_FALLBACKS === '0' || process.env.AI_IMPLICIT_FALLBACKS === 'false'
+            ? []
+            : (process.env.AI_IMPLICIT_FALLBACKS || 'gemini')
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+
     // --- Proveedores configurados ---
 
     gemini: {

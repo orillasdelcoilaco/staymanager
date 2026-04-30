@@ -132,7 +132,10 @@ export async function fetchAPI(endpoint, options = {}) {
         }
 
         try {
-            return JSON.parse(text);
+            const parsed = JSON.parse(text);
+            // Express puede serializar `null`; el caller no debe interpretarlo como "sin respuesta".
+            if (parsed === null) return {};
+            return parsed;
         } catch {
             const hint = text.trim().startsWith('<!')
                 ? 'El servidor devolvió HTML en lugar de JSON (ruta /api no encontrada o proxy mal configurado).'
