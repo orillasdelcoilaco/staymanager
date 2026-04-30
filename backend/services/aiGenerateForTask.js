@@ -25,8 +25,6 @@ function orderedUniqueProviders(ids) {
  * @returns {Promise<object|null>}
  */
 async function generateForTask(taskType, prompt, opts = {}) {
-    const preferredProvider = TASK_PROVIDER_MAP[taskType] || aiConfig.provider;
-
     if (taskType === AI_TASK.IMAGE_METADATA && opts.imageBuffer) {
         const gemini = getProvider('gemini');
         return gemini.generateJSON ? gemini.generateJSON(prompt, opts.imageBuffer) : null;
@@ -51,7 +49,9 @@ async function generateForTask(taskType, prompt, opts = {}) {
             const provider = getProvider(providerType);
             const result = await provider.generateJSON(prompt);
             if (result) {
-                if (providerType !== preferredProvider) {
+                // Comparación solo aquí (evita ReferenceError si un deploy quedó a medias con `preferredProvider` global)
+                const taskPreferred = TASK_PROVIDER_MAP[taskType] || aiConfig.provider;
+                if (providerType !== taskPreferred) {
                     console.log(`[AI Task:${taskType}] ✅ Fallback exitoso con: ${providerType}`);
                 }
                 return result;

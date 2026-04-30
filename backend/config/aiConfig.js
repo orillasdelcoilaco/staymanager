@@ -78,7 +78,8 @@ const aiConfig = {
     // Modelos gratuitos recomendados: deepseek/deepseek-chat-v3-0324:free, meta-llama/llama-3.3-70b-instruct:free
     openrouter: {
         apiKey: process.env.OPENROUTER_API_KEY,
-        model: process.env.OPENROUTER_MODEL || 'deepseek/deepseek-chat',
+        // Por defecto variante :free; override con OPENROUTER_MODEL (ej. deepseek/deepseek-chat de pago)
+        model: process.env.OPENROUTER_MODEL || 'deepseek/deepseek-chat-v3-0324:free',
         baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
         providerName: 'OpenRouter',
         maxTokens: 4096
