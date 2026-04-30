@@ -31,7 +31,8 @@ const aiConfig = {
     },
     openai: {
         apiKey: process.env.OPENAI_API_KEY,
-        model: process.env.OPENAI_MODEL || 'gpt-4-turbo'
+        // gpt-4-turbo ya no está disponible para muchas cuentas nuevas; override con OPENAI_MODEL si hace falta
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
     },
     claude: {
         apiKey: process.env.CLAUDE_API_KEY,

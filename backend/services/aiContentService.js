@@ -10,122 +10,16 @@ const { promptMetadataImagen, promptMetadataImagenConContexto } = require('./ai/
 const { promptJsonLdYSeo } = require('./ai/prompts/jsonld');
 const { withSsrCommerceObjective } = require('./ai/prompts/ssrCommerceContext');
 const { getProvider } = require('./aiContentService.providers');
-const { buildJsonTaskProviderChain } = require('./aiProviderChain');
 const {
     flattenNarrativaAiPayload,
     extractDescripcionComercialNarrativa,
 } = require('./aiResponseNormalize');
 const { narrativaDeterministaDesdeContexto } = require('./narrativaDeterministaFallback');
+const { generateForTask, generateWithFallback } = require('./aiGenerateForTask');
 
 // Load dotenv only if not in production
 if (!process.env.RENDER) {
     require('dotenv').config({ path: path.join(__dirname, '../.env') });
-}
-
-/** Cadena única de ids de proveedor sin duplicados (primer ocurrencia gana). */
-function orderedUniqueProviders(ids) {
-    const seen = new Set();
-    const out = [];
-    for (const id of ids) {
-        if (!id || seen.has(id)) continue;
-        seen.add(id);
-        out.push(id);
-    }
-    return out;
-}
-
-/**
- * Genera contenido de IA para una tarea específica usando el proveedor correcto.
- * Aplica sanitización de inputs contra prompt injection antes de construir el prompt.
- *
- * @param {string} taskType — AI_TASK.* (ej: AI_TASK.SEO_GENERATION)
- * @param {string} prompt — Prompt ya construido (usar funciones de ai/prompts/)
- * @param {object} [opts]
- * @param {string} [opts.empresaId] — Para audit log de injection
- * @param {Buffer} [opts.imageBuffer] — Solo para IMAGE_METADATA
- * @returns {Promise<object|null>}
- */
-async function generateForTask(taskType, prompt, opts = {}) {
-    // Para tareas de visión, siempre Gemini con imageBuffer
-    if (taskType === AI_TASK.IMAGE_METADATA && opts.imageBuffer) {
-        const gemini = getProvider('gemini');
-        return gemini.generateJSON ? gemini.generateJSON(prompt, opts.imageBuffer) : null;
-    }
-
-    // Cadena amplia: preferido por tarea + AI_CRITICAL_PROVIDER_CHAIN (≥6 proveedores típicos) + fallbacks env
-    const providerChain = buildJsonTaskProviderChain(taskType);
-    if (!providerChain.length) {
-        console.error(`[AI Task:${taskType}] Ningún proveedor con API key configurada. Revisa GROQ/GEMINI/OPENROUTER/… en el entorno.`);
-        return null;
-    }
-
-    const delayMs = Number(process.env.AI_CHAIN_DELAY_MS || 280);
-
-    for (let i = 0; i < providerChain.length; i++) {
-        const providerType = providerChain[i];
-        if (i > 0 && delayMs > 0) {
-            await new Promise((r) => setTimeout(r, delayMs));
-        }
-        try {
-            const provider = getProvider(providerType);
-            const result = await provider.generateJSON(prompt);
-            if (result) {
-                if (providerType !== preferredProvider) {
-                    console.log(`[AI Task:${taskType}] ✅ Fallback exitoso con: ${providerType}`);
-                }
-                return result;
-            }
-        } catch (error) {
-            if (error.code === 'AI_QUOTA_EXCEEDED') {
-                console.warn(`[AI Task:${taskType}] ⚠️ Cuota excedida en '${providerType}'. Intentando siguiente...`);
-                continue;
-            }
-            if (error.code === 'AI_INJECTION_DETECTED') {
-                throw error; // Nunca hacer fallback en caso de injection
-            }
-            console.warn(`[AI Task:${taskType}] ⚠️ Error en '${providerType}': ${error.message}`);
-            continue;
-        }
-    }
-
-    console.error(`[AI Task:${taskType}] ❌ Todos los proveedores fallaron.`);
-    return null;
-}
-
-/**
- * Intenta generar JSON con el proveedor principal.
- * Si falla por cuota, prueba los proveedores de fallback en orden.
- * Garantiza que una falla de cuota nunca detenga el flujo sin intentar alternativas.
- */
-async function generateWithFallback(prompt) {
-    const providerChain = orderedUniqueProviders([
-        aiConfig.provider,
-        ...aiConfig.fallbackProviders,
-        ...aiConfig.implicitFallbackProviders,
-    ]);
-
-    for (const providerType of providerChain) {
-        try {
-            const provider = getProvider(providerType);
-            const result = await provider.generateJSON(prompt);
-            if (result) {
-                if (providerType !== aiConfig.provider) {
-                    console.log(`[AI Cascade] ✅ Éxito con proveedor fallback: ${providerType}`);
-                }
-                return result;
-            }
-        } catch (error) {
-            if (error.code === 'AI_QUOTA_EXCEEDED') {
-                console.warn(`[AI Cascade] ⚠️ Cuota excedida en '${providerType}'. Intentando siguiente proveedor...`);
-                continue;
-            }
-            // Error no relacionado a cuota: propagar
-            throw error;
-        }
-    }
-
-    console.error('[AI Cascade] ❌ Todos los proveedores fallaron o no tienen API key configurada.');
-    return null;
 }
 
 const { analizarMetadataActivo: analizarMetadataActivoImpl } = require('./aiContentService.metadataActivos');

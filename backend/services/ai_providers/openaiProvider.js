@@ -36,7 +36,7 @@ class OpenAIProvider {
             return;
         }
         this.apiKey = config.apiKey;
-        this.model = config.model || 'gpt-4-turbo';
+        this.model = config.model || 'gpt-4o-mini';
         this.baseUrl = config.baseUrl || 'https://api.openai.com/v1/chat/completions';
         this.providerName = config.providerName || 'OpenAI';
         this.maxTokens = config.maxTokens || 2048;

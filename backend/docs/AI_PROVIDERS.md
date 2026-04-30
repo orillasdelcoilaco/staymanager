@@ -32,6 +32,26 @@
 | `AI_PANEL_LIGHT_MAX` | Máx. solicitudes “ligeras” (audit-slot, subidas con metadatos IA). Default **45**. |
 | `GROQ_API_KEY`, `GEMINI_API_KEY`, … | Ver `backend/config/aiConfig.js`. |
 
+## Pasos para activar proveedores que faltan (sin cambiar código)
+
+1. **Crear cuenta** en el portal del proveedor y generar una **API key**.
+2. En **Render** → tu servicio → **Environment** → añadir la variable indicada (mismo nombre que en local `.env`).
+3. **Redeploy** (o reinicio manual) para que el proceso cargue la nueva variable.
+4. Opcional: **`AI_CRITICAL_PROVIDER_CHAIN`** para fijar el orden de intentos (coma-separada). Solo cuentan los IDs que tengan clave.
+
+| Proveedor | Variable en env | Dónde obtener la clave |
+|-----------|-----------------|-------------------------|
+| Groq | `GROQ_API_KEY` | https://console.groq.com |
+| Gemini | `GEMINI_API_KEY` | Google AI Studio / Google Cloud |
+| OpenRouter | `OPENROUTER_API_KEY` | https://openrouter.ai |
+| SiliconFlow | `SILICONFLOW_API_KEY` | https://siliconflow.cn |
+| Moonshot | `MOONSHOT_API_KEY` | https://platform.moonshot.cn |
+| DeepSeek | `DEEPSEEK_API_KEY` | https://platform.deepseek.com |
+| OpenAI | `OPENAI_API_KEY` | https://platform.openai.com |
+| Claude | `CLAUDE_API_KEY` | https://console.anthropic.com |
+
+Modelos opcionales por proveedor: `GROQ_MODEL`, `GEMINI_MODEL`, `OPENROUTER_MODEL`, etc. (ver `backend/config/aiConfig.js`).
+
 ## Recomendaciones para producción
 
 - Configurar **varias claves** (Groq + Gemini + OpenRouter + SiliconFlow + Moonshot + DeepSeek + OpenAI + Claude según presupuesto). La cadena crítica las recorre en orden.
@@ -43,7 +63,7 @@
 - `backend/services/ai/aiEnums.js` — mapa tarea → proveedor preferido.
 - `backend/services/aiProviderChain.js` — cadena larga y filtro por claves.
 - `backend/middleware/aiPanelGenerationLimiter.js` — 429 por empresa en rutas IA del panel.
-- `backend/services/aiContentService.js` — `generateForTask` y cadena.
+- `backend/services/aiGenerateForTask.js` — `generateForTask` / `generateWithFallback`; cadena en `aiProviderChain.js`.
 - `backend/services/ai_providers/openaiProvider.js` — Groq/OpenRouter/OpenAI (JSON robusto + reintento sin `json_mode` si hace falta).
 - `backend/services/aiResponseNormalize.js` — aliases de campos (`descripcion` vs `texto`), búsqueda de espacios por `id` con `String()`, desenvuelve JSON-LD anidado.
 
