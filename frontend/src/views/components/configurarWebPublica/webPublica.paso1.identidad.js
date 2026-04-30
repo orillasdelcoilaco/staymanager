@@ -342,8 +342,6 @@ function mountDestacadosEditor(state) {
     );
     const toAdd = com.filter(a => a?.id && !savedComunIds.has(String(a.id).trim()));
 
-    console.log('[Dest] saved:', savedList.length, '| toAdd:', toAdd.length, '| com desc:', com.map(a => ({id: a.id, hasDesc: !!a.descripcion})));
-
     const savedHtml = savedList.length
         ? savedList.map(r => renderDestRowHtml(r)).join('')
         : '';
@@ -375,7 +373,6 @@ function mountDestacadosEditor(state) {
         });
     }
 
-    console.log('[Dest] rows en DOM:', root.querySelectorAll('.dest-row').length);
     document.getElementById('btn-add-destacado')?.addEventListener('click', () => handleAddDestacadoRow(state));
     document.getElementById('btn-guardar-destacados-only')?.addEventListener('click', () => saveDestacadosOnly(state));
     syncAddDestacadoBtn();
