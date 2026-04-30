@@ -334,7 +334,18 @@ function mountDestacadosEditor(state) {
             <button type="button" id="btn-guardar-destacados-only" class="btn-outline text-sm">Guardar solo destacados</button>
         </div>
     `;
-    root.querySelectorAll('.dest-row').forEach((rowEl) => bindDestRow(rowEl, state));
+    console.log('[Destacados] rows en DOM ANTES de bind:', root.querySelectorAll('.dest-row').length);
+    root.querySelectorAll('.dest-row').forEach((rowEl, idx) => {
+        try {
+            bindDestRow(rowEl, state);
+        } catch (e) {
+            console.error('[Destacados] error en bindDestRow fila', idx, e);
+        }
+    });
+    console.log('[Destacados] rows en DOM DESPUÉS de bind:', root.querySelectorAll('.dest-row').length);
+    const _allRows = [...root.querySelectorAll('.dest-row')];
+    const _hiddenRows = _allRows.filter(r => getComputedStyle(r).display === 'none' || getComputedStyle(r).visibility === 'hidden');
+    console.log('[Destacados] rows OCULTOS por CSS:', _hiddenRows.length, '| btn disabled:', document.getElementById('btn-add-destacado')?.disabled);
     document.getElementById('btn-add-destacado')?.addEventListener('click', () => handleAddDestacadoRow(state));
     document.getElementById('btn-guardar-destacados-only')?.addEventListener('click', () => saveDestacadosOnly(state));
     syncAddDestacadoBtn();
