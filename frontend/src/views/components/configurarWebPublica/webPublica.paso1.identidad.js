@@ -334,46 +334,48 @@ function mountDestacadosEditor(state) {
             : 'Este alojamiento no tiene áreas comunes vinculadas. Si el recinto tiene piscina, quincho u otros espacios compartidos, asocialos desde la gestión del alojamiento; luego podrán aparecer aquí y en la web.';
     }
     const existing = state.buildContext?.narrativa?.espaciosDestacadosVenta;
-    const list = Array.isArray(existing) && existing.length ? [...existing] : [];
+    const savedList = Array.isArray(existing) && existing.length ? [...existing] : [];
 
-    // Pre-agregar áreas comunes vinculadas que aún no están en la lista.
-    // La foto queda vacía a propósito: el usuario elige cuál destacar (SSR usa esa selección).
-    const savedComunIds = new Set(list.filter(r => r.kind === 'comun').map(r => r.id));
-    console.log('[Destacados] com.length:', com.length, '| savedComunIds:', [...savedComunIds], '| list antes:', list.length);
-    com.forEach(area => {
-        console.log('[Destacados] area.id:', area.id, '| area.nombre:', area.nombre, '| ya guardada:', savedComunIds.has(area.id));
-        if (savedComunIds.has(area.id)) return;
-        list.push({
-            kind: 'comun',
-            id: area.id,
-            titulo: area.nombre || '',
-            pitch: area.descripcion || '',
-        });
-    });
-    console.log('[Destacados] list después de merge:', list.length);
+    // Soporta field 'kind' (nuevo) y 'alcance' (legado) para detectar filas comunes ya guardadas.
+    const savedComunIds = new Set(
+        savedList.filter(r => r.kind === 'comun' || r.alcance === 'comun').map(r => r.id)
+    );
+    const toAdd = com.filter(a => a?.id && !savedComunIds.has(String(a.id).trim()));
 
-    const rowsHtml = list.length
-        ? list.map((r) => renderDestRowHtml(r)).join('')
-        : '<p class="text-xs text-gray-500 py-1">Sin destacados guardados. Generá con <strong>Generar con contexto</strong> o añadí filas con el botón de abajo.</p>';
+    console.log('[Dest] saved:', savedList.length, '| toAdd:', toAdd.length, '| com desc:', com.map(a => ({id: a.id, hasDesc: !!a.descripcion})));
+
+    const savedHtml = savedList.length
+        ? savedList.map(r => renderDestRowHtml(r)).join('')
+        : '';
+
     root.innerHTML = `
-        <div class="destacados-rows space-y-3">${rowsHtml}</div>
+        <div class="destacados-rows space-y-3">${savedHtml || (!toAdd.length ? '<p class="text-xs text-gray-500 py-1">Sin destacados guardados. Generá con <strong>Generar con contexto</strong> o añadí filas con el botón de abajo.</p>' : '')}</div>
         <div class="flex flex-wrap items-center gap-2 mt-3">
             <button type="button" id="btn-add-destacado" class="btn-outline text-sm">+ Añadir fila</button>
             <button type="button" id="btn-guardar-destacados-only" class="btn-outline text-sm">Guardar solo destacados</button>
         </div>
     `;
-    console.log('[Destacados] rows en DOM ANTES de bind:', root.querySelectorAll('.dest-row').length);
-    root.querySelectorAll('.dest-row').forEach((rowEl, idx) => {
-        try {
-            bindDestRow(rowEl, state);
-        } catch (e) {
-            console.error('[Destacados] error en bindDestRow fila', idx, e);
-        }
-    });
-    console.log('[Destacados] rows en DOM DESPUÉS de bind:', root.querySelectorAll('.dest-row').length);
-    const _allRows = [...root.querySelectorAll('.dest-row')];
-    const _hiddenRows = _allRows.filter(r => getComputedStyle(r).display === 'none' || getComputedStyle(r).visibility === 'hidden');
-    console.log('[Destacados] rows OCULTOS por CSS:', _hiddenRows.length, '| btn disabled:', document.getElementById('btn-add-destacado')?.disabled);
+
+    // Bind filas guardadas
+    root.querySelectorAll('.dest-row').forEach(rowEl => bindDestRow(rowEl, state));
+
+    // Añadir áreas comunes faltantes de a una (evita re-render masivo y posibles filtros CSS del browser)
+    const wrap = root.querySelector('.destacados-rows');
+    if (wrap && toAdd.length) {
+        const available = MAX_DESTACADOS_VENTA - wrap.querySelectorAll('.dest-row').length;
+        toAdd.slice(0, Math.max(available, 0)).forEach(area => {
+            wrap.insertAdjacentHTML('beforeend', renderDestRowHtml({
+                kind: 'comun',
+                id: area.id,
+                titulo: area.nombre || '',
+                pitch: area.descripcion || '',
+            }));
+            const newRow = wrap.querySelector('.dest-row:last-of-type');
+            if (newRow) bindDestRow(newRow, state);
+        });
+    }
+
+    console.log('[Dest] rows en DOM:', root.querySelectorAll('.dest-row').length);
     document.getElementById('btn-add-destacado')?.addEventListener('click', () => handleAddDestacadoRow(state));
     document.getElementById('btn-guardar-destacados-only')?.addEventListener('click', () => saveDestacadosOnly(state));
     syncAddDestacadoBtn();
@@ -762,7 +764,7 @@ function collectDestacadosFromDom() {
             }
             return base;
         })
-        .filter((r) => r.id && r.titulo && r.pitch)
+        .filter((r) => r.id && r.titulo)
         .slice(0, MAX_DESTACADOS_VENTA);
 }
 
