@@ -1,5 +1,5 @@
 {
-  "fecha": "2026-04-30T01:48:20.623Z",
+  "fecha": "2026-04-30T02:03:22.564Z",
   "total": 37,
   "criticos": [
     {
@@ -65,7 +65,7 @@
     {
       "file": "backend/services/aiContentService.js",
       "type": "file-size",
-      "detail": "847 líneas"
+      "detail": "845 líneas"
     },
     {
       "file": "backend/services/aiContentService.js",
