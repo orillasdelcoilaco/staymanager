@@ -16,6 +16,23 @@
 
 5. Errores HTTP/red en adapters OpenAI-compatibles: warning y siguiente.
 
+## Probar claves en local (sin desplegar)
+
+Desde la raíz del repo (carga `backend/.env` si existe):
+
+```bash
+node scripts/test-ai-provider-keys.js
+npm run test:ai-keys
+```
+
+Con fallo de salida si alguna clave **definida** devuelve 401/404/error de red (útil en CI):
+
+```bash
+node scripts/test-ai-provider-keys.js --strict
+```
+
+No muestra la clave completa. Si SiliconFlow u otro sigue en 401 tras pegar en Render, revisa comillas envolviendo el valor, espacios al final o un **redeploy** tras guardar variables.
+
 ## Variables de entorno relevantes
 
 | Variable | Rol |
