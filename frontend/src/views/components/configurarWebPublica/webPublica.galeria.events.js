@@ -92,7 +92,15 @@ function bindGenerarPlanIa() {
             });
             setupGaleriaEvents();
         } catch (err) {
-            alert('Error al generar el plan: ' + err.message);
+            let msg = err?.message || String(err);
+            if (
+                msg === 'Failed to fetch' ||
+                (err?.name === 'TypeError' && /fetch/i.test(msg))
+            ) {
+                msg =
+                    'Sin respuesta del servidor a tiempo (petición muy larga o red). Recarga la página e inténtalo de nuevo; si persiste, el plan por reglas puede aplicarse sin IA.';
+            }
+            alert('Error al generar el plan: ' + msg);
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-robot"></i> Generar plan IA'; }
         }
     });

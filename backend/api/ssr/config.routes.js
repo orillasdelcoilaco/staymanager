@@ -747,15 +747,9 @@ module.exports = (db) => {
                 espacios,
             });
 
+            // Un solo intento IA: tres pasadas × cadena larga superaba el timeout HTTP de Render (~100s)
+            // y el navegador mostraba "Failed to fetch" sin cuerpo JSON. El plan por reglas cubre si la IA falla.
             let planIA = await generateForTask(AI_TASK.PHOTO_PLAN, prompt);
-            if (planIA == null || (typeof planIA === 'object' && !Array.isArray(planIA) && Object.keys(planIA).length === 0)) {
-                await new Promise((r) => setTimeout(r, 450));
-                planIA = await generateForTask(AI_TASK.PHOTO_PLAN, prompt);
-            }
-            if (planIA == null || (typeof planIA === 'object' && !Array.isArray(planIA) && Object.keys(planIA).length === 0)) {
-                await new Promise((r) => setTimeout(r, 600));
-                planIA = await generateForTask(AI_TASK.PHOTO_PLAN, prompt);
-            }
 
             let { planValidado, aiContributed } = buildFotoPlanWithFallback(
                 planIA,
