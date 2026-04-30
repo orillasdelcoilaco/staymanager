@@ -1,5 +1,5 @@
 {
-  "fecha": "2026-04-30T01:37:54.483Z",
+  "fecha": "2026-04-30T01:48:20.623Z",
   "total": 37,
   "criticos": [
     {
@@ -20,12 +20,12 @@
     {
       "file": "frontend/src/views/components/configurarWebPublica/webPublica.paso1.identidad.js",
       "type": "file-size",
-      "detail": "789 líneas"
+      "detail": "797 líneas"
     },
     {
       "file": "frontend/src/views/components/configurarWebPublica/webPublica.paso1.identidad.js",
       "type": "function-size",
-      "detail": "bindPaso1 — 125 líneas (línea 115)"
+      "detail": "bindPaso1 — 133 líneas (línea 115)"
     },
     {
       "file": "frontend/src/views/components/crm/crm.pipeline.js",
@@ -65,7 +65,7 @@
     {
       "file": "backend/services/aiContentService.js",
       "type": "file-size",
-      "detail": "844 líneas"
+      "detail": "847 líneas"
     },
     {
       "file": "backend/services/aiContentService.js",
