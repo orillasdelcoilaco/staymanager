@@ -51,6 +51,7 @@ const { sanitizeBookingSettingsIncoming } = require('../../services/bookingSetti
 const { sanitizeIntegrationsSettingsIncoming } = require('../../services/integrationsSettingsSanitize');
 const { evaluateGoogleHotelsHealth } = require('../../services/googleHotelsHealthService');
 const { createDefaultTerminosCondiciones, mergeTerminosCondiciones } = require('../../services/terminosCondicionesDefaults');
+const { aiPanelGenerationLimiter } = require('../../middleware/aiPanelGenerationLimiter');
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -94,6 +95,9 @@ async function recalcularFotoStats(db, empresaId, propiedadId, componentes, wiza
 
 module.exports = (db) => {
     const router = express.Router();
+
+    /** Límite por empresa: evita spam en narrativa, JSON-LD, plan fotos, subidas con metadatos IA, etc. */
+    router.use(aiPanelGenerationLimiter);
 
     const invalidateSsrCache = (empresaId) => {
         try {

@@ -10,6 +10,7 @@ const { promptMetadataImagen, promptMetadataImagenConContexto } = require('./ai/
 const { promptJsonLdYSeo } = require('./ai/prompts/jsonld');
 const { withSsrCommerceObjective } = require('./ai/prompts/ssrCommerceContext');
 const { getProvider } = require('./aiContentService.providers');
+const { buildJsonTaskProviderChain } = require('./aiProviderChain');
 const {
     flattenNarrativaAiPayload,
     extractDescripcionComercialNarrativa,
@@ -45,23 +46,20 @@ function orderedUniqueProviders(ids) {
  * @returns {Promise<object|null>}
  */
 async function generateForTask(taskType, prompt, opts = {}) {
-    const preferredProvider = TASK_PROVIDER_MAP[taskType] || aiConfig.provider;
-
     // Para tareas de visión, siempre Gemini con imageBuffer
     if (taskType === AI_TASK.IMAGE_METADATA && opts.imageBuffer) {
         const gemini = getProvider('gemini');
         return gemini.generateJSON ? gemini.generateJSON(prompt, opts.imageBuffer) : null;
     }
 
-    // Preferido → AI_FALLBACK_PROVIDERS → AI_PROVIDER → implicitFallbackProviders (p. ej. gemini si solo quedaba groq)
-    const providerChain = orderedUniqueProviders([
-        preferredProvider,
-        ...aiConfig.fallbackProviders,
-        aiConfig.provider,
-        ...aiConfig.implicitFallbackProviders,
-    ]);
+    // Cadena amplia: preferido por tarea + AI_CRITICAL_PROVIDER_CHAIN (≥6 proveedores típicos) + fallbacks env
+    const providerChain = buildJsonTaskProviderChain(taskType);
+    if (!providerChain.length) {
+        console.error(`[AI Task:${taskType}] Ningún proveedor con API key configurada. Revisa GROQ/GEMINI/OPENROUTER/… en el entorno.`);
+        return null;
+    }
 
-    const delayMs = Number(process.env.AI_CHAIN_DELAY_MS || 320);
+    const delayMs = Number(process.env.AI_CHAIN_DELAY_MS || 280);
 
     for (let i = 0; i < providerChain.length; i++) {
         const providerType = providerChain[i];

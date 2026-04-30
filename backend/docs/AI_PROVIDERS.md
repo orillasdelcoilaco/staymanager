@@ -2,41 +2,47 @@
 
 ## Flujo por tarea
 
-1. **Proveedor preferido por tarea** (`backend/services/ai/aiEnums.js`, `TASK_PROVIDER_MAP`).  
-   Ejemplo: textos de propiedad / SEO usan **`groq`** por velocidad y coste.
+1. **Proveedor preferido por tarea** (`TASK_PROVIDER_MAP` en `backend/services/ai/aiEnums.js`). Ej.: narrativa / SEO texto → **`groq`**.
 
-2. **Cadena efectiva** (en orden, sin duplicados):
+2. **Cadena amplia (`buildJsonTaskProviderChain` en `backend/services/aiProviderChain.js`)** — orden sin duplicados, **solo proveedores con API key en env**:
 
-   `preferido` → `AI_FALLBACK_PROVIDERS` → `AI_PROVIDER` → **`AI_IMPLICIT_FALLBACKS`** (por defecto `gemini`).
+   `preferido` → **`AI_CRITICAL_PROVIDER_CHAIN`** (por defecto **8** backends distintos: groq, gemini, openrouter, siliconflow, moonshot, deepseek, openai, claude) → `AI_FALLBACK_PROVIDERS` → `AI_PROVIDER` → `AI_IMPLICIT_FALLBACKS`.
 
-   Esto corrige el caso en que solo quedaba **un** proveedor (p. ej. `[groq]` si `AI_PROVIDER=groq` y la tarea ya prefería Groq): sin el paso implícito, **no había segundo proveedor** y un fallo puntual dejaba la cola vacía.
+   Así se intentan **≥6 proveedores distintos** en cuanto existan claves en Render (una por variable en `aiConfig.js`). Sin clave, ese backend **no entra** en la cadena (no pierdes tiempo).
 
-3. Entre cada proveedor se espera **`AI_CHAIN_DELAY_MS`** ms (por defecto `320`) para reducir ráfagas ante límites de tasa.
+3. Entre cada proveedor: **`AI_CHAIN_DELAY_MS`** (por defecto `280`) para no disparar ráfagas ante 429.
 
-4. Si un proveedor lanza **`AI_QUOTA_EXCEEDED`**, se prueba el siguiente.
+4. **`AI_QUOTA_EXCEEDED`** → siguiente proveedor.
 
-5. Otros errores HTTP/red en proveedores compatibles OpenAI ya **no cortan** toda la cadena: se registra un warning y se sigue (antes solo algunos caminos hacían fallback).
+5. Errores HTTP/red en adapters OpenAI-compatibles: warning y siguiente.
 
 ## Variables de entorno relevantes
 
 | Variable | Rol |
 |----------|-----|
-| `AI_PROVIDER` | Proveedor “por defecto” del proceso (`gemini`, `groq`, `openai`, …). Va en la cadena antes que los implícitos. |
-| `AI_FALLBACK_PROVIDERS` | Lista separada por comas, probada después del preferido de la tarea. Ej: `gemini,openrouter`. |
-| `AI_IMPLICIT_FALLBACKS` | Por defecto `gemini`. Se añade al final si aún no está en la cadena. Desactivar: `0` o `false`. |
-| `AI_CHAIN_DELAY_MS` | Pausa entre intentos de proveedores distintos (ms). `0` desactiva. |
-| `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, … | Ver `backend/config/aiConfig.js`. |
+| `AI_CRITICAL_PROVIDER_CHAIN` | Lista separada por comas (orden de fallback tras el preferido). Por defecto ocho IDs: groq, gemini, openrouter, siliconflow, moonshot, deepseek, openai, claude. Solo se usan si existe la env correspondiente (`GROQ_API_KEY`, `GEMINI_API_KEY`, …). |
+| `AI_LOG_PROVIDER_CHAIN` | Pon `0` para silenciar el log único al arrancar la primera tarea JSON con la cadena resuelta. |
+| `AI_PROVIDER` | Proveedor global del proceso; entra en la cadena si tiene clave. |
+| `AI_FALLBACK_PROVIDERS` | Extra tras la cadena crítica. Ej: `gemini,openrouter`. |
+| `AI_IMPLICIT_FALLBACKS` | Por defecto `gemini`. Desactivar: `0` o `false`. |
+| `AI_CHAIN_DELAY_MS` | Pausa entre proveedores (ms). `0` desactiva. |
+| **Rate limit panel** (`backend/middleware/aiPanelGenerationLimiter.js`) | |
+| `AI_PANEL_WINDOW_MS` | Ventana (default **900000** = 15 min). |
+| `AI_PANEL_HEAVY_MAX` | Máx. solicitudes “pesadas” por empresa / ventana (narrativa, JSON-LD, plan fotos, perfil, reclasificar, texto IA…). Default **14**. |
+| `AI_PANEL_LIGHT_MAX` | Máx. solicitudes “ligeras” (audit-slot, subidas con metadatos IA). Default **45**. |
+| `GROQ_API_KEY`, `GEMINI_API_KEY`, … | Ver `backend/config/aiConfig.js`. |
 
 ## Recomendaciones para producción
 
-- Definir **al menos dos claves** entre Groq + Gemini u OpenRouter para redundancia.
-- Si solo usás Groq: mantener **`AI_IMPLICIT_FALLBACKS=gemini`** y configurar `GEMINI_API_KEY`, o añadir **`AI_FALLBACK_PROVIDERS=gemini`**.
-- Para contenido largo (narrativas), Groq usa `maxTokens` alto en `aiConfig.groq`; si ves JSON cortado, revisar logs del proveedor.
+- Configurar **varias claves** (Groq + Gemini + OpenRouter + SiliconFlow + Moonshot + DeepSeek + OpenAI + Claude según presupuesto). La cadena crítica las recorre en orden.
+- Revisar **`AI_PANEL_*`** si el equipo necesita más pulsaciones por ventana o menos en demos.
 
 ## Archivos clave
 
 - `backend/config/aiConfig.js` — definición de proveedores y env.
 - `backend/services/ai/aiEnums.js` — mapa tarea → proveedor preferido.
+- `backend/services/aiProviderChain.js` — cadena larga y filtro por claves.
+- `backend/middleware/aiPanelGenerationLimiter.js` — 429 por empresa en rutas IA del panel.
 - `backend/services/aiContentService.js` — `generateForTask` y cadena.
 - `backend/services/ai_providers/openaiProvider.js` — Groq/OpenRouter/OpenAI (JSON robusto + reintento sin `json_mode` si hace falta).
 - `backend/services/aiResponseNormalize.js` — aliases de campos (`descripcion` vs `texto`), búsqueda de espacios por `id` con `String()`, desenvuelve JSON-LD anidado.
