@@ -7,7 +7,7 @@ description: Verify SSR Integrity (Booking Widget, CSS, Data)
 Run this workflow after making changes to:
 - `backend/views/propiedad.ejs` (Property Details Template)
 - `backend/public/js/booking.js` (Booking Logic)
-- `backend/routes/websiteConfigRoutes.js` (Image Uploads)
+- `backend/api/ssr/config.routes.js` (uploads wizard / `/api/website`)
 - `backend/services/publicWebsiteService.js` (Data Fetching)
 
 ## Steps

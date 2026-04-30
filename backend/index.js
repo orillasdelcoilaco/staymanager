@@ -38,7 +38,7 @@ const websiteRoutes = require('./routes/website.js');
 const { createMarketplaceRouter } = require('./routes/marketplace.js');
 const integrationsRoutes = require('./routes/integrations.js');
 const estadosRoutes = require('./routes/estados.js');
-const websiteConfigRoutes = require('./api/ssr/config.routes.js');
+const websitePanelRoutes = require('./api/ssr/config.routes.js');
 const comentariosRoutes = require('./routes/comentarios.js');
 const aiRoutes = require('./routes/aiRoutes.js');
 
@@ -236,7 +236,7 @@ try {
     apiRouter.use('/empresa', empresaRoutes(db));
     apiRouter.use('/usuarios', usuariosRoutes(db));
     apiRouter.use('/plantillas', plantillasRoutes(db));
-    apiRouter.use('/website', websiteConfigRoutes(db));
+    apiRouter.use('/website', websitePanelRoutes(db));
     apiRouter.use('/authGoogle', authGoogleRoutes(db));
     apiRouter.use('/historial-cargas', historialCargasRoutes(db));
     apiRouter.use('/propuestas', propuestasRoutes(db));

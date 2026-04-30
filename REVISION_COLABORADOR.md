@@ -162,8 +162,7 @@ staymanager/
 │   │   └── authMiddleware.js        ← Verifica JWT, extrae empresaId al req.user
 │   ├── routes/
 │   │   ├── website.js               ← Rutas del sitio público (SSR)
-│   │   ├── websiteConfigRoutes.js   ← Config web, upload de fotos (panel admin)
-│   │   ├── galeriaRoutes.js         ← [NUEVO] API galería de fotos por propiedad
+│   │   ├── galeriaRoutes.js         ← API galería de fotos por propiedad
 │   │   ├── propiedades.js           ← CRUD propiedades
 │   │   └── ...
 │   ├── services/

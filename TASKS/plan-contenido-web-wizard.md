@@ -164,7 +164,7 @@ PUT /website/propiedad/:propiedadId/seo
 Body: { metaTitle, metaDescription }
 → actualizarPropiedad(db, empresaId, propiedadId, { websiteData: { metaTitle, metaDescription } })
 ```
-Archivo: `backend/api/ssr/config.routes.js` (el activo, NO websiteConfigRoutes.js)
+Archivo: `backend/api/ssr/config.routes.js`
 
 ---
 
@@ -225,8 +225,6 @@ Usar el mismo overlay centrado implementado en `galeriaPropiedad.js`:
 ---
 
 ## 9. Archivos NO tocar
-- `backend/routes/websiteConfigRoutes.js` — archivo inactivo (no montado), ignorar
-- El archivo activo es `backend/api/ssr/config.routes.js` montado en `/website`
 - `webPublica.galeria.helpers.js` — mantener, reutilizar en paso2
 
 ---

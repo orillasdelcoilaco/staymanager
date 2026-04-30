@@ -94,7 +94,7 @@ Módulos que suelen ser **esperados** en un PMS + web directa y que conviene val
 **Cerrado en esta iteración (no rehacer al volver):**
 
 - UI en **Configurar sitio web público** (vista unificada): bloque «Legal y checkout público» (cancelación resumida, desglose IVA, notas, JSON de líneas extra con ayuda inline); visibilidad del campo «horas» según modo (`webPublica.general.unified.markup.js`, `webPublica.general.unified.js`, `webPublica.general.unified.handlers.js`).
-- **Persistencia:** `PUT /api/website/home-settings` acepta `legal` en cuerpo plano y `websiteSettings.legal` en formato combinado; persiste en `configuracion.websiteSettings.legal` (`backend/routes/websiteConfigRoutes.js`).
+- **Persistencia:** `PUT /api/website/home-settings` acepta `legal` en cuerpo plano y `websiteSettings.legal` en formato combinado; persiste en `configuracion.websiteSettings.legal` (`backend/api/ssr/config.routes.js`).
 - **`lineasExtra`:** módulo compartido por reglas — `backend/services/lineasExtraValidation.js` + `frontend/src/shared/lineasExtraValidation.js` (mantener ambos alineados). Validación por fila antes de guardar en el SPA; en API **400** con `details[]` si falla; al guardar OK se persisten filas **sanitizadas** (mismas reglas que `checkoutDesgloseService` vía `sanitizeLineaExtraDef` importado desde el módulo de validación).
 - **Errores en guardado:** el `catch` del botón Guardar muestra `responseJSON.details` cuando el backend rechaza líneas extra.
 
@@ -199,6 +199,10 @@ Módulos que suelen ser **esperados** en un PMS + web directa y que conviene val
 - [ ] C con DoD explícito y estado final (`LISTO` o `PAUSA` justificada).
 - [ ] Backlog actualizado con fecha, evidencia mínima y "siguiente foco" para v1.1.
 
+### F) Canales de venta externos y presencia en IAs (roadmap — 2026-04-29)
+
+**Ver sección dedicada más abajo:** **§5.3** (objetivos por canal, jugada API+MCP+JSON-LD+SSR, agentes). Complementa el checklist **B** (Google Hotel Center) y la estrategia en **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §9.
+
 **Entrega parcial (2026-04-22):** motor de correos por disparadores (`transactionalEmailService.js`), hooks en gestión/reservas, jobs (`backend/jobs/scheduledTransactionalEmails.js`), formulario `POST /contacto` SSR, promos en tarjetas vía `websiteSettings.marketing.promocionesDestacadas`, texto/HTML de política de cancelación en ficha (`websiteSettings.legal.politicaCancelacionTexto` / `politicaCancelacionHtml`), orden marketplace `sort=valor` en `/api/search.json`.
 
 **Extensión misma fecha:** bandeja `GET /api/comunicaciones` + vista `/comunicaciones`; columna `tarifas.metadata` (migración `backend/db/migrations/tarifas-metadata-promo.sql`), matriz con oferta web, SSR home/ficha con `aplicarPromocionesDisplayCompleto` (`promocionesDisplayService.js` + `website.shared.js` cargando `metadata`).
@@ -210,6 +214,47 @@ node scripts/seed-plantillas-correos-transaccionales.js
 ```
 
 No duplica disparadores: solo inserta si la empresa aún no tiene una plantilla activa con ese `email_config.disparadores`.
+
+---
+
+## 5.3 Canales de venta externos y presencia en IAs
+
+**Propósito:** ordenar la conectividad hacia agregadores y asistentes sin duplicar lo que el producto ya resuelve bien (API abierta, SSR, JSON-LD, inventario centralizado en la OTA propia).
+
+### Lo que ya es ventaja competitiva (base técnica)
+
+- **SSR** orientado a SEO y a contenido utilizable por motores e IAs (indexación, respuestas citables).
+- **JSON-LD** en el sitio público (lectura directa por sistemas que consumen datos estructurados).
+- **APIs expuestas** y contratos OpenAPI (ChatGPT/Gemini y flujos IA internos sobre el mismo backend).
+- **OTA propia** con inventario centralizado desde panel (fuente operativa única por tenant).
+
+### Objetivos por canal (prioridad sugerida de negocio)
+
+| # | Canal | Objetivo | Notas |
+|---|--------|----------|-------|
+| 1 | **Google Travel / Things to Do** | Evaluar y, si aplica el modelo del negocio, **aplicar como connectivity partner** en el programa Google Travel (actividades y alojamiento según reglas vigentes del programa). | Encaja con JSON-LD + trabajo ya hecho en feeds/checklist Google Hotels (**§4**, checklist **`TASKS/checklist-onboarding-google-hotel-center.md`**). Requiere proceso externo de aprobación Google. |
+| 2 | **ChatGPT Actions / proveedor OpenAI** | Mantener y **evolucionar el registro como sistema externo** que expone acciones sobre las APIs existentes (OpenAPI 3.1, mismas rutas que producción). | Refinamiento continuo de `openapi/openapi-chatgpt.yaml`, políticas de uso y pruebas con el agente. Ver **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §7 y §9. |
+| 3 | **Perplexity y middleware tipo SelfBook** | **Contacto explícito** con partners que conectan motores de respuesta / IA con sistemas de reservas (middleware). | Define alcance técnico según lo que exija el partner (webhooks, OAuth, catálogo); puede ser sprint aparte una vez haya acuerdo comercial. |
+| 4 | **MCP (Model Context Protocol)** | **Servidor MCP propio** que exponga herramientas de búsqueda/cotización/reserva sobre la API ya existente (Claude Desktop, IDEs y herramientas compatibles con MCP). | Diseño previsto en coordinación §9 **1A**; **decisión de repo pendiente** en §8 (dependencia `@modelcontextprotocol/sdk`). Prioridad alta para presencia en el ecosistema MCP sin sustituir OpenAPI para otros clientes. |
+| 5 | **Booking.com / Expedia Connectivity** | Donde el modelo de negocio lo permita, **conectar como proveedor de inventario** vía programas de connectivity de esas plataformas. | Esfuerzo comercial y técnico alto; puede **heredar** visibilidad en ecosistemas que ya integran esos canales (p. ej. asistentes). Valorar ROI frente a los ítems 1–4. |
+
+### Jugada coordinada (mensaje de producto)
+
+1. **API estable + MCP** → una capa estándar para clientes que hablan MCP (p. ej. Claude, Cursor, más herramientas) **sin** depender solo de un único intermediario cerrado.
+2. **JSON-LD + feeds / Travel** → mejor encaje con **Google AI Mode** y programas Travel donde el tenant califique.
+3. **SSR** → visibilidad orgánica y contenido citeable por IAs.
+
+### Designación de agentes — solo Cursor (acuerdo 2026-04-29)
+
+**No usamos Claude Code / Antigravity para este carril:** roadmap técnico, contratos OpenAPI, MCP, feeds y partnerships documentados se ejecutan **solo con Cursor**.
+
+| Rol | Quién | Responsabilidad |
+|-----|--------|-----------------|
+| **Estrategia técnica + código** | **Cursor** (Composer o Agent) | Mantener **`TASKS/backlog-producto-pendientes.md` §5.3**, revisar **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §2–§3 antes de tocar API pública/tarifas/checkout; implementar en `backend/`, `openapi/`, MCP bajo **§8** si se aprueba. |
+| **“Agente dedicado” en Cursor (recomendado)** | **Un chat de Agent con nombre fijo** | Cursor no tiene un campo “este agente solo hace X”; la práctica equivalente es **reservar un único hilo** (p. ej. título **«Canales venta — MCP + OpenAPI»**) y arrancarlo siempre con: leer §5.3 + §3 zona caliente. Opcional: regla **`.cursor/rules/45-canales-venta-solo-cursor.mdc`** (se adjunta al trabajar en `openapi/**` o `backend/mcp/**`). |
+| **Evitar mezcla de contexto** | Misma sesión vs otras tareas | No mezclar con cierre **release 1.0.0** salvo priorización explícita (`TASKS/leer-primero.md` §5). |
+
+**Pendiente explícito:** aprobación de dependencia MCP y ruta de implementación → **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §8; detalle técnico **§9.1A**.
 
 ---
 
@@ -225,6 +270,7 @@ No duplica disparadores: solo inserta si la empresa aún no tiene una plantilla 
 | Marketplace precio desde + descubrimiento ficha | `backend/services/marketplaceService.js`, `backend/views/marketplace/index.ejs`, `backend/routes/marketplace.js`, `backend/services/publicWebsiteService.js` (`obtenerMasAlojamientosParaFichaSSR`), `backend/routes/website.property.page.js` |
 | Dominio Render | `backend/services/renderDomainService.js`, flujo `home-settings` en `backend/api/ssr/config.routes.js` |
 | Google Hotels / feed ARI | `backend/services/googleHotelsService.js` (`generateAriFeed`, `generatePropertyListFeed`), `backend/routes/website.seo.js` (`/feed-ari.xml`, `/feed-google-hotels-content.xml`, `/widget-reserva-ayuda.json`), `backend/scripts/verify-google-hotels-feed-checklist.js`, `TASKS/checklist-onboarding-google-hotel-center.md`, `backend/routes/integrations.js`, `frontend/src/shared/ariFeedUrl.js`, `empresa.js`, `sincronizarCalendarios.js`, `webPublica.general.unified.{js,markup.js}` |
+| Canales venta / IA (roadmap, MCP pendiente §8) | **§5.3** (solo Cursor; chat dedicado opcional); **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §7–§9; regla opcional `.cursor/rules/45-canales-venta-solo-cursor.mdc`; MCP `backend/mcp/` (§9.1A); OpenAPI `openapi/openapi-chatgpt.yaml` |
 | Motor correo + hooks | `backend/services/transactionalEmailService.js` (`resolverLinkResenaOutbound`, `construirVariablesDesdeReserva`), `backend/services/transactionalEmailHooks.js`, `backend/services/transactionalEmailEventMatrix.js` (`GET /plantillas/matriz-eventos-correo`) |
 | Jobs correo / digest | `backend/jobs/scheduledTransactionalEmails.js` (arranque en `backend/index.js`) |
 | Semilla plantillas correo | `scripts/seed-plantillas-correos-transaccionales.js` |
@@ -235,4 +281,4 @@ No duplica disparadores: solo inserta si la empresa aún no tiene una plantilla 
 
 ---
 
-*Última actualización: 2026-04-25 — **Google Hotels / SSR / bandeja:** checklist §9 + script `verify-google-hotels-feed-checklist.js`; `htmlLang` global + i18n ampliada (home, contacto, 404, confirmación, header/footer, property-card, ficha `og:locale`); bandeja comunicaciones UX v1.1f; comentarios/JSDoc multi-tenant calendario y feed contenido. **Release 1.0.0 (puerta técnica):** `npm run test:ci` ampliado en raíz (`package.json`) con scripts alineados a `TASKS/plan-release-1.0.0.md` §2.1; CI GitHub `.github/workflows/ci-smoke.yml` ejecuta la misma cadena. Smoke manual §2.3 en staging + tag `v1.0.0` + push quedan según plan y `TASKS/leer-primero.md` §5.1. Mapa de calor §4: pendiente QA E2E tenant real. Post-tag: §4.3 D + §5 según prioridad.*
+*Última actualización: 2026-04-29 — **§5.3 Canales de venta:** mismo contenido de objetivos; **solo Cursor** para estrategia técnica e implementación (sin Claude Code); **chat Agent dedicado** + regla opcional `45-canales-venta-solo-cursor.mdc`; checklist §5.x **F**. Historial 2026-04-25: Google Hotels / SSR / bandeja + release 1.0.0 CI; mapa calor §4 QA E2E pendiente.*

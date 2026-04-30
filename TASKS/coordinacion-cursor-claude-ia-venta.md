@@ -40,10 +40,11 @@ _Actualizar al iniciar y al terminar trabajo relevante._
 | 2026-04-24  | Cursor | Payload comercial IA (listado/detalle) | LISTO | `publicAiMarketingLayer.js`, `publicAiProductSnapshot.js`, `suitemanagerApiController` (galería `espacio`). Sin cambio de rutas HTTP. |
 | 2026-04-24  | Cursor | Identificadores vs nombres (PG)  | Fase1 LISTO | Columna `reservas.estado_gestion_id` + código dual (nombre sincronizado). Migración: `backend/db/migrations/reservas-estado-gestion-id.sql`. SPA gestión/reservas/calendario alineados parcialmente — ver `TASKS/audit-identificadores-vs-nombres-ui.md` § avance. **Siguiente:** ejecutar SQL en Supabase; fase 2 canal/plantilla IA, `reservas.estado` principal, jobs SQL. |
 | 2026-04-24  | Claude | `consultarDisponibilidad` / bug  | LISTO    | Fix: `resolveEmpresaPgId` + `unavailableProperties`; commit `e27f151` |
-| 2026-04-24  | Claude | Estrategia multi-canal IA venta  | EN CURSO | Ver §9 — roadmap por canal y tier |
+| 2026-04-24  | Claude | Estrategia multi-canal IA venta  | PAUSA | 2026-04-29: carril **§5.3 canales de venta** pasa a **solo Cursor** (backlog + chat Agent dedicado); §9 sigue como referencia técnica. Historial: roadmap §9. |
 | 2026-04-24  | Cursor | `GET /api/disponibilidad` enriquecida + vibe búsqueda + confirmación reserva | LISTO | `publicAiDisponibilidadService.js`, `evaluarRestriccionesReservaWebCodigo`, `suitemanagerApiController`, OpenAPI; `requiere_confirmacion_final` en detalle; validación email/tel `publicAiController`. |
 | 2026-04-25  | Cursor | Backlog producto (`TASKS/backlog-producto-pendientes.md`) | LISTO | Mapa de calor §4 + QA E2E pendiente; **actualización adicional:** §1.1f bandeja, §1.6c i18n SSR, §4 checklist Google §9 + script verify, §6 referencias, pie. |
 | 2026-04-25  | Cursor | Release 1.0.0 — `test:ci` + plan + CI workflow | LISTO | `package.json` `test:ci` ampliado (smoke §2 scripts); `TASKS/plan-release-1.0.0.md` §2.1; `backend/scripts/test-integrations-settings-sanitize.js`; `.github/workflows/ci-smoke.yml` → `npm run test:ci`. Smoke manual §2.3 y push tag `v1.0.0` pendientes operación/staging. |
+| 2026-04-29  | Cursor | §5.3 canales de venta — solo Cursor (estrategia + repo) | LISTO | Backlog §5.3 + regla `45-canales-venta-solo-cursor.mdc`; chat Agent dedicado; fila Claude multi-canal → **PAUSA**; §9 responsables actualizados para trabajo nuevo. |
 
 **Convención de estados:** `EN CURSO` | `LISTO` | `PAUSA` | `BLOQUEADO`.
 
@@ -115,6 +116,7 @@ Quitar el lock cuando termines.
 
 _Formato: `YYYY-MM-DD — Actor — una frase`._
 
+- 2026-04-29 — Cursor — **§5.3 solo Cursor:** objetivos por canal en backlog, jugada API+MCP+JSON-LD+SSR, checklist §5.x **F**; chat Agent dedicado + regla **`45-canales-venta-solo-cursor.mdc`**; fila Claude multi-canal → **PAUSA**; §9 alineado.
 - 2026-04-25 — Cursor — **Release 1.0.0 (puerta técnica):** `npm run test:ci` ampliado (`package.json`) con tests alineados a smoke plan §2.1; `plan-release-1.0.0.md` actualizado; `ci-smoke.yml` ejecuta `test:ci`; script `test-integrations-settings-sanitize.js`. Pendiente: smoke manual §2.3 staging + tag `v1.0.0` + push integrador.
 - 2026-04-25 — Cursor — Checklist Google Hotels §9 + script `verify-google-hotels-feed-checklist.js`; SSR `htmlLang` en `website.context.js` + i18n home/contacto/404/header/footer/confirmación/property-card; UX bandeja `comunicaciones.js` (error carga, vacíos, toasts reintento); comentarios multi-tenant calendario/feed.
 - 2026-04-25 — Cursor — Backlog de producto actualizado: §4 “Mapa de calor / restricciones” y §4.3 D reflejan cierre funcional (edición panel, overlay calendario, min noches por llegada en backend + widget), quedando QA E2E como pendiente.
@@ -158,30 +160,32 @@ _Formato: `YYYY-MM-DD — Actor — una frase`._
 
 ---
 
-## 9. Estrategia multi-canal IA venta — hoja de ruta (Claude Code como líder)
+## 9. Estrategia multi-canal IA venta — hoja de ruta
 
-_Actualizado: 2026-04-24. Revisar y ajustar al inicio de cada sprint IA._
+**Implementación activa del carril §5.3 (canales externos / MCP / OpenAPI): solo Cursor** — un chat de Agent dedicado + regla opcional `.cursor/rules/45-canales-venta-solo-cursor.mdc`. La columna «Responsable» en la tabla inferior es histórica; para trabajo nuevo en §5.3 usar **Cursor** (la fila §2 *Estrategia multi-canal* en modo Claude quedó en **PAUSA**).
+
+_Actualizado: 2026-04-24 (tabla); alineación §5.3 **2026-04-29** en **`TASKS/backlog-producto-pendientes.md`** (Google Travel / Things to Do, ChatGPT Actions, Perplexity + middleware, MCP, Booking.com / Expedia Connectivity)._
 
 ### Mapa de canales y protocolo técnico
 
 | Canal / Plataforma | Protocolo / Standard | Tier | Responsable |
 |--------------------|----------------------|------|-------------|
-| **ChatGPT** (Actions/GPT) | OpenAPI 3.1 (`openapi-chatgpt.yaml`) | ✅ Activo | Claude (refinamiento) |
-| **Claude** (Desktop, IDE, API) | **MCP Server** (`@modelcontextprotocol/sdk`) | 🔴 P1 | Claude Code |
-| **Perplexity / buscadores IA** | `llms.txt` + sitemap XML | 🔴 P1 | Claude Code + Cursor |
+| **ChatGPT** (Actions/GPT) | OpenAPI 3.1 (`openapi-chatgpt.yaml`) | ✅ Activo | Cursor (refinamiento contrato) |
+| **Claude** (Desktop, IDE, API) | **MCP Server** (`@modelcontextprotocol/sdk`) | 🔴 P1 | Cursor (§5.3; regla `45-canales-venta-solo-cursor.mdc`) |
+| **Perplexity / buscadores IA** | `llms.txt` + sitemap XML | 🔴 P1 | Cursor |
 | **Google AI Overview (SGE)** | JSON-LD mejorado (LodgingBusiness, BookAction, FAQ) | 🔴 P1 | Cursor |
-| **Gemini** (Google AI Studio) | OpenAPI (`openapi-gemini.yaml`) — mismo backend | 🟡 P2 | Claude Code |
-| **WhatsApp Business** | Meta Business API webhook → `publicAiController` | 🟡 P2 | Claude Code + Cursor |
-| **Google Hotels** | ARI XML feed (OTA-connect) — `googleHotelsService.js` | 🟡 P2 | Claude + Cursor |
-| **Bing / Microsoft Copilot** | Plugin OpenAPI + Bing Webmaster | 🟠 P3 | Claude Code |
+| **Gemini** (Google AI Studio) | OpenAPI (`openapi-gemini.yaml`) — mismo backend | 🟡 P2 | Cursor |
+| **WhatsApp Business** | Meta Business API webhook → `publicAiController` | 🟡 P2 | Cursor |
+| **Google Hotels** | ARI XML feed (OTA-connect) — `googleHotelsService.js` | 🟡 P2 | Cursor |
+| **Bing / Microsoft Copilot** | Plugin OpenAPI + Bing Webmaster | 🟠 P3 | Cursor |
 | **Instagram / Facebook DM** | Meta Business API (Messenger Platform) | 🟠 P3 | Cursor |
 | **Alexa / Google Assistant** | Voice intents / Smart Home API | 🔵 P4 | futuro |
 
 ---
 
-### Tier 1 — Implementación inmediata (Claude Code)
+### Tier 1 — Implementación inmediata (Cursor)
 
-#### 1A. MCP Server para Claude
+#### 1A. MCP Server (clientes MCP, p. ej. Claude Desktop)
 **Qué:** servidor MCP (`Model Context Protocol`, standard Anthropic) que expone las herramientas de reserva. Cualquier usuario de Claude Desktop, Claude.ai con MCP, o agente que use el SDK de Anthropic puede buscar cabañas y reservar sin salir de Claude.
 
 **Cómo:** `backend/mcp/staymanager-mcp-server.js` con transporte `stdio`. Herramientas: `buscar_propiedades`, `consultar_disponibilidad`, `cotizar_precio`, `crear_reserva`, `obtener_detalle`. Sirve el mismo backend que ChatGPT — sin duplicar lógica.
@@ -195,7 +199,7 @@ _Actualizado: 2026-04-24. Revisar y ajustar al inicio de cada sprint IA._
 
 **Contenido:** nombre empresa, descripción, propiedades listadas (nombre, capacidad, precio desde), instrucción de booking ("Para reservar, usar `POST https://suite-manager.onrender.com/api/reservas`"), contacto.
 
-**Quién lo implementa:** yo (Claude Code) — ruta nueva en `website.home.js` o `website.js`, generada dinámicamente desde la BD.
+**Quién lo implementa:** Cursor — ruta nueva en `website.home.js` o `website.js`, generada dinámicamente desde la BD.
 
 #### 1C. Cotizar precio / dry-run antes de reservar (OpenAPI + API)
 **Estado:** **Entregado (2026-04-24, Cursor).** No hace falta `GET /api/cotizar` global.
@@ -207,7 +211,7 @@ _Actualizado: 2026-04-24. Revisar y ajustar al inicio de cada sprint IA._
 
 ---
 
-### Tier 2 — Sprint siguiente (coordinación Claude + Cursor)
+### Tier 2 — Sprint siguiente (Cursor; coordinar §3 si API/checkout)
 
 #### 2A. WhatsApp Business API
 - Webhook `POST /api/webhook/whatsapp` recibe mensajes → router de intenciones (disponibilidad, reserva, precio)
@@ -313,4 +317,4 @@ Detalle libre (bloqueos, deploy, migraciones):
 
 ---
 
-*Última revisión: 2026-04-25 — §11 actualizado (test:ci ampliado, CI workflow); Claude Code liderazgo IA venta §9; §10 multi-agente TASKS.*
+*Última revisión: 2026-04-29 — §5.3 **solo Cursor**; Claude §5.3 → PAUSA; regla `45-canales-venta-solo-cursor.mdc`; §9 responsables actualizados a Cursor para trabajo nuevo. Histórico 2026-04-25: §11, CI, §10.*

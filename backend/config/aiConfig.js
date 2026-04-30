@@ -68,7 +68,8 @@ const aiConfig = {
         model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
         baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
         providerName: 'Groq',
-        maxTokens: 4096
+        // Plan de fotos por espacio puede superar 4k de salida JSON; truncar rompe parseJSON → fallback por reglas.
+        maxTokens: Number(process.env.GROQ_MAX_TOKENS || 8192),
     },
 
     // OpenRouter: proxy unificado con acceso a 200+ modelos, tier gratuito sin tarjeta.

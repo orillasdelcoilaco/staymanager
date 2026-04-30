@@ -37,7 +37,7 @@ console.log(JSON.stringify(formularioCorregido, null, 2));
 
 console.log('\n🔧 2. PROCESAMIENTO EN BACKEND:');
 
-// Simular lo que hace websiteConfigRoutes.js
+// Simular home-settings (config.routes.js)
 const settings = formularioCorregido;
 const websiteSettings = {};
 

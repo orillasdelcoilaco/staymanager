@@ -47,6 +47,9 @@ REGLAS POR SHOT:
 - "priority": "Alta" si vende o posiciona (camas, amenidades premium, vistas), "Media" para el resto
 - "required": true para los 1-3 shots esenciales de cada espacio, false para los adicionales
 
+Las claves del objeto raíz deben ser EXACTAMENTE los strings "id" del bloque JSON de espacios (mismos caracteres, sin traducir ni reemplazar por nombres).
+Si usas un envoltorio, no lo uses: el JSON raíz debe ser solo el mapa id → array de shots.
+
 RESPONDE SOLO con JSON válido (sin markdown):
 {
   "[id del espacio tal cual fue entregado]": [

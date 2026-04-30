@@ -92,7 +92,7 @@ async function testGuardadoConfig() {
         // 4. Simular lo que hace actualizarDetallesEmpresa
         console.log('\n🔄 SIMULANDO actualizarDetallesEmpresa...');
 
-        // Construir websiteSettings como lo hace websiteConfigRoutes.js
+        // Construir websiteSettings (mismo shape que home-settings en config.routes.js)
         const websiteSettings = {};
 
         if (payloadSimulado.general) {

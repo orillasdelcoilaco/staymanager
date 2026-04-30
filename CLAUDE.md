@@ -154,7 +154,7 @@ node scripts/hooks-creditos.js [comando]
 **Problema:** Fotos subidas en Paso 2 de Website-Alojamientos no persistían en tabla `galeria`, solo en `websiteData.images`.
 
 **Causa Raíz:** 
-1. Ruta `/upload-image` manejada por `./api/ssr/config.routes.js` (no `./routes/websiteConfigRoutes.js`)
+1. Ruta `/upload-image` manejada por `./api/ssr/config.routes.js`
 2. Función `uploadFotoToGaleria` llamada incorrectamente (5 parámetros en lugar de 4)
 3. UPDATE posterior dependía de `pool` sin fallback para Firestore
 

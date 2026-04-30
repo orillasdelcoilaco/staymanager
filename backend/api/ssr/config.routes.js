@@ -32,6 +32,8 @@ const {
 } = require('../../services/buildContextService');
 const { uploadFile, deleteFileByPath } = require('../../services/storageService');
 const { generarPlanFotos } = require('../../services/propiedadLogicService');
+const { buildFotoPlanWithFallback } = require('../../services/fotoPlanIAHelpers');
+const { pickFirstString, findEntityByIdLoose, unwrapSeoJsonLdResult } = require('../../services/aiResponseNormalize');
 const { optimizeImage } = require('../../services/imageProcessingService');
 const { generateForTask } = require('../../services/aiContentService');
 const { AI_TASK } = require('../../services/ai/aiEnums');
@@ -42,6 +44,8 @@ const { syncDomain, removeCustomDomain } = require('../../services/renderDomainS
 const { ssrCache } = require('../../services/cacheService');
 const { sanitizeBookingSettingsIncoming } = require('../../services/bookingSettingsSanitize');
 const { sanitizeIntegrationsSettingsIncoming } = require('../../services/integrationsSettingsSanitize');
+const { evaluateGoogleHotelsHealth } = require('../../services/googleHotelsHealthService');
+const { createDefaultTerminosCondiciones, mergeTerminosCondiciones } = require('../../services/terminosCondicionesDefaults');
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -103,6 +107,26 @@ module.exports = (db) => {
         } catch (error) { next(error); }
     });
 
+    // Semáforo Google Hotels / feeds (panel empresa)
+    router.get('/google-hotels-health', async (req, res, next) => {
+        try {
+            const { empresaId } = req.user;
+            const report = await evaluateGoogleHotelsHealth(empresaId);
+            res.status(200).json(report);
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    // Plantilla HTML de términos y condiciones (botón en vista Términos)
+    router.get('/terminos-condiciones/plantilla', async (req, res, next) => {
+        try {
+            res.status(200).json({ plantilla: createDefaultTerminosCondiciones() });
+        } catch (error) {
+            next(error);
+        }
+    });
+
     // PUT Guardar Configuración General (SEO, Content, Theme colors, etc)
     router.put('/home-settings', async (req, res, next) => {
         try {
@@ -161,6 +185,14 @@ module.exports = (db) => {
                     });
                 }
                 websiteSettings.integrations = integCheck.integrations;
+            }
+
+            // Vista Términos (frontend/views/terminosCondiciones.js) envía solo { terminosCondiciones }
+            if (settings.terminosCondiciones !== undefined) {
+                websiteSettings.terminosCondiciones = mergeTerminosCondiciones(
+                    empresaActual.websiteSettings?.terminosCondiciones,
+                    settings.terminosCondiciones
+                );
             }
 
             await actualizarDetallesEmpresa(db, empresaId, { websiteSettings });
@@ -285,11 +317,13 @@ module.exports = (db) => {
     // POST Optimizar Perfil Empresa (Estrategia Completa - Texto)
     router.post('/optimize-profile', async (req, res, next) => {
         try {
+            const { empresaId } = req.user;
             const { historia } = req.body;
             if (!historia || typeof historia !== 'string' || historia.trim().length < 20) {
                 return res.status(400).json({ error: 'La descripción debe tener al menos 20 caracteres.' });
             }
-            const strategy = await generarPerfilEmpresa(historia.trim());
+            const empresaContext = await getEmpresaContext(empresaId).catch(() => null);
+            const strategy = await generarPerfilEmpresa(historia.trim(), empresaContext);
             res.status(200).json(strategy);
         } catch (error) {
             if (error.message?.includes('patrones no permitidos')) {
@@ -704,23 +738,37 @@ module.exports = (db) => {
                 espacios,
             });
 
-            const planIA = await generateForTask(AI_TASK.PHOTO_PLAN, prompt);
-
-            if (!planIA || typeof planIA !== 'object') {
-                return res.status(502).json({ error: 'La IA no devolvió un plan válido. Intenta de nuevo.' });
+            let planIA = await generateForTask(AI_TASK.PHOTO_PLAN, prompt);
+            if (planIA == null || (typeof planIA === 'object' && !Array.isArray(planIA) && Object.keys(planIA).length === 0)) {
+                await new Promise((r) => setTimeout(r, 450));
+                planIA = await generateForTask(AI_TASK.PHOTO_PLAN, prompt);
+            }
+            if (planIA == null || (typeof planIA === 'object' && !Array.isArray(planIA) && Object.keys(planIA).length === 0)) {
+                await new Promise((r) => setTimeout(r, 600));
+                planIA = await generateForTask(AI_TASK.PHOTO_PLAN, prompt);
             }
 
-            // Validar que las claves correspondan a IDs de espacios reales
-            const idsEspacios = new Set(espacios.map(e => e.id));
-            const planValidado = {};
-            for (const [compId, shots] of Object.entries(planIA)) {
-                if (idsEspacios.has(compId) && Array.isArray(shots)) {
-                    planValidado[compId] = shots;
-                }
+            let { planValidado, aiContributed } = buildFotoPlanWithFallback(
+                planIA,
+                espacios,
+                propiedad.componentes,
+                tiposElemento
+            );
+
+            // Si la IA devolvió JSON ilegible o claves que no casaron, el plan por reglas debe llenar igualmente.
+            if (Object.keys(planValidado).length === 0 && espacios.length > 0) {
+                ({ planValidado, aiContributed } = buildFotoPlanWithFallback(
+                    null,
+                    espacios,
+                    propiedad.componentes,
+                    tiposElemento
+                ));
             }
 
             if (Object.keys(planValidado).length === 0) {
-                return res.status(502).json({ error: 'El plan generado no coincide con los espacios de la propiedad.' });
+                return res.status(502).json({
+                    error: 'No se pudo armar un plan de fotos para esta propiedad. Verifica que cada espacio tenga id en el inventario.',
+                });
             }
 
             const generatedAt = new Date().toISOString();
@@ -743,6 +791,7 @@ module.exports = (db) => {
             res.status(200).json({
                 ...planValidado,
                 _aiGenerated: true,
+                _aiModelContributed: aiContributed,
                 _generatedAt: generatedAt,
                 _slotsTotal: slotsTotal,
             });
@@ -980,19 +1029,45 @@ module.exports = (db) => {
     router.post('/propiedad/:propiedadId/build-context/generate-narrativa', async (req, res, next) => {
         try {
             const { empresaId } = req.user;
-            const context = await getBuildContext(db, empresaId, req.params.propiedadId);
+            const { propiedadId } = req.params;
+            const context = await getBuildContext(db, empresaId, propiedadId);
             if (!context?.producto?.espacios?.length) {
                 return res.status(400).json({
                     error: 'El alojamiento no tiene espacios configurados. Completa los pasos 1-3 primero.'
                 });
             }
             const narrativa = await generarNarrativaDesdeContexto(context);
-            await updateBuildContextSection(empresaId, req.params.propiedadId, 'narrativa', {
+            const textoNarr = pickFirstString(narrativa, ['descripcionComercial', 'descripcion', 'texto']);
+            if (!narrativa || textoNarr.length < 40) {
+                return res.status(503).json({
+                    error: 'El servicio de IA no devolvió respuesta. Intenta nuevamente en unos segundos.',
+                });
+            }
+            const narrativaNorm = {
                 ...narrativa,
+                descripcionComercial: narrativa.descripcionComercial || textoNarr,
+            };
+            await updateBuildContextSection(empresaId, propiedadId, 'narrativa', {
+                ...narrativaNorm,
                 generadoEn: new Date().toISOString(),
             });
+            if (pool && (narrativaNorm.homeH1 || narrativaNorm.descripcionComercial)) {
+                await pool.query(
+                    `UPDATE propiedades
+                     SET metadata = jsonb_set(jsonb_set(metadata,
+                         '{websiteData,h1}', $1::jsonb, true),
+                         '{websiteData,aiDescription}', $2::jsonb, true),
+                         updated_at = NOW()
+                     WHERE id = $3 AND empresa_id = $4`,
+                    [
+                        JSON.stringify(narrativaNorm.homeH1 || ''),
+                        JSON.stringify(narrativaNorm.descripcionComercial || ''),
+                        propiedadId, empresaId,
+                    ]
+                );
+            }
             invalidateSsrCache(empresaId);
-            res.json(narrativa);
+            res.json(narrativaNorm);
         } catch (error) { next(error); }
     });
 
@@ -1061,47 +1136,75 @@ module.exports = (db) => {
         try {
             const { empresaId } = req.user;
             const propiedadId = req.params.propiedadId;
+            const { validatePreGenerationData, getGenerationRecommendations } = require('../../services/ai/jsonldPreValidation');
+            const { spacesToContainsPlace, validateJsonLd } = require('../../services/ai/schemaMappings');
+
             const [context, propiedad, productoFresco] = await Promise.all([
                 getBuildContext(db, empresaId, propiedadId),
                 obtenerPropiedadPorId(db, empresaId, propiedadId),
-                // Reconstruir producto SIEMPRE desde tipos_elemento actuales.
-                // El buildContext cacheado en BD puede tener schema_property obsoletos.
                 construirProductoDesdeComponentes(db, empresaId, propiedadId),
             ]);
-            if (!context?.narrativa?.descripcionComercial) {
-                return res.status(400).json({
-                    error: 'Genera el contenido web primero (paso 4 — narrativa).'
-                });
-            }
-            // Reemplazar producto del contexto cacheado con la versión fresca
+
             const contextFresco = productoFresco
                 ? { ...context, producto: productoFresco }
                 : context;
 
-            const result = await generarJsonLdDesdeContexto(contextFresco);
+            const preValidation = validatePreGenerationData(contextFresco);
+            if (!preValidation.canGenerate) {
+                return res.status(400).json({
+                    error: 'Datos incompletos para generar JSON-LD',
+                    details: preValidation.errors,
+                    warnings: preValidation.warnings,
+                    recommendations: getGenerationRecommendations(contextFresco),
+                    requiredAction: preValidation.recommendedAction,
+                });
+            }
 
-            // Inyectar containsPlace desde los espacios reales (no se delega a la IA).
-            if (result.jsonLd) {
-                const schemaTypeMap = {
-                    dormitorio: 'Bedroom', bano: 'Bathroom', cocina: 'Kitchen',
-                    living: 'LivingRoom', sala: 'LivingRoom', comedor: 'DiningRoom',
-                    terraza: 'Terrace', exterior: 'Terrace',
-                };
-                const normalizeKey = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '');
-                const espacios = (contextFresco.producto?.espacios || []);
-                if (espacios.length > 0) {
-                    result.jsonLd.containsPlace = espacios.map(e => {
-                        const key = normalizeKey(e.categoria || e.nombre);
-                        const type = Object.entries(schemaTypeMap).find(([k]) => key.includes(k))?.[1] || 'Room';
-                        return { '@type': type, name: e.nombre, description: e.categoria || e.nombre };
-                    });
+            if (!contextFresco?.narrativa?.descripcionComercial) {
+                return res.status(400).json({
+                    error: 'Genera el contenido web primero (paso 4 — narrativa).'
+                });
+            }
+
+            let result = await generarJsonLdDesdeContexto(contextFresco);
+            result = unwrapSeoJsonLdResult(result);
+            if (!result?.jsonLd || typeof result.jsonLd !== 'object') {
+                await new Promise((r) => setTimeout(r, 400));
+                result = unwrapSeoJsonLdResult(await generarJsonLdDesdeContexto(contextFresco));
+            }
+            if (!result?.jsonLd || typeof result.jsonLd !== 'object') {
+                return res.status(503).json({
+                    error: 'La IA no devolvió JSON-LD / SEO válido. Reintenta en unos segundos.',
+                });
+            }
+
+            if (result.jsonLd && contextFresco?.producto?.espacios?.length) {
+                try {
+                    const containsPlace = spacesToContainsPlace(contextFresco.producto.espacios);
+                    if (containsPlace.length > 0) {
+                        result.jsonLd.containsPlace = containsPlace;
+                    }
+                } catch (placeErr) {
+                    console.warn('[JSON-LD] No se pudo inyectar containsPlace:', placeErr.message);
                 }
             }
 
-            // Inyectar URLs de imágenes en el JSON-LD
-            if (result.jsonLd && propiedad) {
+            let imageUrls = [];
+            if (pool && result.jsonLd) {
+                try {
+                    const { rows: galeriaRows } = await pool.query(
+                        `SELECT storage_url FROM galeria
+                         WHERE empresa_id=$1 AND propiedad_id=$2 AND estado IN ('auto','manual')
+                         ORDER BY CASE WHEN rol='portada' THEN 0 ELSE 1 END, confianza DESC, orden ASC LIMIT 8`,
+                        [empresaId, propiedadId]
+                    );
+                    imageUrls = galeriaRows.map((r) => r.storage_url).filter(Boolean);
+                } catch (photoErr) {
+                    console.warn('[JSON-LD] No se pudo leer galería:', photoErr.message);
+                }
+            }
+            if (imageUrls.length === 0 && propiedad && result.jsonLd) {
                 const webData = propiedad.websiteData || {};
-                const imageUrls = [];
                 if (webData.cardImage?.storagePath) {
                     imageUrls.push(webData.cardImage.storagePath);
                 }
@@ -1115,8 +1218,23 @@ module.exports = (db) => {
                         }
                     }
                 }
-                if (imageUrls.length > 0) {
-                    result.jsonLd.image = imageUrls;
+            }
+            if (result.jsonLd && imageUrls.length > 0) {
+                result.jsonLd.image = imageUrls;
+            }
+
+            if (result.jsonLd) {
+                try {
+                    const empresaData = await obtenerDetallesEmpresa(db, empresaId);
+                    const tipoNegocio = empresaData.tipoNegocio || 'complejo';
+                    const validation = validateJsonLd(result.jsonLd, tipoNegocio);
+                    if (!validation.isValid) {
+                        console.warn('[JSON-LD] Validación falló:', validation.errors);
+                    } else {
+                        console.log('[JSON-LD] Validación exitosa');
+                    }
+                } catch (valErr) {
+                    console.warn('[JSON-LD] Error en validación:', valErr.message);
                 }
             }
 
@@ -1214,7 +1332,7 @@ module.exports = (db) => {
                 [empresaId]
             );
             const espacios = rows[0]?.areas?.espacios || [];
-            const espacio = espacios.find(e => e.id === espacioId);
+            const espacio = findEntityByIdLoose(espacios, espacioId);
             if (!espacio) return res.status(404).json({ error: 'Espacio no encontrado' });
 
             const elementos = (espacio.elementos || [])
@@ -1226,9 +1344,14 @@ ${elementos ? `Cuenta con los siguientes elementos: ${elementos}.` : ''}
 Tono cálido y orientado a huéspedes. Solo prosa fluida, sin listas ni puntos.
 Responde en JSON: { "descripcion": "texto aquí" }`;
 
-            const result = await generateForTask(AI_TASK.PROPERTY_DESCRIPTION, prompt);
-            if (!result?.descripcion) return res.status(503).json({ error: 'El servicio de IA no respondió. Intenta nuevamente.' });
-            res.json({ descripcion: result.descripcion });
+            const rawIa = await generateForTask(AI_TASK.PROPERTY_DESCRIPTION, prompt);
+            const descripcion = pickFirstString(rawIa || {}, [
+                'descripcion', 'descripcionComercial', 'texto', 'text', 'content', 'cuerpo',
+            ]);
+            if (!descripcion) {
+                return res.status(503).json({ error: 'El servicio de IA no respondió. Intenta nuevamente.' });
+            }
+            res.json({ descripcion });
         } catch (error) { next(error); }
     });
 

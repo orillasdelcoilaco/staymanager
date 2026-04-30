@@ -1,20 +1,21 @@
 # Reporte de Complejidad y Modularidad
-**Generado:** 2026-04-29 21:30
-**Archivos analizados:** 369
-**Críticos:** 36 | **Warnings:** 0
+**Generado:** 2026-04-30 01:18
+**Archivos analizados:** 372
+**Críticos:** 37 | **Warnings:** 0
 
 ---
 
 ## Resumen
 
-### 🔴 Críticos (36) — Requieren refactorización
+### 🔴 Críticos (37) — Requieren refactorización
 
 | Archivo | Problema | Detalle |
 |---------|---------|--------|
 | `frontend/src/views/components/configurarWebPublica/webPublica.general.unified.handlers.js` | function-size | función `bindUnifiedSave` — 141 líneas (línea 92) |
 | `frontend/src/views/components/configurarWebPublica/webPublica.general.unified.handlers.js` | function-size | función `normalizeSubdomain` — 137 líneas (línea 95) |
 | `frontend/src/views/components/configurarWebPublica/webPublica.general.unified.lineasExtraRows.js` | function-size | función `_createRowElement` — 127 líneas (línea 73) |
-| `frontend/src/views/components/configurarWebPublica/webPublica.paso1.identidad.js` | file-size | 734 líneas (límite crítico: 700) |
+| `frontend/src/views/components/configurarWebPublica/webPublica.paso1.identidad.js` | file-size | 789 líneas (límite crítico: 700) |
+| `frontend/src/views/components/configurarWebPublica/webPublica.paso1.identidad.js` | function-size | función `bindPaso1` — 125 líneas (línea 115) |
 | `frontend/src/views/components/crm/crm.pipeline.js` | function-size | función `setupPipeline` — 126 líneas (línea 94) |
 | `frontend/src/views/comunicaciones.js` | file-size | 719 líneas (límite crítico: 700) |
 | `frontend/src/views/comunicaciones.js` | function-size | función `render` — 130 líneas (línea 167) |
@@ -22,7 +23,7 @@
 | `frontend/src/views/normasAlojamiento.js` | function-size | función `renderForm` — 153 líneas (línea 155) |
 | `frontend/src/views/resenas.js` | function-size | función `afterRender` — 125 líneas (línea 290) |
 | `backend/services/agentEmpresaLookupService.js` | function-size | función `lookupEmpresaForAgentQuery` — 152 líneas (línea 25) |
-| `backend/services/aiContentService.js` | file-size | 785 líneas (límite crítico: 700) |
+| `backend/services/aiContentService.js` | file-size | 834 líneas (límite crítico: 700) |
 | `backend/services/aiContentService.js` | too-many-exports | 17 funciones exportadas (límite crítico: 15) |
 | `backend/services/buildContextService.js` | function-size | función `getBuildContext` — 121 líneas (línea 122) |
 | `backend/services/comunicacionesRetryService.js` | function-size | función `reintentarComunicacionEmail` — 197 líneas (línea 220) |
@@ -73,22 +74,24 @@
   - Agrupar responsabilidades en sub-módulos. Ej: service.read.js, service.write.js, service.calc.js
 
 ### 3. `backend/services/aiContentService.js` 🔴
-- **785 líneas (límite crítico: 700)**
+- **834 líneas (límite crítico: 700)**
   - Dividir en módulos por responsabilidad. Cada módulo debe tener una sola razón para cambiar.
 - **17 funciones exportadas (límite crítico: 15)**
   - Agrupar responsabilidades en sub-módulos. Ej: service.read.js, service.write.js, service.calc.js
 
-### 4. `backend/services/publicAiProductSnapshot.js` 🔴
+### 4. `frontend/src/views/components/configurarWebPublica/webPublica.paso1.identidad.js` 🔴
+- **789 líneas (límite crítico: 700)**
+  - Dividir en módulos por responsabilidad. Cada módulo debe tener una sola razón para cambiar.
+- **función `bindPaso1` — 125 líneas (línea 115)**
+  - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
+
+### 5. `backend/services/publicAiProductSnapshot.js` 🔴
 - **753 líneas (límite crítico: 700)**
   - Dividir en módulos por responsabilidad. Cada módulo debe tener una sola razón para cambiar.
 - **función `buildListingCardForAi` — 125 líneas (línea 332)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
 - **función `buildAgentPropertyDetailPayload` — 163 líneas (línea 581)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
-
-### 5. `frontend/src/views/components/configurarWebPublica/webPublica.paso1.identidad.js` 🔴
-- **734 líneas (límite crítico: 700)**
-  - Dividir en módulos por responsabilidad. Cada módulo debe tener una sola razón para cambiar.
 
 ### 6. `frontend/src/views/comunicaciones.js` 🔴
 - **719 líneas (límite crítico: 700)**

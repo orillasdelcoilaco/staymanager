@@ -3,7 +3,7 @@
 ## 1. Análisis del Estado Actual (Auditoría)
 
 ### SSR (Legacy)
-El módulo SSR actual (`websiteConfigRoutes.js`, `contentFactoryRoutes.js`) funciona pero presenta deuda técnica:
+El módulo SSR actual (`backend/api/ssr/config.routes.js`, `contentFactoryRoutes.js`) funciona pero presenta deuda técnica:
 - **Dispersión:** La configuración global y la gestión de contenido están en archivos separados sin una jerarquía clara.
 - **Acoplamiento:** El servicio de IA (`aiContentService`) mezclaba generación de texto con lógica de negocio.
 - **Modelos:** La estructura en Firestore ha crecido orgánicamente. `websiteSettings` es un objeto gigante dentro del documento de empresa, lo que dificulta la lectura parcial.

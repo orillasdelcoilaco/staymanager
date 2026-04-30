@@ -1,5 +1,5 @@
 {
-  "fecha": "2026-04-30T00:51:19.284Z",
+  "fecha": "2026-04-30T01:13:49.614Z",
   "total": 37,
   "criticos": [
     {
@@ -20,7 +20,7 @@
     {
       "file": "frontend/src/views/components/configurarWebPublica/webPublica.paso1.identidad.js",
       "type": "file-size",
-      "detail": "790 líneas"
+      "detail": "789 líneas"
     },
     {
       "file": "frontend/src/views/components/configurarWebPublica/webPublica.paso1.identidad.js",

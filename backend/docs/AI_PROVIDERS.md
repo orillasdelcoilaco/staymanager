@@ -39,3 +39,20 @@
 - `backend/services/ai/aiEnums.js` — mapa tarea → proveedor preferido.
 - `backend/services/aiContentService.js` — `generateForTask` y cadena.
 - `backend/services/ai_providers/openaiProvider.js` — Groq/OpenRouter/OpenAI (JSON robusto + reintento sin `json_mode` si hace falta).
+- `backend/services/aiResponseNormalize.js` — aliases de campos (`descripcion` vs `texto`), búsqueda de espacios por `id` con `String()`, desenvuelve JSON-LD anidado.
+
+## Dónde se llama a la IA (SPA / API relevantes)
+
+Montaje real de `/api/website`: **`backend/api/ssr/config.routes.js`**. Resumen: **`backend/docs/WEBSITE_ROUTES_AUDIT.md`**.
+
+| Superficie | Endpoint / servicio | Notas |
+|------------|---------------------|--------|
+| Paso 1 web — narrativa | `POST .../build-context/generate-narrativa` | Valida texto con `pickFirstString`; sync `websiteData` en Postgres. |
+| Paso 1 — texto / puntos | `POST .../generate-ai-text` | Narrativa desde inventario + fallback controlado. |
+| Paso 3 — SEO / JSON-LD | `POST .../build-context/generate-jsonld` | `validatePreGenerationData` (400 si bloquea); `unwrapSeoJsonLdResult` + segundo intento; galería PG + `spacesToContainsPlace`; `validateJsonLd` en log. |
+| Galería — plan fotos | `POST .../generar-plan-fotos` | `fotoPlanIAHelpers` + plan por reglas. |
+| Áreas comunes | `POST .../areas-comunes/:espacioId/generate-description` | `findEntityByIdLoose` + varias claves de texto. |
+| Perfil empresa | `POST /website/optimize-profile` | `generarPerfilEmpresa(historia, getEmpresaContext)` |
+| CRM borradores | `POST /api/.../crm/...` | `generateForTask` CRM |
+| Plantillas motor | `plantillasService.generarPlantillaConIa` | Varias claves para `texto` / `asunto`. |
+| Wizard alojamiento | `POST /api/ai/generate-structure` | `generarEstructuraAlojamiento` (resuelve `tipoId` en servidor). |

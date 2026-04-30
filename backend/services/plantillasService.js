@@ -201,8 +201,10 @@ const generarPlantillaConIa = async (db, empresaId, body = {}) => {
     if (!raw || typeof raw !== 'object') throw new Error('La IA no devolvió un resultado válido. Intenta de nuevo.');
 
     let nombre = String(raw.nombre ?? '').trim().slice(0, 120);
-    const asunto = String(raw.asunto ?? '').trim().slice(0, 220);
-    const texto = String(raw.texto ?? raw.cuerpo ?? '').trim().slice(0, 12000);
+    const asunto = String(raw.asunto ?? raw.subject ?? '').trim().slice(0, 220);
+    const texto = String(
+        raw.texto ?? raw.cuerpo ?? raw.contenido ?? raw.body ?? raw.html ?? ''
+    ).trim().slice(0, 12000);
 
     if (!texto) throw new Error('La IA devolvió el cuerpo vacío.');
 

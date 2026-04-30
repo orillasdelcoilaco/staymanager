@@ -56,7 +56,7 @@ const datosFrontendCombinados = {
 console.log('📤 1. DATOS ENVIADOS POR FRONTEND (formato combinado):');
 console.log(JSON.stringify(datosFrontendCombinados, null, 2));
 
-console.log('\n🔧 2. PROCESAMIENTO EN BACKEND (websiteConfigRoutes.js):');
+console.log('\n🔧 2. PROCESAMIENTO EN BACKEND (config.routes.js):');
 console.log('✅ Formato NUEVO detectado (tiene websiteSettings como objeto)');
 
 // Simular lo que hace el backend

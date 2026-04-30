@@ -872,7 +872,7 @@ Esta fase implementa la personalización detallada del contenido y las imágenes
         * `storageService.js`: Funciones `uploadFile` (devuelve `storagePath`), `deleteFileByPath`.
         * `propiedadesService.js`: Adaptar CRUD para `componentes` y operaciones `FieldValue.arrayUnion`/`arrayRemove` en `websiteData.images[componentId]`.
         * `aiContentService.js` (Nuevo): Función `generarMetadataImagen(nombreEmpresa, nombrePropiedad, descripcionPropiedad, nombreComponente, tipoComponente)` que retorna `{ altText, title }`.
-    * **Rutas API (`websiteConfigRoutes.js` - Nuevo):**
+    * **Rutas API (`backend/api/ssr/config.routes.js`):**
         * `GET /api/website-config/propiedad/:propiedadId`: Obtiene `websiteData`.
         * `PUT /api/website-config/propiedad/:propiedadId`: Guarda `aiDescription`.
         * `POST /api/website-config/propiedad/:propiedadId/upload-image/:componentId`:

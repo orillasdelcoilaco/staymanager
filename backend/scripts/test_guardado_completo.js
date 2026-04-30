@@ -38,9 +38,9 @@ const datosFormulario = {
 console.log('📤 1. DATOS ENVIADOS POR FORMULARIO:');
 console.log(JSON.stringify(datosFormulario, null, 2));
 
-console.log('\n🔧 2. PROCESAMIENTO EN BACKEND (websiteConfigRoutes.js):');
+console.log('\n🔧 2. PROCESAMIENTO EN BACKEND (config.routes.js):');
 
-// Simular lo que hace websiteConfigRoutes.js
+// Simular persistencia home-settings (config.routes.js)
 const settings = datosFormulario;
 const websiteSettings = {};
 
