@@ -12,6 +12,10 @@ const { buildPublicBookingBaseUrl } = require('./googleHotelsPartner/publicBooki
 const { assertPartnerFeedXml } = require('./googleHotelsPartner/feedXmlWellformed');
 const { resolveEffectiveGoogleHotelsAddress } = require('./googleHotelsEmpresaAddress');
 
+function _safeObj(v) {
+    return v && typeof v === 'object' ? v : {};
+}
+
 const escapeXml = (unsafe) => {
     if (typeof unsafe !== 'string') return '';
     return unsafe.replace(/[<>&'"]/g, (c) => {
@@ -46,13 +50,29 @@ function extractPlaceId(gh) {
     return s || null;
 }
 
-function extractLatLng(meta, gh) {
+/**
+ * Coordenadas para feed global: propiedad / googleHotelData / metadata.ubicacion,
+ * o fallback empresa.ubicacion si tipoNegocio es complejo u hotel (misma sede).
+ */
+function extractLatLng(meta, gh, empresaConfig) {
     const ubi = meta.ubicacion && typeof meta.ubicacion === 'object' ? meta.ubicacion : {};
     const g = gh.geo && typeof gh.geo === 'object' ? gh.geo : {};
-    const latRaw = g.lat != null ? g.lat : (gh.latitude != null ? gh.latitude : ubi.lat);
-    const lngRaw = g.lng != null ? g.lng : (gh.longitude != null ? gh.longitude : ubi.lng ?? ubi.lon);
-    const lat = latRaw != null && Number.isFinite(Number(latRaw)) ? Number(latRaw) : null;
-    const lng = lngRaw != null && Number.isFinite(Number(lngRaw)) ? Number(lngRaw) : null;
+    let latRaw = g.lat != null ? g.lat : (gh.latitude != null ? gh.latitude : ubi.lat);
+    let lngRaw = g.lng != null ? g.lng : (gh.longitude != null ? gh.longitude : ubi.lng ?? ubi.lon);
+    let lat = latRaw != null && Number.isFinite(Number(latRaw)) ? Number(latRaw) : null;
+    let lng = lngRaw != null && Number.isFinite(Number(lngRaw)) ? Number(lngRaw) : null;
+
+    const cfg = _safeObj(empresaConfig);
+    const tipo = String(cfg.tipoNegocio || 'complejo').toLowerCase();
+    if ((tipo === 'complejo' || tipo === 'hotel') && (lat == null || lng == null)) {
+        const empUbi = _safeObj(cfg.ubicacion);
+        const elat = empUbi.lat != null && Number.isFinite(Number(empUbi.lat)) ? Number(empUbi.lat) : null;
+        const elng = empUbi.lng != null && Number.isFinite(Number(empUbi.lng))
+            ? Number(empUbi.lng)
+            : (empUbi.lon != null && Number.isFinite(Number(empUbi.lon)) ? Number(empUbi.lon) : null);
+        if (lat == null) lat = elat;
+        if (lng == null) lng = elng;
+    }
     return { lat, lng };
 }
 
@@ -83,7 +103,7 @@ function resolvePartnerListing(row, skipped) {
         return null;
     }
 
-    const { lat, lng } = extractLatLng(meta, gh);
+    const { lat, lng } = extractLatLng(meta, gh, row.empresa_configuracion);
     if (lat == null || lng == null) {
         if (skipped) skipped.push({ empresaId: row.empresa_id, propiedadId: row.id, reason: 'missing_geo' });
         return null;
