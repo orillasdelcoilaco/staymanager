@@ -10,8 +10,8 @@ try {
     const chatgptPath = path.join(__dirname, '../openapi/openapi-chatgpt.yaml');
     const content = fs.readFileSync(chatgptPath, 'utf8');
     // Validación simple: debe contener "openapi: 3.1.0" y paths
-    if (content.includes('openapi: 3.1.0') && content.includes('/ai/busqueda-general')) {
-        console.log('✅ openapi-chatgpt.yaml parece válido y contiene los nuevos endpoints.');
+    if (content.includes('openapi: 3.1.0') && content.includes('/ai/busqueda-general') && content.includes('/api/public/version')) {
+        console.log('✅ openapi-chatgpt.yaml parece válido (incl. /api/public/version).');
     } else {
         console.error('❌ openapi-chatgpt.yaml no parece válido o le faltan endpoints.');
     }

@@ -51,6 +51,16 @@ function getMarketplaceStrings(lang) {
             langSwitchEs: 'ES',
             langSwitchEn: 'EN',
             langSwitchTitle: 'Language',
+            ghCatalogPageTitle: 'Google Hotels — Listed properties | SuiteManagers',
+            ghCatalogMetaDescription: 'Properties opted in for Google Hotels connectivity. Book directly with each host on their site.',
+            ghCatalogHeading: 'Google Hotels listings',
+            ghCatalogLead: 'These listings are included in the platform connectivity feed. Open the host site to choose dates and see final prices.',
+            ghCatalogCta: 'Open host site',
+            ghCatalogEmpty: 'No properties are listed for Google Hotels yet.',
+            ghCatalogUnavailable: 'This catalog needs PostgreSQL (DATABASE_URL) on the server.',
+            ghCatalogBackHome: 'Back to marketplace',
+            ghCatalogErrorLoad: 'Could not load this page.',
+            ghFooterCatalog: 'Google Hotels catalog',
         };
     }
     return {
@@ -90,6 +100,16 @@ function getMarketplaceStrings(lang) {
         langSwitchEs: 'ES',
         langSwitchEn: 'EN',
         langSwitchTitle: 'Idioma',
+        ghCatalogPageTitle: 'Google Hotels — Propiedades listadas | SuiteManagers',
+        ghCatalogMetaDescription: 'Propiedades con opt-in para conectividad Google Hotels. Reserva directo en el sitio de cada anfitrión.',
+        ghCatalogHeading: 'Listados Google Hotels',
+        ghCatalogLead: 'Estos alojamientos entran en el feed de conectividad de la plataforma. En el sitio del anfitrión eliges fechas y ves el precio final.',
+        ghCatalogCta: 'Ir al sitio del anfitrión',
+        ghCatalogEmpty: 'Aún no hay propiedades listadas para Google Hotels.',
+        ghCatalogUnavailable: 'Este catálogo requiere PostgreSQL (DATABASE_URL) en el servidor.',
+        ghCatalogBackHome: 'Volver al marketplace',
+        ghCatalogErrorLoad: 'No se pudo cargar esta página.',
+        ghFooterCatalog: 'Catálogo Google Hotels',
     };
 }
 

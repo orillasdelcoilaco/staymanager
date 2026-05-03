@@ -567,11 +567,20 @@
             return String(a.nombre || '').localeCompare(String(b.nombre || ''));
         });
 
-        /* ── Precios ── */
-        const _fmtCLP = (v) => `$${Math.round(v||0).toLocaleString('es-CL')}`;
-        const _precioNoche = (defaultPriceData.totalPriceCLP > 0 && defaultPriceData.nights > 0)
+        /* ── Precios (§7.11: feed partner usa tarifa publicada sin promo; SSR sticky alinea con lista si isListed) ── */
+        const _fmtCLP = (v) => `$${Math.round(v||0).toLocaleString(_plhl === 'en' ? 'en-US' : 'es-CL')}`;
+        const _ghListed = !!(propiedad.googleHotelData && propiedad.googleHotelData.isListed);
+        const _nocheListaGH = (defaultPriceData.totalPrecioListaCLP > 0 && defaultPriceData.nights > 0)
+            ? Math.round(defaultPriceData.totalPrecioListaCLP / defaultPriceData.nights)
+            : 0;
+        const _nocheCheckoutGH = (defaultPriceData.totalPriceCLP > 0 && defaultPriceData.nights > 0)
             ? Math.round(defaultPriceData.totalPriceCLP / defaultPriceData.nights)
-            : (precioBaseNoche || 0);
+            : 0;
+        let _precioNoche = _nocheCheckoutGH > 0 ? _nocheCheckoutGH : (precioBaseNoche || 0);
+        if (_ghListed && _nocheListaGH > 0) {
+            _precioNoche = _nocheListaGH;
+        }
+        const _ghParityPromo = _ghListed && _nocheListaGH > 0 && _nocheCheckoutGH > 0 && _nocheListaGH !== _nocheCheckoutGH;
 
         /* ── Rating ── */
         const _nResenas  = resenasResumen?.total || 0;
@@ -1324,7 +1333,7 @@
                 <%# ── Reserva: debajo del contenido en móvil; columna sticky en desktop ── %>
                 <div class="mt-8 lg:mt-0">
                     <div class="lg:sticky lg:top-24">
-                        <%- include('partials/booking-widget', { minNochesSSR: _minNoches }) %>
+                        <%- include('partials/booking-widget', { minNochesSSR: _minNoches, googleHotelsListed: _ghListed }) %>
                     </div>
                 </div>
 
@@ -1447,8 +1456,14 @@
         <div>
             <% if (_precioNoche > 0) { %>
             <p class="text-base font-bold text-gray-900 leading-tight">
-                <%= _fmtCLP(_precioNoche) %> <span class="font-normal text-gray-500 text-sm">/ noche</span>
+                <%= _fmtCLP(_precioNoche) %> <span class="font-normal text-gray-500 text-sm">/ <%= _plhl === 'en' ? 'night' : 'noche' %></span>
             </p>
+            <% if (_ghListed) { %>
+            <p class="text-[10px] text-gray-500 leading-snug mt-0.5 max-w-[14rem]"><%= _plhl === 'en' ? 'Published nightly rate (same basis as Google Hotels feed).' : 'Tarifa publicada por noche (misma base que el feed Google Hotels).' %></p>
+            <% } %>
+            <% if (_ghParityPromo) { %>
+            <p class="text-[10px] text-warning-700 leading-snug mt-0.5 max-w-[15rem]"><%= _plhl === 'en' ? 'Checkout may show a lower total if a promo applies.' : 'El checkout puede mostrar un total menor si hay promoción en tarifa.' %></p>
+            <% } %>
             <% if (_rating) { %>
             <p class="text-xs text-gray-500"><i class="fas fa-star text-warning-400 text-xs"></i> <%= _rating %>/10 · <%= _nResenas %> reseñas</p>
             <% } %>

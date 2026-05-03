@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SuiteManager Public API for Gemini
-  version: 1.4.6
+  version: 1.4.7
   description: |
     API pública para extensiones Gemini. Listados usan **producto_ia_v2**: precio por tarifas PG, ubicación, amenidades
     (metadata + inventario componentes), políticas mergeadas (empresa + propiedad), alias `precioBase`/`ciudad`/`direccion_corta`.
@@ -23,10 +23,31 @@ info:
     **v1.4.5:** nuevo `POST /api/reservas/resolve-booking-unit` (y espejo público) para traducir `catalog_id` a `booking_id` antes de reservar.
     **v1.4.6:** `/ai/buscar-empresa` prioriza empresas listas para venta y expone diagnóstico mínimo de tarifas.
 
+    **v1.4.7:** `GET /api/public/version` documentado (health ligero del API público).
+
 servers:
   - url: https://suite-manager.onrender.com
 
 paths:
+
+  /api/public/version:
+    get:
+      operationId: versionApiPublica
+      summary: Versión del contrato API pública (diagnóstico / smoke).
+      description: |
+        No requiere clave de agente. `version` alinea con `info.version` de este OpenAPI (contrato), no con el build de la app. Override: env `PUBLIC_API_CONTRACT_VERSION`.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version: { type: string, example: "1.4.7" }
+                  contract: { type: string, example: "openapi-gemini-chatgpt" }
+                  timestamp: { type: string, format: date-time }
+                  deployed_at: { type: string, format: date-time }
 
   /ai/buscar-empresa:
     get:

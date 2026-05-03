@@ -48,7 +48,24 @@ const generatePropertyListFeed = async (_db, empresaId) => {
 };
 
 // --- NUEVA FUNCIÓN PARA EL FEED ARI ---
+const ZERO_DECIMAL_CCY = new Set(['CLP', 'JPY', 'KRW', 'VND', 'XOF', 'XPF']);
+
+function roundBaserateAmount(amount, currency, partnerAllInclusive) {
+    let r = Number(amount);
+    if (!Number.isFinite(r)) r = 0;
+    const c = String(currency || 'CLP').toUpperCase();
+    if (partnerAllInclusive && process.env.GOOGLE_PARTNER_ARI_NET_RATES === '1' && c === 'CLP') {
+        r *= 1.19;
+    }
+    if (ZERO_DECIMAL_CCY.has(c)) return Math.round(r);
+    return Math.round(r * 100) / 100;
+}
+
 const generateAriFeed = async (_db, empresaId, options = {}) => {
+    const ratePlanId = String(options.ratePlanId || 'standard').trim() || 'standard';
+    const partnerAllInclusive = !!options.partnerAllInclusive;
+    const partnerXmlIdsFromDatabase = !!options.partnerXmlIdsFromDatabase;
+    const restrictToPropertyIds = options.restrictToPropertyIds instanceof Set ? options.restrictToPropertyIds : null;
     const mode = String(options.mode || 'website').toLowerCase() === 'google_hotels' ? 'google_hotels' : 'website';
     const daysRaw = Math.round(Number(options.days));
     const days = Number.isFinite(daysRaw) ? Math.min(365, Math.max(14, daysRaw)) : 180;
@@ -72,7 +89,15 @@ const generateAriFeed = async (_db, empresaId, options = {}) => {
     const canalPorDefectoId = canalRes.rows[0].id;
     const canalPorDefectoMoneda = canalRes.rows[0].moneda || 'CLP';
 
-    const propiedadesListadas = propiedades.filter(p => p.googleHotelData && p.googleHotelData.isListed && p.googleHotelData.hotelId);
+    const xmlPropertyId = (p) => {
+        if (partnerXmlIdsFromDatabase) return String(p.id);
+        return String(p.googleHotelData.hotelId);
+    };
+
+    let propiedadesListadas = propiedades.filter((p) => p.googleHotelData && p.googleHotelData.isListed && p.googleHotelData.hotelId);
+    if (restrictToPropertyIds instanceof Set) {
+        propiedadesListadas = propiedadesListadas.filter((p) => restrictToPropertyIds.has(String(p.id)));
+    }
     if (propiedadesListadas.length === 0) {
         return `<?xml version="1.0" encoding="UTF-8"?><Transaction timestamp="${new Date().toISOString()}" id="ari-update"><Result/></Transaction>`; // Feed vacío si no hay propiedades listadas
     }
@@ -84,10 +109,10 @@ const generateAriFeed = async (_db, empresaId, options = {}) => {
     xml += `<Transaction timestamp="${new Date().toISOString()}" id="ari-update-${mode}-${days}d">\n`;
 
     for (const prop of propiedadesListadas) {
+        const pid = xmlPropertyId(prop);
         xml += `  <Result>\n`;
-        xml += `    <Property id="${escapeXml(prop.googleHotelData.hotelId)}">\n`;
-        // Usaremos Room ID = Property ID y Rate Plan ID = 'standard' por simplicidad inicial
-        xml += `      <RoomData RoomID="${escapeXml(prop.googleHotelData.hotelId)}">\n`;
+        xml += `    <Property id="${escapeXml(pid)}">\n`;
+        xml += `      <RoomData RoomID="${escapeXml(pid)}">\n`;
         
         let currentAvailabilitySegment = null;
         let currentRateSegment = null;
@@ -101,7 +126,8 @@ const generateAriFeed = async (_db, empresaId, options = {}) => {
                 currentDate >= res.start && currentDate < res.end
             );
 
-            const inventory = isOccupied ? 0 : 1; // Asumimos 1 unidad por propiedad por ahora
+            const unitsMax = Math.max(1, Number(prop.numPiezas) || 1);
+            const inventory = isOccupied ? 0 : unitsMax;
 
             // Calcular Precio
             let rateForDay = 0;
@@ -112,7 +138,8 @@ const generateAriFeed = async (_db, empresaId, options = {}) => {
             );
             if (!isOccupied && tarifasDelDia.length > 0) {
                 const tarifa = tarifasDelDia.sort((a, b) => b.fechaInicio - a.fechaInicio)[0]; // Tomar la más específica
-                rateForDay = (tarifa.precios && tarifa.precios[canalPorDefectoId]) ? tarifa.precios[canalPorDefectoId] : 0;
+                const raw = (tarifa.precios && tarifa.precios[canalPorDefectoId]) ? tarifa.precios[canalPorDefectoId] : 0;
+                rateForDay = roundBaserateAmount(raw, canalPorDefectoMoneda, partnerAllInclusive);
             }
 
             // Agrupar segmentos de disponibilidad (inventario)
@@ -131,16 +158,16 @@ const generateAriFeed = async (_db, empresaId, options = {}) => {
                      currentRateSegment.endDate = dateStr;
                  } else {
                      if (currentRateSegment) {
-                          xml += `        <Rate RatePlanID="standard" UpdateType="Overlay" CheckIn="${currentRateSegment.startDate}" CheckOut="${new Date(new Date(currentRateSegment.endDate).setDate(new Date(currentRateSegment.endDate).getDate() + 1)).toISOString().split('T')[0]}">\n`;
-                          xml += `          <Baserate currency="${canalPorDefectoMoneda}">${currentRateSegment.rate}</Baserate>\n`;
+                          xml += `        <Rate RatePlanID="${escapeXml(ratePlanId)}" UpdateType="Overlay" CheckIn="${currentRateSegment.startDate}" CheckOut="${new Date(new Date(currentRateSegment.endDate).setDate(new Date(currentRateSegment.endDate).getDate() + 1)).toISOString().split('T')[0]}">\n`;
+                          xml += `          <Baserate currency="${canalPorDefectoMoneda}"${partnerAllInclusive ? ' all_inclusive="true"' : ''}>${currentRateSegment.rate}</Baserate>\n`;
                           xml += `        </Rate>\n`;
                      }
                      currentRateSegment = rateForDay > 0 ? { startDate: dateStr, endDate: dateStr, rate: rateForDay } : null;
                  }
             } else { // Si no está disponible, cerrar cualquier segmento de tarifa abierto
                  if (currentRateSegment) {
-                     xml += `        <Rate RatePlanID="standard" UpdateType="Overlay" CheckIn="${currentRateSegment.startDate}" CheckOut="${new Date(new Date(currentRateSegment.endDate).setDate(new Date(currentRateSegment.endDate).getDate() + 1)).toISOString().split('T')[0]}">\n`;
-                     xml += `          <Baserate currency="${canalPorDefectoMoneda}">${currentRateSegment.rate}</Baserate>\n`;
+                     xml += `        <Rate RatePlanID="${escapeXml(ratePlanId)}" UpdateType="Overlay" CheckIn="${currentRateSegment.startDate}" CheckOut="${new Date(new Date(currentRateSegment.endDate).setDate(new Date(currentRateSegment.endDate).getDate() + 1)).toISOString().split('T')[0]}">\n`;
+                     xml += `          <Baserate currency="${canalPorDefectoMoneda}"${partnerAllInclusive ? ' all_inclusive="true"' : ''}>${currentRateSegment.rate}</Baserate>\n`;
                      xml += `        </Rate>\n`;
                      currentRateSegment = null;
                  }
@@ -152,8 +179,8 @@ const generateAriFeed = async (_db, empresaId, options = {}) => {
              xml += `        <Inventory UpdateType="Overlay" CheckIn="${currentAvailabilitySegment.startDate}" CheckOut="${new Date(new Date(currentAvailabilitySegment.endDate).setDate(new Date(currentAvailabilitySegment.endDate).getDate() + 1)).toISOString().split('T')[0]}">${currentAvailabilitySegment.inventory}</Inventory>\n`;
         }
         if (currentRateSegment) {
-             xml += `        <Rate RatePlanID="standard" UpdateType="Overlay" CheckIn="${currentRateSegment.startDate}" CheckOut="${new Date(new Date(currentRateSegment.endDate).setDate(new Date(currentRateSegment.endDate).getDate() + 1)).toISOString().split('T')[0]}">\n`;
-             xml += `          <Baserate currency="${canalPorDefectoMoneda}">${currentRateSegment.rate}</Baserate>\n`;
+             xml += `        <Rate RatePlanID="${escapeXml(ratePlanId)}" UpdateType="Overlay" CheckIn="${currentRateSegment.startDate}" CheckOut="${new Date(new Date(currentRateSegment.endDate).setDate(new Date(currentRateSegment.endDate).getDate() + 1)).toISOString().split('T')[0]}">\n`;
+             xml += `          <Baserate currency="${canalPorDefectoMoneda}"${partnerAllInclusive ? ' all_inclusive="true"' : ''}>${currentRateSegment.rate}</Baserate>\n`;
              xml += `        </Rate>\n`;
         }
 

@@ -2,13 +2,25 @@
 
 **Propósito:** lista viva de lo que falta por producto (no es definition-of-done por ticket). Actualizar al cerrar hitos o al priorizar sprints.
 
-**Agentes Cursor (varios a la vez):** leer **`TASKS/leer-primero.md`** primero — reparto típico: cierre **1.0.0** (`plan-release-1.0.0.md`) vs siguiente ítem **§5** del backlog.
+**Agentes Cursor (varios a la vez):** leer **`TASKS/leer-primero.md`** primero — reparto típico: cierre **1.0.0** (`plan-release-1.0.0.md`) vs siguiente ítem **§5** del backlog. Si la sesión es **venta por IA / canales externos** (OpenAPI, MCP, Google Hotels/Travel, feeds): leer también **`TASKS/venta-ia.md`**.
 
 **Release 1.0.0:** alcance «probable de punta a punta», smoke manual y qué queda **fuera** del tag → **`TASKS/plan-release-1.0.0.md`**. Flujo: cerrar núcleo §1 del plan + smoke §2 + `npm run test:ci` → tag **v1.0.0** → seguir **§5** y §4.3 **D** / operación según prioridad (mucho de §4.3 **B/C** ya está en código; ver tabla §4.3 en este documento).
 
 **Prioridad acordada:** la **definición y cableado de nuevos eventos** del motor transaccional (ampliar matriz §1.2, nuevos disparadores, hooks y semillas) queda **al final** del roadmap en curso; no bloquea el resto de hitos (OTA, i18n, dominio, tarifas, etc.).
 
 **Contexto reciente ya entregado (sesión 2026):** normas del alojamiento en SPA (`/normas-alojamiento`), API `houseRules`, reglas en ficha SSR con modal «Más información» bajo «Cosas que debes saber», misma UX en página SSR `/reservar`, JSON-LD alineado con `petsAllowed` / `smokingAllowed` desde normas mergeadas, fuentes SSR sin Google Fonts por CSP, panel admin (`frontend/index.html`) sin cargar Inter desde Google (evita choque CSP), plantillas de texto en normas.
+
+**Hecho (2026-05-01, Canales IA — checklist §0):** pestaña **Google Hotels** en **`/canales-ia`**: bloque **§0 automático** (empresa, `empresaId`, URL base pública, responsable sesión, fecha, líneas script §9); copiar al portapapeles; aviso si falta host derivado + CTA **Configuración Web**. Código: `frontend/src/views/components/canalesIa/canalesIa.checklistGoogleS0.js`. Docs: **`TASKS/checklist-onboarding-google-hotel-center.md`** §0, **`TASKS/qa-y-seguimiento-prelaunch-canales.md`** §1.2, **`TASKS/venta-ia.md`** §2.6.
+
+**Documento (2026-05-01):** **`TASKS/qa-y-seguimiento-prelaunch-canales.md`** — Parte 1 (QA menú + Canales IA) y Parte 2 (Google + OpenAPI); enlazado en **`LEER-PRIMERO.md`**, **`plan-reorganizacion-menu-spa.md`**, **`venta-ia.md`**. Ejecución de checklists: pendiente operación.
+
+**Hecho (2026-05-02, Connectivity Partner — código + UX):** feeds globales `/feeds/google/*.xml` (**agregador** `backend/services/googleHotelsGlobalService.js`: IDs `propiedades.id`, filtros geo/Place ID, health `partnerGlobalFeed`), catálogo **`GET /google-hotels`**, XSD opcional (`xmllint`), paridad §7.11 en ficha SSR (`propiedad.ejs` / `booking-widget`), enlaces marketplace + Canales IA; ficha pública **`/propiedad/:id`** ya no exige `googleHotelData.isListed` (solo propiedad **activa**). Smoke HTTP prod: **`backend/scripts/smoke-google-partner-feeds-http.js`** (`GH_PARTNER_FEED_BASE_URL`, `GH_PARTNER_FEED_AUTH_TOKEN`). Checklist deploy: **`TASKS/google-hotels-partner-deploy-checklist.md`**. Detalle: **`TASKS/venta-ia.md` §6–§7**.
+
+**Hecho (2026-05-03, Partner — UI operación plataforma provisional):** pestaña **Canales IA → Google Hotels**: bloque *Feeds globales Google (vista operación plataforma)* con URLs de referencia (sin token), `GET /website/google-partner-feed-operator`, `POST /website/google-partner-feed-selftest` (`partnerFeedsSelftest.js`); env opcional **`GOOGLE_PARTNER_FEED_SELFTEST_BASE_URL`**. Plan **superadmin + operadores** documentado en **`TASKS/venta-ia.md` §8** (implementación posterior; luego restringir estos endpoints).
+
+**Hecho (2026-05-01, menú SPA — plan completo):** Fases **1 + 1b + 2 + 3** — Inventario, Sitio público, orden Operaciones, **Canales de venta**, tooltips (`menuConfig.hints.js` + `router.js`), vista **Canales IA** ampliada (versión API pública, copy tres capas). **Flujo de Trabajo** intocado. **`TASKS/plan-reorganizacion-menu-spa.md`**.
+
+**Hecho (2026-05-01, Canales IA — panel usuario):** SPA **Operaciones → Canales IA** (`/canales-ia`): tokens feeds ARI/Google Hotels content, semáforo `google-hotels-health`, tabla por alojamiento (`hotelId`, listado); Configurar sitio web con tarjeta puente y preservación de `integrations` al guardar sin inputs en DOM; modal *Gestionar alojamientos* con CTA hacia Canales IA. Documentación: **`TASKS/venta-ia.md` §2.6**, §5.3/§6 este archivo, **`TASKS/checklist-onboarding-google-hotel-center.md`** cabecera, **`LEER-PRIMERO.md`** paso 4.
 
 **Hecho (2026-04-24, IA venta / listado):** en tarjetas de `busquedaGeneral` (`suitemanagerApiController`) e inventario PG (`publicAiInventoryPg`): JOIN `e.configuracion AS empresa_configuracion` + `enrichPropertyRowsForPublicAi` / `buildListingCardForAi` aplican `enrichUbicacionFromEmpresaConfig` tras metadata de la propiedad (misma lógica que detalle).
 
@@ -70,13 +82,13 @@
 
 ---
 
-## 4. Recomendaciones estilo OTA (Booking, Airbnb, Expedia, Agoda, Google Hoteles)
+## 4. Recomendaciones de producto (paridad con el mercado y Google Hoteles)
 
 Módulos que suelen ser **esperados** en un PMS + web directa y que conviene valorar para el backlog:
 
 | Módulo | Por qué importa |
 |--------|------------------|
-| **Políticas de cancelación** (tipos + plazos + texto legal) | Comparables en todas las OTA. **Hecho (v4 parcial SSR):** HTML/texto en ficha, **/reservar**, **/confirmacion** (`politicaCancelacionHtml` / `Etiqueta`). **Hecho (v4 parcial resumen):** aviso corto vía `buildAvisoPoliticaCancelacion` + partial `aviso-politica-cancelacion.ejs` si `legal.politicaCancelacionModo` es `gratis_ilimitada` o `gratis_hasta_horas` (con `politicaCancelacionHorasGratis`). **Hecho (v4 panel):** en **Configurar sitio web público** (unificado), bloque «Legal y checkout público» + `PUT /website/home-settings` con `legal` (merge con `websiteSettings.legal` existente). **Sugerencia producto (por defecto):** `politicaCancelacionModo: 'gratis_hasta_horas'`, `politicaCancelacionHorasGratis: 48` (opt-in al guardar; no se fuerza en migración). **Hecho (v4 por tarifa, 2026-04-24):** `tarifas.metadata.politicaCancelacion` (`modo`: `inherit` \| `texto_solo` \| `gratis_hasta_horas` + `horasGratis` \| `gratis_ilimitada`); si **todas** las noches de la estadía usan la **misma** tarifa con override ≠ `inherit`, el aviso SSR usa ese modo/plazo; matriz de tarifas (`matriz.js`) edita el bloque; `reservas.metadata.politicaCancelacionCheckout` guarda snapshot al crear reserva web (`crearReservaPublica`). **Hecho (v4 presupuesto, 2026-04-24):** `generarTextoPresupuesto` + placeholder `[DESGLOSE_PRECIO_PRESUPUESTO]` (`mensajeService.js`); JSON de presupuesto opcional `desglosePrecioCheckout` (`presupuestosService.js`). **Hecho (§4.3 B, 2026-04-24):** texto largo multi-tarifa (mayoría de noches + bloques secundarios SSR) y **`metadata.nombre`** editable en matriz («Nombre en web público») para titular tramos. |
+| **Políticas de cancelación** (tipos + plazos + texto legal) | Comparables con lo habitual en el sector (SuiteManager es la OTA del operador). **Hecho (v4 parcial SSR):** HTML/texto en ficha, **/reservar**, **/confirmacion** (`politicaCancelacionHtml` / `Etiqueta`). **Hecho (v4 parcial resumen):** aviso corto vía `buildAvisoPoliticaCancelacion` + partial `aviso-politica-cancelacion.ejs` si `legal.politicaCancelacionModo` es `gratis_ilimitada` o `gratis_hasta_horas` (con `politicaCancelacionHorasGratis`). **Hecho (v4 panel):** en **Configurar sitio web público** (unificado), bloque «Legal y checkout público» + `PUT /website/home-settings` con `legal` (merge con `websiteSettings.legal` existente). **Sugerencia producto (por defecto):** `politicaCancelacionModo: 'gratis_hasta_horas'`, `politicaCancelacionHorasGratis: 48` (opt-in al guardar; no se fuerza en migración). **Hecho (v4 por tarifa, 2026-04-24):** `tarifas.metadata.politicaCancelacion` (`modo`: `inherit` \| `texto_solo` \| `gratis_hasta_horas` + `horasGratis` \| `gratis_ilimitada`); si **todas** las noches de la estadía usan la **misma** tarifa con override ≠ `inherit`, el aviso SSR usa ese modo/plazo; matriz de tarifas (`matriz.js`) edita el bloque; `reservas.metadata.politicaCancelacionCheckout` guarda snapshot al crear reserva web (`crearReservaPublica`). **Hecho (v4 presupuesto, 2026-04-24):** `generarTextoPresupuesto` + placeholder `[DESGLOSE_PRECIO_PRESUPUESTO]` (`mensajeService.js`); JSON de presupuesto opcional `desglosePrecioCheckout` (`presupuestosService.js`). **Hecho (§4.3 B, 2026-04-24):** texto largo multi-tarifa (mayoría de noches + bloques secundarios SSR) y **`metadata.nombre`** editable en matriz («Nombre en web público») para titular tramos. |
 | **Impuestos y tasas** (IVA, tasa municipal, fee limpieza) | **Hecho (v4 parcial):** `checkoutDesgloseService.js` — `modelo` `cl_iva_incluido` (total con IVA, tasa 0–50%) o `sin_desglose` (solo líneas extra). **`lineasExtra`** configurables: `porcentaje_total`, `porcentaje_neto` (sobre neto IVA o sobre total si no hay IVA), `monto_fijo`, `por_noche` (`montoPorNocheCLP`), **`por_persona_noche`** (`montoPorPersonaNocheCLP` × huéspedes × noches; SSR `/reservar`, `/confirmacion`, `crearReservaPublica`, widget `booking.js`); `notaPie` / `notaDebajo`. SSR **/reservar**, **/confirmacion** (noches y huéspedes desde query / reserva), widget ficha; `crearReservaPublica` sigue guardando neto/IVA cuando aplica IVA. **Hecho (v4 panel):** bloque unificado + **`lineasExtraValidation.js`** (front `shared/` y back `services/`, misma regla): validación por fila al guardar y **`PUT /website/home-settings`** 400 con `details` si falla; respuesta persistida con filas ya sanitizadas. **Hecho (v4 presupuesto, 2026-04-24):** texto generado y JSON presupuesto usan el mismo `buildDesglosePrecioCheckout` con noches y huéspedes. **Hecho (v4 coherencia, 2026-04-24):** `validateDesglosePrecioCheckoutCoherencia` — suma de `% sobre total` y `% sobre neto` ≤100%; escenario de referencia 1M CLP / 7 noches / 4 huéspedes: suma de montos de líneas extra no supera el total; comprobación neto+IVA; panel (`collectLegalFromForm`) + **`PUT /api/website/home-settings`**; test `test-desglose-coherencia.js`. **Hecho (2026-04-24 — reconciliación reserva web):** `verificarReconciliacionPrecioReservaPublica` vs `calculatePrice` (suma multi-ID); **409** si `precioFinal` desalineado; `metadata.precioCheckoutVerificado` + `reservaWebGrupo`; cupón **`porcentaje`** o **`monto_fijo`** (`tipo_descuento`, monto en `descuento`); preview **`POST /preview-precio-reserva-checkout`**; transacción insert + marcar cupón. |
 | **Depósito de garantía / preautorización** | **Descartado (2026-04-25):** no se usará pasarela/preauth integrada en esta fase. Operación manual con medios permitidos y registro en transacciones (`GET /gestion/medios-pago-manuales`). |
 | **Política de menores y camas extra** | **Hecho (v4 parcial 2026-04-24):** formulario **/reservar** + `metadata.reservaWebCheckout` + recargos opcionales `recargoMenorNocheCLP` / `recargoCamaExtraNocheCLP` (CLP × unidad × noche) en panel unificado; reconciliación y **`POST /preview-precio-reserva-checkout`** incluyen recargos **antes** del cupón; `checkout.js` refresca total si hay recargos configurados. **Pendiente:** precio distinto por edad de menor o cupos por inventario físico de camas. |
@@ -85,7 +97,7 @@ Módulos que suelen ser **esperados** en un PMS + web directa y que conviene val
 | **Multi‑idioma** en SSR | Textos por locale (mínimo EN marketplace) y URLs por idioma si aplica. **Hecho (v4 parcial SEO tenant):** `hreflang` + `x-default` y `og:locale` (`es_CL` / `en_US`) según `idiomaPorDefecto` en home, contacto, ficha, `/reservar`, `/confirmacion`; partial `views/partials/hreflang-default.ejs`; canonical en reserva/confirmacion. **Hecho (v4 copy tenant 2026-04-25):** más strings visibles EN/ES en home (búsqueda, vacíos, grupo, about), contacto, 404, confirmación (depósito + detalle), cabecera/pie, tarjetas del home (`property-card`), `lang`/`og:locale` en ficha cuando `idiomaPorDefecto=en`. **Hecho (v4 parcial marketplace 2026-04-24):** homepage global `/?lang=en` \| `?lang=es` + `Accept-Language` (`en*` → EN); copys ES/EN (`marketplaceUiStrings.js`); `canonical` + `hreflang` es/en/x-default; `og:locale`; selector ES\|EN; formulario preserva `lang`; precios `toLocaleString` según idioma; test `test-marketplace-ui-strings.js`. **Hecho (v4 parcial 2026-04-25):** `GET /api/search.json` unificado (`marketplaceSearchJson.handler.js` desde `index.js` y router marketplace) — `version: 1.1`, `locale`, `language`, `ui.fieldLabels` por `lang`; `sort=valor|valor_desc|rating` aplicado en SQL (`buildMarketplaceOrderBy`) y preservado en links/form; `hreflang` cruzado opcional por dominio en marketplace (`MARKETPLACE_DOMAIN_ES` / `MARKETPLACE_DOMAIN_EN`) con fallback seguro al host actual; smoke XML ARI `ariFeedXmlSanity.js` + `test-ari-feed-xml-sanity.js` + `test-marketplace-sort.js`. |
 | **Mapa de calor / restricciones** (eventos locales → min noches) | **Hecho (v4 parcial 2026-04-25):** configuración `websiteSettings.booking.eventosDemandaMapaCalor` saneada en backend (`bookingSettingsSanitize` + `heatmapRestriccionesService`), **edición UI en panel unificado** (`webPublica.general.unified.heatmapEventosRows.js` + `markup/handlers`), calendario público `GET /propiedad/:id/calendario-ocupacion` expone `heatmap[]` (fecha, nivel 1–5, `minNochesLlegada`, motivos) y aplica overlay visual/tooltip en `public-booking-calendar.js`; reglas de estadía mínima por llegada aplicadas en backend (`reservaWebRestriccionesService` + `POST /propiedad/:id/calcular-precio`) usando `max(minNoches base, minNoches mapa)`; `booking.js` usa mínimo efectivo por fecha de llegada. Tests: `test-heatmap-restricciones.js`, `test-reserva-web-restricciones.js`. **Pendiente:** QA E2E de UX/mensajería en propiedades reales y posibles refinamientos de copy por temporada (checklist: `TASKS/qa-heatmap-restricciones-e2e.md`). |
 | **House manual digital** (PDF o página) | Adjunto post‑confirmación; complementa normas en web. **Hecho (2026-04-24):** SSR `/confirmacion` enlaza `manualHuespedUrl` / `manualHuespedPdfUrl` / `checkinOnlineUrl` desde `websiteSettings.booking` (misma fuente que correos). |
-| **Check‑in online** (datos huésped, documento, hora estimada) | Reduce fricción y fraude; común en Booking/Airbnb. |
+| **Check‑in online** (datos huésped, documento, hora estimada) | Reduce fricción y fraude; estándar habitual en alquileres temporarios. |
 | **Reviews outbound** (solicitud post‑estancia) | **Hecho (v1 parcial 2026-04-24):** `[LINK_RESEÑA]` en confirmación + recordatorio pre-llegada vía `resolverLinkResenaOutbound` (además del job post-estancia existente). |
 | **Comparador / parity con OTA** (opcional) | “Reserva directa X% más barato” si hay feed de precio externo (complejo). |
 
@@ -139,7 +151,7 @@ Módulos que suelen ser **esperados** en un PMS + web directa y que conviene val
 | **A — Inventario / fechas web** | Min/max noches, anticipación mínima, ventana en meses; validación única servidor + cliente; panel unificado. | **Hecho (2026-04-24):** `reservaWebRestriccionesService.js`, `booking.js`, `public-booking-calendar.js`, `webPublica.general.unified.*`, test `test-reserva-web-restricciones.js`. |
 | **B — Cancelación / copy** | Texto legal largo por tarifa; reglas finas multi-tarifa (ponderación). | **Hecho (2026-04-24):** mayoría noches + bloques secundarios SSR; `metadata.nombre` en **matriz**; snapshot `bloquesLargoPorTarifa` + `tarifaIds`; aviso ids vs nombres (`SHARED_CONTEXT` / audit §6b). |
 | **C — Huésped / post-reserva** | Check-in online con datos (doc., hora), house manual en correo, reseñas outbound enlazadas. | **Hecho (2026-04-24):** identidad web + consentimiento + borrado/edición panel + **retención opcional por empresa** (`checkinIdentidadRetencionAutomaticaActivo`, `checkinIdentidadRetencionDiasTrasCheckout` en `websiteSettings.booking`; wizard web pública; job `npm run job:retencion-checkin-identidad-pii` + auditoría `eliminadoMotivo` / `diasPoliticaRetencion`). **Hecho (2026-04-24):** `[LINK_RESEÑA]` en **confirmación** y **recordatorio pre-llegada**; URL externa o token `/r/…` alineado a post-estancia. **Hecho (2026-04-24):** check-in **multi-huésped** opcional (`checkinIdentidadCoHuespedesActivo`, `checkInIdentidadAcompanantes`, correo/confirmación/panel). **Hecho (2026-04-24):** hora estimada de llegada y bloque llegada ligera del checkout alineados al mismo PII que identidad (detección, panel, job). **Hecho (2026-04-24):** house manual / check-in online en **`/confirmacion`** + **página dedicada `/guia-huesped`** (enlaces web + PDF + URL check-in, i18n por `idiomaPorDefecto`). |
-| **D — Parity “OTA dura”** | Operación manual de pagos (sin pasarela), Content API Google, mapa calor, comparador externo. | **Parcial (2026-04-25):** comparador externo base en SSR tenant `GET /propiedad/:id/comparador-ota.json?fechaLlegada=YYYY-MM-DD&fechaSalida=YYYY-MM-DD[&canalId=...]` (canal directo = por defecto vs canal comparado; totales CLP, ahorro CLP/% y flag `comparableComplete` si faltan noches en canal comparado); cálculo referencial sin persistencia financiera (`comparadorOtaService.js`), test `test-comparador-ota-service.js`. **Hecho (parcial 2026-04-25):** ficha SSR (`booking-widget`) muestra bloque “Comparador reserva directa” al cambiar fechas, solo cuando `comparableComplete=true`, y permite elegir canal comparado (selector en UI; recálculo por `canalId`) (`booking.js` + `partials/booking-widget.ejs` + `website.property.js`). **Hecho (parcial 2026-04-25):** copy/legal final en UI del comparador (`legalCopy`) + monitoreo en logs backend por consulta (`[comparador-ota]` JSON estructurado con tenant/propiedad/canales/ahorro/completitud). **Hecho (parcial 2026-04-25):** mapa de calor con ciclo completo (config panel + API `heatmap[]` + overlay/tooltip + validación automática de noches mínimas por fecha de llegada en SSR/checkout). **Pendiente:** QA E2E y ajustes de UX/copy según comportamiento real por tenant. |
+| **D — Parity “OTA dura”** | Operación manual de pagos (sin pasarela), Content API Google, mapa de calor, comparador referencial interno. | **Comparador — MVP LISTO (2026-05-02):** DoD **`TASKS/venta-ia.md` §5.2**; `comparador-ota.json` + `comparadorOtaService.js` + ficha `booking-widget` (`comparableComplete`, `legalCopy`, logs), test `test-comparador-ota-service.js`. **Mapa de calor:** hecho en código; QA E2E → §5.x **A** (opcional). **Resto fase D:** operación pagos manuales; Google Content/feeds (**`venta-ia.md` §7** connectivity partner + feeds tenant en transición). |
 
 **Cierre / operación (fuera de §4 OTA-lite de catálogo):** métricas iCal en PG (**§1.4**), ~~wizard DNS legacy (**§3.1**)~~ **cerrado 2026-04-24**, widget tarifas con fechas (**§2.3** hecho), marketplace i18n global (**§4** fila multi-idioma).
 
@@ -171,21 +183,26 @@ Módulos que suelen ser **esperados** en un PMS + web directa y que conviene val
 
 ### B) Google Hotel Center por empresa (onboarding operativo)
 
-- [ ] Ejecutar `TASKS/checklist-onboarding-google-hotel-center.md` por tenant.
-- [ ] Validar feed ARI y feed content expuestos por dominio real de cada empresa.
-- [ ] Confirmar token/credenciales activas por tenant (`websiteSettings.integrations.*`).
+- [x] **Implementación código Connectivity Partner (v1):** feeds globales, catálogo plataforma, paridad §7.11 SSR, checklist deploy **`TASKS/google-hotels-partner-deploy-checklist.md`** — ver **`TASKS/venta-ia.md` §7**.
+- [ ] **Deploy producción:** merge/deploy integrador → DNS `api.` / `feeds.` + env `GOOGLE_PARTNER_*` → smoke **`node backend/scripts/smoke-google-partner-feeds-http.js`** + checklist **`TASKS/google-hotels-partner-deploy-checklist.md`** §2–§3.
+- [ ] Completar en producto **Operaciones → Canales IA** (`/canales-ia`) tokens, alojamientos listados e IDs (ver **`TASKS/venta-ia.md` §2.6**). §0 del checklist se puede **rellenar desde el panel** (bloque §0 automático + Copiar).
+- [ ] Ejecutar `TASKS/checklist-onboarding-google-hotel-center.md` (modo tenant durante transición; sección **partner** cuando existan URLs globales).
+- [ ] Validar feeds por dominio real (**tenant**) y, en paralelo, URLs **plataforma** objetivo para Google (`TASKS/venta-ia.md` §7.7).
+- [ ] Confirmar token/credenciales activas por tenant (`websiteSettings.integrations.*`) y política de bypass para bots Google (**§7.4**).
 - [ ] Completar validación externa en Google Hotel Center (HTTP/XML/propiedades visibles).
-- [ ] Registrar por empresa: `operativo` / `bloqueado` + causa concreta + siguiente acción.
-- **Estado objetivo:** tenant con integración realmente operativa, no solo "endpoint existe".
+- [ ] Registrar por empresa / programa: `operativo` / `bloqueado` + causa concreta + siguiente acción.
+- **Estado objetivo:** partner único ante Google con datos calidad (Place ID, precio final); tenants siguen cerrando reserva en su checkout.
 
 ### C) §4.3 D parity OTA/comparador (cierre MVP)
 
-- [ ] Definir DoD explícito del comparador:
-  - [ ] ¿MVP queda en "referencial + legalCopy + selectable canal"?
-  - [ ] ¿Se exige algo más para cierre (copy, tolerancias, reglas de visualización)?
-- [ ] Aplicar ajustes mínimos acordados (si corresponde) y validar en ficha SSR.
-- [ ] Dejar criterio final en backlog para evitar estado "parcial" indefinido.
-- **Estado objetivo:** LISTO con alcance acotado y verificable.
+**DoD acordado (2026-05-02)** — detalle en **`TASKS/venta-ia.md` §5.2:**
+
+- MVP **LISTO** en alcance: comparación **referencial** entre canal directo y otro canal **configurado en SuiteManager**; UI solo si `comparableComplete`; `legalCopy` + logs; **sin** precios en vivo de agregadores externos.
+- Pendiente opcional: QA en tenant real y microcopy según feedback (no bloquea “MVP cerrado”).
+
+- [x] DoD explícito (venta-ia §5.2).
+- [ ] QA puntual en ficha SSR con tenant de prueba (opcional si producto lo pide).
+- **Estado objetivo:** **LISTO (MVP)** salvo QA opcional; ampliaciones fuera de MVP → nueva fila/backlog.
 
 ### D) Pendientes diferidos (no bloqueantes release)
 
@@ -201,7 +218,7 @@ Módulos que suelen ser **esperados** en un PMS + web directa y que conviene val
 
 ### F) Canales de venta externos y presencia en IAs (roadmap — 2026-04-29)
 
-**Ver sección dedicada más abajo:** **§5.3** (objetivos por canal, jugada API+MCP+JSON-LD+SSR, agentes). Complementa el checklist **B** (Google Hotel Center) y la estrategia en **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §9.
+**Ver documento unificado:** **`TASKS/venta-ia.md`** (objetivos por canal, análisis construido vs pendiente, checklist operativo, referencias de código). Complementa el checklist **B** (Google Hotel Center) y la estrategia en **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §9.
 
 **Entrega parcial (2026-04-22):** motor de correos por disparadores (`transactionalEmailService.js`), hooks en gestión/reservas, jobs (`backend/jobs/scheduledTransactionalEmails.js`), formulario `POST /contacto` SSR, promos en tarjetas vía `websiteSettings.marketing.promocionesDestacadas`, texto/HTML de política de cancelación en ficha (`websiteSettings.legal.politicaCancelacionTexto` / `politicaCancelacionHtml`), orden marketplace `sort=valor` en `/api/search.json`.
 
@@ -219,42 +236,11 @@ No duplica disparadores: solo inserta si la empresa aún no tiene una plantilla 
 
 ## 5.3 Canales de venta externos y presencia en IAs
 
-**Propósito:** ordenar la conectividad hacia agregadores y asistentes sin duplicar lo que el producto ya resuelve bien (API abierta, SSR, JSON-LD, inventario centralizado en la OTA propia).
+**Contenido detallado (tabla por canal, jugada API + MCP + JSON-LD + SSR, checklist unificado, análisis construido vs pendiente, referencias de código):** **`TASKS/venta-ia.md`**.
 
-### Lo que ya es ventaja competitiva (base técnica)
+En este backlog solo se recuerda el vínculo: la **fuente única** para trabajar venta por IA y canales externos es ese archivo; aquí siguen los hitos generales de producto (**§5**, **§5.x**) y las referencias **§6**.
 
-- **SSR** orientado a SEO y a contenido utilizable por motores e IAs (indexación, respuestas citables).
-- **JSON-LD** en el sitio público (lectura directa por sistemas que consumen datos estructurados).
-- **APIs expuestas** y contratos OpenAPI (ChatGPT/Gemini y flujos IA internos sobre el mismo backend).
-- **OTA propia** con inventario centralizado desde panel (fuente operativa única por tenant).
-
-### Objetivos por canal (prioridad sugerida de negocio)
-
-| # | Canal | Objetivo | Notas |
-|---|--------|----------|-------|
-| 1 | **Google Travel / Things to Do** | Evaluar y, si aplica el modelo del negocio, **aplicar como connectivity partner** en el programa Google Travel (actividades y alojamiento según reglas vigentes del programa). | Encaja con JSON-LD + trabajo ya hecho en feeds/checklist Google Hotels (**§4**, checklist **`TASKS/checklist-onboarding-google-hotel-center.md`**). Requiere proceso externo de aprobación Google. |
-| 2 | **ChatGPT Actions / proveedor OpenAI** | Mantener y **evolucionar el registro como sistema externo** que expone acciones sobre las APIs existentes (OpenAPI 3.1, mismas rutas que producción). | Refinamiento continuo de `openapi/openapi-chatgpt.yaml`, políticas de uso y pruebas con el agente. Ver **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §7 y §9. |
-| 3 | **Perplexity y middleware tipo SelfBook** | **Contacto explícito** con partners que conectan motores de respuesta / IA con sistemas de reservas (middleware). | Define alcance técnico según lo que exija el partner (webhooks, OAuth, catálogo); puede ser sprint aparte una vez haya acuerdo comercial. |
-| 4 | **MCP (Model Context Protocol)** | **Servidor MCP propio** que exponga herramientas de búsqueda/cotización/reserva sobre la API ya existente (Claude Desktop, IDEs y herramientas compatibles con MCP). | Diseño previsto en coordinación §9 **1A**; **decisión de repo pendiente** en §8 (dependencia `@modelcontextprotocol/sdk`). Prioridad alta para presencia en el ecosistema MCP sin sustituir OpenAPI para otros clientes. |
-| 5 | **Booking.com / Expedia Connectivity** | Donde el modelo de negocio lo permita, **conectar como proveedor de inventario** vía programas de connectivity de esas plataformas. | Esfuerzo comercial y técnico alto; puede **heredar** visibilidad en ecosistemas que ya integran esos canales (p. ej. asistentes). Valorar ROI frente a los ítems 1–4. |
-
-### Jugada coordinada (mensaje de producto)
-
-1. **API estable + MCP** → una capa estándar para clientes que hablan MCP (p. ej. Claude, Cursor, más herramientas) **sin** depender solo de un único intermediario cerrado.
-2. **JSON-LD + feeds / Travel** → mejor encaje con **Google AI Mode** y programas Travel donde el tenant califique.
-3. **SSR** → visibilidad orgánica y contenido citeable por IAs.
-
-### Designación de agentes — solo Cursor (acuerdo 2026-04-29)
-
-**No usamos Claude Code / Antigravity para este carril:** roadmap técnico, contratos OpenAPI, MCP, feeds y partnerships documentados se ejecutan **solo con Cursor**.
-
-| Rol | Quién | Responsabilidad |
-|-----|--------|-----------------|
-| **Estrategia técnica + código** | **Cursor** (Composer o Agent) | Mantener **`TASKS/backlog-producto-pendientes.md` §5.3**, revisar **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §2–§3 antes de tocar API pública/tarifas/checkout; implementar en `backend/`, `openapi/`, MCP bajo **§8** si se aprueba. |
-| **“Agente dedicado” en Cursor (recomendado)** | **Un chat de Agent con nombre fijo** | Cursor no tiene un campo “este agente solo hace X”; la práctica equivalente es **reservar un único hilo** (p. ej. título **«Canales venta — MCP + OpenAPI»**) y arrancarlo siempre con: leer §5.3 + §3 zona caliente. Opcional: regla **`.cursor/rules/45-canales-venta-solo-cursor.mdc`** (se adjunta al trabajar en `openapi/**` o `backend/mcp/**`). |
-| **Evitar mezcla de contexto** | Misma sesión vs otras tareas | No mezclar con cierre **release 1.0.0** salvo priorización explícita (`TASKS/leer-primero.md` §5). |
-
-**Pendiente explícito:** aprobación de dependencia MCP y ruta de implementación → **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §8; detalle técnico **§9.1A**.
+**Resumen:** base técnica ya entregada (OpenAPI, disponibilidad/cotización/reserva IA, feeds ARI y Google Hotels **por tenant**, SSR y JSON-LD). **Connectivity Partner (2026-05-02):** implementación v1 en código (**`TASKS/venta-ia.md` §7**): feeds globales `/feeds/google`, catálogo `/google-hotels`, paridad precio §7.11, checklist deploy **`TASKS/google-hotels-partner-deploy-checklist.md`**. **Pendiente principal:** **despliegue + DNS + credenciales** en prod, **trámite Google** Hotel Center, **evolucionar contratos**, **decidir MCP** (coordinación §8), **llms.txt** / JSON-LD alineado a feeds globales. **Sin** OTA terceros como canal de venta del operador; **sincronización operativa** (iCal, importaciones) sigue en PMS. **Carril solo Cursor**; API pública → **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §2–§3.
 
 ---
 
@@ -269,8 +255,8 @@ No duplica disparadores: solo inserta si la empresa aún no tiene una plantilla 
 | Ofertas tarifa + SSR display | `backend/db/migrations/tarifas-metadata-promo.sql`, `backend/services/tarifasService.js`, `backend/routes/website.shared.js`, `backend/services/promocionesDisplayService.js`, `frontend/src/views/components/gestionarTarifas/matriz.js` |
 | Marketplace precio desde + descubrimiento ficha | `backend/services/marketplaceService.js`, `backend/views/marketplace/index.ejs`, `backend/routes/marketplace.js`, `backend/services/publicWebsiteService.js` (`obtenerMasAlojamientosParaFichaSSR`), `backend/routes/website.property.page.js` |
 | Dominio Render | `backend/services/renderDomainService.js`, flujo `home-settings` en `backend/api/ssr/config.routes.js` |
-| Google Hotels / feed ARI | `backend/services/googleHotelsService.js` (`generateAriFeed`, `generatePropertyListFeed`), `backend/routes/website.seo.js` (`/feed-ari.xml`, `/feed-google-hotels-content.xml`, `/widget-reserva-ayuda.json`), `backend/scripts/verify-google-hotels-feed-checklist.js`, `TASKS/checklist-onboarding-google-hotel-center.md`, `backend/routes/integrations.js`, `frontend/src/shared/ariFeedUrl.js`, `empresa.js`, `sincronizarCalendarios.js`, `webPublica.general.unified.{js,markup.js}` |
-| Canales venta / IA (roadmap, MCP pendiente §8) | **§5.3** (solo Cursor; chat dedicado opcional); **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §7–§9; regla opcional `.cursor/rules/45-canales-venta-solo-cursor.mdc`; MCP `backend/mcp/` (§9.1A); OpenAPI `openapi/openapi-chatgpt.yaml` |
+| Google Hotels / feed ARI | **Tenant:** `googleHotelsService.js`, `website.seo.js` (`/feed-ari.xml`, `/feed-google-hotels-content.xml`), `verify-google-hotels-feed-checklist.js`, checklist onboarding. **Partner (plataforma):** **`googleHotelsGlobalService.js`**, `googleHotelsPartner.routes.js`, re-export `googleHotelsPartnerFeeds.js`, `feedXmlWellformed.js`, `googleHotelsHealthService.js` (`partnerGlobalFeed`), smoke HTTP `backend/scripts/smoke-google-partner-feeds-http.js`, marketplace `/google-hotels` — **`TASKS/venta-ia.md` §7**, **`TASKS/google-hotels-partner-deploy-checklist.md`**. **SPA:** `canalesIa.js`, `router.js`, `webPublica.general.unified.*`, `alojamientos.modals.*`. §2.6 **`venta-ia`**. |
+| Canales venta / IA (roadmap, MCP pendiente §8) | **`TASKS/venta-ia.md`** (detalle); **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §7–§9; regla opcional `.cursor/rules/45-canales-venta-solo-cursor.mdc`; MCP `ai/openai/mcp-server/` (hoy) / `backend/mcp/` (§9.1A propuesto); OpenAPI `openapi/openapi-chatgpt.yaml` |
 | Motor correo + hooks | `backend/services/transactionalEmailService.js` (`resolverLinkResenaOutbound`, `construirVariablesDesdeReserva`), `backend/services/transactionalEmailHooks.js`, `backend/services/transactionalEmailEventMatrix.js` (`GET /plantillas/matriz-eventos-correo`) |
 | Jobs correo / digest | `backend/jobs/scheduledTransactionalEmails.js` (arranque en `backend/index.js`) |
 | Semilla plantillas correo | `scripts/seed-plantillas-correos-transaccionales.js` |
@@ -281,4 +267,4 @@ No duplica disparadores: solo inserta si la empresa aún no tiene una plantilla 
 
 ---
 
-*Última actualización: 2026-04-29 — **§5.3 Canales de venta:** mismo contenido de objetivos; **solo Cursor** para estrategia técnica e implementación (sin Claude Code); **chat Agent dedicado** + regla opcional `45-canales-venta-solo-cursor.mdc`; checklist §5.x **F**. Historial 2026-04-25: Google Hotels / SSR / bandeja + release 1.0.0 CI; mapa calor §4 QA E2E pendiente.*
+*Última actualización: 2026-05-03 — UI provisional operación partner en Canales IA + `venta-ia.md` §8 (superadmin/operadores). Historial: 2026-05-02 Partner + smoke + checklist; Connectivity Partner (`venta-ia.md` §1.1, §7); checklist Google §0; OpenAPI **1.4.7**; §5.x **C** comparador DoD.*

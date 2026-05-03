@@ -1,6 +1,8 @@
 <%# backend/views/partials/booking-widget.ejs — conversion-focused, compatible con booking.js %>
 <%
-    const _wFmt     = (v) => `$${Math.round(v||0).toLocaleString('es-CL')}`;
+    const _wLangEn = (typeof htmlLang !== 'undefined' && htmlLang === 'en')
+        || (empresa?.websiteSettings?.email?.idiomaPorDefecto === 'en');
+    const _wFmt     = (v) => `$${Math.round(v||0).toLocaleString(_wLangEn ? 'en-US' : 'es-CL')}`;
     const _wRating  = (typeof _rating !== 'undefined') ? _rating : null;
     const _wResenas = (typeof _nResenas !== 'undefined') ? _nResenas : 0;
     const _wTotal   = defaultPriceData?.totalPriceCLP || 0;
@@ -36,6 +38,15 @@
 <div id="booking-widget-container"
      class="bg-white rounded-2xl border border-gray-200 shadow-[0_8px_30px_rgba(79,70,229,0.15)] max-h-[calc(100dvh-10rem)] overflow-y-auto overflow-x-hidden md:max-h-none md:overflow-visible"
      data-booking-config='<%= JSON.stringify(wConfig) %>'>
+
+    <% if (typeof googleHotelsListed !== 'undefined' && googleHotelsListed && defaultPriceData && defaultPriceData.totalDescuentoPromoCLP > 0) { %>
+    <div class="mx-4 mt-3 mb-0 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-[11px] text-warning-900 leading-snug">
+        <i class="fas fa-info-circle mr-1"></i>
+        <%= _wLangEn
+            ? 'Google Hotels shows the published nightly rate; your booking total may reflect an active promo.'
+            : 'Google Hotels muestra la tarifa publicada por noche; el total de la reserva puede incluir una promoción activa.' %>
+    </div>
+    <% } %>
 
     <%# ── HERO: abono como protagonista (compacto para móvil / columnas estrechas) ── %>
     <div class="bg-gradient-to-br from-primary-600 to-primary-700 px-4 pt-3 pb-3.5 text-white">

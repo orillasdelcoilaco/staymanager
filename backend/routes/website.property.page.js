@@ -105,7 +105,7 @@ async function renderPropiedadPublica(req, res, db, deps) {
 
     try {
         const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
-        if (!propiedad || !propiedad.googleHotelData?.isListed) {
+        if (!propiedad || propiedad.activo === false) {
             return res.status(404).render('404', { title: 'Propiedad No Encontrada', empresa: empresaCompleta });
         }
 

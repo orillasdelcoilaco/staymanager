@@ -1,6 +1,6 @@
 # 🧠 SHARED_CONTEXT.md — Fuente Única de Verdad del Proyecto
 
-> **Atajo de una sola instrucción al agente:** «Antes de hacer algo, lee `LEER-PRIMERO.md`» (raíz del repo) — orden de lectura y coordinación multi-agente en `TASKS/`.
+> **Atajo de una sola instrucción al agente:** «Antes de hacer algo, lee `LEER-PRIMERO.md`» (raíz del repo) — orden de lectura, coordinación multi-agente en `TASKS/`, y **estándares de implementación** (modularidad, auditorías, modo dual, CSS centralizado, sin hardcode de negocio): todo enlazado desde ese archivo.
 >
 > **Este archivo es consultado por TODOS los agentes de IA del equipo.**
 > - **Antigravity** (Claude Opus 4.6 en IDE) → lo lee via Knowledge Items
@@ -10,7 +10,7 @@
 > **Regla**: Si hay conflicto entre este archivo y CLAUDE.md/.clinerules,
 > este archivo tiene prioridad (es más reciente y refleja el estado real).
 >
-> **IA de venta (ChatGPT / OpenAPI / reserva pública) con Cursor en paralelo:** además de este archivo, leer `TASKS/backlog-producto-pendientes.md` (roadmap) y `TASKS/coordinacion-cursor-claude-ia-venta.md` (avisos cruzados). El detalle del procedimiento para Claude Code está en `CLAUDE.md` (sección *Antigravity / IA de venta*).
+> **IA de venta (ChatGPT / OpenAPI / reserva pública) con Cursor en paralelo:** además de este archivo, leer `TASKS/backlog-producto-pendientes.md` (roadmap), **`TASKS/venta-ia.md`** (canales externos, MCP, Google Hotels/Travel, checklist unificado) y `TASKS/coordinacion-cursor-claude-ia-venta.md` (avisos cruzados). El producto **es** el canal de venta principal del operador; **no** se persiguen **OTAs de terceros como canal de venta** (subir inventario para vender ahí). **Google Hotel Center** como **connectivity partner** de la plataforma (feeds agregados en dominio SuiteManagers, deep links al checkout del tenant) es descubrimiento y cumplimiento de políticas Google, **no** reventa vía agregador — detalle **`TASKS/venta-ia.md` §1.1 y §7**. **Sí** puede haber **conexión operativa** (iCal, reportes, importación de reservas) para unificar calendario — eso no es “venta por OTA” y sigue definido en el resto del sistema. El detalle del procedimiento para Claude Code está en `CLAUDE.md` (sección *Antigravity / IA de venta*).
 >
 > **Refactor en curso — identificadores vs nombres (2026-04-24):** no introducir nuevas dependencias de **nombres/etiquetas que el usuario puede cambiar** (p. ej. `estados_reserva.nombre`, `canales.nombre`, nombre de plantilla) como clave en SQL, comparaciones de negocio o payloads API. Usar **id**, **`semantica`** (donde ya exista) o claves de producto acordadas; el nombre solo para UI. Inventario y checklist: `TASKS/audit-identificadores-vs-nombres-ui.md`.
 
@@ -20,6 +20,8 @@
 
 | Fecha | Autor | Cambio |
 |---|---|---|
+| 2026-05-02 | Cursor | **`LEER-PRIMERO.md`**: tabla **Estándares de implementación** + lectura obligatoria de `CLAUDE.md` también en Cursor; **`TASKS/venta-ia.md`**: automatización producto + venta vs sync operativa (sin OTAs como canal de venta); **`TASKS/leer-primero.md`**: paso 1 = raíz `LEER-PRIMERO.md`. **Misma fecha:** Google Hotels — **`TASKS/venta-ia.md` §7.9–§7.11** (Go PR: agregador + XSD, paridad SSR, DNS TTL). |
+| 2026-05-01 | Cursor | Roadmap venta IA + canales externos unificado en `TASKS/venta-ia.md`; backlog §5.3 enlaza allí; lectura conjunta con coordinación IA venta. **Actualización misma fecha:** panel SPA **Operaciones → Canales IA** (`/canales-ia`) como entrada usuario única para tokens feeds Google Hotels/ARI, semáforo y `hotelId`/listado por alojamiento — ver **`TASKS/venta-ia.md` §2.6**. |
 | 2026-04-24 | Cursor | Reseña outbound: variable `[LINK_RESEÑA]` en correo de confirmación de reserva y recordatorio pre-llegada (`resolverLinkResenaOutbound` en `transactionalEmailService.js`) |
 | 2026-04-24 | Cursor | Retención opcional PII identidad check-in web: ajustes en `websiteSettings.booking`, job `npm run job:retencion-checkin-identidad-pii`; documentado en §2.2 |
 | 2026-04-24 | Cursor | Implementación fase 1: `reservas.estado_gestion_id` (migración `backend/db/migrations/reservas-estado-gestion-id.sql`), servicios y SPA parcial; checklist actualizado en `TASKS/audit-identificadores-vs-nombres-ui.md` |

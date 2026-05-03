@@ -1,6 +1,12 @@
 // frontend/src/router.js
 import { fetchAPI } from './api.js';
 import { checkAuthAndRender } from './app.js';
+import { CATEGORY_HINTS, ITEM_HINTS } from './menuConfig.hints.js';
+
+const escAttr = (s) => String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
 
 const views = {
     '/login': () => import('./views/login.js'),
@@ -13,6 +19,7 @@ const views = {
     '/generar-presupuesto': () => import('./views/generadorPresupuestos.js'),
     '/gestionar-alojamientos': () => import('./views/gestionarAlojamientos.js'),
     '/gestionar-canales': () => import('./views/gestionarCanales.js'),
+    '/canales-ia': () => import('./views/canalesIa.js'),
     '/gestionar-tarifas': () => import('./views/gestionarTarifas.js'),
     '/conversion-alojamientos': () => import('./views/conversionAlojamientos.js'),
     '/mapeo-reportes': () => import('./views/mapeoReportes.js'),
@@ -67,17 +74,18 @@ const menuConfig = [
         icon: 'fa-solid fa-gears', name: 'Operaciones',
         id: 'operaciones',
         children: [
-            { icon: 'fa-solid fa-star',             name: 'Reseñas',          path: '/resenas',              id: 'resenas' },
             { icon: 'fa-solid fa-bed',              name: 'Reservas',         path: '/gestionar-reservas',   id: 'gestionar-reservas' },
             { icon: 'fa-solid fa-users',            name: 'Clientes',         path: '/clientes',             id: 'clientes' },
             { icon: 'fa-solid fa-chart-line',       name: 'Tarifas',          path: '/gestionar-tarifas',    id: 'gestionar-tarifas' },
-            { icon: 'fa-solid fa-tower-broadcast',  name: 'Canales',          path: '/gestionar-canales',    id: 'gestionar-canales' },
+            { icon: 'fa-solid fa-star',             name: 'Reseñas',          path: '/resenas',              id: 'resenas' },
+            { icon: 'fa-solid fa-tower-broadcast',  name: 'Canales de venta', path: '/gestionar-canales',    id: 'gestionar-canales' },
+            { icon: 'fa-solid fa-robot',            name: 'Canales IA',       path: '/canales-ia',           id: 'canales-ia' },
             { icon: 'fa-solid fa-calendar-days',    name: 'Sincronizar iCal', path: '/sincronizar-ical',     id: 'sincronizar-ical' },
             { icon: 'fa-solid fa-lock',             name: 'Bloqueos',         path: '/gestionar-bloqueos',   id: 'gestionar-bloqueos' },
         ]
     },
     {
-        icon: 'fa-solid fa-house', name: 'Gestión de Propiedades',
+        icon: 'fa-solid fa-boxes-stacked', name: 'Inventario',
         id: 'gestion-propiedades',
         children: [
             { icon: 'fa-solid fa-puzzle-piece',  name: 'Activos',           path: '/gestionar-tipos-elemento',   id: 'tipos-elemento' },
@@ -86,8 +94,14 @@ const menuConfig = [
             { icon: 'fa-solid fa-building',      name: 'Alojamientos',      path: '/gestionar-alojamientos',     id: 'gestionar-alojamientos' },
             { icon: 'fa-solid fa-images',        name: 'Galería de Fotos',  path: '/galeria-propiedad',          id: 'galeria-propiedad' },
             { icon: 'fa-solid fa-list-check',    name: 'Normas del alojamiento', path: '/normas-alojamiento', id: 'normas-alojamiento' },
-            { icon: 'fa-solid fa-pen-to-square', name: 'Contenido Web',     path: '/website-alojamientos',       id: 'website-alojamientos' },
-            { icon: 'fa-solid fa-sliders',       name: 'Configuración Web', path: '/website-general',            id: 'website-general' },
+        ]
+    },
+    {
+        icon: 'fa-solid fa-globe', name: 'Sitio público',
+        id: 'sitio-publico',
+        children: [
+            { icon: 'fa-solid fa-pen-to-square', name: 'Contenido Web',     path: '/website-alojamientos', id: 'website-alojamientos' },
+            { icon: 'fa-solid fa-sliders',       name: 'Configuración Web', path: '/website-general',    id: 'website-general' },
         ]
     },
     {
@@ -201,15 +215,27 @@ export function renderMenu() {
 
     let menuHtml = '';
 
+    const titleForItem = (item) => {
+        const h = ITEM_HINTS[item.id];
+        return h ? ` title="${escAttr(h)}"` : '';
+    };
+
+    const titleForCategory = (item) => {
+        const h = CATEGORY_HINTS[item.id];
+        return h ? ` title="${escAttr(h)}"` : '';
+    };
+
     const createLink = (item) => {
-        return `<li><a href="${item.path}" class="nav-link" data-path="${item.path}"><i class="${item.icon} nav-icon"></i><span class="link-text">${item.name}</span></a></li>`;
+        const t = titleForItem(item);
+        return `<li><a href="${item.path}" class="nav-link" data-path="${item.path}"${t}><i class="${item.icon} nav-icon"></i><span class="link-text">${item.name}</span></a></li>`;
     };
 
     menuConfig.forEach(item => {
         if (item.children) {
+            const catTitle = titleForCategory(item);
             menuHtml += `
                 <div class="menu-category">
-                    <button class="category-title">
+                    <button type="button" class="category-title"${catTitle}>
                         <span class="category-icon"><i class="${item.icon}"></i></span>
                         <span class="link-text">${item.name}</span>
                         <svg class="arrow-icon link-text" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>

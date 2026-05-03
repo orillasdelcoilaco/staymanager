@@ -1,7 +1,7 @@
 # Reporte de Auditoría UI
-**Generado:** 2026-04-30 01:28
-**Archivos analizados:** 168
-**Problemas encontrados:** 34 (alta: 0 / media: 5 / baja: 29)
+**Generado:** 2026-05-03 19:13
+**Archivos analizados:** 173
+**Problemas encontrados:** 50 (alta: 0 / media: 6 / baja: 44)
 
 ---
 
@@ -9,14 +9,14 @@
 
 | Categoría | Severidad | Ocurrencias |
 |-----------|-----------|-------------|
-| Botón con clases Tailwind directas (sin .btn-*) | media | 5 |
-| Color hexadecimal hardcodeado | baja | 29 |
+| Botón con clases Tailwind directas (sin .btn-*) | media | 6 |
+| Color hexadecimal hardcodeado | baja | 44 |
 
 ---
 
 ## Detalle por categoría
 
-### Botón con clases Tailwind directas (sin .btn-*) (5 ocurrencias)
+### Botón con clases Tailwind directas (sin .btn-*) (6 ocurrencias)
 **Sugerencia:** Usar btn-primary / btn-danger / btn-success / btn-outline  
 **Severidad:** media
 
@@ -26,14 +26,30 @@
 | `frontend/src/views/components/gestionarReservas/reservas.modals.view.js` | 322 | `class="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-warning-100 text-warning-700 border border-warning-200"` |
 | `frontend/src/views/comunicaciones.js` | 182 | `class="com-tab px-3 py-1.5 text-sm rounded-md font-medium bg-primary-100 text-primary-800"` |
 | `frontend/src/views/normasAlojamiento.js` | 300 | `class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white font-medium hover:bg-primary-700 disabled:opacity-50"` |
-| `backend/views/propiedad.ejs` | 1149 | `class="lg:hidden text-sm font-semibold text-primary-700 border border-primary-200 bg-primary-50 px-3 py-2 rounded-xl hover:bg-primary-100 transition-colors"` |
+| `backend/views/marketplace/google-hotels-catalog.ejs` | 83 | `class="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-full bg-primary-600 text-white hover:bg-primary-700 no-underline"` |
+| `backend/views/propiedad.ejs` | 1158 | `class="lg:hidden text-sm font-semibold text-primary-700 border border-primary-200 bg-primary-50 px-3 py-2 rounded-xl hover:bg-primary-100 transition-colors"` |
 
-### Color hexadecimal hardcodeado (29 ocurrencias)
+### Color hexadecimal hardcodeado (44 ocurrencias)
 **Sugerencia:** Usar tokens de color de Tailwind config  
 **Severidad:** baja
 
 | Archivo | Línea | Clase detectada |
 |---------|-------|-----------------|
+| `backend/views/marketplace/google-hotels-catalog.ejs` | 21 | `#f8f8f8` |
+| `backend/views/marketplace/google-hotels-catalog.ejs` | 22 | `#fff` |
+| `backend/views/marketplace/google-hotels-catalog.ejs` | 22 | `#e5e7eb` |
+| `backend/views/marketplace/google-hotels-catalog.ejs` | 25 | `#111` |
+| `backend/views/marketplace/google-hotels-catalog.ejs` | 26 | `#4b5563` |
+| `backend/views/marketplace/google-hotels-catalog.ejs` | 28 | `#fff` |
+| `backend/views/marketplace/google-hotels-catalog.ejs` | 34 | `#e5e7eb` |
+| `backend/views/marketplace/google-hotels-catalog.ejs` | 37 | `#e0e7ff` |
+| `backend/views/marketplace/google-hotels-catalog.ejs` | 37 | `#f0f4ff` |
+| `backend/views/marketplace/google-hotels-catalog.ejs` | 37 | `#a5b4fc` |
+| `backend/views/marketplace/google-hotels-catalog.ejs` | 39 | `#111` |
+| `backend/views/marketplace/google-hotels-catalog.ejs` | 40 | `#6b7280` |
+| `backend/views/marketplace/google-hotels-catalog.ejs` | 41 | `#fff` |
+| `backend/views/marketplace/google-hotels-catalog.ejs` | 41 | `#e5e7eb` |
+| `backend/views/marketplace/google-hotels-catalog.ejs` | 41 | `#374151` |
 | `backend/views/marketplace/index.ejs` | 82 | `#f8f8f8` |
 | `backend/views/marketplace/index.ejs` | 83 | `#fff` |
 | `backend/views/marketplace/index.ejs` | 83 | `#e5e7eb` |
@@ -71,6 +87,7 @@
 | Archivo | Problemas |
 |---------|----------|
 | `backend/views/marketplace/index.ejs` | 26 |
+| `backend/views/marketplace/google-hotels-catalog.ejs` | 16 |
 | `backend/views/propiedad.ejs` | 4 |
 | `frontend/src/views/components/gestionarReservas/reservas.modals.view.js` | 2 |
 | `frontend/src/views/comunicaciones.js` | 1 |

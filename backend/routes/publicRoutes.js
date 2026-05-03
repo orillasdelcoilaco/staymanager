@@ -24,12 +24,14 @@ module.exports = (db) => {
 
     // ===== ENDPOINTS DE CONSULTA (GET) =====
 
-    // GET /api/public/version - Verificar versión desplegada
+    // GET /api/public/version — alineado al contrato OpenAPI (info.version en openapi-gemini.yaml / openapi-chatgpt.yaml)
     router.get('/version', (req, res) => {
+        const contractVersion = String(process.env.PUBLIC_API_CONTRACT_VERSION || '1.4.7').trim() || '1.4.7';
         res.json({
-            version: '1.0.2-debug',
+            version: contractVersion,
+            contract: 'openapi-gemini-chatgpt',
             timestamp: new Date().toISOString(),
-            deployed_at: '2025-12-01T22:20:00Z'
+            deployed_at: new Date().toISOString(),
         });
     });
 

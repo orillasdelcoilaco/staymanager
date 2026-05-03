@@ -1,0 +1,101 @@
+<%- /* Catálogo opt-in Google Hotels — paridad elegibilidad con Property List feed (TASKS/venta-ia.md §7.6) */ %>
+<!DOCTYPE html>
+<html lang="<%= mp.htmlLang %>">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= mp.ghCatalogPageTitle %></title>
+    <meta name="description" content="<%= mp.ghCatalogMetaDescription %>">
+    <link rel="canonical" href="<%= canonicalUrl %>">
+    <link rel="alternate" hreflang="es" href="<%= hreflangEsUrl %>">
+    <link rel="alternate" hreflang="en" href="<%= hreflangEnUrl %>">
+    <link rel="alternate" hreflang="x-default" href="<%= hreflangEsUrl %>">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="<%= mp.ghCatalogPageTitle %>">
+    <meta property="og:description" content="<%= mp.ghCatalogMetaDescription %>">
+    <meta property="og:url" content="<%= canonicalUrl %>">
+    <link rel="stylesheet" href="/public/css/website.css">
+    <%- include('../partials/web-fonts') %>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f8f8f8; }
+        .mp-header { background: #fff; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; z-index: 50; }
+        .mp-logo { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.5px; }
+        .gh-hero { margin-bottom: 1.5rem; }
+        .gh-hero h1 { font-size: 1.5rem; font-weight: 800; color: #111; margin-bottom: 0.5rem; }
+        .gh-hero p { font-size: 0.95rem; color: #4b5563; max-width: 42rem; line-height: 1.5; }
+        .prop-card {
+            background: #fff; border-radius: 16px; overflow: hidden;
+            transition: transform 0.15s, box-shadow 0.15s;
+            text-decoration: none; color: inherit; display: block;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .prop-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+        .prop-photo { position: relative; aspect-ratio: 4/3; background: #e5e7eb; overflow: hidden; }
+        .prop-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
+        .prop-card:hover .prop-photo img { transform: scale(1.04); }
+        .prop-photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #e0e7ff, #f0f4ff); color: #a5b4fc; font-size: 3rem; }
+        .prop-body { padding: 14px 16px 16px; }
+        .prop-title { font-size: 14px; font-weight: 700; color: #111; line-height: 1.35; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .prop-sub { font-size: 12px; color: #6b7280; margin-bottom: 10px; }
+        .alert-soft { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem 1.25rem; color: #374151; font-size: 0.95rem; }
+    </style>
+</head>
+<body>
+
+<header class="mp-header">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
+        <a href="<%= mpHomeUrl %>" class="mp-logo flex-shrink-0 text-primary-600">suite<span class="text-neutral-900">managers</span></a>
+        <nav class="flex items-center gap-3 text-sm font-semibold">
+            <a href="<%= mpHomeUrl %>" class="text-neutral-600 hover:text-primary-600"><%= mp.ghCatalogBackHome %></a>
+            <span class="text-neutral-300">|</span>
+            <a href="<%= hreflangEsUrl %>" class="px-2 py-1 rounded-md <%= mp.htmlLang === 'es' ? 'bg-neutral-100 text-neutral-900' : 'text-primary-600 hover:underline' %>"><%= mp.langSwitchEs %></a>
+            <span class="text-neutral-300">|</span>
+            <a href="<%= hreflangEnUrl %>" class="px-2 py-1 rounded-md <%= mp.htmlLang === 'en' ? 'bg-neutral-100 text-neutral-900' : 'text-primary-600 hover:underline' %>"><%= mp.langSwitchEn %></a>
+        </nav>
+    </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="gh-hero">
+        <h1><%= mp.ghCatalogHeading %></h1>
+        <p><%= mp.ghCatalogLead %></p>
+    </div>
+
+    <% if (postgresRequired) { %>
+    <p class="alert-soft"><%= mp.ghCatalogUnavailable %></p>
+    <% } else if (items.length === 0) { %>
+    <p class="alert-soft"><%= mp.ghCatalogEmpty %></p>
+    <% } else { %>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <% items.forEach((it) => { %>
+        <article class="prop-card">
+            <div class="prop-photo">
+                <% if (it.fotoUrl) { %>
+                    <img src="<%= it.fotoUrl %>" alt="<%= it.title %>" loading="lazy">
+                <% } else { %>
+                    <div class="prop-photo-placeholder"><i class="fas fa-home"></i></div>
+                <% } %>
+            </div>
+            <div class="prop-body">
+                <p class="prop-title"><%= it.title %></p>
+                <% if (it.city) { %><p class="prop-sub"><%= it.city %></p><% } %>
+                <a href="<%= it.deepLink %>" class="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-full bg-primary-600 text-white hover:bg-primary-700 no-underline" target="_blank" rel="noopener noreferrer">
+                    <%= mp.ghCatalogCta %> <i class="fas fa-external-link-alt" style="font-size:11px;"></i>
+                </a>
+            </div>
+        </article>
+        <% }); %>
+    </div>
+    <% } %>
+</main>
+
+<footer class="border-t border-gray-200 mt-20 py-10 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-400">
+        <p class="mp-logo mb-2 text-primary-600" style="font-size:1.1rem;">suite<span class="text-neutral-900">managers</span></p>
+        <p><%= mp.footerTagline %> · <a href="<%= mpHomeUrl %>" class="hover:underline"><%= mp.ghCatalogBackHome %></a> · <a href="#" class="hover:underline"><%= mp.footerTerms %></a> · <a href="#" class="hover:underline"><%= mp.footerPrivacy %></a></p>
+    </div>
+</footer>
+
+</body>
+</html>

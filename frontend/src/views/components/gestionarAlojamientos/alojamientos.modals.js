@@ -1,5 +1,6 @@
 // frontend/src/views/components/gestionarAlojamientos/alojamientos.modals.js
 import { fetchAPI } from '../../../api.js';
+import { handleNavigation } from '../../../router.js';
 import { generarIdComponente } from './alojamientos.utils.js';
 import { renderComponentList } from './componentEditor.js';
 import { getUbicacionData } from '../ubicacionWidget.js';
@@ -410,8 +411,14 @@ function aplicarEstructuraIA(listaComponentes, ubicacionSugerida, marketingDescS
     showCustomConfirm(`La IA ha sugerido agregar ${listaComponentes.length} nuevos espacios. ¿Deseas agregarlos a tu distribución actual?`, () => {
         try {
             if (ubicacionSugerida) {
-                if (ubicacionSugerida.calle) document.getElementById('googleHotelStreet').value = ubicacionSugerida.calle;
-                if (ubicacionSugerida.ciudad) document.getElementById('googleHotelCity').value = ubicacionSugerida.ciudad;
+                if (ubicacionSugerida.calle) {
+                    const el = document.getElementById('googleHotelStreet');
+                    if (el) el.value = ubicacionSugerida.calle;
+                }
+                if (ubicacionSugerida.ciudad) {
+                    const el = document.getElementById('googleHotelCity');
+                    if (el) el.value = ubicacionSugerida.ciudad;
+                }
             }
 
             if (marketingDescSugerida) {
@@ -524,9 +531,6 @@ function poblarFormularioEdicion(form, propiedad, icalContainer) {
             : '';
     });
 
-    form.googleHotelId.value = propiedad.googleHotelData?.hotelId || '';
-    form.googleHotelIsListed.checked = propiedad.googleHotelData?.isListed || false;
-
     aplicarContextoComercialAlDom(propiedad.contextoComercial);
     aplicarBookingAlojamientoAlDom(propiedad.websiteData?.booking);
 }
@@ -613,6 +617,10 @@ export const setupModalAlojamiento = (callback) => {
     document.getElementById('close-modal-btn').addEventListener('click', cerrarModalAlojamiento);
     document.getElementById('cancel-btn').addEventListener('click', cerrarModalAlojamiento);
     document.getElementById('agregar-componente-btn').addEventListener('click', handleAgregarComponente);
+    document.getElementById('btn-canales-ia-from-aloj')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleNavigation('/canales-ia');
+    });
 
     newForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -641,10 +649,15 @@ export const setupModalAlojamiento = (callback) => {
             areas_comunes_ids,
             sincronizacionIcal,
             ...(ubicacion ? { ubicacion } : {}),
-            googleHotelData: {
-                hotelId: document.getElementById('googleHotelId').value.trim(),
-                isListed: document.getElementById('googleHotelIsListed').checked,
-            },
+            googleHotelData: (() => {
+                const prev = editandoPropiedad?.googleHotelData || {};
+                const idEl = document.getElementById('googleHotelId');
+                const listEl = document.getElementById('googleHotelIsListed');
+                return {
+                    hotelId: idEl ? idEl.value.trim() : (prev.hotelId || ''),
+                    isListed: listEl ? listEl.checked : !!prev.isListed,
+                };
+            })(),
             contextoComercial: leerContextoComercialDelDom(),
             websiteData: {
                 ...(editandoPropiedad?.websiteData || {}),

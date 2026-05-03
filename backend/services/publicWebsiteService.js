@@ -520,8 +520,11 @@ const obtenerPropiedadPorId = async (_db, empresaId, propiedadId) => {
         ? Object.values(meta.websiteData.images).flat().filter(img => img && img.storagePath)
         : [];
     return {
-        id: row.id, nombre: row.nombre, capacidad: row.capacidad,
+        id: row.id,
+        nombre: row.nombre,
+        capacidad: row.capacidad,
         ...meta,
+        activo: row.activo !== false,
         componentes: meta.componentes || [],
         amenidades: meta.amenidades || [],
         fotosSSR: fotos,

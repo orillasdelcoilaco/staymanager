@@ -2,7 +2,15 @@
 
 Objetivo: habilitar y validar el feed de contenido Google Hotels por tenant usando `GET /feed-google-hotels-content.xml`.
 
+**Dos modos de integración (2026-05):** (1) **Por tenant** — URLs en el host del operador (este checklist, §2 en adelante). (2) **Connectivity Partner (plataforma)** — SuiteManagers como partner único ante Google: feeds **agregados** y landing en **dominio plataforma**; no sustituye el sitio del tenant. Plan técnico y fases: **`TASKS/venta-ia.md` §1.1 y §7**. **Cierre diseño (§7.9–§7.11):** subdominio dedicado **desde día 1** (`api.` o `feeds.`); dos URLs estables + query **`?auth=<PARTNER_KEY>`**; precio final en `<Baserate>` con flags XSD de inclusión fiscal; MVP **solo tarifa más barata**, precio **por adulto**; inventario **conteo real**; **validar XML contra XSD oficial** antes de servir (`hotel_inventory.xsd` / versión vigente). Detalle: **`TASKS/venta-ia.md` §7.9–§7.11** (incl. paridad precio landing SSR vs XML, agregador tolerante a fallos, TTL DNS). **`hotelId` inmutable.**
+
+**Dónde configurar en el producto (panel):** **Operaciones → Canales IA** (ruta SPA `/canales-ia`) — tokens ARI y Google Hotels content, semáforo operativo, y por cada alojamiento el `hotelId` y el listado en Web/Google. Ya no se editan en el modal de *Gestionar alojamientos*; *Configurar sitio web* enlaza a Canales IA con resumen de tokens. Detalle: **`TASKS/venta-ia.md` §2.6**.
+
 ## 0) Datos de control (completar)
+
+**Opción rápida:** en el panel, **Operaciones → Canales IA** → pestaña **Google Hotels**, bloque **Checklist Google — §0 automático**: copia empresa, `empresaId`, host público derivado, email de sesión, fecha y líneas listas para PowerShell/script §9. Revisa el host antes de ejecutar el script.
+
+Si prefieres esta plantilla manual:
 
 - Empresa:
 - `empresaId`:

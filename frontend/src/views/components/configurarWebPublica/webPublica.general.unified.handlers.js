@@ -181,8 +181,16 @@ export function bindUnifiedSave({
                     keywords: payload.strategy.palabrasClaveAdicionales,
                 },
                 integrations: {
-                    ariFeedToken: (document.getElementById('integration-ari-token')?.value || '').trim(),
-                    googleHotelsContentToken: (document.getElementById('integration-google-hotels-token')?.value || '').trim(),
+                    ariFeedToken: (() => {
+                        const el = document.getElementById('integration-ari-token');
+                        if (el) return (el.value || '').trim();
+                        return String(empresa.websiteSettings?.integrations?.ariFeedToken || '').trim();
+                    })(),
+                    googleHotelsContentToken: (() => {
+                        const el = document.getElementById('integration-google-hotels-token');
+                        if (el) return (el.value || '').trim();
+                        return String(empresa.websiteSettings?.integrations?.googleHotelsContentToken || '').trim();
+                    })(),
                 },
             };
 

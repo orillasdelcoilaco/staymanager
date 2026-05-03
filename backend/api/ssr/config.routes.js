@@ -50,6 +50,10 @@ const { ssrCache } = require('../../services/cacheService');
 const { sanitizeBookingSettingsIncoming } = require('../../services/bookingSettingsSanitize');
 const { sanitizeIntegrationsSettingsIncoming } = require('../../services/integrationsSettingsSanitize');
 const { evaluateGoogleHotelsHealth } = require('../../services/googleHotelsHealthService');
+const {
+    runGooglePartnerFeedsSelftest,
+    buildPartnerFeedUrlsForDisplay,
+} = require('../../services/googleHotelsPartner/partnerFeedsSelftest');
 const { createDefaultTerminosCondiciones, mergeTerminosCondiciones } = require('../../services/terminosCondicionesDefaults');
 const { aiPanelGenerationLimiter } = require('../../middleware/aiPanelGenerationLimiter');
 
@@ -122,6 +126,35 @@ module.exports = (db) => {
             const { empresaId } = req.user;
             const report = await evaluateGoogleHotelsHealth(empresaId);
             res.status(200).json(report);
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    /**
+     * Metadatos feeds partner (sin secretos). Vista operación plataforma en Canales IA;
+     * post–Google Hotels: restringir a rol superadmin/operador (TASKS/venta-ia.md §8).
+     */
+    router.get('/google-partner-feed-operator', (_req, res, next) => {
+        try {
+            const token = String(process.env.GOOGLE_PARTNER_FEED_AUTH_TOKEN || '').trim();
+            res.status(200).json({
+                tokenConfigured: token.length >= 16,
+                ...buildPartnerFeedUrlsForDisplay(),
+            });
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    /**
+     * Misma comprobación que smoke HTTP CLI; usa token solo desde env.
+     * Provisional: cualquier admin JWT empresa; luego solo plataforma (§8).
+     */
+    router.post('/google-partner-feed-selftest', async (_req, res, next) => {
+        try {
+            const out = await runGooglePartnerFeedsSelftest();
+            res.status(200).json(out);
         } catch (error) {
             next(error);
         }

@@ -164,7 +164,7 @@ function unifyVisualSection(theme) {
         </div>`;
 }
 
-function unifyIntegrationsFeedsSection(empresa, general) {
+export function unifyIntegrationsFeedsSection(empresa, general) {
     const integ = empresa.websiteSettings?.integrations || {};
     const ari = clean(integ.ariFeedToken || '');
     const gh = clean(integ.googleHotelsContentToken || '');
@@ -201,7 +201,7 @@ function unifyIntegrationsFeedsSection(empresa, general) {
         </div>`;
 }
 
-function unifyGoogleHotelsHealthSection() {
+export function unifyGoogleHotelsHealthSection() {
     return `
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
             <div class="flex items-center justify-between mb-3">
@@ -220,6 +220,29 @@ function unifyGoogleHotelsHealthSection() {
             <p class="text-xs text-gray-500 mt-3">
                 Tip: para auditoría masiva usa <span class="font-mono">node backend/scripts/audit-google-hotels-health.js</span>.
             </p>
+        </div>`;
+}
+
+/**
+ * Sustituye en "Configurar sitio web" el bloque largo de feeds + semáforo: un solo CTA hacia Operaciones → Canales IA.
+ */
+export function renderCanalesIaBridgeSection(empresa) {
+    const integ = empresa.websiteSettings?.integrations || {};
+    const hasAri = !!(String(integ.ariFeedToken || '').trim());
+    const hasGh = !!(String(integ.googleHotelsContentToken || '').trim());
+    return `
+        <div class="bg-white rounded-2xl border border-primary-100 shadow-sm p-5 mb-6">
+            <h2 class="font-semibold text-gray-800 mb-1">Canales IA</h2>
+            <p class="text-xs text-gray-500 mb-4">
+                Google Hotel Center, feeds ARI/contenido, semáforo operativo y datos por alojamiento están reunidos en un solo lugar:
+                <strong>Operaciones → Canales IA</strong>.
+            </p>
+            <div class="flex flex-wrap items-center gap-3">
+                <button type="button" id="btn-open-canales-ia" class="btn-primary btn-sm gap-1">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir Canales IA
+                </button>
+                <span class="text-xs text-gray-500">Tokens configurados: ARI ${hasAri ? '<span class="text-success-600 font-semibold">sí</span>' : '<span class="text-gray-400">no</span>'} · Google Hotels ${hasGh ? '<span class="text-success-600 font-semibold">sí</span>' : '<span class="text-gray-400">no</span>'}</span>
+            </div>
         </div>`;
 }
 
@@ -403,8 +426,7 @@ export function buildUnifiedMarkup(empresaData) {
         ${unifyBasicSection(empresa, general, booking)}
         ${unifyVisualSection(theme)}
         ${unifyStrategySection(empresa, strategy)}
-        ${unifyIntegrationsFeedsSection(empresa, general)}
-        ${unifyGoogleHotelsHealthSection()}
+        ${renderCanalesIaBridgeSection(empresa)}
         ${unifyReadonlyContentSection(strategy, theme)}
         ${unifyActionRow()}
         ${unifyDomainPanel(empresa)}

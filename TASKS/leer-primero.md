@@ -2,15 +2,19 @@
 
 **Objetivo:** evitar solapamientos cuando varios agentes Cursor trabajan en **paralelo en local**. La sincronía entre agentes es este archivo (**`leer-primero.md`**) + el backlog; **subir a GitHub** lo concentra por ahora **una sola sesión/agente** (ver §5.1).
 
+**Antes que nada (cualquier agente):** leer **`LEER-PRIMERO.md` en la raíz del repo** — ahí está la **cadena completa** (SHARED_CONTEXT, coordinación, backlog, `venta-ia` si aplica, `CLAUDE.md` y tabla de **estándares de implementación**). Este `TASKS/leer-primero.md` añade el reparto **paralelo** release vs backlog y la bitácora §5.3.
+
 ---
 
 ## 1. Orden de lectura (siempre)
 
-1. **Este archivo** (`TASKS/leer-primero.md`) — rol y límites.
-2. **`TASKS/plan-release-1.0.0.md`** — qué cuenta como «listo para tag v1.0.0» (CI, smoke manual §2, qué queda fuera).
-3. **`TASKS/backlog-producto-pendientes.md`** — hitos vivos, §4.3, §5 orden sugerido, referencias §6.
+1. **`LEER-PRIMERO.md` (raíz)** — si aún no lo hiciste en la sesión: contexto + reglas de código y calidad. Si la tarea toca **menú SPA / Inventario / Sitio público**: en esa misma raíz, tabla **Estándares de implementación** → fila **Menú SPA** → único doc **`TASKS/plan-reorganizacion-menu-spa.md`** (no buscar el plan en otros archivos).
+2. **Este archivo** (`TASKS/leer-primero.md`) — rol y límites multi-agente.
+3. **`TASKS/plan-release-1.0.0.md`** — qué cuenta como «listo para tag v1.0.0» (CI, smoke manual §2, qué queda fuera).
+4. **`TASKS/backlog-producto-pendientes.md`** — hitos vivos, §4.3, §5 orden sugerido, referencias §6.
+5. **`TASKS/venta-ia.md`** — solo si la sesión toca **canales de venta por IA** (OpenAPI ChatGPT/Gemini, MCP, Google Hotels/Travel/feeds, integradores, redes): roadmap unificado, checklist y análisis construido vs pendiente (**§5.3** del backlog enlaza aquí); panel **Operaciones → Canales IA** (`/canales-ia`) documentado en **§2.6**; **Google connectivity partner** en **§1.1 y §7** (**§7.9–§7.11** diseño cerrado + XSD + paridad SSR/DNS). No OTAs de terceros como **canal de venta** del operador; **iCal / sync de reservas** para operación es independiente de este carril.
 
-Reglas de proyecto útiles: `CLAUDE.md`, `.cursor/rules/00-core-safety.mdc`, skill `.cursor/skills/staymanager-executor/SKILL.md` si tocan back/SSR/SPA.
+Reglas y calidad: ya resumidas en **`LEER-PRIMERO.md` (raíz) → Estándares de implementación**; añadir `.cursor/rules/00-core-safety.mdc` y skill `staymanager-executor` según toque.
 
 ---
 
@@ -74,4 +78,4 @@ _Formato sugerido (más reciente arriba). Quien hace push lee esto antes de comm
 3. Preferible **rama `feature/...`** con commits claros y merge a `main`; si se commitea directo en `main`, mantener commits pequeños y mensaje descriptivo.
 4. Tras integrar cambios de otros desde el disco: revisar **§5.3** y `git status` para no incluir archivos que no correspondan (`.env`, binarios, etc.).
 
-*Última actualización: 2026-04-24 — §5 modelo integrador + leer-primero como sync; cierre 1.0.0 (A) + backlog §1.6 (B).*
+*Última actualización: 2026-05-02 — Paso 1 explícito: **`LEER-PRIMERO.md` raíz** (cadena + estándares código). Renumerado §1. Historial: `venta-ia.md`, §5 integrador.*

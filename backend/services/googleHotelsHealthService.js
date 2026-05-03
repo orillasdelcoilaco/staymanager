@@ -1,5 +1,6 @@
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 const { generateAriFeed, generatePropertyListFeed } = require('./googleHotelsService');
+const { auditPartnerListingGapsForEmpresa } = require('./googleHotelsGlobalService');
 const pool = require('../db/postgres');
 
 function _safeObj(v) {
@@ -83,13 +84,19 @@ async function evaluateGoogleHotelsHealth(empresaId) {
     };
 
     const jsonLdAudit = await auditGoogleHotelsJsonLdStrict(empresaId);
+    const partnerGlobalAudit = await auditPartnerListingGapsForEmpresa(empresaId);
+    const partnerGlobalPartialExclusion =
+        !partnerGlobalAudit.postgresRequired
+        && partnerGlobalAudit.totalListedHotelId > 0
+        && partnerGlobalAudit.eligibleForGlobalFeed < partnerGlobalAudit.totalListedHotelId;
     const totalIssues =
         (listed.length === 0 ? 1 : 0)
         + missingHotelId
         + missingAddress
         + (feedChecks.contentXmlOk ? 0 : 1)
         + (feedChecks.ariXmlOk ? 0 : 1)
-        + (jsonLdAudit.ok ? 0 : 1);
+        + (jsonLdAudit.ok ? 0 : 1)
+        + (partnerGlobalPartialExclusion ? 1 : 0);
 
     let semaforo = 'green';
     if (totalIssues >= 3) semaforo = 'red';
@@ -116,6 +123,14 @@ async function evaluateGoogleHotelsHealth(empresaId) {
             totalListadas: jsonLdAudit.totalListadas,
             errores: jsonLdAudit.items.filter((x) => !x.ok),
         },
+        partnerGlobalFeed: partnerGlobalAudit.postgresRequired
+            ? { unavailable: true }
+            : {
+                eligibleForGlobalFeed: partnerGlobalAudit.eligibleForGlobalFeed,
+                totalListedHotelId: partnerGlobalAudit.totalListedHotelId,
+                skippedByReason: partnerGlobalAudit.skippedByReason || {},
+                skippedSample: (partnerGlobalAudit.skipped || []).slice(0, 15),
+            },
     };
 }
 

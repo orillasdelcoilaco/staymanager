@@ -1,18 +1,18 @@
 # Reporte de Complejidad y Modularidad
-**Generado:** 2026-04-30 02:06
-**Archivos analizados:** 373
-**Críticos:** 37 | **Warnings:** 0
+**Generado:** 2026-05-03 17:09
+**Archivos analizados:** 383
+**Críticos:** 39 | **Warnings:** 0
 
 ---
 
 ## Resumen
 
-### 🔴 Críticos (37) — Requieren refactorización
+### 🔴 Críticos (39) — Requieren refactorización
 
 | Archivo | Problema | Detalle |
 |---------|---------|--------|
-| `frontend/src/views/components/configurarWebPublica/webPublica.general.unified.handlers.js` | function-size | función `bindUnifiedSave` — 141 líneas (línea 92) |
-| `frontend/src/views/components/configurarWebPublica/webPublica.general.unified.handlers.js` | function-size | función `normalizeSubdomain` — 137 líneas (línea 95) |
+| `frontend/src/views/components/configurarWebPublica/webPublica.general.unified.handlers.js` | function-size | función `bindUnifiedSave` — 149 líneas (línea 92) |
+| `frontend/src/views/components/configurarWebPublica/webPublica.general.unified.handlers.js` | function-size | función `normalizeSubdomain` — 145 líneas (línea 95) |
 | `frontend/src/views/components/configurarWebPublica/webPublica.general.unified.lineasExtraRows.js` | function-size | función `_createRowElement` — 127 líneas (línea 73) |
 | `frontend/src/views/components/configurarWebPublica/webPublica.paso1.identidad.js` | file-size | 797 líneas (límite crítico: 700) |
 | `frontend/src/views/components/configurarWebPublica/webPublica.paso1.identidad.js` | function-size | función `bindPaso1` — 133 líneas (línea 115) |
@@ -28,22 +28,24 @@
 | `backend/services/buildContextService.js` | function-size | función `getBuildContext` — 121 líneas (línea 122) |
 | `backend/services/comunicacionesRetryService.js` | function-size | función `reintentarComunicacionEmail` — 197 líneas (línea 220) |
 | `backend/services/empresaService.js` | function-size | función `actualizarDetallesEmpresa` — 145 líneas (línea 91) |
+| `backend/services/googleHotelsService.js` | function-size | función `generateAriFeed` — 131 líneas (línea 64) |
 | `backend/services/plantillasService.js` | too-many-exports | 16 funciones exportadas (límite crítico: 15) |
 | `backend/services/publicAiDisponibilidadService.js` | function-size | función `buildDisponibilidadAgentResponse` — 224 líneas (línea 78) |
 | `backend/services/publicAiProductSnapshot.js` | file-size | 753 líneas (límite crítico: 700) |
 | `backend/services/publicAiProductSnapshot.js` | function-size | función `buildListingCardForAi` — 125 líneas (línea 332) |
 | `backend/services/publicAiProductSnapshot.js` | function-size | función `buildAgentPropertyDetailPayload` — 163 líneas (línea 581) |
 | `backend/services/publicAiReservaCotizacionService.js` | function-size | función `cotizarReservaIaPublica` — 270 líneas (línea 52) |
-| `backend/services/publicWebsiteService.js` | file-size | 1343 líneas (límite crítico: 700) |
+| `backend/services/publicWebsiteService.js` | file-size | 1346 líneas (límite crítico: 700) |
 | `backend/services/publicWebsiteService.js` | function-size | función `obtenerMasAlojamientosParaFichaSSR` — 205 líneas (línea 279) |
-| `backend/services/publicWebsiteService.js` | function-size | función `verificarReconciliacionPrecioReservaPublica` — 155 líneas (línea 702) |
-| `backend/services/publicWebsiteService.js` | function-size | función `crearReservaPublica` — 320 líneas (línea 967) |
+| `backend/services/publicWebsiteService.js` | function-size | función `verificarReconciliacionPrecioReservaPublica` — 155 líneas (línea 705) |
+| `backend/services/publicWebsiteService.js` | function-size | función `crearReservaPublica` — 320 líneas (línea 970) |
 | `backend/services/resenasService.js` | file-size | 938 líneas (límite crítico: 700) |
 | `backend/services/resenasService.js` | function-size | función `generarResenasAutomaticas` — 144 líneas (línea 771) |
 | `backend/services/resenasService.js` | too-many-exports | 20 funciones exportadas (límite crítico: 15) |
 | `backend/services/transactionalEmailService.js` | function-size | función `enviarPorDisparador` — 124 líneas (línea 209) |
 | `backend/services/transactionalEmailService.js` | function-size | función `construirVariablesDesdeReserva` — 199 líneas (línea 412) |
 | `backend/services/transactionalEmailService.js` | too-many-exports | 17 funciones exportadas (límite crítico: 15) |
+| `backend/routes/marketplace.js` | function-size | función `createMarketplaceRouter` — 121 líneas (línea 22) |
 | `backend/routes/website.booking.js` | function-size | función `registerBookingRoutes` — 129 líneas (línea 7) |
 | `backend/routes/website.property.js` | function-size | función `registerPropertyRoutes` — 220 líneas (línea 9) |
 | `backend/routes/website.property.page.js` | function-size | función `renderPropiedadPublica` — 182 líneas (línea 88) |
@@ -56,13 +58,13 @@
 > Orden de prioridad: atacar primero los archivos más grandes con más exports.
 
 ### 1. `backend/services/publicWebsiteService.js` 🔴
-- **1343 líneas (límite crítico: 700)**
+- **1346 líneas (límite crítico: 700)**
   - Dividir en módulos por responsabilidad. Cada módulo debe tener una sola razón para cambiar.
 - **función `obtenerMasAlojamientosParaFichaSSR` — 205 líneas (línea 279)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
-- **función `verificarReconciliacionPrecioReservaPublica` — 155 líneas (línea 702)**
+- **función `verificarReconciliacionPrecioReservaPublica` — 155 líneas (línea 705)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
-- **función `crearReservaPublica` — 320 líneas (línea 967)**
+- **función `crearReservaPublica` — 320 líneas (línea 970)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
 
 ### 2. `backend/services/resenasService.js` 🔴
@@ -102,9 +104,9 @@
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
 
 ### 7. `frontend/src/views/components/configurarWebPublica/webPublica.general.unified.handlers.js` 🔴
-- **función `bindUnifiedSave` — 141 líneas (línea 92)**
+- **función `bindUnifiedSave` — 149 líneas (línea 92)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
-- **función `normalizeSubdomain` — 137 líneas (línea 95)**
+- **función `normalizeSubdomain` — 145 líneas (línea 95)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
 
 ### 8. `frontend/src/views/components/configurarWebPublica/webPublica.general.unified.lineasExtraRows.js` 🔴

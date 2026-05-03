@@ -15,6 +15,7 @@ const {
     buildMarketplaceSeoUrls,
 } = require('../services/marketplaceUiStrings');
 const { sendMarketplaceSearchJson } = require('./marketplaceSearchJson.handler');
+const { getPartnerCatalogItems } = require('../services/googleHotelsPartner/googleHotelsPartnerFeeds');
 
 const IS_PROD = !!process.env.RENDER;
 
@@ -44,6 +45,35 @@ const createMarketplaceRouter = (_db) => {
         }
         const base = `${req.protocol}://${req.get('host')}`;
         res.redirect(`${base}/propiedad/${id}?force_host=${sub}.${PLATFORM_DOMAIN}`);
+    });
+
+    // ── Google Hotels partner catalog (§7.6 — misma elegibilidad que Property List feed) ──
+    router.get('/google-hotels', async (req, res) => {
+        const mpLang = resolveMarketplaceLang(req);
+        const mp = getMarketplaceStrings(mpLang);
+        try {
+            const { items, postgresRequired } = await getPartnerCatalogItems();
+            const protocol = req.protocol || 'https';
+            const host = req.get('host') || '';
+            const canonicalUrl = `${protocol}://${host}/google-hotels${mp.htmlLang === 'en' ? '?lang=en' : ''}`;
+            const hreflangEsUrl = `${protocol}://${host}/google-hotels`;
+            const hreflangEnUrl = `${protocol}://${host}/google-hotels?lang=en`;
+            const mpHomeUrl = mp.htmlLang === 'en' ? '/?lang=en' : '/';
+
+            res.render('marketplace/google-hotels-catalog', {
+                items,
+                postgresRequired,
+                mp,
+                platformDomain: PLATFORM_DOMAIN,
+                canonicalUrl,
+                hreflangEsUrl,
+                hreflangEnUrl,
+                mpHomeUrl,
+            });
+        } catch (err) {
+            console.error('[Marketplace] /google-hotels:', err);
+            res.status(500).send(mp.ghCatalogErrorLoad);
+        }
     });
 
     // ── Homepage ───────────────────────────────────────────────────────────

@@ -35,6 +35,7 @@ const kpiRoutes = require('./routes/kpi.js');
 const icalRoutes = require('./routes/ical.js');
 const crmRoutes = require('./routes/crm.js');
 const websiteRoutes = require('./routes/website.js');
+const { createPartnerFeedsSubrouter } = require('./routes/googleHotelsPartner.routes.js');
 const { createMarketplaceRouter } = require('./routes/marketplace.js');
 const integrationsRoutes = require('./routes/integrations.js');
 const estadosRoutes = require('./routes/estados.js');
@@ -148,6 +149,10 @@ try {
     app.set('trust proxy', 1); // Fix for rate limiter on Render/Proxy
     app.use(cors());
     app.use(express.json({ limit: '20mb' }));
+
+    // Google Hotels partner feeds — montaje explícito y temprano (antes de /api y del SPA)
+    // para que GET /feeds/google/*.xml no caiga en index.html + redirect a /login.
+    app.use('/feeds/google', createPartnerFeedsSubrouter(db));
 
     // [DEBUG] Global Request Logger
     app.use((req, res, next) => {

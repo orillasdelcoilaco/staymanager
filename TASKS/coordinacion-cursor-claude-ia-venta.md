@@ -2,7 +2,7 @@
 
 **Propósito:** un solo lugar donde ambos lados dejan **qué están haciendo**, **qué tocar con cuidado** y **qué necesita el otro**. Reduce pisadas entre mejoras de producto (Cursor) y evolución del flujo comercial por agentes (Claude Code / ChatGPT, prompts, OpenAPI, pruebas de venta).
 
-**Documentos relacionados:** `SHARED_CONTEXT.md`, `CLAUDE.md`, `TASKS/backlog-producto-pendientes.md`, `TASKS/leer-primero.md` (multi-agente: release 1.0.0 vs §5), `TASKS/plan-release-1.0.0.md`, `REVISION_COLABORADOR.md` (flujo general colaborador).
+**Documentos relacionados:** `SHARED_CONTEXT.md`, `CLAUDE.md`, `TASKS/backlog-producto-pendientes.md`, **`TASKS/venta-ia.md`** (roadmap unificado venta IA + canales externos; el backlog **§5.3** enlaza allí el detalle), `TASKS/leer-primero.md` (multi-agente: release 1.0.0 vs §5), `TASKS/plan-release-1.0.0.md`, `REVISION_COLABORADOR.md` (flujo general colaborador).
 
 ---
 
@@ -45,6 +45,11 @@ _Actualizar al iniciar y al terminar trabajo relevante._
 | 2026-04-25  | Cursor | Backlog producto (`TASKS/backlog-producto-pendientes.md`) | LISTO | Mapa de calor §4 + QA E2E pendiente; **actualización adicional:** §1.1f bandeja, §1.6c i18n SSR, §4 checklist Google §9 + script verify, §6 referencias, pie. |
 | 2026-04-25  | Cursor | Release 1.0.0 — `test:ci` + plan + CI workflow | LISTO | `package.json` `test:ci` ampliado (smoke §2 scripts); `TASKS/plan-release-1.0.0.md` §2.1; `backend/scripts/test-integrations-settings-sanitize.js`; `.github/workflows/ci-smoke.yml` → `npm run test:ci`. Smoke manual §2.3 y push tag `v1.0.0` pendientes operación/staging. |
 | 2026-04-29  | Cursor | §5.3 canales de venta — solo Cursor (estrategia + repo) | LISTO | Backlog §5.3 + regla `45-canales-venta-solo-cursor.mdc`; chat Agent dedicado; fila Claude multi-canal → **PAUSA**; §9 responsables actualizados para trabajo nuevo. |
+| 2026-05-01  | Cursor | Roadmap venta IA unificado en `TASKS/venta-ia.md` | LISTO | Nuevo archivo único: checklist + análisis construido vs pendiente + enlaces TASKS; backlog §5.3 acortado con enlace; `LEER-PRIMERO.md` + `TASKS/leer-primero.md` orden de lectura. |
+| 2026-05-01  | Cursor | **Canales IA** — checklist Google §0 automático + aviso sin host | LISTO | `canalesIa.checklistGoogleS0.js` + `canalesIa.js`; `venta-ia.md` §2.6, `qa-y-seguimiento` §1.2, backlog; `npm run test:ci` verde. |
+| 2026-05-01  | Cursor | Panel SPA **Canales IA** (`/canales-ia`) — Google Hotels / feeds / tabla alojamientos | LISTO | `canalesIa.js`, `router.js`, `webPublica.general.unified.*`, `alojamientos.modals.*`; doc §2.6 `venta-ia.md`, backlog §5.3/§6, checklist Google, LEER-PRIMERO paso 4; sin cambio rutas API agente. |
+| 2026-05-02  | Cursor | Partner global **`googleHotelsGlobalService.js`** + health `partnerGlobalFeed` + smoke HTTP | LISTO | Feeds `/feeds/google/*.xml` IDs BD, ARI alineado `partnerXmlIdsFromDatabase`, sin cambio rutas OpenAPI agente; doc backlog + checklist deploy + `venta-ia.md` §6. |
+| 2026-05-03  | Cursor | Canales IA — UI operación partner + plan §8 superadmin/operadores | LISTO | `partnerFeedsSelftest.js`, `GET/POST /website/google-partner-feed-*`, `canalesIa.googlePartner.operator.js`; `venta-ia.md` §8 + backlog; sin cambio OpenAPI/agente. |
 
 **Convención de estados:** `EN CURSO` | `LISTO` | `PAUSA` | `BLOQUEADO`.
 
@@ -60,6 +65,7 @@ Estas piezas afectan **directamente** lo que ve ChatGPT / acciones OpenAPI y lo 
 | Reserva pública IA | `publicAiController.js` (`createPublicReservation`, `quotePriceForDates`, `createBookingIntent`) | 422/409, montos incorrectos, doble canal (`IA Reserva` vs default). **2026-04-24:** al tocar este archivo, alinear con regla *id/semántica, no nombre de canal/plantilla* (`SHARED_CONTEXT.md`, `TASKS/audit-identificadores-vs-nombres-ui.md`) |
 | OpenAPI / GPT | `openapi/openapi-chatgpt.yaml`, `suitemanagerApiController.js`, `publicRoutes.js` | El agente llama endpoints rotos o con body distinto |
 | Checkout web SSR | `website.booking.js`, `reservar.ejs`, `public/js/checkout.js`, `crearReservaPublica`, reconciliación precio, aceptación términos | Regresiones en reserva humana al “alinear” IA |
+| Feeds Google Hotels **globales** (connectivity partner) | Nuevo módulo **solo host plataforma** (`TASKS/venta-ia.md` §7); **no** mezclar con `website.seo.js` tenant | Precios en XML ≠ checkout tenant; roturas en verificación Google / Price Accuracy |
 
 **Locks explícitos (opcional):** si necesitas exclusividad temporal, añade:
 
@@ -90,6 +96,29 @@ Quitar el lock cuando termines.
 - Riesgos / pendiente consciente:
 ```
 
+**Handoff (Cursor — 2026-05-02) — Connectivity Partner feeds globales (sin cambio API agente / OpenAPI):**
+
+- Cambios resumidos: servicio **`googleHotelsGlobalService.js`** centraliza XML agregado; **`generateAriFeed`** acepta `partnerXmlIdsFromDatabase` + `restrictToPropertyIds` (paridad IDs con Property List); health **`partnerGlobalFeed`**; errores 500 feeds con detalle XSD/XML; script smoke HTTP **`smoke-google-partner-feeds-http.js`**.
+- Archivos / rutas HTTP: `GET /feeds/google/properties.xml`, `GET /feeds/google/ari.xml` (auth query `?auth=`), host `feeds.` / `api.` / `GOOGLE_PARTNER_EXTRA_HOSTS`; `googleHotelsHealthService.evaluateGoogleHotelsHealth` incluye elegibilidad partner global.
+- Comportamiento esperado para el agente / GPT: **sin cambio** en Actions/OpenAPI; precios/checkout usuario siguen en rutas ya documentadas.
+- Pruebas sugeridas: tras deploy, `GH_PARTNER_FEED_BASE_URL` + `GH_PARTNER_FEED_AUTH_TOKEN` → `node backend/scripts/smoke-google-partner-feeds-http.js`; panel Canales IA → health JSON con `partnerGlobalFeed`.
+- Riesgos / pendiente: **DNS** `feeds.`/`api.` + env Render en prod; **Place ID** para modo estricto (`GOOGLE_PARTNER_REQUIRE_PLACE_ID=1`); trámite Google externo.
+
+**Último handoff (Cursor — 2026-05-01) — Canales IA SPA (solo producto/panel, sin cambio de contrato API agente):**
+
+- Cambios resumidos: unificación en panel **Operaciones → Canales IA** (`/canales-ia`) de tokens feeds ARI/Google Hotels content, semáforo Google Hotels, tabla por alojamiento (`hotelId`, listado); Configurar sitio web con puente y preservación de tokens al guardar; modal alojamientos con CTA hacia Canales IA.
+- Archivos / rutas HTTP: `frontend/src/views/canalesIa.js`, `frontend/src/router.js`; `webPublica.general.unified.{js,markup.js,handlers.js}`; `alojamientos.modals.{js,render.js}`; mismos endpoints `PUT /website/home-settings` (`integrations`), `GET /website/google-hotels-health`, `PUT /propiedades/:id` (`googleHotelData`).
+- Comportamiento esperado para el agente / GPT: **sin cambio** en rutas públicas IA; feeds XML y JSON-LD siguen igual en servidor.
+- Pruebas sugeridas: navegar SPA a `/canales-ia`, guardar tokens y una fila alojamiento; guardar Configurar sitio web sin borrar tokens.
+- Riesgos / pendiente: política mascotas ChatGPT sigue en formulario unificado **Configuración Web** (merge parcial `booking` en `home-settings`); pestaña ChatGPT en Canales IA solo enlaza.
+
+**Actualización handoff (Cursor — 2026-05-01) — §0 checklist Google en panel (sin cambio API agente):**
+
+- Cambios resumidos: bloque **Checklist Google — §0 automático** en pestaña Google Hotels (`buildPublicBaseUrl`, texto desde `/empresa` + `/auth/me`, copiar portapapeles, banner si sin dominio/subdominio + navegación a `/website-general`).
+- Archivos: `frontend/src/views/canalesIa.js`, `frontend/src/views/components/canalesIa/canalesIa.checklistGoogleS0.js`; rutas HTTP solo lectura existentes (`GET /api/empresa`, `GET /api/auth/me`).
+- Agente / GPT: sin cambio en contratos públicos.
+- Pruebas: abrir `/canales-ia` → Google Hotels → ver §0 y Copiar; tenant sin host → banner advertencia.
+
 ---
 
 ## 5. Procedimiento — Claude Code (Antigravity — IA venta)
@@ -116,6 +145,15 @@ Quitar el lock cuando termines.
 
 _Formato: `YYYY-MM-DD — Actor — una frase`._
 
+- 2026-05-03 — Cursor — Canales IA → Google Hotels: bloque **operación plataforma** (URLs sin token + botón selftest HTTP vía `partnerFeedsSelftest.js` + rutas `google-partner-feed-operator` / `google-partner-feed-selftest`). Plan **superadmin + operadores** en **`TASKS/venta-ia.md` §8** (implementación post–Google; endpoints hoy abiertos a cualquier admin JWT — restringir en fase plataforma). Sin cambio contrato agente/OpenAPI.
+- 2026-05-02 — Cursor — Agregador **`backend/services/googleHotelsGlobalService.js`** (§7.9–§7.10): Property List + ARI global, IDs `propiedades.id`, filtros geo/Place ID, `auditPartnerListingGapsForEmpresa` → health **`partnerGlobalFeed`**; script **`backend/scripts/smoke-google-partner-feeds-http.js`**; backlog + **`google-hotels-partner-deploy-checklist.md`** + **`venta-ia.md`** §6. Sin cambio contrato ChatGPT/OpenAPI ni `publicAiController`.
+- 2026-05-02 — Cursor — Partner cierre ciclo: **`TASKS/google-hotels-partner-deploy-checklist.md`**; backlog §5.x **B** + §5.3; ficha **`/propiedad/:id`** requiere solo **activo** (`publicWebsiteService.obtenerPropiedadPorId` expone `activo`; `website.property.page.js`). Partner stack previo: feeds, `/google-hotels`, §7.11 SSR, **`venta-ia.md`**.
+- 2026-05-01 — Cursor — Menú SPA **Fase 1**: **Inventario** + **Sitio público** (sin tocar Flujo de Trabajo); **`TASKS/plan-reorganizacion-menu-spa.md`**.
+- 2026-05-01 — Cursor — SPA **Operaciones → Canales IA**: checklist Google **§0 automático** (pre + Copiar + banner sin URL pública); `canalesIa.checklistGoogleS0.js`; doc **`venta-ia.md` §2.6**, **`qa-y-seguimiento-prelaunch-canales.md`** §1.2, backlog contexto; handoff §4.1 actualizado; sin cambio OpenAPI/API agente.
+- 2026-05-01 — Cursor — SPA **Operaciones → Canales IA** (`/canales-ia`): tokens feeds + semáforo Google Hotels + tabla `hotelId`/listado por alojamiento; puente desde Configurar sitio web; modal alojamientos → CTA; doc **`TASKS/venta-ia.md` §2.6**, backlog §5.3/§6, checklist Google, **`LEER-PRIMERO.md`** paso 4; handoff §4.1 rellenado.
+- 2026-05-02 — Cursor — OpenAPI ChatGPT/Gemini **1.4.7**: documentado **GET `/api/public/version`**; `backend/openapi/openapi-chatgpt.yaml` sincronizado con raíz; comparador §4.3 D DoD en **`TASKS/venta-ia.md` §5.2**.
+- 2026-05-02 — Cursor — **Venta IA:** sin OTAs de terceros como **canal de venta**; aclarado que iCal/reportes/sync de reservas (operación PMS) no se elimina — distinto de vender vía OTA. Documentos alineados.
+- 2026-05-01 — Cursor — **`TASKS/venta-ia.md`:** consolida roadmap canales IA (antes §5.3 largo en backlog), checklist unificado, gaps; backlog §5.3 enlaza; lectura obligatoria en `LEER-PRIMERO.md` si toca venta IA.
 - 2026-04-29 — Cursor — **§5.3 solo Cursor:** objetivos por canal en backlog, jugada API+MCP+JSON-LD+SSR, checklist §5.x **F**; chat Agent dedicado + regla **`45-canales-venta-solo-cursor.mdc`**; fila Claude multi-canal → **PAUSA**; §9 alineado.
 - 2026-04-25 — Cursor — **Release 1.0.0 (puerta técnica):** `npm run test:ci` ampliado (`package.json`) con tests alineados a smoke plan §2.1; `plan-release-1.0.0.md` actualizado; `ci-smoke.yml` ejecuta `test:ci`; script `test-integrations-settings-sanitize.js`. Pendiente: smoke manual §2.3 staging + tag `v1.0.0` + push integrador.
 - 2026-04-25 — Cursor — Checklist Google Hotels §9 + script `verify-google-hotels-feed-checklist.js`; SSR `htmlLang` en `website.context.js` + i18n home/contacto/404/header/footer/confirmación/property-card; UX bandeja `comunicaciones.js` (error carga, vacíos, toasts reintento); comentarios multi-tenant calendario/feed.
@@ -148,6 +186,8 @@ _Formato: `YYYY-MM-DD — Actor — una frase`._
 | Motor de precio compartido (panel / propuestas / muchas rutas) | `services/utils/calculoValoresService.js` |
 | Precio checkout SSR + reconciliación | `publicWebsiteService.js` |
 | Backlog producto (tarifas, §4 checkout) | `TASKS/backlog-producto-pendientes.md` |
+| Roadmap venta IA + canales externos | `TASKS/venta-ia.md` |
+| Panel usuario Canales IA (Google Hotels / feeds) | **`TASKS/venta-ia.md` §2.6**; SPA `frontend/src/views/canalesIa.js`, `frontend/src/router.js` |
 
 ---
 
@@ -164,7 +204,7 @@ _Formato: `YYYY-MM-DD — Actor — una frase`._
 
 **Implementación activa del carril §5.3 (canales externos / MCP / OpenAPI): solo Cursor** — un chat de Agent dedicado + regla opcional `.cursor/rules/45-canales-venta-solo-cursor.mdc`. La columna «Responsable» en la tabla inferior es histórica; para trabajo nuevo en §5.3 usar **Cursor** (la fila §2 *Estrategia multi-canal* en modo Claude quedó en **PAUSA**).
 
-_Actualizado: 2026-04-24 (tabla); alineación §5.3 **2026-04-29** en **`TASKS/backlog-producto-pendientes.md`** (Google Travel / Things to Do, ChatGPT Actions, Perplexity + middleware, MCP, Booking.com / Expedia Connectivity)._
+_Actualizado: 2026-04-24 (tabla); roadmap canales **2026-05-01** consolidado en **`TASKS/venta-ia.md`** (antes detalle largo en backlog §5.3)._
 
 ### Mapa de canales y protocolo técnico
 
@@ -317,4 +357,4 @@ Detalle libre (bloqueos, deploy, migraciones):
 
 ---
 
-*Última revisión: 2026-04-29 — §5.3 **solo Cursor**; Claude §5.3 → PAUSA; regla `45-canales-venta-solo-cursor.mdc`; §9 responsables actualizados a Cursor para trabajo nuevo. Histórico 2026-04-25: §11, CI, §10.*
+*Última revisión: 2026-05-01 — **`TASKS/venta-ia.md`** como fuente unificada roadmap canales IA; §5.3 backlog enlaza allí. Histórico 2026-04-29: §5.3 solo Cursor; Claude → PAUSA; regla `45-canales-venta-solo-cursor.mdc`. Histórico 2026-04-25: §11, CI, §10.*

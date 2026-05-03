@@ -13,6 +13,7 @@ import {
     loadGoogleHotelsHealth,
 } from './webPublica.general.unified.handlers.js';
 import { initHeatmapEventosRowsEditor } from './webPublica.general.unified.heatmapEventosRows.js';
+import { handleNavigation } from '../../../router.js';
 
 // --- Helpers ---
 const setStatus = (el, text, type = 'primary') => {
@@ -129,7 +130,15 @@ export function setupUnifiedEvents(empresaData, onComplete = null) {
     bindUnifiedLogoUpload({ fetchAPI, setStatus });
     bindUnifiedHeroUpload({ fetchAPI, setStatus });
     bindGoogleHotelsHealthRefresh({ attach, fetchAPI });
-    loadGoogleHotelsHealth({ fetchAPI }).catch((e) => console.warn('[google-hotels-health]', e.message));
+    if (document.getElementById('google-hotels-health-summary')) {
+        loadGoogleHotelsHealth({ fetchAPI }).catch((e) => console.warn('[google-hotels-health]', e.message));
+    }
+
+    const openCanalesIa = document.getElementById('btn-open-canales-ia');
+    openCanalesIa?.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleNavigation('/canales-ia');
+    });
 
     initHeatmapEventosRowsEditor(empresa.websiteSettings?.booking || {});
 }

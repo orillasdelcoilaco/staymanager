@@ -118,11 +118,11 @@ export const renderModalAlojamiento = () => {
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Google Hotels & SEO</label>
-                                    <div class="space-y-3">
-                                        <div><label class="text-xs text-gray-500">ID Alojamiento</label><input type="text" id="googleHotelId" class="form-input w-full mt-1"></div>
-                                        <div><label class="flex items-center space-x-2"><input type="checkbox" id="googleHotelIsListed" class="rounded text-primary-600"><span>Publicar en Web/Google</span></label></div>
-                                    </div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Google Hotels</label>
+                                    <p class="text-xs text-gray-500 mb-3">El ID de Hotel Center y la publicación en feeds se configuran en <strong>Operaciones → Canales IA</strong>.</p>
+                                    <button type="button" id="btn-canales-ia-from-aloj" class="btn-outline btn-sm gap-1">
+                                        <i class="fa-solid fa-robot"></i> Abrir Canales IA
+                                    </button>
                                 </div>
                                 ${renderBookingAlojamientoBlock()}
                                 <!-- Ubicación: se inyecta dinámicamente si tipoNegocio === 'cartera' -->
