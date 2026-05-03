@@ -2,6 +2,7 @@
 const pool = require('../db/postgres');
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 const { getAvailabilityData } = require('./propuestasService');
+const { resolveEffectiveGoogleHotelsAddress } = require('./googleHotelsEmpresaAddress');
 
 // Función para escapar caracteres XML (sin cambios)
 const escapeXml = (unsafe) => {
@@ -21,6 +22,16 @@ const generatePropertyListFeed = async (_db, empresaId) => {
     const propiedades = await obtenerPropiedadesPorEmpresa(null, empresaId);
     const propiedadesListadas = propiedades.filter(p => p.googleHotelData && p.googleHotelData.isListed && p.googleHotelData.hotelId);
 
+    let empresaCfg = {};
+    if (pool) {
+        try {
+            const { rows } = await pool.query('SELECT configuracion FROM empresas WHERE id = $1 LIMIT 1', [empresaId]);
+            empresaCfg = rows[0]?.configuracion || {};
+        } catch (e) {
+            console.warn('[generatePropertyListFeed] sin configuración empresa:', e.message);
+        }
+    }
+
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     xml += `<Transaction timestamp="${new Date().toISOString()}" id="initial-listing">\n`;
     xml += `  <Result>\n`;
@@ -28,11 +39,12 @@ const generatePropertyListFeed = async (_db, empresaId) => {
     propiedadesListadas.forEach(prop => {
         xml += `    <Property id="${escapeXml(prop.googleHotelData.hotelId)}">\n`;
         xml += `      <Name>${escapeXml(prop.nombre)}</Name>\n`;
-        if (prop.googleHotelData.address) {
+        const effAddr = resolveEffectiveGoogleHotelsAddress(prop, empresaCfg);
+        if (effAddr) {
             xml += `      <Address>\n`;
-            xml += `        <addr1>${escapeXml(prop.googleHotelData.address.street)}</addr1>\n`;
-            xml += `        <city>${escapeXml(prop.googleHotelData.address.city)}</city>\n`;
-            xml += `        <country>${escapeXml(prop.googleHotelData.address.countryCode)}</country>\n`;
+            xml += `        <addr1>${escapeXml(effAddr.street)}</addr1>\n`;
+            xml += `        <city>${escapeXml(effAddr.city)}</city>\n`;
+            xml += `        <country>${escapeXml(effAddr.countryCode)}</country>\n`;
             xml += `      </Address>\n`;
         }
         if (prop.linkFotos) {

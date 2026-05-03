@@ -10,6 +10,7 @@ const pool = require('../db/postgres');
 const { generateAriFeed } = require('./googleHotelsService');
 const { buildPublicBookingBaseUrl } = require('./googleHotelsPartner/publicBookingUrl');
 const { assertPartnerFeedXml } = require('./googleHotelsPartner/feedXmlWellformed');
+const { resolveEffectiveGoogleHotelsAddress } = require('./googleHotelsEmpresaAddress');
 
 const escapeXml = (unsafe) => {
     if (typeof unsafe !== 'string') return '';
@@ -101,7 +102,20 @@ function resolvePartnerListing(row, skipped) {
     }
 
     const deepLink = `${baseUrl.replace(/\/$/, '')}/propiedad/${row.id}`;
-    const addr = gh.address && typeof gh.address === 'object' ? gh.address : {};
+    const effAddr = resolveEffectiveGoogleHotelsAddress({ googleHotelData: gh }, row.empresa_configuracion);
+    if (!effAddr) {
+        if (skipped) skipped.push({ empresaId: row.empresa_id, propiedadId: row.id, reason: 'missing_address' });
+        return null;
+    }
+    const ghAddr = _safeObj(gh.address);
+    const addr = {
+        street: effAddr.street,
+        city: effAddr.city,
+        locality: effAddr.city,
+        countryCode: effAddr.countryCode,
+        country: effAddr.countryCode,
+        postalCode: ghAddr.postalCode || ghAddr.postal_code,
+    };
     const fotoUrl = meta.linkFotos ? String(meta.linkFotos) : null;
     const city = String(addr.city || addr.locality || '').trim();
 

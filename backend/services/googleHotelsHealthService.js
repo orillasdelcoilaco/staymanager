@@ -1,6 +1,7 @@
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 const { generateAriFeed, generatePropertyListFeed } = require('./googleHotelsService');
 const { auditPartnerListingGapsForEmpresa } = require('./googleHotelsGlobalService');
+const { hasCompleteGoogleHotelsAddress } = require('./googleHotelsEmpresaAddress');
 const pool = require('../db/postgres');
 
 function _safeObj(v) {
@@ -71,10 +72,8 @@ async function evaluateGoogleHotelsHealth(empresaId) {
     const propiedades = await obtenerPropiedadesPorEmpresa(null, empresaId);
     const listed = propiedades.filter((p) => p?.googleHotelData?.isListed === true);
     const missingHotelId = listed.filter((p) => !_hasText(p?.googleHotelData?.hotelId)).length;
-    const missingAddress = listed.filter((p) => {
-        const a = _safeObj(p?.googleHotelData?.address);
-        return !_hasText(a.street) || !_hasText(a.city) || !_hasText(a.countryCode);
-    }).length;
+    /** Complejo / hotel: dirección en empresa (ubicación o contacto) cuenta como válida para todas las unidades. */
+    const missingAddress = listed.filter((p) => !hasCompleteGoogleHotelsAddress(p, cfg)).length;
 
     const xmlContent = await generatePropertyListFeed(null, empresaId);
     const xmlAri = await generateAriFeed(null, empresaId, { mode: 'google_hotels', days: 30 });
