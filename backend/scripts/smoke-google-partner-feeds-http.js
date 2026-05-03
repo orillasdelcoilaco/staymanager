@@ -10,6 +10,9 @@
  *   node backend/scripts/smoke-google-partner-feeds-http.js
  *
  * Exit 0 si ambos GET devuelven 200 y el body parece XML; exit 1 si falla.
+ *
+ * Opcional — contenido no vacío (certificación / prod):
+ *   GH_PARTNER_FEED_STRICT=1  exige al menos un <Property> en properties.xml y en ari.xml.
  */
 const https = require('https');
 const http = require('http');
@@ -33,6 +36,12 @@ function httpGet(urlStr) {
     });
 }
 
+function countXmlTag(body, tagName) {
+    const re = new RegExp(`<${tagName}[\\s>]`, 'gi');
+    const m = String(body || '').match(re);
+    return m ? m.length : 0;
+}
+
 async function main() {
     const base = String(process.env.GH_PARTNER_FEED_BASE_URL || '').trim().replace(/\/$/, '');
     const token = String(process.env.GH_PARTNER_FEED_AUTH_TOKEN || '').trim();
@@ -45,6 +54,8 @@ async function main() {
         process.exit(1);
     }
 
+    const strict = String(process.env.GH_PARTNER_FEED_STRICT || '').trim() === '1';
+
     const paths = ['/feeds/google/properties.xml', '/feeds/google/ari.xml'];
     const q = `auth=${encodeURIComponent(token)}`;
 
@@ -53,15 +64,23 @@ async function main() {
         try {
             const { status, body } = await httpGet(url);
             const xmlOk = /<\?xml/i.test(body) || /<Transaction[\s>]/i.test(body);
-            console.log(`${p} → HTTP ${status} · XML-ish: ${xmlOk} · bytes ${body.length}`);
+            const nProp = countXmlTag(body, 'Property');
+            console.log(`${p} → HTTP ${status} · XML-ish: ${xmlOk} · <Property>: ${nProp} · bytes ${body.length}`);
             if (status !== 200 || !xmlOk) {
                 console.error('Body preview:', body.slice(0, 500));
+                process.exit(1);
+            }
+            if (strict && nProp < 1) {
+                console.error(`${p}: GH_PARTNER_FEED_STRICT=1 requiere al menos un <Property> (listados + datos completos en panel).`);
                 process.exit(1);
             }
         } catch (e) {
             console.error(`${p} → ERROR`, e.message);
             process.exit(1);
         }
+    }
+    if (!strict) {
+        console.log('Tip: GH_PARTNER_FEED_STRICT=1 valida que haya <Property> en ambos feeds (recomendado antes de registrar en Google).');
     }
     console.log('smoke-google-partner-feeds-http: OK');
 }

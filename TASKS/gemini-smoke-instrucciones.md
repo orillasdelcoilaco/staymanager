@@ -86,6 +86,16 @@ Los feeds globales **no** van en `openapi-gemini.yaml`: son
 `GET https://feeds.suitemanagers.com/feeds/google/properties.xml?auth=<TOKEN_PARTNER>`  
 (mismo para `ari.xml`). Token: env servidor **`GOOGLE_PARTNER_FEED_AUTH_TOKEN`**. Host debe estar permitido (`feeds.<PLATFORM_DOMAIN>` o `GOOGLE_PARTNER_EXTRA_HOSTS`). Esto es **prueba operativa**, no extensión Gemini estándar.
 
+### 6.1 Después de que `properties` + `ari` den 200 (qué falta para “Google Hotels” completo)
+
+| Qué | Cómo | Notas |
+|-----|------|--------|
+| Partner **estricto** | Misma máquina: `GH_PARTNER_FEED_BASE_URL`, `GH_PARTNER_FEED_AUTH_TOKEN`, luego `GH_PARTNER_FEED_STRICT=1 npm run smoke:partner-feeds` | Falla si no hay `<Property>` en alguno de los dos XML (datos panel / geo / listado). |
+| Feed **contenido por tenant** | `GH_FEED_BASE_URL=https://<host-tenant>` y si aplica `GH_FEED_TOKEN=…` → `npm run smoke:google-hotels-tenant` | Script `verify-google-hotels-feed-checklist.js` — §9 de `TASKS/checklist-onboarding-google-hotel-center.md`. |
+| Ayuda SSR | `GET {host-tenant}/widget-reserva-ayuda.json` — bloque `googleHotelsContentFeed` | Lo comprueba el script anterior. |
+| Catálogo plataforma | Navegador: `https://suitemanagers.com/google-hotels` (y `?lang=en` si aplica) | §7.6 / marketplace. |
+| Hotel Center | Consola Google: URLs finales, mapeo, validación | Fuera del repo; checklist §4–§8 en `checklist-onboarding-google-hotel-center.md`. |
+
 ---
 
-*Última actualización: 2026-05-02*
+*Última actualización: 2026-05-03 — §6.1 pruebas post-feeds partner.*

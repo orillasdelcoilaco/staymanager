@@ -87,7 +87,7 @@ Copiar desde `backend/.env.example` y generar valores nuevos en producción (no 
 - [ ] `GET https://feeds.<dominio>/feeds/google/properties.xml?auth=<TOKEN>` — HTTP 200, XML bien formado.
 - [ ] `GET https://feeds.<dominio>/feeds/google/ari.xml?auth=<TOKEN>` — HTTP 200.
 - [ ] Desde repo con `DATABASE_URL`: `node backend/scripts/test-google-partner-feeds-smoke.js` → OK.
-- [ ] **HTTP público (sin clone de BD):** `GH_PARTNER_FEED_BASE_URL` + `GH_PARTNER_FEED_AUTH_TOKEN` → `node backend/scripts/smoke-google-partner-feeds-http.js` → OK (mismo token que `GOOGLE_PARTNER_FEED_AUTH_TOKEN` en el servidor).
+- [ ] **HTTP público (sin clone de BD):** `GH_PARTNER_FEED_BASE_URL` + `GH_PARTNER_FEED_AUTH_TOKEN` → `npm run smoke:partner-feeds` o `node backend/scripts/smoke-google-partner-feeds-http.js` → OK (mismo token que `GOOGLE_PARTNER_FEED_AUTH_TOKEN` en el servidor). El script imprime cuántos `<Property>` hay por feed; antes de Google usar **`GH_PARTNER_FEED_STRICT=1`** para exigir al menos uno en **properties** y **ari**.
 - [ ] **Alternativa / complemento (panel):** con sesión de administrador, **Operaciones → Canales IA → Google Hotels** → bloque *Feeds globales Google (vista operación plataforma)* → **Probar feeds HTTP** (el servidor usa `GOOGLE_PARTNER_FEED_AUTH_TOKEN` y, si hace falta, `GOOGLE_PARTNER_FEED_SELFTEST_BASE_URL` o `GH_PARTNER_FEED_BASE_URL` — ver `backend/.env.example`).
 - [ ] Catálogo humano: `https://<apex marketplace>/google-hotels` (y `?lang=en` si aplica).
 - [ ] Si usáis XSD: instalar paquete que provea `xmllint` en la imagen de deploy o validar en CI aparte.
