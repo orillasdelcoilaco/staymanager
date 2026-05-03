@@ -43,10 +43,18 @@ function countXmlTag(body, tagName) {
 }
 
 async function main() {
-    const base = String(process.env.GH_PARTNER_FEED_BASE_URL || '').trim().replace(/\/$/, '');
+    let base = String(process.env.GH_PARTNER_FEED_BASE_URL || '').trim().replace(/\/$/, '');
     const token = String(process.env.GH_PARTNER_FEED_AUTH_TOKEN || '').trim();
     if (!base) {
         console.error('smoke-google-partner-feeds-http: define GH_PARTNER_FEED_BASE_URL');
+        process.exit(1);
+    }
+    if (base.includes('/feeds/') || base.includes('?')) {
+        console.error(
+            'smoke-google-partner-feeds-http: GH_PARTNER_FEED_BASE_URL debe ser solo el origen, sin path ni query.',
+            'Ejemplo correcto: https://feeds.suitemanagers.com',
+            'Incorrecto: .../feeds/google/properties.xml?auth=... (el script añade path y ?auth= solo).',
+        );
         process.exit(1);
     }
     if (!token) {
