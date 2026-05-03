@@ -57,11 +57,11 @@ Documentación **para humanos y agentes**: usar estos datos en ejemplos y checkl
 
 | Tema | Valor acordado |
 |------|----------------|
-| **Sitio / marca web plataforma** | `https://www.suitemanagers.com` — referencia principal para “todo efecto” (marketing, apex, enlaces públicos de producto cuando aplique). |
-| **DNS dominio `suitemanagers.com`** | **GoDaddy** — panel DNS del registrador donde se crean/editan registros (`www`, **`feeds`** → CNAME hacia Render, etc.). **No** es Google Hotel Center: en Google solo se **indican las URLs finales** de los feeds; los CNAME se configuran en GoDaddy. |
+| **Sitio / marca web plataforma** | `https://www.suitemanagers.com` y **`https://suitemanagers.com`** (apex) — referencia para marketing y **marketplace SSR** (misma app Render). Catálogo Google Hotels partner: **`/google-hotels`** en esos hosts (`backend/routes/marketplace.js`). |
+| **DNS dominio `suitemanagers.com`** | **GoDaddy** — panel DNS del registrador (`www`, **`feeds`**, apex `@`). **No** es Google Hotel Center: en Google solo se **indican las URLs finales** de los feeds; los registros DNS se configuran en GoDaddy. **Hecho (2026-05, operación):** el **`A` en `@`** que apuntaba a *Website Builder* de GoDaddy se sustituyó por la **IP de Render** indicada en Custom Domains (**`216.24.57.1`** en el despliegue actual). El **`CNAME` `www`** apunta a **`suite-manager.onrender.com`** (según pantalla Render “Add DNS records”). Con eso el apex deja de servir la plantilla GoDaddy y el tráfico llega al backend (marketplace + resto). **Nota:** en Render `www` puede figurar **Pending** un tiempo aunque el navegador ya devuelva 200; revalidar en el panel hasta **Verified**. |
 | **Infra despliegue** | **Render** — el backend que sirve SPA, API y feeds debe quedar alineado con el código en GitHub. |
 | **Patrón URL por empresa (sitio del operador)** | `https://<subdominio>.suite-manager.com` — cada tenant vive en su subdominio. **Nota código:** en el repo el default de `PLATFORM_DOMAIN` es `suitemanagers.com` (sin guión). Si en producción el host real de tenants es `suite-manager.com`, definir **`PLATFORM_DOMAIN=suite-manager.com`** en Render para que URLs generadas, marketplace y ejemplos coincidan con DNS. |
-| **Tenant de referencia (multicanal / pruebas)** | `https://orillasdelcoilaco.suite-manager.com` — empresa que se usa como caso completo (web, Canales IA, Google Hotels, etc.). Verificar ortografía/subdominio real en DNS si difiere. |
+| **Tenant de referencia (multicanal / pruebas)** | `https://orillasdelcoilaco.suitemanagers.com` (y variante `suite-manager.com` si DNS lo usan) — caso completo: web, Canales IA, tokens ARI + contenido Google Hotels, smoke `verify-google-hotels-feed-checklist.js`. |
 | **Feeds partner (Google Connectivity)** | Rutas técnicas: `/feeds/google/properties.xml` y `/feeds/google/ari.xml` bajo el **hostname** que permita el backend (por defecto en código: `feeds.suitemanagers.com` o `api.suitemanagers.com`; ver **§7.9** y `GOOGLE_PARTNER_EXTRA_HOSTS` si el tráfico entra por el hostname del servicio Render hasta tener CNAME `feeds.`). Para el botón **Probar feeds HTTP** en panel: `GOOGLE_PARTNER_FEED_SELFTEST_BASE_URL` = URL base **pública real** que llega a ese mismo backend (ej. la que use Render una vez configurada). |
 | **Flujo código → producción** | **Norma operación:** al cerrar un bloque útil de trabajo en **Cursor**, el agente hace **commit y push a GitHub** (`main` o la rama acordada del repo) para que **Render** pueda desplegar; **no** dejar el código solo en local salvo pausa explícita del usuario. Mantener Render al día con ese remoto para pruebas cercanas a producción (feeds, panel, API). |
 | **Dónde probar** | Proyecto en **desarrollo**: probar en local o en Render es equivalente a nivel producto; **prioridad operativa**: tener Render actualizado para validaciones finales. |
@@ -178,12 +178,13 @@ Derivado de **`TASKS/backlog-producto-pendientes.md`** §5.x y §5.3, checklist 
 
 ### A) Google Hotel Center y feeds
 
-- [x] **Roadmap partner (código):** **§7.9–§7.11** — agregador `backend/services/googleHotelsGlobalService.js`, Partner Key, all-inclusive `Baserate`, inventario real; **§7.10** XSD opcional (`xmllint`); **§7.11** paridad precio SSR/XML documentada. **UI operación (provisional):** Canales IA → pestaña Google → bloque «Feeds globales…» + `GET /website/google-partner-feed-operator` + `POST /website/google-partner-feed-selftest` (servicio `partnerFeedsSelftest.js`); mismo criterio que smoke CLI, sin exponer token. **Pendiente operación:** DNS `api.`/`feeds.`, env Render, smoke CLI o botón panel, trámite Google. **Post–Google:** restringir UI/API a rol plataforma (**§8**).  
-- [ ] Configurar en producto **Operaciones → Canales IA** (`/canales-ia`): tokens, semáforo y por alojamiento `hotelId` / listado (ver **§2.6**).  
-- [ ] Ejecutar checklist por tenant (modo transición): `TASKS/checklist-onboarding-google-hotel-center.md`.  
-- [ ] Validar URLs **plataforma** (objetivo partner) y/o URLs tenant según fase; tokens y bypass verificador según **§7.4**.  
-- [ ] Ejecutar `verify-google-hotels-feed-checklist.js` (adaptar base URL a dominio plataforma cuando el feed global exista).  
-- [ ] Registrar estado por empresa / programa partner y siguiente acción si Google rechaza o pide cambios.
+- [x] **Roadmap partner (código):** **§7.9–§7.11** — agregador `backend/services/googleHotelsGlobalService.js`, Partner Key, all-inclusive `Baserate`, inventario real; **§7.10** XSD opcional (`xmllint`); **§7.11** paridad precio SSR/XML documentada. **UI operación (provisional):** Canales IA → pestaña Google → bloque «Feeds globales…» + `GET /website/google-partner-feed-operator` + `POST /website/google-partner-feed-selftest` (servicio `partnerFeedsSelftest.js`); mismo criterio que smoke CLI, sin exponer token. **Post–Google:** restringir UI/API a rol plataforma (**§8**).  
+- [x] **Operación DNS + marketplace (2026-05):** `feeds.suitemanagers.com` → Render (ya operativo); apex **`suitemanagers.com`** y **`www`** → Render (Custom Domain; ver **§1.2**); catálogo **`/google-hotels`** comprobado en navegador. Smoke: `npm run smoke:partner-feeds` + opcional `GH_PARTNER_FEED_STRICT=1`; tenant: `npm run smoke:google-hotels-tenant` con `GH_FEED_BASE_URL` / `GH_FEED_TOKEN` según token contenido.  
+- [x] **Canales IA (tenant referencia):** tokens **ARI** y **contenido Google Hotels**, `hotelId` / listado por alojamiento alineados a pruebas smoke (ver **§2.6**).  
+- [ ] **Checklist onboarding por tenant** §4–§8 a mano / Hotel Center cuando Google habilite consola y mapeo: `TASKS/checklist-onboarding-google-hotel-center.md` (§9 HTTP ya cubierto por script).  
+- [x] **Validación técnica reproducible:** URLs plataforma `feeds.` + `?auth=`; **§7.4** (logs partner, bypass opcional UA feed contenido).  
+- [x] **Script tenant:** `verify-google-hotels-feed-checklist.js` vía `npm run smoke:google-hotels-tenant` contra host público del tenant.  
+- [ ] **Programa connectivity Google:** formulario de interés **“Hotel ads & free booking links — connectivity partners”** enviado (2026-05); **sin** correo de confirmación automático es normal — pendiente **contacto equipo Google** y registro de las **dos URLs** globales (`properties.xml` + `ari.xml` con `?auth=`) en Hotel Center cuando indiquen. Anotar fecha y captura del *Thank you*. Si rechazan o piden cambios: actualizar esta tabla y `TASKS/google-hotels-partner-deploy-checklist.md`.
 
 ### B) OpenAPI / ChatGPT
 
@@ -210,7 +211,7 @@ Derivado de **`TASKS/backlog-producto-pendientes.md`** §5.x y §5.3, checklist 
 
 ### F) Canales externos (meta §1)
 
-- [ ] Trámite / contacto **Google Travel** (connectivity) si negocio aplica.  
+- [x] **Google Travel / connectivity (interés):** formulario oficial de connectivity partners **enviado**; siguiente paso = **respuesta Google** + acciones en Hotel Center (fuera del repo).  
 - [ ] Contacto **middleware** (ej. SelfBook) para Perplexity u otros — reservas deben **cerrar** en el flujo propio (API/web), no como listado en OTA tercera.
 
 ---
@@ -234,7 +235,7 @@ Lo siguiente está **implementado en código**; falta sobre todo **DoD documenta
 |-------|------|----------------|----------------------|
 | 1 | **OpenAPI ChatGPT/Gemini** | Contrato **1.4.7** (`openapi/openapi-chatgpt.yaml`, `openapi/openapi-gemini.yaml`): incluye **GET `/api/public/version`**, changelog en `info.description`; copia sincronizada `backend/openapi/openapi-chatgpt.yaml`. | Tras cada cambio en rutas públicas IA: revisar que el YAML siga al código; registrar versión entregada al conector OpenAI/Gemini. |
 | 2 | **Comparador “reserva directa” (§4.3 D)** | JSON `GET /propiedad/:id/comparador-ota.json`, UI en ficha cuando `comparableComplete`, `legalCopy`, logs `[comparador-ota]` — ver **`TASKS/backlog-producto-pendientes.md`** §4.3 D. | **DoD MVP (LISTO):** mostrar bloque solo con fechas válidas y `comparableComplete=true`; totales referenciales CLP desde tarifas internas (canal directo vs canal comparado configurado); texto legal vía `legalCopy`; sin obligación de cotizar precios de OTAs reales externas. **Fuera de alcance MVP:** integración con precios de terceros en vivo. |
-| 3 | **Google Hotel Center + feeds** | **Estado actual:** endpoints por tenant + script verify. **Objetivo:** partner único — **§7** (feed global, landing plataforma, calidad XML). | Cerrar implementación **§7** + trámite Google + checklist actualizado (URLs plataforma). |
+| 3 | **Google Hotel Center + feeds** | **Código §7** operativo en prod: feeds globales `feeds.` + `auth`, smoke estricto, feed contenido tenant con token, catálogo `/google-hotels` en apex/www tras DNS GoDaddy→Render (**§1.2**). **Pendiente negocio/Google:** respuesta post–*interest form*, alta de URLs en Hotel Center, checklist §4–§8 onboarding, XSD opcional §7.10 si Google lo exige. | Tras contacto Google: URLs registradas + primera validación sin errores bloqueantes; §7.10 si aplica; §8 cuando cierren partner. |
 | 4 | **Mapa de calor QA E2E** | Funcional en código + tests. | Checklist `TASKS/qa-heatmap-restricciones-e2e.md` en propiedades reales. |
 
 ---
@@ -328,7 +329,7 @@ Origen: alineación con políticas Google (**Price Accuracy**, **Entity Matching
 | Fase | Acción |
 |------|--------|
 | **Fase A** | Implementar feeds globales (host **§7.9**, agregador tolerante a fallos + XSD **§7.10–§7.11**), observabilidad, landing + health; feeds tenant activos en paralelo. |
-| **Fase B** | Registrar en Google **solo** las dos URLs plataforma; checklist partner. |
+| **Fase B** | Registrar en Google **solo** las dos URLs plataforma; checklist partner. **Estado 2026-05:** formulario de **interés connectivity partners** enviado a Google; pendiente **contacto del equipo** y luego registro efectivo de URLs + validación en Hotel Center. |
 | **Fase C** | Deprecar feeds por tenant en documentación si negocio confirma una sola fuente. |
 
 ### 7.8 Validación externa — OK al plan (contexto 2026-05)
@@ -401,4 +402,4 @@ Incorporadas como contrato de codificación (**Gemini — cierre de ciclo**):
 
 ---
 
-*Última actualización: 2026-05-03 — **§1.2** norma **commit+push GitHub** desde Cursor para Render; DNS **GoDaddy**; contexto www / tenant referencia. **§8** superadmin. **§7** selftest + montaje temprano `/feeds/google` en `index.js`. Historial: §7.10–§7.11; §7.9; §1.1 Hub; §2.6; OpenAPI **1.4.7**; §5.1–§5.2.*
+*Última actualización: 2026-05-03 — **§1.2** DNS apex `@` + `www` a Render (sustituye Website Builder GoDaddy); marketplace **`/google-hotels`** en `suitemanagers.com`. **§4** checklist Google: hecho técnico operación + smoke; pendiente **respuesta Google** post–interest form y §4–§8 onboarding Hotel Center. **§8** superadmin. **§7** selftest + `/feeds/google` en `index.js`. OpenAPI **1.4.7**.*
