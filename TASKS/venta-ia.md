@@ -306,7 +306,8 @@ Origen: alineación con políticas Google (**Price Accuracy**, **Entity Matching
 | Tarea | Detalle |
 |-------|---------|
 | **Partner Key (V1)** | Token estático largo en query (p. ej. `?auth=<UUID>`) compartido solo con Google — estándar connectivity partners medianos; sin reverse DNS por request (latencia / certificación). Reverse DNS + WAF → fase posterior (**§7.9**). |
-| **Rutas plataforma** | Solo en subdominio infra (**§7.9**); sin rate-limit agresivo a crawlers; logs de fallos (**§7.8** observabilidad). |
+| **Rutas plataforma** | Solo en subdominio infra (**§7.9**); sin rate-limit agresivo a crawlers; **401/403** en `/feeds/google/*` registran `[PartnerFeed]` con host, path, IP y prefijo de User-Agent (sin token). |
+| **Feed contenido tenant + verificador** | Con token en panel, `?token=` sigue siendo la vía principal. Opcional: `GOOGLE_HOTELS_CONTENT_FEED_VERIFIER_UA_SUBSTR` (subcadenas de User-Agent, coma) permite **200 sin query** solo si el token está configurado, **no** se envía `token` y el UA coincide — ver `googleHotelsContentFeedRequest.js` y `backend/.env.example`. Un `token` incorrecto sigue en **401**. |
 
 ### 7.5 Health check — Place ID y exclusión
 

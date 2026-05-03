@@ -30,8 +30,20 @@ function isPartnerFeedHostAllowed(req) {
     return allowed.has(host);
 }
 
+function _logPartnerFeedDeny(req, reason) {
+    const ip = req.ip || req.socket?.remoteAddress || '';
+    const ua = String(req.get('user-agent') || '').slice(0, 200);
+    console.warn('[PartnerFeed]', reason, {
+        host: req.hostname,
+        path: req.path || req.url,
+        ip,
+        ua,
+    });
+}
+
 function partnerFeedHostMiddleware(req, res, next) {
     if (!isPartnerFeedHostAllowed(req)) {
+        _logPartnerFeedDeny(req, 'host_forbidden');
         return res.status(403).type('text/plain')
             .send('Forbidden: Google partner feeds must be requested on api.<PLATFORM_DOMAIN>, feeds.<PLATFORM_DOMAIN>, or localhost.');
     }
@@ -53,6 +65,7 @@ function partnerFeedAuthMiddleware(req, res, next) {
         return res.status(503).type('text/plain').send('Partner feeds not configured');
     }
     if (provided !== expected) {
+        _logPartnerFeedDeny(req, 'auth_unauthorized');
         return res.status(401).type('text/plain').send('Unauthorized');
     }
     next();

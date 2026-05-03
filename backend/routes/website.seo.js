@@ -156,7 +156,9 @@ Sitemap: ${baseUrl}/sitemap.xml
             if (!empresaId) return res.status(400).send('Empresa inválida.');
             const cfg = req.empresaCompleta?.websiteSettings?.integrations || {};
             const tokenCfg = String(cfg.googleHotelsContentToken || '').trim();
-            const access = validateGoogleHotelsContentFeedAccess(req.query, tokenCfg);
+            const access = validateGoogleHotelsContentFeedAccess(req.query, tokenCfg, {
+                userAgent: req.get('user-agent'),
+            });
             if (!access.ok) return res.status(access.status || 401).send(access.error || 'Acceso denegado.');
 
             const xml = await generatePropertyListFeed(db, empresaId);
