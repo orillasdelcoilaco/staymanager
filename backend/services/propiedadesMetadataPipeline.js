@@ -135,7 +135,8 @@ function snapshotUbicacionText(meta) {
     const u = meta.ubicacion || {};
     const lat = u.lat != null ? Number(u.lat) : null;
     const lng = u.lng != null ? Number(u.lng) : null;
-    return { query: q, lat, lng };
+    const calle = String(u.calle || u.calleLinea || '').trim();
+    return { query: q, lat, lng, calle };
 }
 
 /**
@@ -157,6 +158,13 @@ async function applyGeocodeToMetadata(meta, prevMeta) {
         gh.geo = { lat: Number(u.lat), lng: Number(u.lng) };
         gh.latitude = Number(u.lat);
         gh.longitude = Number(u.lng);
+        const prevAddr = typeof gh.address === 'object' && gh.address ? gh.address : {};
+        const streetLine = String(
+            u.calle || u.calleLinea || prevAddr.street || u.direccion || '',
+        ).trim();
+        if (streetLine) {
+            gh.address = { ...prevAddr, street: streetLine };
+        }
         meta.googleHotelData = gh;
         meta.geocodificacion = {
             ...(meta.geocodificacion || {}),
@@ -198,7 +206,11 @@ async function applyGeocodeToMetadata(meta, prevMeta) {
     gh.longitude = hit.lng;
     gh.address = {
         ...(typeof gh.address === 'object' ? gh.address : {}),
-        street: gh.address?.street || (meta.ubicacion && meta.ubicacion.direccion) || '',
+        street:
+            gh.address?.street ||
+            (meta.ubicacion &&
+                (meta.ubicacion.calle || meta.ubicacion.calleLinea || meta.ubicacion.direccion)) ||
+            '',
         city: gh.address?.city || hit.ciudad || '',
         locality: gh.address?.locality || hit.ciudad || '',
         region: gh.address?.region || hit.region || '',
@@ -237,13 +249,27 @@ async function finalizePropertyMetadataForSave(prevMetadata, patch) {
     const nextSnap = snapshotUbicacionText(merged);
     const ubicacionCambio =
         nextSnap.query !== prevSnap.query ||
+        nextSnap.calle !== prevSnap.calle ||
         (nextSnap.lat !== prevSnap.lat && (nextSnap.lat != null || prevSnap.lat != null));
 
     if (ubicacionCambio || !prevMetadata) {
         merged = await applyGeocodeToMetadata(merged, prevMetadata || {});
     }
 
+    merged = applyCalleToGoogleHotelStreet(merged);
     return merged;
+}
+
+/** Si `ubicacion.calle` está definida, fija `googleHotelData.address.street` (addr1 en feeds). */
+function applyCalleToGoogleHotelStreet(meta) {
+    const u = meta.ubicacion || {};
+    const calle = String(u.calle || u.calleLinea || '').trim();
+    if (!calle) return meta;
+    const gh = { ...(meta.googleHotelData || {}) };
+    const prevAddr = typeof gh.address === 'object' && gh.address ? gh.address : {};
+    gh.address = { ...prevAddr, street: calle };
+    meta.googleHotelData = gh;
+    return meta;
 }
 
 module.exports = {

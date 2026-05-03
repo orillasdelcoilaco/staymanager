@@ -58,6 +58,18 @@ export function renderUbicacionWidget(widgetId, datos = {}) {
                     🔍 Buscar
                 </button>
             </div>
+            <div>
+                <label for="${widgetId}-calle" class="block text-xs font-medium text-gray-500 mb-1">
+                    Calle y número (opcional, recomendado para Google Hotels)
+                </label>
+                <input
+                    type="text"
+                    id="${widgetId}-calle"
+                    class="form-input w-full text-sm"
+                    placeholder="Ej: Camino al Volcán 123 (se usa como línea de calle en feeds XML)"
+                    value="${datos.calle || ''}"
+                />
+            </div>
 
             <!-- Sugerencias -->
             <ul id="${widgetId}-sugerencias"
@@ -300,6 +312,7 @@ export function getUbicacionData(widgetId) {
     const lng = parseFloat(document.getElementById(`${widgetId}-lng`)?.value);
     return {
         direccion: document.getElementById(`${widgetId}-direccion`)?.value.trim() || '',
+        calle: document.getElementById(`${widgetId}-calle`)?.value.trim() || '',
         ciudad:    document.getElementById(`${widgetId}-ciudad`)?.value.trim() || '',
         region:    document.getElementById(`${widgetId}-region`)?.value.trim() || '',
         pais:      document.getElementById(`${widgetId}-pais`)?.value.trim() || 'Chile',

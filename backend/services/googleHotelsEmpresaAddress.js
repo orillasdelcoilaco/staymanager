@@ -56,7 +56,10 @@ function resolveEffectiveGoogleHotelsAddress(propiedad, empresaConfig) {
     const contact = _safeObj(cfg.websiteSettings?.contact);
     const general = _safeObj(cfg.websiteSettings?.general);
 
-    const street = String(addr.street || ubi.direccion || contact.direccionCompleta || '').trim();
+    /** `ubicacion.calle`: línea corta “calle y número” para addr1 en feeds; si falta, cae a dirección completa. */
+    const street = String(
+        addr.street || ubi.calle || ubi.calleLinea || ubi.direccion || contact.direccionCompleta || '',
+    ).trim();
     const city = String(addr.city || ubi.ciudad || general.city || '').trim();
     let countryCode = String(addr.countryCode || ubi.countryCode || ubi.paisCodigo || '').trim().toUpperCase();
     if (!_hasText(countryCode)) {
