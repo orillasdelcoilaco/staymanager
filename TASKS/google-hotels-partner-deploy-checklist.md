@@ -22,6 +22,37 @@ Usar en **staging** primero; **TTL DNS bajo** durante certificación Google (§7
 
 ---
 
+## Cómo seguir (orden recomendado — producto / operación)
+
+Cuando **§3** del checklist ya da **200** y XML razonable en staging o prod: usar esta lista como **hilo conductor** (no reemplaza §1–§5 arriba; los cruza con Google y con backlog).
+
+### 1. Congelar lo técnico que ya funciona
+
+- Guardar en un **lugar interno** (gestor de secretos, nota de operación, **no** en chat público) las **dos URLs finales** `properties.xml` y `ari.xml` con el mismo `?auth=…` que registrarán en Google.
+- En el **navegador**, abrir también **`ari.xml`** y confirmar que el XML trae **`<Result>` con contenido** (no solo transacción vacía). Si falla: **Canales IA → Probar feeds HTTP** o `node backend/scripts/smoke-google-partner-feeds-http.js` (misma base URL y token que producción).
+
+### 2. Trámite en Google (fuera de SuiteManager)
+
+- En **Hotel Center** / programa **connectivity** que Google haya habilitado, registrar las dos URLs definitivas (p. ej. `https://feeds.suitemanagers.com/feeds/google/...`).
+- Seguir el flujo del **asistente de integración** de Google (validación, mapeo de propiedades, etc.).
+- Checklist interno cruzado: este archivo (modo **partner** plataforma) + **`TASKS/checklist-onboarding-google-hotel-center.md`** (modo **tenant** + transición).
+
+### 3. Pulido de datos (no bloquea el paso 2)
+
+- **`addr1`:** preferir línea tipo calle y número; en panel **Empresa** o ubicación de alojamiento usar el campo **“Calle y número (… Google Hotels)”** cuando la línea única de geocodificador sea demasiado larga (ver código: `ubicacion.calle`, `googleHotelsEmpresaAddress.js`).
+- **Fotos:** si alguna unidad muestra URL de otra (p. ej. galería), corregir en **Gestión de alojamientos** / galería; el feed solo refleja lo guardado en BD.
+
+### 4. Producto / código después de Google Hotels
+
+- **`TASKS/venta-ia.md` §8:** rol superadmin / operadores, menú restringido, auditoría, y acotar el acceso amplio al **selftest de partner** cuando exista ese rol.
+- **`TASKS/backlog-producto-pendientes.md` §5.3:** pendientes de negocio (MCP, `llms.txt`, etc.) según prioridad.
+
+### 5. Equipo
+
+- Cuando **Render** haya desplegado lo último de `main`, avisar a quien lleve **Google** para prueba **extremo a extremo** con las URLs definitivas y el token acordado.
+
+---
+
 ## 1. DNS (apex / subdominios dedicados)
 
 - [ ] Crear **CNAME** (o A si aplica) para los hosts que usará Google según tu contrato operativo:
@@ -77,4 +108,4 @@ Copiar desde `backend/.env.example` y generar valores nuevos en producción (no 
 
 ---
 
-*Última actualización: 2026-05-03 — panel Canales IA (selftest HTTP) + env `GOOGLE_PARTNER_FEED_SELFTEST_BASE_URL`; historial 2026-05-02.*
+*Última actualización: 2026-05-03 — sección “Cómo seguir (orden recomendado — producto / operación)”; panel selftest + `GOOGLE_PARTNER_FEED_SELFTEST_BASE_URL`; historial 2026-05-02.*

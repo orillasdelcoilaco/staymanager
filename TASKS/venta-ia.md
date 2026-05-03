@@ -271,7 +271,7 @@ Con esto el ítem deja de estar “parcial” salvo **QA puntual** en tenant de 
 
 Origen: alineación con políticas Google (**Price Accuracy**, **Entity Matching**) y rol **Connectivity Partner** (una superficie agregada). El código existente (`googleHotelsService.js`, `website.seo.js`, …) es base; las tareas siguientes **no** sustituyen al modo dual ni al aislamiento por `empresa_id`: la agregación **lee** datos por tenant y emite XML bajo rutas **plataforma**. **Contexto asesoría inicial:** **§7.8**. **Diseño cerrado para implementación (gate XSD + operación certificación):** **§7.9–§7.11**.
 
-**Operación / deploy (lista de verificación):** **`TASKS/google-hotels-partner-deploy-checklist.md`** (DNS, env Render, smoke URLs, trámite Google).
+**Operación / deploy (lista de verificación):** **`TASKS/google-hotels-partner-deploy-checklist.md`** (DNS, env Render, smoke URLs, trámite Google). Incluye **“Cómo seguir (orden recomendado — producto / operación)”**: congelar URLs + verificar `ari.xml`, Hotel Center, pulido datos, §8/backlog, aviso a equipo.
 
 ### 7.1 Feed de contenido (Hotel List) — agregador global
 
