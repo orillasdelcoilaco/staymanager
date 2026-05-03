@@ -98,4 +98,20 @@ Los feeds globales **no** van en `openapi-gemini.yaml`: son
 
 ---
 
-*Última actualización: 2026-05-03 — §6.1 pruebas post-feeds partner.*
+## 7. Hotel Center, ARI “OTA” y deep links (cuando Gemini u otro asesor sugieren revisar)
+
+**1) Acceso a Hotel Center**  
+Correcto: tras el *interest form* / onboarding, Google habilita trabajo en **Hotel Center** (carga de **Hotel List** / URLs de **ARI**, mapeo de propiedades, validaciones). Eso **no** se automatiza desde el repo; seguir la guía de Google y `TASKS/checklist-onboarding-google-hotel-center.md`.
+
+**2) “OTA_HotelRateAmountNotifRQ” y nodos `Tax`**  
+En SuiteManager el ARI para Google (`generateAriFeed` en `backend/services/googleHotelsService.js`) emite un **subconjunto** bajo `<Transaction>…<Result>…<Property>…<RoomData>` con `<Inventory>`, `<Rate>`, `<Baserate currency="…" all_inclusive="true">` (estrategia **B** de `venta-ia.md` §7.9: precio final con impuestos en el baserate, **sin** hijos `<Tax>` explícitos).  
+Eso **no** reproduce necesariamente el sobre XML completo **OTA_HotelRateAmountNotifRQ** de un OTA clásico; la validación fuerte es la **documentación / XSD del programa Google Hotels** (`hotel_inventory.xsd` o el que indique Google) — ver **`TASKS/venta-ia.md` §7.10** (`GOOGLE_HOTELS_XSD_PATH` + `xmllint` en el entorno de deploy cuando toque certificación).  
+Pedir a un LLM “revisar OTA_HotelRateAmountNotifRQ” **sin** pegar el XSD oficial y el XML real suele dar **falsos positivos/negativos**; mejor: `xmllint --noout --schema … archivo.xml` cuando tengan el esquema.
+
+**3) Deep link con fechas (Price Accuracy)**  
+La ficha pública **`/propiedad/:id`** ya acepta query de fechas vía `website.property.helpers.js` (`fechaLlegada`, `fechaSalida`, alias `checkin` / `checkout`, `nights`, etc.).  
+En el **Property List global**, el `<DeepLink>` hoy es la **URL base** de la ficha **sin** fechas (`googleHotelsGlobalService.js`): Google puede añadir parámetros al abrir desde su UI; si en certificación exigen **siempre** fechas en el enlace del feed, habría que **extender** la generación del `DeepLink` (decisión de producto: fechas por defecto vs. riesgo de desalinear con el rango que el usuario eligió en Google).
+
+---
+
+*Última actualización: 2026-05-03 — §6.1 pruebas post-feeds partner; §7 alineación Gemini/Hotel Center.*

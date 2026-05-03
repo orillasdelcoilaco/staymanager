@@ -377,7 +377,7 @@ Incorporadas como contrato de codificación (**Gemini — cierre de ciclo**):
 
 **Veredicto externo:** **PROCEDER** con PR — `TASKS/venta-ia.md` como fuente de verdad de ingeniería para el carril partner.
 
-**Implementación §7.11 (paridad primer precio visible, 2026-05-02):** en SSR `propiedad.ejs`, si la propiedad tiene `googleHotelData.isListed`, la barra de precio móvil usa la **tarifa publicada por noche** (lista sin descuento de promo en tarifa), coherente con el `<Baserate>` del feed partner; mensaje si hay promo activa que reduce el total en checkout. **Enlaces catálogo §7.6:** footer marketplace (`/google-hotels`) + tarjeta en SPA **Canales IA → Google**.
+**Implementación §7.11 (paridad primer precio visible, 2026-05-02):** en SSR `propiedad.ejs`, si la propiedad tiene `googleHotelData.isListed`, la barra de precio móvil usa la **tarifa publicada por noche** (lista sin descuento de promo en tarifa), coherente con el `<Baserate>` del feed partner; mensaje si hay promo activa que reduce el total en checkout. **Enlaces catálogo §7.6:** footer marketplace (`/google-hotels`) + tarjeta en SPA **Canales IA → Google**. **DeepLink en Property List global:** hoy `https://<tenant>/propiedad/<id>` sin query; la ficha **sí** entiende `?fechaLlegada=&fechaSalida=` (`website.property.helpers.js`). Si Google exige fechas en el enlace del XML en certificación, planificar extensión en `googleHotelsGlobalService.js` (ver **`TASKS/gemini-smoke-instrucciones.md` §7**).
 
 ---
 
