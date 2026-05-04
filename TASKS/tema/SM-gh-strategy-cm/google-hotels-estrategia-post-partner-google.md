@@ -56,8 +56,6 @@ Esto **no** invalida la calidad técnica del trabajo en feeds, DNS ni panel; cam
 
 ## 5. Próximo módulo (cuando se priorice): integración CM
 
-**Arranque práctico (cuenta, Google desde Beds24, API, checklist semanal):** **`TASKS/beds24-integracion-inicio.md`**.
-
 Checklist de alto nivel para un futuro PR / discovery:
 
 1. Elegir proveedor (API estable, precio, cobertura Chile/LATAM si aplica).
