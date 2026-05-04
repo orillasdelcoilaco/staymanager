@@ -6,6 +6,7 @@
  * Identidad Property.id: **id de propiedad en PostgreSQL** (`propiedades.id`) — estable y alineado
  * con deep links `/propiedad/:id` y con el ARI global cuando `partnerXmlIdsFromDatabase` está activo.
  */
+const crypto = require('crypto');
 const pool = require('../db/postgres');
 const { generateAriFeed } = require('./googleHotelsService');
 const { buildPublicBookingBaseUrl, extractOfficialSiteContact } = require('./googleHotelsPartner/publicBookingUrl');
@@ -37,6 +38,24 @@ function extractTransactionInner(xml) {
 
 function partnerRatePlanId() {
     return String(process.env.GOOGLE_PARTNER_RATE_PLAN_ID || 'sm_direct_lowest').trim() || 'sm_direct_lowest';
+}
+
+/** Id único por generación del XML (recomendación Google para `<Transaction id>`). */
+function uniqueTransactionFeedId(prefix) {
+    return `${prefix}-${Date.now()}-${crypto.randomBytes(5).toString('hex')}`;
+}
+
+/** Decimal con punto (JavaScript ya usa `.`; evita sorpresas si se formatea número como string). */
+function formatDecimalCoord(n) {
+    if (n == null || !Number.isFinite(Number(n))) return '0';
+    return String(Number(n));
+}
+
+/** `<category>` Hotel List: hotel vs alojamiento tipo vacacional (cabins etc.). */
+function partnerPropertyCategoryFromEmpresa(empresaConfig) {
+    const t = String(_safeObj(empresaConfig).tipoNegocio || 'complejo').toLowerCase();
+    if (t === 'hotel') return 'hotel';
+    return 'vacation_rental';
 }
 
 /** §7.5: con `GOOGLE_PARTNER_REQUIRE_PLACE_ID=1` se exige `googleHotelData.placeId` además de lat/lng. */
@@ -128,17 +147,22 @@ function resolvePartnerListing(row, skipped) {
         return null;
     }
     const ghAddr = _safeObj(gh.address);
+    const postalMerged = String(
+        effAddr.postalCode || ghAddr.postalCode || ghAddr.postal_code || '',
+    ).trim();
     const addr = {
         street: effAddr.street,
         city: effAddr.city,
         locality: effAddr.city,
         countryCode: effAddr.countryCode,
         country: effAddr.countryCode,
-        postalCode: ghAddr.postalCode || ghAddr.postal_code,
+        postalCode: postalMerged,
+        province: String(effAddr.province || '').trim(),
     };
     const fotoUrl = meta.linkFotos ? String(meta.linkFotos) : null;
     const city = String(addr.city || addr.locality || '').trim();
     const { phone, website } = extractOfficialSiteContact(row.empresa_configuracion);
+    const category = partnerPropertyCategoryFromEmpresa(row.empresa_configuracion);
 
     return {
         /** ID estable en BD — usado como XML Property.id en feeds globales §7.9 */
@@ -154,6 +178,7 @@ function resolvePartnerListing(row, skipped) {
         city,
         phone,
         website,
+        category,
     };
 }
 
@@ -162,20 +187,24 @@ function buildOnePropertyBlock(row, skipped) {
     if (!core) return '';
 
     const xmlId = escapeXml(core.propertyDbId);
-    const { nombre, lat, lng, deepLink, addr, fotoUrl, phone, website } = core;
+    const { nombre, lat, lng, deepLink, addr, fotoUrl, phone, website, category } = core;
 
     let body = `    <Property id="${xmlId}">\n`;
     body += `      <Name>${escapeXml(nombre)}</Name>\n`;
-    body += `      <Address>\n`;
+    body += `      <Address format="simple">\n`;
     body += `        <addr1>${escapeXml(String(addr.street || ''))}</addr1>\n`;
     body += `        <city>${escapeXml(String(addr.city || addr.locality || ''))}</city>\n`;
+    if (addr.province) {
+        body += `        <province>${escapeXml(String(addr.province))}</province>\n`;
+    }
     if (addr.postalCode || addr.postal_code) {
         body += `        <postal_code>${escapeXml(String(addr.postalCode || addr.postal_code || ''))}</postal_code>\n`;
     }
     body += `        <country>${escapeXml(String(addr.countryCode || addr.country || ''))}</country>\n`;
     body += `      </Address>\n`;
-    body += `      <Latitude>${lat}</Latitude>\n`;
-    body += `      <Longitude>${lng}</Longitude>\n`;
+    body += `      <category>${escapeXml(category)}</category>\n`;
+    body += `      <Latitude>${formatDecimalCoord(lat)}</Latitude>\n`;
+    body += `      <Longitude>${formatDecimalCoord(lng)}</Longitude>\n`;
     if (phone) {
         body += `      <Phone>${escapeXml(phone)}</Phone>\n`;
     }
@@ -241,7 +270,7 @@ async function generateGlobalPropertyListXml(_db) {
 
     const inner = parts.join('');
     const xml = `<?xml version="1.0" encoding="UTF-8"?>\n`
-        + `<Transaction timestamp="${new Date().toISOString()}" id="partner-global-properties">\n`
+        + `<Transaction timestamp="${new Date().toISOString()}" id="${escapeXml(uniqueTransactionFeedId('partner-global-properties'))}">\n`
         + `  <Result>\n`
         + inner
         + `  </Result>\n`
@@ -305,7 +334,7 @@ async function generateGlobalAriXml(db) {
 
     const body = innerBlocks.length ? innerBlocks.join('\n') : '  <Result/>';
     const xml = `<?xml version="1.0" encoding="UTF-8"?>\n`
-        + `<Transaction timestamp="${new Date().toISOString()}" id="partner-global-ari">\n`
+        + `<Transaction timestamp="${new Date().toISOString()}" id="${escapeXml(uniqueTransactionFeedId('partner-global-ari'))}">\n`
         + body
         + `\n</Transaction>\n`;
 

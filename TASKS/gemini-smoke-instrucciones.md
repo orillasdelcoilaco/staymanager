@@ -124,8 +124,9 @@ En el **Property List global**, el `<DeepLink>` hoy es la **URL base** de la fic
 |------------------|------------------------------|
 | **`<Property id>`** | En el feed **global**, `id` es el **UUID de PostgreSQL `propiedades.id`** (estable, alineado con deep link `/propiedad/:id` y con el ARI global cuando `partnerXmlIdsFromDatabase`). **`googleHotelData.hotelId`** no va en el atributo `id` aquí; sí debe estar en metadata para mapeo en Hotel Center. En el feed **tenant** `feed-google-hotels-content.xml`, el código usa **`hotelId`** como `Property id` (`generatePropertyListFeed`) — son dos convenciones según feed; para partner único importa el **global**. |
 | **`<Name>`** | Nombre de la propiedad (`propiedades.nombre`). |
-| **`<Address>`** | `<addr1>`, `<city>`, opcional `<postal_code>`, `<country>` (código país). Resolución: `googleHotelsEmpresaAddress.js` + fallback empresa si complejo/hotel. Campo panel **`ubicacion.calle`** mejora addr1. |
-| **`<Latitude>` / `<Longitude>`** | Obligatorios para entrar al feed; fallback empresa ubicación si complejo/hotel (`extractLatLng`). Sin geo → la propiedad se **excluye** (`skipped` / health). |
+| **`<Address format="simple">`** | Desglose: `<addr1>`, `<city>`, `<province>` (si hay `region` en metadata/empresa), `<postal_code>` si hay código, `<country>`. Resolución: `googleHotelsEmpresaAddress.js` + fallback empresa. |
+| **`<category>`** | `hotel` si `configuracion.tipoNegocio === hotel`; si no, **`vacation_rental`** (cabins / complejos). No se deja vacío. |
+| **`<Latitude>` / `<Longitude>`** | Obligatorios para entrar al feed; fallback empresa ubicación si complejo/hotel (`extractLatLng`). Valores numéricos con **punto decimal** (no coma). Sin geo → la propiedad se **excluye** (`skipped` / health). |
 | **`<Photo>`** | Opcional: primera foto desde `metadata.linkFotos`. |
 | **`<DeepLink>`** | URL absoluta al checkout SSR base del tenant + `/propiedad/<uuid>` (`buildPublicBookingBaseUrl`). |
 | **`<Phone>` / `<Website>`** | Se emiten **si** hay datos: teléfono = `websiteSettings.contact.telefonoPrincipal` → `general.whatsapp` → `configuracion.telefono`; sitio = **origen público** mismo que deep link base (`buildPublicBookingBaseUrl`). Orden en XML: tras coordenadas, antes de `<Photo>`. |
@@ -134,9 +135,12 @@ En el **Property List global**, el `<DeepLink>` hoy es la **URL base** de la fic
 
 | Pregunta típica | Comportamiento SuiteManager |
 |------------------|------------------------------|
-| **`<Transaction>`** | Raíz con `timestamp` e `id`; dentro hay `<Result>` y por propiedad `<Property>` → `<RoomData>`. |
+| **`<Transaction>`** | Raíz con `timestamp` e **`id` único por generación** del XML (no reutilizar el mismo id en cada deploy). Dentro: `<Result>` y por propiedad `<Property>` → `<RoomData>`. El ejemplo LLM con `<Nights>`/`<Property>` como texto plano **no** es el formato de este ARI: aquí van **`Inventory` / `Rate`** con `CheckIn`/`CheckOut`. |
 | **`<Rate>` + `<Baserate>`** | Precio por segmentos de fechas; **`currency`** (p. ej. CLP) y, en modo partner Google, **`all_inclusive="true"`** cuando `partnerAllInclusive` — modelo **precio final** (estrategia B, `venta-ia.md` §7.9). Si las tarifas en BD fueran **netas** y se definiera `GOOGLE_PARTNER_ARI_NET_RATES=1`, el código **multiplica por 1.19** solo para CLP en `roundBaserateAmount`; por defecto no. |
 | **`CheckIn` / `Nights`** | No hay etiqueta **`<Nights>`**. Disponibilidad y tarifa usan atributos **`CheckIn`** y **`CheckOut`** (fecha fin exclusiva tipo hotel: día siguiente al último día del segmento) en `<Inventory>` y `<Rate>` — ventana **día a día** agrupada en segmentos contiguos con mismo inventario o mismo precio. |
+| **IVA / Tax** | Precio publicado en **`Baserate`** con **`all_inclusive="true"`** en modo partner Google (precio mostrado al huésped, sin sumar `<Tax>` aparte). |
+
+**HTTP:** rutas partner y feeds tenant devuelven **`Content-Type: application/xml; charset=utf-8`**.
 
 ### 8.3 Enlaces para compartir con Gemini (feeds partner en producción)
 
@@ -147,4 +151,4 @@ Sustituir el host si usáis otro (`feeds.suitemanagers.com` o el que tengáis en
 
 ---
 
-*Última actualización: 2026-05-03 — §8 checklist + §8.3 links; Phone/Website en Property List.*
+*Última actualización: 2026-05-04 — §8 address/category/Transaction id/Content-Type; ARI tax-inclusive.*

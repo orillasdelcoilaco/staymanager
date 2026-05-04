@@ -105,7 +105,7 @@ Sitemap: ${baseUrl}/sitemap.xml
             if (!parsed.ok) return res.status(parsed.status || 400).send(parsed.error || 'Parámetros inválidos.');
 
             const xml = await generateAriFeed(db, empresaId, { mode: parsed.mode, days: parsed.days });
-            res.type('application/xml').send(xml);
+            res.type('application/xml; charset=utf-8').send(xml);
         } catch (error) {
             console.error(`Error al generar feed-ari.xml para ${req.empresa?.id}:`, error);
             res.status(500).send('<error>Error al generar feed ARI.</error>');
@@ -162,7 +162,7 @@ Sitemap: ${baseUrl}/sitemap.xml
             if (!access.ok) return res.status(access.status || 401).send(access.error || 'Acceso denegado.');
 
             const xml = await generatePropertyListFeed(db, empresaId);
-            res.type('application/xml').send(xml);
+            res.type('application/xml; charset=utf-8').send(xml);
         } catch (error) {
             console.error(`Error al generar feed-google-hotels-content.xml para ${req.empresa?.id}:`, error);
             res.status(500).send('<error>Error al generar feed de contenido Google Hotels.</error>');

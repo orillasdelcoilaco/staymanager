@@ -88,7 +88,7 @@ function createPartnerFeedsSubrouter(db) {
             if (skipped.length) {
                 console.warn('[PartnerFeed] Property list skipped rows:', skipped.length, skipped.slice(0, 20));
             }
-            res.type('application/xml').send(xml);
+            res.type('application/xml; charset=utf-8').send(xml);
         } catch (e) {
             console.error('[PartnerFeed] properties.xml', e);
             if (e.message === 'POSTGRES_REQUIRED') {
@@ -108,7 +108,7 @@ function createPartnerFeedsSubrouter(db) {
             if (propertySkipLog && propertySkipLog.length) {
                 console.warn('[PartnerFeed] ARI property exclusions:', propertySkipLog.length, propertySkipLog.slice(0, 20));
             }
-            res.type('application/xml').send(xml);
+            res.type('application/xml; charset=utf-8').send(xml);
         } catch (e) {
             console.error('[PartnerFeed] ari.xml', e);
             if (e.message === 'POSTGRES_REQUIRED') {

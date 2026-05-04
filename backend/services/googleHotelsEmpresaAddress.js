@@ -33,7 +33,7 @@ function guessCountryCodeFromPais(pais) {
 /**
  * @param {{ googleHotelData?: object }|null} propiedad
  * @param {object} empresaConfig - empresas.configuracion
- * @returns {{ street: string, city: string, countryCode: string }|null}
+ * @returns {{ street: string, city: string, countryCode: string, province: string, postalCode: string }|null}
  */
 function resolveEffectiveGoogleHotelsAddress(propiedad, empresaConfig) {
     const cfg = _safeObj(empresaConfig);
@@ -44,6 +44,8 @@ function resolveEffectiveGoogleHotelsAddress(propiedad, empresaConfig) {
             street: String(addr.street).trim(),
             city: String(addr.city).trim(),
             countryCode: String(addr.countryCode).trim().toUpperCase(),
+            province: String(addr.province || addr.region || addr.state || '').trim(),
+            postalCode: String(addr.postalCode || addr.postal_code || '').trim(),
         };
     }
 
@@ -68,7 +70,13 @@ function resolveEffectiveGoogleHotelsAddress(propiedad, empresaConfig) {
     if (!_hasText(street) || !_hasText(city) || !_hasText(countryCode)) {
         return null;
     }
-    return { street, city, countryCode };
+    const province = String(
+        addr.province || addr.region || addr.state || ubi.region || general.region || '',
+    ).trim();
+    const postalCode = String(
+        addr.postalCode || addr.postal_code || ubi.codigoPostal || ubi.zip || ubi.postalCode || '',
+    ).trim();
+    return { street, city, countryCode, province, postalCode };
 }
 
 function hasCompleteGoogleHotelsAddress(propiedad, empresaConfig) {
