@@ -114,4 +114,30 @@ En el **Property List global**, el `<DeepLink>` hoy es la **URL base** de la fic
 
 ---
 
-*Última actualización: 2026-05-03 — §6.1 pruebas post-feeds partner; §7 alineación Gemini/Hotel Center.*
+## 8. Checklist de validación “Entity Matching” + ARI (texto copiable para Gemini / asesores)
+
+**Referencia de código:** `googleHotelsGlobalService.js` (Property List **global**), `googleHotelsService.js` (`generateAriFeed`, también tenant + merge global ARI).
+
+### 8.1 Hotel List (feed de propiedades — partner global `/feeds/google/properties.xml`)
+
+| Pregunta típica | Comportamiento SuiteManager |
+|------------------|------------------------------|
+| **`<Property id>`** | En el feed **global**, `id` es el **UUID de PostgreSQL `propiedades.id`** (estable, alineado con deep link `/propiedad/:id` y con el ARI global cuando `partnerXmlIdsFromDatabase`). **`googleHotelData.hotelId`** no va en el atributo `id` aquí; sí debe estar en metadata para mapeo en Hotel Center. En el feed **tenant** `feed-google-hotels-content.xml`, el código usa **`hotelId`** como `Property id` (`generatePropertyListFeed`) — son dos convenciones según feed; para partner único importa el **global**. |
+| **`<Name>`** | Nombre de la propiedad (`propiedades.nombre`). |
+| **`<Address>`** | `<addr1>`, `<city>`, opcional `<postal_code>`, `<country>` (código país). Resolución: `googleHotelsEmpresaAddress.js` + fallback empresa si complejo/hotel. Campo panel **`ubicacion.calle`** mejora addr1. |
+| **`<Latitude>` / `<Longitude>`** | Obligatorios para entrar al feed; fallback empresa ubicación si complejo/hotel (`extractLatLng`). Sin geo → la propiedad se **excluye** (`skipped` / health). |
+| **`<Photo>`** | Opcional: primera foto desde `metadata.linkFotos`. |
+| **`<DeepLink>`** | URL absoluta al checkout SSR base del tenant + `/propiedad/<uuid>` (`buildPublicBookingBaseUrl`). |
+| **`<phone>` / `<website>`** | **No** se emiten hoy en el bloque global (`buildOnePropertyBlock`). Si Google los exige para “sitio oficial”, habría que **añadir** nodos desde `websiteSettings.contact` / empresa (feature pendiente). |
+
+### 8.2 ARI (`/feeds/google/ari.xml`)
+
+| Pregunta típica | Comportamiento SuiteManager |
+|------------------|------------------------------|
+| **`<Transaction>`** | Raíz con `timestamp` e `id`; dentro hay `<Result>` y por propiedad `<Property>` → `<RoomData>`. |
+| **`<Rate>` + `<Baserate>`** | Precio por segmentos de fechas; **`currency`** (p. ej. CLP) y, en modo partner Google, **`all_inclusive="true"`** cuando `partnerAllInclusive` — modelo **precio final** (estrategia B, `venta-ia.md` §7.9). Si las tarifas en BD fueran **netas** y se definiera `GOOGLE_PARTNER_ARI_NET_RATES=1`, el código **multiplica por 1.19** solo para CLP en `roundBaserateAmount`; por defecto no. |
+| **`CheckIn` / `Nights`** | No hay etiqueta **`<Nights>`**. Disponibilidad y tarifa usan atributos **`CheckIn`** y **`CheckOut`** (fecha fin exclusiva tipo hotel: día siguiente al último día del segmento) en `<Inventory>` y `<Rate>` — ventana **día a día** agrupada en segmentos contiguos con mismo inventario o mismo precio. |
+
+---
+
+*Última actualización: 2026-05-03 — §8 checklist Gemini Entity Matching + ARI.*
