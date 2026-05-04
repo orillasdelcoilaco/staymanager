@@ -14,4 +14,20 @@ function buildPublicBookingBaseUrl(empresaConfiguracion) {
     return null;
 }
 
-module.exports = { buildPublicBookingBaseUrl };
+/**
+ * Teléfono y sitio oficial del tenant (feed Google / entity matching).
+ * Orden: contacto web → WhatsApp en general → telefono legacy en raíz de configuración.
+ */
+function extractOfficialSiteContact(empresaConfiguracion) {
+    const cfg = empresaConfiguracion && typeof empresaConfiguracion === 'object' ? empresaConfiguracion : {};
+    const ws = cfg.websiteSettings && typeof cfg.websiteSettings === 'object' ? cfg.websiteSettings : {};
+    const contact = ws.contact && typeof ws.contact === 'object' ? ws.contact : {};
+    const general = ws.general && typeof ws.general === 'object' ? ws.general : {};
+    const phone = String(
+        contact.telefonoPrincipal || general.whatsapp || cfg.telefono || ''
+    ).trim();
+    const website = buildPublicBookingBaseUrl(cfg) || '';
+    return { phone, website };
+}
+
+module.exports = { buildPublicBookingBaseUrl, extractOfficialSiteContact };

@@ -3,6 +3,7 @@ const pool = require('../db/postgres');
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 const { getAvailabilityData } = require('./propuestasService');
 const { resolveEffectiveGoogleHotelsAddress } = require('./googleHotelsEmpresaAddress');
+const { extractOfficialSiteContact } = require('./googleHotelsPartner/publicBookingUrl');
 
 // Función para escapar caracteres XML (sin cambios)
 const escapeXml = (unsafe) => {
@@ -36,6 +37,8 @@ const generatePropertyListFeed = async (_db, empresaId) => {
     xml += `<Transaction timestamp="${new Date().toISOString()}" id="initial-listing">\n`;
     xml += `  <Result>\n`;
     
+    const { phone: tenantPhone, website: tenantWebsite } = extractOfficialSiteContact(empresaCfg);
+
     propiedadesListadas.forEach(prop => {
         xml += `    <Property id="${escapeXml(prop.googleHotelData.hotelId)}">\n`;
         xml += `      <Name>${escapeXml(prop.nombre)}</Name>\n`;
@@ -46,6 +49,12 @@ const generatePropertyListFeed = async (_db, empresaId) => {
             xml += `        <city>${escapeXml(effAddr.city)}</city>\n`;
             xml += `        <country>${escapeXml(effAddr.countryCode)}</country>\n`;
             xml += `      </Address>\n`;
+        }
+        if (tenantPhone) {
+            xml += `      <Phone>${escapeXml(tenantPhone)}</Phone>\n`;
+        }
+        if (tenantWebsite) {
+            xml += `      <Website>${escapeXml(tenantWebsite)}</Website>\n`;
         }
         if (prop.linkFotos) {
             xml += `      <Photo URL="${escapeXml(prop.linkFotos)}"/>\n`;

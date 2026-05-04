@@ -8,7 +8,7 @@
  */
 const pool = require('../db/postgres');
 const { generateAriFeed } = require('./googleHotelsService');
-const { buildPublicBookingBaseUrl } = require('./googleHotelsPartner/publicBookingUrl');
+const { buildPublicBookingBaseUrl, extractOfficialSiteContact } = require('./googleHotelsPartner/publicBookingUrl');
 const { assertPartnerFeedXml } = require('./googleHotelsPartner/feedXmlWellformed');
 const { resolveEffectiveGoogleHotelsAddress } = require('./googleHotelsEmpresaAddress');
 
@@ -138,6 +138,7 @@ function resolvePartnerListing(row, skipped) {
     };
     const fotoUrl = meta.linkFotos ? String(meta.linkFotos) : null;
     const city = String(addr.city || addr.locality || '').trim();
+    const { phone, website } = extractOfficialSiteContact(row.empresa_configuracion);
 
     return {
         /** ID estable en BD — usado como XML Property.id en feeds globales §7.9 */
@@ -151,6 +152,8 @@ function resolvePartnerListing(row, skipped) {
         addr,
         fotoUrl,
         city,
+        phone,
+        website,
     };
 }
 
@@ -159,7 +162,7 @@ function buildOnePropertyBlock(row, skipped) {
     if (!core) return '';
 
     const xmlId = escapeXml(core.propertyDbId);
-    const { nombre, lat, lng, deepLink, addr, fotoUrl } = core;
+    const { nombre, lat, lng, deepLink, addr, fotoUrl, phone, website } = core;
 
     let body = `    <Property id="${xmlId}">\n`;
     body += `      <Name>${escapeXml(nombre)}</Name>\n`;
@@ -173,6 +176,12 @@ function buildOnePropertyBlock(row, skipped) {
     body += `      </Address>\n`;
     body += `      <Latitude>${lat}</Latitude>\n`;
     body += `      <Longitude>${lng}</Longitude>\n`;
+    if (phone) {
+        body += `      <Phone>${escapeXml(phone)}</Phone>\n`;
+    }
+    if (website) {
+        body += `      <Website>${escapeXml(website)}</Website>\n`;
+    }
     if (fotoUrl) {
         body += `      <Photo URL="${escapeXml(fotoUrl)}"/>\n`;
     }

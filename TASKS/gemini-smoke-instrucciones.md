@@ -128,7 +128,7 @@ En el **Property List global**, el `<DeepLink>` hoy es la **URL base** de la fic
 | **`<Latitude>` / `<Longitude>`** | Obligatorios para entrar al feed; fallback empresa ubicación si complejo/hotel (`extractLatLng`). Sin geo → la propiedad se **excluye** (`skipped` / health). |
 | **`<Photo>`** | Opcional: primera foto desde `metadata.linkFotos`. |
 | **`<DeepLink>`** | URL absoluta al checkout SSR base del tenant + `/propiedad/<uuid>` (`buildPublicBookingBaseUrl`). |
-| **`<phone>` / `<website>`** | **No** se emiten hoy en el bloque global (`buildOnePropertyBlock`). Si Google los exige para “sitio oficial”, habría que **añadir** nodos desde `websiteSettings.contact` / empresa (feature pendiente). |
+| **`<Phone>` / `<Website>`** | Se emiten **si** hay datos: teléfono = `websiteSettings.contact.telefonoPrincipal` → `general.whatsapp` → `configuracion.telefono`; sitio = **origen público** mismo que deep link base (`buildPublicBookingBaseUrl`). Orden en XML: tras coordenadas, antes de `<Photo>`. |
 
 ### 8.2 ARI (`/feeds/google/ari.xml`)
 
@@ -138,6 +138,13 @@ En el **Property List global**, el `<DeepLink>` hoy es la **URL base** de la fic
 | **`<Rate>` + `<Baserate>`** | Precio por segmentos de fechas; **`currency`** (p. ej. CLP) y, en modo partner Google, **`all_inclusive="true"`** cuando `partnerAllInclusive` — modelo **precio final** (estrategia B, `venta-ia.md` §7.9). Si las tarifas en BD fueran **netas** y se definiera `GOOGLE_PARTNER_ARI_NET_RATES=1`, el código **multiplica por 1.19** solo para CLP en `roundBaserateAmount`; por defecto no. |
 | **`CheckIn` / `Nights`** | No hay etiqueta **`<Nights>`**. Disponibilidad y tarifa usan atributos **`CheckIn`** y **`CheckOut`** (fecha fin exclusiva tipo hotel: día siguiente al último día del segmento) en `<Inventory>` y `<Rate>` — ventana **día a día** agrupada en segmentos contiguos con mismo inventario o mismo precio. |
 
+### 8.3 Enlaces para compartir con Gemini (feeds partner en producción)
+
+Sustituir el host si usáis otro (`feeds.suitemanagers.com` o el que tengáis en `GOOGLE_PARTNER_EXTRA_HOSTS`) y el token del secret **`GOOGLE_PARTNER_FEED_AUTH_TOKEN`** (en la query va como `auth`, no confundir con tokens `token=` de rutas por tenant):
+
+- **Hotel List:** `https://feeds.suitemanagers.com/feeds/google/properties.xml?auth=<TOKEN_PARTNER>`
+- **ARI:** `https://feeds.suitemanagers.com/feeds/google/ari.xml?auth=<TOKEN_PARTNER>`
+
 ---
 
-*Última actualización: 2026-05-03 — §8 checklist Gemini Entity Matching + ARI.*
+*Última actualización: 2026-05-03 — §8 checklist + §8.3 links; Phone/Website en Property List.*
