@@ -94,7 +94,7 @@ Los feeds globales **no** van en `openapi-gemini.yaml`: son
 | Feed **contenido por tenant** | `GH_FEED_BASE_URL=https://<host-tenant>` y si aplica `GH_FEED_TOKEN=…` → `npm run smoke:google-hotels-tenant` | Script `verify-google-hotels-feed-checklist.js` — §9 de `TASKS/checklist-onboarding-google-hotel-center.md`. |
 | Ayuda SSR | `GET {host-tenant}/widget-reserva-ayuda.json` — bloque `googleHotelsContentFeed` | Lo comprueba el script anterior. |
 | Catálogo plataforma | Navegador: `https://suitemanagers.com/google-hotels` (y `?lang=en` si aplica) | §7.6 / marketplace. |
-| Hotel Center | Consola Google: URLs finales, mapeo, validación | Fuera del repo; checklist §4–§8 en `checklist-onboarding-google-hotel-center.md`. |
+| Hotel Center | Consola Google: URLs finales, mapeo, validación | Fuera del repo; orden **Secuencia B** en `TASKS/google-hotels-partner-deploy-checklist.md`; onboarding §4–§8 en `checklist-onboarding-google-hotel-center.md`. |
 
 ---
 

@@ -6,6 +6,8 @@ Objetivo: habilitar y validar el feed de contenido Google Hotels por tenant usan
 
 **Dónde configurar en el producto (panel):** **Operaciones → Canales IA** (ruta SPA `/canales-ia`) — tokens ARI y Google Hotels content, semáforo operativo, y por cada alojamiento el `hotelId` y el listado en Web/Google. Ya no se editan en el modal de *Gestionar alojamientos*; *Configurar sitio web* enlaza a Canales IA con resumen de tokens. Detalle: **`TASKS/venta-ia.md` §2.6**.
 
+**Orden sugerido entre agentes (secuencia B):** partner plataforma primero (**`TASKS/google-hotels-partner-deploy-checklist.md`** — *Secuencia B*: deploy + DNS `feeds.`/`api.` + env + smoke), luego este checklist **§1–§8** por tenant y **§9** automatizado por host público.
+
 ## 0) Datos de control (completar)
 
 **Opción rápida:** en el panel, **Operaciones → Canales IA** → pestaña **Google Hotels**, bloque **Checklist Google — §0 automático**: copia empresa, `empresaId`, host público derivado, email de sesión, fecha y líneas listas para PowerShell/script §9. Revisa el host antes de ejecutar el script.

@@ -63,7 +63,7 @@ Respuesta JSON esperada: `version`, `timestamp` (y en código actual puede inclu
 ## Parte 2 — Seguimiento producto (después de Parte 1 OK)
 
 Orden sugerido: **Google (feeds + Hotel Center)** → **OpenAPI / flujo agente**. Detalle extendido en **`TASKS/venta-ia.md` §4**.  
-**Nota (2026-05-02):** el runbook siguiente cubre feeds en **host del tenant**. Cuando exista el programa **Connectivity Partner** (**`venta-ia.md` §7**), repetir validaciones equivalentes con la **URL base del dominio plataforma** y los endpoints globales documentados allí.
+**Secuencia B (multi-agente, 2026-05):** **`TASKS/google-hotels-partner-deploy-checklist.md`** (*Secuencia B*) — deploy prod + DNS `api.`/`feeds.` + env partner → smoke global → onboarding Hotel Center **por tenant** (checklist onboarding §1–§8) → **§9** script (`npm run smoke:google-hotels-tenant`). El runbook de abajo cubre sobre todo **tenant + §9**; el checklist partner enlaza el bloque **B1–B2** antes.
 
 ### Runbook — un solo tenant (Google feeds + script §9)
 

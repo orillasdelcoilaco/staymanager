@@ -4,6 +4,19 @@
 
 Usar en **staging** primero; **TTL DNS bajo** durante certificación Google (§7.11 fila 3).
 
+### Secuencia B — propuesta multi-agente (orden operativo Google Hotels)
+
+Orden acordado para **no perder el hilo** entre agentes / sesiones (complementa “Orden recomendado” y **§Cómo seguir** más abajo). Referencia cruzada: **`TASKS/venta-ia.md` §4** (checklist A).
+
+| Paso | Qué incluye | Estado / notas (2026-05) |
+|------|-------------|---------------------------|
+| **B1** | **Deploy prod** (`main` → Render) + **DNS** `api.<dominio>` y/o `feeds.<dominio>` + **env** partner (`GOOGLE_PARTNER_FEED_AUTH_TOKEN`, etc. §2) | **feeds.** y env en prod **hechos** en operación actual; **`api.`** según contrato con Google (mismo backend si comparten app). Apex **`suitemanagers.com` / `www`** para marketplace documentado en **`venta-ia.md` §1.2** (no sustituye `feeds.`). |
+| **B2** | **Smoke** feeds globales (`npm run smoke:partner-feeds`, opcional `GH_PARTNER_FEED_STRICT=1`) y/o panel **Canales IA → Probar feeds HTTP** | Hecho en flujo de verificación reciente; repetir tras cada cambio de token o DNS. |
+| **B3** | **Onboarding Google Hotel Center por tenant** (feeds en host del operador, tokens, `hotelId`, listado) + **`TASKS/checklist-onboarding-google-hotel-center.md`** §1–§8 a mano | **Pendiente** por empresa y por respuesta Google (connectivity). |
+| **B4** | **Checklist §9** — HTTP + forma XML: `GH_FEED_BASE_URL` / `GH_FEED_TOKEN` → `npm run smoke:google-hotels-tenant` o `node backend/scripts/verify-google-hotels-feed-checklist.js` | Hecho para tenant referencia; **repetir** por cada dominio nuevo o tras rotar token. |
+
+---
+
 ### Orden recomendado (primera vez)
 
 1. **Código ya en `main` desplegado** en Render (o la rama que uséis en prod).
@@ -108,4 +121,4 @@ Copiar desde `backend/.env.example` y generar valores nuevos en producción (no 
 
 ---
 
-*Última actualización: 2026-05-03 — sección “Cómo seguir (orden recomendado — producto / operación)”; panel selftest + `GOOGLE_PARTNER_FEED_SELFTEST_BASE_URL`; historial 2026-05-02.*
+*Última actualización: 2026-05-03 — **Secuencia B** (multi-agente); sección “Cómo seguir”; panel selftest + `GOOGLE_PARTNER_FEED_SELFTEST_BASE_URL`; historial 2026-05-02.*

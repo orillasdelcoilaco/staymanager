@@ -176,6 +176,8 @@ Documentación **para humanos y agentes**: usar estos datos en ejemplos y checkl
 
 Derivado de **`TASKS/backlog-producto-pendientes.md`** §5.x y §5.3, checklist Google, y **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §9.
 
+**Secuencia operativa B (multi-agente):** deploy prod + DNS `api.`/`feeds.` + env partner → smoke → onboarding Hotel Center **por tenant** → checklist **§9** (`verify-google-hotels-feed-checklist.js` / `npm run smoke:google-hotels-tenant`). Tabla detallada y estado: **`TASKS/google-hotels-partner-deploy-checklist.md`** (*Secuencia B*).
+
 ### A) Google Hotel Center y feeds
 
 - [x] **Roadmap partner (código):** **§7.9–§7.11** — agregador `backend/services/googleHotelsGlobalService.js`, Partner Key, all-inclusive `Baserate`, inventario real; **§7.10** XSD opcional (`xmllint`); **§7.11** paridad precio SSR/XML documentada. **UI operación (provisional):** Canales IA → pestaña Google → bloque «Feeds globales…» + `GET /website/google-partner-feed-operator` + `POST /website/google-partner-feed-selftest` (servicio `partnerFeedsSelftest.js`); mismo criterio que smoke CLI, sin exponer token. **Post–Google:** restringir UI/API a rol plataforma (**§8**).  
@@ -402,4 +404,4 @@ Incorporadas como contrato de codificación (**Gemini — cierre de ciclo**):
 
 ---
 
-*Última actualización: 2026-05-03 — **§1.2** DNS apex `@` + `www` a Render (sustituye Website Builder GoDaddy); marketplace **`/google-hotels`** en `suitemanagers.com`. **§4** checklist Google: hecho técnico operación + smoke; pendiente **respuesta Google** post–interest form y §4–§8 onboarding Hotel Center. **§8** superadmin. **§7** selftest + `/feeds/google` en `index.js`. OpenAPI **1.4.7**.*
+*Última actualización: 2026-05-03 — **§4** enlace **Secuencia B** (`google-hotels-partner-deploy-checklist.md`: deploy + DNS `api.`/`feeds.` + env → smoke → tenant Hotel Center → checklist §9). **§1.2** DNS apex + `www`; **§8** superadmin; **§7**; OpenAPI **1.4.7**.*
