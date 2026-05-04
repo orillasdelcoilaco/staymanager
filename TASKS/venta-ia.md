@@ -18,14 +18,14 @@
 |-----------|-----|
 | `TASKS/backlog-producto-pendientes.md` | Roadmap general del producto; la sección **§5.3** remite aquí para el detalle de canales IA. |
 | `TASKS/coordinacion-cursor-claude-ia-venta.md` | Locks, zona caliente (precios, `publicAiController`, OpenAPI), handoffs y bitácora cuando el cambio afecta al agente o a contratos públicos. |
-| `TASKS/checklist-onboarding-google-hotel-center.md` | Onboarding operativo Google Hotel Center por tenant (incl. §9 verificación HTTP/XML). |
-| **Panel SPA «Canales IA»** | **Operaciones → Canales IA** (`/canales-ia`): tokens ARI / Google Hotels content, semáforo operativo, tabla por alojamiento (`hotelId`, listado), bloque provisional **feeds globales partner** (selftest HTTP, §8); **`TASKS/checklist-onboarding-google-hotel-center.md`** enlaza aquí para dónde configurar en producto. |
-| `TASKS/qa-feed-ari-checklist.md` | QA del feed ARI. |
-| `TASKS/qa-heatmap-restricciones-e2e.md` | QA E2E mapa de calor (afecta conversión web / coherencia con API pública). |
+| `TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md` | Onboarding operativo Google Hotel Center por tenant (incl. §9 verificación HTTP/XML). |
+| **Panel SPA «Canales IA»** | **Operaciones → Canales IA** (`/canales-ia`): tokens ARI / Google Hotels content, semáforo operativo, tabla por alojamiento (`hotelId`, listado), bloque provisional **feeds globales partner** (selftest HTTP, §8); **`TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md`** enlaza aquí para dónde configurar en producto. |
+| `TASKS/tema/SM-venta-ia/qa-feed-ari-checklist.md` | QA del feed ARI. |
+| `TASKS/tema/SM-heatmap-qa/qa-heatmap-restricciones-e2e.md` | QA E2E mapa de calor (afecta conversión web / coherencia con API pública). |
 | `chatgpt_integration_summary.md` | Resumen histórico ChatGPT + MCP; contrastar rutas con el código actual (`openapi/`, `ai/openai/mcp-server/`). |
-| `TASKS/plan-gestion-propiedades.md` | Contexto JSON-LD / SEO en el flujo de alojamientos (complementario, no sustituye este archivo). |
-| **`TASKS/plan-reorganizacion-menu-spa.md`** | **Única referencia** menú SPA (taxonomía, fases, handoff). Entrada de lectura: **`LEER-PRIMERO.md`** → tabla estándares → fila **Menú SPA**. **No** modifica «Flujo de Trabajo». |
-| **`TASKS/qa-y-seguimiento-prelaunch-canales.md`** | QA panel tras cambios menú/Canales IA (**Parte 1**) y orden de trabajo **Google + OpenAPI** (**Parte 2**); enlaza con §4 de este archivo. Tras el enfoque partner (§7), Parte 2 distingue URL **tenant** vs **plataforma**. |
+| `TASKS/tema/SM-propiedades/plan-gestion-propiedades.md` | Contexto JSON-LD / SEO en el flujo de alojamientos (complementario, no sustituye este archivo). |
+| **`TASKS/tema/SM-spa-menu/plan-reorganizacion-menu-spa.md`** | **Única referencia** menú SPA (taxonomía, fases, handoff). Entrada de lectura: **`LEER-PRIMERO.md`** → tabla estándares → fila **Menú SPA**. **No** modifica «Flujo de Trabajo». |
+| **`TASKS/tema/SM-venta-ia/qa-y-seguimiento-prelaunch-canales.md`** | QA panel tras cambios menú/Canales IA (**Parte 1**) y orden de trabajo **Google + OpenAPI** (**Parte 2**); enlaza con §4 de este archivo. Tras el enfoque partner (§7), Parte 2 distingue URL **tenant** vs **plataforma**. |
 
 **Responsable del carril (acuerdo 2026-04-29):** implementación y contratos **solo Cursor** — chat Agent dedicado opcional; regla `.cursor/rules/45-canales-venta-solo-cursor.mdc` si aplica.
 
@@ -94,7 +94,7 @@ Documentación **para humanos y agentes**: usar estos datos en ejemplos y checkl
 - **ARI:** `GET /feed-ari.xml` con modos (`website` \| `google_hotels`), ventana `days`, token opcional por empresa.  
 - **Google Hotels content:** `GET /feed-google-hotels-content.xml` (Property List), token opcional.  
 - **Ayuda integradores:** `GET /widget-reserva-ayuda.json` con ejemplos.  
-- **Script de verificación:** `backend/scripts/verify-google-hotels-feed-checklist.js` + checklist en `TASKS/checklist-onboarding-google-hotel-center.md` §9.  
+- **Script de verificación:** `backend/scripts/verify-google-hotels-feed-checklist.js` + checklist en `TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md` §9.  
 - **Integraciones en panel:** URLs/tokens documentados en backlog §6 (referencias código); **punto único usuario en SPA:** **§2.6**.
 
 ### 2.3 API pública para agentes (IA venta)
@@ -147,9 +147,9 @@ Documentación **para humanos y agentes**: usar estos datos en ejemplos y checkl
 | Gap | Acción sugerida |
 |-----|------------------|
 | **Partner único + feed global** | Implementar **§7** (feeds agregados, landing plataforma, sin romper SSR tenant). Trámite **externo** Google (connectivity). |
-| Onboarding **por empresa** en Hotel Center | Durante transición: checklist **`TASKS/checklist-onboarding-google-hotel-center.md`** por host tenant; en estado objetivo: URLs **plataforma** registradas en Hotel Center + evidencia. |
+| Onboarding **por empresa** en Hotel Center | Durante transición: checklist **`TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md`** por host tenant; en estado objetivo: URLs **plataforma** registradas en Hotel Center + evidencia. |
 | **Things to Do / Travel API** | Sigue siendo trámite externo; el paquete técnico pasa a incluir **feed único** + precisión de precio + Place ID. |
-| QA feeds | **`TASKS/qa-feed-ari-checklist.md`** + CI; ampliar con casos **globales** y verificador Google (UA bypass). |
+| QA feeds | **`TASKS/tema/SM-venta-ia/qa-feed-ari-checklist.md`** + CI; ampliar con casos **globales** y verificador Google (UA bypass). |
 
 ### 3.3 Descubrimiento para LLMs y buscadores IA
 
@@ -176,17 +176,17 @@ Documentación **para humanos y agentes**: usar estos datos en ejemplos y checkl
 
 Derivado de **`TASKS/backlog-producto-pendientes.md`** §5.x y §5.3, checklist Google, y **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §9.
 
-**Secuencia operativa B (multi-agente):** deploy prod + DNS `api.`/`feeds.` + env partner → smoke → onboarding Hotel Center **por tenant** → checklist **§9** (`verify-google-hotels-feed-checklist.js` / `npm run smoke:google-hotels-tenant`). Tabla detallada y estado: **`TASKS/google-hotels-partner-deploy-checklist.md`** (*Secuencia B*).
+**Secuencia operativa B (multi-agente):** deploy prod + DNS `api.`/`feeds.` + env partner → smoke → onboarding Hotel Center **por tenant** → checklist **§9** (`verify-google-hotels-feed-checklist.js` / `npm run smoke:google-hotels-tenant`). Tabla detallada y estado: **`TASKS/tema/SM-ghc-onboarding/google-hotels-partner-deploy-checklist.md`** (*Secuencia B*).
 
 ### A) Google Hotel Center y feeds
 
 - [x] **Roadmap partner (código):** **§7.9–§7.11** — agregador `backend/services/googleHotelsGlobalService.js`, Partner Key, all-inclusive `Baserate`, inventario real; **§7.10** XSD opcional (`xmllint`); **§7.11** paridad precio SSR/XML documentada. **UI operación (provisional):** Canales IA → pestaña Google → bloque «Feeds globales…» + `GET /website/google-partner-feed-operator` + `POST /website/google-partner-feed-selftest` (servicio `partnerFeedsSelftest.js`); mismo criterio que smoke CLI, sin exponer token. **Post–Google:** restringir UI/API a rol plataforma (**§8**).  
 - [x] **Operación DNS + marketplace (2026-05):** `feeds.suitemanagers.com` → Render (ya operativo); apex **`suitemanagers.com`** y **`www`** → Render (Custom Domain; ver **§1.2**); catálogo **`/google-hotels`** comprobado en navegador. Smoke: `npm run smoke:partner-feeds` + opcional `GH_PARTNER_FEED_STRICT=1`; tenant: `npm run smoke:google-hotels-tenant` con `GH_FEED_BASE_URL` / `GH_FEED_TOKEN` según token contenido.  
 - [x] **Canales IA (tenant referencia):** tokens **ARI** y **contenido Google Hotels**, `hotelId` / listado por alojamiento alineados a pruebas smoke (ver **§2.6**).  
-- [ ] **Checklist onboarding por tenant** §4–§8 a mano / Hotel Center cuando Google habilite consola y mapeo: `TASKS/checklist-onboarding-google-hotel-center.md` (§9 HTTP ya cubierto por script).  
+- [ ] **Checklist onboarding por tenant** §4–§8 a mano / Hotel Center cuando Google habilite consola y mapeo: `TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md` (§9 HTTP ya cubierto por script).  
 - [x] **Validación técnica reproducible:** URLs plataforma `feeds.` + `?auth=`; **§7.4** (logs partner, bypass opcional UA feed contenido).  
 - [x] **Script tenant:** `verify-google-hotels-feed-checklist.js` vía `npm run smoke:google-hotels-tenant` contra host público del tenant.  
-- [ ] **Programa connectivity Google:** formulario de interés **“Hotel ads & free booking links — connectivity partners”** enviado (2026-05); **sin** correo de confirmación automático es normal — pendiente **contacto equipo Google** y registro de las **dos URLs** globales (`properties.xml` + `ari.xml` con `?auth=`) en Hotel Center cuando indiquen. Anotar fecha y captura del *Thank you*. Si rechazan o piden cambios: actualizar esta tabla y `TASKS/google-hotels-partner-deploy-checklist.md`.
+- [ ] **Programa connectivity Google:** formulario de interés **“Hotel ads & free booking links — connectivity partners”** enviado (2026-05); **sin** correo de confirmación automático es normal — pendiente **contacto equipo Google** y registro de las **dos URLs** globales (`properties.xml` + `ari.xml` con `?auth=`) en Hotel Center cuando indiquen. Anotar fecha y captura del *Thank you*. Si rechazan o piden cambios: actualizar esta tabla y `TASKS/tema/SM-ghc-onboarding/google-hotels-partner-deploy-checklist.md`.
 
 ### B) OpenAPI / ChatGPT
 
@@ -208,7 +208,7 @@ Derivado de **`TASKS/backlog-producto-pendientes.md`** §5.x y §5.3, checklist 
 
 ### E) Calidad cruzada web ↔ IA
 
-- [x] QA E2E mapa de calor: **LISTO criterio técnico** — `TASKS/qa-heatmap-restricciones-e2e.md` §12 + `npm run test:ci` (2026-05-03); capturas tenant opcional.  
+- [x] QA E2E mapa de calor: **LISTO criterio técnico** — `TASKS/tema/SM-heatmap-qa/qa-heatmap-restricciones-e2e.md` §12 + `npm run test:ci` (2026-05-03); capturas tenant opcional.  
 - [x] §4.3 D comparador: **DoD MVP** en **§5.2** de este documento (y backlog §5.x **C**); QA de contrato vía `test-comparador-ota-service.js` en CI (2026-05-03).
 
 ### F) Canales externos (meta §1)
@@ -238,7 +238,7 @@ Lo siguiente está **implementado en código**; falta sobre todo **DoD documenta
 | 1 | **OpenAPI ChatGPT/Gemini** | Contrato **1.4.7** (`openapi/openapi-chatgpt.yaml`, `openapi/openapi-gemini.yaml`): incluye **GET `/api/public/version`**, changelog en `info.description`; copia sincronizada `backend/openapi/openapi-chatgpt.yaml`. | Tras cada cambio en rutas públicas IA: revisar que el YAML siga al código; registrar versión entregada al conector OpenAI/Gemini. |
 | 2 | **Comparador “reserva directa” (§4.3 D)** | JSON `GET /propiedad/:id/comparador-ota.json`, UI en ficha cuando `comparableComplete`, `legalCopy`, logs `[comparador-ota]` — ver **`TASKS/backlog-producto-pendientes.md`** §4.3 D. | **DoD MVP (LISTO):** mostrar bloque solo con fechas válidas y `comparableComplete=true`; totales referenciales CLP desde tarifas internas (canal directo vs canal comparado configurado); texto legal vía `legalCopy`; sin obligación de cotizar precios de OTAs reales externas. **Fuera de alcance MVP:** integración con precios de terceros en vivo. |
 | 3 | **Google Hotel Center + feeds** | **Código §7** operativo en prod: feeds globales `feeds.` + `auth`, smoke estricto, feed contenido tenant con token, catálogo `/google-hotels` en apex/www tras DNS GoDaddy→Render (**§1.2**). **Pendiente negocio/Google:** respuesta post–*interest form*, alta de URLs en Hotel Center, checklist §4–§8 onboarding, XSD opcional §7.10 si Google lo exige. | Tras contacto Google: URLs registradas + primera validación sin errores bloqueantes; §7.10 si aplica; §8 cuando cierren partner. |
-| 4 | **Mapa de calor QA E2E** | Funcional en código + tests. | **LISTO (2026-05-03)** criterio técnico: §12 en `TASKS/qa-heatmap-restricciones-e2e.md` + `npm run test:ci`. Capturas en tenant opcional. |
+| 4 | **Mapa de calor QA E2E** | Funcional en código + tests. | **LISTO (2026-05-03)** criterio técnico: §12 en `TASKS/tema/SM-heatmap-qa/qa-heatmap-restricciones-e2e.md` + `npm run test:ci`. Capturas en tenant opcional. |
 
 ---
 
@@ -276,7 +276,7 @@ Con esto el ítem deja de estar “parcial” salvo **QA puntual** en tenant de 
 
 Origen: alineación con políticas Google (**Price Accuracy**, **Entity Matching**) y rol **Connectivity Partner** (una superficie agregada). El código existente (`googleHotelsService.js`, `website.seo.js`, …) es base; las tareas siguientes **no** sustituyen al modo dual ni al aislamiento por `empresa_id`: la agregación **lee** datos por tenant y emite XML bajo rutas **plataforma**. **Contexto asesoría inicial:** **§7.8**. **Diseño cerrado para implementación (gate XSD + operación certificación):** **§7.9–§7.11**.
 
-**Operación / deploy (lista de verificación):** **`TASKS/google-hotels-partner-deploy-checklist.md`** (DNS, env Render, smoke URLs, trámite Google). Incluye **“Cómo seguir (orden recomendado — producto / operación)”**: congelar URLs + verificar `ari.xml`, Hotel Center, pulido datos, §8/backlog, aviso a equipo.
+**Operación / deploy (lista de verificación):** **`TASKS/tema/SM-ghc-onboarding/google-hotels-partner-deploy-checklist.md`** (DNS, env Render, smoke URLs, trámite Google). Incluye **“Cómo seguir (orden recomendado — producto / operación)”**: congelar URLs + verificar `ari.xml`, Hotel Center, pulido datos, §8/backlog, aviso a equipo.
 
 ### 7.0 Estado comercial — partner directo Google (2026-05)
 
@@ -284,7 +284,8 @@ Google comunicó que **no incorporan nuevas integraciones directas** como connec
 
 **Decisión:** **pausar** el trámite de partner **directo** hasta que el volumen lo justifique. El **código del módulo plataforma** (feeds globales, catálogo, panel, smokes) **se mantiene** — standby operativo / base técnica. Próxima vía probable: **proveedor integrado** (referencia operativa **Beds24**, coste orientativo citado ~10–20 USD/mes para un caso tipo referencia — **validar** con tarifario oficial del CM).
 
-Documentación de contexto y inventario: **`TASKS/google-hotels-estrategia-post-partner-google.md`**.
+Documentación de contexto y inventario: **`TASKS/tema/SM-gh-strategy-cm/google-hotels-estrategia-post-partner-google.md`**.  
+**Inicio con Beds24 (operación + API + checklist):** **`TASKS/tema/SM-gh-strategy-cm/beds24-integracion-inicio.md`**.
 
 ### 7.1 Feed de contenido (Hotel List) — agregador global
 
@@ -341,7 +342,7 @@ Documentación de contexto y inventario: **`TASKS/google-hotels-estrategia-post-
 | Fase | Acción |
 |------|--------|
 | **Fase A** | Implementar feeds globales (host **§7.9**, agregador tolerante a fallos + XSD **§7.10–§7.11**), observabilidad, landing + health; feeds tenant activos en paralelo. |
-| **Fase B** | Registrar en Google **solo** las dos URLs plataforma; checklist partner. **Estado 2026-05 (actualizado):** Google respondió que **no** integran nuevos partners **directos** por volumen; recomiendan **integration partner**. Trámite directo **pausado**; vía CM documentada en **`TASKS/google-hotels-estrategia-post-partner-google.md`**. El formulario de interés y contactos previos quedan como **historial**. |
+| **Fase B** | Registrar en Google **solo** las dos URLs plataforma; checklist partner. **Estado 2026-05 (actualizado):** Google respondió que **no** integran nuevos partners **directos** por volumen; recomiendan **integration partner**. Trámite directo **pausado**; vía CM documentada en **`TASKS/tema/SM-gh-strategy-cm/google-hotels-estrategia-post-partner-google.md`**. El formulario de interés y contactos previos quedan como **historial**. |
 | **Fase C** | Deprecar feeds por tenant en documentación si negocio confirma una sola fuente. |
 
 ### 7.8 Validación externa — OK al plan (contexto 2026-05)
@@ -389,7 +390,7 @@ Incorporadas como contrato de codificación (**Gemini — cierre de ciclo**):
 
 **Veredicto externo:** **PROCEDER** con PR — `TASKS/venta-ia.md` como fuente de verdad de ingeniería para el carril partner.
 
-**Implementación §7.11 (paridad primer precio visible, 2026-05-02):** en SSR `propiedad.ejs`, si la propiedad tiene `googleHotelData.isListed`, la barra de precio móvil usa la **tarifa publicada por noche** (lista sin descuento de promo en tarifa), coherente con el `<Baserate>` del feed partner; mensaje si hay promo activa que reduce el total en checkout. **Enlaces catálogo §7.6:** footer marketplace (`/google-hotels`) + tarjeta en SPA **Canales IA → Google**. **DeepLink en Property List global:** hoy `https://<tenant>/propiedad/<id>` sin query; la ficha **sí** entiende `?fechaLlegada=&fechaSalida=` (`website.property.helpers.js`). Si Google exige fechas en el enlace del XML en certificación, planificar extensión en `googleHotelsGlobalService.js` (ver **`TASKS/gemini-smoke-instrucciones.md` §7**).
+**Implementación §7.11 (paridad primer precio visible, 2026-05-02):** en SSR `propiedad.ejs`, si la propiedad tiene `googleHotelData.isListed`, la barra de precio móvil usa la **tarifa publicada por noche** (lista sin descuento de promo en tarifa), coherente con el `<Baserate>` del feed partner; mensaje si hay promo activa que reduce el total en checkout. **Enlaces catálogo §7.6:** footer marketplace (`/google-hotels`) + tarjeta en SPA **Canales IA → Google**. **DeepLink en Property List global:** hoy `https://<tenant>/propiedad/<id>` sin query; la ficha **sí** entiende `?fechaLlegada=&fechaSalida=` (`website.property.helpers.js`). Si Google exige fechas en el enlace del XML en certificación, planificar extensión en `googleHotelsGlobalService.js` (ver **`TASKS/tema/SM-venta-ia/gemini-smoke-instrucciones.md` §7**).
 
 ---
 
