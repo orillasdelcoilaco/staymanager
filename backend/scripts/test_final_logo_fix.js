@@ -8,7 +8,7 @@
 console.log('=== PRUEBA FINAL: SUBIDA DE LOGOS ===\n');
 
 console.log('1. VERIFICANDO CORRECCIONES IMPLEMENTADAS:');
-console.log('   ✅ Ruta corregida en empresa.js: ../../ai/openai/premium/handlePremiumApp');
+console.log('   ✅ Ruta corregida en empresa.js: ../ai/openai/premium/handlePremiumApp');
 console.log('   ✅ registerAppAttempt.js ahora no falla si falta OPENAI_API_KEY');
 console.log('   ✅ handlePremiumApp.js maneja errores mejor');
 console.log('   ✅ La subida de logos no se bloquea por App Premium\n');

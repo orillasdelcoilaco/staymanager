@@ -65,7 +65,7 @@ Este agente puede realizar:
 Este archivo es una **plantilla dinámica**.  
 Debe utilizarse para generar archivos individuales ubicados en:
 
-/ai/agentes/empresa/{{EMPRESA_ID}}.md
+`backend/ai/agentes/empresa/{{EMPRESA_ID}}.md`
 
 donde se reemplazarán automáticamente:
 - {{NOMBRE_EMPRESA}}

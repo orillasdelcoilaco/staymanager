@@ -22,7 +22,7 @@
 | **Panel SPA «Canales IA»** | **Operaciones → Canales IA** (`/canales-ia`): tokens ARI / Google Hotels content, semáforo operativo, tabla por alojamiento (`hotelId`, listado), bloque provisional **feeds globales partner** (selftest HTTP, §8); **`TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md`** enlaza aquí para dónde configurar en producto. |
 | `TASKS/tema/SM-venta-ia/qa-feed-ari-checklist.md` | QA del feed ARI. |
 | `TASKS/tema/SM-heatmap-qa/qa-heatmap-restricciones-e2e.md` | QA E2E mapa de calor (afecta conversión web / coherencia con API pública). |
-| `TASKS/tema/SM-venta-ia/chatgpt_integration_summary.md` | Resumen histórico ChatGPT + MCP; contrastar rutas con el código actual (`openapi/`, `ai/openai/mcp-server/`). |
+| `TASKS/tema/SM-venta-ia/chatgpt_integration_summary.md` | Resumen histórico ChatGPT + MCP; contrastar rutas con el código actual (`backend/openapi/`, `backend/ai/openai/mcp-server/`). |
 | `TASKS/tema/SM-propiedades/plan-gestion-propiedades.md` | Contexto JSON-LD / SEO en el flujo de alojamientos (complementario, no sustituye este archivo). |
 | **`TASKS/tema/SM-spa-menu/plan-reorganizacion-menu-spa.md`** | **Única referencia** menú SPA (taxonomía, fases, handoff). Entrada de lectura: **`LEER-PRIMERO.md`** → tabla estándares → fila **Menú SPA**. **No** modifica «Flujo de Trabajo». |
 | **`TASKS/tema/SM-venta-ia/qa-y-seguimiento-prelaunch-canales.md`** | QA panel tras cambios menú/Canales IA (**Parte 1**) y orden de trabajo **Google + OpenAPI** (**Parte 2**); enlaza con §4 de este archivo. Tras el enfoque partner (§7), Parte 2 distingue URL **tenant** vs **plataforma**. |
@@ -73,9 +73,9 @@ Documentación **para humanos y agentes**: usar estos datos en ejemplos y checkl
 | Prioridad | Canal | Objetivo |
 |-----------|--------|----------|
 | 1 | **Google Travel / Hotel Center (connectivity partner)** | Pasar de feeds **solo por tenant** a **feed agregado global** + landing plataforma + refuerzo de calidad (impuestos, inventario, Place ID, bypass verificador). Proceso externo Google (aprobación partner) en paralelo. Los feeds por host tenant pueden mantenerse en transición — ver **§7**. |
-| 2 | **ChatGPT Actions / OpenAI** | Mantener **`openapi/openapi-chatgpt.yaml`** alineado a rutas reales; pruebas del agente; políticas de uso. |
+| 2 | **ChatGPT Actions / OpenAI** | Mantener **`backend/openapi/openapi-chatgpt.yaml`** alineado a rutas reales; pruebas del agente; políticas de uso. |
 | 3 | **Perplexity + middleware (ej. SelfBook)** | Contacto comercial y, cuando exista acuerdo, adaptador (webhooks, OAuth, catálogo) según especificación del partner. |
-| 4 | **MCP (Model Context Protocol)** | Unificar/evolucionar servidor MCP sobre la misma lógica que la API (hoy código en **`ai/openai/mcp-server/`**; decisión abierta en coordinación **§8** sobre `backend/mcp/` + SDK si producto aprueba). |
+| 4 | **MCP (Model Context Protocol)** | Unificar/evolucionar servidor MCP sobre la misma lógica que la API (hoy código en **`backend/ai/openai/mcp-server/`**; decisión abierta en coordinación **§8** sobre `backend/mcp/` + SDK si producto aprueba). |
 | 5 | **Redes y mensajería** (Meta/WhatsApp/IG según `coordinacion` §9 tier 2–3) | Reutilizar `publicAiController` y reglas tenant; no duplicar lógica de precios/reserva. |
 
 ---
@@ -103,12 +103,12 @@ Documentación **para humanos y agentes**: usar estos datos en ejemplos y checkl
 - **Detalle alojamiento:** enriquecimiento comercial, `booking_workflow`, cotización en contexto, `requiere_confirmacion_final`.  
 - **Cotización dry-run:** `POST /api/reservas/cotizar` y `POST /api/public/reservas/cotizar` alineadas a checkout y política (sin cupones; no persisten).  
 - **Reserva pública:** validaciones alineadas a web; reconciliación de precio; metadata política / verificación; emails vía motor transaccional PostgreSQL.  
-- **OpenAPI:** versiones documentadas en **`openapi/openapi-chatgpt.yaml`** y gemini; endpoints `endpoints.cotizar_reserva_dry_run`, `requiere_confirmacion_reserva`, etc.
+- **OpenAPI:** versiones documentadas en **`backend/openapi/openapi-chatgpt.yaml`** y gemini; endpoints `endpoints.cotizar_reserva_dry_run`, `requiere_confirmacion_reserva`, etc.
 
 ### 2.4 ChatGPT / MCP (estado repo)
 
 - **OpenAPI** servido para integraciones tipo ChatGPT/Gemini.  
-- **Servidor MCP** existente bajo **`ai/openai/mcp-server/`** (p. ej. herramienta `buscar_empresa`); proxy / well-known según despliegue — validar contra `TASKS/tema/SM-venta-ia/chatgpt_integration_summary.md` y código actual.  
+- **Servidor MCP** existente bajo **`backend/ai/openai/mcp-server/`** (p. ej. herramienta `buscar_empresa`); proxy / well-known según despliegue — validar contra `TASKS/tema/SM-venta-ia/chatgpt_integration_summary.md` y código actual.  
 - **Agentes por empresa** (`ai/agentes/empresa/…`), plantillas, flujos de registro documentados en el resumen de integración.
 
 ### 2.5 Paridad con el mercado y conversión web
@@ -138,8 +138,8 @@ Documentación **para humanos y agentes**: usar estos datos en ejemplos y checkl
 
 | Gap | Acción sugerida |
 |-----|------------------|
-| OpenAPI vs rutas reales | Revisiones periódicas de **`openapi/openapi-chatgpt.yaml`** frente a `publicRoutes` / controladores; versionado SemVer del spec en changelog interno. |
-| MCP: dos visiones (`ai/openai/mcp-server` vs `backend/mcp` propuesto) | Decisión explícita en **`TASKS/coordinacion-cursor-claude-ia-venta.md` §8**: consolidar transporte, herramientas (`consultar_disponibilidad`, `crear_reserva`, …) y dependencia `@modelcontextprotocol/sdk`. |
+| OpenAPI vs rutas reales | Revisiones periódicas de **`backend/openapi/openapi-chatgpt.yaml`** frente a `publicRoutes` / controladores; versionado SemVer del spec en changelog interno. |
+| MCP: dos visiones (`backend/ai/openai/mcp-server` vs `backend/mcp` propuesto) | Decisión explícita en **`TASKS/coordinacion-cursor-claude-ia-venta.md` §8**: consolidar transporte, herramientas (`consultar_disponibilidad`, `crear_reserva`, …) y dependencia `@modelcontextprotocol/sdk`. |
 | Hallazgos Claude §9 JSON-LD **BookAction** / **AggregateOffer** | Mejorar schemas en SSR para Google AI Overview — solo backend vistas públicas; coordinar §3 si toca mismas props que precios IA. |
 
 ### 3.2 Google / Travel
@@ -190,7 +190,7 @@ Derivado de **`TASKS/backlog-producto-pendientes.md`** §5.x y §5.3, checklist 
 
 ### B) OpenAPI / ChatGPT
 
-- [x] Contrato **1.4.7** con **GET `/api/public/version`** documentado (ChatGPT + Gemini YAML); copia en `backend/openapi/openapi-chatgpt.yaml` alineada a raíz.  
+- [x] Contrato **1.4.7** con **GET `/api/public/version`** documentado (ChatGPT + Gemini YAML); especificación en **`backend/openapi/`** (fuente única en repo).  
 - [ ] Revisión contrato vs implementación tras cada cambio en rutas públicas IA.  
 - [ ] Prueba manual del flujo: búsqueda → disponibilidad → cotizar → reserva (staging).  
 - [ ] Documentar versión OpenAPI entregada al conector OpenAI (registrar **1.4.7** al publicar).
@@ -235,7 +235,7 @@ Lo siguiente está **implementado en código**; falta sobre todo **DoD documenta
 
 | Orden | Ítem | Estado técnico | Para dar por cerrado |
 |-------|------|----------------|----------------------|
-| 1 | **OpenAPI ChatGPT/Gemini** | Contrato **1.4.7** (`openapi/openapi-chatgpt.yaml`, `openapi/openapi-gemini.yaml`): incluye **GET `/api/public/version`**, changelog en `info.description`; copia sincronizada `backend/openapi/openapi-chatgpt.yaml`. | Tras cada cambio en rutas públicas IA: revisar que el YAML siga al código; registrar versión entregada al conector OpenAI/Gemini. |
+| 1 | **OpenAPI ChatGPT/Gemini** | Contrato **1.4.7** (`backend/openapi/openapi-chatgpt.yaml`, `backend/openapi/openapi-gemini.yaml`): incluye **GET `/api/public/version`**, changelog en `info.description`; **fuente única** bajo **`backend/openapi/`**. | Tras cada cambio en rutas públicas IA: revisar que el YAML siga al código; registrar versión entregada al conector OpenAI/Gemini. |
 | 2 | **Comparador “reserva directa” (§4.3 D)** | JSON `GET /propiedad/:id/comparador-ota.json`, UI en ficha cuando `comparableComplete`, `legalCopy`, logs `[comparador-ota]` — ver **`TASKS/backlog-producto-pendientes.md`** §4.3 D. | **DoD MVP (LISTO):** mostrar bloque solo con fechas válidas y `comparableComplete=true`; totales referenciales CLP desde tarifas internas (canal directo vs canal comparado configurado); texto legal vía `legalCopy`; sin obligación de cotizar precios de OTAs reales externas. **Fuera de alcance MVP:** integración con precios de terceros en vivo. |
 | 3 | **Google Hotel Center + feeds** | **Código §7** operativo en prod: feeds globales `feeds.` + `auth`, smoke estricto, feed contenido tenant con token, catálogo `/google-hotels` en apex/www tras DNS GoDaddy→Render (**§1.2**). **Pendiente negocio/Google:** respuesta post–*interest form*, alta de URLs en Hotel Center, checklist §4–§8 onboarding, XSD opcional §7.10 si Google lo exige. | Tras contacto Google: URLs registradas + primera validación sin errores bloqueantes; §7.10 si aplica; §8 cuando cierren partner. |
 | 4 | **Mapa de calor QA E2E** | Funcional en código + tests. | **LISTO (2026-05-03)** criterio técnico: §12 en `TASKS/tema/SM-heatmap-qa/qa-heatmap-restricciones-e2e.md` + `npm run test:ci`. Capturas en tenant opcional. |
@@ -261,13 +261,13 @@ Con esto el ítem deja de estar “parcial” salvo **QA puntual** en tenant de 
 
 | Área | Rutas / archivos típicos |
 |------|---------------------------|
-| OpenAPI ChatGPT | `openapi/openapi-chatgpt.yaml` |
+| OpenAPI ChatGPT | `backend/openapi/openapi-chatgpt.yaml` |
 | IA pública | `backend/controllers/publicAiController.js`, `suitemanagerApiController.js`, `publicAiDisponibilidadService.js`, `publicAiReservaCotizacionService.js`, `publicAiProductSnapshot.js` |
 | Rutas públicas | `backend/routes/publicRoutes.js`, `routes/api.js` (`GET /api/public/version` sin clave de agente) |
 | Feeds Google (tenant) | `backend/services/googleHotelsService.js`, `backend/routes/website.seo.js` |
 | **Connectivity Partner (implementación v1)** | **Agregador global:** `backend/services/googleHotelsGlobalService.js` (Property List + ARI global, IDs `propiedades.id`, filtros geo/Place ID, `auditPartnerListingGapsForEmpresa`). **Re-export:** `backend/services/googleHotelsPartner/googleHotelsPartnerFeeds.js` → mismo módulo. **Rutas:** `googleHotelsPartner.routes.js` (`createPartnerFeedsSubrouter`); **`backend/index.js`** monta `app.use('/feeds/google', …)` **antes** de `/api` y del catch-all SPA para que `feeds.suitemanagers.com/feeds/google/*.xml` no sirva `index.html` (evita redirect cliente a `/login`). Host permitido incluye `feeds.suitemanagers.com` / `api.*` y variantes `suite-manager.com` si aplica. **Validación XML:** `feedXmlWellformed.js`. **Selftest panel:** `partnerFeedsSelftest.js`; `config.routes.js` → `google-partner-feed-operator` / `selftest`. **ARI tenant/global:** `googleHotelsService.js` (`generateAriFeed`, …). **Health:** `googleHotelsHealthService.js` (`partnerGlobalFeed`). Catálogo **§7.6:** `GET /google-hotels`. Paridad **§7.11:** `propiedad.ejs` / `booking-widget.ejs`; `canalesIa.js` + `canalesIa.googlePartner.operator.js`. |
 | Panel Canales IA (SPA) | `frontend/src/views/canalesIa.js`, `frontend/src/router.js` (`/canales-ia`, menú Operaciones); `webPublica.general.unified.{js,markup.js,handlers.js}` (puente + preservación tokens); `alojamientos.modals.{js,render.js}` (CTA desde modal) |
-| MCP | `ai/openai/mcp-server/index.js` |
+| MCP | `backend/ai/openai/mcp-server/index.js` |
 | SSR / JSON-LD | `backend/routes/website.property.page.js`, `website.home.js`, vistas EJS |
 
 ---

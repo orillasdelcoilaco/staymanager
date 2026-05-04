@@ -1,14 +1,14 @@
 # QA pre-lanzamiento + seguimiento Canales / Google / OpenAPI
 
-**Propósito:** una sola lista para **(1)** validar menú + Canales IA tras los cambios recientes y **(2)** continuar con **operativización Google** y **revisión OpenAPI** según **`TASKS/venta-ia.md` §4**.
+**Propósito:** una sola lista para **(1)** validar menú + Canales IA tras los cambios recientes y **(2)** continuar con **operativización Google** y **revisión OpenAPI** según **`TASKS/tema/SM-venta-ia/venta-ia.md` §4**.
 
 **Relación con otros docs**
 
 | Documento | Uso |
 |-----------|-----|
-| **`TASKS/plan-reorganizacion-menu-spa.md`** | Taxonomía menú (Inventario / Sitio público); no repetir aquí. |
-| **`TASKS/venta-ia.md` §2.6 y §4** | Detalle Canales IA y checklist operativo unificado. |
-| **`TASKS/checklist-onboarding-google-hotel-center.md`** | Onboarding Google Hotel Center por tenant. |
+| **`TASKS/tema/SM-spa-menu/plan-reorganizacion-menu-spa.md`** | Taxonomía menú (Inventario / Sitio público); no repetir aquí. |
+| **`TASKS/tema/SM-venta-ia/venta-ia.md` §2.6 y §4** | Detalle Canales IA y checklist operativo unificado. |
+| **`TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md`** | Onboarding Google Hotel Center por tenant. |
 
 **Al cerrar una sesión:** marcar checkboxes hechos y anotar fecha/nombre en **§ Estado al pie**.
 
@@ -62,8 +62,8 @@ Respuesta JSON esperada: `version`, `timestamp` (y en código actual puede inclu
 
 ## Parte 2 — Seguimiento producto (después de Parte 1 OK)
 
-Orden sugerido: **Google (feeds + Hotel Center)** → **OpenAPI / flujo agente**. Detalle extendido en **`TASKS/venta-ia.md` §4**.  
-**Secuencia B (multi-agente, 2026-05):** **`TASKS/google-hotels-partner-deploy-checklist.md`** (*Secuencia B*) — deploy prod + DNS `api.`/`feeds.` + env partner → smoke global → onboarding Hotel Center **por tenant** (checklist onboarding §1–§8) → **§9** script (`npm run smoke:google-hotels-tenant`). El runbook de abajo cubre sobre todo **tenant + §9**; el checklist partner enlaza el bloque **B1–B2** antes.
+Orden sugerido: **Google (feeds + Hotel Center)** → **OpenAPI / flujo agente**. Detalle extendido en **`TASKS/tema/SM-venta-ia/venta-ia.md` §4**.  
+**Secuencia B (multi-agente, 2026-05):** **`TASKS/tema/SM-ghc-onboarding/google-hotels-partner-deploy-checklist.md`** (*Secuencia B*) — deploy prod + DNS `api.`/`feeds.` + env partner → smoke global → onboarding Hotel Center **por tenant** (checklist onboarding §1–§8) → **§9** script (`npm run smoke:google-hotels-tenant`). El runbook de abajo cubre sobre todo **tenant + §9**; el checklist partner enlaza el bloque **B1–B2** antes.
 
 ### Runbook — un solo tenant (Google feeds + script §9)
 
@@ -71,7 +71,7 @@ Sigue los pasos **en orden**. El script **`verify-google-hotels-feed-checklist.j
 No uses `http://localhost` salvo que tengas el mismo tenant resuelto en ese host (muchas veces el resolver espera subdominio real; si falla, usa la URL pública).
 
 **Paso 1 — Hoja de control**
-Abre **`TASKS/checklist-onboarding-google-hotel-center.md`** y completa **§0**, o genera el bloque desde **Operaciones → Canales IA** → **Google Hotels** → **Checklist Google — §0 automático** (copiar al portapapeles) y pégalo en tu nota o en el propio checklist.
+Abre **`TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md`** y completa **§0**, o genera el bloque desde **Operaciones → Canales IA** → **Google Hotels** → **Checklist Google — §0 automático** (copiar al portapapeles) y pégalo en tu nota o en el propio checklist.
 
 **Paso 2 — Panel (Canales IA)**  
 En **`/canales-ia`** (menú **Operaciones → Canales IA**):
@@ -117,13 +117,13 @@ Anotar en la tabla **Estado** (al pie de este archivo) si el tenant quedó **ope
 ### 2.A Google Hotel Center y feeds (checklist resumido)
 
 - [ ] Runbook anterior completado para **un** tenant piloto.
-- [ ] **`TASKS/checklist-onboarding-google-hotel-center.md`:** §0–§8 según negocio; §9 verificado con script cuando aplique URL pública.
+- [ ] **`TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md`:** §0–§8 según negocio; §9 verificado con script cuando aplique URL pública.
 - [ ] Opcional: probar `https://<tenant>/feed-ari.xml` en navegador si usáis ARI con Google.
 - [ ] Registrar por empresa: **operativo** / **bloqueado** + siguiente acción.
 
 ### 2.B OpenAPI / ChatGPT
 
-- [ ] Tras cualquier cambio en rutas públicas IA: diff **`openapi/openapi-chatgpt.yaml`** (y gemini si aplica) vs rutas reales (`backend/routes/publicRoutes.js`, controladores).
+- [ ] Tras cualquier cambio en rutas públicas IA: diff **`backend/openapi/openapi-chatgpt.yaml`** (y gemini si aplica) vs rutas reales (`backend/routes/publicRoutes.js`, controladores).
 - [ ] Prueba manual flujo agente en **staging** (o local con claves): búsqueda → disponibilidad → cotizar → reserva (según política).
 - [ ] Anotar versión OpenAPI entregada al conector (**1.4.7** u otra) al publicar.
 

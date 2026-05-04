@@ -50,7 +50,7 @@ module.exports = (db) => {
             // [NEW] Generar/Actualizar App Premium automáticamente al tener logo
             // Esto se ejecuta en background y no bloquea la respuesta
             try {
-                const { handlePremiumApp } = require('../../ai/openai/premium/handlePremiumApp');
+                const { handlePremiumApp } = require('../ai/openai/premium/handlePremiumApp');
                 // Necesitamos el nombre comercial actualizado
                 const empresa = await obtenerDetallesEmpresa(db, empresaId);
 

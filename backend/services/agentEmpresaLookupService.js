@@ -1,5 +1,5 @@
 const pool = require('../db/postgres');
-const { detectEmpresaIdFromText } = require('../../ai/router/empresaNameDetector');
+const { detectEmpresaIdFromText } = require('../ai/router/empresaNameDetector');
 
 /**
  * Resuelve texto libre ("Prueba 1", "prueba1") → empresa Postgres para /buscar-empresa.

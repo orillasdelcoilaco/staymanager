@@ -1,16 +1,53 @@
 openapi: 3.1.0
 info:
   title: SuiteManager Public API for Gemini
-  version: 1.2.0
+  version: 1.4.7
   description: |
     API pública para extensiones Gemini. Listados usan **producto_ia_v2**: precio por tarifas PG, ubicación, amenidades
     (metadata + inventario componentes), políticas mergeadas (empresa + propiedad), alias `precioBase`/`ciudad`/`direccion_corta`.
     Tras listar, llamar **obtenerDetalleAlojamiento** para ficha completa (galería, inventario_verificado, normas).
 
+    **v1.3:** capa comercial en JSON: `contexto_turistico`, `amenidades_publicas`, `inventario_detallado`, `descripcion_fuente`,
+    galería con `espacio` y `tipo_ia`, ubicación ampliada desde website/buildContext cuando exista.
+
+    **v1.4:** detalle con `checkin`/`checkout` opcionales devuelve `precio_estimado` (canal por defecto + desglose checkout).
+
+    **v1.4.1:** `POST /api/reservas/cotizar` — cotización dry-run (sin persistir); equivalente `POST /api/public/reservas/cotizar`.
+
+    **v1.4.2:** Path explícito `POST /api/public/reservas/cotizar` en OpenAPI (cabeceras de agente alineadas a `POST /api/public/reservas`).
+
+    **v1.4.3:** Detalle incluye `booking_workflow` (mismas ideas que ChatGPT YAML).
+
+    **v1.4.4:** Disponibilidad documenta `endpoints` y `requiere_confirmacion_reserva`.
+
+    **v1.4.5:** nuevo `POST /api/reservas/resolve-booking-unit` (y espejo público) para traducir `catalog_id` a `booking_id` antes de reservar.
+    **v1.4.6:** `/ai/buscar-empresa` prioriza empresas listas para venta y expone diagnóstico mínimo de tarifas.
+
+    **v1.4.7:** `GET /api/public/version` documentado (health ligero del API público).
+
 servers:
   - url: https://suite-manager.onrender.com
 
 paths:
+
+  /api/public/version:
+    get:
+      operationId: versionApiPublica
+      summary: Versión del contrato API pública (diagnóstico / smoke).
+      description: |
+        No requiere clave de agente. `version` alinea con `info.version` de este OpenAPI (contrato), no con el build de la app. Override: env `PUBLIC_API_CONTRACT_VERSION`.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version: { type: string, example: "1.4.7" }
+                  contract: { type: string, example: "openapi-gemini-chatgpt" }
+                  timestamp: { type: string, format: date-time }
+                  deployed_at: { type: string, format: date-time }
 
   /ai/buscar-empresa:
     get:
@@ -33,6 +70,13 @@ paths:
                   success: { type: boolean }
                   empresaId: { type: string, nullable: true }
                   nombre: { type: string }
+                  ready_for_sales: { type: boolean }
+                  diagnostico_tarifas:
+                    type: object
+                    nullable: true
+                    properties:
+                      canal_por_defecto_configurado: { type: boolean }
+                      tarifas_totales: { type: integer }
                   agentContent: { type: string }
 
   /ai/busqueda-general:
@@ -40,7 +84,7 @@ paths:
       operationId: busquedaGeneralGemini
       summary: Búsqueda global en PostgreSQL (mismo enriquecimiento que listado público v2).
       description: |
-        Devuelve `resultados[]` con **producto_ia_v2**. Query `compact=0` o `compact=full` amplía descripción y amenidades.
+        Devuelve `resultados[]` con **producto_ia_v2**. Opcional `vibe` / `vibes` (coma o +) filtra por amenidades/entorno.
       parameters:
         - in: query
           name: q
@@ -67,6 +111,9 @@ paths:
           name: compact
           description: "0 o full = payload menos recortado (más texto y amenidades)."
           schema: { type: string, default: "1" }
+        - in: query
+          name: vibe
+          schema: { type: string }
       responses:
         "200":
           description: Lista enriquecida (producto_ia_v2)
@@ -161,7 +208,10 @@ paths:
   /api/disponibilidad:
     get:
       operationId: consultarDisponibilidad
-      summary: Consulta disponibilidad por empresa
+      summary: Disponibilidad enriquecida (fotos, precio por estadía, restricciones, motivos).
+      description: |
+        Payload `disponibilidad_ia_v1`: `consulta_valida`, `motivo_consulta`, `reglas_estadia`, alojamientos con `foto_url`,
+        `precio_total_estadia_clp` si aplica, `motivo_no_disponible` si no.
       parameters:
         - in: query
           name: empresa_id
@@ -179,23 +229,26 @@ paths:
           schema: { type: integer }
       responses:
         "200":
-          description: Alojamientos con bandera disponible
+          description: disponibilidad_ia_v1
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   success: { type: boolean }
+                  payload_version: { type: string }
+                  consulta_valida: { type: boolean }
                   disponibles: { type: integer }
                   alojamientos:
                     type: array
-                    items:
-                      type: object
-                      properties:
-                        id: { type: string }
-                        nombre: { type: string }
-                        disponible: { type: boolean }
-                        capacidad: { type: integer }
+                    items: { type: object }
+                  requiere_confirmacion_reserva: { type: boolean }
+                  endpoints:
+                    type: object
+                    properties:
+                      galeria: { type: string }
+                      detalle: { type: string }
+                      cotizar_reserva_dry_run: { type: string }
 
   /api/alojamientos/detalle:
     get:
@@ -204,6 +257,7 @@ paths:
       description: |
         Usar **siempre** tras elegir un alojamiento para preguntas de parrilla, mascotas, camas, wifi, etc.
         `precio.origen` indica si el monto vino de metadata o de tarifas PG.
+        Con checkin/checkout opcionales se incluye `precio_estimado` por estadía. Incluye **booking_workflow** (dry-run cotizar + ejemplo reserva).
       parameters:
         - in: query
           name: alojamiento_id
@@ -211,6 +265,15 @@ paths:
           schema:
             type: string
             description: UUID de propiedad en PostgreSQL
+        - in: query
+          name: checkin
+          schema: { type: string, format: date }
+        - in: query
+          name: checkout
+          schema: { type: string, format: date }
+        - in: query
+          name: adultos
+          schema: { type: integer, minimum: 1, default: 2 }
       responses:
         "200":
           description: ProductoIaDetalle (producto_ia_v2)
@@ -289,6 +352,148 @@ paths:
                         capacidad: { type: integer }
                         empresa_id: { type: string }
 
+  /api/reservas/resolve-booking-unit:
+    post:
+      operationId: resolveBookingUnitGemini
+      summary: Traduce catalog_id visible a booking_id transaccional.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                empresa_id: { type: string }
+                catalog_id: { type: string }
+                checkin: { type: string }
+                checkout: { type: string }
+                personas: { type: integer }
+      responses:
+        "200":
+          description: booking_id resuelto y disponibilidad para el rango.
+        "404":
+          description: No se encontró unidad reservable para catalog_id en la empresa.
+        "422":
+          description: Capacidad insuficiente o fechas inválidas.
+
+  /api/public/reservas/resolve-booking-unit:
+    post:
+      operationId: resolveBookingUnitPublicGemini
+      summary: Igual que /api/reservas/resolve-booking-unit bajo /api/public.
+      parameters:
+        - in: header
+          name: X-Agent-API-Key
+          required: false
+          schema: { type: string }
+        - in: header
+          name: X-Agent-Name
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                empresa_id: { type: string }
+                catalog_id: { type: string }
+                checkin: { type: string }
+                checkout: { type: string }
+                personas: { type: integer }
+      responses:
+        "200":
+          description: booking_id resuelto y disponibilidad para el rango.
+        "403":
+          description: Clave de agente inválida.
+        "404":
+          description: No se encontró unidad reservable para catalog_id en la empresa.
+        "422":
+          description: Capacidad insuficiente o fechas inválidas.
+
+  /api/reservas/cotizar:
+    post:
+      operationId: cotizarReservaGemini
+      summary: >-
+        Cotización previa (dry-run): mismas validaciones y precio que crear reserva, sin persistir.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                empresa_id: { type: string }
+                alojamiento_id: { type: string }
+                checkin: { type: string }
+                checkout: { type: string }
+                adultos: { type: integer }
+                ninos: { type: integer }
+                origen:
+                  type: string
+                  default: gemini
+                huesped:
+                  type: object
+                  properties:
+                    nombre: { type: string }
+                    apellido: { type: string }
+                    email: { type: string }
+                    telefono: { type: string }
+      responses:
+        "200":
+          description: Cotización (cotizacion_ok) o motivo estructurado si no aplica
+        "400":
+          description: PostgreSQL requerido o empresa no resuelta
+        "503":
+          description: Servicio no disponible
+
+  /api/public/reservas/cotizar:
+    post:
+      operationId: cotizarReservaPublicGemini
+      summary: >-
+        Cotización dry-run bajo `/api/public` (mismo cuerpo y respuesta que `/api/reservas/cotizar`; rate limit y agente como `POST /api/public/reservas`).
+      parameters:
+        - in: header
+          name: X-Agent-API-Key
+          required: false
+          schema: { type: string }
+        - in: header
+          name: X-Agent-Name
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                empresa_id: { type: string }
+                alojamiento_id: { type: string }
+                checkin: { type: string }
+                checkout: { type: string }
+                adultos: { type: integer }
+                ninos: { type: integer }
+                origen:
+                  type: string
+                  default: gemini
+                huesped:
+                  type: object
+                  properties:
+                    nombre: { type: string }
+                    apellido: { type: string }
+                    email: { type: string }
+                    telefono: { type: string }
+      responses:
+        "200":
+          description: Igual que `POST /api/reservas/cotizar`
+        "400":
+          description: Validación o sin PostgreSQL
+        "403":
+          description: Clave de agente inválida
+        "503":
+          description: Servicio no disponible
+
   /api/reservas:
     post:
       operationId: crearReservaGemini
@@ -328,6 +533,8 @@ components:
   schemas:
     ProductoIaUbicacion:
       type: object
+      description: >-
+        Primero metadata de la propiedad; si siguen vacíos, ciudad/región/geo desde configuración de empresa.
       properties:
         direccion: { type: string }
         ciudad: { type: string }
@@ -336,6 +543,32 @@ components:
         lat: { type: number, nullable: true }
         lng: { type: number, nullable: true }
         direccion_linea: { type: string }
+
+    ProductoIaPrecioPorEstadia:
+      type: object
+      properties:
+        checkin: { type: string }
+        checkout: { type: string }
+        noches: { type: integer }
+        moneda: { type: string }
+        total_estadia_clp: { type: integer, nullable: true }
+        promedio_noche_clp: { type: integer, nullable: true }
+        extras_estimados_clp: { type: integer, nullable: true }
+        lineas_extra_preview:
+          type: array
+          nullable: true
+          items:
+            type: object
+        modelo_checkout: { type: string, nullable: true }
+        iva_desglosado_clp: { type: integer, nullable: true }
+        neto_desglosado_clp: { type: integer, nullable: true }
+
+    ProductoIaSenalesRanking:
+      type: object
+      properties:
+        senales:
+          type: array
+          items: { type: string }
 
     ProductoIaPrecio:
       type: object
@@ -346,6 +579,9 @@ components:
           type: string
           nullable: true
           description: metadata.precioBase | tarifas.canal_por_defecto | tarifas.min_cualquier_canal
+        por_estadia:
+          $ref: "#/components/schemas/ProductoIaPrecioPorEstadia"
+          nullable: true
 
     ProductoIaPoliticas:
       type: object
@@ -364,6 +600,21 @@ components:
         dormitorios: { type: integer }
         banos: { type: integer }
 
+    ProductoIaContextoTuristico:
+      type: object
+      properties:
+        tipo_viaje:
+          type: array
+          items: { type: string }
+        entorno:
+          type: array
+          items: { type: string }
+          description: Heurístico (texto + ciudad/región); ski, termas, lago, montaña, etc.
+        destacados:
+          type: array
+          items: { type: string }
+        sugerencia_copy: { type: string, nullable: true }
+
     ProductoIaListingCard:
       type: object
       properties:
@@ -380,9 +631,20 @@ components:
         ubicacion:
           $ref: "#/components/schemas/ProductoIaUbicacion"
         descripcion: { type: string, nullable: true }
+        descripcion_fuente:
+          type: string
+          nullable: true
         amenidades:
           type: array
           items: { type: string }
+        amenidades_publicas:
+          type: array
+          items: { type: string }
+        inventario_detallado:
+          type: array
+          items: { type: string }
+        contexto_turistico:
+          $ref: "#/components/schemas/ProductoIaContextoTuristico"
         distribucion:
           $ref: "#/components/schemas/ProductoIaDistribucion"
         politicas:
@@ -390,6 +652,9 @@ components:
         resumen_normas: { type: string, nullable: true }
         foto_url: { type: string, nullable: true }
         rating: { type: number, nullable: true }
+        rating_fuente: { type: string, nullable: true }
+        senales_ranking_ia:
+          $ref: "#/components/schemas/ProductoIaSenalesRanking"
         listada_web: { type: boolean }
         payload_version: { type: string, example: producto_ia_v2 }
         precioBase:
@@ -410,8 +675,12 @@ components:
         thumbnail_url: { type: string, nullable: true }
         alt: { type: string }
         tipo: { type: string }
+        espacio: { type: string, nullable: true }
+        tipo_ia: { type: string }
         orden: { type: integer }
-        principal: { type: boolean }
+        principal:
+          type: boolean
+          description: Portada inferida (rol principal, cardImage, o primera foto).
 
     ProductoIaInventarioItem:
       type: object
@@ -433,6 +702,27 @@ components:
               icon: { type: string }
               text: { type: string }
 
+    ProductoIaPrecioEstimado:
+      type: object
+      properties:
+        checkin: { type: string }
+        checkout: { type: string }
+        moneda: { type: string }
+        noches: { type: integer }
+        disponible: { type: boolean, nullable: true }
+        calculo_ok: { type: boolean }
+        codigo: { type: string, nullable: true }
+        subtotal_alojamiento_clp: { type: integer, nullable: true }
+        total_estadia_clp:
+          type: integer
+          nullable: true
+          description: Alias de subtotal_alojamiento_clp.
+        promedio_noche_clp: { type: integer, nullable: true }
+        desglose_checkout: { type: object, nullable: true }
+        referencia: { type: object, nullable: true }
+        aviso: { type: string, nullable: true }
+        mensaje: { type: string, nullable: true }
+
     ProductoIaDetalle:
       allOf:
         - $ref: "#/components/schemas/ProductoIaListingCard"
@@ -444,6 +734,9 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/ProductoIaInventarioItem"
+            inventario_detallado:
+              type: array
+              items: { type: string }
             normas:
               type: object
               properties:
@@ -463,6 +756,30 @@ components:
               properties:
                 total: { type: integer }
                 promedio_general: { type: number, nullable: true }
+            precio_estimado:
+              $ref: "#/components/schemas/ProductoIaPrecioEstimado"
+              nullable: true
+            aviso_precio_estimado:
+              type: object
+              nullable: true
+              properties:
+                requiere_query:
+                  type: array
+                  items: { type: string }
+                mensaje: { type: string }
+            requiere_confirmacion_final: { type: boolean }
+            booking_workflow:
+              type: object
+              description: Flujo sugerido PG (disponibilidad, detalle, dry-run cotizar, reserva).
+              properties:
+                paso_1: { type: string }
+                paso_resolve: { type: string }
+                paso_resolve_body: { type: object }
+                paso_2: { type: string }
+                paso_2b: { type: string }
+                paso_2b_body: { type: object }
+                paso_3: { type: string }
+                paso_3_body: { type: object }
 
     BusquedaGeneralAiResponse:
       type: object
@@ -479,6 +796,7 @@ components:
             limit: { type: integer }
             compact: { type: boolean }
             payload: { type: string, example: producto_ia_v2 }
+            vibe: { type: string, nullable: true }
 
     PublicAiListInnerMeta:
       type: object

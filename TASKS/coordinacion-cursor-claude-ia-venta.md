@@ -64,7 +64,7 @@ Estas piezas afectan **directamente** lo que ve ChatGPT / acciones OpenAPI y lo 
 |------|---------------------------|---------------------------|
 | Precio reserva / tarifas | `calculoValoresService.js`, `tarifasService.js` (`obtenerTarifasParaConsumidores`), `website.shared.js` (`fetchTarifasYCanal`), `publicWebsiteService.js` | Totales distintos IA vs checkout; promos `metadata.promo` desalineadas |
 | Reserva pública IA | `publicAiController.js` (`createPublicReservation`, `quotePriceForDates`, `createBookingIntent`) | 422/409, montos incorrectos, doble canal (`IA Reserva` vs default). **2026-04-24:** al tocar este archivo, alinear con regla *id/semántica, no nombre de canal/plantilla* (`SHARED_CONTEXT.md`, `TASKS/tema/SM-ids-vs-names/audit-identificadores-vs-nombres-ui.md`) |
-| OpenAPI / GPT | `openapi/openapi-chatgpt.yaml`, `suitemanagerApiController.js`, `publicRoutes.js` | El agente llama endpoints rotos o con body distinto |
+| OpenAPI / GPT | `backend/openapi/openapi-chatgpt.yaml`, `suitemanagerApiController.js`, `publicRoutes.js` | El agente llama endpoints rotos o con body distinto |
 | Checkout web SSR | `website.booking.js`, `reservar.ejs`, `public/js/checkout.js`, `crearReservaPublica`, reconciliación precio, aceptación términos | Regresiones en reserva humana al “alinear” IA |
 | Feeds Google Hotels **globales** (connectivity partner) | Nuevo módulo **solo host plataforma** (`TASKS/tema/SM-venta-ia/venta-ia.md` §7); **no** mezclar con `website.seo.js` tenant | Precios en XML ≠ checkout tenant; roturas en verificación Google / Price Accuracy |
 
@@ -156,7 +156,7 @@ _Formato: `YYYY-MM-DD — Actor — una frase`._
 - 2026-05-01 — Cursor — Menú SPA **Fase 1**: **Inventario** + **Sitio público** (sin tocar Flujo de Trabajo); **`TASKS/tema/SM-spa-menu/plan-reorganizacion-menu-spa.md`**.
 - 2026-05-01 — Cursor — SPA **Operaciones → Canales IA**: checklist Google **§0 automático** (pre + Copiar + banner sin URL pública); `canalesIa.checklistGoogleS0.js`; doc **`venta-ia.md` §2.6**, **`qa-y-seguimiento-prelaunch-canales.md`** §1.2, backlog contexto; handoff §4.1 actualizado; sin cambio OpenAPI/API agente.
 - 2026-05-01 — Cursor — SPA **Operaciones → Canales IA** (`/canales-ia`): tokens feeds + semáforo Google Hotels + tabla `hotelId`/listado por alojamiento; puente desde Configurar sitio web; modal alojamientos → CTA; doc **`TASKS/tema/SM-venta-ia/venta-ia.md` §2.6**, backlog §5.3/§6, checklist Google, **`LEER-PRIMERO.md`** paso 4; handoff §4.1 rellenado.
-- 2026-05-02 — Cursor — OpenAPI ChatGPT/Gemini **1.4.7**: documentado **GET `/api/public/version`**; `backend/openapi/openapi-chatgpt.yaml` sincronizado con raíz; comparador §4.3 D DoD en **`TASKS/tema/SM-venta-ia/venta-ia.md` §5.2**.
+- 2026-05-02 — Cursor — OpenAPI ChatGPT/Gemini **1.4.7**: documentado **GET `/api/public/version`**; contrato en **`backend/openapi/`** (fuente única); comparador §4.3 D DoD en **`TASKS/tema/SM-venta-ia/venta-ia.md` §5.2**.
 - 2026-05-02 — Cursor — **Venta IA:** sin OTAs de terceros como **canal de venta**; aclarado que iCal/reportes/sync de reservas (operación PMS) no se elimina — distinto de vender vía OTA. Documentos alineados.
 - 2026-05-01 — Cursor — **`TASKS/tema/SM-venta-ia/venta-ia.md`:** consolida roadmap canales IA (antes §5.3 largo en backlog), checklist unificado, gaps; backlog §5.3 enlaza; lectura obligatoria en `LEER-PRIMERO.md` si toca venta IA.
 - 2026-04-29 — Cursor — **§5.3 solo Cursor:** objetivos por canal en backlog, jugada API+MCP+JSON-LD+SSR, checklist §5.x **F**; chat Agent dedicado + regla **`45-canales-venta-solo-cursor.mdc`**; fila Claude multi-canal → **PAUSA**; §9 alineado.
@@ -187,7 +187,7 @@ _Formato: `YYYY-MM-DD — Actor — una frase`._
 |-----|--------|
 | Crear reserva desde agente | `POST /api/public/reservas` o `POST /api/reservas` → `publicAiController.createPublicReservation` |
 | Cotizar reserva (dry-run) | `POST /api/reservas/cotizar` o `POST /api/public/reservas/cotizar` → `publicAiReservaCotizacionService.cotizarReservaIaPublica`; OpenAPI **1.4.4** |
-| OpenAPI ChatGPT | `openapi/openapi-chatgpt.yaml` |
+| OpenAPI ChatGPT | `backend/openapi/openapi-chatgpt.yaml` |
 | Motor de precio compartido (panel / propuestas / muchas rutas) | `services/utils/calculoValoresService.js` |
 | Precio checkout SSR + reconciliación | `publicWebsiteService.js` |
 | Backlog producto (tarifas, §4 checkout) | `TASKS/backlog-producto-pendientes.md` |

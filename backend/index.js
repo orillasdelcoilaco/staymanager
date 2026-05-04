@@ -108,7 +108,7 @@ try {
     }));
 
     // Habilitar CORS solo para las rutas de OpenAPI
-    app.use('/openapi', cors(), express.static(path.join(__dirname, '../openapi'), {
+    app.use('/openapi', cors(), express.static(path.join(__dirname, 'openapi'), {
         setHeaders: (res, filePath) => {
             if (filePath.endsWith('.json')) {
                 res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -119,7 +119,7 @@ try {
 
     // Ruta directa a /openapi.json
     app.get('/openapi.json', cors(), (req, res) => {
-        const file = path.join(__dirname, '../openapi', 'openapi.json');
+        const file = path.join(__dirname, 'openapi', 'openapi.json');
         res.sendFile(file, err => {
             if (err) {
                 console.error('Error al servir openapi.json:', err);
@@ -130,17 +130,17 @@ try {
 
     // Ruta para openapi-chatgpt.yaml
     app.get("/openapi-chatgpt.yaml", cors(), (req, res) => {
-        res.sendFile(path.join(__dirname, "../openapi/openapi-chatgpt.yaml"));
+        res.sendFile(path.join(__dirname, 'openapi/openapi-chatgpt.yaml'));
     });
 
     // [NEW] Ruta para openapi-gemini.yaml
     app.get("/openapi-gemini.yaml", cors(), (req, res) => {
-        res.sendFile(path.join(__dirname, "../openapi/openapi-gemini.yaml"));
+        res.sendFile(path.join(__dirname, 'openapi/openapi-gemini.yaml'));
     });
 
     // [NEW] Ruta para claude-tools.json
     app.get("/claude-tools.json", cors(), (req, res) => {
-        res.sendFile(path.join(__dirname, "../openapi/claude-tools.json"));
+        res.sendFile(path.join(__dirname, 'openapi/claude-tools.json'));
     });
 
     const PORT = process.env.PORT || 3001;

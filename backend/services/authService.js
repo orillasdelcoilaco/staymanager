@@ -5,6 +5,7 @@
  */
 const pool = require('../db/postgres');
 const createCompanyGPT = require('../ai/scripts/create-company-gpt');
+const { generateAgentForCompany } = require('../ai/utils/generateAgentForCompany');
 
 function mapPgConflict(error) {
     if (error && error.code === '23505') {
@@ -66,9 +67,7 @@ const register = async (admin, _db, { nombreEmpresa, email, password }) => {
 
     (async () => {
         try {
-            if (typeof generateAgentForCompany === 'function') {
-                await generateAgentForCompany(empresaId, nombreNormalizado);
-            }
+            await generateAgentForCompany(empresaId, nombreNormalizado);
             createCompanyGPT({ id: empresaId, nombre: nombreNormalizado, plan: 'premium' });
         } catch (err) {
             console.error('No se pudo generar el agente automáticamente:', err.message);

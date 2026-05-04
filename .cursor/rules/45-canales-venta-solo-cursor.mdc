@@ -1,6 +1,6 @@
 ---
 description: Carril canales de venta / MCP / OpenAPI — solo Cursor, sin Claude Code
-globs: openapi/**,backend/mcp/**,ai/openai/mcp-server/**
+globs: backend/openapi/**,backend/mcp/**,backend/ai/openai/mcp-server/**
 alwaysApply: false
 ---
 
@@ -9,5 +9,5 @@ alwaysApply: false
 - Este carril lo ejecuta **solo Cursor** (Composer o Agent). **No** depender de Claude Code / Antigravity para roadmap ni código de este carril.
 - **Roadmap y checklist unificado:** leer **`TASKS/tema/SM-venta-ia/venta-ia.md`** al iniciar la sesión (además del backlog general si aplica).
 - Antes de cambiar precios, `publicAiController`, OpenAPI consumido por checkout o contratos públicos: leer **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §2 y §3 (zona caliente).
-- **MCP:** decisión de dependencia en coordinación §8; código hoy en **`ai/openai/mcp-server/`**; propuesta **`backend/mcp/`** en §9.1A si se aprueba SDK.
+- **MCP:** decisión de dependencia en coordinación §8; código hoy en **`backend/ai/openai/mcp-server/`**; propuesta **`backend/mcp/`** en §9.1A si se aprueba SDK.
 - Para mantener contexto: usar **un chat de Agent dedicado** con nombre estable (p. ej. «Canales venta — MCP») y pegar al inicio la ruta a **`TASKS/tema/SM-venta-ia/venta-ia.md`**.

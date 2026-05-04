@@ -20,7 +20,7 @@ router.get("/buscar-empresa", async (req, res) => {
         if (found?.id) {
             const agentPath = path.join(
                 __dirname,
-                `../../ai/agentes/empresa/${found.id}.md`
+                `../ai/agentes/empresa/${found.id}.md`
             );
 
             let agentContent = "";

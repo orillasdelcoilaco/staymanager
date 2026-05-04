@@ -1,34 +1,29 @@
-const fs = require('fs');
+const { exec } = require('child_process');
 const path = require('path');
 
-/**
- * Genera el archivo de agente interno para una nueva empresa.
- * @param {string} empresaId - ID de la empresa.
- * @param {string} nombreEmpresa - Nombre de la empresa.
- */
-const generateAgentForCompany = async (empresaId, nombreEmpresa) => {
-    try {
-        const agentesDir = path.join(__dirname, '../agentes/empresa');
+function generateAgentForCompany(empresaId, nombreEmpresa) {
+    return new Promise((resolve, reject) => {
+        const scriptPath = path.join(__dirname, '..', 'scripts', 'create-agent.js');
 
-        // Asegurar que el directorio existe
-        if (!fs.existsSync(agentesDir)) {
-            fs.mkdirSync(agentesDir, { recursive: true });
-        }
+        const command = `node "${scriptPath}" --empresaId=${empresaId} --nombre="${nombreEmpresa}"`;
 
-        const filePath = path.join(agentesDir, `${empresaId}.md`);
+        console.log(`\n⚙️ Generando agente automáticamente para empresa: ${empresaId}\n`);
 
-        const content = `Eres el asistente virtual de ${nombreEmpresa}.
-Tu objetivo es ayudar a los clientes a encontrar alojamiento y responder dudas sobre la empresa.
-Utiliza las herramientas disponibles para consultar disponibilidad y detalles de alojamientos.
-Siempre sé amable y profesional.`;
+        exec(command, (error, stdout, stderr) => {
+            if (error) {
+                console.error('❌ Error generando agente:', error);
+                return reject(error);
+            }
+            if (stderr) {
+                console.error('⚠️ Advertencia:', stderr);
+            }
 
-        fs.writeFileSync(filePath, content, 'utf8');
-        console.log(`[generateAgentForCompany] Agente creado en: ${filePath}`);
-        return true;
-    } catch (error) {
-        console.error('[generateAgentForCompany] Error creando agente:', error);
-        throw error;
-    }
+            console.log(stdout);
+            resolve(stdout);
+        });
+    });
+}
+
+module.exports = {
+    generateAgentForCompany
 };
-
-module.exports = { generateAgentForCompany };

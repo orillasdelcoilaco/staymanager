@@ -110,7 +110,7 @@ function renderChatgptTab() {
                     <p class="font-semibold text-gray-800">API pública</p>
                     <p id="canales-ia-public-version" class="font-mono text-gray-600">Consultando versión desplegada…</p>
                     <p class="text-gray-500">
-                        Contrato OpenAPI del repo: <span class="font-mono">openapi/openapi-chatgpt.yaml</span> (ChatGPT Actions / integradores).
+                        Contrato OpenAPI del repo: <span class="font-mono">backend/openapi/openapi-chatgpt.yaml</span> (ChatGPT Actions / integradores).
                         Misma lógica de negocio que el sitio público y este panel.
                     </p>
                 </div>
@@ -128,7 +128,7 @@ function renderGeminiTab() {
                 <h2 class="font-semibold text-gray-800 mb-2">Gemini (Google AI Studio)</h2>
                 <p class="text-sm text-gray-600 mb-3">
                     Usa el mismo backend que ChatGPT; no hay toggles obligatorios por empresa en esta pestaña.
-                    Contrato YAML en repo: <span class="font-mono text-xs">openapi/openapi-gemini.yaml</span>.
+                    Contrato YAML en repo: <span class="font-mono text-xs">backend/openapi/openapi-gemini.yaml</span>.
                 </p>
                 <p class="text-xs text-gray-500 mb-4">
                     Ajustes compartidos (políticas, depósitos, mapa de calor) siguen en <strong>Sitio público → Configuración Web</strong>.

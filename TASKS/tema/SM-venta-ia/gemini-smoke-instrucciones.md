@@ -1,12 +1,12 @@
 # Instrucciones para Gemini — smoke API pública StayManager / SuiteManager
 
-**Uso:** copiar este bloque (y opcionalmente adjuntar **`openapi/openapi-gemini.yaml`** del repo) en Google AI Studio / Gemini como contexto para que **ejecute o proponga** pruebas HTTP contra el backend.
+**Uso:** copiar este bloque (y opcionalmente adjuntar **`backend/openapi/openapi-gemini.yaml`** del repo) en Google AI Studio / Gemini como contexto para que **ejecute o proponga** pruebas HTTP contra el backend.
 
 ### Aclaraciones (evitar falsos positivos)
 
 1. **Push a GitHub:** no hace falta **para probar** si `https://suitemanagers.com` ya apunta al backend en Render: los GET son al código **ya desplegado**. Hace falta **push + deploy** solo para **cambiar** el comportamiento del servidor (nuevo código). Los smoke HTTP los puede ejecutar Gemini / `curl` / navegador contra la URL pública mientras responda 200.
 2. **`GET /api/public/version`:** el campo `version` del JSON es la **versión de contrato API pública** (p. ej. alineada a `info.version` del OpenAPI, por defecto **1.4.7** vía `PUBLIC_API_CONTRACT_VERSION` o constante en código), **no** el número de build de la app. Tras un deploy reciente, debe ser coherente con el YAML.
-3. **`/ai/buscar-empresa` y `ready_for_sales`:** indica si la empresa está **lista para venta por canal/tarifas** en nuestro modelo; no es un campo oficial “apto Google Hotel Center” — el feed global partner tiene reglas adicionales (listado, geo, etc. en `TASKS/venta-ia.md` §7).
+3. **`/ai/buscar-empresa` y `ready_for_sales`:** indica si la empresa está **lista para venta por canal/tarifas** en nuestro modelo; no es un campo oficial “apto Google Hotel Center” — el feed global partner tiene reglas adicionales (listado, geo, etc. en `TASKS/tema/SM-venta-ia/venta-ia.md` §7).
 4. **Rutas distintas:** detalle rico para agentes: **`GET /api/alojamientos/detalle`** (prefijo `/api/`, no `/api/public/`) con `alojamiento_id` y opcionalmente `checkin` / `checkout`. Los paths bajo **`/api/public/*`** son el router `publicRoutes.js` (otro prefijo).
 5. **JSON (API) vs XML (Google):** feeds partner en **`feeds.<domino>/feeds/google/*.xml`** con `?auth=` — no son el mismo formato que el JSON; validación distinta.
 
@@ -16,7 +16,7 @@
 
 ## 1. Contrato OpenAPI
 
-- Archivo en el repo: **`openapi/openapi-gemini.yaml`** (versión en `info.version`, ej. **1.4.7**).
+- Archivo en el repo: **`backend/openapi/openapi-gemini.yaml`** (versión en `info.version`, ej. **1.4.7**).
 - El campo **`servers.url`** del YAML puede estar desactualizado respecto a producción; **sustituir** siempre por la base real.
 
 ---
@@ -91,21 +91,21 @@ Los feeds globales **no** van en `openapi-gemini.yaml`: son
 | Qué | Cómo | Notas |
 |-----|------|--------|
 | Partner **estricto** | Misma máquina: `GH_PARTNER_FEED_BASE_URL`, `GH_PARTNER_FEED_AUTH_TOKEN`, luego `GH_PARTNER_FEED_STRICT=1 npm run smoke:partner-feeds` | Falla si no hay `<Property>` en alguno de los dos XML (datos panel / geo / listado). |
-| Feed **contenido por tenant** | `GH_FEED_BASE_URL=https://<host-tenant>` y si aplica `GH_FEED_TOKEN=…` → `npm run smoke:google-hotels-tenant` | Script `verify-google-hotels-feed-checklist.js` — §9 de `TASKS/checklist-onboarding-google-hotel-center.md`. |
+| Feed **contenido por tenant** | `GH_FEED_BASE_URL=https://<host-tenant>` y si aplica `GH_FEED_TOKEN=…` → `npm run smoke:google-hotels-tenant` | Script `verify-google-hotels-feed-checklist.js` — §9 de `TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md`. |
 | Ayuda SSR | `GET {host-tenant}/widget-reserva-ayuda.json` — bloque `googleHotelsContentFeed` | Lo comprueba el script anterior. |
 | Catálogo plataforma | Navegador: `https://suitemanagers.com/google-hotels` (y `?lang=en` si aplica) | §7.6 / marketplace. |
-| Hotel Center | Consola Google: URLs finales, mapeo, validación | Fuera del repo; orden **Secuencia B** en `TASKS/google-hotels-partner-deploy-checklist.md`; onboarding §4–§8 en `checklist-onboarding-google-hotel-center.md`. |
+| Hotel Center | Consola Google: URLs finales, mapeo, validación | Fuera del repo; orden **Secuencia B** en `TASKS/tema/SM-ghc-onboarding/google-hotels-partner-deploy-checklist.md`; onboarding §4–§8 en `checklist-onboarding-google-hotel-center.md`. |
 
 ---
 
 ## 7. Hotel Center, ARI “OTA” y deep links (cuando Gemini u otro asesor sugieren revisar)
 
 **1) Acceso a Hotel Center**  
-Correcto: tras el *interest form* / onboarding, Google habilita trabajo en **Hotel Center** (carga de **Hotel List** / URLs de **ARI**, mapeo de propiedades, validaciones). Eso **no** se automatiza desde el repo; seguir la guía de Google y `TASKS/checklist-onboarding-google-hotel-center.md`.
+Correcto: tras el *interest form* / onboarding, Google habilita trabajo en **Hotel Center** (carga de **Hotel List** / URLs de **ARI**, mapeo de propiedades, validaciones). Eso **no** se automatiza desde el repo; seguir la guía de Google y `TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md`.
 
 **2) “OTA_HotelRateAmountNotifRQ” y nodos `Tax`**  
 En SuiteManager el ARI para Google (`generateAriFeed` en `backend/services/googleHotelsService.js`) emite un **subconjunto** bajo `<Transaction>…<Result>…<Property>…<RoomData>` con `<Inventory>`, `<Rate>`, `<Baserate currency="…" all_inclusive="true">` (estrategia **B** de `venta-ia.md` §7.9: precio final con impuestos en el baserate, **sin** hijos `<Tax>` explícitos).  
-Eso **no** reproduce necesariamente el sobre XML completo **OTA_HotelRateAmountNotifRQ** de un OTA clásico; la validación fuerte es la **documentación / XSD del programa Google Hotels** (`hotel_inventory.xsd` o el que indique Google) — ver **`TASKS/venta-ia.md` §7.10** (`GOOGLE_HOTELS_XSD_PATH` + `xmllint` en el entorno de deploy cuando toque certificación).  
+Eso **no** reproduce necesariamente el sobre XML completo **OTA_HotelRateAmountNotifRQ** de un OTA clásico; la validación fuerte es la **documentación / XSD del programa Google Hotels** (`hotel_inventory.xsd` o el que indique Google) — ver **`TASKS/tema/SM-venta-ia/venta-ia.md` §7.10** (`GOOGLE_HOTELS_XSD_PATH` + `xmllint` en el entorno de deploy cuando toque certificación).  
 Pedir a un LLM “revisar OTA_HotelRateAmountNotifRQ” **sin** pegar el XSD oficial y el XML real suele dar **falsos positivos/negativos**; mejor: `xmllint --noout --schema … archivo.xml` cuando tengan el esquema.
 
 **3) Deep link con fechas (Price Accuracy)**  
@@ -151,7 +151,7 @@ Sustituir el host si usáis otro (`feeds.suitemanagers.com` o el que tengáis en
 
 ---
 
-**Contexto comercial (2026-05):** Google **no** está incorporando nuevos partners de conectividad **directos**; ver **`TASKS/google-hotels-estrategia-post-partner-google.md`**. Los feeds del repo siguen válidos como **base técnica** / demos.
+**Contexto comercial (2026-05):** Google **no** está incorporando nuevos partners de conectividad **directos**; ver **`TASKS/tema/SM-gh-strategy-cm/google-hotels-estrategia-post-partner-google.md`**. Los feeds del repo siguen válidos como **base técnica** / demos.
 
 ---
 

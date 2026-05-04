@@ -1,10 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
-// Index path: /ai/agentes/empresa/index.json
-// Generated automatically by your agent creation script
-// Index path: ../../backend/ai/router/empresas.json
-const indexPath = path.join(__dirname, '..', '..', 'backend', 'ai', 'router', 'empresas.json');
+// Índice estático generado / mantenido junto al detector (misma carpeta).
+const indexPath = path.join(__dirname, 'empresas.json');
 
 function loadIndex() {
     if (!fs.existsSync(indexPath)) return [];

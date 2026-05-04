@@ -69,8 +69,8 @@ Orden de ítems:
 ## Fase 3 — Canales IA (implementado)
 
 - Cinta informativa «Inventario / Sitio público / Canales IA» en cabecera de la vista.
-- Pestaña **ChatGPT:** bloque que llama `GET /api/public/version` vía `fetchAPI('/public/version')`, referencia a `openapi/openapi-chatgpt.yaml`, CTA a Configuración Web.
-- Pestaña **Gemini:** texto + `openapi/openapi-gemini.yaml`, CTA Configuración Web.
+- Pestaña **ChatGPT:** bloque que llama `GET /api/public/version` vía `fetchAPI('/public/version')`, referencia a `backend/openapi/openapi-chatgpt.yaml`, CTA a Configuración Web.
+- Pestaña **Gemini:** texto + `backend/openapi/openapi-gemini.yaml`, CTA Configuración Web.
 - Mensaje vacío tabla Google: **Inventario → Alojamientos**.
 
 *(Migración futura de más formularios a esta vista = backlog producto / `venta-ia.md`, no obligatorio para cerrar este plan.)*
@@ -96,20 +96,20 @@ Configuración                      (+ tooltip)
 
 ## QA rápido
 
-Checklist **completo** (menú + Canales IA + puente Config Web + opcional `curl`): **`TASKS/qa-y-seguimiento-prelaunch-canales.md`** — Parte 1.
+Checklist **completo** (menú + Canales IA + puente Config Web + opcional `curl`): **`TASKS/tema/SM-venta-ia/qa-y-seguimiento-prelaunch-canales.md`** — Parte 1.
 
 Mínimo rápido:
 
 - [ ] Pasar el ratón por categorías e ítems: aparece tooltip (`title`).
 - [ ] **Operaciones:** orden y nombre «Canales de venta».
 - [ ] **Canales IA:** pestaña ChatGPT muestra respuesta de `/api/public/version` o mensaje de error claro.
-- [ ] `node scripts/audit-ui-monitored.js` tras cambios UI.
+- [ ] `node scripts/tooling/audit-ui-monitored.js` tras cambios UI.
 
 ---
 
 ## Referencias
 
-- **`TASKS/venta-ia.md`** §2.6 — modelo Canales IA y panel.
+- **`TASKS/tema/SM-venta-ia/venta-ia.md`** §2.6 — modelo Canales IA y panel.
 - **`TASKS/backlog-producto-pendientes.md`** §6 — rutas SPA (sin rutas nuevas en este plan).
 
 ---

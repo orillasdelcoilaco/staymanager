@@ -2,7 +2,7 @@
 
 **Propósito:** documento de trabajo **exclusivo para UI/UX** del sitio público de la **plataforma** (apex / `www`), no del panel SPA ni del SSR por tenant. Sirve para iterar hacia una experiencia tipo **referencia Airbnb** (patrón de conversión y jerarquía visual) sin confundir alcance con contratos de IA o feeds Google.
 
-**Lectura previa obligatoria en sesiones que toquen esto:** `LEER-PRIMERO.md` → `SHARED_CONTEXT.md`; si el cambio puede rozar precios, OpenAPI o feeds globales: `TASKS/venta-ia.md` + `TASKS/coordinacion-cursor-claude-ia-venta.md` (§2 estado, §3 zona caliente).
+**Lectura previa obligatoria en sesiones que toquen esto:** `LEER-PRIMERO.md` → `SHARED_CONTEXT.md`; si el cambio puede rozar precios, OpenAPI o feeds globales: `TASKS/tema/SM-venta-ia/venta-ia.md` + `TASKS/coordinacion-cursor-claude-ia-venta.md` (§2 estado, §3 zona caliente).
 
 ---
 
@@ -11,7 +11,7 @@
 | Incluye | No incluye (salvo tarea explícita aparte) |
 |---------|-------------------------------------------|
 | EJS marketplace: `backend/views/marketplace/*` | Lógica nueva de precios / disponibilidad / reserva |
-| Estilos del marketplace: `<style>` en EJS, clases, assets bajo `/public` usados solo por marketplace | Cambios a `openapi/*.yaml`, `publicAiController`, `suitemanagerApiController` |
+| Estilos del marketplace: `<style>` en EJS, clases, assets bajo `/public` usados solo por marketplace | Cambios a `backend/openapi/*.yaml`, `publicAiController`, `suitemanagerApiController` |
 | Copy i18n marketplace: `backend/services/marketplaceUiStrings.js` | Feeds XML partner (`/feeds/google/…`), `googleHotelsGlobalService.js` |
 | Orden visual, grid, hero, búsqueda, CTAs, tipografía, espaciado | Panel SPA **Canales IA** (`frontend/src/views/canalesIa.js`) — otro documento / tarea |
 | Accesibilidad básica (contraste, foco, labels) | Mezclar componentes o rutas SPA dentro del SSR marketplace |
@@ -70,7 +70,7 @@ Si una mejora UI **requiere** nuevo campo de API o cambio en `GET /api/search.js
 - [ ] No se importó lógica SPA en EJS.
 - [ ] Copy sensible multi-idioma vía `marketplaceUiStrings` (no strings sueltas sin ES/EN).
 - [ ] Tras cambios de clases/CSS: `cd backend && npm run build` si aplica Tailwind al bundle website.
-- [ ] `node scripts/audit-ui-monitored.js` desde la raíz del repo.
+- [ ] `node scripts/tooling/audit-ui-monitored.js` desde la raíz del repo.
 - [ ] Si se tocó contrato o JSON público: **no** es “solo UI”; documentar en `coordinacion-cursor-claude-ia-venta.md`.
 
 ---
