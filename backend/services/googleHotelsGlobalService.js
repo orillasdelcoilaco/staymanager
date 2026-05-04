@@ -10,8 +10,11 @@ const crypto = require('crypto');
 const pool = require('../db/postgres');
 const { generateAriFeed } = require('./googleHotelsService');
 const { buildPublicBookingBaseUrl, extractOfficialSiteContact } = require('./googleHotelsPartner/publicBookingUrl');
+const { resolveFeedPrimaryImageUrl } = require('./googleHotelsPartner/feedImageUrl');
+const { buildPropertyListItemXml } = require('./googleHotelsPartner/feedPropertyListBlock');
 const { assertPartnerFeedXml } = require('./googleHotelsPartner/feedXmlWellformed');
 const { resolveEffectiveGoogleHotelsAddress } = require('./googleHotelsEmpresaAddress');
+const { extractLatLng } = require('./googleHotelsPartner/propertyFeedGeo');
 
 function _safeObj(v) {
     return v && typeof v === 'object' ? v : {};
@@ -67,32 +70,6 @@ function extractPlaceId(gh) {
     const raw = gh.placeId ?? gh.place_id ?? gh.google_place_id;
     const s = raw != null ? String(raw).trim() : '';
     return s || null;
-}
-
-/**
- * Coordenadas para feed global: propiedad / googleHotelData / metadata.ubicacion,
- * o fallback empresa.ubicacion si tipoNegocio es complejo u hotel (misma sede).
- */
-function extractLatLng(meta, gh, empresaConfig) {
-    const ubi = meta.ubicacion && typeof meta.ubicacion === 'object' ? meta.ubicacion : {};
-    const g = gh.geo && typeof gh.geo === 'object' ? gh.geo : {};
-    let latRaw = g.lat != null ? g.lat : (gh.latitude != null ? gh.latitude : ubi.lat);
-    let lngRaw = g.lng != null ? g.lng : (gh.longitude != null ? gh.longitude : ubi.lng ?? ubi.lon);
-    let lat = latRaw != null && Number.isFinite(Number(latRaw)) ? Number(latRaw) : null;
-    let lng = lngRaw != null && Number.isFinite(Number(lngRaw)) ? Number(lngRaw) : null;
-
-    const cfg = _safeObj(empresaConfig);
-    const tipo = String(cfg.tipoNegocio || 'complejo').toLowerCase();
-    if ((tipo === 'complejo' || tipo === 'hotel') && (lat == null || lng == null)) {
-        const empUbi = _safeObj(cfg.ubicacion);
-        const elat = empUbi.lat != null && Number.isFinite(Number(empUbi.lat)) ? Number(empUbi.lat) : null;
-        const elng = empUbi.lng != null && Number.isFinite(Number(empUbi.lng))
-            ? Number(empUbi.lng)
-            : (empUbi.lon != null && Number.isFinite(Number(empUbi.lon)) ? Number(empUbi.lon) : null);
-        if (lat == null) lat = elat;
-        if (lng == null) lng = elng;
-    }
-    return { lat, lng };
 }
 
 async function fetchListedPropertyRows() {
@@ -159,7 +136,6 @@ function resolvePartnerListing(row, skipped) {
         postalCode: postalMerged,
         province: String(effAddr.province || '').trim(),
     };
-    const fotoUrl = meta.linkFotos ? String(meta.linkFotos) : null;
     const city = String(addr.city || addr.locality || '').trim();
     const { phone, website } = extractOfficialSiteContact(row.empresa_configuracion);
     const category = partnerPropertyCategoryFromEmpresa(row.empresa_configuracion);
@@ -174,7 +150,6 @@ function resolvePartnerListing(row, skipped) {
         placeId,
         deepLink,
         addr,
-        fotoUrl,
         city,
         phone,
         website,
@@ -182,41 +157,33 @@ function resolvePartnerListing(row, skipped) {
     };
 }
 
-function buildOnePropertyBlock(row, skipped) {
-    const core = resolvePartnerListing(row, skipped);
-    if (!core) return '';
-
-    const xmlId = escapeXml(core.propertyDbId);
-    const { nombre, lat, lng, deepLink, addr, fotoUrl, phone, website, category } = core;
-
-    let body = `    <Property id="${xmlId}">\n`;
-    body += `      <Name>${escapeXml(nombre)}</Name>\n`;
-    body += `      <Address format="simple">\n`;
-    body += `        <addr1>${escapeXml(String(addr.street || ''))}</addr1>\n`;
-    body += `        <city>${escapeXml(String(addr.city || addr.locality || ''))}</city>\n`;
-    if (addr.province) {
-        body += `        <province>${escapeXml(String(addr.province))}</province>\n`;
+/**
+ * Primer `storage_url` de galería por par (empresa_id, propiedad_id).
+ */
+async function fetchGaleriaFirstImageByEmpresaPropiedad(rows) {
+    const map = new Map();
+    if (!pool || !rows.length) return map;
+    const empresaIds = rows.map((r) => String(r.empresa_id));
+    const propiedadIds = rows.map((r) => String(r.id));
+    try {
+        const { rows: gRows } = await pool.query(
+            `SELECT DISTINCT ON (g.empresa_id, g.propiedad_id)
+                    g.empresa_id, g.propiedad_id, g.storage_url
+               FROM galeria g
+               INNER JOIN (
+                  SELECT TRIM(x) AS x, TRIM(y) AS y
+                    FROM UNNEST($1::text[], $2::text[]) AS u(x, y)
+               ) v ON g.empresa_id::text = v.x AND g.propiedad_id::text = v.y
+              ORDER BY g.empresa_id, g.propiedad_id, g.orden ASC NULLS LAST`,
+            [empresaIds, propiedadIds]
+        );
+        for (const r of gRows) {
+            map.set(`${r.empresa_id}::${r.propiedad_id}`, r.storage_url);
+        }
+    } catch (e) {
+        console.warn('[googleHotelsGlobalService] fetchGaleriaFirstImageByEmpresaPropiedad:', e.message);
     }
-    if (addr.postalCode || addr.postal_code) {
-        body += `        <postal_code>${escapeXml(String(addr.postalCode || addr.postal_code || ''))}</postal_code>\n`;
-    }
-    body += `        <country>${escapeXml(String(addr.countryCode || addr.country || ''))}</country>\n`;
-    body += `      </Address>\n`;
-    body += `      <category>${escapeXml(category)}</category>\n`;
-    body += `      <Latitude>${formatDecimalCoord(lat)}</Latitude>\n`;
-    body += `      <Longitude>${formatDecimalCoord(lng)}</Longitude>\n`;
-    if (phone) {
-        body += `      <Phone>${escapeXml(phone)}</Phone>\n`;
-    }
-    if (website) {
-        body += `      <Website>${escapeXml(website)}</Website>\n`;
-    }
-    if (fotoUrl) {
-        body += `      <Photo URL="${escapeXml(fotoUrl)}"/>\n`;
-    }
-    body += `      <DeepLink>${escapeXml(deepLink)}</DeepLink>\n`;
-    body += `    </Property>\n`;
-    return body;
+    return map;
 }
 
 /**
@@ -229,15 +196,18 @@ async function getPartnerCatalogItems() {
     const rows = await fetchListedPropertyRows();
     const skipped = [];
     const items = [];
+    const galeriaMap = await fetchGaleriaFirstImageByEmpresaPropiedad(rows);
     for (const row of rows) {
         const core = resolvePartnerListing(row, skipped);
         if (!core) continue;
+        const galUrl = galeriaMap.get(`${row.empresa_id}::${row.id}`);
+        const fotoUrl = resolveFeedPrimaryImageUrl(row, galUrl);
         items.push({
             propertyId: core.propertyDbId,
             hotelId: core.hotelId,
             title: core.nombre,
             deepLink: core.deepLink,
-            fotoUrl: core.fotoUrl,
+            fotoUrl,
             city: core.city,
         });
     }
@@ -255,10 +225,34 @@ async function generateGlobalPropertyListXml(_db) {
     const rows = await fetchListedPropertyRows();
     const skipped = [];
     const parts = [];
+    const galeriaMap = await fetchGaleriaFirstImageByEmpresaPropiedad(rows);
     for (const row of rows) {
         try {
-            const frag = buildOnePropertyBlock(row, skipped);
-            if (frag) parts.push(frag);
+            const core = resolvePartnerListing(row, skipped);
+            if (!core) continue;
+            const galUrl = galeriaMap.get(`${row.empresa_id}::${row.id}`);
+            const fotoUrl = resolveFeedPrimaryImageUrl(row, galUrl);
+            const frag = buildPropertyListItemXml({
+                xmlPropertyId: core.propertyDbId,
+                nombre: core.nombre,
+                addr: {
+                    street: core.addr.street,
+                    city: core.addr.city,
+                    locality: core.addr.locality,
+                    province: core.addr.province,
+                    postalCode: core.addr.postalCode,
+                    countryCode: core.addr.countryCode,
+                },
+                category: core.category,
+                lat: core.lat,
+                lng: core.lng,
+                phone: core.phone,
+                website: core.website,
+                fotoUrl,
+                deepLink: core.deepLink,
+                formatDecimalCoord,
+            });
+            parts.push(frag);
         } catch (e) {
             skipped.push({
                 empresaId: row.empresa_id,

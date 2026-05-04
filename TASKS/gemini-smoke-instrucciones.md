@@ -124,12 +124,12 @@ En el **Property List global**, el `<DeepLink>` hoy es la **URL base** de la fic
 |------------------|------------------------------|
 | **`<Property id>`** | En el feed **global**, `id` es el **UUID de PostgreSQL `propiedades.id`** (estable, alineado con deep link `/propiedad/:id` y con el ARI global cuando `partnerXmlIdsFromDatabase`). **`googleHotelData.hotelId`** no va en el atributo `id` aquí; sí debe estar en metadata para mapeo en Hotel Center. En el feed **tenant** `feed-google-hotels-content.xml`, el código usa **`hotelId`** como `Property id` (`generatePropertyListFeed`) — son dos convenciones según feed; para partner único importa el **global**. |
 | **`<Name>`** | Nombre de la propiedad (`propiedades.nombre`). |
-| **`<Address format="simple">`** | Desglose: `<addr1>`, `<city>`, `<province>` (si hay `region` en metadata/empresa), `<postal_code>` si hay código, `<country>`. Resolución: `googleHotelsEmpresaAddress.js` + fallback empresa. |
+| **`<Address>`** | Sub-etiquetas alineadas a guías Google: `<AddressLine>`, `<City>`, opcional `<StateProv>`, `<PostalCode>`, `<Country>`. Resolución: `googleHotelsEmpresaAddress.js` + fallback empresa. |
 | **`<category>`** | `hotel` si `configuracion.tipoNegocio === hotel`; si no, **`vacation_rental`** (cabins / complejos). No se deja vacío. |
 | **`<Latitude>` / `<Longitude>`** | Obligatorios para entrar al feed; fallback empresa ubicación si complejo/hotel (`extractLatLng`). Valores numéricos con **punto decimal** (no coma). Sin geo → la propiedad se **excluye** (`skipped` / health). |
 | **`<Photo>`** | Opcional: primera foto desde `metadata.linkFotos`. |
 | **`<DeepLink>`** | URL absoluta al checkout SSR base del tenant + `/propiedad/<uuid>` (`buildPublicBookingBaseUrl`). |
-| **`<Phone>` / `<Website>`** | Se emiten **si** hay datos: teléfono = `websiteSettings.contact.telefonoPrincipal` → `general.whatsapp` → `configuracion.telefono`; sitio = **origen público** mismo que deep link base (`buildPublicBookingBaseUrl`). Orden en XML: tras coordenadas, antes de `<Photo>`. |
+| **`<Phone>` / `<Website>`** | Teléfono como **`<Phone number="…"/>`** (atributo); sitio = URL pública (`buildPublicBookingBaseUrl`). Imagen: **`<PhotoURL>`** con URL **directa** a archivo (jpg/png…); si `linkFotos` es una página web, se intenta `websiteData.cardImage` / galería Postgres (`feedImageUrl.js`). Feed tenant incluye **lat/lng** y **DeepLink** `/propiedad/:id`. |
 
 ### 8.2 ARI (`/feeds/google/ari.xml`)
 

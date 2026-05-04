@@ -4,7 +4,10 @@ const pool = require('../db/postgres');
 const { obtenerPropiedadesPorEmpresa } = require('./propiedadesService');
 const { getAvailabilityData } = require('./propuestasService');
 const { resolveEffectiveGoogleHotelsAddress } = require('./googleHotelsEmpresaAddress');
-const { extractOfficialSiteContact } = require('./googleHotelsPartner/publicBookingUrl');
+const { extractOfficialSiteContact, buildPublicBookingBaseUrl } = require('./googleHotelsPartner/publicBookingUrl');
+const { extractLatLng } = require('./googleHotelsPartner/propertyFeedGeo');
+const { resolveFeedPrimaryImageUrl } = require('./googleHotelsPartner/feedImageUrl');
+const { buildPropertyListItemXml } = require('./googleHotelsPartner/feedPropertyListBlock');
 
 // Función para escapar caracteres XML (sin cambios)
 const escapeXml = (unsafe) => {
@@ -25,9 +28,32 @@ function uniqueXmlTransactionId(prefix) {
     return `${prefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
 }
 
+async function fetchGaleriaStorageByPropIds(empresaId, propIds) {
+    const map = new Map();
+    if (!pool || !propIds.length) return map;
+    try {
+        const { rows } = await pool.query(
+            `SELECT DISTINCT ON (propiedad_id) propiedad_id, storage_url
+               FROM galeria
+              WHERE empresa_id = $1 AND propiedad_id = ANY($2::uuid[])
+              ORDER BY propiedad_id, orden ASC NULLS LAST`,
+            [empresaId, propIds]
+        );
+        for (const r of rows) map.set(String(r.propiedad_id), r.storage_url);
+    } catch (e) {
+        console.warn('[generatePropertyListFeed] galeria:', e.message);
+    }
+    return map;
+}
+
+function formatDecimalCoordTenant(n) {
+    if (n == null || !Number.isFinite(Number(n))) return '0';
+    return String(Number(n));
+}
+
 const generatePropertyListFeed = async (_db, empresaId) => {
     const propiedades = await obtenerPropiedadesPorEmpresa(null, empresaId);
-    const propiedadesListadas = propiedades.filter(p => p.googleHotelData && p.googleHotelData.isListed && p.googleHotelData.hotelId);
+    const propiedadesListadas = propiedades.filter((p) => p.googleHotelData && p.googleHotelData.isListed && p.googleHotelData.hotelId);
 
     let empresaCfg = {};
     if (pool) {
@@ -46,36 +72,42 @@ const generatePropertyListFeed = async (_db, empresaId) => {
     xml += `  <Result>\n`;
 
     const { phone: tenantPhone, website: tenantWebsite } = extractOfficialSiteContact(empresaCfg);
+    const baseUrl = buildPublicBookingBaseUrl(empresaCfg);
+    const propIds = propiedadesListadas.map((p) => p.id);
+    const galeriaMap = await fetchGaleriaStorageByPropIds(empresaId, propIds);
 
-    propiedadesListadas.forEach(prop => {
-        xml += `    <Property id="${escapeXml(prop.googleHotelData.hotelId)}">\n`;
-        xml += `      <Name>${escapeXml(prop.nombre)}</Name>\n`;
+    for (const prop of propiedadesListadas) {
+        const metaGeo = { ubicacion: prop.ubicacion };
+        const gh = prop.googleHotelData || {};
+        const { lat, lng } = extractLatLng(metaGeo, gh, empresaCfg);
+        if (lat == null || lng == null) continue;
+
         const effAddr = resolveEffectiveGoogleHotelsAddress(prop, empresaCfg);
-        if (effAddr) {
-            xml += `      <Address format="simple">\n`;
-            xml += `        <addr1>${escapeXml(effAddr.street)}</addr1>\n`;
-            xml += `        <city>${escapeXml(effAddr.city)}</city>\n`;
-            if (effAddr.province) {
-                xml += `        <province>${escapeXml(effAddr.province)}</province>\n`;
-            }
-            if (effAddr.postalCode) {
-                xml += `        <postal_code>${escapeXml(effAddr.postalCode)}</postal_code>\n`;
-            }
-            xml += `        <country>${escapeXml(effAddr.countryCode)}</country>\n`;
-            xml += `      </Address>\n`;
-        }
-        xml += `      <category>${escapeXml(category)}</category>\n`;
-        if (tenantPhone) {
-            xml += `      <Phone>${escapeXml(tenantPhone)}</Phone>\n`;
-        }
-        if (tenantWebsite) {
-            xml += `      <Website>${escapeXml(tenantWebsite)}</Website>\n`;
-        }
-        if (prop.linkFotos) {
-            xml += `      <Photo URL="${escapeXml(prop.linkFotos)}"/>\n`;
-        }
-        xml += `    </Property>\n`;
-    });
+        if (!effAddr) continue;
+
+        const fotoUrl = resolveFeedPrimaryImageUrl(prop, galeriaMap.get(String(prop.id)));
+        const deepLink = baseUrl ? `${String(baseUrl).replace(/\/$/, '')}/propiedad/${prop.id}` : '';
+
+        xml += buildPropertyListItemXml({
+            xmlPropertyId: prop.googleHotelData.hotelId,
+            nombre: prop.nombre,
+            addr: {
+                street: effAddr.street,
+                city: effAddr.city,
+                province: effAddr.province,
+                postalCode: effAddr.postalCode,
+                countryCode: effAddr.countryCode,
+            },
+            category,
+            lat,
+            lng,
+            phone: tenantPhone,
+            website: tenantWebsite,
+            fotoUrl,
+            deepLink,
+            formatDecimalCoord: formatDecimalCoordTenant,
+        });
+    }
 
     xml += `  </Result>\n`;
     xml += `</Transaction>`;
