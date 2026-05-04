@@ -4,10 +4,10 @@ globs: openapi/**,backend/mcp/**,ai/openai/mcp-server/**
 alwaysApply: false
 ---
 
-# Canales de venta (`TASKS/venta-ia.md`; backlog §5.3 enlaza el detalle)
+# Canales de venta (`TASKS/tema/SM-venta-ia/venta-ia.md`; backlog §5.3 enlaza el detalle)
 
 - Este carril lo ejecuta **solo Cursor** (Composer o Agent). **No** depender de Claude Code / Antigravity para roadmap ni código de este carril.
-- **Roadmap y checklist unificado:** leer **`TASKS/venta-ia.md`** al iniciar la sesión (además del backlog general si aplica).
+- **Roadmap y checklist unificado:** leer **`TASKS/tema/SM-venta-ia/venta-ia.md`** al iniciar la sesión (además del backlog general si aplica).
 - Antes de cambiar precios, `publicAiController`, OpenAPI consumido por checkout o contratos públicos: leer **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §2 y §3 (zona caliente).
 - **MCP:** decisión de dependencia en coordinación §8; código hoy en **`ai/openai/mcp-server/`**; propuesta **`backend/mcp/`** en §9.1A si se aprueba SDK.
-- Para mantener contexto: usar **un chat de Agent dedicado** con nombre estable (p. ej. «Canales venta — MCP») y pegar al inicio la ruta a **`TASKS/venta-ia.md`**.
+- Para mantener contexto: usar **un chat de Agent dedicado** con nombre estable (p. ej. «Canales venta — MCP») y pegar al inicio la ruta a **`TASKS/tema/SM-venta-ia/venta-ia.md`**.

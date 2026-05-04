@@ -1,0 +1,23 @@
+---
+description: Tablero TASKS + carpeta por tema (ID SM-*) — actualizar al trabajar o cerrar
+alwaysApply: true
+---
+
+# Tablero y carpeta `TASKS/tema/<id>/`
+
+## Obligatorio cuando la sesión toca código o documentación acoplada a un **tema de producto**
+
+1. **Identificar el tema** por **`TASKS/tablero.md`**: columna **ID** (ej. `SM-rel-v100`). Si el trabajo **no** encaja en ninguna fila, **crear fila nueva** con un ID nuevo (convención en `TASKS/tema/README.md`) y carpeta **`TASKS/tema/<id>/`**.
+2. **Actualizar la fila** en `TASKS/tablero.md`: columna (Backlog → En curso → Listo/Bloqueado), **rama** si existe, **última nota** con fecha, **enlaces** a PR o archivos clave.
+3. **Archivos del tema:** todo lo específico de esa iniciativa va **en la raíz de** `TASKS/tema/<id>/` — audit, checklist, qa, guía, plan-acción, notas, borradores, etc. **Sin subcarpetas obligatorias.** Nombrar archivos con prefijo claro del tipo: `qa-*.md`, `audit-*.md`, `checklist-*.md`, `plan-accion-*.md`, `guia-*.md`, `pending-*.md`, etc. (misma idea que el `TASKS/` histórico, pero **agrupado por ID de tema**).
+4. **`README.md`** en esa carpeta (recomendado): objetivo del tema, estado, punteros al backlog § y **lista corta** de los `.md` más importantes del directorio si hay muchos.
+5. **Subcarpetas opcionales:** solo si el volumen lo exige (decisión humana), por ejemplo un proceso grande y aislado; no son parte del estándar.
+6. **Cerrar tema:** columna **Listo** en `TASKS/tablero.md`; en `README.md` del tema, línea de cierre (fecha, PR/commit). Si aplica, enlazar **`TASKS/backlog-producto-pendientes.md`**.
+
+## Documentación global en la raíz de `TASKS/`
+
+`backlog-producto-pendientes.md`, `coordinacion-cursor-claude-ia-venta.md`, `coordinacion-cursor-paralelo.md`, `tablero.md`, … permanecen en **`TASKS/`**. El roadmap **Venta por IA** está en **`TASKS/tema/SM-venta-ia/venta-ia.md`**; **`TASKS/venta-ia.md`** es solo puntero. Lo específico de cada iniciativa sigue en **`tema/<id>/`** sin sustituir el backlog ni la coordinación.
+
+## Coordinación
+
+Antes de editar `TASKS/backlog-producto-pendientes.md` u otro `TASKS/*.md` con **locks**, cumplir **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §2 / §10.

@@ -2,7 +2,7 @@
 
 **Propósito:** un solo lugar donde ambos lados dejan **qué están haciendo**, **qué tocar con cuidado** y **qué necesita el otro**. Reduce pisadas entre mejoras de producto (Cursor) y evolución del flujo comercial por agentes (Claude Code / ChatGPT, prompts, OpenAPI, pruebas de venta).
 
-**Documentos relacionados:** `SHARED_CONTEXT.md`, `CLAUDE.md`, `TASKS/backlog-producto-pendientes.md`, **`TASKS/venta-ia.md`** (roadmap unificado venta IA + canales externos; el backlog **§5.3** enlaza allí el detalle), `TASKS/leer-primero.md` (multi-agente: release 1.0.0 vs §5), `TASKS/plan-release-1.0.0.md`, `REVISION_COLABORADOR.md` (flujo general colaborador).
+**Documentos relacionados:** `SHARED_CONTEXT.md`, `CLAUDE.md`, `TASKS/backlog-producto-pendientes.md`, **`TASKS/tema/SM-venta-ia/venta-ia.md`** (roadmap unificado venta IA + canales externos; el backlog **§5.3** enlaza allí el detalle), `TASKS/coordinacion-cursor-paralelo.md` (multi-agente: release 1.0.0 vs §5), `TASKS/tema/SM-rel-v100/plan-release-1.0.0.md`, `TASKS/tema/SM-operacion-agentes/REVISION_COLABORADOR.md` (flujo general colaborador).
 
 ---
 
@@ -13,7 +13,7 @@
 | **A — Impacto en IA de venta** | **Cursor → Claude Code** | Cursor anuncia en este archivo (§2, §3, §4.1, §6) dónde toca código o contratos que afectan al agente (precios, `publicAiController`, OpenAPI, checkout alineado a IA, etc.). Claude Code lee esto para anticipar regresiones o reprobar flujos. |
 | **B — Señal hacia implementación** | **Claude Code → Cursor** | Claude Code deja en §5.1 / §6 síntomas, hipótesis y pedidos de cambio. **Cursor** vuelca en código lo acordado y, además, **debe** reflejar estado de producto y pendientes en `TASKS/backlog-producto-pendientes.md` (hoja de ruta principal). Este archivo **no** sustituye al backlog: solo coordina la fricción Cursor ↔ Claude en IA venta. |
 
-**Regla explícita para Cursor (también en `.cursor/rules/40-cursor-backlog-coordinacion.mdc`):** al iniciar sesión, leer siempre `TASKS/backlog-producto-pendientes.md` y seguir actualizándolo con avances y pendientes como hasta ahora. Si hay **varios chats** trabajando release + backlog a la vez, leer además **`TASKS/leer-primero.md`** y, al cerrar un ciclo, rellenar **§11** de este archivo. La coordinación IA es complementaria.
+**Regla explícita para Cursor (también en `.cursor/rules/40-cursor-backlog-coordinacion.mdc`):** al iniciar sesión, leer siempre `TASKS/backlog-producto-pendientes.md` y seguir actualizándolo con avances y pendientes como hasta ahora. Si hay **varios chats** trabajando release + backlog a la vez, leer además **`TASKS/coordinacion-cursor-paralelo.md`** y, al cerrar un ciclo, rellenar **§11** de este archivo. La coordinación IA es complementaria.
 
 **Claude Code:** no está obligado por la regla `.cursor/` del repo; el usuario le indica leer este archivo y el backlog cuando haga falta contexto de producto.
 
@@ -38,19 +38,19 @@ _Actualizar al iniciar y al terminar trabajo relevante._
 | 2026-04-24  | Cursor | Detalle IA `precio_estimado` con fechas | LISTO | `publicAiPrecioEstimadoService.js`, `suitemanagerApiController.detalle`, OpenAPI 1.4.0. |
 | 2026-04-24  | Cursor | Contexto comercial persistido + geocode al guardar | LISTO | `propiedadesMetadataPipeline.js`, `propiedadesService.js`, modal `alojamientos.modals.*`, `publicAiMarketingLayer` merge persistido/heurística. |
 | 2026-04-24  | Cursor | Payload comercial IA (listado/detalle) | LISTO | `publicAiMarketingLayer.js`, `publicAiProductSnapshot.js`, `suitemanagerApiController` (galería `espacio`). Sin cambio de rutas HTTP. |
-| 2026-04-24  | Cursor | Identificadores vs nombres (PG)  | Fase1 LISTO | Columna `reservas.estado_gestion_id` + código dual (nombre sincronizado). Migración: `backend/db/migrations/reservas-estado-gestion-id.sql`. SPA gestión/reservas/calendario alineados parcialmente — ver `TASKS/audit-identificadores-vs-nombres-ui.md` § avance. **Siguiente:** ejecutar SQL en Supabase; fase 2 canal/plantilla IA, `reservas.estado` principal, jobs SQL. |
+| 2026-04-24  | Cursor | Identificadores vs nombres (PG)  | Fase1 LISTO | Columna `reservas.estado_gestion_id` + código dual (nombre sincronizado). Migración: `backend/db/migrations/reservas-estado-gestion-id.sql`. SPA gestión/reservas/calendario alineados parcialmente — ver `TASKS/tema/SM-ids-vs-names/audit-identificadores-vs-nombres-ui.md` § avance. **Siguiente:** ejecutar SQL en Supabase; fase 2 canal/plantilla IA, `reservas.estado` principal, jobs SQL. |
 | 2026-04-24  | Claude | `consultarDisponibilidad` / bug  | LISTO    | Fix: `resolveEmpresaPgId` + `unavailableProperties`; commit `e27f151` |
 | 2026-04-24  | Claude | Estrategia multi-canal IA venta  | PAUSA | 2026-04-29: carril **§5.3 canales de venta** pasa a **solo Cursor** (backlog + chat Agent dedicado); §9 sigue como referencia técnica. Historial: roadmap §9. |
 | 2026-04-24  | Cursor | `GET /api/disponibilidad` enriquecida + vibe búsqueda + confirmación reserva | LISTO | `publicAiDisponibilidadService.js`, `evaluarRestriccionesReservaWebCodigo`, `suitemanagerApiController`, OpenAPI; `requiere_confirmacion_final` en detalle; validación email/tel `publicAiController`. |
 | 2026-04-25  | Cursor | Backlog producto (`TASKS/backlog-producto-pendientes.md`) | LISTO | Mapa de calor §4 + QA E2E pendiente; **actualización adicional:** §1.1f bandeja, §1.6c i18n SSR, §4 checklist Google §9 + script verify, §6 referencias, pie. |
-| 2026-04-25  | Cursor | Release 1.0.0 — `test:ci` + plan + CI workflow | LISTO | `package.json` `test:ci` ampliado (smoke §2 scripts); `TASKS/plan-release-1.0.0.md` §2.1; `backend/scripts/test-integrations-settings-sanitize.js`; `.github/workflows/ci-smoke.yml` → `npm run test:ci`. Smoke manual §2.3 y push tag `v1.0.0` pendientes operación/staging. |
+| 2026-04-25  | Cursor | Release 1.0.0 — `test:ci` + plan + CI workflow | LISTO | `package.json` `test:ci` ampliado (smoke §2 scripts); `TASKS/tema/SM-rel-v100/plan-release-1.0.0.md` §2.1; `backend/scripts/test-integrations-settings-sanitize.js`; `.github/workflows/ci-smoke.yml` → `npm run test:ci`. Smoke manual §2.3 y push tag `v1.0.0` pendientes operación/staging. |
 | 2026-04-29  | Cursor | §5.3 canales de venta — solo Cursor (estrategia + repo) | LISTO | Backlog §5.3 + regla `45-canales-venta-solo-cursor.mdc`; chat Agent dedicado; fila Claude multi-canal → **PAUSA**; §9 responsables actualizados para trabajo nuevo. |
-| 2026-05-01  | Cursor | Roadmap venta IA unificado en `TASKS/venta-ia.md` | LISTO | Nuevo archivo único: checklist + análisis construido vs pendiente + enlaces TASKS; backlog §5.3 acortado con enlace; `LEER-PRIMERO.md` + `TASKS/leer-primero.md` orden de lectura. |
+| 2026-05-01  | Cursor | Roadmap venta IA unificado en `TASKS/tema/SM-venta-ia/venta-ia.md` | LISTO | Nuevo archivo único: checklist + análisis construido vs pendiente + enlaces TASKS; backlog §5.3 acortado con enlace; `LEER-PRIMERO.md` + doc multi-agente (`coordinacion-cursor-paralelo.md`, antes `leer-primero.md`) orden de lectura. |
 | 2026-05-01  | Cursor | **Canales IA** — checklist Google §0 automático + aviso sin host | LISTO | `canalesIa.checklistGoogleS0.js` + `canalesIa.js`; `venta-ia.md` §2.6, `qa-y-seguimiento` §1.2, backlog; `npm run test:ci` verde. |
 | 2026-05-01  | Cursor | Panel SPA **Canales IA** (`/canales-ia`) — Google Hotels / feeds / tabla alojamientos | LISTO | `canalesIa.js`, `router.js`, `webPublica.general.unified.*`, `alojamientos.modals.*`; doc §2.6 `venta-ia.md`, backlog §5.3/§6, checklist Google, LEER-PRIMERO paso 4; sin cambio rutas API agente. |
 | 2026-05-02  | Cursor | Partner global **`googleHotelsGlobalService.js`** + health `partnerGlobalFeed` + smoke HTTP | LISTO | Feeds `/feeds/google/*.xml` IDs BD, ARI alineado `partnerXmlIdsFromDatabase`, sin cambio rutas OpenAPI agente; doc backlog + checklist deploy + `venta-ia.md` §6. |
 | 2026-05-03  | Cursor | Canales IA — UI operación partner + plan §8 superadmin/operadores | LISTO | `partnerFeedsSelftest.js`, `GET/POST /website/google-partner-feed-*`, `canalesIa.googlePartner.operator.js`; `venta-ia.md` §8 + backlog; sin cambio OpenAPI/agente. |
-| 2026-05-03  | Cursor | Backlog §5.x **A** heatmap QA + **C** comparador cierre | LISTO | `npm run test:ci` verde (heatmap + restricciones web + booking sanitize + `test-comparador-ota-service.js`); `qa-heatmap-restricciones-e2e.md` §12; backlog §5.x **A**/**C**; **B** sigue otro agente. |
+| 2026-05-03  | Cursor | Backlog §5.x **A** heatmap QA + **C** comparador cierre | LISTO | `npm run test:ci` verde (heatmap + restricciones web + booking sanitize + `test-comparador-ota-service.js`); `TASKS/tema/SM-heatmap-qa/qa-heatmap-restricciones-e2e.md` §12; backlog §5.x **A**/**C**; **B** sigue otro agente. |
 
 **Convención de estados:** `EN CURSO` | `LISTO` | `PAUSA` | `BLOQUEADO`.
 
@@ -63,10 +63,10 @@ Estas piezas afectan **directamente** lo que ve ChatGPT / acciones OpenAPI y lo 
 | Tema | Archivos / rutas típicas | Riesgo si no se coordina |
 |------|---------------------------|---------------------------|
 | Precio reserva / tarifas | `calculoValoresService.js`, `tarifasService.js` (`obtenerTarifasParaConsumidores`), `website.shared.js` (`fetchTarifasYCanal`), `publicWebsiteService.js` | Totales distintos IA vs checkout; promos `metadata.promo` desalineadas |
-| Reserva pública IA | `publicAiController.js` (`createPublicReservation`, `quotePriceForDates`, `createBookingIntent`) | 422/409, montos incorrectos, doble canal (`IA Reserva` vs default). **2026-04-24:** al tocar este archivo, alinear con regla *id/semántica, no nombre de canal/plantilla* (`SHARED_CONTEXT.md`, `TASKS/audit-identificadores-vs-nombres-ui.md`) |
+| Reserva pública IA | `publicAiController.js` (`createPublicReservation`, `quotePriceForDates`, `createBookingIntent`) | 422/409, montos incorrectos, doble canal (`IA Reserva` vs default). **2026-04-24:** al tocar este archivo, alinear con regla *id/semántica, no nombre de canal/plantilla* (`SHARED_CONTEXT.md`, `TASKS/tema/SM-ids-vs-names/audit-identificadores-vs-nombres-ui.md`) |
 | OpenAPI / GPT | `openapi/openapi-chatgpt.yaml`, `suitemanagerApiController.js`, `publicRoutes.js` | El agente llama endpoints rotos o con body distinto |
 | Checkout web SSR | `website.booking.js`, `reservar.ejs`, `public/js/checkout.js`, `crearReservaPublica`, reconciliación precio, aceptación términos | Regresiones en reserva humana al “alinear” IA |
-| Feeds Google Hotels **globales** (connectivity partner) | Nuevo módulo **solo host plataforma** (`TASKS/venta-ia.md` §7); **no** mezclar con `website.seo.js` tenant | Precios en XML ≠ checkout tenant; roturas en verificación Google / Price Accuracy |
+| Feeds Google Hotels **globales** (connectivity partner) | Nuevo módulo **solo host plataforma** (`TASKS/tema/SM-venta-ia/venta-ia.md` §7); **no** mezclar con `website.seo.js` tenant | Precios en XML ≠ checkout tenant; roturas en verificación Google / Price Accuracy |
 
 **Locks explícitos (opcional):** si necesitas exclusividad temporal, añade:
 
@@ -146,21 +146,21 @@ Quitar el lock cuando termines.
 
 _Formato: `YYYY-MM-DD — Actor — una frase`._
 
-- 2026-05-04 — Cursor — Google **rechaza** nuevos connectivity partners **directos** (correo gTech); estrategia **pausa trámite directo**, **mantiene** código feeds/catálogo partner; doc **`TASKS/google-hotels-estrategia-post-partner-google.md`** + **`venta-ia.md` §7.0** + backlog §5.3; próxima vía probable **CM** (ej. Beds24, coste a validar).
-- 2026-05-03 — Cursor — Backlog **§5.x A** (heatmap) y **§5.x C** (comparador): cierre documental + criterio técnico (`npm run test:ci` verde, `qa-heatmap-restricciones-e2e.md` §12, `venta-ia.md` §5.1 fila 4 + §5.2 nota); **§5.x B** lo lleva otro agente.
+- 2026-05-04 — Cursor — Google **rechaza** nuevos connectivity partners **directos** (correo gTech); estrategia **pausa trámite directo**, **mantiene** código feeds/catálogo partner; doc **`TASKS/tema/SM-gh-strategy-cm/google-hotels-estrategia-post-partner-google.md`** + **`venta-ia.md` §7.0** + backlog §5.3; próxima vía probable **CM** (ej. Beds24, coste a validar).
+- 2026-05-03 — Cursor — Backlog **§5.x A** (heatmap) y **§5.x C** (comparador): cierre documental + criterio técnico (`npm run test:ci` verde, `TASKS/tema/SM-heatmap-qa/qa-heatmap-restricciones-e2e.md` §12, `venta-ia.md` §5.1 fila 4 + §5.2 nota); **§5.x B** lo lleva otro agente.
 - 2026-05-03 — Cursor — Marketplace UI: paridad **`/`** ↔ **`/google-hotels`**, partials estilos/pie, JSON-LD catálogo (`ItemList`/`BreadcrumbList`), `precioDesdeToSchemaPriceRange` en home ItemList; enlaces legales `/legal/*`. Sin cambio rutas API agente ni feeds XML.
-- 2026-05-03 — Cursor — Nuevo **`TASKS/solo-ui.md`**: trabajo **solo UI** marketplace `suitemanagers.com` (EJS + strings), límites con **`venta-ia.md`** / §3; sin cambio OpenAPI ni feeds.
-- 2026-05-03 — Cursor — Canales IA → Google Hotels: bloque **operación plataforma** (URLs sin token + botón selftest HTTP vía `partnerFeedsSelftest.js` + rutas `google-partner-feed-operator` / `google-partner-feed-selftest`). Plan **superadmin + operadores** en **`TASKS/venta-ia.md` §8** (implementación post–Google; endpoints hoy abiertos a cualquier admin JWT — restringir en fase plataforma). Sin cambio contrato agente/OpenAPI.
+- 2026-05-03 — Cursor — Nuevo **`TASKS/tema/SM-auditoria-calidad/solo-ui.md`**: trabajo **solo UI** marketplace `suitemanagers.com` (EJS + strings), límites con **`venta-ia.md`** / §3; sin cambio OpenAPI ni feeds.
+- 2026-05-03 — Cursor — Canales IA → Google Hotels: bloque **operación plataforma** (URLs sin token + botón selftest HTTP vía `partnerFeedsSelftest.js` + rutas `google-partner-feed-operator` / `google-partner-feed-selftest`). Plan **superadmin + operadores** en **`TASKS/tema/SM-venta-ia/venta-ia.md` §8** (implementación post–Google; endpoints hoy abiertos a cualquier admin JWT — restringir en fase plataforma). Sin cambio contrato agente/OpenAPI.
 - 2026-05-02 — Cursor — Agregador **`backend/services/googleHotelsGlobalService.js`** (§7.9–§7.10): Property List + ARI global, IDs `propiedades.id`, filtros geo/Place ID, `auditPartnerListingGapsForEmpresa` → health **`partnerGlobalFeed`**; script **`backend/scripts/smoke-google-partner-feeds-http.js`**; backlog + **`google-hotels-partner-deploy-checklist.md`** + **`venta-ia.md`** §6. Sin cambio contrato ChatGPT/OpenAPI ni `publicAiController`.
-- 2026-05-02 — Cursor — Partner cierre ciclo: **`TASKS/google-hotels-partner-deploy-checklist.md`**; backlog §5.x **B** + §5.3; ficha **`/propiedad/:id`** requiere solo **activo** (`publicWebsiteService.obtenerPropiedadPorId` expone `activo`; `website.property.page.js`). Partner stack previo: feeds, `/google-hotels`, §7.11 SSR, **`venta-ia.md`**.
-- 2026-05-01 — Cursor — Menú SPA **Fase 1**: **Inventario** + **Sitio público** (sin tocar Flujo de Trabajo); **`TASKS/plan-reorganizacion-menu-spa.md`**.
+- 2026-05-02 — Cursor — Partner cierre ciclo: **`TASKS/tema/SM-ghc-onboarding/google-hotels-partner-deploy-checklist.md`**; backlog §5.x **B** + §5.3; ficha **`/propiedad/:id`** requiere solo **activo** (`publicWebsiteService.obtenerPropiedadPorId` expone `activo`; `website.property.page.js`). Partner stack previo: feeds, `/google-hotels`, §7.11 SSR, **`venta-ia.md`**.
+- 2026-05-01 — Cursor — Menú SPA **Fase 1**: **Inventario** + **Sitio público** (sin tocar Flujo de Trabajo); **`TASKS/tema/SM-spa-menu/plan-reorganizacion-menu-spa.md`**.
 - 2026-05-01 — Cursor — SPA **Operaciones → Canales IA**: checklist Google **§0 automático** (pre + Copiar + banner sin URL pública); `canalesIa.checklistGoogleS0.js`; doc **`venta-ia.md` §2.6**, **`qa-y-seguimiento-prelaunch-canales.md`** §1.2, backlog contexto; handoff §4.1 actualizado; sin cambio OpenAPI/API agente.
-- 2026-05-01 — Cursor — SPA **Operaciones → Canales IA** (`/canales-ia`): tokens feeds + semáforo Google Hotels + tabla `hotelId`/listado por alojamiento; puente desde Configurar sitio web; modal alojamientos → CTA; doc **`TASKS/venta-ia.md` §2.6**, backlog §5.3/§6, checklist Google, **`LEER-PRIMERO.md`** paso 4; handoff §4.1 rellenado.
-- 2026-05-02 — Cursor — OpenAPI ChatGPT/Gemini **1.4.7**: documentado **GET `/api/public/version`**; `backend/openapi/openapi-chatgpt.yaml` sincronizado con raíz; comparador §4.3 D DoD en **`TASKS/venta-ia.md` §5.2**.
+- 2026-05-01 — Cursor — SPA **Operaciones → Canales IA** (`/canales-ia`): tokens feeds + semáforo Google Hotels + tabla `hotelId`/listado por alojamiento; puente desde Configurar sitio web; modal alojamientos → CTA; doc **`TASKS/tema/SM-venta-ia/venta-ia.md` §2.6**, backlog §5.3/§6, checklist Google, **`LEER-PRIMERO.md`** paso 4; handoff §4.1 rellenado.
+- 2026-05-02 — Cursor — OpenAPI ChatGPT/Gemini **1.4.7**: documentado **GET `/api/public/version`**; `backend/openapi/openapi-chatgpt.yaml` sincronizado con raíz; comparador §4.3 D DoD en **`TASKS/tema/SM-venta-ia/venta-ia.md` §5.2**.
 - 2026-05-02 — Cursor — **Venta IA:** sin OTAs de terceros como **canal de venta**; aclarado que iCal/reportes/sync de reservas (operación PMS) no se elimina — distinto de vender vía OTA. Documentos alineados.
-- 2026-05-01 — Cursor — **`TASKS/venta-ia.md`:** consolida roadmap canales IA (antes §5.3 largo en backlog), checklist unificado, gaps; backlog §5.3 enlaza; lectura obligatoria en `LEER-PRIMERO.md` si toca venta IA.
+- 2026-05-01 — Cursor — **`TASKS/tema/SM-venta-ia/venta-ia.md`:** consolida roadmap canales IA (antes §5.3 largo en backlog), checklist unificado, gaps; backlog §5.3 enlaza; lectura obligatoria en `LEER-PRIMERO.md` si toca venta IA.
 - 2026-04-29 — Cursor — **§5.3 solo Cursor:** objetivos por canal en backlog, jugada API+MCP+JSON-LD+SSR, checklist §5.x **F**; chat Agent dedicado + regla **`45-canales-venta-solo-cursor.mdc`**; fila Claude multi-canal → **PAUSA**; §9 alineado.
-- 2026-04-25 — Cursor — **Release 1.0.0 (puerta técnica):** `npm run test:ci` ampliado (`package.json`) con tests alineados a smoke plan §2.1; `plan-release-1.0.0.md` actualizado; `ci-smoke.yml` ejecuta `test:ci`; script `test-integrations-settings-sanitize.js`. Pendiente: smoke manual §2.3 staging + tag `v1.0.0` + push integrador.
+- 2026-04-25 — Cursor — **Release 1.0.0 (puerta técnica):** `npm run test:ci` ampliado (`package.json`) con tests alineados a smoke plan §2.1; `TASKS/tema/SM-rel-v100/plan-release-1.0.0.md` actualizado; `ci-smoke.yml` ejecuta `test:ci`; script `test-integrations-settings-sanitize.js`. Pendiente: smoke manual §2.3 staging + tag `v1.0.0` + push integrador.
 - 2026-04-25 — Cursor — Checklist Google Hotels §9 + script `verify-google-hotels-feed-checklist.js`; SSR `htmlLang` en `website.context.js` + i18n home/contacto/404/header/footer/confirmación/property-card; UX bandeja `comunicaciones.js` (error carga, vacíos, toasts reintento); comentarios multi-tenant calendario/feed.
 - 2026-04-25 — Cursor — Backlog de producto actualizado: §4 “Mapa de calor / restricciones” y §4.3 D reflejan cierre funcional (edición panel, overlay calendario, min noches por llegada en backend + widget), quedando QA E2E como pendiente.
 - 2026-04-24 — Cursor — OpenAPI **1.4.4:** disponibilidad documenta `endpoints` + `requiere_confirmacion_reserva`.
@@ -177,7 +177,7 @@ _Formato: `YYYY-MM-DD — Actor — una frase`._
 - 2026-04-24 — Claude — Estrategia multi-canal definida en §9; roadmap por tier; handoff JSON-LD a Cursor.
 - 2026-04-24 — Claude — Fix `consultarDisponibilidad`: `resolveEmpresaPgId` + `unavailableProperties` devuelto en `_buildAvailabilityResult`; push a Render.
 - 2026-04-24 — Cursor — Creado este documento y plantillas de handoff; pendiente primera fila real en §2.
-- 2026-04-24 — Cursor — **§11** coordinación cierre 1.0.0 + agente B: enlaces `leer-primero.md` / `plan-release-1.0.0.md`; primera fila estado gate CI + pendientes smoke/tag (ver §11.2).
+- 2026-04-24 — Cursor — **§11** coordinación cierre 1.0.0 + agente B: enlaces `coordinacion-cursor-paralelo.md` / `TASKS/tema/SM-rel-v100/plan-release-1.0.0.md`; primera fila estado gate CI + pendientes smoke/tag (ver §11.2).
 
 ---
 
@@ -191,8 +191,8 @@ _Formato: `YYYY-MM-DD — Actor — una frase`._
 | Motor de precio compartido (panel / propuestas / muchas rutas) | `services/utils/calculoValoresService.js` |
 | Precio checkout SSR + reconciliación | `publicWebsiteService.js` |
 | Backlog producto (tarifas, §4 checkout) | `TASKS/backlog-producto-pendientes.md` |
-| Roadmap venta IA + canales externos | `TASKS/venta-ia.md` |
-| Panel usuario Canales IA (Google Hotels / feeds) | **`TASKS/venta-ia.md` §2.6**; SPA `frontend/src/views/canalesIa.js`, `frontend/src/router.js` |
+| Roadmap venta IA + canales externos | `TASKS/tema/SM-venta-ia/venta-ia.md` |
+| Panel usuario Canales IA (Google Hotels / feeds) | **`TASKS/tema/SM-venta-ia/venta-ia.md` §2.6**; SPA `frontend/src/views/canalesIa.js`, `frontend/src/router.js` |
 
 ---
 
@@ -209,7 +209,7 @@ _Formato: `YYYY-MM-DD — Actor — una frase`._
 
 **Implementación activa del carril §5.3 (canales externos / MCP / OpenAPI): solo Cursor** — un chat de Agent dedicado + regla opcional `.cursor/rules/45-canales-venta-solo-cursor.mdc`. La columna «Responsable» en la tabla inferior es histórica; para trabajo nuevo en §5.3 usar **Cursor** (la fila §2 *Estrategia multi-canal* en modo Claude quedó en **PAUSA**).
 
-_Actualizado: 2026-04-24 (tabla); roadmap canales **2026-05-01** consolidado en **`TASKS/venta-ia.md`** (antes detalle largo en backlog §5.3)._
+_Actualizado: 2026-04-24 (tabla); roadmap canales **2026-05-01** consolidado en **`TASKS/tema/SM-venta-ia/venta-ia.md`** (antes detalle largo en backlog §5.3)._
 
 ### Mapa de canales y protocolo técnico
 
@@ -316,9 +316,9 @@ Este archivo **no** sustituye al backlog: solo coordina **quién lo está movien
 
 ## 11. Release **1.0.0** — resumen conjunto (Cursor A + Cursor B)
 
-**Cuándo usar:** al terminar (o pausar) el reparto descrito en **`TASKS/leer-primero.md`**: Agente A = cierre 1.0.0 (`plan-release-1.0.0.md`), Agente B = **§5 ítem 2** del backlog (preferencias/copy motor **§1.6**, salvo que el usuario redirija a otra fila §5).
+**Cuándo usar:** al terminar (o pausar) el reparto descrito en **`TASKS/coordinacion-cursor-paralelo.md`**: Agente A = cierre 1.0.0 (`TASKS/tema/SM-rel-v100/plan-release-1.0.0.md`), Agente B = **§5 ítem 2** del backlog (preferencias/copy motor **§1.6**, salvo que el usuario redirija a otra fila §5).
 
-**Qué hacer:** copiar la plantilla de la siguiente subsección debajo de la línea `---` del bloque vigente, rellenar, y marcar en **`plan-release-1.0.0.md` §2** los checkboxes del smoke si aplica.
+**Qué hacer:** copiar la plantilla de la siguiente subsección debajo de la línea `---` del bloque vigente, rellenar, y marcar en **`TASKS/tema/SM-rel-v100/plan-release-1.0.0.md` §2** los checkboxes del smoke si aplica.
 
 ### 11.1 Plantilla (copiar desde la siguiente línea `---`)
 
@@ -345,8 +345,8 @@ Detalle libre (bloqueos, deploy, migraciones):
 |------|--------|------|
 | `npm run test:ci` (rama candidata) | SÍ | Cadena ampliada (smoke §2 + regresión); verde local; `package.json` + `ci-smoke.yml`. |
 | `npm run test:ssr` (SSR arriba) | omitido | Opcional; no bloquea puerta CI. |
-| Smoke manual plan §2 (staging) | pendiente | Checklist §2.3 en `plan-release-1.0.0.md` + tabla §2.1. |
-| Tag `v1.0.0` aplicado | SÍ (local) | Commit gate CI; push tras smoke §2.3 (`leer-primero.md` §5.1). |
+| Smoke manual plan §2 (staging) | pendiente | Checklist §2.3 en `TASKS/tema/SM-rel-v100/plan-release-1.0.0.md` + tabla §2.1. |
+| Tag `v1.0.0` aplicado | SÍ (local) | Commit gate CI; push tras smoke §2.3 (`coordinacion-cursor-paralelo.md` §5.1). |
 | Agente B — backlog §5 ítem 2 (§1.6) | pendiente | Otro chat según reparto. |
 | Próxima asignación sugerida | | Smoke §2.3 → `git push origin v1.0.0` → §4.3 D / §5. |
 ```
@@ -355,11 +355,11 @@ Detalle libre (bloqueos, deploy, migraciones):
 |------|--------|------|
 | `npm run test:ci` (rama candidata) | SÍ | 2026-04-25: cadena ampliada + verde local (`package.json`, workflow CI). |
 | `npm run test:ssr` (SSR arriba) | omitido | Opcional hasta smoke de vistas públicas. |
-| Smoke manual plan §2 (staging) | pendiente | Checklist en `plan-release-1.0.0.md` §2.3 / §2.1. |
+| Smoke manual plan §2 (staging) | pendiente | Checklist en `TASKS/tema/SM-rel-v100/plan-release-1.0.0.md` §2.3 / §2.1. |
 | Tag `v1.0.0` aplicado | SÍ (local) | Anotado en commit gate CI; **push** tras smoke §2.3 + acuerdo integrador. |
-| Agente B — backlog §5 ítem 2 (§1.6) | pendiente | Otro chat / agente según `leer-primero.md`. |
+| Agente B — backlog §5 ítem 2 (§1.6) | pendiente | Otro chat / agente según `coordinacion-cursor-paralelo.md`. |
 | Próxima asignación sugerida | | Completar smoke §2.3 → push tag `v1.0.0`; luego §5.3 dominio, §2.3 widget, §1.4 iCal, §4.3 D según prioridad. |
 
 ---
 
-*Última revisión: 2026-05-01 — **`TASKS/venta-ia.md`** como fuente unificada roadmap canales IA; §5.3 backlog enlaza allí. Histórico 2026-04-29: §5.3 solo Cursor; Claude → PAUSA; regla `45-canales-venta-solo-cursor.mdc`. Histórico 2026-04-25: §11, CI, §10.*
+*Última revisión: 2026-05-01 — **`TASKS/tema/SM-venta-ia/venta-ia.md`** como fuente unificada roadmap canales IA; §5.3 backlog enlaza allí. Histórico 2026-04-29: §5.3 solo Cursor; Claude → PAUSA; regla `45-canales-venta-solo-cursor.mdc`. Histórico 2026-04-25: §11, CI, §10.*
