@@ -151,4 +151,8 @@ Sustituir el host si usáis otro (`feeds.suitemanagers.com` o el que tengáis en
 
 ---
 
-*Última actualización: 2026-05-04 — §8 address/category/Transaction id/Content-Type; ARI tax-inclusive.*
+**Contexto comercial (2026-05):** Google **no** está incorporando nuevos partners de conectividad **directos**; ver **`TASKS/google-hotels-estrategia-post-partner-google.md`**. Los feeds del repo siguen válidos como **base técnica** / demos.
+
+---
+
+*Última actualización: 2026-05-04 — §8 + estrategia post–Google partner; address/category/Transaction id/Content-Type; ARI tax-inclusive.*

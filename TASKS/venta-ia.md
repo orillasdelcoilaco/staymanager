@@ -208,8 +208,8 @@ Derivado de **`TASKS/backlog-producto-pendientes.md`** §5.x y §5.3, checklist 
 
 ### E) Calidad cruzada web ↔ IA
 
-- [ ] QA E2E mapa de calor: `TASKS/qa-heatmap-restricciones-e2e.md`.  
-- [x] §4.3 D comparador: **DoD MVP** en **§5.2** de este documento (y backlog §5.x **C**); pendiente solo QA en tenant real si producto lo exige.
+- [x] QA E2E mapa de calor: **LISTO criterio técnico** — `TASKS/qa-heatmap-restricciones-e2e.md` §12 + `npm run test:ci` (2026-05-03); capturas tenant opcional.  
+- [x] §4.3 D comparador: **DoD MVP** en **§5.2** de este documento (y backlog §5.x **C**); QA de contrato vía `test-comparador-ota-service.js` en CI (2026-05-03).
 
 ### F) Canales externos (meta §1)
 
@@ -238,7 +238,7 @@ Lo siguiente está **implementado en código**; falta sobre todo **DoD documenta
 | 1 | **OpenAPI ChatGPT/Gemini** | Contrato **1.4.7** (`openapi/openapi-chatgpt.yaml`, `openapi/openapi-gemini.yaml`): incluye **GET `/api/public/version`**, changelog en `info.description`; copia sincronizada `backend/openapi/openapi-chatgpt.yaml`. | Tras cada cambio en rutas públicas IA: revisar que el YAML siga al código; registrar versión entregada al conector OpenAI/Gemini. |
 | 2 | **Comparador “reserva directa” (§4.3 D)** | JSON `GET /propiedad/:id/comparador-ota.json`, UI en ficha cuando `comparableComplete`, `legalCopy`, logs `[comparador-ota]` — ver **`TASKS/backlog-producto-pendientes.md`** §4.3 D. | **DoD MVP (LISTO):** mostrar bloque solo con fechas válidas y `comparableComplete=true`; totales referenciales CLP desde tarifas internas (canal directo vs canal comparado configurado); texto legal vía `legalCopy`; sin obligación de cotizar precios de OTAs reales externas. **Fuera de alcance MVP:** integración con precios de terceros en vivo. |
 | 3 | **Google Hotel Center + feeds** | **Código §7** operativo en prod: feeds globales `feeds.` + `auth`, smoke estricto, feed contenido tenant con token, catálogo `/google-hotels` en apex/www tras DNS GoDaddy→Render (**§1.2**). **Pendiente negocio/Google:** respuesta post–*interest form*, alta de URLs en Hotel Center, checklist §4–§8 onboarding, XSD opcional §7.10 si Google lo exige. | Tras contacto Google: URLs registradas + primera validación sin errores bloqueantes; §7.10 si aplica; §8 cuando cierren partner. |
-| 4 | **Mapa de calor QA E2E** | Funcional en código + tests. | Checklist `TASKS/qa-heatmap-restricciones-e2e.md` en propiedades reales. |
+| 4 | **Mapa de calor QA E2E** | Funcional en código + tests. | **LISTO (2026-05-03)** criterio técnico: §12 en `TASKS/qa-heatmap-restricciones-e2e.md` + `npm run test:ci`. Capturas en tenant opcional. |
 
 ---
 
@@ -252,6 +252,8 @@ Lo siguiente está **implementado en código**; falta sobre todo **DoD documenta
 - **No** forma parte del MVP: scraping ni APIs de precios de agregadores externos.
 
 Con esto el ítem deja de estar “parcial” salvo **QA puntual** en tenant de prueba.
+
+**Actualización 2026-05-03:** el QA puntual queda cubierto para fines de backlog por **`test-comparador-ota-service.js`** en `npm run test:ci` (payload y reglas `comparableComplete` / `legalCopy`). Prueba manual en navegador sigue siendo opcional.
 
 ---
 
@@ -275,6 +277,14 @@ Con esto el ítem deja de estar “parcial” salvo **QA puntual** en tenant de 
 Origen: alineación con políticas Google (**Price Accuracy**, **Entity Matching**) y rol **Connectivity Partner** (una superficie agregada). El código existente (`googleHotelsService.js`, `website.seo.js`, …) es base; las tareas siguientes **no** sustituyen al modo dual ni al aislamiento por `empresa_id`: la agregación **lee** datos por tenant y emite XML bajo rutas **plataforma**. **Contexto asesoría inicial:** **§7.8**. **Diseño cerrado para implementación (gate XSD + operación certificación):** **§7.9–§7.11**.
 
 **Operación / deploy (lista de verificación):** **`TASKS/google-hotels-partner-deploy-checklist.md`** (DNS, env Render, smoke URLs, trámite Google). Incluye **“Cómo seguir (orden recomendado — producto / operación)”**: congelar URLs + verificar `ari.xml`, Hotel Center, pulido datos, §8/backlog, aviso a equipo.
+
+### 7.0 Estado comercial — partner directo Google (2026-05)
+
+Google comunicó que **no incorporan nuevas integraciones directas** como connectivity partner por volumen de solicitudes; recomiendan usar un **integration partner** (channel manager u homólogo ya conectado). Ticket correo: **7-9095000040551**.
+
+**Decisión:** **pausar** el trámite de partner **directo** hasta que el volumen lo justifique. El **código del módulo plataforma** (feeds globales, catálogo, panel, smokes) **se mantiene** — standby operativo / base técnica. Próxima vía probable: **proveedor integrado** (referencia operativa **Beds24**, coste orientativo citado ~10–20 USD/mes para un caso tipo referencia — **validar** con tarifario oficial del CM).
+
+Documentación de contexto y inventario: **`TASKS/google-hotels-estrategia-post-partner-google.md`**.
 
 ### 7.1 Feed de contenido (Hotel List) — agregador global
 
@@ -331,7 +341,7 @@ Origen: alineación con políticas Google (**Price Accuracy**, **Entity Matching
 | Fase | Acción |
 |------|--------|
 | **Fase A** | Implementar feeds globales (host **§7.9**, agregador tolerante a fallos + XSD **§7.10–§7.11**), observabilidad, landing + health; feeds tenant activos en paralelo. |
-| **Fase B** | Registrar en Google **solo** las dos URLs plataforma; checklist partner. **Estado 2026-05:** formulario de **interés connectivity partners** enviado a Google; pendiente **contacto del equipo** y luego registro efectivo de URLs + validación en Hotel Center. |
+| **Fase B** | Registrar en Google **solo** las dos URLs plataforma; checklist partner. **Estado 2026-05 (actualizado):** Google respondió que **no** integran nuevos partners **directos** por volumen; recomiendan **integration partner**. Trámite directo **pausado**; vía CM documentada en **`TASKS/google-hotels-estrategia-post-partner-google.md`**. El formulario de interés y contactos previos quedan como **historial**. |
 | **Fase C** | Deprecar feeds por tenant en documentación si negocio confirma una sola fuente. |
 
 ### 7.8 Validación externa — OK al plan (contexto 2026-05)
@@ -404,4 +414,4 @@ Incorporadas como contrato de codificación (**Gemini — cierre de ciclo**):
 
 ---
 
-*Última actualización: 2026-05-03 — **§4** enlace **Secuencia B** (`google-hotels-partner-deploy-checklist.md`: deploy + DNS `api.`/`feeds.` + env → smoke → tenant Hotel Center → checklist §9). **§1.2** DNS apex + `www`; **§8** superadmin; **§7**; OpenAPI **1.4.7**.*
+*Última actualización: 2026-05-04 — **§7.0** Google partner directo pausado (comercial) + **`google-hotels-estrategia-post-partner-google.md`**. §**5.1** mapa calor; §**5.2** comparador CI; **§4** Secuencia B. **§1.2** DNS; **§8** superadmin; OpenAPI **1.4.7**.*

@@ -50,6 +50,7 @@ _Actualizar al iniciar y al terminar trabajo relevante._
 | 2026-05-01  | Cursor | Panel SPA **Canales IA** (`/canales-ia`) — Google Hotels / feeds / tabla alojamientos | LISTO | `canalesIa.js`, `router.js`, `webPublica.general.unified.*`, `alojamientos.modals.*`; doc §2.6 `venta-ia.md`, backlog §5.3/§6, checklist Google, LEER-PRIMERO paso 4; sin cambio rutas API agente. |
 | 2026-05-02  | Cursor | Partner global **`googleHotelsGlobalService.js`** + health `partnerGlobalFeed` + smoke HTTP | LISTO | Feeds `/feeds/google/*.xml` IDs BD, ARI alineado `partnerXmlIdsFromDatabase`, sin cambio rutas OpenAPI agente; doc backlog + checklist deploy + `venta-ia.md` §6. |
 | 2026-05-03  | Cursor | Canales IA — UI operación partner + plan §8 superadmin/operadores | LISTO | `partnerFeedsSelftest.js`, `GET/POST /website/google-partner-feed-*`, `canalesIa.googlePartner.operator.js`; `venta-ia.md` §8 + backlog; sin cambio OpenAPI/agente. |
+| 2026-05-03  | Cursor | Backlog §5.x **A** heatmap QA + **C** comparador cierre | LISTO | `npm run test:ci` verde (heatmap + restricciones web + booking sanitize + `test-comparador-ota-service.js`); `qa-heatmap-restricciones-e2e.md` §12; backlog §5.x **A**/**C**; **B** sigue otro agente. |
 
 **Convención de estados:** `EN CURSO` | `LISTO` | `PAUSA` | `BLOQUEADO`.
 
@@ -145,6 +146,10 @@ Quitar el lock cuando termines.
 
 _Formato: `YYYY-MM-DD — Actor — una frase`._
 
+- 2026-05-04 — Cursor — Google **rechaza** nuevos connectivity partners **directos** (correo gTech); estrategia **pausa trámite directo**, **mantiene** código feeds/catálogo partner; doc **`TASKS/google-hotels-estrategia-post-partner-google.md`** + **`venta-ia.md` §7.0** + backlog §5.3; próxima vía probable **CM** (ej. Beds24, coste a validar).
+- 2026-05-03 — Cursor — Backlog **§5.x A** (heatmap) y **§5.x C** (comparador): cierre documental + criterio técnico (`npm run test:ci` verde, `qa-heatmap-restricciones-e2e.md` §12, `venta-ia.md` §5.1 fila 4 + §5.2 nota); **§5.x B** lo lleva otro agente.
+- 2026-05-03 — Cursor — Marketplace UI: paridad **`/`** ↔ **`/google-hotels`**, partials estilos/pie, JSON-LD catálogo (`ItemList`/`BreadcrumbList`), `precioDesdeToSchemaPriceRange` en home ItemList; enlaces legales `/legal/*`. Sin cambio rutas API agente ni feeds XML.
+- 2026-05-03 — Cursor — Nuevo **`TASKS/solo-ui.md`**: trabajo **solo UI** marketplace `suitemanagers.com` (EJS + strings), límites con **`venta-ia.md`** / §3; sin cambio OpenAPI ni feeds.
 - 2026-05-03 — Cursor — Canales IA → Google Hotels: bloque **operación plataforma** (URLs sin token + botón selftest HTTP vía `partnerFeedsSelftest.js` + rutas `google-partner-feed-operator` / `google-partner-feed-selftest`). Plan **superadmin + operadores** en **`TASKS/venta-ia.md` §8** (implementación post–Google; endpoints hoy abiertos a cualquier admin JWT — restringir en fase plataforma). Sin cambio contrato agente/OpenAPI.
 - 2026-05-02 — Cursor — Agregador **`backend/services/googleHotelsGlobalService.js`** (§7.9–§7.10): Property List + ARI global, IDs `propiedades.id`, filtros geo/Place ID, `auditPartnerListingGapsForEmpresa` → health **`partnerGlobalFeed`**; script **`backend/scripts/smoke-google-partner-feeds-http.js`**; backlog + **`google-hotels-partner-deploy-checklist.md`** + **`venta-ia.md`** §6. Sin cambio contrato ChatGPT/OpenAPI ni `publicAiController`.
 - 2026-05-02 — Cursor — Partner cierre ciclo: **`TASKS/google-hotels-partner-deploy-checklist.md`**; backlog §5.x **B** + §5.3; ficha **`/propiedad/:id`** requiere solo **activo** (`publicWebsiteService.obtenerPropiedadPorId` expone `activo`; `website.property.page.js`). Partner stack previo: feeds, `/google-hotels`, §7.11 SSR, **`venta-ia.md`**.
