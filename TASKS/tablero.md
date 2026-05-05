@@ -36,7 +36,7 @@ Vista operativa por **iniciativa**: cada fila es una **tarjeta** y un **`TASKS/t
 | `SM-beds24` | Integración Beds24 (CM → Google + API + conector SM) | Backlog | — | `tema/SM-beds24` | Ops + Cursor | 2026-05-03 — Plan maestro + guía operativa; fase código cuando priorice backlog | `tema/SM-beds24/plan-accion-beds24.md`, `tema/SM-beds24/beds24-integracion-inicio.md`, `tema/SM-gh-strategy-cm/google-hotels-estrategia-post-partner-google.md`, backlog §5.3 |
 | `SM-gh-strategy-cm` | Estrategia Google post-partner (channel manager) | Backlog | — | `tema/SM-gh-strategy-cm` | — | 2026-05-03 — Contexto comercial + inventario; ejecución en **`SM-beds24`** | `tema/SM-gh-strategy-cm/google-hotels-estrategia-post-partner-google.md`, `tema/SM-beds24/plan-accion-beds24.md`, backlog §5.3 |
 | `SM-heatmap-qa` | Mapa de calor / restricciones (§5.x A) | Listo | — | `tema/SM-heatmap-qa` | — | Criterio técnico cerrado; QA manual opcional | `tema/SM-heatmap-qa/qa-heatmap-restricciones-e2e.md` §12 |
-| `SM-comparador-ota` | Comparador OTA — MVP (§5.x C) | Listo | — | `tema/SM-comparador-ota` | — | DoD `tema/SM-venta-ia/venta-ia.md` §5.2 | backlog §5.x C, `test-comparador-ota-service.js` |
+| `SM-comparador-ota` | Comparador OTA — MVP (§5.x C) | Listo | — | `tema/SM-comparador-ota` | — | 2026-05-05 — Cierre DoD MVP validado; QA contractual cubierto por `test-comparador-ota-service.js` en `npm run test:ci` | `tema/SM-comparador-ota/README.md`, `tema/SM-venta-ia/venta-ia.md` §5.2, backlog §5.x C |
 | `SM-mail-events-mtx` | Motor correo — nuevos eventos / matriz (§1.2) | Backlog | — | `tema/SM-mail-events-mtx` | — | Diferido al final del roadmap | `transactionalEmailEventMatrix.js`, backlog §5 ítem 6 |
 | `SM-legal-checkout` | §4 legal / checkout — retomar | Backlog | — | `tema/SM-legal-checkout` | — | Pendientes §4.1 | backlog §4.1 |
 | `SM-ids-vs-names` | Identificadores vs nombres (PG + SPA) | Backlog | — | `tema/SM-ids-vs-names` | — | Migración SQL en entornos PG | `tema/SM-ids-vs-names/audit-identificadores-vs-nombres-ui.md` |
@@ -71,3 +71,4 @@ Vista operativa por **iniciativa**: cada fila es una **tarjeta** y un **`TASKS/t
 ## De dónde salen los temas
 
 Derivar filas de **`backlog-producto-pendientes.md`**. En **`TASKS/`** (raíz) permanecen el **`backlog`**, **`tablero.md`**, los archivos de **coordinación** y la entrada **`LEER-PRIMERO.md`** (raíz del repo). El **roadmap del carril venta por IA** está en **`tema/SM-venta-ia/venta-ia.md`** (tabla **`SM-venta-ia`**); **`TASKS/venta-ia.md`** es un puntero opcional para enlaces antiguos. **`tema/<id>/`** acumula lo **específico de cada iniciativa**.
+
