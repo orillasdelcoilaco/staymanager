@@ -4,7 +4,7 @@
 **Si los créditos se cortan y necesitas retomar:**  
 1. **LEE ESTE ARCHIVO COMPLETO** - Contiene TODO el contexto necesario
 2. **VERIFICA EL PUNTO DE CONTINUACIÓN** más reciente completado ✅
-3. **EJECUTA AUDITORÍAS** antes de continuar: `node scripts/audit-ui-monitored.js` y `node scripts/audit-complexity-monitored.js`
+3. **EJECUTA AUDITORÍAS** antes de continuar: `node scripts/tooling/audit-ui-monitored.js` y `node scripts/tooling/audit-complexity-monitored.js`
 4. **CONSULTA REFERENCIAS** en la sección 📚 REFERENCIAS OBLIGATORIAS
 
 ## 🎯 **ROL Y AUTORIDAD**
@@ -20,7 +20,7 @@
 1. **`CLAUDE.md`** - Instrucciones y contexto del proyecto
 2. **`SHARED_CONTEXT.md`** - Fuente única de verdad (tiene prioridad sobre CLAUDE.md)
 3. **`.claude/skills/frontend.md`** - Design system, componentes, patrones JS
-4. **`TASKS/plan-accion-problemas.md`** - Problemas documentados y soluciones
+4. **`TASKS/tema/SM-dev-historial/plan-accion-problemas.md`** - Problemas documentados y soluciones
 5. **`backend/tailwind.config.js`** - Tokens de color (🚫 NO usar colores Tailwind hardcodeados)
 
 ## 📋 **BUENAS PRÁCTICAS NO NEGOCIABLES**
@@ -470,11 +470,11 @@ router.get('/', async (req, res) => {
 #### **Punto 0**: **INICIO / REINICIO** (siempre ejecutar primero)
 ```bash
 # 1. Verificar créditos disponibles
-node scripts/monitor-creditos.js reporte
+node scripts/tooling/monitor-creditos.js reporte
 
 # 2. Ejecutar auditorías de estado actual
-node scripts/audit-ui-monitored.js
-node scripts/audit-complexity-monitored.js
+node scripts/tooling/audit-ui-monitored.js
+node scripts/tooling/audit-complexity-monitored.js
 
 # 3. Verificar que no hay duplicación (corrección aplicada)
 grep -r "Configuración General del Sitio" frontend/src/views/websiteAlojamientos.js
@@ -514,8 +514,8 @@ grep -n "empresaContext\|contenidoCorporativo" backend/routes/website.js
 #### **Punto 4**: **Después de integración final (Fase 4 completa)**
 ```bash
 # Ejecutar auditorías finales
-node scripts/audit-ui-monitored.js
-node scripts/audit-complexity-monitored.js
+node scripts/tooling/audit-ui-monitored.js
+node scripts/tooling/audit-complexity-monitored.js
 
 # Verificar métricas de éxito
 node backend/scripts/verify_ssr_metrics.js

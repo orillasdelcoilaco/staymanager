@@ -19,25 +19,45 @@
 
 1. **Ahora (operación):** seguir **`beds24-integracion-inicio.md`** — cuenta/plan con API + canal Google, ficha completa en Beds24, **Channel Manager → Google**, pruebas **API V2** fuera del repo (secretos solo en env).
 2. **Decisión explícita de “fuente de verdad”** hasta existir conector (A: inventario/tarifas en Beds24; B: maestro SM y sync futuro) — documentar en bitácora cuando el operador elija.
-3. **Código SM:** ningún desarrollo obligatorio en esta fase; al priorizar backlog, diseñar **`backend/services/beds24/`** (lectura primero, escritura acotada, jobs/webhooks según doc Beds24).
+3. **Código SM:** arranque con **cliente API + smoke** en repo; el conector completo (mapeo SM → Beds24, multi-tenant, jobs) sigue priorizable en backlog.
 
 ## 4. Pasos de implementación
 
-### Fase operativa (sin código en repo)
+### Qué dice la documentación oficial (API V2)
+
+- **Asistente “First steps” del panel:** flujo genérico para quien usa Beds24 como PMS; **no** es el único camino. Para evitar doble carga desde SuiteManager, el camino correcto es **API** ([wiki API V2](https://wiki.beds24.com/index.php/API_V2.0), [Swagger](https://beds24.com/api/v2/)).
+- **Único paso obligatorio manual:** generar **invite code** / token en el panel Beds24 (`control3.php?pagetype=apiv2`); el resto puede ser programático (cita wiki: *“This step is the only one that must be done manually, all other steps can be performed and automated programmatically.”*).
+- **Propiedades y habitaciones:** `POST /properties` (Beta) — crear/actualizar sin `id`; con `id` para modificar.
+- **Precios por fecha / disponibilidad:** `GET`/`POST /inventory/rooms/calendar` (requiere que exista precio en propiedad; reglas nuevas de precio pueden necesitar UI — ver wiki sobre price rules).
+- **Canales (incl. mapping):** `GET`/`POST /channels/settings` (Alpha); para “solo channel manager por API” Beds24 pide **contactar soporte** (wiki).
+- **Límite crítico — fotos:** en FAQ de la wiki: *“Can I use API V2 to send pictures or webhooks? Currently no, however these features are coming soon.”* Hasta que exista endpoint, **imágenes** suelen cargarse en el **panel Beds24** (o repetir URLs si el producto Beds24 lo permite en campos concretos — validar en Swagger/schema). El riesgo de “mala metadata” se reduce usando **las mismas URLs públicas** que ya sirve SuiteManager para la galería, pero la **subida/gestión en Beds24** puede seguir siendo manual interina.
+- **Créditos:** ~100 créditos / 5 min por cuenta; agrupar `POST` en lote cuando sea posible.
+
+### Fase operativa (cuenta + canal Google)
 
 - [ ] Cuenta Beds24 + plan con **API V2** y canal **Google** acorde a unidades reales.
-- [ ] Propiedad(es) completas en Beds24 (dirección, teléfono, geo, fotos mínimas según wiki).
-- [ ] Activar **Google** desde Beds24 y completar mapeo / sync según asistente.
-- [ ] Habilitar API V2, guardar tokens en gestor de secretos (nunca en git).
-- [ ] Prueba manual API (GET propiedades / reservas) desde Postman o script local.
+- [ ] Invite code con scopes: `read/write:properties`, `read/write:inventory`, canales según necesidad (recrear invite si cambian scopes).
+- [ ] Intercambiar invite → `GET /authentication/setup` con header `code:` → guardar **refresh token** (escritura) o long-life (solo lectura).
+- [ ] Activar **Google** en Beds24 (mapeo puede combinar UI + API según soporte).
+- [ ] Fotos mínimas en panel Beds24 mientras la API de imágenes no esté disponible.
 
-### Fase producto / código (backlog)
+### Fase técnica en SuiteManager (incremental)
 
-- [ ] Discovery: webhooks o push de reservas Beds24; límites de tasa; modelo de `empresa_id` ↔ cuenta/propiedad Beds24.
-- [ ] Diseño `backend/services/beds24/` (read-only MVP → sync inventario/tarifas si aplica).
-- [ ] UI mínima o settings por tenant (credenciales referenciadas por env o vault, no texto plano en Firestore si se puede evitar).
+- [x] Cliente HTTP + resolución de token: `backend/services/beds24/beds24Client.js`.
+- [x] Smoke: `npm run smoke:beds24-api` · `backend/scripts/beds24-api-smoke.js`.
+- [ ] Mapper `propiedad` / `websiteData` / galería (texto, geo, capacidad) → payload `POST /properties` (validar schema Swagger).
+- [ ] Sync **calendario** / precios: `POST /inventory/rooms/calendar` alineado a tarifas SM (sin tocar `valorHuesped`).
+- [ ] Reservas: import a Beds24 como bloqueos o `POST /bookings` según modelo de negocio; webhooks (contactar Beds24 para API V2 booking webhooks).
+- [ ] Multi-tenant: credenciales y `beds24PropertyId` por `empresa_id` (tabla o `websiteSettings.integrations.beds24` — diseño pendiente).
+- [ ] UI mínima o settings por tenant (sin secretos en claro en cliente).
 - [ ] Tests de contrato y regresión multi-tenant.
+
+### Fase producto / backlog (resumen)
+
+- [ ] Discovery: webhooks, límites de tasa, conflicto de inventario.
+- [ ] Tests automatizados además del smoke.
 
 ## 5. Bitácora de planificación (pre-código y durante)
 
+- 2026-05-06 — Alineación con wiki API V2: asistente panel ≠ camino de automatización; límite **fotos API “coming soon”**; bootstrap repo `beds24Client.js` + `smoke:beds24-api` + `.env.example`.
 - 2026-05-03 — Tema **`SM-beds24`** creado en tablero; guía `beds24-integracion-inicio.md` ubicada bajo este ID; **`SM-ghc-onboarding`** cerrado como integración Google partner directa (standby código + docs). Regla: no ampliar módulos `googleHotels*` partner sin instrucción explícita.

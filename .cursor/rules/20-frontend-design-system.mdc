@@ -25,6 +25,6 @@ alwaysApply: false
 
 ## Validacion post-cambio
 
-- Ejecutar `node scripts/audit-ui-monitored.js`.
-- Si hay alta prioridad, ejecutar `node scripts/migrate-colors.js`.
+- Ejecutar `node scripts/tooling/audit-ui-monitored.js`.
+- Si hay alta prioridad, ejecutar `node scripts/tooling/migrate-colors.js`.
 - Reconstruir CSS cuando corresponda (`backend` -> `npm run build`).

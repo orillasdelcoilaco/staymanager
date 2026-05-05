@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SuiteManager Public API for ChatGPT
-  version: 1.4.7
+  version: 1.4.8
   description: |
     API pública para Actions. Listados usan **producto_ia_v2**: precio por tarifas PG, ubicación, amenidades
     (metadata + inventario componentes), políticas mergeadas (empresa + propiedad), alias `precioBase`/`ciudad`/`direccion_corta`.
@@ -27,6 +27,8 @@ info:
 
     **v1.4.7:** `GET /api/public/version` — health ligero (versión desplegada, timestamp) para verificación y scripts; misma ruta que `publicRoutes` en `/api/public`.
 
+    **v1.4.8:** Lista de espera unificada con el panel: en **falta de disponibilidad**, `POST /api/reservas` (y espejo `POST /api/public/reservas`) puede incluir **`lista_espera`** en **409** / **422**. `POST /api/public/reservar/intent` puede devolver **400** `WAITLIST_EMAIL_REQUIRED` si hay bloqueo y falta email válido en `huesped`.
+
 servers:
   - url: https://suite-manager.onrender.com
 
@@ -47,7 +49,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  version: { type: string, example: "1.4.7" }
+                  version: { type: string, example: "1.4.8" }
                   contract: { type: string, example: "openapi-gemini-chatgpt" }
                   timestamp: { type: string, format: date-time }
                   deployed_at: { type: string, format: date-time }
@@ -528,10 +530,72 @@ paths:
         "503":
           description: Servicio no disponible (p. ej. sin base de datos)
 
+  /api/public/reservar/intent:
+    post:
+      operationId: crearIntencionReservaLegacy
+      summary: Intención de reserva (propuesta IA); si el periodo está bloqueado, exige email para lista de espera.
+      description: |
+        Ruta legacy (`/api/public/reservar/intent`). Si hay **bloqueo operativo** en las fechas y **no** hay `huesped.email` válido → **400** `WAITLIST_EMAIL_REQUIRED`.
+        Con email válido y bloqueo, intenta alta en **lista de espera** (misma persistencia que el panel) y responde **409** con **`lista_espera`**.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [propiedadId, fechaLlegada, fechaSalida, personas, huesped]
+              properties:
+                propiedadId: { type: string, description: ID Firestore de la propiedad (mismo que en catálogo IA). }
+                fechaLlegada: { type: string, example: "2026-06-01" }
+                fechaSalida: { type: string, example: "2026-06-05" }
+                personas: { type: integer, minimum: 1 }
+                huesped:
+                  type: object
+                  properties:
+                    nombre: { type: string }
+                    apellido: { type: string }
+                    email: { type: string, format: email, description: Obligatorio si hay bloqueo (lista de espera). }
+                    telefono: { type: string }
+      responses:
+        "200":
+          description: Propuesta creada (formato envuelto por el servidor).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Campos faltantes, fechas inválidas o **WAITLIST_EMAIL_REQUIRED** (bloqueo sin email).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ErrorWaitlistEmailRequired"
+                  - type: object
+                    additionalProperties: true
+        "404":
+          description: Propiedad no encontrada
+        "409":
+          description: No disponible (p. ej. bloqueo); puede incluir resultado de lista de espera.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  lista_espera:
+                    $ref: "#/components/schemas/ListaEsperaEnRespuesta"
+                additionalProperties: true
+        "503":
+          description: Sin PostgreSQL / servicio no disponible
+
   /api/reservas:
     post:
       operationId: crearReserva
       summary: Crea una reserva (requiere cabeceras de agente si AGENT_API_KEYS está configurado).
+      description: |
+        Equivalente funcional bajo **`POST /api/public/reservas`** (mismo cuerpo y códigos; rate limit puede diferir).
+        Si no hay disponibilidad, la respuesta puede incluir **`lista_espera`** (alta en lista de espera unificada; consentimiento registrado como implícito en flujo IA).
       requestBody:
         required: true
         content:
@@ -559,12 +623,119 @@ paths:
         "201":
           description: Reserva creada
         "400":
-          description: Campos faltantes
+          description: Validación (`MISSING_FIELDS`, `INVALID_EMAIL`, fechas, etc.).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
         "409":
-          description: No disponible
+          description: |
+            No disponible (`NOT_AVAILABLE` u homólogo). Puede incluir **`lista_espera`** si se intentó registrar al huésped en lista de espera.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: NOT_AVAILABLE }
+                  message: { type: string }
+                  lista_espera:
+                    $ref: "#/components/schemas/ListaEsperaEnRespuesta"
+                additionalProperties: true
+        "422":
+          description: |
+            Reglas de negocio sin reserva (`NO_DISPONIBLE`, `ALOJAMIENTO_REQUERIDO`, capacidad, etc.). En **`NO_DISPONIBLE`** puede incluir **`lista_espera`**.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: NO_DISPONIBLE }
+                  message: { type: string }
+                  lista_espera:
+                    $ref: "#/components/schemas/ListaEsperaEnRespuesta"
+                additionalProperties: true
+
+  /api/public/reservas:
+    post:
+      operationId: crearReservaPublic
+      summary: Igual que POST /api/reservas bajo /api/public (rate limit de reservas; cabeceras de agente).
+      description: Mismo comportamiento y códigos que `POST /api/reservas`, incluido **`lista_espera`** en 409/422 cuando aplica.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                empresa_id: { type: string }
+                alojamiento_id: { type: string }
+                checkin: { type: string }
+                checkout: { type: string }
+                adultos: { type: integer }
+                ninos: { type: integer }
+                origen:
+                  type: string
+                  default: chatgpt
+                huesped:
+                  type: object
+                  properties:
+                    nombre: { type: string }
+                    apellido: { type: string }
+                    email: { type: string }
+                    telefono: { type: string }
+      responses:
+        "201":
+          description: Reserva creada
+        "400":
+          description: Validación
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "409":
+          description: No disponible; opcional `lista_espera`
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "422":
+          description: Sin reserva; opcional `lista_espera` en NO_DISPONIBLE
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
 
 components:
   schemas:
+    ListaEsperaEnRespuesta:
+      type: object
+      description: |
+        Resultado del intento de alta en **lista de espera** cuando la reserva no se concreta por falta de disponibilidad (misma tabla y reconciliación que el panel).
+        Si `registrado` es false, revisar `code` (p. ej. `WAITLIST_ERROR`, `NO_POSTGRES`, `WAITLIST_EMAIL_REQUIRED` en otros endpoints).
+      properties:
+        registrado: { type: boolean }
+        duplicado:
+          type: boolean
+          description: Solo cuando `registrado` es true; ya existía una espera activa equivalente.
+        code: { type: string, description: Cuando `registrado` es false. }
+        message: { type: string }
+      required: [registrado]
+
+    ErrorWaitlistEmailRequired:
+      type: object
+      description: Respuesta cuando hay bloqueo de disponibilidad pero falta email para anotar en lista de espera (`POST /api/public/reservar/intent`).
+      properties:
+        error: { type: string, example: WAITLIST_EMAIL_REQUIRED }
+        code: { type: string, example: WAITLIST_EMAIL_REQUIRED }
+        message: { type: string }
+      required: [error, code, message]
+
     ProductoIaUbicacion:
       type: object
       description: >-

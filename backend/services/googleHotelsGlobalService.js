@@ -1,5 +1,5 @@
 /**
- * Feed global único para Google Hotels Connectivity Partner (TASKS/venta-ia.md §7.9–§7.10).
+ * Feed global único para Google Hotels Connectivity Partner (TASKS/tema/SM-venta-ia/venta-ia.md §7.9–§7.10).
  * Itera tenants con propiedades listadas (googleHotelData.isListed), excluye ítems incompletos
  * y valida XML (well-formed + XSD opcional vía xmllint).
  *

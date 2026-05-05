@@ -1,13 +1,13 @@
 # Reporte de Complejidad y Modularidad
-**Generado:** 2026-05-03 17:09
-**Archivos analizados:** 383
-**Críticos:** 39 | **Warnings:** 0
+**Generado:** 2026-05-05 19:10
+**Archivos analizados:** 395
+**Críticos:** 40 | **Warnings:** 0
 
 ---
 
 ## Resumen
 
-### 🔴 Críticos (39) — Requieren refactorización
+### 🔴 Críticos (40) — Requieren refactorización
 
 | Archivo | Problema | Detalle |
 |---------|---------|--------|
@@ -28,7 +28,8 @@
 | `backend/services/buildContextService.js` | function-size | función `getBuildContext` — 121 líneas (línea 122) |
 | `backend/services/comunicacionesRetryService.js` | function-size | función `reintentarComunicacionEmail` — 197 líneas (línea 220) |
 | `backend/services/empresaService.js` | function-size | función `actualizarDetallesEmpresa` — 145 líneas (línea 91) |
-| `backend/services/googleHotelsService.js` | function-size | función `generateAriFeed` — 131 líneas (línea 64) |
+| `backend/services/googleHotelsService.js` | function-size | función `generateAriFeed` — 131 líneas (línea 132) |
+| `backend/services/marketplaceUiStrings.js` | function-size | función `getMarketplaceStrings` — 123 líneas (línea 14) |
 | `backend/services/plantillasService.js` | too-many-exports | 16 funciones exportadas (límite crítico: 15) |
 | `backend/services/publicAiDisponibilidadService.js` | function-size | función `buildDisponibilidadAgentResponse` — 224 líneas (línea 78) |
 | `backend/services/publicAiProductSnapshot.js` | file-size | 753 líneas (límite crítico: 700) |
@@ -45,11 +46,11 @@
 | `backend/services/transactionalEmailService.js` | function-size | función `enviarPorDisparador` — 124 líneas (línea 209) |
 | `backend/services/transactionalEmailService.js` | function-size | función `construirVariablesDesdeReserva` — 199 líneas (línea 412) |
 | `backend/services/transactionalEmailService.js` | too-many-exports | 17 funciones exportadas (límite crítico: 15) |
-| `backend/routes/marketplace.js` | function-size | función `createMarketplaceRouter` — 121 líneas (línea 22) |
-| `backend/routes/website.booking.js` | function-size | función `registerBookingRoutes` — 129 líneas (línea 7) |
+| `backend/routes/marketplace.js` | function-size | función `createMarketplaceRouter` — 126 líneas (línea 23) |
+| `backend/routes/website.booking.js` | function-size | función `registerBookingRoutes` — 156 líneas (línea 8) |
 | `backend/routes/website.property.js` | function-size | función `registerPropertyRoutes` — 220 líneas (línea 9) |
 | `backend/routes/website.property.page.js` | function-size | función `renderPropiedadPublica` — 182 líneas (línea 88) |
-| `backend/routes/website.seo.js` | function-size | función `registerSeoRoutes` — 169 líneas (línea 1) |
+| `backend/routes/website.seo.js` | function-size | función `registerSeoRoutes` — 171 líneas (línea 1) |
 
 ---
 
@@ -131,4 +132,4 @@
 | Líneas por función | >200 | >120 |
 | Exports por archivo | >100 | >15 |
 
-*Generado por scripts/audit-complexity.js*
+*Generado por scripts/tooling/audit-complexity.js*

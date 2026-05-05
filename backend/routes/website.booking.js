@@ -3,6 +3,7 @@ const pool = require('../db/postgres');
 const { mergeEffectiveRules, buildHouseRulesPublicView } = require('../services/houseRulesService');
 const { normalizeBookingUrlForSsr } = require('../services/bookingSettingsSanitize');
 const { resolveDepositoReservaWeb } = require('../services/depositoReservaWebService');
+const { consumirTokenEsperaParaReserva } = require('../services/esperaDisponibilidadService');
 
 function registerBookingRoutes({ router, db, deps }) {
     const { obtenerPropiedadPorId, crearReservaPublica } = deps;
@@ -56,6 +57,33 @@ function registerBookingRoutes({ router, db, deps }) {
             });
         } catch (error) {
             res.status(500).render('404', { title: 'Error Interno del Servidor', empresa: empresaCompleta || { id: empresaId, nombre: 'Error Crítico' } });
+        }
+    });
+
+    router.get('/reservar-desde-espera', async (req, res) => {
+        try {
+            const empresaId = req.empresa.id;
+            const token = String(req.query.token || '').trim();
+            if (!token) {
+                return res.status(400).render('404', { title: 'Enlace inválido', empresa: req.empresaCompleta });
+            }
+            const consumed = await consumirTokenEsperaParaReserva(empresaId, token);
+            if (!consumed) {
+                return res.status(410).render('404', { title: 'Enlace vencido o ya utilizado', empresa: req.empresaCompleta });
+            }
+
+            const query = new URLSearchParams({
+                propiedadId: String(req.query.propiedadId || consumed.propiedad_id_preferida || '').trim(),
+                fechaLlegada: String(req.query.fechaLlegada || '').trim(),
+                fechaSalida: String(req.query.fechaSalida || '').trim(),
+                noches: String(req.query.noches || '').trim(),
+                precioFinal: String(req.query.precioFinal || '').trim(),
+                personas: String(req.query.personas || consumed.personas || '').trim(),
+            });
+
+            return res.redirect(`/reservar?${query.toString()}`);
+        } catch (error) {
+            return res.status(500).render('404', { title: 'No se pudo validar el enlace', empresa: req.empresaCompleta });
         }
     });
 

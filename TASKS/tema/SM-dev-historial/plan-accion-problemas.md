@@ -316,7 +316,7 @@ Cambiar el manejo de `onerror` para ocultar solo la imagen y mostrar un placehol
 ### Monitoreo de Créditos
 Antes de tareas largas, ejecutar:
 ```bash
-node scripts/monitor-creditos.js reporte
+node scripts/tooling/monitor-creditos.js reporte
 ```
 
 ## Plantilla para Nuevos Problemas

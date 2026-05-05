@@ -11,9 +11,17 @@ const {
     aprobarPresupuesto,
     rechazarPresupuesto
 } = require('../services/gestionPropuestasService');
+const { reconciliarEsperaDisponibilidad } = require('../services/esperaDisponibilidadService');
 
 module.exports = (db) => {
     const router = express.Router();
+    const _reconciliarEspera = async (empresaId) => {
+        try {
+            await reconciliarEsperaDisponibilidad(db, empresaId);
+        } catch (err) {
+            console.warn('[espera-disponibilidad] reconcile error:', err.message);
+        }
+    };
 
     router.get('/count', async (req, res) => {
         try {
@@ -90,6 +98,7 @@ module.exports = (db) => {
         try {
             const { idsReservas } = req.body;
             await aprobarPropuesta(db, req.user.empresaId, idsReservas);
+            await _reconciliarEspera(req.user.empresaId);
             res.status(200).json({ message: 'Propuesta aprobada y convertida en reserva confirmada.' });
         } catch (error) {
             res.status(409).json({ error: error.message }); // 409 Conflict
@@ -100,6 +109,7 @@ module.exports = (db) => {
         try {
             const { idsReservas } = req.body;
             await rechazarPropuesta(db, req.user.empresaId, idsReservas);
+            await _reconciliarEspera(req.user.empresaId);
             res.status(200).json({ message: 'Propuesta rechazada.' });
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -109,6 +119,7 @@ module.exports = (db) => {
     router.post('/presupuesto/:id/aprobar', async (req, res) => {
         try {
             await aprobarPresupuesto(db, req.user.empresaId, req.params.id);
+            await _reconciliarEspera(req.user.empresaId);
             res.status(200).json({ message: 'Presupuesto aprobado y convertido en reserva(s) confirmada(s).' });
         } catch (error) {
             res.status(409).json({ error: error.message });

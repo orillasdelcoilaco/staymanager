@@ -1,0 +1,4 @@
+<%# Inyecta meta de verificación Google Search Console si está en locals.seo (website.context) %>
+<% if (typeof seo !== 'undefined' && seo && seo.googleSiteVerification) { %>
+    <meta name="google-site-verification" content="<%= seo.googleSiteVerification %>">
+<% } %>

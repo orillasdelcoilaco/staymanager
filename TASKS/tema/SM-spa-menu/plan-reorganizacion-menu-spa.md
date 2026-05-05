@@ -111,7 +111,8 @@ Mínimo rápido:
 
 - **`TASKS/tema/SM-venta-ia/venta-ia.md`** §2.6 — modelo Canales IA y panel.
 - **`TASKS/backlog-producto-pendientes.md`** §6 — rutas SPA (sin rutas nuevas en este plan).
+- **`TASKS/tema/SM-seo-ssr-buscadores/plan-accion-seo-ssr.md`** §4 — extensión de menú por rol para SEO (tenant + plataforma superadmin).
 
 ---
 
-*Última actualización: 2026-05-01 — Fases 1, 1b, 2 y 3 cerradas; tooltips en `menuConfig.hints.js`; ampliación `canalesIa.js`.*
+*Última actualización: 2026-05-05 — Fases 1, 1b, 2 y 3 cerradas; extensión SEO por rol referenciada en tema `SM-seo-ssr-buscadores`.*

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SuiteManager Public API for Gemini
-  version: 1.4.7
+  version: 1.4.8
   description: |
     API pública para extensiones Gemini. Listados usan **producto_ia_v2**: precio por tarifas PG, ubicación, amenidades
     (metadata + inventario componentes), políticas mergeadas (empresa + propiedad), alias `precioBase`/`ciudad`/`direccion_corta`.
@@ -25,6 +25,8 @@ info:
 
     **v1.4.7:** `GET /api/public/version` documentado (health ligero del API público).
 
+    **v1.4.8:** Lista de espera unificada con el panel — **`lista_espera`** en **409**/**422** de `POST /api/reservas` y espejo `POST /api/public/reservas`; **400** `WAITLIST_EMAIL_REQUIRED` en `POST /api/public/reservar/intent` si hay bloqueo sin email en `huesped`.
+
 servers:
   - url: https://suite-manager.onrender.com
 
@@ -44,7 +46,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  version: { type: string, example: "1.4.7" }
+                  version: { type: string, example: "1.4.8" }
                   contract: { type: string, example: "openapi-gemini-chatgpt" }
                   timestamp: { type: string, format: date-time }
                   deployed_at: { type: string, format: date-time }
@@ -494,10 +496,71 @@ paths:
         "503":
           description: Servicio no disponible
 
+  /api/public/reservar/intent:
+    post:
+      operationId: crearIntencionReservaLegacyGemini
+      summary: Intención de reserva (propuesta IA); si el periodo está bloqueado, exige email para lista de espera.
+      description: |
+        Si hay bloqueo operativo y no hay `huesped.email` válido → **400** `WAITLIST_EMAIL_REQUIRED`.
+        Con email y bloqueo, intenta lista de espera unificada y puede responder **409** con **`lista_espera`**.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [propiedadId, fechaLlegada, fechaSalida, personas, huesped]
+              properties:
+                propiedadId: { type: string }
+                fechaLlegada: { type: string, example: "2026-06-01" }
+                fechaSalida: { type: string, example: "2026-06-05" }
+                personas: { type: integer, minimum: 1 }
+                huesped:
+                  type: object
+                  properties:
+                    nombre: { type: string }
+                    apellido: { type: string }
+                    email: { type: string, format: email }
+                    telefono: { type: string }
+      responses:
+        "200":
+          description: Propuesta creada
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Validación o WAITLIST_EMAIL_REQUIRED
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ErrorWaitlistEmailRequired"
+                  - type: object
+                    additionalProperties: true
+        "404":
+          description: Propiedad no encontrada
+        "409":
+          description: No disponible; opcional lista_espera
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  lista_espera:
+                    $ref: "#/components/schemas/ListaEsperaEnRespuesta"
+                additionalProperties: true
+        "503":
+          description: Sin PostgreSQL / servicio no disponible
+
   /api/reservas:
     post:
       operationId: crearReservaGemini
       summary: Crea una reserva (requiere cabeceras de agente si AGENT_API_KEYS está configurado).
+      description: |
+        Equivalente bajo **`POST /api/public/reservas`**. Si no hay disponibilidad puede incluir **`lista_espera`** (consentimiento implícito en flujo IA).
       requestBody:
         required: true
         content:
@@ -525,12 +588,112 @@ paths:
         "201":
           description: Reserva creada
         "400":
-          description: Campos faltantes
+          description: Validación
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
         "409":
-          description: No disponible
+          description: No disponible; opcional lista_espera
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: NOT_AVAILABLE }
+                  message: { type: string }
+                  lista_espera:
+                    $ref: "#/components/schemas/ListaEsperaEnRespuesta"
+                additionalProperties: true
+        "422":
+          description: Sin reserva; en NO_DISPONIBLE opcional lista_espera
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: NO_DISPONIBLE }
+                  message: { type: string }
+                  lista_espera:
+                    $ref: "#/components/schemas/ListaEsperaEnRespuesta"
+                additionalProperties: true
+
+  /api/public/reservas:
+    post:
+      operationId: crearReservaPublicGemini
+      summary: Igual que POST /api/reservas bajo /api/public.
+      description: Mismos códigos que `POST /api/reservas`, incluido lista_espera en 409/422 cuando aplica.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                empresa_id: { type: string }
+                alojamiento_id: { type: string }
+                checkin: { type: string }
+                checkout: { type: string }
+                adultos: { type: integer }
+                ninos: { type: integer }
+                origen:
+                  type: string
+                  default: gemini
+                huesped:
+                  type: object
+                  properties:
+                    nombre: { type: string }
+                    apellido: { type: string }
+                    email: { type: string }
+                    telefono: { type: string }
+      responses:
+        "201":
+          description: Reserva creada
+        "400":
+          description: Validación
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "409":
+          description: No disponible; opcional lista_espera
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "422":
+          description: Sin reserva; opcional lista_espera
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
 
 components:
   schemas:
+    ListaEsperaEnRespuesta:
+      type: object
+      description: Resultado del alta en lista de espera cuando la reserva no se concreta (misma tabla que el panel).
+      properties:
+        registrado: { type: boolean }
+        duplicado: { type: boolean }
+        code: { type: string }
+        message: { type: string }
+      required: [registrado]
+
+    ErrorWaitlistEmailRequired:
+      type: object
+      properties:
+        error: { type: string, example: WAITLIST_EMAIL_REQUIRED }
+        code: { type: string, example: WAITLIST_EMAIL_REQUIRED }
+        message: { type: string }
+      required: [error, code, message]
+
     ProductoIaUbicacion:
       type: object
       description: >-

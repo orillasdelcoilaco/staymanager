@@ -1,7 +1,7 @@
 # Reporte de Auditoría UI
-**Generado:** 2026-05-03 19:13
-**Archivos analizados:** 173
-**Problemas encontrados:** 50 (alta: 0 / media: 6 / baja: 44)
+**Generado:** 2026-05-05 21:01
+**Archivos analizados:** 179
+**Problemas encontrados:** 12 (alta: 0 / media: 5 / baja: 7)
 
 ---
 
@@ -9,14 +9,14 @@
 
 | Categoría | Severidad | Ocurrencias |
 |-----------|-----------|-------------|
-| Botón con clases Tailwind directas (sin .btn-*) | media | 6 |
-| Color hexadecimal hardcodeado | baja | 44 |
+| Botón con clases Tailwind directas (sin .btn-*) | media | 5 |
+| Color hexadecimal hardcodeado | baja | 7 |
 
 ---
 
 ## Detalle por categoría
 
-### Botón con clases Tailwind directas (sin .btn-*) (6 ocurrencias)
+### Botón con clases Tailwind directas (sin .btn-*) (5 ocurrencias)
 **Sugerencia:** Usar btn-primary / btn-danger / btn-success / btn-outline  
 **Severidad:** media
 
@@ -26,59 +26,21 @@
 | `frontend/src/views/components/gestionarReservas/reservas.modals.view.js` | 322 | `class="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-warning-100 text-warning-700 border border-warning-200"` |
 | `frontend/src/views/comunicaciones.js` | 182 | `class="com-tab px-3 py-1.5 text-sm rounded-md font-medium bg-primary-100 text-primary-800"` |
 | `frontend/src/views/normasAlojamiento.js` | 300 | `class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white font-medium hover:bg-primary-700 disabled:opacity-50"` |
-| `backend/views/marketplace/google-hotels-catalog.ejs` | 83 | `class="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-full bg-primary-600 text-white hover:bg-primary-700 no-underline"` |
-| `backend/views/propiedad.ejs` | 1158 | `class="lg:hidden text-sm font-semibold text-primary-700 border border-primary-200 bg-primary-50 px-3 py-2 rounded-xl hover:bg-primary-100 transition-colors"` |
+| `backend/views/propiedad.ejs` | 1159 | `class="lg:hidden text-sm font-semibold text-primary-700 border border-primary-200 bg-primary-50 px-3 py-2 rounded-xl hover:bg-primary-100 transition-colors"` |
 
-### Color hexadecimal hardcodeado (44 ocurrencias)
+### Color hexadecimal hardcodeado (7 ocurrencias)
 **Sugerencia:** Usar tokens de color de Tailwind config  
 **Severidad:** baja
 
 | Archivo | Línea | Clase detectada |
 |---------|-------|-----------------|
-| `backend/views/marketplace/google-hotels-catalog.ejs` | 21 | `#f8f8f8` |
-| `backend/views/marketplace/google-hotels-catalog.ejs` | 22 | `#fff` |
-| `backend/views/marketplace/google-hotels-catalog.ejs` | 22 | `#e5e7eb` |
-| `backend/views/marketplace/google-hotels-catalog.ejs` | 25 | `#111` |
-| `backend/views/marketplace/google-hotels-catalog.ejs` | 26 | `#4b5563` |
-| `backend/views/marketplace/google-hotels-catalog.ejs` | 28 | `#fff` |
-| `backend/views/marketplace/google-hotels-catalog.ejs` | 34 | `#e5e7eb` |
-| `backend/views/marketplace/google-hotels-catalog.ejs` | 37 | `#e0e7ff` |
-| `backend/views/marketplace/google-hotels-catalog.ejs` | 37 | `#f0f4ff` |
-| `backend/views/marketplace/google-hotels-catalog.ejs` | 37 | `#a5b4fc` |
-| `backend/views/marketplace/google-hotels-catalog.ejs` | 39 | `#111` |
-| `backend/views/marketplace/google-hotels-catalog.ejs` | 40 | `#6b7280` |
-| `backend/views/marketplace/google-hotels-catalog.ejs` | 41 | `#fff` |
-| `backend/views/marketplace/google-hotels-catalog.ejs` | 41 | `#e5e7eb` |
-| `backend/views/marketplace/google-hotels-catalog.ejs` | 41 | `#374151` |
-| `backend/views/marketplace/index.ejs` | 82 | `#f8f8f8` |
-| `backend/views/marketplace/index.ejs` | 83 | `#fff` |
-| `backend/views/marketplace/index.ejs` | 83 | `#e5e7eb` |
-| `backend/views/marketplace/index.ejs` | 87 | `#fff` |
-| `backend/views/marketplace/index.ejs` | 87 | `#d1d5db` |
-| `backend/views/marketplace/index.ejs` | 96 | `#e5e7eb` |
-| `backend/views/marketplace/index.ejs` | 97 | `#111` |
-| `backend/views/marketplace/index.ejs` | 98 | `#6b7280` |
-| `backend/views/marketplace/index.ejs` | 99 | `#9ca3af` |
-| `backend/views/marketplace/index.ejs` | 107 | `#fff` |
-| `backend/views/marketplace/index.ejs` | 113 | `#e5e7eb` |
-| `backend/views/marketplace/index.ejs` | 116 | `#e0e7ff` |
-| `backend/views/marketplace/index.ejs` | 116 | `#f0f4ff` |
-| `backend/views/marketplace/index.ejs` | 116 | `#a5b4fc` |
-| `backend/views/marketplace/index.ejs` | 117 | `#fff` |
-| `backend/views/marketplace/index.ejs` | 117 | `#111` |
-| `backend/views/marketplace/index.ejs` | 118 | `#fff7ed` |
-| `backend/views/marketplace/index.ejs` | 118 | `#9a3412` |
-| `backend/views/marketplace/index.ejs` | 118 | `#fdba74` |
-| `backend/views/marketplace/index.ejs` | 120 | `#111` |
-| `backend/views/marketplace/index.ejs` | 121 | `#6b7280` |
-| `backend/views/marketplace/index.ejs` | 122 | `#111` |
-| `backend/views/marketplace/index.ejs` | 123 | `#6b7280` |
-| `backend/views/marketplace/index.ejs` | 124 | `#111` |
-| `backend/views/marketplace/index.ejs` | 126 | `#6b7280` |
-| `backend/views/marketplace/index.ejs` | 127 | `#111` |
-| `backend/views/propiedad.ejs` | 61 | `#fff` |
-| `backend/views/propiedad.ejs` | 62 | `#222` |
-| `backend/views/propiedad.ejs` | 73 | `#fff` |
+| `backend/views/partials/marketplace-common-styles.ejs` | 12 | `#fff` |
+| `backend/views/partials/marketplace-common-styles.ejs` | 42 | `#fff` |
+| `backend/views/partials/marketplace-common-styles.ejs` | 53 | `#fff` |
+| `backend/views/partials/marketplace-common-styles.ejs` | 64 | `#fff` |
+| `backend/views/propiedad.ejs` | 62 | `#fff` |
+| `backend/views/propiedad.ejs` | 63 | `#222` |
+| `backend/views/propiedad.ejs` | 74 | `#fff` |
 
 ---
 
@@ -86,12 +48,11 @@
 
 | Archivo | Problemas |
 |---------|----------|
-| `backend/views/marketplace/index.ejs` | 26 |
-| `backend/views/marketplace/google-hotels-catalog.ejs` | 16 |
+| `backend/views/partials/marketplace-common-styles.ejs` | 4 |
 | `backend/views/propiedad.ejs` | 4 |
 | `frontend/src/views/components/gestionarReservas/reservas.modals.view.js` | 2 |
 | `frontend/src/views/comunicaciones.js` | 1 |
 | `frontend/src/views/normasAlojamiento.js` | 1 |
 
 ---
-*Generado por scripts/audit-ui.js*
+*Generado por scripts/tooling/audit-ui.js*

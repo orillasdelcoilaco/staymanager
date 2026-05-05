@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'TASKS/pending.md'
+      - 'TASKS/tema/SM-operacion-agentes/pending.md'
 
 jobs:
   notify:
@@ -17,5 +17,5 @@ jobs:
             -H "Title: StayManager - Nueva tarea de OpenClaw" \
             -H "Priority: high" \
             -H "Tags: clipboard" \
-            -d "OpenClaw actualizó TASKS/pending.md. Abrí Claude Code y escribí: revisar tareas pendientes" \
+            -d "OpenClaw actualizó TASKS/tema/SM-operacion-agentes/pending.md. Abrí Claude Code y escribí: revisar tareas pendientes" \
             https://ntfy.sh/staymanager-pablo-tareas

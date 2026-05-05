@@ -61,6 +61,17 @@ function getMarketplaceStrings(lang) {
             ghCatalogBackHome: 'Back to marketplace',
             ghCatalogErrorLoad: 'Could not load this page.',
             ghFooterCatalog: 'Google Hotels catalog',
+            heroTitle: 'Find your next stay in Chile',
+            heroSubtitle: 'Unique cabins, homes, and apartments — book direct with trusted hosts.',
+            navGoogleHotels: 'Google Hotels',
+            labelSort: 'Sort by',
+            sortRecommended: 'Recommended',
+            sortRating: 'Top rated',
+            sortPriceLow: 'Price: low to high',
+            sortPriceHigh: 'Price: high to low',
+            jsonLdBreadcrumbHome: 'Home',
+            jsonLdBreadcrumbGoogleHotels: 'Google Hotels listings',
+            ariaExternalHost: 'Opens the host booking site',
         };
     }
     return {
@@ -110,7 +121,29 @@ function getMarketplaceStrings(lang) {
         ghCatalogBackHome: 'Volver al marketplace',
         ghCatalogErrorLoad: 'No se pudo cargar esta página.',
         ghFooterCatalog: 'Catálogo Google Hotels',
+        heroTitle: 'Encuentra tu próxima estadía en Chile',
+        heroSubtitle: 'Cabañas, casas y departamentos únicos — reserva directo con anfitriones verificados.',
+        navGoogleHotels: 'Google Hotels',
+        labelSort: 'Ordenar por',
+        sortRecommended: 'Recomendados',
+        sortRating: 'Mejor valoración',
+        sortPriceLow: 'Precio: menor a mayor',
+        sortPriceHigh: 'Precio: mayor a menor',
+        jsonLdBreadcrumbHome: 'Inicio',
+        jsonLdBreadcrumbGoogleHotels: 'Listados Google Hotels',
+        ariaExternalHost: 'Abre el sitio de reservas del anfitrión',
     };
+}
+
+/**
+ * LodgingBusiness.priceRange en schema.org es texto tipo "$"–"$$$" (intensidad, no moneda exacta).
+ */
+function precioDesdeToSchemaPriceRange(precioDesde) {
+    const n = Number(precioDesde);
+    if (!Number.isFinite(n) || n <= 0) return undefined;
+    if (n < 80000) return '$';
+    if (n < 200000) return '$$';
+    return '$$$';
 }
 
 /** Query de listado sin parámetro lang (canónico ES / x-default). */
@@ -201,4 +234,5 @@ module.exports = {
     getMarketplaceSearchJsonUi,
     buildMarketplaceQueryBase,
     buildMarketplaceSeoUrls,
+    precioDesdeToSchemaPriceRange,
 };

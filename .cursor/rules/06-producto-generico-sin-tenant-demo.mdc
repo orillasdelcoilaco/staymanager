@@ -1,0 +1,31 @@
+---
+description: Producto generico, parametrico por tenant — sin demo hardcodeada; IDs en logica, nombres solo UI
+alwaysApply: true
+---
+
+# Producto generico (parametrico por tenant)
+
+SuiteManager es **SaaS multiempresa**: cada suscriptor puede ser un complejo turistico, una sola cabana u otro modelo soportado por el **producto**, con **distinta** cantidad de alojamientos, tipos de espacio y reglas.
+
+## Obligatorio al implementar
+
+- **No** codificar ni ramificar la logica por el nombre comercial, dominio o "empresa de laboratorio" con la que se prueba (p. ej. complejos de siete cabanas con espacios concretos) como si fuera la unica realidad.
+- **No** fijar en codigo cantidades de propiedades, tipos de unidad o plantillas de espacios **propias de un solo cliente**. Lo soportado debe venir de **datos y configuracion por `empresa_id`** (tablas, `websiteSettings`, tipos parametricos, etc.).
+- **No** dejar literales de negocio en strings de produccion que identifiquen un tenant real (marcas, lugares) salvo copy **explicitamente** cargado desde configuracion o contenido de esa empresa en BD.
+- **Datos de demo / seeds / tests** pueden usar nombres y tallas inventadas **solo** en fixtures o scripts de prueba, **no** como constantes en rutas de produccion compartidas por todos los tenants.
+
+## Identificadores en logica y datos; nombres solo para UI
+
+- En **persistencia, reglas de negocio, integraciones, APIs y queries**: enlazar y decidir por **id** (UUID, FK, codigo semantico estable definido en datos), **no** por el **nombre** mostrable del objeto. Ejemplos: estados de gestion, alojamientos / propiedades, tipos de espacio o tarifa, canales, activos de catalogo, plantillas cuando el contrato lo exige.
+- Los **nombres** (etiquetas) son por **empresa** e idioma: pueden cambiar, duplicarse en distintos tenants o no ser unicos; **nunca** son la clave de ruteo en logica.
+- **No** ramificar con `if (nombre === '…')` sobre datos de la empresa; **no** guardar en `metadata` la "verdad" del negocio solo como string de titulo.
+- Excepciones acotadas: textos de **disparador** o **semantica** almacenada **como** diccionario en BD (no hardcode en codigo) para mapear eventos; igualmente preferir id o clave estable donde el esquema lo permita.
+- Avance y detalle de migracion: **`TASKS/tema/SM-ids-vs-names/audit-identificadores-vs-nombres-ui.md`**.
+
+## Criterio rapido
+
+Si manana se da de alta **otra empresa del mismo tipo comercial** pero con otras dimensiones y espacios, el comportamiento debe seguir siendo correcto **sin cambiar codigo** — solo datos y ajustes en panel.
+
+## Referencia
+
+`CLAUDE.md` (sistema parametrico, sin hardcode de negocio), `SHARED_CONTEXT.md`, reglas multi-tenant (`00-core-safety.mdc`), auditoria `TASKS/tema/SM-ids-vs-names/audit-identificadores-vs-nombres-ui.md`.

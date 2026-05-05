@@ -15,8 +15,9 @@ Estas instrucciones son para sesiones de trabajo en **Cursor** sobre este reposi
 ## 2. Durante y al cerrar trabajo
 
 1. **Seguir actualizando** `TASKS/backlog-producto-pendientes.md` cuando corresponda: marcar entregas, pendientes al retomar, fechas y referencias a archivos, con el mismo estilo y nivel de detalle que ya usa el equipo (tablas, subsecciones, “Hecho / Pendiente”).
-2. No sustituir el backlog por el archivo de coordinación: el backlog define **qué** construye el producto; la coordinación define **avisos cruzados** con Claude Code en la dimensión IA venta.
-3. Tras cambios que impacten a Claude Code en IA venta: dejar handoff en `TASKS/coordinacion-cursor-claude-ia-venta.md` (plantilla §4.1) y, si aplica, una línea en §6.
+2. **Tablero por tema:** si la sesión trabaja una iniciativa con ID `SM-*`, mantener **`TASKS/tablero.md`** al día (columna, **Última nota** con fecha al crear/modificar/eliminar trabajo del tema). Flujo y detalle en **`LEER-PRIMERO.md`** § *Flujo al iniciar o retomar* y regla **`50-tasks-tablero-y-temas.mdc`**.
+3. No sustituir el backlog por el archivo de coordinación: el backlog define **qué** construye el producto; la coordinación define **avisos cruzados** con Claude Code en la dimensión IA venta.
+4. Tras cambios que impacten a Claude Code en IA venta: dejar handoff en `TASKS/coordinacion-cursor-claude-ia-venta.md` (plantilla §4.1) y, si aplica, una línea en §6.
 
 ## 3. Relación entre los dos archivos TASKS
 
@@ -24,6 +25,7 @@ Estas instrucciones son para sesiones de trabajo en **Cursor** sobre este reposi
 |---------|------------------|
 | `TASKS/backlog-producto-pendientes.md` | Fuente prioritaria de contexto y roadmap; actualizar avances y pendientes. |
 | `TASKS/coordinacion-cursor-claude-ia-venta.md` | Doble vía: avisar a Claude Code qué tocas que le afecta; leer qué devuelve Claude para Cursor; no reemplaza al backlog. **§10:** si otro agente puede estar editando el backlog u otro `TASKS/*.md`, revisar §2 y locks §3 antes de escribir. |
+| `TASKS/tablero.md` | Estado operativo por iniciativa; actualizar junto con `TASKS/tema/<id>/` cuando avances el tema. |
 
 ## 4. Mismo archivo TASKS que otro agente
 
@@ -31,4 +33,4 @@ Antes de **editar** `TASKS/backlog-producto-pendientes.md` (o el mismo `.md` que
 
 ## 5. GitHub y agentes en paralelo
 
-**Sincronía entre agentes:** `TASKS/leer-primero.md` (§5.2–§5.3 bitácora). **Push a GitHub:** por acuerdo actual solo la **sesión integradora** (pruebas ChatGPT/Render); el resto trabaja en local y no hace `git push` — detalle en **`TASKS/leer-primero.md` §5.1**. Sin `git push --force` a `main`.
+**Sincronía entre agentes:** `TASKS/coordinacion-cursor-paralelo.md` (§5.2–§5.3 bitácora). **Push a GitHub:** por acuerdo actual solo la **sesión integradora** (pruebas ChatGPT/Render); el resto trabaja en local y no hace `git push` — detalle en **`TASKS/coordinacion-cursor-paralelo.md` §5.1**. Sin `git push --force` a `main`.

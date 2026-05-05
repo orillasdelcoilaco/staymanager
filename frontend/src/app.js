@@ -31,7 +31,7 @@ export async function renderAppLayout(dollarInfo) {
                 <div class="sidebar-user-avatar">${initials}</div>
                 <div class="sidebar-user-info link-text">
                     <p class="sidebar-user-name">${currentUser?.nombreEmpresa || ''}</p>
-                    <p class="sidebar-user-role">Administrador</p>
+                    <p class="sidebar-user-role">${currentUser?.rol || 'admin'}</p>
                 </div>
             </div>
         </aside>
@@ -64,7 +64,7 @@ export async function renderAppLayout(dollarInfo) {
         handleNavigation('/login'); 
     });
     
-    renderMenu();
+    renderMenu(currentUser);
     setupSidebarToggle();
 }
 

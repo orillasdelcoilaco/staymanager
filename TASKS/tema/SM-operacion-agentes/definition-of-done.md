@@ -22,8 +22,8 @@ Checklist obligatorio para cerrar cualquier tarea de desarrollo.
 
 ## 4) Auditorias y verificacion
 
-- [ ] `node scripts/audit-complexity-monitored.js` ejecutado.
-- [ ] `node scripts/audit-ui-monitored.js` ejecutado (si hay cambios frontend/UI).
+- [ ] `node scripts/tooling/audit-complexity-monitored.js` ejecutado.
+- [ ] `node scripts/tooling/audit-ui-monitored.js` ejecutado (si hay cambios frontend/UI).
 - [ ] Smoke test del flujo modificado (ruta o caso principal).
 
 ## 5) Seguridad y entrega

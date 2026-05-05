@@ -13,6 +13,7 @@ const {
     getMarketplaceStrings,
     buildMarketplaceQueryBase,
     buildMarketplaceSeoUrls,
+    precioDesdeToSchemaPriceRange,
 } = require('../services/marketplaceUiStrings');
 const { sendMarketplaceSearchJson } = require('./marketplaceSearchJson.handler');
 const { getPartnerCatalogItems } = require('../services/googleHotelsPartner/googleHotelsPartnerFeeds');
@@ -59,6 +60,8 @@ const createMarketplaceRouter = (_db) => {
             const hreflangEsUrl = `${protocol}://${host}/google-hotels`;
             const hreflangEnUrl = `${protocol}://${host}/google-hotels?lang=en`;
             const mpHomeUrl = mp.htmlLang === 'en' ? '/?lang=en' : '/';
+            const marketplaceHomeAbsoluteUrl = `${protocol}://${host}${mpHomeUrl}`;
+            const ogImage = items.length > 0 && items[0].fotoUrl ? items[0].fotoUrl : null;
 
             res.render('marketplace/google-hotels-catalog', {
                 items,
@@ -69,6 +72,8 @@ const createMarketplaceRouter = (_db) => {
                 hreflangEsUrl,
                 hreflangEnUrl,
                 mpHomeUrl,
+                marketplaceHomeAbsoluteUrl,
+                ogImage,
             });
         } catch (err) {
             console.error('[Marketplace] /google-hotels:', err);
@@ -131,6 +136,7 @@ const createMarketplaceRouter = (_db) => {
                 hreflangEsUrl: seo.hreflangEsUrl,
                 hreflangEnUrl: seo.hreflangEnUrl,
                 mpHomeUrl,
+                precioDesdeToSchemaPriceRange,
             });
         } catch (err) {
             console.error('[Marketplace] Error en homepage:', err);

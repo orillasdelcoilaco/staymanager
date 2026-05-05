@@ -34,7 +34,7 @@ Después de leer los archivos, actuar según estas reglas:
   1. Leer el archivo completo que se va a modificar
   2. Entender las dependencias
   3. Preguntar al usuario si el cambio es correcto
-  4. Avisar que Claude Code debe auditar con `node scripts/audit-complexity.js`
+  4. Avisar que Claude Code debe auditar con `node scripts/tooling/audit-complexity.js`
 - **MINIMIZAR COSTOS**: Siempre proponer soluciones que minimicen llamadas a PostgreSQL/Firestore, uso de APIs externas y complejidad innecesaria.
 - **REGISTRAR OBSERVACIONES**: Al terminar una tarea, actualizar la sección 8 de SHARED_CONTEXT.md con observaciones relevantes.
 - **COORDINACIÓN CON CLAUDE CODE**: Antes de hacer cambios, indicar al usuario que ejecute en Claude Code:

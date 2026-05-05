@@ -1,5 +1,5 @@
 /**
- * Bloque §0 del checklist Google (TASKS/checklist-onboarding-google-hotel-center.md).
+ * Bloque §0 del checklist Google (TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md).
  * Datos desde GET /empresa y GET /auth/me — sin entrada manual salvo corrección del host.
  */
 

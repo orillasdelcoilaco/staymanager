@@ -7,6 +7,7 @@ import {
     bindUnifiedTestIa,
     bindUnifiedSave,
     bindUnifiedPreview,
+    bindGscHtmlVerificationUpload,
     bindUnifiedLogoUpload,
     bindUnifiedHeroUpload,
     bindGoogleHotelsHealthRefresh,
@@ -127,6 +128,7 @@ export function setupUnifiedEvents(empresaData, onComplete = null) {
         updateDomainPanel: _updateDomainPanel,
     });
     bindUnifiedPreview({ attach, empresa });
+    bindGscHtmlVerificationUpload({ fetchAPI, setStatus });
     bindUnifiedLogoUpload({ fetchAPI, setStatus });
     bindUnifiedHeroUpload({ fetchAPI, setStatus });
     bindGoogleHotelsHealthRefresh({ attach, fetchAPI });

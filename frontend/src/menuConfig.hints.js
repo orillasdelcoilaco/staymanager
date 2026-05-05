@@ -1,6 +1,6 @@
 /**
  * Tooltips del menú lateral (atributo title). Rutas e ids sin cambiar — solo ayuda contextual.
- * Ver TASKS/plan-reorganizacion-menu-spa.md
+ * Ver TASKS/tema/SM-spa-menu/plan-reorganizacion-menu-spa.md
  */
 
 export const CATEGORY_HINTS = {
@@ -10,6 +10,8 @@ export const CATEGORY_HINTS = {
         'Catálogo de lo que vendes: tipos de activos y espacios, alojamientos, fotos y normas.',
     'sitio-publico':
         'Tu sitio web público (SSR): contenido por alojamiento y configuración global del sitio.',
+    'plataforma-suitemanagers':
+        'Vista de plataforma (solo superadmin): monitoreo de posicionamiento y cobertura SEO de suitemanagers.com.',
     configuracion:
         'Ajustes de empresa, usuarios, plantillas, importación y herramientas administrativas.',
 };
@@ -17,6 +19,8 @@ export const CATEGORY_HINTS = {
 /** Por id de ítem de menú (data-path no cambia). */
 export const ITEM_HINTS = {
     dashboard: 'Resumen y accesos rápidos.',
+    'gestion-diaria': 'Panel de seguimiento operativo diario.',
+    'espera-disponibilidad': 'Leads en espera por falta de disponibilidad y su estado de recontacto.',
     resenas: 'Reseñas de huéspedes publicadas en tu sitio.',
     'gestionar-reservas': 'Listado y gestión de reservas.',
     clientes: 'Base de clientes del tenant.',
@@ -34,6 +38,8 @@ export const ITEM_HINTS = {
     'normas-alojamiento': 'Normas de estadía (SSR y consistencia con IA).',
     'website-alojamientos': 'Textos y contenido web por alojamiento en tu sitio.',
     'website-general': 'Dominio, marca, legal, depósitos y ajustes globales del sitio público.',
+    'seo-tenant': 'Diagnóstico SEO técnico de tu SSR: host, sitemap, robots, indexación y enlaces a Search Console/Bing.',
+    'seo-plataforma': 'Monitoreo SEO del marketplace suitemanagers.com (solo superadministrador).',
     'config-empresa': 'Datos generales de la empresa.',
     'config-usuarios': 'Usuarios del panel.',
     'gestionar-plantillas': 'Plantillas de correo y mensajes.',

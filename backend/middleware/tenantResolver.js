@@ -9,6 +9,29 @@ const MARKETPLACE_HOSTS = new Set([
     'marketplace', // alias local: force_host=marketplace
 ]);
 
+/**
+ * Misma lógica de host efectivo que el resolver (query force_host → cookie → req.hostname).
+ * Útil para rutas registradas antes del middleware (p. ej. robots/sitemap solo marketplace).
+ */
+function getEffectiveHostnameForSsr(req) {
+    let forceHost = req.query && req.query.force_host;
+    if (!forceHost && req.headers && req.headers.cookie) {
+        const cookies = req.headers.cookie.split(';').reduce((acc, cookie) => {
+            const parts = cookie.trim().split('=');
+            if (parts.length === 2) {
+                acc[parts[0].trim()] = parts[1].trim();
+            }
+            return acc;
+        }, {});
+        forceHost = cookies.force_host;
+    }
+    return String(forceHost || req.hostname || '').toLowerCase().trim();
+}
+
+function isMarketplaceSsrHost(req) {
+    return MARKETPLACE_HOSTS.has(getEffectiveHostnameForSsr(req));
+}
+
 const createTenantResolver = (db) => async (req, res, next) => {
     // Ignorar explícitamente cualquier ruta que pertenezca a la API o a los assets.
     if (req.path.startsWith('/api/') || req.path.startsWith('/src/') || req.path.startsWith('/public/')) {
@@ -64,4 +87,8 @@ const createTenantResolver = (db) => async (req, res, next) => {
     }
 };
 
-module.exports = { createTenantResolver };
+module.exports = {
+    createTenantResolver,
+    getEffectiveHostnameForSsr,
+    isMarketplaceSsrHost,
+};

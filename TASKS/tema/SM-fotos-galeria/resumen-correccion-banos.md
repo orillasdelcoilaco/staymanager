@@ -61,13 +61,13 @@
 
 ## 🧪 Pruebas Ejecutadas
 
-1. **Script de verificación**: `node scripts/verify_and_fix_bathrooms.js --propiedad=cabana9 --dry-run`
+1. **Script de verificación**: `node backend/scripts/verify_and_fix_bathrooms.js --propiedad=cabana9 --dry-run`
    - Resultado: ✅ Consistente: 2 baños
 
-2. **Prueba específica**: `node scripts/test_cabana9_jsonld.js`
+2. **Prueba específica**: `node backend/scripts/test_cabana9_jsonld.js`
    - Resultado: ✅ Detectó inconsistencia y mostró corrección necesaria
 
-3. **Regeneración**: `node scripts/regenerate_buildcontext_cabana9.js`
+3. **Regeneración**: `node backend/scripts/regenerate_buildcontext_cabana9.js`
    - Resultado: ✅ BuildContext actualizado de 1 a 2 baños
 
 4. **Auditorías**:

@@ -4,6 +4,7 @@ import { SEMANTICA_LABELS, invalidarCache } from './components/estadosStore.js';
 
 let estados = [];
 let editandoEstado = null;
+let estadosEspera = [];
 
 function abrirModal(estado = null) {
     const modal = document.getElementById('estado-modal');
@@ -58,6 +59,27 @@ function renderTabla() {
     `).join('');
 }
 
+function renderTablaEstadosEspera() {
+    const tbody = document.getElementById('estados-espera-tbody');
+    if (!tbody) return;
+    if (!estadosEspera.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-4">No hay estados de lista de espera.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = estadosEspera.map((e) => `
+        <tr class="border-b">
+            <td class="py-3 px-4 text-center">${e.orden}</td>
+            <td class="py-3 px-4">${e.codigo}</td>
+            <td class="py-3 px-4"><span class="px-2 py-1 font-semibold text-white rounded" style="background-color:${e.color};">${e.nombre}</span></td>
+            <td class="py-3 px-4">${e.esFinal ? 'Sí' : 'No'}</td>
+            <td class="py-3 px-4">
+                <button data-id="${e.id}" class="edit-espera-btn btn-table-edit mr-2">Editar</button>
+                <button data-id="${e.id}" class="delete-espera-btn btn-table-delete">Eliminar</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
 export async function render() {
     return `
         <div class="bg-white p-8 rounded-lg shadow">
@@ -74,6 +96,24 @@ export async function render() {
                         <th class="th">Acciones</th>
                     </tr></thead>
                     <tbody id="estados-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="bg-white p-8 rounded-lg shadow mt-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-semibold text-gray-900">Estados Lista de Espera (sin disponibilidad)</h2>
+                <button id="add-estado-espera-btn" class="btn-primary">+ Nuevo Estado Espera</button>
+            </div>
+            <div class="table-container">
+                <table class="min-w-full bg-white">
+                    <thead><tr>
+                        <th class="th">Orden</th>
+                        <th class="th">Código</th>
+                        <th class="th">Nombre</th>
+                        <th class="th">Final</th>
+                        <th class="th">Acciones</th>
+                    </tr></thead>
+                    <tbody id="estados-espera-tbody"></tbody>
                 </table>
             </div>
         </div>
@@ -114,8 +154,14 @@ async function fetchAndRender() {
     try {
         estados = await fetchAPI('/estados');
         renderTabla();
+        estadosEspera = await fetchAPI('/espera-disponibilidad/estados');
+        renderTablaEstadosEspera();
     } catch (error) {
         document.getElementById('estados-tbody').innerHTML = `<tr><td colspan="4" class="text-center text-danger-500 py-4">Error al cargar datos: ${error.message}</td></tr>`;
+        const esperaBody = document.getElementById('estados-espera-tbody');
+        if (esperaBody) {
+            esperaBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger-500 py-4">Error al cargar estados de espera: ${error.message}</td></tr>`;
+        }
     }
 }
 
@@ -165,6 +211,53 @@ export async function afterRender() {
                 } catch (error) {
                     alert(`Error al eliminar: ${error.message}`);
                 }
+            }
+        }
+    });
+
+    document.getElementById('add-estado-espera-btn').addEventListener('click', async () => {
+        const codigo = prompt('Código interno (ej: activa):');
+        if (!codigo) return;
+        const nombre = prompt('Nombre visible:');
+        if (!nombre) return;
+        try {
+            await fetchAPI('/espera-disponibilidad/estados', {
+                method: 'POST',
+                body: { codigo, nombre, color: 'rgb(107 114 128)', orden: 0, esFinal: false },
+            });
+            await fetchAndRender();
+        } catch (error) {
+            alert(`Error al crear estado de espera: ${error.message}`);
+        }
+    });
+
+    document.getElementById('estados-espera-tbody').addEventListener('click', async (e) => {
+        const id = e.target.dataset.id;
+        if (!id) return;
+        const estado = estadosEspera.find((x) => x.id === id);
+        if (!estado) return;
+
+        if (e.target.classList.contains('edit-espera-btn')) {
+            const nombre = prompt('Nuevo nombre del estado:', estado.nombre);
+            if (!nombre) return;
+            try {
+                await fetchAPI(`/espera-disponibilidad/estados/${id}`, {
+                    method: 'PUT',
+                    body: { nombre },
+                });
+                await fetchAndRender();
+            } catch (error) {
+                alert(`Error al editar estado de espera: ${error.message}`);
+            }
+        }
+
+        if (e.target.classList.contains('delete-espera-btn')) {
+            if (!confirm('¿Eliminar estado de espera?')) return;
+            try {
+                await fetchAPI(`/espera-disponibilidad/estados/${id}`, { method: 'DELETE' });
+                await fetchAndRender();
+            } catch (error) {
+                alert(`Error al eliminar estado de espera: ${error.message}`);
             }
         }
     });

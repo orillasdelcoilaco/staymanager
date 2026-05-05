@@ -6,10 +6,10 @@
  *
  * Solo actualiza los registros que realmente faltan datos — no sobreescribe campos ya completos.
  *
- * USO:
- *   node scripts/normalize_ai_metadata.js            → modo real
- *   node scripts/normalize_ai_metadata.js --dry-run  → solo muestra qué actualizaría
- *   node scripts/normalize_ai_metadata.js --empresa=<id>  → solo una empresa
+ * USO (desde la raíz del repo):
+ *   node backend/scripts/normalize_ai_metadata.js            → modo real
+ *   node backend/scripts/normalize_ai_metadata.js --dry-run  → solo muestra qué actualizaría
+ *   node backend/scripts/normalize_ai_metadata.js --empresa=<id>  → solo una empresa
  */
 
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });

@@ -123,6 +123,7 @@ function _renderPanelCliente() {
                     <button id="ir-editar-cliente-btn" class="btn-outline text-xs py-1 px-2 border-danger-400 text-danger-700 hover:bg-danger-100 flex items-center gap-1">Ir a Editar Cliente <i class="fa-solid fa-arrow-right text-[10px]"></i></button>
                 </div>
                 <input type="text" id="new-client-name" placeholder="Nombre completo" class="form-input mt-2">
+                <input type="text" id="new-client-lastname" placeholder="Apellido" class="form-input mt-2">
                 <input type="tel" id="new-client-phone" placeholder="Teléfono" class="form-input mt-2">
                 <input type="email" id="new-client-email" placeholder="Email (opcional)" class="form-input mt-2">
               </div>
@@ -211,6 +212,38 @@ function _renderModalPropuestaGuardada() {
     </div>`;
 }
 
+function _renderModalListaEspera() {
+    return `
+    <div id="lista-espera-modal" class="modal hidden">
+      <div class="modal-content !max-w-2xl">
+        <div class="flex items-center gap-4 mb-6 pb-5 border-b">
+            <div class="w-12 h-12 rounded-xl bg-warning-100 flex items-center justify-center text-warning-600 text-xl flex-shrink-0"><i class="fa-solid fa-clock"></i></div>
+            <div>
+                <h3 class="text-xl font-semibold text-gray-900">Sin disponibilidad en este momento</h3>
+                <p class="text-sm text-gray-500">¿Deseas informar al cliente cuando se libere cupo?</p>
+            </div>
+        </div>
+        <div class="space-y-3 text-sm">
+          <p class="text-gray-700">No hay disponibilidad para <strong id="lista-espera-resumen"></strong>.</p>
+          <div class="p-3 bg-gray-50 rounded border">
+            <p><strong>Cliente:</strong> <span id="lista-espera-cliente"></span></p>
+            <p><strong>Email:</strong> <span id="lista-espera-email"></span></p>
+            <p><strong>Teléfono:</strong> <span id="lista-espera-telefono"></span></p>
+          </div>
+          <label class="flex items-start gap-2">
+            <input id="lista-espera-consentimiento" type="checkbox" class="mt-1 h-4 w-4 text-primary-600 border-gray-300 rounded">
+            <span class="text-xs text-gray-600">Confirmo que el cliente autorizó contacto por correo para avisarle si se libera disponibilidad en las condiciones solicitadas.</span>
+          </label>
+          <div id="lista-espera-status" class="text-sm"></div>
+        </div>
+        <div class="flex justify-end space-x-2 mt-6">
+          <button id="lista-espera-cancelar-btn" class="btn-outline">No registrar</button>
+          <button id="lista-espera-guardar-btn" class="btn-primary">Registrar en lista de espera</button>
+        </div>
+      </div>
+    </div>`;
+}
+
 /**
  * Renderiza la estructura HTML completa de la vista.
  */
@@ -229,5 +262,6 @@ export function renderPropuestaLayout() {
       </div>
     </div>
     ${_renderModalPropuestaGuardada()}
+    ${_renderModalListaEspera()}
     `;
 }

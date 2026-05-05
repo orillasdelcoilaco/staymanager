@@ -1,0 +1,67 @@
+<%# Estilos compartidos: home marketplace + /google-hotels (TASKS/tema/SM-auditoria-calidad/solo-ui.md) %>
+<style>
+    body { font-family: 'Inter', sans-serif; }
+    .mp-header { background: rgba(255,255,255,0.92); border-bottom: 1px solid rgb(229 231 235); position: sticky; top: 0; z-index: 50; backdrop-filter: blur(10px); }
+    .mp-logo { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.5px; }
+    .mp-hero {
+        background: linear-gradient(180deg, rgb(250 250 250) 0%, rgb(255 255 255) 55%, rgb(255 255 255) 100%);
+        border-bottom: 1px solid rgb(229 231 235);
+    }
+    .search-pill {
+        display: flex; align-items: center;
+        background: #fff; border: 1px solid rgb(229 231 235);
+        border-radius: 9999px; overflow: hidden;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
+        max-width: 720px; width: 100%; margin: 0 auto;
+    }
+    .search-segment {
+        flex: 1; padding: 12px 20px; cursor: pointer; border: none;
+        background: transparent; text-align: left; min-width: 0;
+    }
+    .search-segment + .search-segment { border-left: 1.5px solid rgb(229 231 235); }
+    .search-segment label { display: block; font-size: 11px; font-weight: 700; color: rgb(17 24 39); margin-bottom: 2px; cursor: pointer; }
+    .search-segment input { width: 100%; border: none; outline: none; font-size: 13px; color: rgb(75 85 99); background: transparent; font-family: inherit; }
+    .search-segment input::placeholder { color: rgb(156 163 175); }
+    .search-btn {
+        margin: 6px; border: none;
+        border-radius: 9999px; width: 48px; height: 48px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 16px; flex-shrink: 0;
+    }
+    @media (max-width: 767px) {
+        .search-pill {
+            flex-direction: column;
+            align-items: stretch;
+            border-radius: 1rem;
+            max-width: 100%;
+        }
+        .search-segment + .search-segment { border-left: none; border-top: 1px solid rgb(229 231 235); }
+        .search-btn { width: auto; min-width: 48px; align-self: center; margin: 10px 12px 12px; }
+    }
+    .prop-card {
+        background: #fff; border-radius: 12px; overflow: hidden;
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+        text-decoration: none; color: inherit; display: block;
+        border: 1px solid rgb(243 244 246);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .prop-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0,0,0,0.1); }
+    .prop-photo { position: relative; aspect-ratio: 1 / 1; background: rgb(243 244 246); overflow: hidden; border-radius: 12px 12px 0 0; }
+    .prop-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
+    .prop-card:hover .prop-photo img { transform: scale(1.04); }
+    .prop-photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, rgb(224 231 255), rgb(240 244 255)); color: rgb(165 180 252); font-size: 3rem; }
+    .badge-fav { position: absolute; top: 10px; left: 10px; background: #fff; border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 700; color: rgb(17 24 39); box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+    .mp-badge-promo { position: absolute; top: 10px; right: 10px; background: rgb(255 247 237); color: rgb(154 52 18); border: 1px solid rgb(253 186 116); border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 700; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
+    .prop-body { padding: 14px 16px 16px; }
+    .prop-title { font-size: 14px; font-weight: 700; color: rgb(17 24 39); line-height: 1.35; margin-bottom: 3px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .prop-sub { font-size: 12px; color: rgb(75 85 99); margin-bottom: 8px; }
+    .prop-rating { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: rgb(17 24 39); }
+    .prop-rating span { color: rgb(75 85 99); font-weight: 400; }
+    .prop-price { font-size: 14px; color: rgb(17 24 39); margin-top: 8px; }
+    .prop-price strong { font-weight: 700; }
+    .prop-price em { font-style: normal; color: rgb(75 85 99); font-size: 12px; }
+    .section-title { font-size: 1.35rem; font-weight: 700; color: rgb(17 24 39); margin-bottom: 20px; }
+    .mp-alert-soft { background: #fff; border: 1px solid rgb(229 231 235); border-radius: 12px; padding: 1rem 1.25rem; color: rgb(55 65 81); font-size: 0.95rem; }
+    .mp-gh-cta-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.25rem; }
+    .mp-gh-cta-text { font-size: 0.875rem; font-weight: 600; color: rgb(37 99 235); display: inline-flex; align-items: center; gap: 0.35rem; }
+</style>

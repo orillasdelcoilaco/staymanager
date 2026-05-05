@@ -179,6 +179,7 @@ export function bindUnifiedSave({
                     title: payload.strategy.homeSeoTitle,
                     description: payload.strategy.homeSeoDesc,
                     keywords: payload.strategy.palabrasClaveAdicionales,
+                    googleSiteVerification: (document.getElementById('gsc-site-verification')?.value || '').trim(),
                 },
                 integrations: {
                     ariFeedToken: (() => {
@@ -259,6 +260,56 @@ export function bindUnifiedPreview({ attach, empresa }) {
             }
         } else {
             alert('Primero guarda la configuración para generar el sitio.');
+        }
+    });
+}
+
+export function bindGscHtmlVerificationUpload({ fetchAPI, setStatus }) {
+    const btn = document.getElementById('gsc-html-upload-btn');
+    const removeBtn = document.getElementById('gsc-html-remove-btn');
+    const fileInput = document.getElementById('gsc-html-file');
+    const statusEl = document.getElementById('gsc-html-status');
+
+    btn?.addEventListener('click', async () => {
+        const f = fileInput?.files?.[0];
+        if (!f) {
+            setStatus(statusEl, 'Elige el archivo .html que descargaste desde Google.', 'danger');
+            return;
+        }
+        btn.disabled = true;
+        setStatus(statusEl, 'Subiendo…', 'primary');
+        try {
+            const fd = new FormData();
+            fd.append('file', f, f.name);
+            const data = await fetchAPI('/website/google-search-console-verification-upload', {
+                method: 'POST',
+                body: fd,
+            });
+            setStatus(statusEl, data.message || 'Archivo guardado.', 'success');
+            const cur = document.getElementById('gsc-html-current-name');
+            if (cur && data.filename) cur.textContent = data.filename;
+            if (fileInput) fileInput.value = '';
+            if (removeBtn) removeBtn.disabled = false;
+        } catch (err) {
+            setStatus(statusEl, err.message || 'Error al subir', 'danger');
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    removeBtn?.addEventListener('click', async () => {
+        if (!window.confirm('¿Quitar el archivo de verificación del sitio público?')) return;
+        removeBtn.disabled = true;
+        setStatus(statusEl, 'Eliminando…', 'primary');
+        try {
+            await fetchAPI('/website/google-search-console-verification-file', { method: 'DELETE' });
+            setStatus(statusEl, 'Archivo eliminado.', 'success');
+            const cur = document.getElementById('gsc-html-current-name');
+            if (cur) cur.textContent = '—';
+            removeBtn.disabled = true;
+        } catch (err) {
+            setStatus(statusEl, err.message || 'Error al eliminar', 'danger');
+            removeBtn.disabled = false;
         }
     });
 }

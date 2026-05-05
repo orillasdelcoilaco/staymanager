@@ -7,6 +7,47 @@ Cada iniciativa con fila en **`TASKS/tablero.md`** tiene un directorio cuyo nomb
 - Prefijo **`SM-`** + **kebab-case** minúsculas, sin espacios ni tildes en el path.
 - El **título legible** solo en `tablero.md` y en el `README.md` del tema.
 
+## Fase de descubrimiento (antes de codificar)
+
+Muchas sesiones empiezan con **conversación**: problema, opciones, iteración humano–agente, y recién después código. Para **no perder el hilo** sin inflar el repo:
+
+| Enfoque | Veredicto |
+|---------|-----------|
+| Un **plan de acción por tema** (`plan-accion-<tema>.md` o `plan-accion-<slug>.md` en la raíz del ID) | **Sí** — es el sitio único del “por qué” y del “qué haremos”. |
+| **Un archivo nuevo por cada iteración** de charla | **No** — genera ruido y nadie sabe cuál leer. |
+| **Bitácora de interacciones** | **Sí, pero dentro del mismo plan** — sección al final (ver plantilla abajo), con viñetas **fechadas** por cada vuelta de planificación o decisión importante. |
+
+**Cuándo crear o extender el plan:** si el tema va a durar **más de una sesión**, hay **varias soluciones posibles**, o el usuario/agente ya invirtió en **explorar alternativas**. Para un cambio trivial de una ruta o un typo, basta con **última nota** en `tablero.md` (y commit).
+
+**Qué sigue siendo el índice operativo:** `TASKS/tablero.md` = **dónde está** cada tema y **estado**; el `plan-accion-*.md` = **contexto, decisiones y pasos** antes y durante la implementación.
+
+### Plantilla mínima sugerida (`plan-accion-*.md`)
+
+```markdown
+# Plan de acción — <título corto>
+
+## 1. Problema / contexto
+(Qué duele, restricciones, enlaces a código o backlog §)
+
+## 2. Opciones consideradas
+| Opción | Pros | Contras | ¿Descartada? |
+|--------|------|---------|--------------|
+
+## 3. Enfoque elegido
+(Resumen de la decisión actual; qué queda fuera de alcance)
+
+## 4. Pasos de implementación
+- [ ] …
+- [ ] …
+
+## 5. Bitácora de planificación (pre-código y durante)
+- YYYY-MM-DD — Nota breve (qué se acordó, qué se descartó, siguiente duda).
+```
+
+La bitácora **no sustituye** al tablero: cuando una decisión **cambia el estado** del tema (bloqueo, listo, en curso), reflejarlo también en **`TASKS/tablero.md`**.
+
+---
+
 ## Contenido: todo en la raíz del tema
 
 **No** hay subcarpetas obligatorias (`test/`, `debug/`, etc. eran solo ilustración). Los archivos del tema —del tipo que sea— van **directamente** en `TASKS/tema/<id>/`:

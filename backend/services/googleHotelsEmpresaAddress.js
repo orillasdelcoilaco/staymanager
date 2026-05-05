@@ -1,6 +1,6 @@
 /**
  * Dirección Google Hotels: por propiedad o fallback empresa (complejo / hotel).
- * TASKS/venta-ia.md §7 — mismo criterio que negocio "una sede" en Configuración Empresa.
+ * TASKS/tema/SM-venta-ia/venta-ia.md §7 — mismo criterio que negocio "una sede" en Configuración Empresa.
  */
 function _safeObj(v) {
     return v && typeof v === 'object' ? v : {};

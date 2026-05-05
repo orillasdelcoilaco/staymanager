@@ -60,6 +60,7 @@ export function selectClient(client) {
     document.getElementById('client-search').value = client.nombre;
     document.getElementById('client-results-list').classList.add('hidden');
     document.getElementById('new-client-name').value = client.nombre || '';
+    document.getElementById('new-client-lastname').value = client.apellido || '';
     document.getElementById('new-client-phone').value = client.telefono || '';
     document.getElementById('new-client-email').value = client.email || '';
 
@@ -76,7 +77,7 @@ export function clearClientSelection() {
     state.selectedClient = null;
     ocultarAlertaBloqueo();
     document.getElementById('client-form-title').textContent = '... o añade un cliente nuevo';
-    ['new-client-name', 'new-client-phone', 'new-client-email'].forEach(id => {
+    ['new-client-name', 'new-client-lastname', 'new-client-phone', 'new-client-email'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
@@ -84,6 +85,7 @@ export function clearClientSelection() {
 
 export async function obtenerOcrearCliente() {
     const nombre = document.getElementById('new-client-name').value.trim();
+    const apellido = document.getElementById('new-client-lastname').value.trim();
     const telefono = document.getElementById('new-client-phone').value.trim();
     const email = document.getElementById('new-client-email').value.trim();
   
@@ -95,12 +97,17 @@ export async function obtenerOcrearCliente() {
     try {
       if (state.selectedClient && state.selectedClient.id) {
         // Verificar cambios
-        const datosCargados = { nombre: state.selectedClient.nombre, telefono: state.selectedClient.telefono, email: state.selectedClient.email };
-        const datosFormulario = { nombre, telefono, email };
+        const datosCargados = {
+          nombre: state.selectedClient.nombre,
+          apellido: state.selectedClient.apellido || '',
+          telefono: state.selectedClient.telefono,
+          email: state.selectedClient.email
+        };
+        const datosFormulario = { nombre, apellido, telefono, email };
         const hayCambios = JSON.stringify(datosCargados) !== JSON.stringify(datosFormulario);
   
         if (hayCambios) {
-          const clienteActualizado = { id: state.selectedClient.id, nombre, telefono, email: email || null };
+          const clienteActualizado = { id: state.selectedClient.id, nombre, apellido, telefono, email: email || null };
           const response = await fetchAPI(`/clientes/${state.selectedClient.id}`, { method: 'PUT', body: clienteActualizado });
           state.selectedClient = response;
           return response;
@@ -109,7 +116,7 @@ export async function obtenerOcrearCliente() {
         }
       } else {
         // Crear nuevo
-        const nuevoCliente = { nombre, telefono, email: email || null };
+        const nuevoCliente = { nombre, apellido, telefono, email: email || null };
         const response = await fetchAPI('/clientes', { method: 'POST', body: nuevoCliente });
         state.selectedClient = response.cliente;
         return response.cliente;

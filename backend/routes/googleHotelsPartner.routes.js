@@ -1,5 +1,5 @@
 /**
- * Connectivity Partner — feeds globales (TASKS/venta-ia.md §7).
+ * Connectivity Partner — feeds globales (TASKS/tema/SM-venta-ia/venta-ia.md §7).
  * Montar en app **antes** del tenantResolver; rutas bajo `/feeds/google`.
  */
 const express = require('express');

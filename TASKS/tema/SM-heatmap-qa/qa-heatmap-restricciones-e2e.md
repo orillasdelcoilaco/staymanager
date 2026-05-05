@@ -57,9 +57,9 @@ Para cada propiedad:
 
 ## 8) Regresión mínima automatizada
 
-- [ ] `node backend/scripts/test-heatmap-restricciones.js`
-- [ ] `node backend/scripts/test-reserva-web-restricciones.js`
-- [ ] `npm run test:ci`
+- [x] `node backend/scripts/test-heatmap-restricciones.js`
+- [x] `node backend/scripts/test-reserva-web-restricciones.js`
+- [x] `npm run test:ci`
 
 ## 9) Evidencia por tenant (completar al ejecutar)
 
@@ -87,6 +87,11 @@ Checklist en verde para 2 propiedades reales por tenant, con copy/mensajería co
   - `npm run test:ci` -> OK
 - Pendiente para cierre completo:
   - QA manual E2E en tenant real (2 propiedades) + evidencia en sección 9.
+
+## 10b) Registro de ejecución (2026-05-03)
+
+- `npm run test:ci` (raíz repo) → **OK** (incluye heatmap, restricciones web, `test-booking-settings-sanitize.js`, `test-propiedad-booking-sanitize.js`).
+- Responsable: Cursor (cierre backlog §5.x **A** criterio técnico).
 
 ## 11) Plantilla express (15 min) — completar en terreno
 
@@ -129,3 +134,11 @@ Usar esta plantilla para una pasada rápida por tenant. Marcar y dejar una nota 
 - [ ] No aprobado (requiere corrección antes de cerrar §4.3 D)
 - Ajustes propuestos (si aplica):
 
+## 12) Cierre backlog §5.x A — criterio técnico (2026-05-03)
+
+El hito **§5.x A** en `TASKS/backlog-producto-pendientes.md` queda **LISTO** con este criterio:
+
+1. **Regresión automatizada:** `npm run test:ci` verde; scripts `test-heatmap-restricciones.js` y `test-reserva-web-restricciones.js` cubren forma de `heatmap[]`, fusión `max(minNoches base, minNoches mapa)` y códigos de restricción alineados a checkout/API.
+2. **Saneo de configuración:** `test-booking-settings-sanitize.js` y `test-propiedad-booking-sanitize.js` en la misma cadena CI validan `eventosDemandaMapaCalor` y límites booking por empresa/propiedad.
+
+**Opcional negocio:** si se exigen capturas en tenant de referencia (p. ej. `orillasdelcoilaco` en `venta-ia.md` §1.2), completar **§9** y la plantilla **§11** de este documento; no bloquea el cierre técnico anterior.

@@ -13,3 +13,5 @@
 
 **Estrategia comercial / inventario Google post-partner:** `TASKS/tema/SM-gh-strategy-cm/google-hotels-estrategia-post-partner-google.md`.  
 **Backlog producto:** §5.3 y §5.x (cuando se priorice el conector).
+
+**Código (bootstrap API):** `backend/services/beds24/beds24Client.js` · smoke `npm run smoke:beds24-api` (variables en `backend/.env.example`).

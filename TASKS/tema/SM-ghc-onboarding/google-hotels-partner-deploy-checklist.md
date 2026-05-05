@@ -1,18 +1,18 @@
 # Checklist despliegue — Google Hotels Connectivity Partner (plataforma)
 
-**Referencia de ingeniería:** `TASKS/venta-ia.md` §7, §7.9–§7.11. **Código:** agregador **`backend/services/googleHotelsGlobalService.js`** (re-export en `googleHotelsPartner/googleHotelsPartnerFeeds.js`), **`backend/routes/googleHotelsPartner.routes.js`**, `feedXmlWellformed.js`, montaje en `backend/index.js`.
+**Referencia de ingeniería:** `TASKS/tema/SM-venta-ia/venta-ia.md` §7, §7.9–§7.11. **Código:** agregador **`backend/services/googleHotelsGlobalService.js`** (re-export en `googleHotelsPartner/googleHotelsPartnerFeeds.js`), **`backend/routes/googleHotelsPartner.routes.js`**, `feedXmlWellformed.js`, montaje en `backend/index.js`.
 
 Usar en **staging** primero; **TTL DNS bajo** durante certificación Google (§7.11 fila 3).
 
 ### Secuencia B — propuesta multi-agente (orden operativo Google Hotels)
 
-Orden acordado para **no perder el hilo** entre agentes / sesiones (complementa “Orden recomendado” y **§Cómo seguir** más abajo). Referencia cruzada: **`TASKS/venta-ia.md` §4** (checklist A).
+Orden acordado para **no perder el hilo** entre agentes / sesiones (complementa “Orden recomendado” y **§Cómo seguir** más abajo). Referencia cruzada: **`TASKS/tema/SM-venta-ia/venta-ia.md` §4** (checklist A).
 
 | Paso | Qué incluye | Estado / notas (2026-05) |
 |------|-------------|---------------------------|
 | **B1** | **Deploy prod** (`main` → Render) + **DNS** `api.<dominio>` y/o `feeds.<dominio>` + **env** partner (`GOOGLE_PARTNER_FEED_AUTH_TOKEN`, etc. §2) | **feeds.** y env en prod **hechos** en operación actual; **`api.`** según contrato con Google (mismo backend si comparten app). Apex **`suitemanagers.com` / `www`** para marketplace documentado en **`venta-ia.md` §1.2** (no sustituye `feeds.`). |
 | **B2** | **Smoke** feeds globales (`npm run smoke:partner-feeds`, opcional `GH_PARTNER_FEED_STRICT=1`) y/o panel **Canales IA → Probar feeds HTTP** | Hecho en flujo de verificación reciente; repetir tras cada cambio de token o DNS. |
-| **B3** | **Onboarding Google Hotel Center por tenant** (feeds en host del operador, tokens, `hotelId`, listado) + **`TASKS/checklist-onboarding-google-hotel-center.md`** §1–§8 a mano | **Pendiente** por empresa y por respuesta Google (connectivity). |
+| **B3** | **Onboarding Google Hotel Center por tenant** (feeds en host del operador, tokens, `hotelId`, listado) + **`TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md`** §1–§8 a mano | **Pendiente** por empresa y por respuesta Google (connectivity). |
 | **B4** | **Checklist §9** — HTTP + forma XML: `GH_FEED_BASE_URL` / `GH_FEED_TOKEN` → `npm run smoke:google-hotels-tenant` o `node backend/scripts/verify-google-hotels-feed-checklist.js` | Hecho para tenant referencia; **repetir** por cada dominio nuevo o tras rotar token. |
 
 ---
@@ -48,7 +48,7 @@ Cuando **§3** del checklist ya da **200** y XML razonable en staging o prod: us
 
 - En **Hotel Center** / programa **connectivity** que Google haya habilitado, registrar las dos URLs definitivas (p. ej. `https://feeds.suitemanagers.com/feeds/google/...`).
 - Seguir el flujo del **asistente de integración** de Google (validación, mapeo de propiedades, etc.).
-- Checklist interno cruzado: este archivo (modo **partner** plataforma) + **`TASKS/checklist-onboarding-google-hotel-center.md`** (modo **tenant** + transición).
+- Checklist interno cruzado: este archivo (modo **partner** plataforma) + **`TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md`** (modo **tenant** + transición).
 
 ### 3. Pulido de datos (no bloquea el paso 2)
 
@@ -57,7 +57,7 @@ Cuando **§3** del checklist ya da **200** y XML razonable en staging o prod: us
 
 ### 4. Producto / código después de Google Hotels
 
-- **`TASKS/venta-ia.md` §8:** rol superadmin / operadores, menú restringido, auditoría, y acotar el acceso amplio al **selftest de partner** cuando exista ese rol.
+- **`TASKS/tema/SM-venta-ia/venta-ia.md` §8:** rol superadmin / operadores, menú restringido, auditoría, y acotar el acceso amplio al **selftest de partner** cuando exista ese rol.
 - **`TASKS/backlog-producto-pendientes.md` §5.3:** pendientes de negocio (MCP, `llms.txt`, etc.) según prioridad.
 
 ### 5. Equipo
@@ -110,13 +110,13 @@ Copiar desde `backend/.env.example` y generar valores nuevos en producción (no 
 ## 4. Trámite externo (Google)
 
 - [ ] Hotel Center / Connectivity: URLs finales de feeds, Partner Key según proceso Google.
-- [ ] Registrar estado por empresa en checklist onboarding (`TASKS/checklist-onboarding-google-hotel-center.md`) donde aplique.
+- [ ] Registrar estado por empresa en checklist onboarding (`TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md`) donde aplique.
 
 ---
 
 ## 5. Git / deploy (acuerdo de equipo)
 
-- [ ] **Push a `main` / deploy Render:** según sesión integradora acordada (`TASKS/leer-primero.md` §5.1).
+- [ ] **Push a `main` / deploy Render:** según sesión integradora acordada (`TASKS/coordinacion-cursor-paralelo.md` §5.1).
 - [ ] Tras deploy: repetir §3 contra URLs públicas reales.
 
 ---

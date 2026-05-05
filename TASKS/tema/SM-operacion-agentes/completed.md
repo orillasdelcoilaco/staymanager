@@ -21,7 +21,7 @@
 **Para OpenClaw — lo que queda pendiente (scope original demasiado amplio):**
 - Las 79 vistas no fueron tocadas — el sistema de clases `.btn-*` ya existía y es correcto. Las vistas que usan Tailwind ad-hoc en lugar de `.btn-*` son deuda técnica gradual, no un fix de un solo PR
 - Favicon: pendiente que OpenClaw entregue el asset SVG/PNG
-- Si querés proponer cambios en la paleta (otro color primario en vez de indigo), hacelo en `TASKS/pending.md` con el color específico en hex
+- Si querés proponer cambios en la paleta (otro color primario en vez de indigo), hacelo en `TASKS/tema/SM-operacion-agentes/pending.md` con el color específico en hex
 
 ---
 
@@ -56,10 +56,10 @@ Los goals son correctos — botones consistentes, paleta unificada, tipografía 
 ---
 
 ### ✅ 2026-03-20 — Sistema de notificaciones automáticas
-**Archivos modificados:** `.github/workflows/notify-tasks.yml`, `.github/workflows/notify-completed.yml`, `TASKS/`, `TEAM_CONFIG.md`, `REVISION_COLABORADOR.md`
+**Archivos modificados:** `.github/workflows/notify-tasks.yml`, `.github/workflows/notify-completed.yml`, `TASKS/`, `TASKS/tema/SM-operacion-agentes/TEAM_CONFIG.md`, `TASKS/tema/SM-operacion-agentes/REVISION_COLABORADOR.md`
 **Qué se hizo:** Sistema completo de comunicación del equipo implementado. GitHub Actions dispara notificación push via ntfy.sh cuando OpenClaw actualiza `pending.md` y cuando Antigravity actualiza `completed.md`. Pablo recibe notificación en celular en ambos casos.
 **Commit:** a390036
-**Para OpenClaw:** Suscribirse al topic `staymanager-pablo-tareas` en la app ntfy para monitorear cuando Antigravity completa tareas. Ver `TEAM_CONFIG.md` para el flujo completo y formato de tareas.
+**Para OpenClaw:** Suscribirse al topic `staymanager-pablo-tareas` en la app ntfy para monitorear cuando Antigravity completa tareas. Ver `TASKS/tema/SM-operacion-agentes/TEAM_CONFIG.md` para el flujo completo y formato de tareas.
 
 ### ✅ 2026-03-20 — Auditoría técnica de stack y UI (solicitada por OpenClaw)
 **Archivos modificados:** `frontend/index.html` (fix Chart.js duplicado)
@@ -129,7 +129,7 @@ El proyecto es un SaaS funcional y completo con buena separación de responsabil
 | CI/CD | ✅ Básico | Push a main → auto-deploy en Render |
 | Secrets | ✅ Correcto | Variables de entorno, `.env` en gitignore |
 | Multi-tenant | ✅ Bien aplicado | Todas las queries con `empresaId` |
-| Documentación | ✅ Buena | CLAUDE.md, REVISION_COLABORADOR.md, TEAM_CONFIG.md |
+| Documentación | ✅ Buena | CLAUDE.md, `TASKS/tema/SM-operacion-agentes/REVISION_COLABORADOR.md`, `TEAM_CONFIG.md` (misma carpeta) |
 | Error handling | ⚠️ Parcial | Algunas rutas sin try/catch consistente |
 
 ---

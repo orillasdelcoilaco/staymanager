@@ -267,8 +267,8 @@ Sesión 3: ✅ COMPLETADA
 
 ## Criterio de Éxito
 
-- [ ] `node scripts/audit-ui-monitored.js` → 0 problemas alta prioridad
-- [ ] `node scripts/audit-complexity-monitored.js` → 0 críticos
+- [ ] `node scripts/tooling/audit-ui-monitored.js` → 0 problemas alta prioridad
+- [ ] `node scripts/tooling/audit-complexity-monitored.js` → 0 críticos
 - [ ] Ningún emoji como ícono funcional en webPublica.* ni websiteAlojamientos.*
 - [ ] Todos los botones usan clase `btn-*`
 - [ ] Ningún `style.display` ilegítimo

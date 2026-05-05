@@ -1,0 +1,38 @@
+---
+description: Dónde crear archivos — sin artefactos sueltos en raíz ni rutas improvisadas (Cursor + misma política para otros agentes vía LEER-PRIMERO / CLAUDE)
+alwaysApply: true
+---
+
+# Ubicación de archivos nuevos (obligatorio)
+
+Antes de **crear** un archivo o carpeta, elegir **una** ubicación canónica. Si no encaja, **preguntar al usuario** o crear/actualizar tema en **`TASKS/tablero.md`** + carpeta **`TASKS/tema/<SM-id>/`** en lugar de inventar rutas.
+
+## Prohibido (salvo instrucción explícita del usuario)
+
+- Nuevos `.md`, scripts, configs o carpetas **sueltas en la raíz del repo** (la raíz solo conserva entradas ya acordadas: `LEER-PRIMERO.md`, `SHARED_CONTEXT.md`, `CLAUDE.md`, `README.md`, `package.json`, etc.).
+- Carpetas nuevas en raíz tipo `docs/`, `notes/`, `temp/`, `scratch/` para “lo que salió del chat”.
+- Duplicar el mismo tipo de artefacto en dos sitios (p. ej. otro `openapi/` fuera de `backend/openapi/`).
+
+## Mapa canónico
+
+| Tipo | Ubicación |
+|------|-----------|
+| Código backend (routes, services, api, middleware, jobs) | `backend/` |
+| Vistas SSR / EJS | `backend/views/` |
+| SPA (panel) | `frontend/src/` |
+| Contratos OpenAPI / JSON para integradores | `backend/openapi/` |
+| Tooling IA (MCP, packager, agentes empresa, plantillas, `empresas.json` relacionado) | `backend/ai/` |
+| Migraciones SQL | `backend/db/migrations/` (convenciones existentes) |
+| Scripts **recurrentes** (auditorías, CI, tooling) | `scripts/tooling/` |
+| Scripts **legacy** / one-off documentados | `scripts/legacy/` |
+| Tests unitarios / verificación junto al código | `backend/test/`, `backend/scripts/test-*.js`, etc. (patrones ya usados) |
+| Documentación de producto por **iniciativa** (QA, planes, audit por tema) | `TASKS/tema/<SM-id>/` — ID en **`TASKS/tablero.md`**; regla **`50-tasks-tablero-y-temas.mdc`** |
+| Roadmap global, coordinación, tablero | `TASKS/backlog-producto-pendientes.md`, `TASKS/coordinacion-*.md`, `TASKS/tablero.md` |
+
+## Otros agentes (Claude Code, Antigravity, etc.)
+
+La misma política está repetida en **`CLAUDE.md`** (Flujo de trabajo) y el párrafo de ubicación en **`SHARED_CONTEXT.md`**. No es opcional por herramienta.
+
+## Recordatorio
+
+Si el cambio es solo documentación de una iniciativa: **no** volcar en la raíz de `TASKS/` sin prefijo/tema; usar **`TASKS/tema/<id>/`** y actualizar el tablero si hace falta una fila nueva.

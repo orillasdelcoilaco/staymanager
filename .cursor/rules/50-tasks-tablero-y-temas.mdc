@@ -1,22 +1,40 @@
 ---
-description: Tablero TASKS + carpeta por tema (ID SM-*) — actualizar al trabajar o cerrar
+description: Tablero TASKS + carpeta por tema — flujo inicio (contexto→tema→acción) y actualizar tablero tras cada cambio relevante
 alwaysApply: true
 ---
 
 # Tablero y carpeta `TASKS/tema/<id>/`
 
-## Obligatorio cuando la sesión toca código o documentación acoplada a un **tema de producto**
+## Al iniciar o retomar trabajo (antes de tocar archivos del repo)
 
-1. **Identificar el tema** por **`TASKS/tablero.md`**: columna **ID** (ej. `SM-rel-v100`). Si el trabajo **no** encaja en ninguna fila, **crear fila nueva** con un ID nuevo (convención en `TASKS/tema/README.md`) y carpeta **`TASKS/tema/<id>/`**.
-2. **Actualizar la fila** en `TASKS/tablero.md`: columna (Backlog → En curso → Listo/Bloqueado), **rama** si existe, **última nota** con fecha, **enlaces** a PR o archivos clave.
-3. **Archivos del tema:** todo lo específico de esa iniciativa va **en la raíz de** `TASKS/tema/<id>/` — audit, checklist, qa, guía, plan-acción, notas, borradores, etc. **Sin subcarpetas obligatorias.** Nombrar archivos con prefijo claro del tipo: `qa-*.md`, `audit-*.md`, `checklist-*.md`, `plan-accion-*.md`, `guia-*.md`, `pending-*.md`, etc. (misma idea que el `TASKS/` histórico, pero **agrupado por ID de tema**).
-4. **`README.md`** en esa carpeta (recomendado): objetivo del tema, estado, punteros al backlog § y **lista corta** de los `.md` más importantes del directorio si hay muchos.
-5. **Subcarpetas opcionales:** solo si el volumen lo exige (decisión humana), por ejemplo un proceso grande y aislado; no son parte del estándar.
-6. **Cerrar tema:** columna **Listo** en `TASKS/tablero.md`; en `README.md` del tema, línea de cierre (fecha, PR/commit). Si aplica, enlazar **`TASKS/backlog-producto-pendientes.md`**.
+1. **Contexto:** `LEER-PRIMERO.md` → orden de lectura (mínimo `SHARED_CONTEXT.md`; coordinación/backlog si aplica).
+2. **Tema:** `TASKS/tablero.md` → fila **ID** (`SM-*`) y `TASKS/tema/<id>/`. Sin fila → crear fila + carpeta (`TASKS/tema/README.md`).
+3. **Acción:** instrucción del usuario + docs del tema.
+
+**Planificación antes de código:** si la sesión es exploración (problema, opciones, varias idas y vueltas con el humano), usar **un solo** `plan-accion-*.md` en `TASKS/tema/<id>/` y la **§ bitácora** al pie para cada iteración — **no** un archivo nuevo por charla (convención **`TASKS/tema/README.md`** § *Fase de descubrimiento*). Enlazar ese plan en **Enlaces** del tablero cuando sea el hilo principal.
+
+En **`TASKS/tablero.md`**, al **empezar** trabajo activo en un tema: columna **En curso (Cursor)** u **En curso (Claude u otro)** según corresponda, y **Última nota** con fecha + “EN CURSO: …”.
+
+## Obligatorio cuando la sesión toca código o documentación del tema
+
+**Actualizar la fila del tema en `TASKS/tablero.md`** tras **crear, modificar o eliminar** algo que avance o cambie ese tema (código, `TASKS/tema/<id>/*`, contratos del carril, etc.):
+
+- **Última nota:** fecha ISO (YYYY-MM-DD) + una frase con **dónde quedó** (archivos tocados, pendiente, bloqueo).
+- **Columna** si el estado cambia (Backlog / En curso / Bloqueado / Listo).
+- **Enlaces** si cambian los artefactos principales del tema.
+
+**Mínimos:** (1) nota al **arrancar** el trabajo serio en el tema; (2) nota **tras un bloque de cambios** o antes de **cerrar** la sesión; (3) columna **Listo** (o Bloqueado) al **cerrar** la iniciativa.
+
+Además:
+
+1. Si el trabajo **no** encaja en ninguna fila: **crear fila nueva** (ID único, convención `TASKS/tema/README.md`) y carpeta **`TASKS/tema/<id>/`**.
+2. **Archivos del tema:** todo lo específico va en la raíz de **`TASKS/tema/<id>/`** — prefijos `qa-`, `audit-`, `checklist-`, `plan-accion-`, etc.
+3. **`README.md`** en la carpeta del tema (recomendado): objetivo, estado, punteros al backlog.
+4. **Cerrar tema:** columna **Listo** + línea en `README.md` del tema si aplica; backlog si corresponde.
 
 ## Documentación global en la raíz de `TASKS/`
 
-`backlog-producto-pendientes.md`, `coordinacion-cursor-claude-ia-venta.md`, `coordinacion-cursor-paralelo.md`, `tablero.md`, … permanecen en **`TASKS/`**. El roadmap **Venta por IA** está en **`TASKS/tema/SM-venta-ia/venta-ia.md`**; **`TASKS/venta-ia.md`** es solo puntero. Lo específico de cada iniciativa sigue en **`tema/<id>/`** sin sustituir el backlog ni la coordinación.
+`backlog-producto-pendientes.md`, `coordinacion-cursor-claude-ia-venta.md`, `coordinacion-cursor-paralelo.md`, `tablero.md`, … permanecen en **`TASKS/`**. Roadmap venta IA: **`TASKS/tema/SM-venta-ia/venta-ia.md`**.
 
 ## Coordinación
 

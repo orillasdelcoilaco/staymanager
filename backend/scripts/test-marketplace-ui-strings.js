@@ -8,6 +8,7 @@ const {
     getMarketplaceSearchJsonUi,
     buildMarketplaceQueryBase,
     buildMarketplaceSeoUrls,
+    precioDesdeToSchemaPriceRange,
 } = require('../services/marketplaceUiStrings');
 
 function mockReq(query, acceptLanguage) {
@@ -34,14 +35,25 @@ const en = getMarketplaceStrings('en');
 assert.strictEqual(en.htmlLang, 'en');
 assert.ok(en.pageTitle.includes('Chile'));
 assert.ok(en.labelLlegada.length > 2);
+assert.ok(en.heroTitle && en.heroTitle.length > 4);
+assert.ok(en.heroSubtitle && en.heroSubtitle.length > 10);
 
 const es = getMarketplaceStrings('es');
 assert.strictEqual(es.htmlLang, 'es');
 assert.ok(es.sectionTodos.includes('alojamientos'));
+assert.ok(es.heroTitle && es.heroTitle.includes('Chile'));
+assert.ok(es.navGoogleHotels && es.navGoogleHotels.length > 2);
+assert.strictEqual(precioDesdeToSchemaPriceRange(50000), '$');
+assert.strictEqual(precioDesdeToSchemaPriceRange(120000), '$$');
+assert.strictEqual(precioDesdeToSchemaPriceRange(300000), '$$$');
+assert.strictEqual(precioDesdeToSchemaPriceRange(0), undefined);
+assert.strictEqual(precioDesdeToSchemaPriceRange(null), undefined);
 
 const q = buildMarketplaceQueryBase({ busqueda: 'pucon', personas: 2, fechaIn: '2026-05-01', fechaOut: '2026-05-05' });
 assert.ok(q.toString().includes('q=pucon'));
 assert.ok(q.toString().includes('personas=2'));
+const qSort = buildMarketplaceQueryBase({ busqueda: '', personas: 0, fechaIn: null, fechaOut: null, sort: 'valor' });
+assert.ok(qSort.toString().includes('sort=valor'));
 
 const req = mockReq({ q: 'x' });
 const seo = buildMarketplaceSeoUrls(req, {

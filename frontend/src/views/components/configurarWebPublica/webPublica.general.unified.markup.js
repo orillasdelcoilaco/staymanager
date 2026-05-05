@@ -26,6 +26,10 @@ function unifyBasicSection(empresa, general, booking) {
     const garantiaDetalleOperacion = clean(booking?.garantiaDetalleOperacion || '');
     const mascotasPolicyMode = clean(booking?.chatgptMascotasPolicyMode || 'auto');
     const mascotasCondicion = clean(booking?.chatgptMascotasCondicion || '');
+    const gscVerification = clean(empresa.websiteSettings?.seo?.googleSiteVerification || '');
+    const gscHtml = empresa.websiteSettings?.seo?.googleSearchConsoleHtmlVerification || {};
+    const gscHtmlFilename = clean(gscHtml.filename || '');
+    const hasGscHtmlFile = !!gscHtmlFilename;
     return `
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
             <h2 class="font-semibold text-gray-800 mb-4">Información Básica del Negocio</h2>
@@ -59,6 +63,23 @@ function unifyBasicSection(empresa, general, booking) {
                         <label class="block text-xs font-medium text-gray-500 mb-1">Google Analytics ID</label>
                         <input type="text" id="ga-id" class="form-input" value="${esc(clean(general.gaTrackingId))}" placeholder="G-XXXXXXXXXX">
                     </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Verificación Search Console (contenido de la meta etiqueta)</label>
+                    <input type="text" id="gsc-site-verification" class="form-input font-mono text-sm" value="${esc(gscVerification)}" placeholder="Pega solo el valor del atributo content que muestra Google" maxlength="128" autocomplete="off">
+                    <p class="text-xs text-gray-400 mt-1">Search Console → Añadir propiedad → Etiqueta HTML: copia solo el token (no la etiqueta completa). Se publica en el head del sitio público.</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Search Console — archivo HTML en la raíz (opcional)</label>
+                    <p class="text-xs text-gray-400 mb-2">Si Google te muestra el método «Descargar archivo» (<code class="font-mono text-gray-600">google….html</code>), descárgalo y súbelo aquí. Así no hay que copiar ni pegar el contenido.</p>
+                    <div class="flex flex-wrap items-center gap-3 mb-2">
+                        <input type="file" id="gsc-html-file" accept=".html,text/html" class="form-input text-sm max-w-full">
+                        <button type="button" id="gsc-html-upload-btn" class="btn-primary btn-sm">Subir archivo</button>
+                        <button type="button" id="gsc-html-remove-btn" class="btn-outline btn-sm text-danger-600 border-danger-200" ${hasGscHtmlFile ? '' : 'disabled'}>Quitar</button>
+                    </div>
+                    <p class="text-xs text-gray-600">Archivo activo: <span id="gsc-html-current-name" class="font-mono text-gray-800">${esc(hasGscHtmlFile ? gscHtmlFilename : '—')}</span></p>
+                    <p id="gsc-html-status" class="text-xs mt-1 min-h-[1rem] text-gray-500"></p>
+                    <p class="text-xs text-gray-400 mt-1">Déjalo vacío si solo usas la meta de arriba. Tras subir, abre en el navegador la URL del archivo en tu sitio público y comprueba el texto antes de pulsar Verificar en Google.</p>
                 </div>
                 <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
                     <p class="text-xs font-semibold text-gray-700 mb-2">Depósito / abono para reserva web</p>
@@ -180,7 +201,7 @@ export function unifyIntegrationsFeedsSection(empresa, general) {
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
             <h2 class="font-semibold text-gray-800 mb-1">Feeds públicos (OTA / Google Hotel Center)</h2>
             <p class="text-xs text-gray-500 mb-4">Opcional: protege con token las URLs que consumen OTAs o Google. Si el token de contenido Google está vacío, el feed responde sin <code class="text-xs bg-gray-100 px-1 rounded">?token=</code> (recomendado solo en entornos controlados).</p>
-            <p class="text-xs text-gray-500 mb-4">Checklist operativo (repo): <span class="font-mono text-gray-700">TASKS/checklist-onboarding-google-hotel-center.md</span>. Prueba HTTP (desde la raíz del repo): <span class="font-mono text-gray-700">node backend/scripts/test-feed-google-hotels-content-http.js &quot;&lt;url-base-tenant&gt;&quot;</span> — segundo argumento opcional: token si está configurado.</p>
+            <p class="text-xs text-gray-500 mb-4">Checklist operativo (repo): <span class="font-mono text-gray-700">TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md</span>. Prueba HTTP (desde la raíz del repo): <span class="font-mono text-gray-700">node backend/scripts/test-feed-google-hotels-content-http.js &quot;&lt;url-base-tenant&gt;&quot;</span> — segundo argumento opcional: token si está configurado.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                     <label class="block text-xs font-medium text-gray-500 mb-1">Token feed ARI (<span class="font-mono">?token=</span>)</label>

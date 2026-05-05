@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'TASKS/completed.md'
+      - 'TASKS/tema/SM-operacion-agentes/completed.md'
 
 jobs:
   notify:
@@ -17,5 +17,5 @@ jobs:
             -H "Title: StayManager - Antigravity completó tareas" \
             -H "Priority: high" \
             -H "Tags: white_check_mark" \
-            -d "Antigravity actualizó TASKS/completed.md. OpenClaw puede revisar los cambios en GitHub." \
+            -d "Antigravity actualizó TASKS/tema/SM-operacion-agentes/completed.md. OpenClaw puede revisar los cambios en GitHub." \
             https://ntfy.sh/staymanager-pablo-tareas

@@ -190,10 +190,10 @@ Derivado de **`TASKS/backlog-producto-pendientes.md`** §5.x y §5.3, checklist 
 
 ### B) OpenAPI / ChatGPT
 
-- [x] Contrato **1.4.7** con **GET `/api/public/version`** documentado (ChatGPT + Gemini YAML); especificación en **`backend/openapi/`** (fuente única en repo).  
+- [x] Contrato **1.4.8** con **GET `/api/public/version`** documentado (ChatGPT + Gemini YAML); especificación en **`backend/openapi/`** (fuente única en repo). **1.4.8:** `lista_espera` / `WAITLIST_EMAIL_REQUIRED` en reservas e intent.  
 - [ ] Revisión contrato vs implementación tras cada cambio en rutas públicas IA.  
 - [ ] Prueba manual del flujo: búsqueda → disponibilidad → cotizar → reserva (staging).  
-- [ ] Documentar versión OpenAPI entregada al conector OpenAI (registrar **1.4.7** al publicar).
+- [ ] Documentar versión OpenAPI entregada al conector OpenAI (registrar **1.4.8** al publicar).
 
 ### C) MCP
 
@@ -235,7 +235,7 @@ Lo siguiente está **implementado en código**; falta sobre todo **DoD documenta
 
 | Orden | Ítem | Estado técnico | Para dar por cerrado |
 |-------|------|----------------|----------------------|
-| 1 | **OpenAPI ChatGPT/Gemini** | Contrato **1.4.7** (`backend/openapi/openapi-chatgpt.yaml`, `backend/openapi/openapi-gemini.yaml`): incluye **GET `/api/public/version`**, changelog en `info.description`; **fuente única** bajo **`backend/openapi/`**. | Tras cada cambio en rutas públicas IA: revisar que el YAML siga al código; registrar versión entregada al conector OpenAI/Gemini. |
+| 1 | **OpenAPI ChatGPT/Gemini** | Contrato **1.4.8** (`backend/openapi/openapi-chatgpt.yaml`, `backend/openapi/openapi-gemini.yaml`): **GET `/api/public/version`**, **`lista_espera`** en 409/422 de crear reserva, **`WAITLIST_EMAIL_REQUIRED`** en `POST /api/public/reservar/intent`, path **`POST /api/public/reservas`**. | Tras cada cambio en rutas públicas IA: revisar YAML; registrar versión entregada al conector. |
 | 2 | **Comparador “reserva directa” (§4.3 D)** | JSON `GET /propiedad/:id/comparador-ota.json`, UI en ficha cuando `comparableComplete`, `legalCopy`, logs `[comparador-ota]` — ver **`TASKS/backlog-producto-pendientes.md`** §4.3 D. | **DoD MVP (LISTO):** mostrar bloque solo con fechas válidas y `comparableComplete=true`; totales referenciales CLP desde tarifas internas (canal directo vs canal comparado configurado); texto legal vía `legalCopy`; sin obligación de cotizar precios de OTAs reales externas. **Fuera de alcance MVP:** integración con precios de terceros en vivo. |
 | 3 | **Google Hotel Center + feeds** | **Código §7** operativo en prod: feeds globales `feeds.` + `auth`, smoke estricto, feed contenido tenant con token, catálogo `/google-hotels` en apex/www tras DNS GoDaddy→Render (**§1.2**). **Pendiente negocio/Google:** respuesta post–*interest form*, alta de URLs en Hotel Center, checklist §4–§8 onboarding, XSD opcional §7.10 si Google lo exige. | Tras contacto Google: URLs registradas + primera validación sin errores bloqueantes; §7.10 si aplica; §8 cuando cierren partner. |
 | 4 | **Mapa de calor QA E2E** | Funcional en código + tests. | **LISTO (2026-05-03)** criterio técnico: §12 en `TASKS/tema/SM-heatmap-qa/qa-heatmap-restricciones-e2e.md` + `npm run test:ci`. Capturas en tenant opcional. |
@@ -417,4 +417,4 @@ Incorporadas como contrato de codificación (**Gemini — cierre de ciclo**):
 
 ---
 
-*Última actualización: 2026-05-04 — **§7.0** Google partner directo pausado (comercial) + **`google-hotels-estrategia-post-partner-google.md`**. §**5.1** mapa calor; §**5.2** comparador CI; **§4** Secuencia B. **§1.2** DNS; **§8** superadmin; OpenAPI **1.4.7**.*
+*Última actualización: 2026-05-05 — OpenAPI **1.4.8** (lista de espera en contrato IA). Histórico: 2026-05-04 **§7.0** partner directo pausado; §**5.1**/**5.2**; **§4** B; **§8** superadmin.*

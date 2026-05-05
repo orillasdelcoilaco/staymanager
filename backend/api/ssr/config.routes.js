@@ -48,6 +48,10 @@ const { uploadFotoToGaleria, updateFoto, collectAllowedHighlightImagePaths } = r
 const { syncDomain, removeCustomDomain } = require('../../services/renderDomainService');
 const { ssrCache } = require('../../services/cacheService');
 const { sanitizeBookingSettingsIncoming } = require('../../services/bookingSettingsSanitize');
+const {
+    sanitizeSeoSettingsIncoming,
+    sanitizeGoogleSearchConsoleHtmlVerification,
+} = require('../../services/websiteSeoSettingsSanitize');
 const { sanitizeIntegrationsSettingsIncoming } = require('../../services/integrationsSettingsSanitize');
 const { evaluateGoogleHotelsHealth } = require('../../services/googleHotelsHealthService');
 const {
@@ -59,6 +63,28 @@ const { aiPanelGenerationLimiter } = require('../../middleware/aiPanelGeneration
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
+
+const gscVerificationUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10240 },
+    fileFilter: (_req, file, cb) => {
+        const n = String(file.originalname || '').toLowerCase();
+        if (!n.endsWith('.html')) {
+            return cb(new Error('Solo se permiten archivos .html'));
+        }
+        cb(null, true);
+    },
+});
+
+function gscVerificationUploadMw(req, res, next) {
+    gscVerificationUpload.single('file')(req, res, (err) => {
+        if (!err) return next();
+        const msg = err.code === 'LIMIT_FILE_SIZE'
+            ? 'El archivo es demasiado grande (máx. 10 KB).'
+            : (err.message || 'Archivo no válido.');
+        return res.status(400).json({ error: msg });
+    });
+}
 
 /**
  * Recalcula slotsTotal y slotsCumplidos del plan de fotos y los persiste
@@ -133,7 +159,7 @@ module.exports = (db) => {
 
     /**
      * Metadatos feeds partner (sin secretos). Vista operación plataforma en Canales IA;
-     * post–Google Hotels: restringir a rol superadmin/operador (TASKS/venta-ia.md §8).
+     * post–Google Hotels: restringir a rol superadmin/operador (TASKS/tema/SM-venta-ia/venta-ia.md §8).
      */
     router.get('/google-partner-feed-operator', (_req, res, next) => {
         try {
@@ -206,7 +232,9 @@ module.exports = (db) => {
                 };
             }
             if (settings.content) websiteSettings.content = settings.content;
-            if (settings.seo)     websiteSettings.seo     = settings.seo;
+            if (settings.seo) {
+                websiteSettings.seo = sanitizeSeoSettingsIncoming(settings.seo);
+            }
             if (settings.booking) {
                 const bookingCheck = sanitizeBookingSettingsIncoming(settings.booking);
                 if (!bookingCheck.ok) {
@@ -260,6 +288,66 @@ module.exports = (db) => {
 
             res.status(200).json({ message: 'Configuración guardada.', domainInfo });
         } catch (error) { next(error); }
+    });
+
+    // POST Subir archivo HTML de verificación Search Console (nombre y cuerpo desde el fichero)
+    router.post('/google-search-console-verification-upload', gscVerificationUploadMw, async (req, res, next) => {
+        try {
+            const { empresaId } = req.user;
+            if (!req.file) {
+                return res.status(400).json({ error: 'Selecciona el archivo .html descargado desde Google Search Console.' });
+            }
+            const originalName = String(req.file.originalname || '').trim();
+            const htmlBody = req.file.buffer.toString('utf8');
+            const sanitized = sanitizeGoogleSearchConsoleHtmlVerification({
+                filename: originalName.toLowerCase(),
+                htmlBody,
+            });
+            if (!sanitized.filename || !sanitized.htmlBody) {
+                return res.status(400).json({
+                    error: 'Archivo no válido. El nombre debe ser el que entrega Google (p. ej. googlec1387a55e90aa059.html) y el contenido el del archivo descargado.',
+                });
+            }
+            const empresaActual = await obtenerDetallesEmpresa(db, empresaId);
+            const existingSeo = empresaActual.websiteSettings?.seo || {};
+            await actualizarDetallesEmpresa(db, empresaId, {
+                websiteSettings: {
+                    seo: {
+                        ...existingSeo,
+                        googleSearchConsoleHtmlVerification: sanitized,
+                    },
+                },
+            });
+            invalidateSsrCache(empresaId);
+            return res.status(200).json({
+                ok: true,
+                filename: sanitized.filename,
+                message: 'Archivo guardado. Abre en el navegador la URL del archivo en tu sitio público y luego pulsa Verificar en Google.',
+            });
+        } catch (error) {
+            return next(error);
+        }
+    });
+
+    router.delete('/google-search-console-verification-file', async (req, res, next) => {
+        try {
+            const { empresaId } = req.user;
+            const empresaActual = await obtenerDetallesEmpresa(db, empresaId);
+            const existingSeo = empresaActual.websiteSettings?.seo || {};
+            const { googleSearchConsoleHtmlVerification: _drop, ...restSeo } = existingSeo;
+            await actualizarDetallesEmpresa(db, empresaId, {
+                websiteSettings: {
+                    seo: {
+                        ...restSeo,
+                        googleSearchConsoleHtmlVerification: { filename: '', htmlBody: '' },
+                    },
+                },
+            });
+            invalidateSsrCache(empresaId);
+            return res.status(200).json({ ok: true, message: 'Archivo de verificación eliminado.' });
+        } catch (error) {
+            return next(error);
+        }
     });
 
     // POST Subir Imagen Hero (Portada)

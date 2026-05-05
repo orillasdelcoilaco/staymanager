@@ -65,6 +65,7 @@ const _esqueleto = () => ({
             metaDescription: '',
             keywords: [],
             googleBusinessId: '',
+            googleSiteVerification: '',
             structuredData: {},
         },
 
@@ -198,6 +199,7 @@ const getBuildContext = async (_db, empresaId, propiedadId) => {
             metaDescription: seo.metaDescription || '',
             keywords: Array.isArray(seo.keywords) ? seo.keywords : [],
             googleBusinessId: seo.googleBusinessId || '',
+            googleSiteVerification: seo.googleSiteVerification || '',
             structuredData: seo.structuredData || {},
         },
 
@@ -313,6 +315,7 @@ const getEmpresaContext = async (empresaId) => {
             metaDescription: seo.metaDescription || '',
             keywords: Array.isArray(seo.keywords) ? seo.keywords : [],
             googleBusinessId: seo.googleBusinessId || '',
+            googleSiteVerification: seo.googleSiteVerification || '',
             structuredData: seo.structuredData || {},
         },
 
@@ -582,6 +585,7 @@ const getSSROptimizedData = async (empresaId) => {
                 metaDescription: seo.metaDescription || '',
                 keywords: Array.isArray(seo.keywords) ? seo.keywords : [],
                 googleBusinessId: seo.googleBusinessId || '',
+                googleSiteVerification: seo.googleSiteVerification || '',
             },
 
             // Información adicional

@@ -8,6 +8,11 @@ backend/.env
 backend/node_modules/
 node_modules/
 
+# ── Carpeta local (artefactos del entorno; ver local/README.md) ──────────────
+/local/**
+!/local/README.md
+!/local/backend/README.md
+
 # ── Logs y archivos de salida ─────────────────────────────────────────────────
 *.log
 backend/ai_error.log
@@ -24,44 +29,12 @@ backend/asset_schema_dump.txt
 backend/models_list.json
 debug_out.txt
 debug_output.txt
+firestore_check_result.txt
+temp_props.txt
+test_results.txt
+test_results_final.txt
+/Mapeos
 
-# ── Scripts temporales de debug y auditoría ───────────────────────────────────
-backend/audit_db_assets.js
-backend/audit_db_assets_v2.js
-backend/check_capacity.js
-backend/check_models.js
-backend/check_property_detail.js
-backend/cleanup_orphans.js
-backend/debug_ai_full.js
-backend/debug_ai_suggestion.js
-backend/debug_categories_script.js
-backend/debug_clone.js
-backend/debug_internal_ids.js
-backend/force_delete_by_tariff.js
-backend/force_delete_clone.js
-backend/inspect_assets.js
-backend/inspect_categories.js
-backend/inspect_categories_v2.js
-backend/inspect_component_defaults.js
-backend/inspect_sofa.js
-backend/inspect_toalla.js
-backend/list_all_assets.js
-backend/list_all_clones.js
-backend/list_categories.js
-backend/seed_assets.js
-backend/seed_suite.js
-backend/temp_validation_script.js
-backend/test_ai_naming_v2.js
-backend/test_ai_service.js
-backend/test_debug_ai.js
-backend/test_debug_robust.js
-backend/test_e2e_flow.js
-backend/test_lean_ai_logic.js
-backend/test_network_placeholder.js
-backend/verify_ai_integration.js
-backend/verify_creation_fix.js
-backend/verify_prompt.js
-backend/verify_spanglish.js
 frontend/src/views/components/gestionarTiposComponente/verify_collapse.html
 
 # ── Claude Code interno ───────────────────────────────────────────────────────

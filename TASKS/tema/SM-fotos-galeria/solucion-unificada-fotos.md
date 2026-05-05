@@ -150,14 +150,14 @@ Arregladas variables no definidas (`empresaId`, `nombreEmpresa`).
    - Priorizar tabla `galeria` sobre `websiteData.images`
    - Agregar fallback a `websiteData.images`
 
-4. `scripts/test-fotos-unificadas.js` (nuevo)
+4. `scripts/legacy/test-fotos-unificadas.js` (nuevo)
    - Test de consistencia entre sistemas
 
 ## 🔧 Comandos Útiles
 
 ```bash
 # Verificar consistencia
-node scripts/test-fotos-unificadas.js
+node scripts/legacy/test-fotos-unificadas.js
 
 # Ejecutar migración de imágenes legacy
 node backend/db/migrations/migrar-imagenes-firestore-postgres.js

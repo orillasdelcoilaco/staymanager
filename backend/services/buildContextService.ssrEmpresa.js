@@ -48,6 +48,7 @@ function ssrContextFromEmpresaRecord(empresaId, emp) {
             metaTitle: seo.metaTitle || '',
             metaDescription: seo.metaDescription || '',
             keywords: Array.isArray(seo.keywords) ? seo.keywords : [],
+            googleSiteVerification: seo.googleSiteVerification || '',
         },
     };
 }
@@ -84,6 +85,7 @@ function emptySsrEmpresaContext(empresaId) {
             metaTitle: '',
             metaDescription: '',
             keywords: [],
+            googleSiteVerification: '',
         },
     };
 }

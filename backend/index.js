@@ -65,6 +65,7 @@ const importerRoutes = require('./routes/importerRoutes');
 const historicoImporterRoutes = require('./routes/historicoImporterRoutes');
 const bloqueosRoutes = require('./routes/bloqueosRoutes');
 const resenasRoutes = require('./routes/resenas');
+const esperaDisponibilidadRoutes = require('./routes/esperaDisponibilidad.js');
 
 // [NEW] Galería de fotos por propiedad (revisión manual + sync SSR)
 const galeriaRoutes = require('./routes/galeriaRoutes');
@@ -73,9 +74,10 @@ const mapeosCentralesRoutes = require('./routes/mapeosCentrales');
 // Catálogo universal de activos (para wizard gestión de propiedades)
 const catalogoRoutes = require('./routes/catalogoRoutes');
 const geocodeRoutes = require('./routes/geocode');
+const seoMonitorRoutes = require('./routes/seoMonitor');
 
 const { createAuthMiddleware } = require('./middleware/authMiddleware.js');
-const { createTenantResolver } = require('./middleware/tenantResolver.js');
+const { createTenantResolver, isMarketplaceSsrHost } = require('./middleware/tenantResolver.js');
 
 // --- Carga de Credenciales y Configuración de Firebase ---
 let db;
@@ -252,7 +254,9 @@ try {
     apiRouter.use('/comentarios', comentariosRoutes(db));
     apiRouter.use('/estados', estadosRoutes(db));
     apiRouter.use('/resenas', resenasRoutes(db));
+    apiRouter.use('/espera-disponibilidad', esperaDisponibilidadRoutes(db));
     apiRouter.use('/ai', aiRoutes(db));
+    apiRouter.use('/seo-monitor', seoMonitorRoutes(db));
 
     // [NEW] Content Factory Routes (SSR Generation Pipeline)
     const contentFactoryRoutes = require('./api/ssr/content.routes.js');
@@ -330,12 +334,14 @@ try {
         res.redirect('/');
     });
 
-    // ── SEO global (robots.txt, sitemap.xml) ─────────────────────────────
+    // ── SEO marketplace (solo host plataforma). Dominios tenant → next() → website.seo.js ──
     const { generarSitemap, ROBOTS_TXT } = require('./services/marketplace.seo.js');
-    app.get('/robots.txt', (_req, res) => {
+    app.get('/robots.txt', (req, res, next) => {
+        if (!isMarketplaceSsrHost(req)) return next();
         res.type('text/plain').send(ROBOTS_TXT);
     });
-    app.get('/sitemap.xml', async (_req, res) => {
+    app.get('/sitemap.xml', async (req, res, next) => {
+        if (!isMarketplaceSsrHost(req)) return next();
         try {
             const xml = await generarSitemap();
             res.type('application/xml').send(xml);

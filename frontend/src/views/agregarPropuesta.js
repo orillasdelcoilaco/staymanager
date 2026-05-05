@@ -16,7 +16,9 @@ import {
   handleCerrarModal,
   handleEditMode,
   updateSummary,
-  actualizarEstadoCheckboxEmail
+  actualizarEstadoCheckboxEmail,
+  cerrarModalListaEspera,
+  handleGuardarListaEspera
 } from './components/agregarPropuesta/propuesta.handlers.js';
 
 export function render() {
@@ -56,6 +58,8 @@ export async function afterRender() {
     handleCerrarModal();
     handleNavigation('/gestionar-propuestas');
   });
+  document.getElementById('lista-espera-cancelar-btn')?.addEventListener('click', cerrarModalListaEspera);
+  document.getElementById('lista-espera-guardar-btn')?.addEventListener('click', handleGuardarListaEspera);
 
   // Modo Edición (si hay parámetros en URL)
   handleEditMode();

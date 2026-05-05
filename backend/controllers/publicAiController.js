@@ -32,6 +32,7 @@ const {
     enviarNotificacionAdminReservaIaEmail,
 } = require('../services/chatgptSalesCoreEmailService');
 const { getChatgptReservaGuardDiag } = require('../services/chatgptSalesReservationGuardModule');
+const { registrarEsperaDisponibilidadDesdeIa } = require('../services/esperaDisponibilidadService');
 const {
     isPublicAiSanitizeResponses,
     maybeSanitizePublicAiResponse,
@@ -539,7 +540,29 @@ const createBookingIntent = async (req, res) => {
             return b.todos || (b.alojamientoIds || []).includes(propiedadId);
         });
         if (bloqueado) {
-            return res.status(409).json({ error: 'La propiedad no está disponible en las fechas solicitadas.' });
+            const emailBloqueo = String(huesped?.email || '').trim();
+            if (!emailBloqueo || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(emailBloqueo)) {
+                return res.status(400).json({
+                    error: 'WAITLIST_EMAIL_REQUIRED',
+                    code: 'WAITLIST_EMAIL_REQUIRED',
+                    message:
+                        'No hay disponibilidad en esas fechas. Para anotarte en la lista de espera y avisarte por correo si se libera cupo, indica un email de contacto válido en huesped.email y vuelve a intentar.',
+                });
+            }
+            const listaEspera = await registrarEsperaDisponibilidadDesdeIa(db, targetEmpresaId, {
+                cliente: huesped || {},
+                checkin: fechaLlegada,
+                checkout: fechaSalida,
+                personas,
+                propiedadId,
+                propiedadNombre: propertyDoc?.data()?.nombre || 'Propiedad',
+            });
+            return res.status(409).json({
+                error: 'La propiedad no está disponible en las fechas solicitadas.',
+                lista_espera: listaEspera.ok
+                    ? { registrado: true, duplicado: Boolean(listaEspera.duplicado) }
+                    : { registrado: false, code: listaEspera.code, message: listaEspera.message },
+            });
         }
 
         const valorDolarDia = await obtenerValorDolar(db, targetEmpresaId, startDate);
@@ -978,6 +1001,14 @@ const createPublicReservation = async (req, res) => {
                 capacidad: p.capacidad || 0,
             }));
             if (!alternativas.length) {
+                const listaEspera = await registrarEsperaDisponibilidadDesdeIa(dbFs, empresaId, {
+                    cliente: cliente || {},
+                    checkin: fechaInicio,
+                    checkout: fechaFin,
+                    personas,
+                    propiedadId: null,
+                    propiedadNombre: null,
+                });
                 return res.status(422).json({
                     success: false,
                     error: 'NO_DISPONIBLE',
@@ -988,6 +1019,9 @@ const createPublicReservation = async (req, res) => {
                     personas_solicitadas: personas,
                     checkin: fechaInicio,
                     checkout: fechaFin,
+                    lista_espera: listaEspera.ok
+                        ? { registrado: true, duplicado: Boolean(listaEspera.duplicado) }
+                        : { registrado: false, code: listaEspera.code, message: listaEspera.message },
                 });
             }
             return res.status(422).json({
@@ -1035,10 +1069,21 @@ const createPublicReservation = async (req, res) => {
             return res.status(422).json({ success: false, error: unidad.code || 'RESOLVE_ERROR' });
         }
         if (!unidad.disponible) {
+            const listaEspera = await registrarEsperaDisponibilidadDesdeIa(db, empresaId, {
+                cliente: cliente || {},
+                checkin: fechaInicio,
+                checkout: fechaFin,
+                personas,
+                propiedadId,
+                propiedadNombre: unidad.nombre || null,
+            });
             return res.status(409).json({
                 success: false,
                 error: 'NOT_AVAILABLE',
-                message: 'La propiedad no está disponible en esas fechas'
+                message: 'La propiedad no está disponible en esas fechas',
+                lista_espera: listaEspera.ok
+                    ? { registrado: true, duplicado: Boolean(listaEspera.duplicado) }
+                    : { registrado: false, code: listaEspera.code, message: listaEspera.message },
             });
         }
         propiedadId = unidad.booking_id;

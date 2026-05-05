@@ -71,6 +71,7 @@ const obtener = async (db, empresaId) => {
 ## 🧱 Principios Core del Proyecto
 - **Multi-Tenant (Aislamiento Total)**: Nunca hagas una consulta global. En PostgreSQL: `WHERE empresa_id = $1` en toda query. En Firestore: `db.collection('empresas').doc(empresaId).collection('...')`.
 - **Sistema Paramétrico (Evita Hardcodeo de Lógica)**: Reglas de negocio (comisiones OTA, mapeos CSV, canales, configuraciones) son dinámicas y se guardan en la base de datos, de forma que todo pueda ser administrado desde la UI.
+- *Refuerzo en el repo:* `.cursor/rules/06-producto-generico-sin-tenant-demo.mdc` — no acoplar el código a una empresa de ejemplo; en persistencia, APIs y reglas usar **identificadores** (estados, propiedades, tipos, …); los **nombres** son etiquetas de UI y pueden cambiar. Detalle y migración: `TASKS/tema/SM-ids-vs-names/audit-identificadores-vs-nombres-ui.md`; entrada humana `LEER-PRIMERO.md` (tabla de estándares).
 - **Fuente de la Verdad Financiera Inmutable**: Una vez que se registra un flujo financiero (`valores.valorHuesped` extraído desde un reporte CSV u OTA), este **NUNCA DEBE SER SUSTITUIDO** por cálculos de tarifas dinámicas. Los motores de cálculo solo generan referencias (KPIs) o presupuestos nuevos, sin alterar la fuente original.
 - **Reservas Sin Duplicados**: El flujo de integraciones (ej. sincronizaciones iCal contra CSV/Reportes), tiene dependencias unificadas (mediante `idReservaCanal`). Al modificar funciones de sincronización, priorizar completar datos contra crear reservas nuevas falsas.
 
@@ -90,10 +91,10 @@ Antes de escribir cualquier código frontend, leer obligatoriamente:
 ```
 **Al terminar cualquier tarea que toque el frontend, ejecutar siempre:**
 ```bash
-node scripts/audit-ui-monitored.js
+node scripts/tooling/audit-ui-monitored.js
 ```
 El resultado debe tener **0 problemas de alta prioridad** antes de hacer commit.
-Si hay problemas de alta prioridad, ejecutar `node scripts/migrate-colors.js` para corregirlos automáticamente.
+Si hay problemas de alta prioridad, ejecutar `node scripts/tooling/migrate-colors.js` para corregirlos automáticamente.
 Luego reconstruir el CSS: `cd backend && npm run build`.
 
 ## 🧩 Modularidad — Convenciones (OBLIGATORIO)
@@ -112,7 +113,7 @@ El código debe ser modular. Un archivo que falla NO debe tumbar todo el sistema
 
 **Al terminar cualquier tarea que toque el código, ejecutar:**
 ```bash
-node scripts/audit-complexity-monitored.js
+node scripts/tooling/audit-complexity-monitored.js
 ```
 Si hay nuevos **críticos** (no existían antes), refactorizar antes de hacer commit.
 El pre-push hook avisa automáticamente si hay críticos al hacer push.
@@ -122,23 +123,23 @@ Para evitar que se corten auditorías o tareas importantes por agotamiento de cr
 
 **Antes de tareas largas o auditorías, verificar créditos:**
 ```bash
-node scripts/monitor-creditos.js reporte
+node scripts/tooling/monitor-creditos.js reporte
 ```
 
 **Ejecutar auditorías con monitoreo (RECOMENDADO):**
 ```bash
 # Auditoría UI con verificación de créditos
-node scripts/audit-ui-monitored.js
+node scripts/tooling/audit-ui-monitored.js
 
 # Auditoría de complejidad con verificación de créditos  
-node scripts/audit-complexity-monitored.js
+node scripts/tooling/audit-complexity-monitored.js
 
 # Usar hooks integrados para otras tareas
-node scripts/hooks-creditos.js [comando]
+node scripts/tooling/hooks-creditos.js [comando]
 ```
 
-**Configuración:** Ver `scripts/README-creditos.md` para detalles completos.
-**Alertas:** Se generan en `TASKS/alertas-creditos.md` cuando créditos < 20%.
+**Configuración:** Ver `scripts/tooling/README-creditos.md` para detalles completos.
+**Alertas:** Se generan en `TASKS/tema/SM-operacion-agentes/alertas-creditos.md` cuando créditos < 20%.
 
 ## 🔧 Flujo de Trabajo y Comandos
 - Todo el código backend reside en `backend/`.
@@ -147,6 +148,30 @@ node scripts/hooks-creditos.js [comando]
 - Usa EJS para SSR y TailwindCSS (`npm run build:css` o `npm run build:website-css`) para estilos.
 - Base de datos: Pool PostgreSQL en `backend/db/postgres.js` (null si DATABASE_URL no está). Firestore vía `firebase-admin` (legacy, siempre disponible para autenticación y colecciones no migradas).
 - Estado de migración y tablas creadas: ver `SHARED_CONTEXT.md` sección 2.
+
+### 📁 Dónde crear archivos nuevos (Claude Code y cualquier agente)
+
+**Objetivo:** que ningún agente deje informes, scripts o configs **sueltos en la raíz** ni en rutas fuera del estándar del repo.
+
+| Qué creas | Dónde |
+|-----------|--------|
+| Código aplicación (API, servicios, rutas, middleware) | `backend/` |
+| Panel SPA | `frontend/src/` |
+| Vistas / EJS públicas | `backend/views/` |
+| Especificaciones OpenAPI / JSON para integradores | `backend/openapi/` |
+| Herramientas IA (MCP, packager, agentes por empresa, plantillas, índices relacionados) | `backend/ai/` |
+| Migraciones SQL | `backend/db/migrations/` |
+| Scripts de mantenimiento recurrentes (auditorías, CI) | `scripts/tooling/` |
+| Scripts legacy / one-off | `scripts/legacy/` |
+| Documentación de una iniciativa (QA, checklist, plan por tema) | `TASKS/tema/<SM-id>/` — ver `TASKS/tablero.md` |
+
+**No hacer:** nuevos `.md` o carpetas en la raíz del repo (salvo que el usuario pida explícitamente una excepción); carpetas genéricas tipo `docs/` o `notes/` en raíz; duplicar tipos de artefacto en dos ubicaciones.
+
+**Cursor:** la regla **`.cursor/rules/07-artifact-placement-repo-layout.mdc`** refuerza lo mismo en el IDE. **Antigravity / otros:** siguen este archivo y `SHARED_CONTEXT.md`.
+
+### 📌 Tablero por tema (todas las herramientas)
+
+Para trabajo ligado a una **iniciativa** del producto: mismo orden que **`LEER-PRIMERO.md`** — **contexto** → **tema** (`TASKS/tablero.md`, carpeta `TASKS/tema/<id>/`) → **qué hacer**. Al **crear, modificar o eliminar** entregables del tema, **actualizar la fila** en **`TASKS/tablero.md`** (fecha en *Última nota*, estado en *Columna*). Detalle: **`LEER-PRIMERO.md`** § *Flujo al iniciar o retomar*, regla **`.cursor/rules/50-tasks-tablero-y-temas.mdc`**.
 
 ## 🎯 Lecciones Aprendidas y Soluciones Documentadas
 
@@ -180,8 +205,8 @@ await updateFoto(db, empresaId, propiedadId, galeriaFoto.id, {
 
 ### Auditorías Obligatorias Post-Cambios
 Después de cualquier modificación al código:
-1. `node scripts/audit-ui-monitored.js` - Verificar problemas de UI/Design System
-2. `node scripts/audit-complexity-monitored.js` - Verificar complejidad del código
+1. `node scripts/tooling/audit-ui-monitored.js` - Verificar problemas de UI/Design System
+2. `node scripts/tooling/audit-complexity-monitored.js` - Verificar complejidad del código
 3. Revisar logs del servidor para `[DEBUG]` messages que confirmen funcionamiento
 
 **Estado actual de auditorías (2026-04-14):**

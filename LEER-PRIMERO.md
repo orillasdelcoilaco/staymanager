@@ -20,6 +20,20 @@
 
 ---
 
+## Flujo al iniciar o retomar una tarea (orden fijo)
+
+_Tarea nueva o continuación: siempre el mismo orden._
+
+1. **Contexto** — Seguir el **Orden de lectura** de arriba (como mínimo **`SHARED_CONTEXT.md`**); añadir coordinación, backlog, `venta-ia`, **`CLAUDE.md`**, etc., según aplique (locks en §2 del archivo de coordinación antes de editar markdown compartido).
+2. **Tema** — Abrir **`TASKS/tablero.md`**, identificar el **ID** (`SM-*`) y la carpeta **`TASKS/tema/<id>/`**. Si la iniciativa aún no tiene fila: **crear fila en el tablero + carpeta del tema** (convención **`TASKS/tema/README.md`**). Leer **`README.md` del tema** si existe y los `.md` principales de esa carpeta (plan, QA, checklist). **Fase solo conversación / diseño:** si aún no hay código pero ya hubo iteración sobre el problema y soluciones, crear o actualizar un **`plan-accion-*.md`** en esa carpeta y añadir una viñeta en su **§ bitácora** (plantilla en **`TASKS/tema/README.md`** — *Fase de descubrimiento*); enlazar ese archivo en la columna **Enlaces** del tablero cuando sea el doc maestro del tema.
+3. **Qué hacer** — Ejecutar lo que pide el usuario y lo acordado en los docs del tema / backlog.
+
+**Tablero siempre al día:** cuando el agente **cree, modifique o elimine** algo **pertinente al tema** (código, docs bajo `TASKS/tema/<id>/`, contratos OpenAPI del carril, etc.), debe **actualizar la fila** de ese tema en **`TASKS/tablero.md`**: **Última nota** con fecha (YYYY-MM-DD) y una línea de **dónde quedó** el trabajo; ajustar **columna** si cambia el estado (p. ej. Backlog → En curso al arrancar; En curso → Listo al cerrar); **enlaces** si cambian archivos clave. Objetivo: que **otra sesión o agente** sepa el estado sin releer el chat. Detalle operativo: **`.cursor/rules/50-tasks-tablero-y-temas.mdc`**.
+
+**Humano en Cursor:** renombrá la **pestaña del chat** con el **nombre del tema** (título de la columna *Tema* en `tablero.md` o el ID `SM-*`) para mantener el mismo orden mental que el tablero.
+
+---
+
 ## Estándares de implementación (calidad, datos y UI)
 
 Todo lo detallado sigue viviendo en `**CLAUDE.md`** y reglas; aquí va la **línea única** para enganchar al próximo agente.
@@ -36,10 +50,11 @@ Todo lo detallado sigue viviendo en `**CLAUDE.md`** y reglas; aquí va la **lín
 | **Auditorías después de cambiar código**                                     | Desde la raíz: `node scripts/tooling/audit-ui-monitored.js` si tocaste UI; `node scripts/tooling/audit-complexity-monitored.js` si tocaste lógica (ver números exactos en `CLAUDE.md`).                                              |
 | **Menú SPA (Inventario, Sitio público, Canales IA, handoff entre sesiones)** | **Referencia única:** `TASKS/tema/SM-spa-menu/plan-reorganizacion-menu-spa.md` — fases, mapa, qué no tocar (p. ej. Flujo de Trabajo). **Lista de QA + siguiente paso Google/OpenAPI:** `TASKS/tema/SM-venta-ia/qa-y-seguimiento-prelaunch-canales.md`. |
 | **Modularidad**                                                              | Respetar límites de archivo/función/export en `CLAUDE.md`; **preferir archivos o funciones nuevas** antes de reescribir bloques grandes que ya funcionan.                                                            |
+| **Ubicación de archivos (todos los agentes)**                                | **No** crear artefactos nuevos en la raíz del repo ni en rutas improvisadas. Código → `backend/` / `frontend/src/`; OpenAPI y contratos públicos → `backend/openapi/`; tooling IA (MCP, agentes, plantillas) → `backend/ai/`; scripts recurrentes → `scripts/tooling/` o `scripts/legacy/` según convención; planes, QA e informes por iniciativa → **`TASKS/tema/<SM-id>/`** (`TASKS/tablero.md`). Detalle: **`CLAUDE.md`** (Flujo de trabajo), **`SHARED_CONTEXT.md`** (cabecera), regla **`.cursor/rules/07-artifact-placement-repo-layout.mdc`**. |
 | **No romper lo estable**                                                     | Cambios **mínimos** y **aislados** en rutas ya probadas; nuevas capacidades en **módulos nuevos** o detrás de helpers claros; no ensanchar el alcance del PR sin necesidad.                                          |
 
 
-**Cursor:** las reglas en `**.cursor/rules/`** (`00-core-safety.mdc`, modo dual, backlog, etc.) aplican **además** de lo anterior. **Política de qué va en cada `.mdc` e índice de rules:** `.cursor/rules/README.md`. Skill `**.cursor/skills/staymanager-executor/SKILL.md`** para trabajo backend/SSR/SPA en StayManager. **Tablero operativo por tema:** `TASKS/tablero.md` (IDs ↔ carpetas `TASKS/tema/<id>/`; convención `TASKS/tema/README.md`). Agentes: regla **`50-tasks-tablero-y-temas.mdc`**. No sustituye al backlog.
+**Cursor:** las reglas en `**.cursor/rules/`** (`00-core-safety.mdc`, `07-artifact-placement-repo-layout.mdc`, modo dual, backlog, etc.) aplican **además** de lo anterior. **Política de qué va en cada `.mdc` e índice de rules:** `.cursor/rules/README.md`. Skill `**.cursor/skills/staymanager-executor/SKILL.md`** para trabajo backend/SSR/SPA en StayManager. **Tablero operativo por tema:** `TASKS/tablero.md` (IDs ↔ carpetas `TASKS/tema/<id>/`; convención `TASKS/tema/README.md`). Agentes: regla **`50-tasks-tablero-y-temas.mdc`**. No sustituye al backlog.
 
 **Varios agentes Cursor en paralelo:** después de este archivo, si aplica release vs backlog, seguir `**TASKS/coordinacion-cursor-paralelo.md`** (bitácora §5.3, integrador). **Solo** la raíz tiene `LEER-PRIMERO.md`; no confundir con el doc multi-agente.
 
@@ -55,4 +70,4 @@ Las reglas en `.cursor/rules/` se aplican **además** de lo anterior. Criterios 
 
 ---
 
-*Última actualización: 2026-05-05 — Multi-agente: `TASKS/coordinacion-cursor-paralelo.md` (antes `leer-primero.md` en TASKS). Filas **Producto genérico** + **IDs vs nombres**; regla `06-producto-generico-sin-tenant-demo.mdc`. Historial: 2026-05-04 README rules y `TASKS/tablero.md`; Menú SPA.*
+*Última actualización: 2026-05-06 — `plan-accion` + bitácora en `TASKS/tema/README.md`; flujo tema (LEER-PRIMERO) y regla `50`. Historial: tablero obligatorio + pestaña chat; ubicación `07`; `coordinacion-cursor-paralelo.md`.*

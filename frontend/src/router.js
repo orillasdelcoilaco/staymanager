@@ -12,6 +12,7 @@ const views = {
     '/login': () => import('./views/login.js'),
     '/': () => import('./views/dashboard.js'),
     '/gestion-diaria': () => import('./views/gestionDiaria.js'),
+    '/gestion-diaria/espera-disponibilidad': () => import('./views/gestionarEsperaDisponibilidad.js'),
     '/calendario': () => import('./views/calendario.js'),
     '/clientes': () => import('./views/gestionarClientes.js'),
     '/cliente/:id': () => import('./views/perfilCliente.js'),
@@ -41,6 +42,8 @@ const views = {
 
     // --- NUEVAS VISTAS AGREGADAS ---
     '/website-general': () => import('./views/websiteGeneral.js'),
+    '/seo-tenant': () => import('./views/seoTenant.js'),
+    '/seo-plataforma': () => import('./views/seoPlataforma.js'),
     '/normas-alojamiento': () => import('./views/normasAlojamiento.js'),
     '/website-alojamientos': () => import('./views/websiteAlojamientos.js'),
     '/gestionar-tipos-componente': () => import('./views/gestionarTiposComponente.js'),
@@ -62,6 +65,7 @@ const menuConfig = [
         id: 'flujo-trabajo',
         children: [
             { icon: 'fa-solid fa-sun',                  name: 'Gestión Diaria',      path: '/gestion-diaria',          id: 'gestion-diaria' },
+            { icon: 'fa-solid fa-clock',                name: 'Lista de Espera',     path: '/gestion-diaria/espera-disponibilidad', id: 'espera-disponibilidad' },
             { icon: 'fa-solid fa-calendar',             name: 'Calendario',          path: '/calendario',              id: 'calendario' },
             { icon: 'fa-solid fa-chart-bar',            name: 'Reportes Rápidos',    path: '/generar-reportes-rapidos', id: 'reportes-rapidos' },
             { icon: 'fa-solid fa-plus',                 name: 'Agregar Propuesta',   path: '/agregar-propuesta',       id: 'agregar-propuesta' },
@@ -102,6 +106,15 @@ const menuConfig = [
         children: [
             { icon: 'fa-solid fa-pen-to-square', name: 'Contenido Web',     path: '/website-alojamientos', id: 'website-alojamientos' },
             { icon: 'fa-solid fa-sliders',       name: 'Configuración Web', path: '/website-general',    id: 'website-general' },
+            { icon: 'fa-solid fa-magnifying-glass-chart', name: 'SEO mi sitio', path: '/seo-tenant', id: 'seo-tenant' },
+        ]
+    },
+    {
+        icon: 'fa-solid fa-chart-simple', name: 'Plataforma SuiteManagers',
+        id: 'plataforma-suitemanagers',
+        superadminOnly: true,
+        children: [
+            { icon: 'fa-solid fa-globe', name: 'Buscadores plataforma', path: '/seo-plataforma', id: 'seo-plataforma', superadminOnly: true },
         ]
     },
     {
@@ -209,9 +222,37 @@ async function loadView(path) {
     }
 }
 
-export function renderMenu() {
+function normalizeRole(role) {
+    return String(role || '').trim().toLowerCase();
+}
+
+function isSuperAdmin(role) {
+    const r = normalizeRole(role);
+    return r === 'superadmin' || r === 'super_admin' || r === 'platform_admin';
+}
+
+function canSeeMenuItem(item, user) {
+    if (!item?.superadminOnly) return true;
+    return isSuperAdmin(user?.rol);
+}
+
+export function renderMenu(currentUser = null) {
     const nav = document.getElementById('main-nav');
     if (!nav) return;
+
+    const visibleMenu = menuConfig
+        .map((item) => {
+            if (item.children) {
+                const visibleChildren = item.children.filter((child) => canSeeMenuItem(child, currentUser));
+                return { ...item, children: visibleChildren };
+            }
+            return item;
+        })
+        .filter((item) => {
+            if (!canSeeMenuItem(item, currentUser)) return false;
+            if (item.children) return item.children.length > 0;
+            return true;
+        });
 
     let menuHtml = '';
 
@@ -230,7 +271,7 @@ export function renderMenu() {
         return `<li><a href="${item.path}" class="nav-link" data-path="${item.path}"${t}><i class="${item.icon} nav-icon"></i><span class="link-text">${item.name}</span></a></li>`;
     };
 
-    menuConfig.forEach(item => {
+    visibleMenu.forEach(item => {
         if (item.children) {
             const catTitle = titleForCategory(item);
             menuHtml += `

@@ -52,24 +52,27 @@
       "description": <%- JSON.stringify(mp.jsonLdItemListDescription) %>,
       "numberOfItems": <%= propiedades.length %>,
       "itemListElement": [
-        <%- propiedades.slice(0, 10).map((p, i) => JSON.stringify({
-          "@type": "ListItem",
-          "position": i + 1,
-          "item": {
-            "@type": "LodgingBusiness",
-            "name": p.titulo,
-            "url": p.url,
-            "image": p.fotoUrl || undefined,
-            "maximumAttendeeCapacity": p.capacidad,
-            ...(p.rating ? { "aggregateRating": {
-              "@type": "AggregateRating",
-              "ratingValue": p.rating,
-              "reviewCount": p.numResenas,
-              "bestRating": 5
-            }} : {}),
-            ...(p.precioDesde ? { "priceRange": "$".repeat(Math.ceil(p.precioDesde / 100000)) } : {})
-          }
-        })).join(',\n        ') %>
+        <%- propiedades.slice(0, 10).map((p, i) => {
+          const tier = precioDesdeToSchemaPriceRange(p.precioDesde);
+          return JSON.stringify({
+            "@type": "ListItem",
+            "position": i + 1,
+            "item": {
+              "@type": "LodgingBusiness",
+              "name": p.titulo,
+              "url": p.url,
+              "image": p.fotoUrl || undefined,
+              "maximumAttendeeCapacity": p.capacidad,
+              ...(p.rating ? { "aggregateRating": {
+                "@type": "AggregateRating",
+                "ratingValue": p.rating,
+                "reviewCount": p.numResenas,
+                "bestRating": 5
+              }} : {}),
+              ...(tier ? { "priceRange": tier } : {})
+            }
+          });
+        }).join(',\n        ') %>
       ]
     }
     </script>
@@ -78,70 +81,24 @@
     <link rel="stylesheet" href="/public/css/website.css">
     <%- include('../partials/web-fonts') %>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <style>
-        body { font-family: 'Inter', sans-serif; background: #f8f8f8; }
-        .mp-header { background: #fff; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; z-index: 50; }
-        .mp-logo { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.5px; }
-        .search-pill {
-            display: flex; align-items: center;
-            background: #fff; border: 1.5px solid #d1d5db;
-            border-radius: 9999px; overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            max-width: 680px; width: 100%; margin: 0 auto;
-        }
-        .search-segment {
-            flex: 1; padding: 12px 20px; cursor: pointer; border: none;
-            background: transparent; text-align: left;
-        }
-        .search-segment + .search-segment { border-left: 1.5px solid #e5e7eb; }
-        .search-segment label { display: block; font-size: 11px; font-weight: 700; color: #111; margin-bottom: 2px; cursor: pointer; }
-        .search-segment input { width: 100%; border: none; outline: none; font-size: 13px; color: #6b7280; background: transparent; font-family: inherit; }
-        .search-segment input::placeholder { color: #9ca3af; }
-        .search-btn {
-            margin: 6px; border: none;
-            border-radius: 9999px; width: 48px; height: 48px; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 16px; flex-shrink: 0;
-        }
-        .prop-card {
-            background: #fff; border-radius: 16px; overflow: hidden;
-            transition: transform 0.15s, box-shadow 0.15s;
-            text-decoration: none; color: inherit; display: block;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-        }
-        .prop-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
-        .prop-photo { position: relative; aspect-ratio: 4/3; background: #e5e7eb; overflow: hidden; }
-        .prop-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
-        .prop-card:hover .prop-photo img { transform: scale(1.04); }
-        .prop-photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #e0e7ff, #f0f4ff); color: #a5b4fc; font-size: 3rem; }
-        .badge-fav { position: absolute; top: 10px; left: 10px; background: #fff; border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 700; color: #111; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
-        .mp-badge-promo { position: absolute; top: 10px; right: 10px; background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 700; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
-        .prop-body { padding: 14px 16px 16px; }
-        .prop-title { font-size: 14px; font-weight: 700; color: #111; line-height: 1.35; margin-bottom: 3px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .prop-sub { font-size: 12px; color: #6b7280; margin-bottom: 8px; }
-        .prop-rating { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: #111; }
-        .prop-rating span { color: #6b7280; font-weight: 400; }
-        .prop-price { font-size: 14px; color: #111; margin-top: 8px; }
-        .prop-price strong { font-weight: 700; }
-        .prop-price em { font-style: normal; color: #6b7280; font-size: 12px; }
-        .section-title { font-size: 1.35rem; font-weight: 700; color: #111; margin-bottom: 20px; }
-    </style>
+    <%- include('../partials/marketplace-common-styles') %>
 </head>
-<body>
+<body class="bg-neutral-50 text-neutral-900 antialiased min-h-screen">
 
 <!-- ═══ HEADER ═══ -->
 <header class="mp-header">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center gap-4 lg:gap-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center gap-3 lg:gap-5">
         <a href="<%= mpHomeUrl %>" class="mp-logo flex-shrink-0 text-primary-600">suite<span class="text-neutral-900">managers</span></a>
 
-        <!-- Search pill (form GET) -->
-        <form method="GET" action="/" class="flex-1 max-w-3xl min-w-[200px]">
+        <a href="/google-hotels<%= mp.htmlLang === 'en' ? '?lang=en' : '' %>" class="hidden sm:inline-flex flex-shrink-0 text-sm font-semibold text-neutral-600 hover:text-primary-600 px-2 py-1 rounded-md whitespace-nowrap">
+            <%= mp.navGoogleHotels %>
+        </a>
+
+        <!-- Search (GET) -->
+        <form id="mp-search-form" method="GET" action="/" class="flex-1 max-w-3xl min-w-[200px] order-last sm:order-none w-full sm:w-auto">
             <div class="search-pill">
                 <% if (mp.htmlLang === 'en') { %>
                 <input type="hidden" name="lang" value="en">
-                <% } %>
-                <% if (sort) { %>
-                <input type="hidden" name="sort" value="<%= sort %>">
                 <% } %>
                 <div class="search-segment">
                     <label for="s-destino"><%= mp.labelDestino %></label>
@@ -171,16 +128,48 @@
             </div>
         </form>
 
-        <nav class="flex-shrink-0 flex items-center gap-1 text-sm font-semibold" aria-label="<%= mp.langSwitchTitle %>">
+        <nav class="flex-shrink-0 flex items-center gap-1 text-sm font-semibold sm:ml-auto" aria-label="<%= mp.langSwitchTitle %>">
             <a href="<%= mpLinkEs %>" class="px-2 py-1 rounded-md <%= mp.htmlLang === 'es' ? 'bg-neutral-100 text-neutral-900' : 'text-primary-600 hover:underline' %>"><%= mp.langSwitchEs %></a>
             <span class="text-neutral-300">|</span>
             <a href="<%= mpLinkEn %>" class="px-2 py-1 rounded-md <%= mp.htmlLang === 'en' ? 'bg-neutral-100 text-neutral-900' : 'text-primary-600 hover:underline' %>"><%= mp.langSwitchEn %></a>
         </nav>
+
+        <a href="/google-hotels<%= mp.htmlLang === 'en' ? '?lang=en' : '' %>" class="sm:hidden w-full text-center text-sm font-semibold text-primary-600 py-1">
+            <%= mp.navGoogleHotels %>
+        </a>
+    </div>
+
+    <!-- Ordenación (misma query que el buscador) -->
+    <div class="border-t border-neutral-100 bg-white/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex flex-wrap items-center justify-end gap-2">
+            <label for="mp-sort" class="text-sm font-medium text-neutral-600"><%= mp.labelSort %></label>
+            <select id="mp-sort" name="sort" form="mp-search-form"
+                    class="text-sm border border-neutral-200 rounded-lg px-3 py-1.5 bg-white text-neutral-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 max-w-full"
+                    onchange="var f=document.getElementById('mp-search-form'); if(f) f.submit();">
+                <option value="" <%= !sort ? 'selected' : '' %>><%= mp.sortRecommended %></option>
+                <option value="rating" <%= sort === 'rating' ? 'selected' : '' %>><%= mp.sortRating %></option>
+                <option value="valor" <%= sort === 'valor' ? 'selected' : '' %>><%= mp.sortPriceLow %></option>
+                <option value="valor_desc" <%= sort === 'valor_desc' ? 'selected' : '' %>><%= mp.sortPriceHigh %></option>
+            </select>
+        </div>
     </div>
 </header>
 
+<% if (!hayBusqueda) { %>
+<section class="mp-hero" aria-labelledby="mp-hero-heading">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-10 md:pt-12 md:pb-14 text-center">
+        <h1 id="mp-hero-heading" class="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-neutral-900 max-w-3xl mx-auto leading-tight">
+            <%= mp.heroTitle %>
+        </h1>
+        <p class="mt-4 text-base sm:text-lg text-neutral-600 max-w-2xl mx-auto leading-relaxed">
+            <%= mp.heroSubtitle %>
+        </p>
+    </div>
+</section>
+<% } %>
+
 <!-- ═══ MAIN ═══ -->
-<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
 
     <%
     const _priceLocale = mp.htmlLang === 'en' ? 'en-US' : 'es-CL';
@@ -192,14 +181,14 @@
 
     <!-- Destacados (solo si no hay búsqueda activa) -->
     <% if (!hayBusqueda && destacados.length > 0) { %>
-    <section class="mb-14">
-        <h2 class="section-title">
+    <section class="mb-14" aria-labelledby="mp-destacados-heading">
+        <h2 id="mp-destacados-heading" class="section-title">
             <i class="fas fa-star text-warning-500 mr-2" style="font-size:1.1rem;"></i>
             <%= mp.sectionFavoritos %>
         </h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <% destacados.forEach(p => { %>
-            <a href="/ir?s=<%= p.subdominio %>&id=<%= p.id %>" class="prop-card" target="_blank" rel="noopener">
+            <a href="/ir?s=<%= p.subdominio %>&id=<%= p.id %>" class="prop-card">
                 <div class="prop-photo">
                     <% if (p.fotoUrl) { %>
                         <img src="<%= p.fotoUrl %>" alt="<%= p.titulo %>" loading="lazy">
@@ -232,34 +221,36 @@
     <% } %>
 
     <!-- Resultados / Todos los alojamientos -->
-    <section>
-        <h2 class="section-title">
-            <% if (hayBusqueda) { %>
+    <section aria-labelledby="mp-lista-heading">
+        <% if (hayBusqueda) { %>
+        <h1 id="mp-lista-heading" class="section-title">
                 <% if (busqueda) { %>
                     <%= mp.sectionResultadosConQuery %> "<strong><%= busqueda %></strong>"
                 <% } else { %>
                     <%= mp.sectionAlojamientosPara %> <%= personas %> <%= personas !== 1 ? mp.people : mp.person %>
                 <% } %>
-                <span class="text-base font-normal text-gray-400 ml-2">· <%= totalResultados %> <%= mp.lodgings %></span>
+                <span class="text-base font-normal text-neutral-400 ml-2">· <%= totalResultados %> <%= mp.lodgings %></span>
                 <a href="<%= mpHomeUrl %>" class="text-sm font-normal text-primary-600 hover:underline ml-4">
                     <i class="fas fa-times-circle mr-1"></i><%= mp.clearFilters %>
                 </a>
-            <% } else { %>
+        </h1>
+        <% } else { %>
+        <h2 id="mp-lista-heading" class="section-title">
                 <%= mp.sectionTodos %>
-                <span class="text-base font-normal text-gray-400 ml-2">· <%= totalResultados %></span>
-            <% } %>
+                <span class="text-base font-normal text-neutral-400 ml-2">· <%= totalResultados %></span>
         </h2>
+        <% } %>
 
         <% if (propiedades.length === 0) { %>
         <div class="text-center py-20">
-            <i class="fas fa-search text-4xl text-gray-200 mb-4"></i>
-            <p class="text-gray-500 text-lg"><%= mp.noResults %></p>
+            <i class="fas fa-search text-4xl text-neutral-200 mb-4"></i>
+            <p class="text-neutral-500 text-lg"><%= mp.noResults %></p>
             <a href="<%= mpHomeUrl %>" class="inline-block mt-4 text-primary-600 hover:underline font-medium"><%= mp.verTodos %></a>
         </div>
         <% } else { %>
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             <% propiedades.forEach(p => { %>
-            <a href="/ir?s=<%= p.subdominio %>&id=<%= p.id %>" class="prop-card" target="_blank" rel="noopener">
+            <a href="/ir?s=<%= p.subdominio %>&id=<%= p.id %>" class="prop-card">
                 <div class="prop-photo">
                     <% if (p.fotoUrl) { %>
                         <img src="<%= p.fotoUrl %>" alt="<%= p.titulo %>" loading="lazy">
@@ -291,13 +282,7 @@
     </section>
 </main>
 
-<!-- ═══ FOOTER ═══ -->
-<footer class="border-t border-gray-200 mt-20 py-10 bg-white">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-400">
-        <p class="mp-logo mb-2 text-primary-600" style="font-size:1.1rem;">suite<span class="text-neutral-900">managers</span></p>
-        <p><%= mp.footerTagline %> · <a href="/google-hotels<%= mp.htmlLang === 'en' ? '?lang=en' : '' %>" class="hover:underline text-primary-600"><%= mp.ghFooterCatalog %></a> · <a href="#" class="hover:underline"><%= mp.footerTerms %></a> · <a href="#" class="hover:underline"><%= mp.footerPrivacy %></a></p>
-    </div>
-</footer>
+<%- include('../partials/marketplace-footer', { mp, mpHomeUrl, footerMode: 'home' }) %>
 
 </body>
 </html>

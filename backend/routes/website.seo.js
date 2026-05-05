@@ -4,6 +4,21 @@ function registerSeoRoutes({ router, db, deps }) {
     const { normalizeAriFeedRequest } = require('../services/ariFeedRequest');
     const { validateGoogleHotelsContentFeedAccess } = require('../services/googleHotelsContentFeedRequest');
 
+    // Search Console: archivo HTML en la raíz (p. ej. /googlec1387a55e90aa059.html)
+    router.use((req, res, next) => {
+        if (req.method !== 'GET') return next();
+        const m = (req.path || '').match(/^\/(google[0-9a-f]+\.html)$/i);
+        if (!m) return next();
+        const filename = m[1].toLowerCase();
+        const cfg = req.empresaCompleta?.websiteSettings?.seo?.googleSearchConsoleHtmlVerification;
+        const fn = cfg?.filename ? String(cfg.filename).trim().toLowerCase() : '';
+        const body = String(cfg?.htmlBody || '').trim();
+        if (!fn || fn !== filename || !body) return next();
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=300');
+        res.send(body);
+    });
+
     router.get('/robots.txt', (req, res) => {
         try {
             const baseUrl = req.baseUrl;

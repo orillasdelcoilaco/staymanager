@@ -5,7 +5,7 @@ const assert = require('assert');
 const path = require('path');
 const { readFileSync } = require('fs');
 
-const seedPath = path.join(__dirname, '../../scripts/seed-plantillas-correos-transaccionales.js');
+const seedPath = path.join(__dirname, '../../scripts/legacy/seed-plantillas-correos-transaccionales.js');
 const src = readFileSync(seedPath, 'utf8');
 
 [

@@ -183,6 +183,7 @@ export async function runSearch() {
         return true;
       } else {
         statusContainer.textContent = state.availabilityData.message || 'No se encontró disponibilidad.';
+        abrirModalListaEspera(payload);
         return false;
       }
     } catch (error) {
@@ -192,6 +193,97 @@ export async function runSearch() {
       buscarBtn.disabled = false;
       buscarBtn.textContent = 'Buscar Disponibilidad';
     }
+}
+
+function abrirModalListaEspera(payloadBusqueda) {
+  const nombre = document.getElementById('new-client-name')?.value?.trim() || '';
+  const apellido = document.getElementById('new-client-lastname')?.value?.trim() || '';
+  const telefono = document.getElementById('new-client-phone')?.value?.trim() || '';
+  const email = document.getElementById('new-client-email')?.value?.trim() || '';
+  const modal = document.getElementById('lista-espera-modal');
+  if (!modal) return;
+
+  const resumenEl = document.getElementById('lista-espera-resumen');
+  const clienteEl = document.getElementById('lista-espera-cliente');
+  const emailEl = document.getElementById('lista-espera-email');
+  const telEl = document.getElementById('lista-espera-telefono');
+  const consentimientoEl = document.getElementById('lista-espera-consentimiento');
+  const statusEl = document.getElementById('lista-espera-status');
+
+  if (resumenEl) {
+    resumenEl.textContent = `${payloadBusqueda.fechaLlegada} al ${payloadBusqueda.fechaSalida} (${payloadBusqueda.personas} personas)`;
+  }
+  if (clienteEl) clienteEl.textContent = [nombre, apellido].filter(Boolean).join(' ') || 'Sin nombre';
+  if (emailEl) emailEl.textContent = email || 'Sin email';
+  if (telEl) telEl.textContent = telefono || 'Sin teléfono';
+  if (consentimientoEl) consentimientoEl.checked = false;
+  if (statusEl) statusEl.textContent = '';
+
+  modal.classList.remove('hidden');
+}
+
+export function cerrarModalListaEspera() {
+  document.getElementById('lista-espera-modal')?.classList.add('hidden');
+}
+
+export async function handleGuardarListaEspera() {
+  const modal = document.getElementById('lista-espera-modal');
+  if (!modal || modal.classList.contains('hidden')) return;
+
+  const nombre = document.getElementById('new-client-name')?.value?.trim() || '';
+  const apellido = document.getElementById('new-client-lastname')?.value?.trim() || '';
+  const telefono = document.getElementById('new-client-phone')?.value?.trim() || '';
+  const email = document.getElementById('new-client-email')?.value?.trim() || '';
+  const consentimiento = !!document.getElementById('lista-espera-consentimiento')?.checked;
+  const statusEl = document.getElementById('lista-espera-status');
+  const saveBtn = document.getElementById('lista-espera-guardar-btn');
+
+  const fechaLlegada = document.getElementById('fecha-llegada')?.value || '';
+  const fechaSalida = document.getElementById('fecha-salida')?.value || '';
+  const personas = Number(document.getElementById('personas')?.value || 0);
+
+  if (!nombre || !apellido || !telefono || !email) {
+    if (statusEl) statusEl.innerHTML = '<span class="text-danger-600">Para lista de espera debes completar nombre, apellido, teléfono y correo.</span>';
+    return;
+  }
+  if (!consentimiento) {
+    if (statusEl) statusEl.innerHTML = '<span class="text-danger-600">Debes confirmar el consentimiento de contacto.</span>';
+    return;
+  }
+
+  const propiedadMarcada = document.querySelector('.propiedad-checkbox:checked');
+  const propiedadIdPreferida = propiedadMarcada ? String(propiedadMarcada.dataset.id || '').trim() : null;
+
+  try {
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Registrando...';
+    }
+    await fetchAPI('/espera-disponibilidad', {
+      method: 'POST',
+      body: {
+        fechaLlegada,
+        fechaSalida,
+        personas,
+        nombre,
+        apellido,
+        telefono,
+        email,
+        propiedadIdPreferida,
+        consentimientoContacto: true,
+        origen: 'spa-agregar-propuesta',
+      },
+    });
+    if (statusEl) statusEl.innerHTML = '<span class="text-success-700">Cliente registrado en lista de espera correctamente.</span>';
+    setTimeout(() => cerrarModalListaEspera(), 900);
+  } catch (error) {
+    if (statusEl) statusEl.innerHTML = `<span class="text-danger-600">Error al registrar: ${error.message}</span>`;
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Registrar en lista de espera';
+    }
+  }
 }
 
 export async function handleCuponChange() {

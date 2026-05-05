@@ -7,13 +7,14 @@ Asume el rol de arquitecto de software experto en las tecnologías usadas en est
 Recibirás un repositorio de GitHub. Primero analiza su estructura y el archivo README para entender objetivos, dependencias y flujo general.  
 Cuando te pida realizar modificaciones, deberás:  
 
-1. Siempre devolver los archivos completos, nunca fragmentos.  
-2. No agregar comentarios ni dentro de las funciones ni en el código ya existente.  
-3. Mantener el estilo de código, convenciones y arquitectura ya usadas en el repositorio.  
-4. Si hay múltiples formas de resolverlo, prioriza la más simple, clara y mantenible.  
-5. Si debo modificar más de un archivo para que el cambio funcione, incluye todos los archivos necesarios en la respuesta.  
-6. Si es necesario crear nuevos archivos, entrégalos completos.  
-7. Antes de dar el código, explícame brevemente los cambios y por qué son necesarios.  
+1. Siempre devolver los archivos completos, nunca fragmentos.
+2. No agregar comentarios ni dentro de las funciones ni en el código ya existente.
+3. Mantener el estilo de código, convenciones y arquitectura ya usadas en el repositorio.
+4. Si hay múltiples formas de resolverlo, prioriza la más simple, clara y mantenible.
+5. Si debo modificar más de un archivo para que el cambio funcione, incluye todos los archivos necesarios en la respuesta.
+6. Si es necesario crear nuevos archivos, entrégalos completos.
+7. Antes de dar el código, explícame brevemente los cambios y por qué son necesarios.
+
 Cuando modifiques archivos existentes:
 9. Si una función no requiere cambios, mantenla exactamente igual como en la versión anterior.  
    Nunca la reemplaces con “// ... (código existente)”.  
@@ -27,6 +28,7 @@ Plan de Desarrollo: SuiteManager
 Última actualización: 16 de Septiembre de 2025
 
 1. Resumen Ejecutivo
+
 SuiteManager es una aplicación web de software como servicio (SaaS) diseñada para la gestión integral de propiedades de arriendo a corto plazo (cabañas, apartamentos, etc.). El objetivo es transformar una herramienta interna en un producto comercial robusto, seguro y escalable, capaz de dar servicio a múltiples empresas (arquitectura multi-inquilino o multi-tenant).
 
 El sistema está construido con una arquitectura moderna que separa el backend (Node.js/Express) del frontend (JavaScript puro en formato SPA), garantizando un mantenimiento sencillo y una experiencia de usuario fluida.
@@ -38,7 +40,8 @@ Lógica del Panel de Administración (SPA): Residirá principalmente en los arch
 
 Lógica del Sitio Web Público (SSR): Se migrará o duplicará (y adaptará) a nuevos archivos dedicados (ej: backend/services/publicWebsiteService.js) y será consumida exclusivamente por las rutas del sitio público (backend/routes/website.js). Esto permite evolucionar la experiencia pública (ej: manejo de grupos, promociones web) sin riesgo de afectar las operaciones del panel de administración.
 
-2. Estado Actual del Proyecto: ¡Base Funcional Establecida!
+1. Estado Actual del Proyecto: ¡Base Funcional Establecida!
+
 Tras un reinicio estratégico ("Plan Renacer"), hemos superado con éxito la fase de configuración y depuración de la infraestructura. El proyecto se encuentra ahora en un estado estable y funcional.
 
 Hitos Alcanzados:
@@ -55,10 +58,11 @@ Log de la última prueba exitosa en Render:
 [DEBUG] Iniciando Firebase Admin SDK para el proyecto: suite-manager-app
 Ejemplo de log: nueva empresa de prueba y usuario admin creados con éxito (los nombres dependen del entorno).
 
-3. Infraestructura y Servicios
+1. Infraestructura y Servicios
+
 Nombre del Proyecto: SuiteManager (anteriormente StayManager).
 
-Repositorio de Código: https://github.com/orillasdelcoilaco/staymanager
+Repositorio de Código: [https://github.com/orillasdelcoilaco/staymanager](https://github.com/orillasdelcoilaco/staymanager)
 
 Proyecto de Firebase:
 
@@ -72,9 +76,10 @@ Servicio: Render
 
 Nombre del Servicio: suite-manager
 
-URL de Producción: https://suite-manager.onrender.com (o la que Render asigne en el despliegue).
+URL de Producción: [https://suite-manager.onrender.com](https://suite-manager.onrender.com) (o la que Render asigne en el despliegue).
 
-4. Arquitectura Técnica
+1. Arquitectura Técnica
+
 Backend (Node.js + Express)
 Función: Actúa como el cerebro de la aplicación. Gestiona la lógica de negocio, la seguridad y la comunicación con la base de datos.
 
@@ -119,7 +124,8 @@ empresas/ (colección)
     └── propiedades/ (sub-colección)
         └── {propiedadId}: { nombre: "Cabaña 1", capacidad: 4 }
 
-5. Hoja de Ruta del Desarrollo (Roadmap por Bloques)
+1. Hoja de Ruta del Desarrollo (Roadmap por Bloques)
+
 Ahora que la base está sólida, construiremos las funcionalidades en bloques manejables.
 
 Bloque 0: Reinicio y Base Sólida - ✅ Completado
@@ -173,17 +179,21 @@ Bloque 8: Sincronización de datos (iCal, reportes, etc.).
 Bloque 9: Generación de reportes y mensajes.
 
 # SuiteManager: Plan de Desarrollo y Arquitectura
+
 Última actualización: 26 de Septiembre de 2025
 
 ## 1. Resumen Ejecutivo
+
 SuiteManager es una aplicación web de Software como Servicio (SaaS) diseñada para la gestión integral y multi-empresa de propiedades de arriendo a corto plazo. El sistema centraliza la operación, automatiza flujos de trabajo y proporciona herramientas de auditoría y gestión, permitiendo a cada empresa cliente administrar sus propiedades, clientes y reservas de forma aislada y segura.
 
 Construido sobre una arquitectura moderna que separa un backend robusto (Node.js/Express) de un frontend modular (JavaScript Vainilla - SPA), SuiteManager está diseñado para ser escalable, mantenible y ofrecer una experiencia de usuario fluida y eficiente.
 
 ## 2. Estado Actual: Plataforma Operativa y Modular
+
 El proyecto ha superado la fase de desarrollo inicial y se encuentra en un estado funcionalmente completo y estable. Las principales funcionalidades operativas han sido implementadas y probadas, y la arquitectura del frontend ha sido refactorizada hacia un modelo de componentes modulares para garantizar la escalabilidad y facilidad de mantenimiento a largo plazo.
 
 ### Funcionalidades Clave Implementadas:
+
 ✅ **Arquitectura Multi-Empresa:** El sistema soporta múltiples empresas, aislando completamente los datos (reservas, clientes, propiedades) de cada una.
 ✅ **Gestión de Usuarios:** Cada empresa puede gestionar sus propios usuarios administradores, incluyendo la creación y eliminación de cuentas.
 ✅ **Panel de Gestión Diaria:** Un "To-Do List" inteligente que prioriza reservas según su urgencia y guía al usuario a través de un flujo de estados (Bienvenida, Cobro, Pago, Boleta).
@@ -196,23 +206,28 @@ El proyecto ha superado la fase de desarrollo inicial y se encuentra en un estad
 ## 3. Arquitectura Técnica
 
 ### Backend (Node.js + Express)
+
 Actúa como el cerebro de la aplicación, gestionando la lógica de negocio, la seguridad (autenticación y autorización por empresa) y la comunicación con la base de datos. Su estructura es modular:
-- **`routes/`**: Define los endpoints de la API.
-- **`services/`**: Contiene la lógica de negocio pura, aislada de las rutas.
-- **`middleware/`**: Protege las rutas, asegurando que un usuario solo pueda acceder a los datos de su propia empresa.
+
+- `**routes/`**: Define los endpoints de la API.
+- `**services/**`: Contiene la lógica de negocio pura, aislada de las rutas.
+- `**middleware/**`: Protege las rutas, asegurando que un usuario solo pueda acceder a los datos de su propia empresa.
 
 ### Frontend (JavaScript Vainilla - SPA Modular)
+
 Es la interfaz con la que interactúa el usuario. Tras una importante refactorización, ahora sigue una arquitectura de componentes modulares para mejorar la manenibilidad.
-- **`router.js`**: El punto de entrada que gestiona las URLs y carga las vistas principales.
-- **`views/`**: Contiene los archivos principales de cada "página" o vista (ej. `gestionDiaria.js`, `gestionarClientes.js`). Estos archivos actúan como **orquestadores**.
-- **`views/components/`**: **(Nueva Arquitectura)** Esta carpeta contiene subcarpetas para componentes reutilizables específicos de una vista. Por ejemplo, `gestionDiaria/` contiene:
-    - **`gestionDiaria.cards.js`**: Módulo responsable únicamente de renderizar las "tarjetas" de reserva.
-    - **`gestionDiaria.modals.js`**: Módulo que actúa como "controlador" para todos los modales de esa vista.
-    - **`gestionDiaria.utils.js`**: Módulo con funciones de ayuda específicas para esa vista.
+
+- `**router.js**`: El punto de entrada que gestiona las URLs y carga las vistas principales.
+- `**views/**`: Contiene los archivos principales de cada "página" o vista (ej. `gestionDiaria.js`, `gestionarClientes.js`). Estos archivos actúan como **orquestadores**.
+- `**views/components/`**: **(Nueva Arquitectura)** Esta carpeta contiene subcarpetas para componentes reutilizables específicos de una vista. Por ejemplo, `gestionDiaria/` contiene:
+  - `**gestionDiaria.cards.js`**: Módulo responsable únicamente de renderizar las "tarjetas" de reserva.
+  - `**gestionDiaria.modals.js**`: Módulo que actúa como "controlador" para todos los modales de esa vista.
+  - `**gestionDiaria.utils.js**`: Módulo con funciones de ayuda específicas para esa vista.
 
 Esta separación de responsabilidades nos permite modificar o añadir funcionalidades a una parte específica (ej. un modal) sin afectar el resto de la aplicación.
 
 ### Base de Datos (Cloud Firestore)
+
 La arquitectura multi-empresa es el núcleo del diseño de la base de datos:
 empresas/ (colección)
 └── {empresaId}/ (documento)
@@ -229,6 +244,7 @@ empresas/ (colección)
 El plan de desarrollo inicial se ha completado con éxito. Los próximos pasos se centrarán en enriquecer la plataforma con herramientas de análisis y mejorar la experiencia del usuario.
 
 ### Bloques de Desarrollo
+
 - **Bloque 0: Reinicio y Base Sólida** - ✅ **Completado**
 - **Bloque 1: Autenticación y Arquitectura SPA** - ✅ **Completado**
 - **Bloque 2: Gestión de Propiedades** - ✅ **Completado**
@@ -240,22 +256,27 @@ El plan de desarrollo inicial se ha completado con éxito. Los próximos pasos s
 - **Bloque 8: Gestión de Usuarios y Empresa** - ✅ **Completado**
 
 ### Próximos Pasos
+
 - **Dashboard y KPIs:** Implementar un panel de control con indicadores clave de rendimiento (KPIs) como tasa de ocupación, ADR (Average Daily Rate), RevPAR (Revenue Per Available Room), etc.
 - **Generador de Presupuestos:** Crear una herramienta para generar cotizaciones y propuestas de reserva de forma rápida.
 - **Sincronización iCal:** Implementar la exportación de calendarios en formato iCal para sincronizar la disponibilidad con plataformas externas.
 
 # SuiteManager: Plan de Desarrollo y Arquitectura
+
 Última actualización: 27 de Septiembre de 2025
 
 ## 1. Resumen Ejecutivo
+
 SuiteManager es una aplicación web de Software como Servicio (SaaS) diseñada para la gestión integral y multi-empresa de propiedades de arriendo a corto plazo. El sistema centraliza la operación, automatiza flujos de trabajo y proporciona herramientas de auditoría y gestión, permitiendo a cada empresa cliente administrar sus propiedades, clientes y reservas de forma aislada y segura.
 
 Construido sobre una arquitectura moderna que separa un backend robusto (Node.js/Express) de un frontend modular (JavaScript Vainilla - SPA), SuiteManager está diseñado para ser escalable, mantenible y ofrecer una experiencia de usuario fluida y eficiente.
 
 ## 2. Estado Actual: Plataforma Operativa y Modular
+
 El proyecto ha superado la fase de desarrollo inicial y se encuentra en un estado funcionalmente completo y estable. Las principales funcionalidades operativas han sido implementadas y probadas, y la arquitectura del frontend ha sido refactorizada hacia un modelo de componentes modulares para garantizar la escalabilidad y facilidad de mantenimiento a largo plazo.
 
 ### Funcionalidades Clave Implementadas:
+
 ✅ **Arquitectura Multi-Empresa:** El sistema soporta múltiples empresas, aislando completamente los datos (reservas, clientes, propiedades) de cada una.
 ✅ **Gestión de Usuarios:** Cada empresa puede gestionar sus propios usuarios administradores, incluyendo la creación y eliminación de cuentas.
 ✅ **Panel de Gestión Diaria:** Un "To-Do List" inteligente que prioriza reservas según su urgencia y guía al usuario a través de un flujo de estados (Bienvenida, Cobro, Pago, Boleta).
@@ -268,43 +289,53 @@ El proyecto ha superado la fase de desarrollo inicial y se encuentra en un estad
 ## 3. Arquitectura Técnica
 
 ### Backend (Node.js + Express)
+
 Actúa como el cerebro de la aplicación, gestionando la lógica de negocio, la seguridad (autenticación y autorización por empresa) y la comunicación con la base de datos. Su estructura es modular:
-- **`routes/`**: Define los endpoints de la API.
-- **`services/`**: Contiene la lógica de negocio pura, aislada de las rutas.
-- **`middleware/`**: Protege las rutas, asegurando que un usuario solo pueda acceder a los datos de su propia empresa.
+
+- `**routes/`**: Define los endpoints de la API.
+- `**services/**`: Contiene la lógica de negocio pura, aislada de las rutas.
+- `**middleware/**`: Protege las rutas, asegurando que un usuario solo pueda acceder a los datos de su propia empresa.
 
 #### Modularización de Servicios
+
 Siguiendo la misma filosofía del frontend, los servicios del backend se están refactorizando en módulos con responsabilidades únicas. Por ejemplo, la lógica de negocio para la "Gestión Diaria" se divide en:
-- **`gestionDiariaService.js`**: Orquesta la obtención de datos para la vista principal.
-- **`bitacoraService.js`**: Maneja exclusivamente la lógica de la bitácora de notas.
-- **`analisisFinancieroService.js`**: Contiene la lógica para los cálculos de rentabilidad y costos de canal.
-- **`transaccionesService.js`**: Gestiona la obtención de transacciones y pagos.
+
+- `**gestionDiariaService.js**`: Orquesta la obtención de datos para la vista principal.
+- `**bitacoraService.js**`: Maneja exclusivamente la lógica de la bitácora de notas.
+- `**analisisFinancieroService.js**`: Contiene la lógica para los cálculos de rentabilidad y costos de canal.
+- `**transaccionesService.js**`: Gestiona la obtención de transacciones y pagos.
 
 Esta separación mejora la mantenibilidad y reduce la complejidad de cada archivo individual.
 
 ### Frontend (JavaScript Vainilla - SPA Modular)
+
 Es la interfaz con la que interactúa el usuario. Sigue una arquitectura de componentes modulares para mejorar la manenibilidad.
-- **`router.js`**: El punto de entrada que gestiona las URLs y carga las vistas principales.
-- **`views/`**: Contiene los archivos principales de cada "página" o vista (ej. `gestionDiaria.js`). Estos archivos actúan como **orquestadores**.
-- **`views/components/`**: Esta carpeta contiene subcarpetas para componentes reutilizables específicos de una vista. Por ejemplo, `gestionDiaria/` contiene:
-    - **`gestionDiaria.cards.js`**: Módulo responsable únicamente de renderizar las "tarjetas" de reserva.
-    - **`gestionDiaria.modals.js`**: Módulo que actúa como "controlador" para todos los modales de esa vista.
-    - **`gestionDiaria.utils.js`**: Módulo con funciones de ayuda específicas para esa vista.
+
+- `**router.js**`: El punto de entrada que gestiona las URLs y carga las vistas principales.
+- `**views/**`: Contiene los archivos principales de cada "página" o vista (ej. `gestionDiaria.js`). Estos archivos actúan como **orquestadores**.
+- `**views/components/`**: Esta carpeta contiene subcarpetas para componentes reutilizables específicos de una vista. Por ejemplo, `gestionDiaria/` contiene:
+  - `**gestionDiaria.cards.js**`: Módulo responsable únicamente de renderizar las "tarjetas" de reserva.
+  - `**gestionDiaria.modals.js**`: Módulo que actúa como "controlador" para todos los modales de esa vista.
+  - `**gestionDiaria.utils.js**`: Módulo con funciones de ayuda específicas para esa vista.
 
 ### Base de Datos (Cloud Firestore)
+
 La arquitectura multi-empresa es el núcleo del diseño de la base de datos:
 `empresas/{empresaId}`
+
 - `users/`
 
 SuiteManager: Plan de Desarrollo y Arquitectura
 Última actualización: 26 de Septiembre de 2025
 
 1. Resumen Ejecutivo
+
 SuiteManager es una aplicación web de Software como Servicio (SaaS) diseñada para la gestión integral y multi-empresa de propiedades de arriendo a corto plazo. El sistema centraliza la operación, automatiza flujos de trabajo y proporciona herramientas de auditoría y gestión, permitiendo a cada empresa cliente administrar sus propiedades, clientes y reservas de forma aislada y segura.
 
 Construido sobre una arquitectura moderna que separa un backend robusto (Node.js/Express) de un frontend modular (JavaScript Vainilla - SPA), SuiteManager está diseñado para ser escalable, mantenible y ofrecer una experiencia de usuario fluida y eficiente.
 
-2. Estado Actual: Plataforma Operativa y Modular
+1. Estado Actual: Plataforma Operativa y Modular
+
 El proyecto ha superado la fase de desarrollo inicial y se encuentra en un estado funcionalmente completo y estable. Las principales funcionalidades operativas han sido implementadas y probadas, y la arquitectura del frontend ha sido refactorizada hacia un modelo de componentes modulares para garantizar la escalabilidad y facilidad de mantenimiento a largo plazo.
 
 Funcionalidades Clave Implementadas:
@@ -317,7 +348,8 @@ Funcionalidades Clave Implementadas:
 ✅ Gestión de Propiedades, Canales y Tarifas: Módulos completos para configurar los activos y la lógica de negocio de cada empresa.
 ✅ Auditoría de Cargas: Cada reserva está vinculada al reporte de origen, permitiendo un seguimiento y auditoría precisos.
 
-3. Arquitectura Técnica
+1. Arquitectura Técnica
+
 Backend (Node.js + Express)
 Actúa como el cerebro de la aplicación, gestionando la lógica de negocio, la seguridad (autenticación y autorización por empresa) y la comunicación con la base de datos. Su estructura es modular:
 
@@ -420,7 +452,8 @@ Mostrará un desglose claro de la rentabilidad de la reserva actual (considerand
 
 Sugerirá el descuento máximo que se podría ofrecer en una venta directa para seguir siendo más rentable que el canal original.
 
-4. Hoja de Ruta del Desarrollo
+1. Hoja de Ruta del Desarrollo
+
 El plan de desarrollo inicial se ha completado con éxito. Los próximos pasos se centrarán en enriquecer la plataforma con herramientas de análisis y mejorar la experiencia del usuario.
 
 Bloques de Desarrollo
@@ -450,6 +483,7 @@ Generador de Presupuestos: Crear una herramienta para generar cotizaciones y pro
 Sincronización iCal: Implementar la exportación de calendarios en formato iCal para sincronizar la disponibilidad con plataformas externas.
 
 ### Arquitectura de Actualización en Cascada (Manifiesto)
+
 Para manejar de forma robusta y escalable la actualización de identificadores clave, como el `idReservaCanal`, el sistema utiliza un "Manifiesto de Actualización".
 
 - **Ubicación:** `backend/config/idUpdateManifest.js`
@@ -458,6 +492,7 @@ Para manejar de forma robusta y escalable la actualización de identificadores c
 - **Ventaja a Futuro:** Si una nueva funcionalidad (ej. "Encuestas") necesita guardar el ID de la reserva, solo es necesario añadir una nueva línea al manifiesto. La lógica de actualización en cascada funcionará para esta nueva funcionalidad sin necesidad de modificar el código principal, garantizando la mantenibilidad y reduciendo la posibilidad de errores.
 
 ## 4. Hoja de Ruta del Desarrollo
+
 - **Dashboard y KPIs:** Implementar un panel de control con indicadores clave de rendimiento (KPIs).
 - **Generador de Presupuestos:** Mejorar la herramienta para generar cotizaciones y propuestas de reserva.
 - **Sincronización iCal:** Implementar la exportación de calendarios en formato iCal.
@@ -511,53 +546,53 @@ Esta distinción clara entre lo proyectado y lo facturado es la piedra angular d
 ## 5. Hoja de Ruta - Etapa 2: Módulo de CRM y Marketing (Próximo Paso)
 
 ### Objetivo Principal
+
 Implementar un sistema de Customer Relationship Management (CRM) enfocado en la fidelización y el marketing directo, permitiendo a los usuarios enviar promociones personalizadas y realizar un seguimiento de su efectividad.
 
 ### Modelo Estratégico: Híbrido (RFM + Triggers de Eventos)
 
-1.  **Segmentación RFM (Recencia, Frecuencia, Valor Monetario):**
-    * **Concepto:** Clasificar a todos los clientes en segmentos dinámicos basados en su comportamiento de compra. El sistema analizará el historial de reservas para calcular:
-        * **Recencia:** Cuándo fue su última estadía.
-        * **Frecuencia:** Cuántas veces ha reservado.
-        * **Monetario:** Cuánto ha gastado en total.
-    * **Segmentos a Crear:**
-        * **🏆 Campeones:** Clientes de alto valor, recientes y frecuentes.
-        * **❤️ Leales:** Clientes recurrentes que forman la base del negocio.
-        * **😟 En Riesgo:** Clientes valiosos que no han regresado en mucho tiempo.
-        * **🌱 Nuevos:** Clientes con una sola estadía, objetivo de fidelización.
-
-2.  **Marketing por Eventos (Triggers):**
-    * **Concepto:** Enviar mensajes automáticos basados en acciones o fechas específicas para mantener el contacto con el cliente.
-    * **Triggers a Implementar:**
-        * **Post-Estadía:** Mensaje de agradecimiento y solicitud de reseña.
-        * **Aniversario de Estadía:** Recordatorio y oferta especial al cumplirse un año de una visita.
+1. **Segmentación RFM (Recencia, Frecuencia, Valor Monetario):**
+  - **Concepto:** Clasificar a todos los clientes en segmentos dinámicos basados en su comportamiento de compra. El sistema analizará el historial de reservas para calcular:
+  * **Recencia:** Cuándo fue su última estadía.
+  * **Frecuencia:** Cuántas veces ha reservado.
+  * **Monetario:** Cuánto ha gastado en total.
+    - **Segmentos a Crear:**
+      - **🏆 Campeones:** Clientes de alto valor, recientes y frecuentes.
+      - **❤️ Leales:** Clientes recurrentes que forman la base del negocio.
+      - **😟 En Riesgo:** Clientes valiosos que no han regresado en mucho tiempo.
+      - **🌱 Nuevos:** Clientes con una sola estadía, objetivo de fidelización.
+2. **Marketing por Eventos (Triggers):**
+  - **Concepto:** Enviar mensajes automáticos basados en acciones o fechas específicas para mantener el contacto con el cliente.
+    - **Triggers a Implementar:**
+      - **Post-Estadía:** Mensaje de agradecimiento y solicitud de reseña.
+      - **Aniversario de Estadía:** Recordatorio y oferta especial al cumplirse un año de una visita.
 
 ### Canal de Comunicación y Seguimiento
 
-* **Canal Principal:** **WhatsApp**, aprovechando que el número de teléfono es el dato de contacto primario. El sistema generará enlaces "Click-to-Chat" para facilitar el envío.
-* **Mecánica de Seguimiento:**
-    1.  **Envío:** El sistema ayuda a seleccionar un segmento y a redactar el mensaje. El envío final se realiza manualmente a través de los enlaces generados.
-    2.  **Conversación:** La interacción directa (respuestas, preguntas) se maneja fuera del sistema, en el WhatsApp del usuario.
-    3.  **Medición (Cierre del Círculo):** El éxito se medirá de forma automática. Cuando un cliente perteneciente a una campaña realice una nueva reserva, el sistema podrá vincularla y así medir la efectividad de la promoción.
+- **Canal Principal:** **WhatsApp**, aprovechando que el número de teléfono es el dato de contacto primario. El sistema generará enlaces "Click-to-Chat" para facilitar el envío.
+- **Mecánica de Seguimiento:**
+  1. **Envío:** El sistema ayuda a seleccionar un segmento y a redactar el mensaje. El envío final se realiza manualmente a través de los enlaces generados.
+  2. **Conversación:** La interacción directa (respuestas, preguntas) se maneja fuera del sistema, en el WhatsApp del usuario.
+  3. **Medición (Cierre del Círculo):** El éxito se medirá de forma automática. Cuando un cliente perteneciente a una campaña realice una nueva reserva, el sistema podrá vincularla y así medir la efectividad de la promoción.
 
 ### Plan de Implementación
 
 #### Backend
 
-* Crear un nuevo `crmService.js` para contener la lógica de negocio del CRM.
-* Desarrollar una función que lea todas las reservas de una empresa para calcular los valores R, F y M de cada cliente y guardarlos en sus respectivos perfiles.
-* Crear una nueva ruta en `crm.js` (ej. `GET /api/crm/segmento/:nombreSegmento`) que devuelva la lista de clientes pertenecientes a un segmento específico.
+- Crear un nuevo `crmService.js` para contener la lógica de negocio del CRM.
+- Desarrollar una función que lea todas las reservas de una empresa para calcular los valores R, F y M de cada cliente y guardarlos en sus respectivos perfiles.
+- Crear una nueva ruta en `crm.js` (ej. `GET /api/crm/segmento/:nombreSegmento`) que devuelva la lista de clientes pertenecientes a un segmento específico.
 
 #### Frontend
 
-* Crear una nueva vista `crmPromociones.js`.
-* **Interfaz de la Vista:**
-    * Un selector de segmentos (Dropdown con "Campeones", "Leales", etc.).
-    * Una tabla para listar los clientes del segmento seleccionado.
-    * Un área para redactar el mensaje de la promoción, utilizando plantillas y etiquetas (ej. `[NOMBRE_CLIENTE]`).
-    * Un botón "Generar Campaña" que, al presionarlo, muestre una lista de los mensajes personalizados con sus respectivos botones "Enviar por WhatsApp".
-
+- Crear una nueva vista `crmPromociones.js`.
+- **Interfaz de la Vista:**
+  - Un selector de segmentos (Dropdown con "Campeones", "Leales", etc.).
+  - Una tabla para listar los clientes del segmento seleccionado.
+  - Un área para redactar el mensaje de la promoción, utilizando plantillas y etiquetas (ej. `[NOMBRE_CLIENTE]`).
+  - Un botón "Generar Campaña" que, al presionarlo, muestre una lista de los mensajes personalizados con sus respectivos botones "Enviar por WhatsApp".
     Anexo de Arquitectura: Refactorización del Motor de Tarifas (Octubre 2025)
+
 Se ha llevado a cabo una refactorización integral del sistema de gestión de tarifas para reemplazar un modelo manual y propenso a errores por una arquitectura de "Tarifa Base + Modificadores", que es más flexible, potente y fácil de mantener.
 
 Objetivo de la Modificación
@@ -637,50 +672,47 @@ Modulo CRM y Promociones
 ### Etapa 3: Sistema de Campañas y Cupones (Próximo Paso)
 
 #### Objetivo
+
 Evolucionar el CRM desde una herramienta de segmentación a una plataforma completa de marketing directo con seguimiento de interacciones y un sistema de cupones de un solo uso para incentivar la recurrencia y los referidos.
 
 #### Bloque 11: Backend - Estructura de Campañas y Cupones
 
 **Objetivo:** Crear la base de datos y la lógica de servidor para gestionar campañas y cupones.
 
-1.  **Definir Modelos de Datos (Firestore):**
-    * Crear una nueva sub-colección `empresas/{empresaId}/campanas`. Cada documento representará una campaña con su nombre, fecha, segmento objetivo y el mensaje enviado.
-    * Crear una nueva sub-colección `empresas/{empresaId}/interacciones`. Cada documento vinculará a un cliente con una campaña y registrará su estado (Enviado, Respondió, No Interesado, Reservó).
-    * Crear una nueva sub-colección `empresas/{empresaId}/cupones` para almacenar los cupones de un solo uso con su código, estado (disponible, utilizado), valor y cliente propietario.
-
-2.  **Desarrollar Servicios de Backend:**
-    * Crear `campanasService.js` con funciones para `crearCampana` y `registrarInteraccion`.
-    * Crear `cuponesService.js` con lógica para `generarCuponParaCliente`, `validarCupon` y `marcarCuponComoUtilizado`.
-
-3.  **Ampliar Rutas de la API (`crm.js`):**
-    * Añadir nuevos endpoints para gestionar las campañas y los cupones (crear, validar, etc.).
+1. **Definir Modelos de Datos (Firestore):**
+  - Crear una nueva sub-colección `empresas/{empresaId}/campanas`. Cada documento representará una campaña con su nombre, fecha, segmento objetivo y el mensaje enviado.
+    - Crear una nueva sub-colección `empresas/{empresaId}/interacciones`. Cada documento vinculará a un cliente con una campaña y registrará su estado (Enviado, Respondió, No Interesado, Reservó).
+    - Crear una nueva sub-colección `empresas/{empresaId}/cupones` para almacenar los cupones de un solo uso con su código, estado (disponible, utilizado), valor y cliente propietario.
+2. **Desarrollar Servicios de Backend:**
+  - Crear `campanasService.js` con funciones para `crearCampana` y `registrarInteraccion`.
+    - Crear `cuponesService.js` con lógica para `generarCuponParaCliente`, `validarCupon` y `marcarCuponComoUtilizado`.
+3. **Ampliar Rutas de la API (`crm.js`):**
+  - Añadir nuevos endpoints para gestionar las campañas y los cupones (crear, validar, etc.).
 
 #### Bloque 12: Frontend - Interfaz de Gestión de Campañas
 
 **Objetivo:** Actualizar la vista de CRM para que el usuario pueda crear y dar seguimiento a las campañas.
 
-1.  **Modificar la vista `crmPromociones.js`:**
-    * Transformar la sección "Crear Campaña" en un formulario que pida un **nombre para la campaña**.
-    * Al "Generar Campaña", el sistema primero creará el registro de la campaña en el backend y luego generará los mensajes.
-    * Debajo de la lista de mensajes a enviar, mostrará una nueva tabla de **"Seguimiento de Interacciones"**.
-    * Esta tabla mostrará cada cliente de la campaña con su estado inicial "📬 Enviado" y permitirá al usuario cambiarlo manualmente (a "💬 Respondió", "🚫 No Interesado", etc.).
+1. **Modificar la vista `crmPromociones.js`:**
+  - Transformar la sección "Crear Campaña" en un formulario que pida un **nombre para la campaña**.
+    - Al "Generar Campaña", el sistema primero creará el registro de la campaña en el backend y luego generará los mensajes.
+    - Debajo de la lista de mensajes a enviar, mostrará una nueva tabla de **"Seguimiento de Interacciones"**.
+    - Esta tabla mostrará cada cliente de la campaña con su estado inicial "📬 Enviado" y permitirá al usuario cambiarlo manualmente (a "💬 Respondió", "🚫 No Interesado", etc.).
 
 #### Bloque 13: Integración del Sistema de Cupones
 
 **Objetivo:** Conectar la generación y el uso de cupones en el flujo de trabajo del usuario.
 
-1.  **Actualizar la vista `crmPromociones.js`:**
-    * Añadir una acción en la lista de clientes para "Generar Cupón de Descuento".
-    * Añadir la etiqueta `[CUPON_DESCUENTO]` al editor de mensajes para incluir el código del cupón en las promociones.
+1. **Actualizar la vista `crmPromociones.js`:**
+  - Añadir una acción en la lista de clientes para "Generar Cupón de Descuento".
+    - Añadir la etiqueta `[CUPON_DESCUENTO]` al editor de mensajes para incluir el código del cupón en las promociones.
+2. **Modificar la vista `agregarPropuesta.js`:**
+  - Añadir un campo de texto para "Aplicar Código de Descuento".
+    - Implementar la lógica para que, al ingresar un código, se llame al backend para validarlo y, si es correcto, se aplique el descuento al total de la propuesta.
+3. **Actualizar el Proceso de Aprobación (`gestionPropuestasService.js`):**
+  - Modificar la función `aprobarPropuesta` para que, si se usó un cupón, este se marque automáticamente como "utilizado" en la misma transacción en que se confirma la reserva, garantizando así su uso único.
+4. Hoja de Ruta - Etapa 4: Ecosistema de Venta Directa y Metabuscadores
 
-2.  **Modificar la vista `agregarPropuesta.js`:**
-    * Añadir un campo de texto para "Aplicar Código de Descuento".
-    * Implementar la lógica para que, al ingresar un código, se llame al backend para validarlo y, si es correcto, se aplique el descuento al total de la propuesta.
-
-3.  **Actualizar el Proceso de Aprobación (`gestionPropuestasService.js`):**
-    * Modificar la función `aprobarPropuesta` para que, si se usó un cupón, este se marque automáticamente como "utilizado" en la misma transacción en que se confirma la reserva, garantizando así su uso único.
-
-6. Hoja de Ruta - Etapa 4: Ecosistema de Venta Directa y Metabuscadores
 Con el núcleo de gestión operativa consolidado, la siguiente fase se centra en transformar SuiteManager en un motor de crecimiento para sus clientes. Se construirá un ecosistema de canales de venta directa que reduce la dependencia de las OTAs (Online Travel Agencies) y se conecta con metabuscadores globales para captar tráfico de alta intención de compra.
 
 Este ecosistema se apoya en tres pilares técnicos fundamentales:
@@ -712,7 +744,7 @@ Motor de Renderizado con EJS: Se crearán rutas (/, /propiedad/:slug) que usará
 
 Optimización SEO Avanzada:
 
-Generación dinámica de metadatos (<title>, <meta description>, og:tags).
+Generación dinámica de metadatos (, , og:tags).
 
 Inclusión de JSON-LD con Schema.org (Hotel, HotelRoom, Offer) para resultados enriquecidos.
 
@@ -766,17 +798,21 @@ Cierre de Ventas Asistido: Se añadirá un botón "Reservar por WhatsApp" en el 
 Futura Evolución (Chatbot Concierge): Esta integración sentará las bases para un futuro chatbot impulsado por IA que pueda responder preguntas frecuentes y guiar a los usuarios en el proceso de reserva.
 
 # SuiteManager: Plan de Desarrollo y Arquitectura
+
 Última actualización: 18 de Octubre de 2025
 
 ## 1. Resumen Ejecutivo
+
 SuiteManager es una aplicación web de Software como Servicio (SaaS) diseñada para la gestión integral y multi-empresa de propiedades de arriendo a corto plazo. El sistema centraliza la operación, automatiza flujos de trabajo y proporciona herramientas de auditoría y gestión, permitiendo a cada empresa cliente administrar sus propiedades, clientes y reservas de forma aislada y segura.
 
 Construido sobre una arquitectura moderna que separa un backend robusto (Node.js/Express) de un frontend modular (JavaScript Vainilla - SPA), SuiteManager está diseñado para ser escalable, mantenible y ofrecer una experiencia de usuario fluida y eficiente, complementado ahora con un **motor de reservas público de alto rendimiento (SSR)** para cada cliente y la base para la **integración con metabuscadores**.
 
 ## 2. Estado Actual: Plataforma Operativa con Canal de Venta Directa Funcional
+
 El proyecto ha superado las fases de desarrollo inicial y la implementación del núcleo de gestión. Se encuentra en un estado funcionalmente completo y estable, con una arquitectura refactorizada y modular. Se ha implementado con éxito un **motor de reservas web (SSR) multi-inquilino** que permite a cada empresa tener su propio sitio público identificable por dominio/subdominio, incluyendo búsqueda de disponibilidad, cálculo de precios y flujo de reserva completo. Además, se han sentado las bases técnicas para la **integración con Google Hotels**, generando los feeds de propiedades y ARI necesarios.
 
 ### Funcionalidades Clave Implementadas:
+
 ✅ **Arquitectura Multi-Empresa:** Soporte completo con aislamiento de datos.
 ✅ **Gestión de Usuarios:** Administración de usuarios por empresa.
 ✅ **Panel de Gestión Diaria (SPA):** Flujo de trabajo basado en estados para la operación.
@@ -802,22 +838,28 @@ El proyecto ha superado las fases de desarrollo inicial y la implementación del
 ## 3. Arquitectura Técnica
 
 ### Backend (Node.js + Express)
+
 Gestiona lógica de negocio, seguridad multi-inquilino y comunicación con la base de datos. Estructura modular:
-- **`routes/`**: Endpoints API (`/api/*`), Integraciones (`/integrations/*`), iCal (`/ical/*`), Sitio Web SSR (`/`).
-- **`services/`**: Lógica de negocio pura (modularizada por funcionalidad).
-- **`middleware/`**: `authMiddleware` (protege API), `tenantResolver` (identifica empresa para SSR).
-- **`views/`**: Plantillas EJS para el sitio web público SSR.
+
+- `**routes/`**: Endpoints API (`/api/*`), Integraciones (`/integrations/*`), iCal (`/ical/*`), Sitio Web SSR (`/`).
+- `**services/**`: Lógica de negocio pura (modularizada por funcionalidad).
+- `**middleware/**`: `authMiddleware` (protege API), `tenantResolver` (identifica empresa para SSR).
+- `**views/**`: Plantillas EJS para el sitio web público SSR.
 
 ### Frontend (JavaScript Vainilla - SPA Modular)
+
 Interfaz para el panel de administración.
-- **`router.js`**: Gestiona URLs del panel (`/gestion-diaria`, `/clientes`, etc.) y carga vistas.
-- **`views/`**: Módulos JS que actúan como orquestadores de cada sección del panel.
-- **`views/components/`**: Componentes reutilizables específicos de cada vista del panel.
-- **`public/`**: Archivos estáticos (CSS compilado, imágenes). Servidos bajo `/admin-assets`.
+
+- `**router.js**`: Gestiona URLs del panel (`/gestion-diaria`, `/clientes`, etc.) y carga vistas.
+- `**views/**`: Módulos JS que actúan como orquestadores de cada sección del panel.
+- `**views/components/**`: Componentes reutilizables específicos de cada vista del panel.
+- `**public/**`: Archivos estáticos (CSS compilado, imágenes). Servidos bajo `/admin-assets`.
 
 ### Base de Datos (Cloud Firestore)
+
 Arquitectura multi-empresa con aislamiento total:
 `empresas/{empresaId}`
+
 - `users/`
 - `clientes/`
 - `reservas/`
@@ -838,57 +880,56 @@ Arquitectura multi-empresa con aislamiento total:
 Hemos completado las fases iniciales de esta etapa.
 
 ### Pilares del Ecosistema:
-1.  **Motor de Reservas SSR (✅ Implementado)**
-2.  **Integración con Metabuscadores**
-3.  **Red de Marketing Directo**
+
+1. **Motor de Reservas SSR (✅ Implementado)**
+2. **Integración con Metabuscadores**
+3. **Red de Marketing Directo**
 
 ### Fases de Implementación (Actualizado):
 
 - **Fase 1: Motor SSR Multi-Inquilino
+
 #### Fase 1.a: Configuración Web Pública por Alojamiento (Detalle)
 
 Esta fase implementa la personalización detallada del contenido y las imágenes para cada propiedad dentro del sitio web público SSR.
 
-1.  **Definir Componentes (Backend y Admin):**
-    * **Firestore:** Añadir campo `componentes` (array de objetos `{ id: string, nombre: string, tipo: string }`) al modelo `propiedades`. El `id` será único dentro de la propiedad (ej. `nombre-normalizado-timestamp`).
-    * **Frontend (Admin - `gestionarAlojamientos.js`):** Modificar el modal de edición de propiedades para permitir al usuario definir/añadir/eliminar estos componentes (ej. "Dormitorio Principal", "Baño en Suite", "Terraza con Parrilla").
-
-2.  **Nueva Vista "Configurar Web Pública" (Frontend - Admin):**
-    * **Crear:** Vista `configurarWebPublica.js` y añadir ruta `/configurar-web-publica` (bajo "Herramientas").
-    * **UI:**
-        * Selector de Alojamiento por `propiedadId`.
-        * **Textos SEO (IA):** Mostrar descripción actual (lectura), botón "Generar Texto SEO con IA", `<textarea>` para texto generado (editable), botón "Guardar Texto".
-        * **Imágenes por Componente:**
-            * Al seleccionar alojamiento, listar sus `componentes` definidos.
-            * Para cada `componente`:
-                * Botón "Subir Imágenes" (`<input type="file" multiple>`).
-                * Galería/lista de miniaturas de imágenes subidas para ese componente.
-                * Mostrar `altText` y `title` (generados por IA, solo lectura) bajo cada miniatura.
-                * Botón "Eliminar" en cada imagen (usa `imageId`).
-
-3.  **Backend - API y Lógica:**
-    * **Modelo Firestore:** En `propiedades/{propiedadId}/websiteData/images`, cada clave será un `componentId` y su valor será un **ARRAY** de objetos: `{ imageId: "uuid", storagePath: "...", altText: "...", title: "..." }`.
-    * **Servicios:**
-        * `storageService.js`: Funciones `uploadFile` (devuelve `storagePath`), `deleteFileByPath`.
-        * `propiedadesService.js`: Adaptar CRUD para `componentes` y operaciones `FieldValue.arrayUnion`/`arrayRemove` en `websiteData.images[componentId]`.
-        * `aiContentService.js` (Nuevo): Función `generarMetadataImagen(nombreEmpresa, nombrePropiedad, descripcionPropiedad, nombreComponente, tipoComponente)` que retorna `{ altText, title }`.
-    * **Rutas API (`backend/api/ssr/config.routes.js`):**
-        * `GET /api/website-config/propiedad/:propiedadId`: Obtiene `websiteData`.
-        * `PUT /api/website-config/propiedad/:propiedadId`: Guarda `aiDescription`.
-        * `POST /api/website-config/propiedad/:propiedadId/upload-image/:componentId`:
-            * Recibe múltiples archivos (`multer`).
-            * **Para cada archivo:** genera `imageId`, optimiza (`sharp`), sube a Storage (`empresas/{empresaId}/propiedades/{propiedadId}/images/{componentId}/{imageId}.webp`), llama a `generarMetadataImagen`, **añade** objeto al array en Firestore.
-            * Devuelve lista de objetos de imagen creados.
-        * `DELETE /api/website-config/propiedad/:propiedadId/delete-image/:componentId/:imageId`: Busca por `imageId` en el array, obtiene `storagePath`, borra de Storage, **elimina** del array en Firestore.
-        * `POST /api/website-config/propiedad/:propiedadId/generate-ai-text`: Llama a IA para generar `aiDescription`, devuelve el texto (sin guardar).
-    * **Firebase Storage:** Configurar el bucket (o el directorio `empresas/`) como **público** para lectura simplificada de imágenes.
-
-4.  **Actualización Sitio Público SSR (EJS):**
-    * **Backend (`website.js`):** Pasar `propiedad.componentes` y `propiedad.websiteData.images` a `propiedad.ejs`.
-    * **Plantillas EJS (`propiedad.ejs`, `home.ejs`, etc.):**
-        * Iterar sobre `componentes` y `websiteData.images[componente.id]` para mostrar galerías o imágenes específicas.
-        * Usar URLs públicas de Storage (construidas desde `storagePath`), `altText`, y `title` guardados en Firestore.
-        * Implementar `<picture>` para WebP y `loading="lazy"`.
+1. **Definir Componentes (Backend y Admin):**
+  - **Firestore:** Añadir campo `componentes` (array de objetos `{ id: string, nombre: string, tipo: string }`) al modelo `propiedades`. El `id` será único dentro de la propiedad (ej. `nombre-normalizado-timestamp`).
+    - **Frontend (Admin - `gestionarAlojamientos.js`):** Modificar el modal de edición de propiedades para permitir al usuario definir/añadir/eliminar estos componentes (ej. "Dormitorio Principal", "Baño en Suite", "Terraza con Parrilla").
+2. **Nueva Vista "Configurar Web Pública" (Frontend - Admin):**
+  - **Crear:** Vista `configurarWebPublica.js` y añadir ruta `/configurar-web-publica` (bajo "Herramientas").
+    - **UI:**
+      - Selector de Alojamiento por `propiedadId`.
+      - **Textos SEO (IA):** Mostrar descripción actual (lectura), botón "Generar Texto SEO con IA", `<textarea>` para texto generado (editable), botón "Guardar Texto".
+      - **Imágenes por Componente:**
+        - Al seleccionar alojamiento, listar sus `componentes` definidos.
+        - Para cada `componente`:
+          - Botón "Subir Imágenes" (`<input type="file" multiple>`).
+          - Galería/lista de miniaturas de imágenes subidas para ese componente.
+          - Mostrar `altText` y `title` (generados por IA, solo lectura) bajo cada miniatura.
+          - Botón "Eliminar" en cada imagen (usa `imageId`).
+3. **Backend - API y Lógica:**
+  - **Modelo Firestore:** En `propiedades/{propiedadId}/websiteData/images`, cada clave será un `componentId` y su valor será un **ARRAY** de objetos: `{ imageId: "uuid", storagePath: "...", altText: "...", title: "..." }`.
+    - **Servicios:**
+      - `storageService.js`: Funciones `uploadFile` (devuelve `storagePath`), `deleteFileByPath`.
+      - `propiedadesService.js`: Adaptar CRUD para `componentes` y operaciones `FieldValue.arrayUnion`/`arrayRemove` en `websiteData.images[componentId]`.
+      - `aiContentService.js` (Nuevo): Función `generarMetadataImagen(nombreEmpresa, nombrePropiedad, descripcionPropiedad, nombreComponente, tipoComponente)` que retorna `{ altText, title }`.
+    - **Rutas API (`backend/api/ssr/config.routes.js`):**
+      - `GET /api/website-config/propiedad/:propiedadId`: Obtiene `websiteData`.
+      - `PUT /api/website-config/propiedad/:propiedadId`: Guarda `aiDescription`.
+      - `POST /api/website-config/propiedad/:propiedadId/upload-image/:componentId`:
+        - Recibe múltiples archivos (`multer`).
+        - **Para cada archivo:** genera `imageId`, optimiza (`sharp`), sube a Storage (`empresas/{empresaId}/propiedades/{propiedadId}/images/{componentId}/{imageId}.webp`), llama a `generarMetadataImagen`, **añade** objeto al array en Firestore.
+        - Devuelve lista de objetos de imagen creados.
+      - `DELETE /api/website-config/propiedad/:propiedadId/delete-image/:componentId/:imageId`: Busca por `imageId` en el array, obtiene `storagePath`, borra de Storage, **elimina** del array en Firestore.
+      - `POST /api/website-config/propiedad/:propiedadId/generate-ai-text`: Llama a IA para generar `aiDescription`, devuelve el texto (sin guardar).
+    - **Firebase Storage:** Configurar el bucket (o el directorio `empresas/`) como **público** para lectura simplificada de imágenes.
+4. **Actualización Sitio Público SSR (EJS):**
+  - **Backend (`website.js`):** Pasar `propiedad.componentes` y `propiedad.websiteData.images` a `propiedad.ejs`.
+    - **Plantillas EJS (`propiedad.ejs`, `home.ejs`, etc.):**
+      - Iterar sobre `componentes` y `websiteData.images[componente.id]` para mostrar galerías o imágenes específicas.
+      - Usar URLs públicas de Storage (construidas desde `storagePath`), `altText`, y `title` guardados en Firestore.
+      - Implementar `<picture>` para WebP y `loading="lazy"`.
 
 - **Fase 2: Feed ARI Google Hotels - Listado Propiedades** - ✅ **Completado**
 - **Fase 3: Feed ARI Google Hotels - ARI Feed y Deep Linking** - ✅ **Completado**

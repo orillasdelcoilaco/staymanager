@@ -26,7 +26,7 @@ module.exports = (db) => {
 
     // GET /api/public/version — alineado al contrato OpenAPI (info.version en openapi-gemini.yaml / openapi-chatgpt.yaml)
     router.get('/version', (req, res) => {
-        const contractVersion = String(process.env.PUBLIC_API_CONTRACT_VERSION || '1.4.7').trim() || '1.4.7';
+        const contractVersion = String(process.env.PUBLIC_API_CONTRACT_VERSION || '1.4.8').trim() || '1.4.8';
         res.json({
             version: contractVersion,
             contract: 'openapi-gemini-chatgpt',

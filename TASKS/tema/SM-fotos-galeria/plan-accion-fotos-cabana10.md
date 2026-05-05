@@ -106,7 +106,7 @@ node backend/scripts/actualizar_plan_fotos_cabana10.js --propiedad=cabana9 --dry
 ls -la backend/scripts/actualizar_plan_fotos_cabana10.js
 
 # Verificar créditos
-node scripts/monitor-creditos.js reporte
+node scripts/tooling/monitor-creditos.js reporte
 ```
 
 ### Punto B: Después de dry-run (Paso 3.2 completo)
@@ -133,11 +133,11 @@ node backend/scripts/analizar_fotos_cabana10.js
 **Verificación:**
 ```bash
 # Ejecutar auditorías
-node scripts/audit-ui-monitored.js
-node scripts/audit-complexity-monitored.js
+node scripts/tooling/audit-ui-monitored.js
+node scripts/tooling/audit-complexity-monitored.js
 
 # Verificar créditos finales
-node scripts/monitor-creditos.js reporte
+node scripts/tooling/monitor-creditos.js reporte
 ```
 
 ---

@@ -1,4 +1,4 @@
-<%- /* Catálogo opt-in Google Hotels — paridad elegibilidad con Property List feed (TASKS/venta-ia.md §7.6) */ %>
+<%- /* Catálogo opt-in Google Hotels — paridad UI con home (TASKS/tema/SM-auditoria-calidad/solo-ui.md) */ %>
 <!DOCTYPE html>
 <html lang="<%= mp.htmlLang %>">
 <head>
@@ -14,41 +14,64 @@
     <meta property="og:title" content="<%= mp.ghCatalogPageTitle %>">
     <meta property="og:description" content="<%= mp.ghCatalogMetaDescription %>">
     <meta property="og:url" content="<%= canonicalUrl %>">
+    <% if (typeof ogImage === 'string' && ogImage) { %>
+    <meta property="og:image" content="<%= ogImage %>">
+    <% } %>
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="<%= mp.ghCatalogPageTitle %>">
+    <meta name="twitter:description" content="<%= mp.ghCatalogMetaDescription %>">
+
+    <% if (!postgresRequired && items.length > 0) { %>
+    <script type="application/ld+json">
+    <%- JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": mp.jsonLdBreadcrumbHome, "item": marketplaceHomeAbsoluteUrl },
+            { "@type": "ListItem", "position": 2, "name": mp.jsonLdBreadcrumbGoogleHotels, "item": canonicalUrl }
+        ]
+    }) %>
+    </script>
+    <script type="application/ld+json">
+    <%- JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "name": mp.ghCatalogHeading,
+        "description": mp.ghCatalogMetaDescription,
+        "numberOfItems": items.length,
+        "itemListElement": items.slice(0, 24).map((it, i) => ({
+            "@type": "ListItem",
+            "position": i + 1,
+            "item": {
+                "@type": "LodgingBusiness",
+                "name": it.title,
+                "url": it.deepLink,
+                ...(it.fotoUrl ? { "image": it.fotoUrl } : {}),
+                ...(it.city ? { "address": { "@type": "PostalAddress", "addressLocality": it.city } } : {})
+            }
+        }))
+    }) %>
+    </script>
+    <% } %>
+
     <link rel="stylesheet" href="/public/css/website.css">
     <%- include('../partials/web-fonts') %>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <style>
-        body { font-family: 'Inter', sans-serif; background: #f8f8f8; }
-        .mp-header { background: #fff; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; z-index: 50; }
-        .mp-logo { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.5px; }
-        .gh-hero { margin-bottom: 1.5rem; }
-        .gh-hero h1 { font-size: 1.5rem; font-weight: 800; color: #111; margin-bottom: 0.5rem; }
-        .gh-hero p { font-size: 0.95rem; color: #4b5563; max-width: 42rem; line-height: 1.5; }
-        .prop-card {
-            background: #fff; border-radius: 16px; overflow: hidden;
-            transition: transform 0.15s, box-shadow 0.15s;
-            text-decoration: none; color: inherit; display: block;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-        }
-        .prop-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
-        .prop-photo { position: relative; aspect-ratio: 4/3; background: #e5e7eb; overflow: hidden; }
-        .prop-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
-        .prop-card:hover .prop-photo img { transform: scale(1.04); }
-        .prop-photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #e0e7ff, #f0f4ff); color: #a5b4fc; font-size: 3rem; }
-        .prop-body { padding: 14px 16px 16px; }
-        .prop-title { font-size: 14px; font-weight: 700; color: #111; line-height: 1.35; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .prop-sub { font-size: 12px; color: #6b7280; margin-bottom: 10px; }
-        .alert-soft { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem 1.25rem; color: #374151; font-size: 0.95rem; }
-    </style>
+    <%- include('../partials/marketplace-common-styles') %>
 </head>
-<body>
+<body class="bg-neutral-50 text-neutral-900 antialiased min-h-screen">
 
 <header class="mp-header">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center gap-3 lg:gap-5">
         <a href="<%= mpHomeUrl %>" class="mp-logo flex-shrink-0 text-primary-600">suite<span class="text-neutral-900">managers</span></a>
-        <nav class="flex items-center gap-3 text-sm font-semibold">
-            <a href="<%= mpHomeUrl %>" class="text-neutral-600 hover:text-primary-600"><%= mp.ghCatalogBackHome %></a>
-            <span class="text-neutral-300">|</span>
+
+        <a href="<%= mpHomeUrl %>" class="hidden sm:inline-flex text-sm font-semibold text-neutral-600 hover:text-primary-600 px-2 py-1 rounded-md whitespace-nowrap">
+            <%= mp.ghCatalogBackHome %>
+        </a>
+
+        <nav class="flex flex-1 flex-wrap items-center justify-end gap-2 sm:gap-3 text-sm font-semibold">
+            <a href="<%= mpHomeUrl %>" class="sm:hidden text-primary-600"><%= mp.ghCatalogBackHome %></a>
+            <span class="hidden sm:inline text-neutral-300">|</span>
             <a href="<%= hreflangEsUrl %>" class="px-2 py-1 rounded-md <%= mp.htmlLang === 'es' ? 'bg-neutral-100 text-neutral-900' : 'text-primary-600 hover:underline' %>"><%= mp.langSwitchEs %></a>
             <span class="text-neutral-300">|</span>
             <a href="<%= hreflangEnUrl %>" class="px-2 py-1 rounded-md <%= mp.htmlLang === 'en' ? 'bg-neutral-100 text-neutral-900' : 'text-primary-600 hover:underline' %>"><%= mp.langSwitchEn %></a>
@@ -56,23 +79,36 @@
     </div>
 </header>
 
-<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-    <div class="gh-hero">
-        <h1><%= mp.ghCatalogHeading %></h1>
-        <p><%= mp.ghCatalogLead %></p>
+<section class="mp-hero" aria-labelledby="gh-hero-heading">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-8 md:pt-10 md:pb-10">
+        <h1 id="gh-hero-heading" class="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight text-neutral-900 max-w-3xl leading-tight">
+            <%= mp.ghCatalogHeading %>
+        </h1>
+        <p class="mt-3 text-base text-neutral-600 max-w-2xl leading-relaxed">
+            <%= mp.ghCatalogLead %>
+        </p>
     </div>
+</section>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
 
     <% if (postgresRequired) { %>
-    <p class="alert-soft"><%= mp.ghCatalogUnavailable %></p>
+    <p class="mp-alert-soft"><%= mp.ghCatalogUnavailable %></p>
     <% } else if (items.length === 0) { %>
-    <p class="alert-soft"><%= mp.ghCatalogEmpty %></p>
+    <div class="text-center py-16 mp-alert-soft max-w-lg mx-auto">
+        <i class="fas fa-hotel text-4xl text-neutral-200 mb-4 block"></i>
+        <p class="text-neutral-600 mb-4"><%= mp.ghCatalogEmpty %></p>
+        <a href="<%= mpHomeUrl %>" class="inline-flex items-center gap-2 text-sm font-semibold text-primary-600 hover:underline">
+            <i class="fas fa-arrow-left" style="font-size:12px;"></i> <%= mp.ghCatalogBackHome %>
+        </a>
+    </div>
     <% } else { %>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         <% items.forEach((it) => { %>
-        <article class="prop-card">
+        <a href="<%= it.deepLink %>" class="prop-card" rel="noopener noreferrer" aria-label="<%= mp.ariaExternalHost %>: <%= it.title %>">
             <div class="prop-photo">
                 <% if (it.fotoUrl) { %>
-                    <img src="<%= it.fotoUrl %>" alt="<%= it.title %>" loading="lazy">
+                    <img src="<%= it.fotoUrl %>" alt="" loading="lazy">
                 <% } else { %>
                     <div class="prop-photo-placeholder"><i class="fas fa-home"></i></div>
                 <% } %>
@@ -80,22 +116,17 @@
             <div class="prop-body">
                 <p class="prop-title"><%= it.title %></p>
                 <% if (it.city) { %><p class="prop-sub"><%= it.city %></p><% } %>
-                <a href="<%= it.deepLink %>" class="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-full bg-primary-600 text-white hover:bg-primary-700 no-underline" target="_blank" rel="noopener noreferrer">
-                    <%= mp.ghCatalogCta %> <i class="fas fa-external-link-alt" style="font-size:11px;"></i>
-                </a>
+                <div class="mp-gh-cta-row">
+                    <span class="mp-gh-cta-text"><%= mp.ghCatalogCta %> <i class="fas fa-external-link-alt" style="font-size:11px;" aria-hidden="true"></i></span>
+                </div>
             </div>
-        </article>
+        </a>
         <% }); %>
     </div>
     <% } %>
 </main>
 
-<footer class="border-t border-gray-200 mt-20 py-10 bg-white">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-400">
-        <p class="mp-logo mb-2 text-primary-600" style="font-size:1.1rem;">suite<span class="text-neutral-900">managers</span></p>
-        <p><%= mp.footerTagline %> · <a href="<%= mpHomeUrl %>" class="hover:underline"><%= mp.ghCatalogBackHome %></a> · <a href="#" class="hover:underline"><%= mp.footerTerms %></a> · <a href="#" class="hover:underline"><%= mp.footerPrivacy %></a></p>
-    </div>
-</footer>
+<%- include('../partials/marketplace-footer', { mp, mpHomeUrl, footerMode: 'google-hotels' }) %>
 
 </body>
 </html>

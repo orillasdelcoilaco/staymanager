@@ -14,11 +14,19 @@ const {
 } = require('../services/reservasService');
 const { gestionarDocumentoReserva } = require('../services/documentosService');
 const { actualizarIdReservaCanalEnCascada } = require('../services/utils/cascadingUpdateService');
+const { reconciliarEsperaDisponibilidad } = require('../services/esperaDisponibilidadService');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 module.exports = (db) => {
     const router = express.Router();
+    const _reconciliarEspera = async (empresaId) => {
+        try {
+            await reconciliarEsperaDisponibilidad(db, empresaId);
+        } catch (err) {
+            console.warn('[espera-disponibilidad] reconcile error:', err.message);
+        }
+    };
 
     router.get('/', async (req, res) => {
         try {
@@ -122,6 +130,7 @@ module.exports = (db) => {
     router.put('/:id', async (req, res) => {
         try {
             const reservaActualizada = await actualizarReservaManualmente(db, req.user.empresaId, req.user.email, req.params.id, req.body);
+            await _reconciliarEspera(req.user.empresaId);
             res.status(200).json(reservaActualizada);
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -161,6 +170,7 @@ module.exports = (db) => {
     router.delete('/:id', async (req, res) => {
         try {
             const resultado = await decidirYEliminarReserva(db, req.user.empresaId, req.params.id);
+            await _reconciliarEspera(req.user.empresaId);
             res.status(200).json(resultado);
         } catch (error) {
             if (error.code === 409) {
@@ -178,6 +188,7 @@ module.exports = (db) => {
                 return res.status(400).json({ error: 'Se requiere idReservaCanal.' });
             }
             const resultado = await eliminarGrupoReservasCascada(db, req.user.empresaId, idReservaCanal);
+            await _reconciliarEspera(req.user.empresaId);
             res.status(200).json(resultado);
         } catch (error) {
             res.status(500).json({ error: error.message });

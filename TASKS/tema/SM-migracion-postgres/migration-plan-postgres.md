@@ -658,7 +658,7 @@ Orden por dependencias:
 **Validación obligatoria al terminar cada servicio:**
 ```bash
 # Contar registros en Firestore vs PostgreSQL — deben ser iguales
-node scripts/validar-migracion.js --coleccion=propiedades --empresaId=XXX
+node scripts/legacy/validar-migracion.js --coleccion=propiedades --empresaId=XXX
 ```
 
 **Cutover parcial Fase 1:** cuando todos los servicios del Grupo A pasen validación, se puede hacer un cutover parcial del sistema de configuración. Las rutas de reservas siguen en Firestore.
@@ -1019,10 +1019,10 @@ Firestore perdona errores de schema — un campo mal nombrado simplemente no exi
 
 ## 10. Script de Migración de Datos
 
-### `scripts/migrate-from-firestore.js`
+### Ejemplo de cutover (histórico): `migrate-from-firestore.js` — *no versionado en repo; ilustración §10*
 
 ```javascript
-// scripts/migrate-from-firestore.js
+// Ejemplo ilustrativo de cutover (no es un archivo versionado en este repo)
 // Exporta datos de Firestore e importa a PostgreSQL
 // Ejecutar UNA VEZ durante el cutover
 

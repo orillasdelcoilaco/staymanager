@@ -21,11 +21,19 @@ const {
     medioDePagoRequiereComprobanteSugerido,
 } = require('../services/transaccionesService');
 const { actualizarDocumentoReserva } = require('../services/documentosService');
+const { reconciliarEsperaDisponibilidad } = require('../services/esperaDisponibilidadService');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 module.exports = (db) => {
     const router = express.Router();
+    const _reconciliarEspera = async (empresaId) => {
+        try {
+            await reconciliarEsperaDisponibilidad(db, empresaId);
+        } catch (err) {
+            console.warn('[espera-disponibilidad] reconcile error:', err.message);
+        }
+    };
 
     router.post('/pendientes', async (req, res) => {
         try {
@@ -71,6 +79,7 @@ module.exports = (db) => {
                 return res.status(404).send('No se encontraron reservas para este grupo.');
             }
 
+            await _reconciliarEspera(empresaId);
             res.status(200).json({ message: 'Estado de reserva actualizado con éxito para todo el grupo.' });
         } catch (error) {
             console.error('Error al actualizar estado de reserva:', error);
