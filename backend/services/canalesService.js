@@ -1,6 +1,13 @@
 // backend/services/canalesService.js
 const pool = require('../db/postgres');
 
+const IA_VENTA_CANAL_ORIGEN = 'ia-venta';
+
+function resolverCanalIaVentaEnLista(canales) {
+    if (!Array.isArray(canales)) return null;
+    return canales.find((c) => c.esCanalIaVenta === true) || null;
+}
+
 function mapearCanal(row) {
     if (!row) return null;
     return {
@@ -77,4 +84,4 @@ const eliminarCanal = async (_db, empresaId, canalId) => {
     await pool.query('DELETE FROM canales WHERE id = $1 AND empresa_id = $2', [canalId, empresaId]);
 };
 
-module.exports = { crearCanal, obtenerCanalesPorEmpresa, actualizarCanal, eliminarCanal };
+module.exports = { IA_VENTA_CANAL_ORIGEN, resolverCanalIaVentaEnLista, crearCanal, obtenerCanalesPorEmpresa, actualizarCanal, eliminarCanal };
