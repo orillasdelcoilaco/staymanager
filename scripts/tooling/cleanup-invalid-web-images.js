@@ -17,20 +17,36 @@
  * - Elimina filas inválidas en galeria (y archivos en Storage vía eliminarFoto).
  * - Vacía heroImageUrl / heroImageThumbUrl en websiteSettings.theme si el par es inválido.
  * - Invalida caché SSR de la empresa.
+ * - Tras escribir, ejecuta syncToWebsite por propiedad para rellenar images/cardImage desde galería (PG).
  */
 
 const path = require('path');
 
-try {
-    require('dotenv').config({ path: path.join(__dirname, '..', '..', 'backend', '.env') });
-} catch (_) {
-    /* dotenv opcional */
+const BACKEND_ROOT = path.join(__dirname, '..', '..', 'backend');
+const ENV_PATH = path.join(BACKEND_ROOT, '.env');
+
+// dotenv solo está en backend/node_modules; desde scripts/tooling/ un require('dotenv') falla y el .env no se carga.
+function loadBackendEnv() {
+    try {
+        require(path.join(BACKEND_ROOT, 'node_modules', 'dotenv')).config({ path: ENV_PATH });
+        return true;
+    } catch (e) {
+        try {
+            require('dotenv').config({ path: ENV_PATH });
+            return true;
+        } catch (e2) {
+            console.warn('[cleanup-invalid-web-images] No se pudo cargar dotenv:', e2.message);
+            return false;
+        }
+    }
 }
 
-const pool = require(path.join(__dirname, '..', '..', 'backend', 'db', 'postgres'));
-const { IS_POSTGRES } = require(path.join(__dirname, '..', '..', 'backend', 'config', 'dbConfig'));
-const { eliminarFoto } = require(path.join(__dirname, '..', '..', 'backend', 'services', 'galeriaService'));
-const { ssrCache } = require(path.join(__dirname, '..', '..', 'backend', 'services', 'cacheService'));
+loadBackendEnv();
+
+const pool = require(path.join(BACKEND_ROOT, 'db', 'postgres'));
+const { IS_POSTGRES } = require(path.join(BACKEND_ROOT, 'config', 'dbConfig'));
+const { eliminarFoto, syncToWebsite } = require(path.join(BACKEND_ROOT, 'services', 'galeriaService'));
+const { ssrCache } = require(path.join(BACKEND_ROOT, 'services', 'cacheService'));
 
 function parseArgs() {
     const out = { empresaId: null, subdomain: null, propiedadId: null, apply: false };
@@ -225,6 +241,14 @@ async function main() {
     }
 
     if (apply) {
+        for (const row of props) {
+            try {
+                const r = await syncToWebsite(null, empresaId, row.id);
+                console.log(`  syncToWebsite ${row.id}: total=${r.total}, componentes=${r.componentes}`);
+            } catch (e) {
+                console.warn(`  WARN syncToWebsite ${row.id}: ${e.message}`);
+            }
+        }
         try {
             ssrCache.invalidateEmpresaCache(empresaId);
             console.log('  Caché SSR invalidada para la empresa.');
