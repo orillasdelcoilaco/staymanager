@@ -8,6 +8,7 @@ const fetch = require('node-fetch');
 // Adjusted paths for services
 const { obtenerPropiedadPorId, actualizarPropiedad } = require('../../services/propiedadesService');
 const { mountOnRouter: mountHouseRulesRoutes } = require('../../routes/houseRulesApi');
+const { mountOnRouter: mountWebsiteBlogRoutes } = require('../../routes/websiteBlogApi');
 const { obtenerDetallesEmpresa, actualizarDetallesEmpresa, normalizeSubdomain } = require('../../services/empresaService');
 const {
     generarDescripcionAlojamiento,
@@ -396,13 +397,13 @@ module.exports = (db) => {
 
             const { buffer: optimizedBuffer } = await optimizeImage(file.buffer, {
                 maxWidth: 1920,
-                quality: 85
+                quality: 78
             });
 
             const storagePathThumb = `empresas/${empresaId}/website/hero-${imageId}-thumb.${outputFormat}`;
             const { buffer: thumbBuffer } = await optimizeImage(file.buffer, {
                 maxWidth: 960,
-                quality: 78
+                quality: 70
             });
             assertOptimizedBuffers([optimizedBuffer, thumbBuffer]);
 
@@ -506,6 +507,7 @@ module.exports = (db) => {
 
     // --- Normas / reglas (alias bajo /website; la ruta principal es /api/propiedades/house-rules) ---
     mountHouseRulesRoutes(router, db);
+    mountWebsiteBlogRoutes(router, db);
 
     // --- Rutas de Propiedades (Existentes) ---
 
@@ -542,8 +544,8 @@ module.exports = (db) => {
                     quality: 80
                 });
                 const { buffer: thumbBuffer } = await optimizeImage(req.file.buffer, {
-                    maxWidth: 400,
-                    quality: 75
+                    maxWidth: 800,
+                    quality: 72
                 });
                 assertOptimizedBuffers([optimizedBuffer, thumbBuffer]);
 
@@ -641,8 +643,8 @@ module.exports = (db) => {
                 quality: 80
             });
             const { buffer: thumbBuffer } = await optimizeImage(file.buffer, {
-                maxWidth: 400,
-                quality: 75
+                maxWidth: 800,
+                quality: 72
             });
             assertOptimizedBuffers([optimizedBuffer, thumbBuffer]);
 

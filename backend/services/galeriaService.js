@@ -393,7 +393,7 @@ async function uploadFotoToGaleria(db, empresaId, propiedadId, files) {
 
         try {
             const { buffer: fullBuffer } = await optimizeImage(file.buffer, { maxWidth: 1200, quality: 82 });
-            const { buffer: thumbBuffer } = await optimizeImage(file.buffer, { maxWidth: 400, quality: 75 });
+            const { buffer: thumbBuffer } = await optimizeImage(file.buffer, { maxWidth: 800, quality: 72 });
             assertOptimizedBuffers([fullBuffer, thumbBuffer]);
 
             storageUrl = await uploadFile(fullBuffer, `${base}.webp`, 'image/webp');
@@ -475,7 +475,7 @@ async function replaceFoto(db, empresaId, propiedadId, fotoId, file) {
 
     try {
         const { buffer: fullBuffer } = await optimizeImage(file.buffer, { maxWidth: 1200, quality: 82 });
-        const { buffer: thumbBuffer } = await optimizeImage(file.buffer, { maxWidth: 400, quality: 75 });
+        const { buffer: thumbBuffer } = await optimizeImage(file.buffer, { maxWidth: 800, quality: 72 });
         assertOptimizedBuffers([fullBuffer, thumbBuffer]);
 
         storageUrl = await uploadFile(fullBuffer, `${base}.webp`, 'image/webp');
@@ -545,13 +545,20 @@ async function uploadFotoEmpresaArea(_db, empresaId, areaId, files) {
     for (const file of files) {
         const fotoId = uuidv4();
         const base = `empresas/${empresaId}/areas-comunes/${areaId}/${fotoId}`;
-        const { buffer: fullBuffer  } = await optimizeImage(file.buffer, { maxWidth: 1200, quality: 82 });
-        const { buffer: thumbBuffer } = await optimizeImage(file.buffer, { maxWidth: 400,  quality: 75 });
-        const [storageUrl, thumbnailUrl] = await Promise.all([
-            uploadFile(fullBuffer,  `${base}.webp`,       'image/webp'),
-            uploadFile(thumbBuffer, `${base}_thumb.webp`, 'image/webp'),
-        ]);
-        results.push({ id: fotoId, storageUrl, thumbnailUrl, altText: '' });
+        let storageUrl = '';
+        let thumbnailUrl = '';
+        try {
+            const { buffer: fullBuffer } = await optimizeImage(file.buffer, { maxWidth: 1200, quality: 82 });
+            const { buffer: thumbBuffer } = await optimizeImage(file.buffer, { maxWidth: 800, quality: 72 });
+            assertOptimizedBuffers([fullBuffer, thumbBuffer]);
+            storageUrl = await uploadFile(fullBuffer, `${base}.webp`, 'image/webp');
+            thumbnailUrl = await uploadFile(thumbBuffer, `${base}_thumb.webp`, 'image/webp');
+            assertDistinctPublicUrls(storageUrl, thumbnailUrl);
+            results.push({ id: fotoId, storageUrl, thumbnailUrl, altText: '' });
+        } catch (err) {
+            await rollbackPublicUrls([storageUrl, thumbnailUrl].filter(Boolean));
+            throw err;
+        }
     }
     return results;
 }
