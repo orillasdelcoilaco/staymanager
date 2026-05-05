@@ -1,7 +1,7 @@
 # Google Hotels — estrategia tras respuesta comercial (partner directo)
 
 **Última actualización:** 2026-05-04  
-**Relacionado:** `TASKS/venta-ia.md` §7, §7.0 · `TASKS/tema/SM-ghc-onboarding/google-hotels-partner-deploy-checklist.md` · `TASKS/tema/SM-venta-ia/gemini-smoke-instrucciones.md`
+**Relacionado:** `TASKS/tema/SM-venta-ia/venta-ia.md` §7, §7.0 · `TASKS/tema/SM-ghc-onboarding/google-hotels-partner-deploy-checklist.md` · `TASKS/tema/SM-venta-ia/gemini-smoke-instrucciones.md`
 
 ---
 
@@ -56,7 +56,7 @@ Esto **no** invalida la calidad técnica del trabajo en feeds, DNS ni panel; cam
 
 ## 5. Próximo módulo (cuando se priorice): integración CM
 
-**Arranque práctico (cuenta, Google desde Beds24, API, checklist):** **`TASKS/tema/SM-gh-strategy-cm/beds24-integracion-inicio.md`**.
+**Arranque práctico (cuenta, Google desde Beds24, API, checklist):** **`TASKS/tema/SM-beds24/beds24-integracion-inicio.md`** · plan maestro **`TASKS/tema/SM-beds24/plan-accion-beds24.md`**.
 
 Checklist de alto nivel para un futuro PR / discovery:
 
@@ -64,7 +64,7 @@ Checklist de alto nivel para un futuro PR / discovery:
 2. Mapear **propiedad**, **tarifas**, **inventario**, **restricciones** ↔ modelo SuiteManager (sin tocar `valorHuesped` ni fuentes financieras inmutables).
 3. Definir **dirección de sincronización** (SuiteManager → CM es lo habitual para “master” interno).
 4. Seguridad: credenciales solo `process.env`, aislamiento `empresa_id`.
-5. Documentar en `TASKS/venta-ia.md` y backlog §5.3.
+5. Documentar en `TASKS/tema/SM-venta-ia/venta-ia.md` y backlog §5.3.
 
 ---
 

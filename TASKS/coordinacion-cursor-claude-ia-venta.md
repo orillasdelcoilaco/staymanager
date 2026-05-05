@@ -17,6 +17,8 @@
 
 **Claude Code:** no está obligado por la regla `.cursor/` del repo; el usuario le indica leer este archivo y el backlog cuando haga falta contexto de producto.
 
+**Ubicación de archivos (Cursor y Claude Code):** al crear documentación, scripts o specs, seguir **`LEER-PRIMERO.md`** (tabla *Ubicación de archivos*), **`CLAUDE.md`** (*Flujo de trabajo* → *Dónde crear archivos nuevos*) y **`SHARED_CONTEXT.md`** (cabecera). No dejar informes ni `.md` sueltos en la raíz del repo ni carpetas improvisadas; por iniciativa usar **`TASKS/tema/<SM-id>/`** según **`TASKS/tablero.md`**.
+
 ---
 
 ## 1. Reglas de uso del archivo (obligatorio para ambos)
@@ -146,6 +148,7 @@ Quitar el lock cuando termines.
 
 _Formato: `YYYY-MM-DD — Actor — una frase`._
 
+- 2026-05-06 — Cursor — Tablero: **`SM-ghc-onboarding` → Listo** (partner directo cerrado comercialmente); **`venta-ia.md` §7.0** congelación ampliación código partner; tema nuevo **`SM-beds24`** (`plan-accion-beds24.md`, `beds24-integracion-inicio.md`); backlog §5.x **B/E** alineados.
 - 2026-05-04 — Cursor — Google **rechaza** nuevos connectivity partners **directos** (correo gTech); estrategia **pausa trámite directo**, **mantiene** código feeds/catálogo partner; doc **`TASKS/tema/SM-gh-strategy-cm/google-hotels-estrategia-post-partner-google.md`** + **`venta-ia.md` §7.0** + backlog §5.3; próxima vía probable **CM** (ej. Beds24, coste a validar).
 - 2026-05-03 — Cursor — Backlog **§5.x A** (heatmap) y **§5.x C** (comparador): cierre documental + criterio técnico (`npm run test:ci` verde, `TASKS/tema/SM-heatmap-qa/qa-heatmap-restricciones-e2e.md` §12, `venta-ia.md` §5.1 fila 4 + §5.2 nota); **§5.x B** lo lleva otro agente.
 - 2026-05-03 — Cursor — Marketplace UI: paridad **`/`** ↔ **`/google-hotels`**, partials estilos/pie, JSON-LD catálogo (`ItemList`/`BreadcrumbList`), `precioDesdeToSchemaPriceRange` en home ItemList; enlaces legales `/legal/*`. Sin cambio rutas API agente ni feeds XML.

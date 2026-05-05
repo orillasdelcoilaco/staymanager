@@ -1,6 +1,6 @@
 # Inicio de integración Beds24 (operación + técnica)
 
-**Contexto:** Google no acepta nuevos connectivity partners **directos**; vía razonable = **channel manager** ya certificado. **Referencia:** `TASKS/google-hotels-estrategia-post-partner-google.md`.
+**Contexto:** Google no acepta nuevos connectivity partners **directos**; vía razonable = **channel manager** ya certificado. **Referencia:** `TASKS/tema/SM-gh-strategy-cm/google-hotels-estrategia-post-partner-google.md`. **Plan maestro (tema producto):** `TASKS/tema/SM-beds24/plan-accion-beds24.md`.
 
 **Enlaces oficiales Beds24 (revisar versiones en su sitio):**
 
@@ -45,7 +45,7 @@ Objetivo: presencia en Google vía el partner **Beds24**, no vía feeds propios 
 
 ## Fase D — Módulo SuiteManager (cuando se priorice en backlog)
 
-- Diseño en **`TASKS/google-hotels-estrategia-post-partner-google.md` §5 + §6**.
+- Plan y bitácora: **`TASKS/tema/SM-beds24/plan-accion-beds24.md`**. Diseño de contexto CM: **`TASKS/tema/SM-gh-strategy-cm/google-hotels-estrategia-post-partner-google.md` §5 + §6**.
 - Servicio dedicado (ej. `backend/services/beds24/`), aislamiento **multi-tenant**, sin romper `valorHuesped` ni reglas financieras.
 - Webhooks o jobs según ofrezca Beds24 para reservas y conflictos de inventario.
 
@@ -63,4 +63,4 @@ Objetivo: presencia en Google vía el partner **Beds24**, no vía feeds propios 
 
 ---
 
-*Última actualización: 2026-05-05 — guía de arranque; precios y pantallas pueden cambiar en Beds24.*
+*Última actualización: 2026-05-03 — carpeta tema `SM-beds24`; guía de arranque; precios y pantallas pueden cambiar en Beds24.*

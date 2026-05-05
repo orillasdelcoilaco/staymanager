@@ -284,8 +284,10 @@ Google comunicó que **no incorporan nuevas integraciones directas** como connec
 
 **Decisión:** **pausar** el trámite de partner **directo** hasta que el volumen lo justifique. El **código del módulo plataforma** (feeds globales, catálogo, panel, smokes) **se mantiene** — standby operativo / base técnica. Próxima vía probable: **proveedor integrado** (referencia operativa **Beds24**, coste orientativo citado ~10–20 USD/mes para un caso tipo referencia — **validar** con tarifario oficial del CM).
 
+**Congelación de desarrollo (2026-05-03):** No refactorizar ni ampliar los módulos de connectivity **partner** (feeds globales, `googleHotelsGlobalService`, `googleHotelsPartner*`, health `partnerGlobalFeed`, bloque Canales IA de feeds globales partner, smokes asociados) salvo **bug crítico** en producción o **instrucción explícita** del equipo. Onboarding/deploy directo: docs en **`TASKS/tema/SM-ghc-onboarding/`** como referencia histórica / standby.
+
 Documentación de contexto y inventario: **`TASKS/tema/SM-gh-strategy-cm/google-hotels-estrategia-post-partner-google.md`**.  
-**Inicio con Beds24 (operación + API + checklist):** **`TASKS/tema/SM-gh-strategy-cm/beds24-integracion-inicio.md`**.
+**Tema producto Beds24:** **`TASKS/tema/SM-beds24/`** — **`plan-accion-beds24.md`**, **`beds24-integracion-inicio.md`** (operación + API + checklist).
 
 ### 7.1 Feed de contenido (Hotel List) — agregador global
 

@@ -183,17 +183,14 @@ Módulos que suelen ser **esperados** en un PMS + web directa y que conviene val
 - [x] Documentar evidencia (capturas/logs mínimos) y cerrar pendiente §4 / §4.3 D — evidencia: log `npm run test:ci` OK + §12 en `TASKS/tema/SM-heatmap-qa/qa-heatmap-restricciones-e2e.md`.
 - **Estado objetivo:** **LISTO** (criterio técnico + doc); capturas tenant opcional.
 
-### B) Google Hotel Center por empresa (onboarding operativo)
+### B) Google Hotel Center por empresa (onboarding operativo) — **cerrado vía partner directo (2026-05-03)**
+
+**Motivo:** Google no incorpora nuevos connectivity partners **directos** por volumen; el carril comercial activo para Google es **channel manager** (tema tablero **`SM-beds24`**). La implementación código partner (v1) **permanece en repo en standby**; **no** ampliar ni refactorizar esos módulos sin instrucción explícita — **`TASKS/tema/SM-venta-ia/venta-ia.md` §7.0**. Tema **`SM-ghc-onboarding`**: **Listo** (documentación + código congelados como referencia).
 
 - [x] **Implementación código Connectivity Partner (v1):** feeds globales, catálogo plataforma, paridad §7.11 SSR, checklist deploy **`TASKS/tema/SM-ghc-onboarding/google-hotels-partner-deploy-checklist.md`** — ver **`TASKS/tema/SM-venta-ia/venta-ia.md` §7**.
-- [ ] **Deploy producción:** merge/deploy integrador → DNS `api.` / `feeds.` + env `GOOGLE_PARTNER_*` → smoke **`node backend/scripts/smoke-google-partner-feeds-http.js`** + checklist **`TASKS/tema/SM-ghc-onboarding/google-hotels-partner-deploy-checklist.md`** §2–§3.
-- [ ] Completar en producto **Operaciones → Canales IA** (`/canales-ia`) tokens, alojamientos listados e IDs (ver **`TASKS/tema/SM-venta-ia/venta-ia.md` §2.6**). §0 del checklist se puede **rellenar desde el panel** (bloque §0 automático + Copiar).
-- [ ] Ejecutar `TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md` (modo tenant durante transición; sección **partner** cuando existan URLs globales).
-- [ ] Validar feeds por dominio real (**tenant**) y, en paralelo, URLs **plataforma** objetivo para Google (`TASKS/tema/SM-venta-ia/venta-ia.md` §7.7).
-- [ ] Confirmar token/credenciales activas por tenant (`websiteSettings.integrations.*`) y política de bypass para bots Google (**§7.4**).
-- [ ] Completar validación externa en Google Hotel Center (HTTP/XML/propiedades visibles).
-- [ ] Registrar por empresa / programa: `operativo` / `bloqueado` + causa concreta + siguiente acción.
-- **Estado objetivo:** partner único ante Google con datos calidad (Place ID, precio final); tenants siguen cerrando reserva en su checkout.
+- [x] **Trámite partner directo ante Google:** cerrado comercialmente; ítems de deploy Hotel Center / validación externa como **objetivo directo** quedan **pausados**. Opcional futuro si cambia política Google.
+- **Seguimiento útil (no bloqueante partner directo):** Los checklists en **`TASKS/tema/SM-ghc-onboarding/`** pueden servir para **feeds por tenant** o demos técnicas; presencia en Google Travel vía **`TASKS/tema/SM-beds24/plan-accion-beds24.md`**.
+- **Estado objetivo (actual):** Standby técnico partner; avance comercial Google → **Beds24** (u otro CM) bajo **`SM-beds24`**.
 
 ### C) §4.3 D parity OTA/comparador (cierre MVP)
 
@@ -214,9 +211,9 @@ Módulos que suelen ser **esperados** en un PMS + web directa y que conviene val
 
 ### E) Criterio de salida de este bloque
 
-- [ ] A + B cerrados. (**A** y **C** listos 2026-05-03; **B** en curso otro agente — deploy/onboarding Google.)
+- [x] **A** y **C** listos (2026-05-03). **B** (partner Google **directo**): **cerrado comercialmente** — no bloquea release por ausencia de onboarding Google vía SM como partner; ver **`TASKS/tablero.md`** y **`venta-ia.md` §7.0**.
 - [x] C con DoD explícito y estado final (`LISTO` o `PAUSA` justificada).
-- [x] Backlog actualizado con fecha, evidencia mínima y "siguiente foco" para v1.1. **Siguiente foco:** cerrar **B** (integrador) + smoke release `TASKS/tema/SM-rel-v100/plan-release-1.0.0.md` §2.3.
+- [x] Backlog actualizado con fecha, evidencia mínima y "siguiente foco" para v1.1. **Siguiente foco:** smoke release `TASKS/tema/SM-rel-v100/plan-release-1.0.0.md` §2.3; presencia Google vía CM → **`SM-beds24`** cuando operación/producto lo prioricen.
 
 ### F) Canales de venta externos y presencia en IAs (roadmap — 2026-04-29)
 
@@ -242,7 +239,7 @@ No duplica disparadores: solo inserta si la empresa aún no tiene una plantilla 
 
 En este backlog solo se recuerda el vínculo: la **fuente única** para trabajar venta por IA y canales externos es ese archivo; aquí siguen los hitos generales de producto (**§5**, **§5.x**) y las referencias **§6**.
 
-**Resumen:** base técnica ya entregada (OpenAPI, disponibilidad/cotización/reserva IA, feeds ARI y Google Hotels **por tenant**, SSR y JSON-LD). **Connectivity Partner (2026-05-02):** implementación v1 en código (**`TASKS/tema/SM-venta-ia/venta-ia.md` §7**): feeds globales `/feeds/google`, catálogo `/google-hotels`, paridad precio §7.11, checklist deploy **`TASKS/tema/SM-ghc-onboarding/google-hotels-partner-deploy-checklist.md`**. **Actualización comercial 2026-05:** Google **no** admite nuevos connectivity partners **directos** por volumen; recomiendan **integration partner** (channel manager). El módulo técnico **permanece en repo** (standby); estrategia y próximo CM: **`TASKS/tema/SM-gh-strategy-cm/google-hotels-estrategia-post-partner-google.md`**. **Pendiente de producto** cuando se priorice: integración con CM elegido + eventual presencia Google vía tercero; **MCP** / **llms.txt** / JSON-LD siguen evolucionando según **`TASKS/tema/SM-venta-ia/venta-ia.md`**. **Orden operativo** histórico secuencia **B** en **`TASKS/tema/SM-ghc-onboarding/google-hotels-partner-deploy-checklist.md`**. **Sin** OTA terceros como canal de venta del operador; **sincronización operativa** (iCal, importaciones) sigue en PMS. **Carril solo Cursor**; API pública → **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §2–§3.
+**Resumen:** base técnica ya entregada (OpenAPI, disponibilidad/cotización/reserva IA, feeds ARI y Google Hotels **por tenant**, SSR y JSON-LD). **Connectivity Partner (2026-05-02):** implementación v1 en código (**`TASKS/tema/SM-venta-ia/venta-ia.md` §7**): feeds globales `/feeds/google`, catálogo `/google-hotels`, paridad precio §7.11, checklist deploy **`TASKS/tema/SM-ghc-onboarding/google-hotels-partner-deploy-checklist.md`**. **Actualización comercial 2026-05:** Google **no** admite nuevos connectivity partners **directos** por volumen; recomiendan **integration partner** (channel manager). El módulo técnico **permanece en repo** (standby); estrategia y próximo CM: **`TASKS/tema/SM-gh-strategy-cm/google-hotels-estrategia-post-partner-google.md`**. **Pendiente de producto** cuando se priorice: integración con CM (**tema `TASKS/tema/SM-beds24/`**) + eventual presencia Google vía tercero; **MCP** / **llms.txt** / JSON-LD siguen evolucionando según **`TASKS/tema/SM-venta-ia/venta-ia.md`**. **Orden operativo** histórico secuencia **B** en **`TASKS/tema/SM-ghc-onboarding/google-hotels-partner-deploy-checklist.md`**. **Sin** OTA terceros como canal de venta del operador; **sincronización operativa** (iCal, importaciones) sigue en PMS. **Carril solo Cursor**; API pública → **`TASKS/coordinacion-cursor-claude-ia-venta.md`** §2–§3.
 
 ---
 

@@ -4,7 +4,11 @@ Vista operativa por **iniciativa**: cada fila es una **tarjeta** y un **`TASKS/t
 
 **IDs:** la columna **ID** es el nombre de carpeta bajo **`TASKS/tema/`** (sin espacios). Dentro de cada carpeta: **archivos sueltos** del tema (`qa-`, `audit-`, `checklist-`, etc.); sin subcarpetas obligatorias — **`TASKS/tema/README.md`**.
 
-**Agentes:** al trabajar o cerrar un tema, actualizar **esta tabla** y la carpeta **`tema/<id>/`** (regla **`.cursor/rules/50-tasks-tablero-y-temas.mdc`**).
+**Agentes:** al **iniciar**, **durante** y **cerrar** trabajo en un tema, mantener **esta tabla** actualizada junto con la carpeta **`tema/<id>/`** (regla **`.cursor/rules/50-tasks-tablero-y-temas.mdc`**, **`LEER-PRIMERO.md`** § *Flujo al iniciar o retomar*).
+
+**Flujo:** contexto (`LEER-PRIMERO`) → **tema** (fila + `TASKS/tema/<id>/`) → **qué hacer** (usuario + docs del tema). Tras **crear / modificar / eliminar** algo relevante al tema: **actualizar la fila** (fecha en *Última nota*, estado en *Columna*).
+
+**Humano (Cursor):** renombrar la **pestaña del chat** con el **nombre del tema** (columna *Tema* o ID `SM-*`) para coincidir con el tablero.
 
 ---
 
@@ -27,9 +31,10 @@ Vista operativa por **iniciativa**: cada fila es una **tarjeta** y un **`TASKS/t
 | ID | Tema (título) | Columna | Rama | Carpeta tema | Herramienta | Última nota (fecha) | Enlaces |
 |----|---------------|---------|------|--------------|-------------|---------------------|---------|
 | `SM-rel-v100` | Cierre release v1.0.0 (smoke, `test:ci`, tag) | Backlog | — | `tema/SM-rel-v100` | — | 2026-05-05 — Foco §5.x E: smoke `tema/SM-rel-v100/plan-release-1.0.0.md` §2.3 + CI antes del tag | `tema/SM-rel-v100/plan-release-1.0.0.md`, backlog §5.x E |
-| `SM-ghc-onboarding` | Google Hotel Center — deploy y onboarding (§5.x B) | En curso (otro) | — | `tema/SM-ghc-onboarding` | Integrador / ops | 2026-05-05 — Deploy prod, env, smoke partner; tokens **Canales IA**; checklists | `tema/SM-ghc-onboarding/google-hotels-partner-deploy-checklist.md`, `tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md`, `tema/SM-venta-ia/venta-ia.md` §2.6 §7, backlog §5.x B |
+| `SM-ghc-onboarding` | Google Hotel Center — partner directo (deploy / onboarding) | Listo | — | `tema/SM-ghc-onboarding` | — | 2026-05-03 — **Cerrado comercialmente** (Google no nuevos partners directos). Código + checklists en **standby**; **no tocar** módulos partner (`googleHotels*`, rutas `/feeds/google` plataforma, bloque feeds globales en Canales IA) salvo bug crítico o instrucción explícita. Ver `venta-ia.md` §7.0 | `tema/SM-ghc-onboarding/README.md`, `google-hotels-partner-deploy-checklist.md`, `checklist-onboarding-google-hotel-center.md`, `tema/SM-venta-ia/venta-ia.md` §7.0 |
 | `SM-venta-ia` | Canales venta / venta por IA (OpenAPI, MCP, feeds) | En curso (Cursor) | — | `tema/SM-venta-ia` | Cursor | Carril unificado `tema/SM-venta-ia/venta-ia.md`; zona caliente en coordinación | `tema/SM-venta-ia/venta-ia.md`, `tema/SM-venta-ia/qa-y-seguimiento-prelaunch-canales.md`, `tema/SM-venta-ia/qa-feed-ari-checklist.md`, `tema/SM-venta-ia/gemini-smoke-instrucciones.md`, coordinación, regla `45-canales-venta-solo-cursor.mdc` |
-| `SM-gh-strategy-cm` | Estrategia Google post-partner (channel manager) | Backlog | — | `tema/SM-gh-strategy-cm` | — | Partner directo volumen pausado; definir CM | `tema/SM-gh-strategy-cm/google-hotels-estrategia-post-partner-google.md`, backlog §5.3 |
+| `SM-beds24` | Integración Beds24 (CM → Google + API + conector SM) | Backlog | — | `tema/SM-beds24` | Ops + Cursor | 2026-05-03 — Plan maestro + guía operativa; fase código cuando priorice backlog | `tema/SM-beds24/plan-accion-beds24.md`, `tema/SM-beds24/beds24-integracion-inicio.md`, `tema/SM-gh-strategy-cm/google-hotels-estrategia-post-partner-google.md`, backlog §5.3 |
+| `SM-gh-strategy-cm` | Estrategia Google post-partner (channel manager) | Backlog | — | `tema/SM-gh-strategy-cm` | — | 2026-05-03 — Contexto comercial + inventario; ejecución en **`SM-beds24`** | `tema/SM-gh-strategy-cm/google-hotels-estrategia-post-partner-google.md`, `tema/SM-beds24/plan-accion-beds24.md`, backlog §5.3 |
 | `SM-heatmap-qa` | Mapa de calor / restricciones (§5.x A) | Listo | — | `tema/SM-heatmap-qa` | — | Criterio técnico cerrado; QA manual opcional | `tema/SM-heatmap-qa/qa-heatmap-restricciones-e2e.md` §12 |
 | `SM-comparador-ota` | Comparador OTA — MVP (§5.x C) | Listo | — | `tema/SM-comparador-ota` | — | DoD `tema/SM-venta-ia/venta-ia.md` §5.2 | backlog §5.x C, `test-comparador-ota-service.js` |
 | `SM-mail-events-mtx` | Motor correo — nuevos eventos / matriz (§1.2) | Backlog | — | `tema/SM-mail-events-mtx` | — | Diferido al final del roadmap | `transactionalEmailEventMatrix.js`, backlog §5 ítem 6 |
@@ -47,7 +52,7 @@ Vista operativa por **iniciativa**: cada fila es una **tarjeta** y un **`TASKS/t
 | `SM-migracion-postgres` | Plan migración PostgreSQL | Backlog | — | `tema/SM-migracion-postgres` | Claude / integrador | Estado en `SHARED_CONTEXT` § DB | `tema/SM-migracion-postgres/migration-plan-postgres.md` |
 | `SM-operacion-agentes` | Pending/completed agentes, DoD, alertas créditos | Listo | — | `tema/SM-operacion-agentes` | CI + OpenClaw | 2026-05-05 — Workflows `notify-*` apuntan aquí | `tema/SM-operacion-agentes/pending.md`, `tema/SM-operacion-agentes/completed.md`, `tema/SM-operacion-agentes/definition-of-done.md`, `tema/SM-operacion-agentes/alertas-creditos.md` |
 
-**Release:** §5.x **E** — cerrar **A + B**; **A** y **C** listos; foco operativo **B** (Google).
+**Release:** §5.x **E** — **A** y **C** listos; **B** (partner Google **directo**) cerrado en alcance comercial 2026-05-03 (standby); avance Google vía **`SM-beds24`**. Revisar criterio de salida en backlog §5.x **E**.
 
 ---
 
