@@ -27,8 +27,8 @@
                         : `Hola ${nombreAnfitrion}, necesito ayuda con una reserva.`;
                     const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeGenerico)}`;
                 %>
-                <a href="<%= whatsappUrl %>" target="_blank" class="bg-success-600 hover:bg-success-700 text-white px-4 py-2 rounded-lg font-semibold transition flex items-center">
-                    <i class="fa-brands fa-whatsapp w-5 h-5 mr-2 text-white"></i>
+                <a href="<%= whatsappUrl %>" target="_blank" rel="noopener noreferrer" class="bg-success-600 hover:bg-success-700 text-white px-4 py-2 rounded-lg font-semibold transition flex items-center">
+                    <i class="fa-brands fa-whatsapp w-5 h-5 mr-2 text-white" aria-hidden="true"></i>
                     <%= _navHl === 'en' ? `Hi, I'm ${nombreAnfitrion} — can I help?` : `Hola, soy ${nombreAnfitrion}, ¿te ayudo?` %>
                 </a>
             <% } %>
@@ -46,8 +46,10 @@
                         : `Hola ${nombreAnfitrion}, necesito ayuda con una reserva.`;
                     const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeGenerico)}`;
                 %>
-                <a href="<%= whatsappUrl %>" target="_blank" class="bg-success-600 hover:bg-success-700 text-white p-2 rounded-lg">
-                    <i class="fa-brands fa-whatsapp w-5 h-5 text-white m-0"></i>
+                <a href="<%= whatsappUrl %>" target="_blank" rel="noopener noreferrer"
+                   aria-label="<%= _navHl === 'en' ? 'Contact on WhatsApp' : 'Contactar por WhatsApp' %>"
+                   class="bg-success-600 hover:bg-success-700 text-white p-2 rounded-lg">
+                    <i class="fa-brands fa-whatsapp w-5 h-5 text-white m-0" aria-hidden="true"></i>
                 </a>
              <% } %>
         </div>

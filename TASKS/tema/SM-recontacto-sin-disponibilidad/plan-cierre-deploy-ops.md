@@ -2,6 +2,8 @@
 
 Este archivo es para **quien tenga acceso** a Supabase (o Postgres de producción), Render y ChatGPT Actions. El código ya está en el repo; **Cursor/IDE no puede** entrar a esas consolas por ti.
 
+**URLs y nombres canónicos** (dominio plataforma, host API, nombre del GPT): **`LEER-PRIMERO.md`** sección **Referencias de entorno**. Si el host en Render cambia, actualizar allí y este plan en el mismo cambio.
+
 ## 0. Checklist rápido
 
 | Paso | Dónde | Hecho |
@@ -9,7 +11,7 @@ Este archivo es para **quien tenga acceso** a Supabase (o Postgres de producció
 | 1 | SQL migración en **producción** | [ ] |
 | 2 | **Deploy** backend (y front si aplica) en Render | [ ] |
 | 3 | Variables Render (mínimo: `DATABASE_URL`, `RESEND_API_KEY`, `EMAIL_FROM`, secret Firebase) | [ ] |
-| 4 | ChatGPT: **reimportar** OpenAPI **1.4.8** desde la URL del servidor | [ ] |
+| 4 | GPT **SuiteManager Marketplace IA**: **reimportar** OpenAPI **1.4.8** desde `https://suite-manager.onrender.com/openapi-chatgpt.yaml` | [ ] |
 | 5 | Prueba A–E (abajo) | [ ] |
 | 6 | Marcar tema **Listo** en `TASKS/tablero.md` y en este README | [ ] |
 
@@ -38,27 +40,27 @@ Este archivo es para **quien tenga acceso** a Supabase (o Postgres de producció
 
 ## 3. ChatGPT (Actions / GPT con herramientas)
 
-1. En el conector de OpenAI, abrir la Action que apunta a SuiteManager.
-2. **Schema**: volver a cargar el OpenAPI desde la URL pública del backend desplegado, por ejemplo:
+1. En ChatGPT, abrir el GPT **SuiteManager Marketplace IA** y su configuración de **Actions**.
+2. **Schema**: volver a cargar el OpenAPI desde la URL pública del backend en **Render**:
 
-   `https://TU-SERVICIO.onrender.com/openapi-chatgpt.yaml`
+   `https://suite-manager.onrender.com/openapi-chatgpt.yaml`
 
 3. Confirmar que el YAML descargado empieza con `version: 1.4.8` en `info.version`.
 4. Comprobar con el navegador o curl:
 
-   `GET https://TU-SERVICIO.onrender.com/api/public/version`  
+   `GET https://suite-manager.onrender.com/api/public/version`  
    El campo `version` del JSON debe ser **1.4.8** (salvo override por env).
 
 ---
 
 ## 4. Pruebas mínimas (después del deploy)
 
-Sustituir `BASE` por la URL real del backend (misma que Render).
+Base del API en producción: `https://suite-manager.onrender.com` (si el dashboard de Render muestra otra URL canónica, usar esa y actualizar **`LEER-PRIMERO.md`** § Referencias de entorno).
 
 **A — Versión**
 
 ```http
-GET BASE/api/public/version
+GET https://suite-manager.onrender.com/api/public/version
 ```
 
 Esperado: `version` = `1.4.8` (o el valor de `PUBLIC_API_CONTRACT_VERSION` si lo fijaron).
@@ -70,7 +72,7 @@ Esperado: respuesta **409** o **422** con objeto **`lista_espera`** y `registrad
 
 **C — Intent legacy sin email (solo si usan esa ruta)**
 
-`POST BASE/api/public/reservar/intent` con periodo bloqueado y **sin** email válido en `huesped`.  
+`POST https://suite-manager.onrender.com/api/public/reservar/intent` con periodo bloqueado y **sin** email válido en `huesped`.  
 Esperado: **400** con `code: WAITLIST_EMAIL_REQUIRED`.
 
 **D — Panel**

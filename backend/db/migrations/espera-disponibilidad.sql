@@ -1,9 +1,10 @@
 -- Lista de espera de disponibilidad (recontacto sin cupo)
 -- Estados por ID (no por nombre) y registros por empresa.
+-- IDs en TEXT (gen_random_uuid()::text) — patrón del proyecto (empresas.id y clientes.id son TEXT).
 
 CREATE TABLE IF NOT EXISTS espera_disponibilidad_estados (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    empresa_id UUID NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()::text),
+    empresa_id TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
     codigo TEXT NOT NULL,
     nombre TEXT NOT NULL,
     color TEXT NOT NULL DEFAULT 'rgb(107 114 128)',
@@ -15,10 +16,10 @@ CREATE TABLE IF NOT EXISTS espera_disponibilidad_estados (
 );
 
 CREATE TABLE IF NOT EXISTS espera_disponibilidad (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    empresa_id UUID NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-    cliente_id UUID NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
-    estado_id UUID NOT NULL REFERENCES espera_disponibilidad_estados(id),
+    id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()::text),
+    empresa_id TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    cliente_id TEXT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+    estado_id TEXT NOT NULL REFERENCES espera_disponibilidad_estados(id),
 
     propiedad_id_preferida TEXT NULL,
     fecha_llegada DATE NOT NULL,

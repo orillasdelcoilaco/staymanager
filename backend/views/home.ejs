@@ -77,7 +77,20 @@
             if (n.includes('mascota') || n.includes('pet')) return 'fa-paw';
             return 'fa-check-circle';
         };
+
+        let _heroAssetOrigin = '';
+        try {
+            if (_heroImage && /^https?:\/\//i.test(String(_heroImage))) {
+                _heroAssetOrigin = new URL(_heroImage).origin;
+            }
+        } catch (e) { /* ignore URL inválida */ }
     %>
+    <% if (_heroAssetOrigin) { %>
+    <link rel="preconnect" href="<%= _heroAssetOrigin %>" crossorigin>
+    <link rel="dns-prefetch" href="<%= _heroAssetOrigin %>">
+    <% } %>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
 
     <title><%= _pageTitle %></title>
     <meta name="description" content="<%= _pageDesc %>">
@@ -98,13 +111,17 @@
     <meta name="twitter:title"       content="<%= _pageTitle %>">
     <meta name="twitter:description" content="<%= _pageDesc %>">
     <% if (_heroImage) { %><meta name="twitter:image" content="<%= _heroImage %>"><% } %>
+    <% if (_heroImage) { %>
+    <link rel="preload" as="image" href="<%= _heroImage %>" fetchpriority="high">
+    <% } %>
     <% if (locals.schemaData) { %>
     <script type="application/ld+json"><%- JSON.stringify(schemaData) %></script>
     <% } %>
     <link rel="stylesheet" href="/public/css/website.css">
     <% if (locals.customCSS && locals.customCSS.trim().length > 0) { %><style><%= locals.customCSS %></style><% } %>
     <%- include('partials/web-fonts') %>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"></noscript>
     <% if (_logoUrl) { %><link rel="icon" href="<%= _logoUrl %>" type="image/png"><% } %>
 
     <style>
@@ -129,7 +146,14 @@
         <section class="relative overflow-hidden flex flex-col" style="min-height: 520px;">
 
             <% if (_heroImage) { %>
-            <img src="<%= _heroImage %>" alt="<%= empresa.nombre %>"
+            <img src="<%= _heroImage %>"
+                 alt=""
+                 role="presentation"
+                 width="1920"
+                 height="1080"
+                 decoding="async"
+                 fetchpriority="high"
+                 sizes="100vw"
                  class="absolute inset-0 w-full h-full object-cover">
             <% } else { %>
             <div class="absolute inset-0 bg-gradient-to-br from-primary-800 via-primary-700 to-primary-600"></div>
@@ -137,10 +161,7 @@
             <div class="absolute inset-0 bg-gradient-to-b from-black/25 via-black/20 to-black/70"></div>
 
             <%# Texto hero – centrado %>
-            <div class="relative z-10 flex-1 flex flex-col justify-center items-center text-center text-white px-4 pt-24 pb-10">
-                <% if (_logoUrl) { %>
-                <img src="<%= _logoUrl %>" alt="<%= empresa.nombre %>" class="h-14 w-auto mb-5 drop-shadow-lg object-contain">
-                <% } %>
+            <div class="relative z-10 flex-1 flex flex-col justify-center items-center text-center text-white px-4 pt-20 pb-10 md:pt-24">
                 <h1 class="text-4xl md:text-6xl font-extrabold leading-tight drop-shadow-lg mb-3 max-w-3xl">
                     <%= empresa.websiteSettings?.content?.homeH1 || empresa.nombre || corporateContent?.hero?.title %>
                 </h1>
@@ -152,7 +173,7 @@
                 <% } %>
                 <% if (_ciudad) { %>
                 <p class="mt-3 text-sm opacity-75 flex items-center gap-1.5">
-                    <i class="fas fa-map-marker-alt"></i>
+                    <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
                     <span><%= _ciudad %><% if (_region) { %>, <%= _region %><% } %></span>
                 </p>
                 <% } %>
@@ -162,7 +183,7 @@
             <div class="relative z-20 px-4 pb-10">
                 <% if (isSearchResult) { %>
                 <div class="max-w-3xl mx-auto bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-1 text-sm text-gray-600 flex items-center gap-3 px-4 py-3">
-                    <i class="fas fa-search text-gray-400"></i>
+                    <i class="fas fa-search text-gray-400" aria-hidden="true"></i>
                     <span class="flex-1">
                         <% if (query.fechaLlegada) { %><strong><%= query.fechaLlegada %></strong> → <strong><%= query.fechaSalida %></strong><% } %>
                         <% if (query.personas) { %> · <strong><%= query.personas %> <%= _hl === 'en' ? 'guests' : 'huéspedes' %></strong><% } %>
@@ -191,8 +212,9 @@
                         </div>
                         <div class="flex items-center p-2">
                             <button type="submit"
+                                    aria-label="<%= _hl === 'en' ? 'Search stays with selected dates and guests' : 'Buscar alojamientos con fechas y huéspedes indicados' %>"
                                     class="btn-primary w-full md:w-auto rounded-xl px-6 py-3.5 text-sm font-bold flex items-center justify-center gap-2">
-                                <i class="fas fa-search"></i>
+                                <i class="fas fa-search" aria-hidden="true"></i>
                                 <span><%= _hl === 'en' ? 'Search' : 'Buscar' %></span>
                             </button>
                         </div>
@@ -211,7 +233,7 @@
                 <div class="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-gray-600">
                     <% if (_rating) { %>
                     <div class="flex items-center gap-1.5">
-                        <i class="fas fa-star text-warning-400 text-xs"></i>
+                        <i class="fas fa-star text-warning-400 text-xs" aria-hidden="true"></i>
                         <span class="font-bold text-gray-900"><%= _rating %></span>
                         <span class="text-gray-400">·</span>
                         <span><%= _totalResenas %> <%= _hl === 'en' ? 'reviews' : 'reseñas' %></span>
@@ -220,21 +242,21 @@
                     <% } %>
                     <% if (_propCount > 0) { %>
                     <div class="flex items-center gap-1.5">
-                        <i class="fas fa-home text-gray-400 text-xs"></i>
+                        <i class="fas fa-home text-gray-400 text-xs" aria-hidden="true"></i>
                         <span><strong class="text-gray-900"><%= _propCount %></strong> <% if (_hl === 'en') { %><%= _propCount === 1 ? 'stay' : 'stays' %><% } else { %>alojamiento<% if (_propCount > 1) { %>s<% } %><% } %></span>
                     </div>
                     <span class="text-gray-200 hidden sm:block">|</span>
                     <% } %>
                     <% if (_maxCap > 0) { %>
                     <div class="flex items-center gap-1.5">
-                        <i class="fas fa-users text-gray-400 text-xs"></i>
+                        <i class="fas fa-users text-gray-400 text-xs" aria-hidden="true"></i>
                         <span><%= _hl === 'en' ? 'Up to' : 'Hasta' %> <strong class="text-gray-900"><%= _maxCap %></strong> <%= _hl === 'en' ? 'guests' : 'personas' %></span>
                     </div>
                     <span class="text-gray-200 hidden sm:block">|</span>
                     <% } %>
                     <% if (_ciudad) { %>
                     <div class="flex items-center gap-1.5">
-                        <i class="fas fa-map-marker-alt text-gray-400 text-xs"></i>
+                        <i class="fas fa-map-marker-alt text-gray-400 text-xs" aria-hidden="true"></i>
                         <span><%= _ciudad %><% if (_region) { %>, <%= _region %><% } %></span>
                     </div>
                     <% } %>
@@ -267,7 +289,7 @@
                     <% } %>
                 </div>
                 <a href="/" class="text-sm text-primary-600 font-medium hover:underline">
-                    <i class="fas fa-times mr-1"></i><%= _hl === 'en' ? 'Clear search' : 'Limpiar búsqueda' %>
+                    <i class="fas fa-times mr-1" aria-hidden="true"></i><%= _hl === 'en' ? 'Clear search' : 'Limpiar búsqueda' %>
                 </a>
             </div>
             <% } %>
@@ -299,7 +321,8 @@
                                 <% _g.properties.forEach(prop => { %>
                                 <div class="flex items-center gap-3 p-2.5 bg-gray-50 rounded-xl">
                                     <img src="<%= prop.websiteData?.cardImage?.storagePath || 'https://placehold.co/80x60/e5e7eb/9ca3af?text=+' %>"
-                                         alt="<%= prop.nombre %>" class="w-20 h-14 object-cover rounded-lg flex-shrink-0">
+                                         alt="<%= prop.nombre %>" width="80" height="56" loading="lazy" decoding="async"
+                                         class="w-20 h-14 object-cover rounded-lg flex-shrink-0">
                                     <div>
                                         <p class="font-semibold text-sm text-gray-800"><%= prop.nombre %></p>
                                         <p class="text-xs text-gray-500"><%= prop.capacidad %> <%= _hl === 'en' ? (prop.capacidad === 1 ? 'guest' : 'guests') : 'personas' %></p>
@@ -332,7 +355,7 @@
 
             <% } else { %>
             <div class="text-center py-20 px-4 border-2 border-dashed border-gray-200 rounded-2xl">
-                <i class="fas fa-calendar-xmark text-4xl text-gray-300 mb-4"></i>
+                <i class="fas fa-calendar-xmark text-4xl text-gray-300 mb-4" aria-hidden="true"></i>
                 <h3 class="text-xl font-semibold text-gray-700 mb-2">
                     <%= isSearchResult ? (_hl === 'en' ? 'No availability for those dates' : 'Sin disponibilidad para esas fechas') : (_hl === 'en' ? 'No published stays yet' : 'Sin alojamientos publicados') %>
                 </h3>
@@ -362,7 +385,7 @@
                         </h2>
                         <% if (_ciudad) { %>
                         <p class="text-primary-600 font-medium mb-5 flex items-center gap-1.5">
-                            <i class="fas fa-map-marker-alt text-sm"></i>
+                            <i class="fas fa-map-marker-alt text-sm" aria-hidden="true"></i>
                             <%= _ciudad %><% if (_region) { %>, <%= _region %><% } %>
                         </p>
                         <% } %>
@@ -375,7 +398,7 @@
                         <div class="grid grid-cols-2 gap-3 mb-8">
                             <% _amenTop.forEach(amenidad => { %>
                             <div class="flex items-center gap-2.5 text-sm text-gray-700">
-                                <i class="fas <%= _iconoAmenidad(amenidad) %> text-primary-500 w-4 text-center flex-shrink-0"></i>
+                                <i class="fas <%= _iconoAmenidad(amenidad) %> text-primary-500 w-4 text-center flex-shrink-0" aria-hidden="true"></i>
                                 <span class="line-clamp-1"><%= amenidad %></span>
                             </div>
                             <% }) %>
@@ -384,13 +407,13 @@
 
                         <div class="flex flex-wrap gap-3">
                             <a href="#propiedades" class="btn-primary rounded-xl px-6 py-3 text-sm font-bold flex items-center gap-2">
-                                <i class="fas fa-home"></i>
+                                <i class="fas fa-home" aria-hidden="true"></i>
                                 <%= _hl === 'en' ? 'View stays' : 'Ver alojamientos' %>
                             </a>
                             <% if (_waLink) { %>
-                            <a href="<%= _waLink %>" target="_blank" rel="noopener"
+                            <a href="<%= _waLink %>" target="_blank" rel="noopener noreferrer"
                                class="flex items-center gap-2 bg-success-600 hover:bg-success-700 text-white font-bold text-sm px-6 py-3 rounded-xl transition-colors">
-                                <i class="fab fa-whatsapp text-lg"></i>
+                                <i class="fab fa-whatsapp text-lg" aria-hidden="true"></i>
                                 WhatsApp
                             </a>
                             <% } %>

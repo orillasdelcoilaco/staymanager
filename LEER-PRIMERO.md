@@ -52,11 +52,30 @@ Todo lo detallado sigue viviendo en `**CLAUDE.md`** y reglas; aquí va la **lín
 | **Modularidad**                                                              | Respetar límites de archivo/función/export en `CLAUDE.md`; **preferir archivos o funciones nuevas** antes de reescribir bloques grandes que ya funcionan.                                                            |
 | **Ubicación de archivos (todos los agentes)**                                | **No** crear artefactos nuevos en la raíz del repo ni en rutas improvisadas. Código → `backend/` / `frontend/src/`; OpenAPI y contratos públicos → `backend/openapi/`; tooling IA (MCP, agentes, plantillas) → `backend/ai/`; scripts recurrentes → `scripts/tooling/` o `scripts/legacy/` según convención; planes, QA e informes por iniciativa → **`TASKS/tema/<SM-id>/`** (`TASKS/tablero.md`). Detalle: **`CLAUDE.md`** (Flujo de trabajo), **`SHARED_CONTEXT.md`** (cabecera), regla **`.cursor/rules/07-artifact-placement-repo-layout.mdc`**. |
 | **No romper lo estable**                                                     | Cambios **mínimos** y **aislados** en rutas ya probadas; nuevas capacidades en **módulos nuevos** o detrás de helpers claros; no ensanchar el alcance del PR sin necesidad.                                          |
+| **Dominio, host API, GPT (texto en docs y prompts, no lógica de negocio)**  | Usar la sección **Referencias de entorno** (debajo). Evita placeholders genéricos en handoffs; si el host de Render cambia, actualizar tabla y runbooks que lo citen. **No** codificar un tenant concreto como única realidad: el producto sigue multi-tenant. |
 
 
 **Cursor:** las reglas en `**.cursor/rules/`** (`00-core-safety.mdc`, `07-artifact-placement-repo-layout.mdc`, modo dual, backlog, etc.) aplican **además** de lo anterior. **Política de qué va en cada `.mdc` e índice de rules:** `.cursor/rules/README.md`. Skill `**.cursor/skills/staymanager-executor/SKILL.md`** para trabajo backend/SSR/SPA en StayManager. **Tablero operativo por tema:** `TASKS/tablero.md` (IDs ↔ carpetas `TASKS/tema/<id>/`; convención `TASKS/tema/README.md`). Agentes: regla **`50-tasks-tablero-y-temas.mdc`**. No sustituye al backlog.
 
 **Varios agentes Cursor en paralelo:** después de este archivo, si aplica release vs backlog, seguir `**TASKS/coordinacion-cursor-paralelo.md`** (bitácora §5.3, integrador). **Solo** la raíz tiene `LEER-PRIMERO.md`; no confundir con el doc multi-agente.
+
+---
+
+## Referencias de entorno (operación, handoffs, OpenAPI, prompts)
+
+**Propósito:** que documentación, prompts a Claude Code / otros agentes y runbooks usen **nombres reales** y no `ejemplo.com`, `tu-servicio.onrender.com` o `[EMPRESA]` como texto a reemplazar a mano. **Esto no es dato de negocio en código:** el producto sigue siendo paramétrico por `empresa_id`; aquí solo fijamos **plataforma, DNS y despliegue** tal como están hoy en producción.
+
+| Qué | Valor canónico |
+|-----|----------------|
+| **Dominio de plataforma (marketplace, site principal)** | `suitemanagers.com` — registro DNS en **GoDaddy** |
+| **Sitio público por empresa (subdominio)** | `https://{subdominio}.suitemanagers.com` — el `{subdominio}` viene de la configuración de cada empresa, no es fijo en código. |
+| **Tenant de ejemplo real (pruebas E2E, copy en docs)** | `orillasdelcoilaco` → `https://orillasdelcoilaco.suitemanagers.com` (una empresa concreta; otras empresas usan otro subdominio). |
+| **Backend / API pública (host en Render)** | `https://suite-manager.onrender.com` — servicio **Render** vinculado al repo en **GitHub**; el deploy de producción sigue el flujo acordado del equipo (p. ej. push a `main`). Si en el dashboard de Render el nombre del servicio o la URL canónica difieren, **gana el valor del dashboard** y conviene **actualizar esta fila** en el mismo commit que el cambio de infra. |
+| **OpenAPI (ChatGPT / Actions, verificación de contrato)** | `https://suite-manager.onrender.com/openapi-chatgpt.yaml` y `https://suite-manager.onrender.com/openapi-gemini.yaml` (servidos por el backend). |
+| **Health de versión de contrato API** | `GET https://suite-manager.onrender.com/api/public/version` — campo `version` alineado a `info.version` del OpenAPI (p. ej. 1.4.8) salvo `PUBLIC_API_CONTRACT_VERSION` en env. |
+| **GPT en ChatGPT (nombre del conector / asistente comercial)** | **SuiteManager Marketplace IA** — el Action debe apuntar al host anterior para esquema y URLs base. |
+
+**Código de referencia:** el dominio de plataforma por defecto en el repo suele aparecer como `PLATFORM_DOMAIN` / `PUBLIC_SITES_ROOT_DOMAIN` (p. ej. `suitemanagers.com`). Comportamiento multi-tenant: **SHARED_CONTEXT.md** y reglas de producto genérico.
 
 ---
 
@@ -70,4 +89,4 @@ Las reglas en `.cursor/rules/` se aplican **además** de lo anterior. Criterios 
 
 ---
 
-*Última actualización: 2026-05-06 — `plan-accion` + bitácora en `TASKS/tema/README.md`; flujo tema (LEER-PRIMERO) y regla `50`. Historial: tablero obligatorio + pestaña chat; ubicación `07`; `coordinacion-cursor-paralelo.md`.*
+*Última actualización: 2026-05-06 — Sección **Referencias de entorno** (dominio `suitemanagers.com`, API `suite-manager.onrender.com`, GPT **SuiteManager Marketplace IA**, tenant ejemplo `orillasdelcoilaco`); enlace desde **SHARED_CONTEXT**. Historial: `plan-accion` + bitácora en `TASKS/tema/README.md`; flujo tema; regla `50`; `coordinacion-cursor-paralelo.md`.*
