@@ -85,8 +85,10 @@ const handleWizardUpload = async (file) => {
             }
         }
     } catch (error) {
-        alert('Error crítico en el wizard: ' + error.message);
-        closeWizard();
+        const msg = error.message || 'No se pudo procesar la imagen.';
+        alert(msg);
+        document.getElementById('wizard-next-btn').disabled = false;
+        renderWizardStep('upload');
     }
 };
 

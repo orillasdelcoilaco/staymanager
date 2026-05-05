@@ -4,6 +4,11 @@ const pool = require('../db/postgres');
 const { v4: uuidv4 } = require('uuid');
 const { uploadFile, deleteFileByPath } = require('./storageService');
 const { optimizeImage } = require('./imageProcessingService');
+const {
+    assertOptimizedBuffers,
+    assertDistinctPublicUrls,
+    rollbackPublicUrls,
+} = require('./imageUploadGuards');
 const { getCounts: getCountsImpl } = require('./galeriaService.counts');
 
 async function getGaleria(db, empresaId, propiedadId, filters = {}) {
@@ -289,9 +294,11 @@ async function eliminarFoto(db, empresaId, propiedadId, fotoId) {
 async function syncToWebsite(db, empresaId, propiedadId) {
     if (IS_POSTGRES) {
         const { rows } = await pool.query(
-            `SELECT id, storage_url, alt_text, espacio, espacio_id, orden
+            `SELECT id, storage_url, thumbnail_url, alt_text, espacio, espacio_id, orden
              FROM galeria
              WHERE empresa_id=$1 AND propiedad_id=$2 AND estado IN ('auto','manual') AND espacio_id IS NOT NULL
+               AND thumbnail_url IS NOT NULL AND TRIM(COALESCE(thumbnail_url, '')) <> ''
+               AND thumbnail_url <> storage_url
              ORDER BY orden ASC`,
             [empresaId, propiedadId]
         );
@@ -307,7 +314,10 @@ async function syncToWebsite(db, empresaId, propiedadId) {
         let cardImage = null;
         for (const f of rows) {
             const imageObj = {
-                imageId: f.id, storagePath: f.storage_url, altText: f.alt_text || '',
+                imageId: f.id,
+                storagePath: f.storage_url,
+                thumbnailUrl: f.thumbnail_url,
+                altText: f.alt_text || '',
                 title: `${f.espacio || 'Vista'} - ${f.alt_text || ''}`,
                 description: f.alt_text || '', orden: f.orden || 0
             };
@@ -348,8 +358,14 @@ async function syncToWebsite(db, empresaId, propiedadId) {
     let cardImage = null;
     fotosSnap.docs.forEach(d => {
         const f = d.data();
+        const fullU = f.storageUrl || f.storagePath;
+        const thU = f.thumbnailUrl;
+        if (!thU || !fullU || thU === fullU) return;
         const imageObj = {
-            imageId: d.id, storagePath: f.storageUrl || f.storagePath, altText: f.altText || '',
+            imageId: d.id,
+            storagePath: fullU,
+            thumbnailUrl: thU,
+            altText: f.altText || '',
             title: `${f.espacio || 'Vista'} - ${f.altText || ''}`,
             description: f.altText || '', orden: f.orden || 0
         };
@@ -371,36 +387,45 @@ async function uploadFotoToGaleria(db, empresaId, propiedadId, files) {
     for (const file of files) {
         const fotoId = uuidv4();
         const base = `empresas/${empresaId}/propiedades/${propiedadId}/galeria/${fotoId}`;
-        const { buffer: fullBuffer  } = await optimizeImage(file.buffer, { maxWidth: 1200, quality: 82 });
-        const { buffer: thumbBuffer } = await optimizeImage(file.buffer, { maxWidth: 400,  quality: 75 });
-        const [storageUrl, thumbnailUrl] = await Promise.all([
-            uploadFile(fullBuffer,  `${base}.webp`,       'image/webp'),
-            uploadFile(thumbBuffer, `${base}_thumb.webp`, 'image/webp'),
-        ]);
+        let storageUrl = '';
+        let thumbnailUrl = '';
+        const rollbackList = () => [storageUrl, thumbnailUrl].filter(Boolean);
 
-        if (IS_POSTGRES) {
-            await pool.query(
-                `INSERT INTO galeria (id, empresa_id, propiedad_id, storage_url, thumbnail_url, storage_path, confianza, estado, rol, alt_text, orden, origen)
-                 VALUES ($1,$2,$3,$4,$5,$4,0.20,'pendiente','adicional','',99,'upload_manual')`,
-                [fotoId, empresaId, propiedadId, storageUrl, thumbnailUrl]
-            );
-        } else {
-            // Modo Firestore
-            await db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId)
-                .collection('galeria').doc(fotoId).set({
-                    storageUrl, thumbnailUrl, storagePath: storageUrl,
-                    confianza: 0.2, estado: 'pendiente', rol: 'adicional',
-                    altText: '', orden: 99, origen: 'upload_manual',
-                    empresaId, propiedadId, created_at: new Date()
-                });
+        try {
+            const { buffer: fullBuffer } = await optimizeImage(file.buffer, { maxWidth: 1200, quality: 82 });
+            const { buffer: thumbBuffer } = await optimizeImage(file.buffer, { maxWidth: 400, quality: 75 });
+            assertOptimizedBuffers([fullBuffer, thumbBuffer]);
+
+            storageUrl = await uploadFile(fullBuffer, `${base}.webp`, 'image/webp');
+            thumbnailUrl = await uploadFile(thumbBuffer, `${base}_thumb.webp`, 'image/webp');
+            assertDistinctPublicUrls(storageUrl, thumbnailUrl);
+
+            if (IS_POSTGRES) {
+                await pool.query(
+                    `INSERT INTO galeria (id, empresa_id, propiedad_id, storage_url, thumbnail_url, storage_path, confianza, estado, rol, alt_text, orden, origen)
+                     VALUES ($1,$2,$3,$4,$5,$4,0.20,'pendiente','adicional','',99,'upload_manual')`,
+                    [fotoId, empresaId, propiedadId, storageUrl, thumbnailUrl]
+                );
+            } else {
+                await db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId)
+                    .collection('galeria').doc(fotoId).set({
+                        storageUrl, thumbnailUrl, storagePath: storageUrl,
+                        confianza: 0.2, estado: 'pendiente', rol: 'adicional',
+                        altText: '', orden: 99, origen: 'upload_manual',
+                        empresaId, propiedadId, created_at: new Date()
+                    });
+            }
+
+            results.push({
+                id: fotoId, storageUrl, thumbnailUrl, storagePath: storageUrl,
+                espacio: null, espacioId: null, confianza: 0.2,
+                estado: 'pendiente', rol: 'adicional', altText: '',
+                orden: 99, origen: 'upload_manual'
+            });
+        } catch (err) {
+            await rollbackPublicUrls(rollbackList());
+            throw err;
         }
-
-        results.push({
-            id: fotoId, storageUrl, thumbnailUrl, storagePath: storageUrl,
-            espacio: null, espacioId: null, confianza: 0.2,
-            estado: 'pendiente', rol: 'adicional', altText: '',
-            orden: 99, origen: 'upload_manual'
-        });
     }
     return results;
 }
@@ -441,36 +466,42 @@ async function setPortada(db, empresaId, propiedadId, fotoId) {
 }
 
 async function replaceFoto(db, empresaId, propiedadId, fotoId, file) {
-    // Primero obtener los datos de la foto actual para eliminar archivos antiguos
     const fotoDataActual = await obtenerDatosFoto(db, empresaId, propiedadId, fotoId);
 
     const base = `empresas/${empresaId}/propiedades/${propiedadId}/galeria/${fotoId}`;
-    const { buffer: fullBuffer  } = await optimizeImage(file.buffer, { maxWidth: 1200, quality: 82 });
-    const { buffer: thumbBuffer } = await optimizeImage(file.buffer, { maxWidth: 400,  quality: 75 });
-    const [storageUrl, thumbnailUrl] = await Promise.all([
-        uploadFile(fullBuffer,  `${base}.webp`,       'image/webp'),
-        uploadFile(thumbBuffer, `${base}_thumb.webp`, 'image/webp'),
-    ]);
+    let storageUrl = '';
+    let thumbnailUrl = '';
+    const rollbackList = () => [storageUrl, thumbnailUrl].filter(Boolean);
 
-    if (IS_POSTGRES) {
-        await pool.query(
-            `UPDATE galeria SET storage_url=$1, thumbnail_url=$2, storage_path=$1, updated_at=NOW()
-             WHERE id=$3 AND empresa_id=$4 AND propiedad_id=$5`,
-            [storageUrl, thumbnailUrl, fotoId, empresaId, propiedadId]
-        );
-    } else {
-        // Modo Firestore
-        await db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId)
-            .collection('galeria').doc(fotoId).update({
-                storageUrl, thumbnailUrl, storagePath: storageUrl
-            });
+    try {
+        const { buffer: fullBuffer } = await optimizeImage(file.buffer, { maxWidth: 1200, quality: 82 });
+        const { buffer: thumbBuffer } = await optimizeImage(file.buffer, { maxWidth: 400, quality: 75 });
+        assertOptimizedBuffers([fullBuffer, thumbBuffer]);
+
+        storageUrl = await uploadFile(fullBuffer, `${base}.webp`, 'image/webp');
+        thumbnailUrl = await uploadFile(thumbBuffer, `${base}_thumb.webp`, 'image/webp');
+        assertDistinctPublicUrls(storageUrl, thumbnailUrl);
+
+        if (IS_POSTGRES) {
+            await pool.query(
+                `UPDATE galeria SET storage_url=$1, thumbnail_url=$2, storage_path=$1, updated_at=NOW()
+                 WHERE id=$3 AND empresa_id=$4 AND propiedad_id=$5`,
+                [storageUrl, thumbnailUrl, fotoId, empresaId, propiedadId]
+            );
+        } else {
+            await db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId)
+                .collection('galeria').doc(fotoId).update({
+                    storageUrl, thumbnailUrl, storagePath: storageUrl
+                });
+        }
+
+        await eliminarArchivosStorage(fotoDataActual);
+
+        return { storageUrl, thumbnailUrl };
+    } catch (err) {
+        await rollbackPublicUrls(rollbackList());
+        throw err;
     }
-
-    // Eliminar archivos antiguos del storage después de actualizar la BD
-    // (hacerlo después para evitar problemas si falla la actualización)
-    await eliminarArchivosStorage(fotoDataActual);
-
-    return { storageUrl, thumbnailUrl };
 }
 
 /**
@@ -579,6 +610,7 @@ module.exports = {
     descartarFoto,
     confirmarFoto,
     eliminarFoto,
+    obtenerDatosFoto,
     syncToWebsite,
     uploadFotoToGaleria,
     getCounts,

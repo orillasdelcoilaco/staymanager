@@ -40,11 +40,22 @@ const {
     extractDescripcionComercialNarrativa,
 } = require('../../services/aiResponseNormalize');
 const { optimizeImage } = require('../../services/imageProcessingService');
+const {
+    assertOptimizedBuffers,
+    assertDistinctPublicUrls,
+    rollbackPublicUrls,
+} = require('../../services/imageUploadGuards');
 const { generateForTask } = require('../../services/aiContentService');
 const { AI_TASK } = require('../../services/ai/aiEnums');
 const { promptPlanFotos } = require('../../services/ai/prompts/fotoPlan');
 const pool = require('../../db/postgres');
-const { uploadFotoToGaleria, updateFoto, collectAllowedHighlightImagePaths } = require('../../services/galeriaService');
+const {
+    uploadFotoToGaleria,
+    updateFoto,
+    collectAllowedHighlightImagePaths,
+    eliminarFoto,
+    obtenerDatosFoto,
+} = require('../../services/galeriaService');
 const { syncDomain, removeCustomDomain } = require('../../services/renderDomainService');
 const { ssrCache } = require('../../services/cacheService');
 const { sanitizeBookingSettingsIncoming } = require('../../services/bookingSettingsSanitize');
@@ -388,7 +399,23 @@ module.exports = (db) => {
                 quality: 85
             });
 
-            const publicUrl = await uploadFile(optimizedBuffer, storagePath, `image/${outputFormat}`);
+            const storagePathThumb = `empresas/${empresaId}/website/hero-${imageId}-thumb.${outputFormat}`;
+            const { buffer: thumbBuffer } = await optimizeImage(file.buffer, {
+                maxWidth: 960,
+                quality: 78
+            });
+            assertOptimizedBuffers([optimizedBuffer, thumbBuffer]);
+
+            let thumbPublicUrl = '';
+            let publicUrl = '';
+            try {
+                thumbPublicUrl = await uploadFile(thumbBuffer, storagePathThumb, `image/${outputFormat}`);
+                publicUrl = await uploadFile(optimizedBuffer, storagePath, `image/${outputFormat}`);
+                assertDistinctPublicUrls(publicUrl, thumbPublicUrl);
+            } catch (uploadErr) {
+                await rollbackPublicUrls([thumbPublicUrl, publicUrl].filter(Boolean));
+                throw uploadErr;
+            }
 
             // 2. Determinar Metadata con Contexto Corporativo Completo
             let finalAlt = altText;
@@ -425,23 +452,37 @@ module.exports = (db) => {
 
             const updatePayload = {
                 'websiteSettings.theme.heroImageUrl': publicUrl,
+                'websiteSettings.theme.heroImageThumbUrl': thumbPublicUrl,
                 'websiteSettings.theme.heroImageAlt': safeAlt,
                 'websiteSettings.theme.heroImageTitle': safeTitle
             };
 
             console.log(`[DEBUG upload-hero-image] Guardando en DB:`, updatePayload);
             try {
-                await actualizarDetallesEmpresa(db, empresaId, updatePayload);
+                await actualizarDetallesEmpresa(db, empresaId, {
+                    websiteSettings: {
+                        theme: {
+                            heroImageUrl: publicUrl,
+                            heroImageThumbUrl: thumbPublicUrl,
+                            heroImageAlt: safeAlt,
+                            heroImageTitle: safeTitle,
+                        },
+                    },
+                });
                 invalidateSsrCache(empresaId);
                 console.log(`[DEBUG upload-hero-image] Guardado en DB exitoso`);
             } catch (dbError) {
                 console.error(`[DEBUG upload-hero-image] Error guardando en DB:`, dbError.message);
-                // Continuar de todos modos para no romper la UX
+                await rollbackPublicUrls([publicUrl, thumbPublicUrl]);
+                throw dbError;
             }
 
             console.log(`[DEBUG upload-hero-image] Retornando respuesta:`, updatePayload);
             res.status(201).json(updatePayload);
-        } catch (error) { next(error); }
+        } catch (error) {
+            const status = Number(error.statusCode) || 500;
+            return res.status(status).json({ error: error.message || 'No se pudo subir la imagen de portada.' });
+        }
     });
 
     // POST Optimizar Perfil Empresa (Estrategia Completa - Texto)
@@ -485,17 +526,39 @@ module.exports = (db) => {
                 const propiedad = await obtenerPropiedadPorId(db, empresaId, req.params.propiedadId);
 
                 if (propiedad.websiteData?.cardImage?.storagePath) {
-                    await deleteFileByPath(propiedad.websiteData.cardImage.storagePath);
+                    await deleteFileByPath(propiedad.websiteData.cardImage.storagePath).catch(() => {});
+                }
+                if (propiedad.websiteData?.cardImage?.thumbnailUrl) {
+                    await deleteFileByPath(propiedad.websiteData.cardImage.thumbnailUrl).catch(() => {});
                 }
 
                 const imageId = `card-${uuidv4()}`;
                 const outputFormat = 'webp';
-                const storagePath = `empresas/${empresaId}/propiedades/${req.params.propiedadId}/images/${imageId}.${outputFormat}`;
+                const basePath = `empresas/${empresaId}/propiedades/${req.params.propiedadId}/images/${imageId}`;
+                const storagePath = `${basePath}.${outputFormat}`;
+                const thumbPath = `${basePath}_thumb.${outputFormat}`;
                 const { buffer: optimizedBuffer } = await optimizeImage(req.file.buffer, {
                     maxWidth: 800,
                     quality: 80
                 });
-                const publicUrl = await uploadFile(optimizedBuffer, storagePath, `image/${outputFormat}`);
+                const { buffer: thumbBuffer } = await optimizeImage(req.file.buffer, {
+                    maxWidth: 400,
+                    quality: 75
+                });
+                assertOptimizedBuffers([optimizedBuffer, thumbBuffer]);
+
+                let publicUrl = '';
+                let thumbPublicUrl = '';
+                try {
+                    [publicUrl, thumbPublicUrl] = await Promise.all([
+                        uploadFile(optimizedBuffer, storagePath, `image/${outputFormat}`),
+                        uploadFile(thumbBuffer, thumbPath, `image/${outputFormat}`),
+                    ]);
+                    assertDistinctPublicUrls(publicUrl, thumbPublicUrl);
+                } catch (uploadErr) {
+                    await rollbackPublicUrls([publicUrl, thumbPublicUrl].filter(Boolean));
+                    throw uploadErr;
+                }
 
                 // Intentar usar contexto corporativo completo
                 let metadata;
@@ -516,16 +579,33 @@ module.exports = (db) => {
                     metadata = await generarMetadataImagen(nombreEmpresa, propiedad.nombre, propiedad.descripcion, 'Imagen Principal', 'Portada', optimizedBuffer);
                 }
 
-                const cardImageData = { imageId, storagePath: publicUrl, altText: metadata.altText, title: metadata.title };
-                await actualizarPropiedad(db, empresaId, req.params.propiedadId, { 'websiteData.cardImage': cardImageData });
-                invalidateSsrCache(empresaId);
+                const cardImageData = {
+                    imageId,
+                    storagePath: publicUrl,
+                    thumbnailUrl: thumbPublicUrl,
+                    altText: metadata.altText,
+                    title: metadata.title,
+                };
+                try {
+                    await actualizarPropiedad(db, empresaId, req.params.propiedadId, { 'websiteData.cardImage': cardImageData });
+                    invalidateSsrCache(empresaId);
+                } catch (dbErr) {
+                    await rollbackPublicUrls([publicUrl, thumbPublicUrl]);
+                    throw dbErr;
+                }
                 return res.status(201).json(cardImageData);
             }
 
             // Si no es archivo, probablemente es un update normal (aunque este endpoint es PUT /propiedad/:id)
             // Se mantiene lógica anterior por si acaso, pero el return arriba corta el flujo si hubo archivo.
             next();
-        } catch (error) { next(error); }
+        } catch (error) {
+            if (req.file) {
+                const status = Number(error.statusCode) || 500;
+                return res.status(status).json({ error: error.message || 'No se pudo subir la imagen principal.' });
+            }
+            next(error);
+        }
     });
 
     // [NEW] Endpoint Específico para subir Card Image (Fixes 404 on frontend)
@@ -544,18 +624,40 @@ module.exports = (db) => {
 
             // Remove old image if exists
             if (propiedad.websiteData?.cardImage?.storagePath) {
-                await deleteFileByPath(propiedad.websiteData.cardImage.storagePath);
+                await deleteFileByPath(propiedad.websiteData.cardImage.storagePath).catch(() => {});
+            }
+            if (propiedad.websiteData?.cardImage?.thumbnailUrl) {
+                await deleteFileByPath(propiedad.websiteData.cardImage.thumbnailUrl).catch(() => {});
             }
 
             const imageId = `card-${uuidv4()}`;
             const outputFormat = 'webp';
-            const storagePath = `empresas/${empresaId}/propiedades/${propiedadId}/images/${imageId}.${outputFormat}`;
+            const basePath = `empresas/${empresaId}/propiedades/${propiedadId}/images/${imageId}`;
+            const storagePath = `${basePath}.${outputFormat}`;
+            const thumbPath = `${basePath}_thumb.${outputFormat}`;
 
             const { buffer: optimizedBuffer } = await optimizeImage(file.buffer, {
                 maxWidth: 800,
                 quality: 80
             });
-            const publicUrl = await uploadFile(optimizedBuffer, storagePath, `image/${outputFormat}`);
+            const { buffer: thumbBuffer } = await optimizeImage(file.buffer, {
+                maxWidth: 400,
+                quality: 75
+            });
+            assertOptimizedBuffers([optimizedBuffer, thumbBuffer]);
+
+            let publicUrl = '';
+            let thumbPublicUrl = '';
+            try {
+                [publicUrl, thumbPublicUrl] = await Promise.all([
+                    uploadFile(optimizedBuffer, storagePath, `image/${outputFormat}`),
+                    uploadFile(thumbBuffer, thumbPath, `image/${outputFormat}`),
+                ]);
+                assertDistinctPublicUrls(publicUrl, thumbPublicUrl);
+            } catch (uploadErr) {
+                await rollbackPublicUrls([publicUrl, thumbPublicUrl].filter(Boolean));
+                throw uploadErr;
+            }
 
             // Intentar usar contexto corporativo completo
             let metadata;
@@ -576,23 +678,36 @@ module.exports = (db) => {
                 metadata = await generarMetadataImagen(nombreEmpresa, propiedad.nombre, propiedad.descripcion, 'Imagen Principal', 'Portada', optimizedBuffer);
             }
 
-            const cardImageData = { imageId, storagePath: publicUrl, altText: metadata.altText, title: metadata.title };
+            const cardImageData = {
+                imageId,
+                storagePath: publicUrl,
+                thumbnailUrl: thumbPublicUrl,
+                altText: metadata.altText,
+                title: metadata.title,
+            };
 
-            await actualizarPropiedad(db, empresaId, propiedadId, { 'websiteData.cardImage': cardImageData });
-            invalidateSsrCache(empresaId);
+            try {
+                await actualizarPropiedad(db, empresaId, propiedadId, { 'websiteData.cardImage': cardImageData });
+                invalidateSsrCache(empresaId);
+            } catch (dbErr) {
+                await rollbackPublicUrls([publicUrl, thumbPublicUrl]);
+                throw dbErr;
+            }
 
             res.status(201).json(cardImageData);
         } catch (error) {
             console.error("Error upload-card-image:", error);
-            next(error);
+            const status = Number(error.statusCode) || 500;
+            return res.status(status).json({ error: error.message || 'No se pudo subir la imagen principal.' });
         }
     });
 
-    router.post('/propiedad/:propiedadId/upload-image/:componentId', upload.any(), async (req, res, next) => {
+    router.post('/propiedad/:propiedadId/upload-image/:componentId', upload.any(), async (req, res) => {
         console.log(`[DEBUG] POST upload-image hit! Propiedad: ${req.params.propiedadId}, Component: ${req.params.componentId}`);
+        const { empresaId, nombreEmpresa } = req.user;
+        const { propiedadId, componentId } = req.params;
+        const createdGaleriaIds = [];
         try {
-            const { empresaId, nombreEmpresa } = req.user;
-            const { propiedadId, componentId } = req.params;
             const shotContext = req.body.shotContext || null;
 
             if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files.' });
@@ -603,22 +718,25 @@ module.exports = (db) => {
             if (!componente) return res.status(404).json({ error: 'Componente no encontrado.' });
 
             const resultadosParaFrontend = [];
+            const descPropiedad = propiedad.websiteData?.aiDescription || propiedad.descripcion || '';
 
-            await Promise.all(req.files.map(async (file) => {
-                const imageId = uuidv4();
-                const outputFormat = 'webp';
-                const storagePathRelative = `empresas/${empresaId}/propiedades/${propiedadId}/images/${componente.id}/${imageId}.${outputFormat}`;
+            for (const file of req.files) {
+                const galeriaResults = await uploadFotoToGaleria(db, empresaId, propiedadId, [file]);
+                if (!galeriaResults?.length) {
+                    const err = new Error('No se pudo registrar la imagen en galería.');
+                    err.statusCode = 422;
+                    throw err;
+                }
+                const gf = galeriaResults[0];
+                createdGaleriaIds.push(gf.id);
+
                 const { buffer: optimizedBuffer } = await optimizeImage(file.buffer, {
                     maxWidth: 1200,
                     quality: 80
                 });
-                const publicUrl = await uploadFile(optimizedBuffer, storagePathRelative, `image/${outputFormat}`);
 
                 let metadata = { altText: componente.nombre, title: componente.nombre };
                 try {
-                    const descPropiedad = propiedad.websiteData?.aiDescription || propiedad.descripcion || '';
-
-                    // Intentar usar contexto corporativo completo
                     try {
                         const empresaContext = await getEmpresaContext(empresaId);
                         metadata = await generarMetadataImagenConContexto(
@@ -633,7 +751,6 @@ module.exports = (db) => {
                         console.log(`[DEBUG upload-image] Metadata generada con contexto corporativo para ${componente.nombre}`);
                     } catch (contextError) {
                         console.warn(`[upload-image] Fallo contexto corporativo, usando versión básica:`, contextError.message);
-                        // Fallback a la versión original
                         metadata = await generarMetadataImagen(
                             nombreEmpresa,
                             propiedad.nombre,
@@ -645,52 +762,28 @@ module.exports = (db) => {
                         );
                     }
                 } catch (aiError) {
-                    console.warn("Fallo IA Visión:", aiError.message);
+                    console.warn('Fallo IA Visión:', aiError.message);
                 }
 
-                const imageData = {
-                    imageId,
-                    storagePath: publicUrl,
+                await updateFoto(db, empresaId, propiedadId, gf.id, {
+                    espacio: componente.nombre,
+                    espacioId: componentId,
+                    altText: metadata.altText || '',
+                    estado: 'manual',
+                    confianza: !metadata.advertencia ? 0.95 : 0.85
+                });
+
+                resultadosParaFrontend.push({
+                    imageId: gf.id,
+                    storagePath: gf.storageUrl,
+                    thumbnailUrl: gf.thumbnailUrl,
                     altText: metadata.altText,
                     title: metadata.title,
                     shotContext: shotContext,
                     advertencia: metadata.advertencia || null
-                };
-                resultadosParaFrontend.push(imageData);
+                });
+            }
 
-                // GUARDAR EN GALERIA (tabla centralizada) - SOLUCIÓN AL PROBLEMA [IMG-001]
-                try {
-                    console.log(`[DEBUG upload-image] Guardando en galeria: ${imageId}, componente: ${componentId}`);
-                    // Crear archivo temporal para uploadFotoToGaleria
-                    const fileForGaleria = {
-                        buffer: optimizedBuffer,
-                        originalname: file.originalname || 'uploaded_image.jpg'
-                    };
-
-                    // Subir a galeria (solo 4 parámetros: db, empresaId, propiedadId, files)
-                    const galeriaResults = await uploadFotoToGaleria(db, empresaId, propiedadId, [fileForGaleria]);
-                    if (galeriaResults && galeriaResults.length > 0) {
-                        const galeriaFoto = galeriaResults[0];
-                        console.log(`[DEBUG upload-image] Guardado en galeria exitoso. ID: ${galeriaFoto.id}`);
-
-                        // Actualizar la foto en galeria con metadata correcta usando updateFoto
-                        await updateFoto(db, empresaId, propiedadId, galeriaFoto.id, {
-                            espacio: componente.nombre,
-                            espacioId: componentId,
-                            altText: metadata.altText || '',
-                            estado: 'manual',
-                            confianza: !metadata.advertencia ? 0.95 : 0.85
-                        });
-                        console.log(`[DEBUG upload-image] Foto ${galeriaFoto.id} actualizada con metadata`);
-                    }
-                } catch (galeriaError) {
-                    console.warn('[upload-image] Error guardando en galeria (continuando...):', galeriaError.message);
-                    // NO fallamos la operación completa si falla galeria
-                    // El guardado en websiteData.images es crítico para la UX inmediata
-                }
-            }));
-
-            // Actualizar websiteData en PostgreSQL (merge en memoria, luego escribir)
             const websiteData = propiedad.websiteData || { aiDescription: '', images: {}, cardImage: null };
             const imagesActualizadas = { ...(websiteData.images || {}) };
             for (const img of resultadosParaFrontend) {
@@ -700,13 +793,16 @@ module.exports = (db) => {
             await actualizarPropiedad(db, empresaId, propiedadId, { websiteData });
             invalidateSsrCache(empresaId);
 
-            // Persistir stats actualizados (fire-and-forget — no bloquea la respuesta)
             recalcularFotoStats(db, empresaId, propiedadId, propiedad.componentes, imagesActualizadas).catch(() => {});
 
             res.status(201).json(resultadosParaFrontend);
         } catch (error) {
+            for (let i = createdGaleriaIds.length - 1; i >= 0; i--) {
+                await eliminarFoto(db, empresaId, propiedadId, createdGaleriaIds[i]).catch(() => {});
+            }
             console.error(`Error POST upload-image:`, error);
-            next(error);
+            const status = Number(error.statusCode) || 500;
+            return res.status(status).json({ error: error.message || 'No se pudo subir la imagen.' });
         }
     });
 
@@ -723,6 +819,7 @@ module.exports = (db) => {
             const img = images.find(i => i.imageId === imageId);
 
             if (img?.storagePath) await deleteFileByPath(img.storagePath);
+            if (img?.thumbnailUrl) await deleteFileByPath(img.thumbnailUrl);
 
             const imagesActualizadasDelete = {
                 ...(websiteData.images || {}),
@@ -746,14 +843,32 @@ module.exports = (db) => {
             const { componentId, imageUrl, imageId, shotContext } = req.body;
 
             if (!componentId || !imageUrl) return res.status(400).json({ error: 'componentId e imageUrl requeridos.' });
+            if (!imageId) return res.status(400).json({ error: 'imageId es obligatorio (foto de galería).' });
 
             const propiedad = await obtenerPropiedadPorId(db, empresaId, propiedadId);
             if (!propiedad) return res.status(404).json({ error: 'Propiedad no encontrada.' });
             const componente = propiedad.componentes?.find(c => c.id === componentId);
             if (!componente) return res.status(404).json({ error: 'Componente no encontrado.' });
 
-            // Descargar la imagen para auditarla con IA
-            const imgResponse = await fetch(imageUrl);
+            const foto = await obtenerDatosFoto(db, empresaId, propiedadId, imageId);
+            if (!foto) return res.status(404).json({ error: 'La foto no existe en la galería.' });
+
+            const fullUrl = foto.storageUrl || foto.storagePath;
+            const thumbUrl = foto.thumbnailUrl;
+            if (!fullUrl || !thumbUrl || String(fullUrl).trim() === String(thumbUrl).trim()) {
+                return res.status(422).json({
+                    error: 'La foto no tiene miniatura válida en galería. Vuelve a subirla desde el panel.',
+                });
+            }
+
+            const canonicalFull = String(fullUrl).trim();
+            const canonicalThumb = String(thumbUrl).trim();
+            const requested = String(imageUrl || '').trim();
+            if (requested && requested !== canonicalFull && requested !== canonicalThumb) {
+                return res.status(409).json({ error: 'La URL no coincide con la foto seleccionada en galería.' });
+            }
+
+            const imgResponse = await fetch(canonicalFull);
             if (!imgResponse.ok) return res.status(400).json({ error: 'No se pudo descargar la imagen para auditoría.' });
             const imageBuffer = Buffer.from(await imgResponse.arrayBuffer());
 
@@ -767,11 +882,10 @@ module.exports = (db) => {
                 return res.status(200).json({ aprobada: false, advertencia: metadata.advertencia });
             }
 
-            // Aprobada: registrar en websiteData (reusar imageId/storagePath de galería)
-            const newImageId = imageId || uuidv4();
             const imageData = {
-                imageId: newImageId,
-                storagePath: imageUrl,
+                imageId,
+                storagePath: canonicalFull,
+                thumbnailUrl: thumbUrl,
                 altText: metadata.altText,
                 title: metadata.title,
                 shotContext: shotContext || null,
