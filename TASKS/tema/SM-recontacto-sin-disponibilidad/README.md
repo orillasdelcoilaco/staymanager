@@ -6,10 +6,14 @@ Diseñar e implementar una función de seguimiento para mantener informados a po
 
 ## Estado
 
-- **Bloqueado — pendiente operación** (migración SQL en prod + deploy Render + reimport OpenAPI en ChatGPT + smoke). El agente en el repo **no** puede ejecutar esos pasos; guía paso a paso: **`plan-cierre-deploy-ops.md`**.
-- Última actualización código/docs: 2026-05-05
+- **Listo** — 2026-05-05
+- Migración SQL (`espera-disponibilidad.sql`) ejecutada en producción (fix UUID→TEXT incluido).
+- Deploy Render completado (commits `8391b36` + `ab53160`); OpenAPI 1.4.8 activo en producción.
+- Fix bonus: `canalesService.js` — agregados `IA_VENTA_CANAL_ORIGEN` y `resolverCanalIaVentaEnLista` que faltaban y rompían `/reservar/intent` y `/reservas` antes del check de lista de espera.
+- Smoke A (version) ✅ · Smoke B (lista_espera.registrado:true) ✅ · Smoke C (WAITLIST_EMAIL_REQUIRED) ✅
+- Smoke D (panel `/gestion-diaria/espera-disponibilidad`) y E (correo) pendientes verificación manual.
+- ChatGPT GPT "SuiteManager Marketplace IA" → reimportar OpenAPI desde `https://suite-manager.onrender.com/openapi-chatgpt.yaml` (acción manual única).
 - **IA y panel comparten** la tabla `espera_disponibilidad` y el mismo servicio (`registrarEsperaDisponibilidadDesdeIa` / `crearEsperaDisponibilidad`). Consentimiento en IA: implícito en BD + metadata; email obligatorio (ver **400** `WAITLIST_EMAIL_REQUIRED` en `createBookingIntent` si hay bloqueo sin email).
-- Implementación en repo lista; falta **solo** cierre en entornos reales y copy legal si negocio lo exige.
 
 ## Alcance inicial
 
@@ -21,4 +25,4 @@ Diseñar e implementar una función de seguimiento para mantener informados a po
 ## Artefactos
 
 - `plan-accion-recontacto-sin-disponibilidad.md`
-- `plan-cierre-deploy-ops.md` — **quién tenga acceso a Supabase/Render/ChatGPT** sigue esto y marca Listo en el tablero al terminar.
+- `plan-cierre-deploy-ops.md` — pasos operacionales completados (salvo reimport ChatGPT + panel D/E manual).
