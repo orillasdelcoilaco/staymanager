@@ -1,0 +1,14 @@
+<%#
+  Font Awesome vía cdnjs: solo núcleo + solid + brands (sin regular/light).
+  Misma versión en todo el sitio público SSR para cache del navegador.
+  Carga diferida (no bloquea primera pintura).
+%>
+<% const FA_VER = '6.5.0'; const FA_ROOT = `https://cdnjs.cloudflare.com/ajax/libs/font-awesome/${FA_VER}/css`; %>
+<link rel="stylesheet" href="<%= FA_ROOT %>/fontawesome.min.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="<%= FA_ROOT %>/solid.min.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="<%= FA_ROOT %>/brands.min.css" media="print" onload="this.media='all'">
+<noscript>
+<link rel="stylesheet" href="<%= FA_ROOT %>/fontawesome.min.css">
+<link rel="stylesheet" href="<%= FA_ROOT %>/solid.min.css">
+<link rel="stylesheet" href="<%= FA_ROOT %>/brands.min.css">
+</noscript>

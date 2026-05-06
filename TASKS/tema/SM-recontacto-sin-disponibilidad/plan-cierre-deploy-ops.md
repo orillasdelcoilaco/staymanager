@@ -11,9 +11,9 @@ Este archivo es para **quien tenga acceso** a Supabase (o Postgres de producció
 | 1 | SQL migración en **producción** | [ ] |
 | 2 | **Deploy** backend (y front si aplica) en Render | [ ] |
 | 3 | Variables Render (mínimo: `DATABASE_URL`, `RESEND_API_KEY`, `EMAIL_FROM`, secret Firebase) | [ ] |
-| 4 | GPT **SuiteManager Marketplace IA**: **reimportar** OpenAPI **1.4.8** desde `https://suite-manager.onrender.com/openapi-chatgpt.yaml` | [ ] |
-| 5 | Prueba A–E (abajo) | [ ] |
-| 6 | Marcar tema **Listo** en `TASKS/tablero.md` y en este README | [ ] |
+| 4 | GPT **SuiteManager Marketplace IA**: **reimportar** OpenAPI **1.4.8** (requiere **ChatGPT Plus** u plan que permita Actions) | [ ] |
+| 5 | Prueba A–E (abajo) + **chat nuevo** en ChatGPT tras reimport | [ ] |
+| 6 | Marcar tema **Listo** en `TASKS/tablero.md` cuando Plus + prueba conversacional OK | [ ] |
 
 ---
 
@@ -38,7 +38,26 @@ Este archivo es para **quien tenga acceso** a Supabase (o Postgres de producció
 
 ---
 
+## Post-Plus: volver a probar el GPT (pendiente hasta suscripción)
+
+Los **Custom GPT** con **Actions** suelen exigir **ChatGPT Plus** (o el plan vigente de OpenAI que habilite creación/edición de GPT con herramientas). Sin ese plan no se puede completar de forma fiable el ciclo “reimportar schema → probar en conversación”.
+
+Cuando el Plus (o equivalente) esté activo:
+
+1. Abrir **ChatGPT** → **SuiteManager Marketplace IA** → **Editar** / configuración del GPT.
+2. **Actions** → **Import from URL** (o el flujo equivalente) →  
+   `https://suite-manager.onrender.com/openapi-chatgpt.yaml`
+3. Revisar que no queden errores de validación del schema → **Actualizar** / **Guardar** el GPT.
+4. **Importante:** iniciar **un chat nuevo** con ese GPT (no reutilizar solo un hilo antiguo): las herramientas y la versión del OpenAPI se asocian mejor a conversaciones recién abiertas tras guardar.
+5. Probar un flujo que toque reserva o intent (según lo que exponga el Action) y comprobar `lista_espera` o `WAITLIST_EMAIL_REQUIRED` si aplica.
+
+Documentar en `TASKS/tablero.md` (fila del tema) y en este README cuando la prueba conversacional haya pasado.
+
+---
+
 ## 3. ChatGPT (Actions / GPT con herramientas)
+
+Resumen rápido también en **§ Post-Plus** (suscripción + chat nuevo).
 
 1. En ChatGPT, abrir el GPT **SuiteManager Marketplace IA** y su configuración de **Actions**.
 2. **Schema**: volver a cargar el OpenAPI desde la URL pública del backend en **Render**:

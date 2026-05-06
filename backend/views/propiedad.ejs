@@ -6,6 +6,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <%- include('partials/ssr-preconnect-cdnjs') %>
     <%- include('partials/google-site-verification') %>
     <%
         const _ctxPub = propiedad.buildContext?.publicacion || {};
@@ -44,7 +45,7 @@
     <% if (locals.schemaData) { %><script type="application/ld+json"><%- JSON.stringify(schemaData, null, 2) %></script><% } %>
     <link rel="stylesheet" href="/public/css/website.css">
     <%- include('partials/web-fonts') %>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <%- include('partials/ssr-fontawesome-deferred') %>
     <% if (locals.customCSS && locals.customCSS.trim().length > 0) { %><style><%= locals.customCSS %></style><% } %>
     <style>
         .desc-clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
@@ -633,7 +634,7 @@
         const _heroTitle = `${_heroBaseName} - ${_heroAiSuffix}`;
     %>
 
-    <main class="flex-grow">
+    <main id="main-content" class="flex-grow">
         <div class="container mx-auto px-4 pt-6 pb-8 md:pb-10 max-w-6xl">
             <div class="mb-5">
                 <div class="flex items-start justify-between gap-4 mb-2">

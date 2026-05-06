@@ -53,6 +53,7 @@ _Actualizar al iniciar y al terminar trabajo relevante._
 | 2026-05-02  | Cursor | Partner global **`googleHotelsGlobalService.js`** + health `partnerGlobalFeed` + smoke HTTP | LISTO | Feeds `/feeds/google/*.xml` IDs BD, ARI alineado `partnerXmlIdsFromDatabase`, sin cambio rutas OpenAPI agente; doc backlog + checklist deploy + `venta-ia.md` §6. |
 | 2026-05-03  | Cursor | Canales IA — UI operación partner + plan §8 superadmin/operadores | LISTO | `partnerFeedsSelftest.js`, `GET/POST /website/google-partner-feed-*`, `canalesIa.googlePartner.operator.js`; `venta-ia.md` §8 + backlog; sin cambio OpenAPI/agente. |
 | 2026-05-03  | Cursor | Backlog §5.x **A** heatmap QA + **C** comparador cierre | LISTO | `npm run test:ci` verde (heatmap + restricciones web + booking sanitize + `test-comparador-ota-service.js`); `TASKS/tema/SM-heatmap-qa/qa-heatmap-restricciones-e2e.md` §12; backlog §5.x **A**/**C**; **B** sigue otro agente. |
+| 2026-05-05  | Cursor | Blog público SSR + panel (`SM-blog-publico`) | LISTO | `website_blog_posts`, `blogPostService`, `blogSuggestionsService`, `websiteBlogApi`, `website.blog.js`, EJS blog, sitemap, `/website-blog`, `AI_TASK.BLOG_POST_DRAFT`; no cambia OpenAPI agente. |
 
 **Convención de estados:** `EN CURSO` | `LISTO` | `PAUSA` | `BLOQUEADO`.
 
@@ -148,6 +149,7 @@ Quitar el lock cuando termines.
 
 _Formato: `YYYY-MM-DD — Actor — una frase`._
 
+- 2026-05-05 — Cursor — **SM-blog-publico:** blog SSR `/blog` + API panel + sugerencias (promos/cupones/destacados/temporadas) + `POST /api/website/blog/generate-draft` (`BLOG_POST_DRAFT`); migración `website-blog-posts.sql`; sin cambio OpenAPI agente.
 - 2026-05-05 — Claude Code — **SM-recontacto-sin-disponibilidad → Listo**: migración `espera-disponibilidad.sql` (UUID→TEXT fix) en prod; deploy Render; smoke A/B/C ✅ vía API pública; fix bonus `canalesService` (`IA_VENTA_CANAL_ORIGEN`, `resolverCanalIaVentaEnLista` faltaban). ChatGPT reimport 1.4.8 y panel D/E pendientes manual.
 - 2026-05-06 — Cursor — Tablero: **`SM-ghc-onboarding` → Listo** (partner directo cerrado comercialmente); **`venta-ia.md` §7.0** congelación ampliación código partner; tema nuevo **`SM-beds24`** (`plan-accion-beds24.md`, `beds24-integracion-inicio.md`); backlog §5.x **B/E** alineados.
 - 2026-05-05 — Cursor — OpenAPI ChatGPT/Gemini **1.4.8**: `ListaEsperaEnRespuesta`, `ErrorWaitlistEmailRequired`, `POST /api/public/reservar/intent`, `POST /api/public/reservas`, **409/422** + **`lista_espera`** en `POST /api/reservas`; `PUBLIC_API_CONTRACT_VERSION` default **1.4.8**.

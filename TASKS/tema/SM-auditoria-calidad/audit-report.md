@@ -1,6 +1,6 @@
 # Reporte de Auditoría UI
-**Generado:** 2026-05-05 21:01
-**Archivos analizados:** 179
+**Generado:** 2026-05-06 00:46
+**Archivos analizados:** 185
 **Problemas encontrados:** 12 (alta: 0 / media: 5 / baja: 7)
 
 ---
@@ -26,7 +26,7 @@
 | `frontend/src/views/components/gestionarReservas/reservas.modals.view.js` | 322 | `class="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-warning-100 text-warning-700 border border-warning-200"` |
 | `frontend/src/views/comunicaciones.js` | 182 | `class="com-tab px-3 py-1.5 text-sm rounded-md font-medium bg-primary-100 text-primary-800"` |
 | `frontend/src/views/normasAlojamiento.js` | 300 | `class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white font-medium hover:bg-primary-700 disabled:opacity-50"` |
-| `backend/views/propiedad.ejs` | 1159 | `class="lg:hidden text-sm font-semibold text-primary-700 border border-primary-200 bg-primary-50 px-3 py-2 rounded-xl hover:bg-primary-100 transition-colors"` |
+| `backend/views/propiedad.ejs` | 1160 | `class="lg:hidden text-sm font-semibold text-primary-700 border border-primary-200 bg-primary-50 px-3 py-2 rounded-xl hover:bg-primary-100 transition-colors"` |
 
 ### Color hexadecimal hardcodeado (7 ocurrencias)
 **Sugerencia:** Usar tokens de color de Tailwind config  
@@ -38,9 +38,9 @@
 | `backend/views/partials/marketplace-common-styles.ejs` | 42 | `#fff` |
 | `backend/views/partials/marketplace-common-styles.ejs` | 53 | `#fff` |
 | `backend/views/partials/marketplace-common-styles.ejs` | 64 | `#fff` |
-| `backend/views/propiedad.ejs` | 62 | `#fff` |
-| `backend/views/propiedad.ejs` | 63 | `#222` |
-| `backend/views/propiedad.ejs` | 74 | `#fff` |
+| `backend/views/propiedad.ejs` | 63 | `#fff` |
+| `backend/views/propiedad.ejs` | 64 | `#222` |
+| `backend/views/propiedad.ejs` | 75 | `#fff` |
 
 ---
 

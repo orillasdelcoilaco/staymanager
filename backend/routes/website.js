@@ -23,6 +23,7 @@ const { registerHomeRoutes } = require('./website.home');
 const { registerPropertyRoutes } = require('./website.property');
 const { registerBookingRoutes } = require('./website.booking');
 const { registerSeoRoutes } = require('./website.seo');
+const { registerBlogRoutes } = require('./website.blog');
 const {
     fetchTarifasYCanal,
     getPrecioBaseNoche,
@@ -61,6 +62,7 @@ module.exports = (db) => {
     registerHomeRoutes({ router, db, cacheStaticRoutes, deps: sharedDeps });
     registerPropertyRoutes({ router, db, deps: sharedDeps });
     registerBookingRoutes({ router, db, deps: sharedDeps });
+    registerBlogRoutes({ router, db, cacheStaticRoutes });
     registerSeoRoutes({ router, db, deps: sharedDeps });
 
     // Manejador 404

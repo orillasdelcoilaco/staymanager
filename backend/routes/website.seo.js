@@ -1,5 +1,6 @@
 function registerSeoRoutes({ router, db, deps }) {
     const { obtenerPropiedadesPorEmpresa } = deps;
+    const { listPublishedForSsr } = require('../services/blogPostService');
     const { generateAriFeed, generatePropertyListFeed } = require('../services/googleHotelsService');
     const { normalizeAriFeedRequest } = require('../services/ariFeedRequest');
     const { validateGoogleHotelsContentFeedAccess } = require('../services/googleHotelsContentFeedRequest');
@@ -85,7 +86,32 @@ Sitemap: ${baseUrl}/sitemap.xml
         <lastmod>${lastmodStatic}</lastmod>
         <changefreq>monthly</changefreq>
         <priority>0.7</priority>
+    </url>
+    <url>
+        <loc>${baseUrl}/blog</loc>
+        <lastmod>${lastmodStatic}</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.65</priority>
     </url>`;
+            try {
+                const blogPosts = await listPublishedForSsr(db, empresaId, 500);
+                for (const bp of blogPosts) {
+                    const lm = bp.publishedAt instanceof Date
+                        ? bp.publishedAt.toISOString().slice(0, 10)
+                        : (bp.updatedAt instanceof Date
+                            ? bp.updatedAt.toISOString().slice(0, 10)
+                            : lastmodStatic);
+                    xmlString += `
+    <url>
+        <loc>${baseUrl}/blog/${encodeURIComponent(bp.slug)}</loc>
+        <lastmod>${lm}</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.6</priority>
+    </url>`;
+                }
+            } catch (blogMapErr) {
+                console.warn(`[sitemap] blog URLs omitidas para ${empresaId}:`, blogMapErr.message);
+            }
             for (const prop of propiedadesListadas) {
                 const lm = prop.updatedAt instanceof Date
                     ? prop.updatedAt.toISOString().slice(0, 10)

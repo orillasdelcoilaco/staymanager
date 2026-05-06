@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <%- include('../partials/ssr-preconnect-cdnjs') %>
     <title><%= mp.pageTitle %></title>
     <meta name="description" content="<%= mp.metaDescription %>">
     <link rel="canonical" href="<%= canonicalUrl %>">
@@ -80,10 +81,11 @@
 
     <link rel="stylesheet" href="/public/css/website.css">
     <%- include('../partials/web-fonts') %>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <%- include('../partials/ssr-fontawesome-deferred') %>
     <%- include('../partials/marketplace-common-styles') %>
 </head>
 <body class="bg-neutral-50 text-neutral-900 antialiased min-h-screen">
+<%- include('../partials/marketplace-skip-main') %>
 
 <!-- ═══ HEADER ═══ -->
 <header class="mp-header">
@@ -169,7 +171,7 @@
 <% } %>
 
 <!-- ═══ MAIN ═══ -->
-<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
+<main id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
 
     <%
     const _priceLocale = mp.htmlLang === 'en' ? 'en-US' : 'es-CL';

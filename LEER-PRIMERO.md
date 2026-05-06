@@ -73,7 +73,7 @@ Todo lo detallado sigue viviendo en `**CLAUDE.md`** y reglas; aquí va la **lín
 | **Backend / API pública (host en Render)** | `https://suite-manager.onrender.com` — servicio **Render** vinculado al repo en **GitHub**; el deploy de producción sigue el flujo acordado del equipo (p. ej. push a `main`). Si en el dashboard de Render el nombre del servicio o la URL canónica difieren, **gana el valor del dashboard** y conviene **actualizar esta fila** en el mismo commit que el cambio de infra. |
 | **OpenAPI (ChatGPT / Actions, verificación de contrato)** | `https://suite-manager.onrender.com/openapi-chatgpt.yaml` y `https://suite-manager.onrender.com/openapi-gemini.yaml` (servidos por el backend). |
 | **Health de versión de contrato API** | `GET https://suite-manager.onrender.com/api/public/version` — campo `version` alineado a `info.version` del OpenAPI (p. ej. 1.4.8) salvo `PUBLIC_API_CONTRACT_VERSION` en env. |
-| **GPT en ChatGPT (nombre del conector / asistente comercial)** | **SuiteManager Marketplace IA** — el Action debe apuntar al host anterior para esquema y URLs base. |
+| **GPT en ChatGPT (nombre del conector / asistente comercial)** | **SuiteManager Marketplace IA** — el Action debe apuntar al host anterior para esquema y URLs base. Tras cambiar el OpenAPI: **reimportar el schema** en la configuración del GPT, **guardar** y probar en **un chat nuevo** (evita herramientas desactualizadas). La edición/prueba fiable de GPT con Actions suele requerir **ChatGPT Plus** (o plan equivalente); sin Plus puede quedar **pendiente** la verificación conversacional. |
 
 **Código de referencia:** el dominio de plataforma por defecto en el repo suele aparecer como `PLATFORM_DOMAIN` / `PUBLIC_SITES_ROOT_DOMAIN` (p. ej. `suitemanagers.com`). Comportamiento multi-tenant: **SHARED_CONTEXT.md** y reglas de producto genérico.
 
@@ -89,4 +89,4 @@ Las reglas en `.cursor/rules/` se aplican **además** de lo anterior. Criterios 
 
 ---
 
-*Última actualización: 2026-05-06 — Sección **Referencias de entorno** (dominio `suitemanagers.com`, API `suite-manager.onrender.com`, GPT **SuiteManager Marketplace IA**, tenant ejemplo `orillasdelcoilaco`); enlace desde **SHARED_CONTEXT**. Historial: `plan-accion` + bitácora en `TASKS/tema/README.md`; flujo tema; regla `50`; `coordinacion-cursor-paralelo.md`.*
+*Última actualización: 2026-05-06 — Referencias de entorno: nota **ChatGPT Plus** + reimport schema + probar en **chat nuevo** tras cambios al OpenAPI. Historial: dominio/API/GPT canónicos; `plan-accion` + bitácora; regla `50`; `coordinacion-cursor-paralelo.md`.*

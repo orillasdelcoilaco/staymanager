@@ -5,6 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <%- include('partials/ssr-preconnect-cdnjs') %>
     <%- include('partials/google-site-verification') %>
 
     <%
@@ -87,7 +88,7 @@
 
     <%# --- Fuentes (sin gstatic: compatible con CSP estricta) --- %>
     <%- include('partials/web-fonts', { brandFont: (locals.brandIdentity && locals.brandIdentity.typography && locals.brandIdentity.typography.fontFamily) || '' }) %>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <%- include('partials/ssr-fontawesome-deferred') %>
 
     <% if (_logoUrl) { %><link rel="icon" href="<%= _logoUrl %>" type="image/png"><% } %>
 </head>
@@ -96,7 +97,7 @@
 
     <%- include('partials/header') %>
 
-    <main class="flex-grow">
+    <main id="main-content" class="flex-grow">
         <%# --- Hero compacto --- %>
         <div class="bg-primary-700 text-white py-14 px-4 text-center">
             <h1 class="text-3xl md:text-5xl font-bold mb-3"><%= empresa.nombre %></h1>

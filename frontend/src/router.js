@@ -42,6 +42,7 @@ const views = {
 
     // --- NUEVAS VISTAS AGREGADAS ---
     '/website-general': () => import('./views/websiteGeneral.js'),
+    '/website-blog': () => import('./views/websiteBlog.js'),
     '/seo-tenant': () => import('./views/seoTenant.js'),
     '/seo-plataforma': () => import('./views/seoPlataforma.js'),
     '/normas-alojamiento': () => import('./views/normasAlojamiento.js'),
@@ -105,6 +106,7 @@ const menuConfig = [
         id: 'sitio-publico',
         children: [
             { icon: 'fa-solid fa-pen-to-square', name: 'Contenido Web',     path: '/website-alojamientos', id: 'website-alojamientos' },
+            { icon: 'fa-solid fa-newspaper',     name: 'Blog público',      path: '/website-blog',         id: 'website-blog' },
             { icon: 'fa-solid fa-sliders',       name: 'Configuración Web', path: '/website-general',    id: 'website-general' },
             { icon: 'fa-solid fa-magnifying-glass-chart', name: 'SEO mi sitio', path: '/seo-tenant', id: 'seo-tenant' },
         ]

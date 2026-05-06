@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <%- include('partials/ssr-preconnect-cdnjs') %>
     <%- include('partials/google-site-verification') %>
     <%
         const _hl = typeof htmlLang !== 'undefined' ? htmlLang : 'es';
@@ -49,12 +50,12 @@
     <style><%= locals.customCSS %></style>
     <% } %>
     <%- include('partials/web-fonts', { brandFont: (locals.brandIdentity && locals.brandIdentity.typography && locals.brandIdentity.typography.fontFamily) || '' }) %>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <%- include('partials/ssr-fontawesome-deferred') %>
     <% if (_logoUrl) { %><link rel="icon" href="<%= _logoUrl %>" type="image/png"><% } %>
 </head>
 <body class="bg-gray-50 flex flex-col min-h-screen">
     <%- include('partials/header') %>
-    <main class="flex-grow">
+    <main id="main-content" class="flex-grow">
         <div class="bg-primary-700 text-white py-12 px-4 text-center">
             <h1 class="text-3xl md:text-4xl font-bold mb-2"><%= _titulo %></h1>
             <p class="text-primary-100 text-sm max-w-2xl mx-auto"><%= empresa.nombre %></p>

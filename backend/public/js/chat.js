@@ -1,11 +1,15 @@
 /**
  * SuiteManager Concierge Widget
  * Handles chat interaction with the backend AI.
+ * Puede cargarse diferido (tras idle o interacción): debe inicializar aunque el DOM ya esté listo.
  */
+(function initSuiteManagerConcierge() {
+    if (window.__suiteManagerConciergeBound) return;
 
-document.addEventListener('DOMContentLoaded', () => {
     const widget = document.getElementById('concierge-widget');
     if (!widget) return;
+
+    window.__suiteManagerConciergeBound = true;
 
     const empresaId = widget.dataset.empresaId;
     const launchBtn = document.getElementById('concierge-launch-btn');
@@ -15,10 +19,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const input = document.getElementById('concierge-input');
     const messagesContainer = document.getElementById('concierge-messages');
 
-    // State
+    if (!launchBtn || !chatWindow || !closeBtn || !sendBtn || !input || !messagesContainer) return;
+
     let isOpen = false;
 
-    // Toggle Chat
     function toggleChat() {
         isOpen = !isOpen;
         if (isOpen) {
@@ -34,17 +38,14 @@ document.addEventListener('DOMContentLoaded', () => {
     launchBtn.addEventListener('click', toggleChat);
     closeBtn.addEventListener('click', toggleChat);
 
-    // Send Message
     async function sendMessage() {
         const text = input.value.trim();
         if (!text) return;
 
-        // User Message UI
         appendMessage('user', text);
         input.value = '';
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
-        // Loading State
         const loadingId = appendLoading();
 
         try {
@@ -65,7 +66,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 appendMessage('assistant', data.content);
 
-                // Render Properties if any
                 if (data.data && data.data.properties && data.data.properties.length > 0) {
                     appendProperties(data.data.properties);
                 }
@@ -83,7 +83,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') sendMessage();
     });
 
-    // UI Helpers
     function appendMessage(role, text) {
         const div = document.createElement('div');
         div.className = `p-3 rounded-lg mb-2 max-w-[85%] text-sm ${role === 'user'
@@ -121,9 +120,9 @@ document.addEventListener('DOMContentLoaded', () => {
         properties.forEach(p => {
             const card = document.createElement('div');
             card.className = 'min-w-[200px] w-[200px] bg-white border border-gray-200 rounded-lg shadow-sm flex-shrink-0 cursor-pointer hover:shadow-md transition';
-            card.onclick = () => window.location.href = `/propiedad/${p.id}`; // Simple navigation
+            card.onclick = () => window.location.href = `/propiedad/${p.id}`;
 
-            const imgUrl = p.foto || '/public/placeholder_prop.jpg'; // Quick fix for now
+            const imgUrl = p.foto || '/public/placeholder_prop.jpg';
 
             card.innerHTML = `
                 <div class="h-28 bg-gray-200 w-full rounded-t-lg bg-cover bg-center" style="background-image: url('${imgUrl}')"></div>
@@ -138,4 +137,4 @@ document.addEventListener('DOMContentLoaded', () => {
         messagesContainer.appendChild(container);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
-});
+})();

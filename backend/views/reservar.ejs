@@ -4,11 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <%- include('partials/ssr-preconnect-cdnjs') %>
     <%- include('partials/google-site-verification') %>
     <title><%= title %></title>
     <link rel="stylesheet" href="/public/css/website.css">
     <%- include('partials/web-fonts') %>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <%- include('partials/ssr-fontawesome-deferred') %>
     <style>
         .sm-modal-reglas { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:65; align-items:center; justify-content:center; padding:1rem; }
         .sm-modal-reglas.open { display:flex; }
@@ -48,7 +49,7 @@
 
     <%- include('partials/header') %>
 
-    <main class="container py-12">
+    <main id="main-content" class="container py-12">
         <div class="max-w-6xl mx-auto">
             
             <h1 class="text-3xl font-bold text-gray-900 mb-8">Completa tu Reserva</h1>
