@@ -1,6 +1,16 @@
 #!/usr/bin/env node
 /**
  * Repara imágenes web sin re-subir todo: delega en `webImagesRepairService`.
+ *
+ * Una empresa:
+ *   node scripts/tooling/repair-web-images.js --subdomain=orillasdelcoilaco --apply --force
+ *
+ * Todas las empresas (PostgreSQL):
+ *   node scripts/tooling/repair-web-images.js --all-empresas --apply --force
+ *
+ * Incluir recomprimir hero FULL en Storage (mejor LCP; requiere --apply --force):
+ *   node scripts/tooling/repair-web-images.js --empresa-id=UUID --apply --force --recompress-hero-full
+ *
  * @see backend/services/webImagesRepairService.js
  */
 const path = require('path');
@@ -54,10 +64,14 @@ function parseArgs() {
         propiedadId: null,
         apply: false,
         force: false,
+        allEmpresas: false,
+        recompressHeroFull: false,
     };
     for (const a of process.argv.slice(2)) {
         if (a === '--apply') out.apply = true;
         else if (a === '--force') out.force = true;
+        else if (a === '--all-empresas') out.allEmpresas = true;
+        else if (a === '--recompress-hero-full') out.recompressHeroFull = true;
         else if (a.startsWith('--empresa-id=')) out.empresaId = a.slice('--empresa-id='.length).trim();
         else if (a.startsWith('--subdomain=')) out.subdomain = a.slice('--subdomain='.length).trim().toLowerCase();
         else if (a.startsWith('--propiedad-id=')) out.propiedadId = a.slice('--propiedad-id='.length).trim();
@@ -86,14 +100,54 @@ async function resolveEmpresaId(poolClient, { empresaId, subdomain }) {
 
 async function main() {
     const args = parseArgs();
-    let { empresaId, propiedadId, apply, force } = args;
-    if (!empresaId && !args.subdomain) {
-        console.error('Obligatorio: --empresa-id=… o --subdomain=…');
+    let { empresaId, propiedadId, apply, force, allEmpresas, recompressHeroFull } = args;
+
+    if (allEmpresas && !apply) {
+        console.error('[repair-web-images] --all-empresas requiere --apply (evita dry-run accidental masivo).');
+        process.exit(1);
+    }
+    if (recompressHeroFull && (!apply || !force)) {
+        console.error('[repair-web-images] --recompress-hero-full requiere --apply y --force.');
+        process.exit(1);
+    }
+    if (!allEmpresas && !empresaId && !args.subdomain) {
+        console.error('Obligatorio: --empresa-id=… o --subdomain=… o --all-empresas');
         process.exit(1);
     }
     if (!IS_POSTGRES || !pool) {
         console.error('Solo PostgreSQL.');
         process.exit(1);
+    }
+
+    const runOne = async (eid) => {
+        const mode = apply ? 'APLICAR' : 'DRY-RUN';
+        console.log(
+            `[repair-web-images] ${mode}${force ? ' (force)' : ''}${recompressHeroFull ? ' (+recompress hero full)' : ''} empresa_id=${eid}${propiedadId ? ` propiedad=${propiedadId}` : ''}`
+        );
+        await runWebImagesRepair({
+            empresaId: eid,
+            apply,
+            force,
+            recompressHeroFull,
+            propiedadId: propiedadId || undefined,
+            log: console.log,
+        });
+    };
+
+    if (allEmpresas) {
+        const { rows } = await pool.query('SELECT id FROM empresas ORDER BY id');
+        console.log(`[repair-web-images] ${rows.length} empresa(s) — inicio`);
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            console.log(`\n========== ${i + 1}/${rows.length} empresa ${row.id} ==========`);
+            try {
+                await runOne(row.id);
+            } catch (e) {
+                console.error(`[repair-web-images] ERROR empresa ${row.id}:`, e.message);
+            }
+        }
+        console.log('\n[repair-web-images] fin.');
+        return;
     }
 
     empresaId = await resolveEmpresaId(pool, { empresaId, subdomain: args.subdomain });
@@ -102,17 +156,8 @@ async function main() {
         process.exit(1);
     }
 
-    const mode = apply ? 'APLICAR' : 'DRY-RUN';
-    console.log(`[repair-web-images] ${mode}${force ? ' (force)' : ''} empresa_id=${empresaId}${propiedadId ? ` propiedad=${propiedadId}` : ''}`);
-
     try {
-        await runWebImagesRepair({
-            empresaId,
-            apply,
-            force,
-            propiedadId: propiedadId || undefined,
-            log: console.log,
-        });
+        await runOne(empresaId);
     } catch (e) {
         console.error(e);
         process.exit(1);
@@ -120,6 +165,8 @@ async function main() {
 
     if (!apply) {
         console.log('\n  Añade --apply para ejecutar. Usa --force para regenerar todas las miniaturas válidas.');
+        console.log('  --all-empresas --apply --force recorre todas las empresas.');
+        console.log('  --recompress-hero-full solo con --apply --force (vuelve a comprimir hero completo en Storage).');
     }
 }
 

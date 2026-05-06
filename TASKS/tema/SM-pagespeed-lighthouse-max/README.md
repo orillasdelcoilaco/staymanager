@@ -33,3 +33,22 @@ Acercar **todas** las URLs SSR tenant (`website.*`) y **suitemanagers.com** (mar
   ```
 
   Usa la CLI incluida en `devDependencies` (`firebase-tools`). Si el ID del proyecto es otro, cambiar `--project`.
+
+### Repair masivo de imágenes web (galería + card + hero)
+
+Desde la raíz del repo, con `.env` / `serviceAccountKey.json` como en desarrollo:
+
+```bash
+# Una empresa (por subdomain) — regenera todas las thumbs rotas o con --force todas
+node scripts/tooling/repair-web-images.js --subdomain=TUSUBDOMINIO --apply --force
+
+# Todas las empresas (PostgreSQL)
+node scripts/tooling/repair-web-images.js --all-empresas --apply --force
+
+# Además: recomprimir el archivo FULL del hero en Storage (mejor LCP; nuevo token en URL)
+node scripts/tooling/repair-web-images.js --subdomain=TUSUBDOMINIO --apply --force --recompress-hero-full
+```
+
+`--force` hace que se **vuelvan a generar** miniaturas aunque ya parezcan válidas (compress más agresivo en repair). `--recompress-hero-full` solo tiene efecto con `--apply --force`.
+
+Panel (JWT): `POST /api/website/maintenance/regenerate-web-images` con JSON opcional `{ "force": true, "recompressHeroFull": true }`.

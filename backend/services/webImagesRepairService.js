@@ -2,7 +2,6 @@
  * Regenera miniaturas WebP (galería, card, hero) desde URLs full en Storage.
  * Usado por el script `scripts/tooling/repair-web-images.js` y por el panel (API).
  */
-const fetch = require('node-fetch');
 const pool = require('../db/postgres');
 const { IS_POSTGRES } = require('../config/dbConfig');
 const { optimizeImage } = require('./imageProcessingService');
@@ -10,42 +9,24 @@ const { uploadFile, deleteFileByPath } = require('./storageService');
 const { assertOptimizedBuffers, assertDistinctPublicUrls } = require('./imageUploadGuards');
 const { eliminarFoto, syncToWebsite } = require('./galeriaService');
 const { ssrCache } = require('./cacheService');
+const {
+    storagePathFromPublicUrl,
+    thumbPathFromFullStoragePath,
+    thumbUrlLooksValid,
+    fetchImageBuffer,
+} = require('./webImagesRepairHelpers');
+const { repairHeroTheme } = require('./webImagesRepairHero');
 
-function storagePathFromPublicUrl(url) {
-    const s = String(url || '').trim();
-    if (!s || !s.includes('/o/')) return '';
-    const pathPart = s.split('/o/')[1].split('?')[0];
-    try {
-        return decodeURIComponent(pathPart);
-    } catch {
-        return '';
-    }
-}
-
-function thumbPathFromFullStoragePath(fullPath) {
-    const p = String(fullPath || '').trim();
-    if (!p.toLowerCase().endsWith('.webp')) return '';
-    if (p.toLowerCase().includes('_thumb.webp')) return '';
-    return p.replace(/\.webp$/i, '_thumb.webp');
-}
-
-function thumbUrlLooksValid(fullUrl, thumbUrl) {
-    const f = String(fullUrl || '').trim();
-    const t = String(thumbUrl || '').trim();
-    return Boolean(f && t && f !== t);
-}
-
-async function fetchImageBuffer(url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (!buf.length) throw new Error('vacío');
-    return buf;
-}
+/** Miniaturas galería/card en repair (algo más agresivo que el upload nuevo para ganar peso). */
+const REPAIR_GALLERY_THUMB_MAX = 560;
+const REPAIR_GALLERY_THUMB_QUALITY = 62;
 
 async function regenerateThumbToPath(fullUrl, thumbDestinationPath) {
     const buf = await fetchImageBuffer(fullUrl);
-    const { buffer: thumbBuffer } = await optimizeImage(buf, { maxWidth: 560, quality: 66 });
+    const { buffer: thumbBuffer } = await optimizeImage(buf, {
+        maxWidth: REPAIR_GALLERY_THUMB_MAX,
+        quality: REPAIR_GALLERY_THUMB_QUALITY,
+    });
     assertOptimizedBuffers([thumbBuffer]);
     const newThumbUrl = await uploadFile(thumbBuffer, thumbDestinationPath, 'image/webp');
     assertDistinctPublicUrls(fullUrl, newThumbUrl);
@@ -57,12 +38,13 @@ async function regenerateThumbToPath(fullUrl, thumbDestinationPath) {
  * @param {string} opts.empresaId
  * @param {boolean} opts.apply
  * @param {boolean} opts.force
+ * @param {boolean} [opts.recompressHeroFull] — con `apply`+`force`: vuelve a comprimir hero full en Storage (mejor LCP), no solo la miniatura.
  * @param {string} [opts.propiedadId]
  * @param {(s: string) => void} [opts.log]
  * @returns {Promise<object>}
  */
 async function runWebImagesRepair(opts) {
-    const { empresaId, apply, force, propiedadId: propiedadIdOpt } = opts;
+    const { empresaId, apply, force, propiedadId: propiedadIdOpt, recompressHeroFull } = opts;
     const log = typeof opts.log === 'function' ? opts.log : () => {};
 
     if (!IS_POSTGRES || !pool) {
@@ -245,67 +227,18 @@ async function runWebImagesRepair(opts) {
     const heroFull = String(theme.heroImageUrl || '').trim();
     const heroTh = String(theme.heroImageThumbUrl || '').trim();
 
-    let heroUpdated = false;
-    if (heroFull && (force || !thumbUrlLooksValid(heroFull, heroTh))) {
-        const fullPathHero = storagePathFromPublicUrl(heroFull);
-        const thumbPathHero = fullPathHero.toLowerCase().endsWith('.webp')
-            ? fullPathHero.replace(/\.webp$/i, '-thumb.webp')
-            : '';
-        if (thumbPathHero && !fullPathHero.toLowerCase().includes('-thumb.webp')) {
-            log('  [hero] regenerar miniatura portada');
-            if (apply) {
-                try {
-                    if (heroTh) await deleteFileByPath(heroTh).catch(() => {});
-                    const buf = await fetchImageBuffer(heroFull);
-                    const { buffer: thumbBuffer } = await optimizeImage(buf, { maxWidth: 900, quality: 54 });
-                    assertOptimizedBuffers([thumbBuffer]);
-                    const newThumbUrl = await uploadFile(thumbBuffer, thumbPathHero, 'image/webp');
-                    assertDistinctPublicUrls(heroFull, newThumbUrl);
-                    const newCfg = JSON.parse(JSON.stringify(cfg0));
-                    newCfg.websiteSettings = newCfg.websiteSettings || {};
-                    newCfg.websiteSettings.theme = {
-                        ...(newCfg.websiteSettings.theme || {}),
-                        ...theme,
-                        heroImageThumbUrl: newThumbUrl,
-                    };
-                    await pool.query(
-                        'UPDATE empresas SET configuracion = $1::jsonb, updated_at = NOW() WHERE id = $2',
-                        [JSON.stringify(newCfg), empresaId]
-                    );
-                    heroUpdated = true;
-                    log('  Hero: miniatura actualizada.');
-                } catch (e) {
-                    log(`  [hero] FALLÓ (${e.message}) → vaciar URLs hero`);
-                    const newCfg = JSON.parse(JSON.stringify(cfg0));
-                    newCfg.websiteSettings = newCfg.websiteSettings || {};
-                    newCfg.websiteSettings.theme = {
-                        ...(newCfg.websiteSettings.theme || {}),
-                        ...theme,
-                        heroImageUrl: '',
-                        heroImageThumbUrl: '',
-                    };
-                    await pool.query(
-                        'UPDATE empresas SET configuracion = $1::jsonb, updated_at = NOW() WHERE id = $2',
-                        [JSON.stringify(newCfg), empresaId]
-                    );
-                }
-            }
-        } else if (apply) {
-            log('  [hero] no se puede derivar ruta -thumb.webp desde la URL → limpiar hero');
-            const newCfg = JSON.parse(JSON.stringify(cfg0));
-            newCfg.websiteSettings = newCfg.websiteSettings || {};
-            newCfg.websiteSettings.theme = {
-                ...(newCfg.websiteSettings.theme || {}),
-                ...theme,
-                heroImageUrl: '',
-                heroImageThumbUrl: '',
-            };
-            await pool.query(
-                'UPDATE empresas SET configuracion = $1::jsonb, updated_at = NOW() WHERE id = $2',
-                [JSON.stringify(newCfg), empresaId]
-            );
-        }
-    }
+    const { heroUpdated, heroFullRecompressed } = await repairHeroTheme({
+        pool,
+        cfg0,
+        theme,
+        empresaId,
+        heroFull,
+        heroTh,
+        apply,
+        force,
+        recompressHeroFull: Boolean(recompressHeroFull),
+        log,
+    });
 
     if (apply) {
         for (const pr of props) {
@@ -334,15 +267,17 @@ async function runWebImagesRepair(opts) {
             thumbsNew: cardsFixed,
             removed: cardsNuked,
         },
-        hero: { updated: heroUpdated },
+        hero: { updated: heroUpdated, fullRecompressed: heroFullRecompressed },
         apply,
         force: Boolean(force),
     };
 }
 
+const helpers = require('./webImagesRepairHelpers');
+
 module.exports = {
     runWebImagesRepair,
-    storagePathFromPublicUrl,
-    thumbPathFromFullStoragePath,
-    thumbUrlLooksValid,
+    storagePathFromPublicUrl: helpers.storagePathFromPublicUrl,
+    thumbPathFromFullStoragePath: helpers.thumbPathFromFullStoragePath,
+    thumbUrlLooksValid: helpers.thumbUrlLooksValid,
 };

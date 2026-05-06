@@ -1,6 +1,6 @@
 /**
  * Panel: regenerar miniaturas web (misma lógica que scripts/tooling/repair-web-images.js).
- * POST /api/website/maintenance/regenerate-web-images — empresa solo desde JWT.
+ * POST /api/website/maintenance/regenerate-web-images — body opcional: force, propiedadId, recompressHeroFull.
  */
 const express = require('express');
 const pool = require('../db/postgres');
@@ -103,6 +103,7 @@ function createRouter() {
         }
 
         const force = Boolean(req.body && req.body.force);
+        const recompressHeroFull = Boolean(req.body && req.body.recompressHeroFull);
         let propiedadId = '';
         if (req.body && req.body.propiedadId != null) {
             propiedadId = String(req.body.propiedadId).trim();
@@ -113,6 +114,7 @@ function createRouter() {
                 empresaId,
                 apply: true,
                 force,
+                recompressHeroFull,
                 propiedadId: propiedadId || undefined,
                 log: (line) => console.log(`[repair-web-images-api ${empresaId.slice(0, 8)}…] ${line}`),
             });
