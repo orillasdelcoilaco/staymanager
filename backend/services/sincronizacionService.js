@@ -1,7 +1,8 @@
 // backend/services/sincronizacionService.js
 
 const pool = require('../db/postgres');
-const xlsx = require('xlsx');
+const ExcelJS = require('exceljs');
+const { parse: parseCsv } = require('csv-parse/sync');
 const { crearOActualizarCliente, recalcularEstadisticasClientes } = require('./clientesService');
 const { crearOActualizarReserva } = require('./reservasService');
 const { obtenerConversionesPorEmpresa } = require('./conversionesService');
@@ -17,28 +18,58 @@ const { calculatePrice, calcularValoresBaseDesdeReporte } = require('./utils/cal
 // --- FIN DE LA MODIFICACIÓN ---
 
 
-const leerArchivo = (buffer, nombreArchivo) => {
-    const esCsv = nombreArchivo && nombreArchivo.toLowerCase().endsWith('.csv');
-    if (esCsv) {
-        const data = buffer.toString('utf8');
-        const workbook = xlsx.read(data, { type: 'string', cellDates: true, raw: true });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        return xlsx.utils.sheet_to_json(sheet, { header: 1 });
-    }
-    const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    return xlsx.utils.sheet_to_json(sheet, { header: 1, raw: false });
-};
+function _excelCellToValue(cell) {
+    if (!cell || cell.value === null || cell.value === undefined) return undefined;
+    const v = cell.value;
+    if (v instanceof Date) return v;
+    if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') return v;
+    if (typeof v === 'object') {
+        if (Object.prototype.hasOwnProperty.call(v, 'result')) return v.result;
+        if (Object.prototype.hasOwnProperty.call(v, 'text')) return v.text;
+        if (Array.isArray(v.richText)) {
+            return v.richText.map((t) => (t && t.text) || '').join('');
+        }
+    }
+    return String(v);
+}
+
+async function leerArchivo(buffer, nombreArchivo) {
+    const lower = (nombreArchivo || '').toLowerCase();
+    const esCsv = lower.endsWith('.csv');
+    if (esCsv) {
+        const text = buffer.toString('utf8');
+        return parseCsv(text, {
+            bom: true,
+            relax_column_count: true,
+            skip_empty_lines: false,
+            trim: false,
+        });
+    }
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+    const sheet = workbook.worksheets[0];
+    if (!sheet) return [];
+    const rows = [];
+    sheet.eachRow({ includeEmpty: true }, (row) => {
+        const arr = [];
+        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+            while (arr.length < colNumber - 1) {
+                arr.push(undefined);
+            }
+            arr[colNumber - 1] = _excelCellToValue(cell);
+        });
+        rows.push(arr);
+    });
+    return rows;
+}
 
 const analizarCabeceras = async (buffer, nombreArchivo) => {
-    const rows = leerArchivo(buffer, nombreArchivo);
-    return rows.length > 0 ? rows[0].filter(Boolean) : [];
+    const rows = await leerArchivo(buffer, nombreArchivo);
+    return rows.length > 0 ? rows[0].filter(Boolean) : [];
 };
 
 const analizarValoresUnicosColumna = async (buffer, nombreArchivo, indiceColumna) => {
-    const rows = leerArchivo(buffer, nombreArchivo);
+    const rows = await leerArchivo(buffer, nombreArchivo);
     if (rows.length < 2) return [];
     
     const valores = new Set();
@@ -257,7 +288,7 @@ const procesarArchivoReservas = async (db, empresaId, canalId, bufferArchivo, no
 
     const idCarga = await registrarCarga(db, empresaId, canalId, nombreArchivoOriginal, usuarioEmail);
 
-    const rows = leerArchivo(bufferArchivo, nombreArchivoOriginal);
+    const rows = await leerArchivo(bufferArchivo, nombreArchivoOriginal);
     if (rows.length < 2) throw new Error("El archivo esta vacio o no tiene filas de datos.");
 
     const cabeceras = rows[0];
