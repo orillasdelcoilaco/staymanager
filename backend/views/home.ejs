@@ -18,6 +18,7 @@
             || (_hl === 'en' ? `Direct bookings at ${empresa.nombre}` : `Reservas directas en ${empresa.nombre}`);
         const _pageUrl      = baseUrl || '';
         const _heroImage    = empresa.websiteSettings?.theme?.heroImageUrl || '';
+        const _heroThumb    = empresa.websiteSettings?.theme?.heroImageThumbUrl || '';
         const _logoUrl      = locals.brandIdentity?.logoUrl || empresa.websiteSettings?.theme?.logoUrl || '';
         const _keywords     = [
             empresaContext?.ubicacion?.ciudad,
@@ -89,8 +90,7 @@
     <link rel="preconnect" href="<%= _heroAssetOrigin %>" crossorigin>
     <link rel="dns-prefetch" href="<%= _heroAssetOrigin %>">
     <% } %>
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <%- include('partials/ssr-preconnect-cdnjs') %>
 
     <title><%= _pageTitle %></title>
     <meta name="description" content="<%= _pageDesc %>">
@@ -111,7 +111,9 @@
     <meta name="twitter:title"       content="<%= _pageTitle %>">
     <meta name="twitter:description" content="<%= _pageDesc %>">
     <% if (_heroImage) { %><meta name="twitter:image" content="<%= _heroImage %>"><% } %>
-    <% if (_heroImage) { %>
+    <% if (_heroImage && _heroThumb) { %>
+    <link rel="preload" as="image" fetchpriority="high" imagesrcset="<%= _heroThumb %> 960w, <%= _heroImage %> 1920w" imagesizes="100vw">
+    <% } else if (_heroImage) { %>
     <link rel="preload" as="image" href="<%= _heroImage %>" fetchpriority="high">
     <% } %>
     <% if (locals.schemaData) { %>
@@ -120,8 +122,7 @@
     <link rel="stylesheet" href="/public/css/website.css">
     <% if (locals.customCSS && locals.customCSS.trim().length > 0) { %><style><%= locals.customCSS %></style><% } %>
     <%- include('partials/web-fonts') %>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" media="print" onload="this.media='all'">
-    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"></noscript>
+    <%- include('partials/ssr-fontawesome-deferred') %>
     <% if (_logoUrl) { %><link rel="icon" href="<%= _logoUrl %>" type="image/png"><% } %>
 
     <style>
@@ -138,7 +139,7 @@
 
     <%- include('partials/header') %>
 
-    <main class="flex-grow">
+    <main id="main-content" class="flex-grow">
 
         <%# ═══════════════════════════════════════════════════════ %>
         <%# HERO — imagen cinematográfica + buscador flotante      %>
@@ -146,14 +147,17 @@
         <section class="relative overflow-hidden flex flex-col" style="min-height: 520px;">
 
             <% if (_heroImage) { %>
-            <img src="<%= _heroImage %>"
-                 alt=""
-                 role="presentation"
+            <% const _heroAlt = String(empresa.websiteSettings?.theme?.heroImageAlt || '').trim(); %>
+            <img src="<%= _heroThumb || _heroImage %>"
+                 <% if (_heroThumb) { %>srcset="<%= _heroThumb %> 960w, <%= _heroImage %> 1920w"
+                 sizes="100vw"
+                 <% } %>
+                 alt="<%= _heroAlt %>"
+                 <%= _heroAlt ? '' : 'role="presentation"' %>
                  width="1920"
                  height="1080"
                  decoding="async"
                  fetchpriority="high"
-                 sizes="100vw"
                  class="absolute inset-0 w-full h-full object-cover">
             <% } else { %>
             <div class="absolute inset-0 bg-gradient-to-br from-primary-800 via-primary-700 to-primary-600"></div>
@@ -273,7 +277,7 @@
             <% if (isSearchResult) { %>
             <div class="flex items-center justify-between mb-6">
                 <div>
-                    <h2 class="text-xl font-bold text-gray-900">
+                    <h2 id="propiedades-heading" class="text-xl font-bold text-gray-900">
                         <% const _nAvail = resultados.filter(r => !r.isGroup).length; %>
                         <% if (_hl === 'en') { %>
                             <%= _nAvail %> stay<%= _nAvail !== 1 ? 's' : '' %> available
@@ -295,8 +299,13 @@
             <% } %>
 
             <% if (resultados.length > 0) { %>
+            <% if (!isSearchResult) { %>
+            <h2 id="propiedades-heading" class="text-2xl md:text-3xl font-bold text-gray-900 mb-8">
+                <%= _hl === 'en' ? 'Where you’ll stay' : 'Nuestros alojamientos' %>
+            </h2>
+            <% } %>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8" aria-labelledby="propiedades-heading">
 
                 <% resultados.forEach(item => { %>
                 <% if (item.isGroup) { %>
@@ -318,9 +327,17 @@
                         <p class="text-sm text-gray-500 mb-5"><%= _hl === 'en' ? `Combination of ${_g.properties.length} stays · total capacity ${_g.combinedCapacity} guests.` : `Combinación de ${_g.properties.length} alojamientos · capacidad total ${_g.combinedCapacity} personas.` %></p>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="space-y-2">
-                                <% _g.properties.forEach(prop => { %>
+                                <% _g.properties.forEach(prop => {
+                                    const _gc = prop.websiteData?.cardImage || {};
+                                    const _gFull = String(_gc.storagePath || '').trim();
+                                    let _gTh = String(_gc.thumbnailUrl || '').trim();
+                                    if (_gFull && (!_gTh || _gTh === _gFull) && /\.webp(\?|$)/i.test(_gFull) && !_gFull.includes('_thumb.webp')) {
+                                        _gTh = _gFull.replace(/\.webp(\?|$)/i, '_thumb.webp$1');
+                                    }
+                                    const _gImgSm = (_gTh || _gFull || '').trim() || 'https://placehold.co/80x60/e5e7eb/9ca3af?text=+';
+                                %>
                                 <div class="flex items-center gap-3 p-2.5 bg-gray-50 rounded-xl">
-                                    <img src="<%= prop.websiteData?.cardImage?.storagePath || 'https://placehold.co/80x60/e5e7eb/9ca3af?text=+' %>"
+                                    <img src="<%= _gImgSm %>"
                                          alt="<%= prop.nombre %>" width="80" height="56" loading="lazy" decoding="async"
                                          class="w-20 h-14 object-cover rounded-lg flex-shrink-0">
                                     <div>

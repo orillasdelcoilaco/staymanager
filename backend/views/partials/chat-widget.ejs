@@ -2,7 +2,8 @@
     <div id="concierge-widget" data-empresa-id="<%= empresa.id %>" class="fixed bottom-6 right-6 z-50 font-sans">
 
         <!-- Launch Button -->
-        <button id="concierge-launch-btn"
+        <button type="button" id="concierge-launch-btn"
+            aria-label="<%= (typeof htmlLang !== 'undefined' && htmlLang === 'en') ? 'Open concierge assistant' : 'Abrir asistente concierge' %>" title="<%= (typeof htmlLang !== 'undefined' && htmlLang === 'en') ? 'Open concierge assistant' : 'Abrir asistente concierge' %>"
             class="w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-110"
             style="background-color: var(--primary-color, rgb(79 70 229));">
             <!-- Icon Chat -->
@@ -24,7 +25,9 @@
                     <div class="w-2 h-2 rounded-full bg-success-400 animate-pulse"></div>
                     <h3 class="font-bold text-sm">Concierge IA</h3>
                 </div>
-                <button id="concierge-close-btn" class="hover:text-gray-200">
+                <button type="button" id="concierge-close-btn"
+                    aria-label="<%= (typeof htmlLang !== 'undefined' && htmlLang === 'en') ? 'Close concierge' : 'Cerrar asistente' %>"
+                    class="hover:text-gray-200">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd"
                             d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
@@ -49,7 +52,9 @@
                     <input type="text" id="concierge-input"
                         class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
                         placeholder="Escribe tu consulta...">
-                    <button id="concierge-send-btn" class="p-2 rounded-lg text-white transition-colors hover:opacity-90"
+                    <button type="button" id="concierge-send-btn"
+                        aria-label="<%= (typeof htmlLang !== 'undefined' && htmlLang === 'en') ? 'Send message' : 'Enviar mensaje' %>"
+                        class="p-2 rounded-lg text-white transition-colors hover:opacity-90"
                         style="background-color: var(--primary-color, rgb(79 70 229));">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                             <path
@@ -64,7 +69,27 @@
         </div>
     </div>
 
-    <script src="/public/js/chat.js"></script>
+    <script>
+    (function suiteManagerDeferConciergeScript() {
+        var CHAT_SRC = '/public/js/chat.js';
+        var injected = false;
+        function injectChatScript() {
+            if (injected) return;
+            injected = true;
+            window.removeEventListener('scroll', injectChatScript, true);
+            var s = document.createElement('script');
+            s.src = CHAT_SRC;
+            s.async = true;
+            document.body.appendChild(s);
+        }
+        window.addEventListener('scroll', injectChatScript, { capture: true, passive: true, once: true });
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(function () { injectChatScript(); }, { timeout: 4500 });
+        } else {
+            setTimeout(injectChatScript, 4000);
+        }
+    })();
+    </script>
 
     <style>
         @keyframes fade-in-up {

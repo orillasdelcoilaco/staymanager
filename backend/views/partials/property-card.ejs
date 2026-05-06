@@ -7,8 +7,8 @@
     if (_fullImg && (!_thumbImg || _thumbImg === _fullImg) && /\.webp(\?|$)/i.test(_fullImg) && !_fullImg.includes('_thumb.webp')) {
         _thumbImg = _fullImg.replace(/\.webp(\?|$)/i, '_thumb.webp$1');
     }
-    const _hasSrcset  = Boolean(_thumbImg && _fullImg && _thumbImg !== _fullImg);
-    const _img        = (_hasSrcset ? _thumbImg : (_thumbImg || _fullImg || '')).trim()
+    // Listado home: solo miniatura 800px WebP — no srcset al full (evita ~1MB+ por tarjeta en Lighthouse).
+    const _img        = (_thumbImg || _fullImg || '').trim()
         || 'https://placehold.co/400x400/e5e7eb/9ca3af?text=Sin+imagen';
     const _alt      = prop.websiteData?.cardImage?.altText || prop.nombre;
     const _tiene    = isSearchResult && prop.pricing && prop.pricing.totalPriceCLP > 0;
@@ -25,7 +25,6 @@
 <a href="<%= _link %>" class="group block focus:outline-none">
     <div class="relative overflow-hidden rounded-xl bg-gray-100" style="aspect-ratio:1/1">
         <img src="<%= _img %>" alt="<%= _alt %>" width="800" height="800" loading="lazy" decoding="async"
-             <% if (_hasSrcset) { %>srcset="<%= _thumbImg %> 800w, <%= _fullImg %> 1200w" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"<% } %>
              class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
         <% if (_tiene) { %>
         <span class="absolute top-3 left-3 bg-white/95 text-success-700 text-xs font-bold px-2.5 py-1 rounded-full shadow-sm backdrop-blur-sm">
@@ -34,7 +33,7 @@
         <% } %>
     </div>
     <div class="mt-3 px-0.5">
-        <p class="font-semibold text-gray-900 text-sm leading-snug line-clamp-1"><%= prop.nombre %></p>
+        <h3 class="m-0 font-semibold text-gray-900 text-sm leading-snug line-clamp-1"><%= prop.nombre %></h3>
         <p class="text-xs text-gray-500 mt-0.5"><%= _detalles %></p>
         <p class="mt-1.5 text-sm font-bold text-gray-900">
             <% if (_tiene && _pxnExact > 0) { %>
