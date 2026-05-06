@@ -14,7 +14,7 @@
  * --force : vuelve a generar todas las miniaturas de galería aunque ya parezcan válidas.
  *
  * Con --apply:
- * - Galería: descarga storage_url → thumb 800px WebP → sube *_thumb.webp → UPDATE thumbnail_url.
+ * - Galería: descarga storage_url → thumb 560px WebP → sube *_thumb.webp → UPDATE thumbnail_url.
  *   Si falla descarga/proceso → eliminarFoto (Storage + fila).
  * - cardImage por propiedad: mismo criterio; actualiza metadata.websiteData.cardImage.thumbnailUrl.
  * - Hero empresa: regenera heroImageThumbUrl desde heroImageUrl si el par es inválido.
@@ -145,7 +145,7 @@ async function fetchImageBuffer(url) {
 
 async function regenerateThumbToPath(fullUrl, thumbDestinationPath) {
     const buf = await fetchImageBuffer(fullUrl);
-    const { buffer: thumbBuffer } = await optimizeImage(buf, { maxWidth: 800, quality: 72 });
+    const { buffer: thumbBuffer } = await optimizeImage(buf, { maxWidth: 560, quality: 66 });
     assertOptimizedBuffers([thumbBuffer]);
     const newThumbUrl = await uploadFile(thumbBuffer, thumbDestinationPath, 'image/webp');
     assertDistinctPublicUrls(fullUrl, newThumbUrl);
@@ -354,7 +354,7 @@ async function main() {
                 try {
                     if (heroTh) await deleteFileByPath(heroTh).catch(() => {});
                     const buf = await fetchImageBuffer(heroFull);
-                    const { buffer: thumbBuffer } = await optimizeImage(buf, { maxWidth: 960, quality: 70 });
+                    const { buffer: thumbBuffer } = await optimizeImage(buf, { maxWidth: 900, quality: 64 });
                     assertOptimizedBuffers([thumbBuffer]);
                     const newThumbUrl = await uploadFile(thumbBuffer, thumbPath, 'image/webp');
                     assertDistinctPublicUrls(heroFull, newThumbUrl);

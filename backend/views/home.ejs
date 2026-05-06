@@ -123,7 +123,7 @@
     <meta name="twitter:description" content="<%= _pageDesc %>">
     <% if (_heroImage) { %><meta name="twitter:image" content="<%= _heroImage %>"><% } %>
     <% if (_heroImage && _heroThumb) { %>
-    <link rel="preload" as="image" fetchpriority="high" imagesrcset="<%= _heroThumb %> 960w, <%= _heroImage %> 1920w" imagesizes="100vw">
+    <link rel="preload" as="image" fetchpriority="high" imagesrcset="<%= _heroThumb %> 900w, <%= _heroImage %> 1920w" imagesizes="100vw">
     <% } else if (_heroImage) { %>
     <link rel="preload" as="image" href="<%= _heroImage %>" fetchpriority="high">
     <% } %>
@@ -160,7 +160,7 @@
             <% if (_heroImage) { %>
             <% const _heroAlt = String(empresa.websiteSettings?.theme?.heroImageAlt || '').trim(); %>
             <img src="<%= _heroThumb || _heroImage %>"
-                 <% if (_heroThumb) { %>srcset="<%= _heroThumb %> 960w, <%= _heroImage %> 1920w"
+                 <% if (_heroThumb) { %>srcset="<%= _heroThumb %> 900w, <%= _heroImage %> 1920w"
                  sizes="100vw"
                  <% } %>
                  alt="<%= _heroAlt %>"

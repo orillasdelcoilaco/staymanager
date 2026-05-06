@@ -7,7 +7,7 @@
     if (_fullImg && (!_thumbImg || _thumbImg === _fullImg) && /\.webp(\?|$)/i.test(_fullImg) && !_fullImg.includes('_thumb.webp')) {
         _thumbImg = _fullImg.replace(/\.webp(\?|$)/i, '_thumb.webp$1');
     }
-    // Listado home: solo miniatura 800px WebP — no srcset al full (evita ~1MB+ por tarjeta en Lighthouse).
+    // Listado home: solo miniatura WebP (~560px) — no srcset al full.
     const _img        = (_thumbImg || _fullImg || '').trim()
         || 'https://placehold.co/400x400/e5e7eb/9ca3af?text=Sin+imagen';
     const _alt      = prop.websiteData?.cardImage?.altText || prop.nombre;
@@ -24,7 +24,7 @@
 %>
 <a href="<%= _link %>" class="group block focus:outline-none">
     <div class="relative overflow-hidden rounded-xl bg-gray-100" style="aspect-ratio:1/1">
-        <img src="<%= _img %>" alt="<%= _alt %>" width="800" height="800" loading="lazy" decoding="async"
+        <img src="<%= _img %>" alt="<%= _alt %>" width="560" height="560" loading="lazy" decoding="async"
              class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
         <% if (_tiene) { %>
         <span class="absolute top-3 left-3 bg-white/95 text-success-700 text-xs font-bold px-2.5 py-1 rounded-full shadow-sm backdrop-blur-sm">
@@ -34,14 +34,14 @@
     </div>
     <div class="mt-3 px-0.5">
         <h3 class="m-0 font-semibold text-gray-900 text-sm leading-snug line-clamp-1"><%= prop.nombre %></h3>
-        <p class="text-xs text-gray-500 mt-0.5"><%= _detalles %></p>
+        <p class="text-xs text-gray-600 mt-0.5"><%= _detalles %></p>
         <p class="mt-1.5 text-sm font-bold text-gray-900">
             <% if (_tiene && _pxnExact > 0) { %>
-                <%= _fmtCLP(_pxnExact) %> <span class="font-normal text-gray-500">/ <%= _pcEn ? 'night' : 'noche' %></span>
+                <%= _fmtCLP(_pxnExact) %> <span class="font-normal text-gray-600">/ <%= _pcEn ? 'night' : 'noche' %></span>
             <% } else if (_esBase) { %>
-                <span class="font-normal text-gray-600 text-xs"><%= _pcEn ? 'from' : 'desde' %></span> <%= _fmtCLP(_pxnBase) %> <span class="font-normal text-gray-500">/ <%= _pcEn ? 'night' : 'noche' %></span>
+                <span class="font-normal text-gray-600 text-xs"><%= _pcEn ? 'from' : 'desde' %></span> <%= _fmtCLP(_pxnBase) %> <span class="font-normal text-gray-600">/ <%= _pcEn ? 'night' : 'noche' %></span>
             <% } else { %>
-                <span class="font-normal text-gray-500 text-xs"><%= _pcEn ? 'Check availability' : 'Consultar disponibilidad' %></span>
+                <span class="font-normal text-gray-600 text-xs"><%= _pcEn ? 'Check availability' : 'Consultar disponibilidad' %></span>
             <% } %>
         </p>
     </div>

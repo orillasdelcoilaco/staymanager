@@ -393,7 +393,7 @@ async function uploadFotoToGaleria(db, empresaId, propiedadId, files) {
 
         try {
             const { buffer: fullBuffer } = await optimizeImage(file.buffer, { maxWidth: 1200, quality: 82 });
-            const { buffer: thumbBuffer } = await optimizeImage(file.buffer, { maxWidth: 800, quality: 72 });
+            const { buffer: thumbBuffer } = await optimizeImage(file.buffer, { maxWidth: 560, quality: 66 });
             assertOptimizedBuffers([fullBuffer, thumbBuffer]);
 
             storageUrl = await uploadFile(fullBuffer, `${base}.webp`, 'image/webp');
@@ -475,7 +475,7 @@ async function replaceFoto(db, empresaId, propiedadId, fotoId, file) {
 
     try {
         const { buffer: fullBuffer } = await optimizeImage(file.buffer, { maxWidth: 1200, quality: 82 });
-        const { buffer: thumbBuffer } = await optimizeImage(file.buffer, { maxWidth: 800, quality: 72 });
+        const { buffer: thumbBuffer } = await optimizeImage(file.buffer, { maxWidth: 560, quality: 66 });
         assertOptimizedBuffers([fullBuffer, thumbBuffer]);
 
         storageUrl = await uploadFile(fullBuffer, `${base}.webp`, 'image/webp');
@@ -549,7 +549,7 @@ async function uploadFotoEmpresaArea(_db, empresaId, areaId, files) {
         let thumbnailUrl = '';
         try {
             const { buffer: fullBuffer } = await optimizeImage(file.buffer, { maxWidth: 1200, quality: 82 });
-            const { buffer: thumbBuffer } = await optimizeImage(file.buffer, { maxWidth: 800, quality: 72 });
+            const { buffer: thumbBuffer } = await optimizeImage(file.buffer, { maxWidth: 560, quality: 66 });
             assertOptimizedBuffers([fullBuffer, thumbBuffer]);
             storageUrl = await uploadFile(fullBuffer, `${base}.webp`, 'image/webp');
             thumbnailUrl = await uploadFile(thumbBuffer, `${base}_thumb.webp`, 'image/webp');

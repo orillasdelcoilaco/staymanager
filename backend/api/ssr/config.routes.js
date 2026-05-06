@@ -402,8 +402,8 @@ module.exports = (db) => {
 
             const storagePathThumb = `empresas/${empresaId}/website/hero-${imageId}-thumb.${outputFormat}`;
             const { buffer: thumbBuffer } = await optimizeImage(file.buffer, {
-                maxWidth: 960,
-                quality: 70
+                maxWidth: 900,
+                quality: 64
             });
             assertOptimizedBuffers([optimizedBuffer, thumbBuffer]);
 
@@ -561,8 +561,8 @@ module.exports = (db) => {
                     quality: 80
                 });
                 const { buffer: thumbBuffer } = await optimizeImage(req.file.buffer, {
-                    maxWidth: 800,
-                    quality: 72
+                    maxWidth: 560,
+                    quality: 66
                 });
                 assertOptimizedBuffers([optimizedBuffer, thumbBuffer]);
 
@@ -660,8 +660,8 @@ module.exports = (db) => {
                 quality: 80
             });
             const { buffer: thumbBuffer } = await optimizeImage(file.buffer, {
-                maxWidth: 800,
-                quality: 72
+                maxWidth: 560,
+                quality: 66
             });
             assertOptimizedBuffers([optimizedBuffer, thumbBuffer]);
 
