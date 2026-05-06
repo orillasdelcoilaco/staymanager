@@ -103,9 +103,31 @@
                 })
                 .filter(Boolean)
             : [];
+        /* Fotos del wizard: por orden de espacios en inventario; luego claves huérfanas en websiteData */
         const _fromWSD  = _fromApiGaleria.length > 0
             ? _fromApiGaleria
-            : Object.values(_imgs).flat().filter(img => img && img.storagePath);
+            : (function collectWebsiteImagesByComponentOrder() {
+                const out = [];
+                const compList = Array.isArray(propiedad.componentes) ? propiedad.componentes : [];
+                const usedKeys = new Set();
+                compList.forEach((comp) => {
+                    const cid = String(comp?.id || '').trim();
+                    if (!cid) return;
+                    usedKeys.add(cid);
+                    const arr = Array.isArray(_imgs[cid]) ? _imgs[cid] : [];
+                    arr.forEach((img) => {
+                        if (img && img.storagePath) out.push(img);
+                    });
+                });
+                Object.keys(_imgs).forEach((key) => {
+                    if (usedKeys.has(key)) return;
+                    const arr = Array.isArray(_imgs[key]) ? _imgs[key] : [];
+                    arr.forEach((img) => {
+                        if (img && img.storagePath) out.push(img);
+                    });
+                });
+                return out;
+            })();
         const _cardImg  = (propiedad?.foto_principal?.url && String(propiedad.foto_principal.url).trim())
             ? {
                 imageId: propiedad.foto_principal.imageId || 'api-principal',
@@ -164,6 +186,7 @@
             ].some((kw) => t.includes(kw));
         };
         const _isCommonSpaceImage = (img) => {
+            if (img?.areaComun === true) return true;
             if (_isCommonSpaceText(img?.espacio) || _isCommonSpaceText(img?.title)) return true;
             const sid = String(img?.espacioId || img?.espacio_id || img?.spaceId || '').trim();
             const info = sid ? _compInfoById[sid] : null;
@@ -187,11 +210,12 @@
             return 9999;
         };
         const _imgCreatedAt = (img) => {
-            const t = Date.parse(String(img?.createdAt || img?.created_at || img?.uploadedAt || img?.fecha || ''));
+            const t = Date.parse(String(img?.createdAt || img?.created_at || img?.uploadedAt || img?.fecha || img?.fechaImport || ''));
             return Number.isFinite(t) ? t : 0;
         };
         // Fallback: si websiteData no tiene fotos, usar las de la tabla galeria
         const _propImgsRaw = _fromWSD.length > 0 ? _fromWSD : (galeriaFotos || []);
+        /* Propiedad primero (por espacio según inventario); espacios comunes de empresa al final */
         const _allImgsRaw = [..._propImgsRaw, ..._commonAreaImgs];
         const _allImgs = [..._allImgsRaw].sort((a, b) => {
             const _cA = _isCommonSpaceImage(a) ? 1 : 0;
@@ -216,9 +240,15 @@
             }
             return '<span class="absolute top-2 right-2 z-[2] inline-flex items-center gap-1 rounded-full bg-primary-100 text-primary-800 border border-primary-300 text-[10px] font-semibold px-2 py-1 shadow-sm pointer-events-none"><i class="fas fa-house text-[10px]"></i>Privado</span>';
         };
+        /* Primera celda = portada (tarjeta): misma URL que cardImage para consistencia con lista/contesto SSR */
         let _galeria    = _allImgs.slice();
         if (_cardImg) {
-            _galeria = _galeria.filter(img => img?.imageId !== _cardImg.imageId && img?.id !== _cardImg.imageId);
+            const _cardPath = String(_cardImg.storagePath || '').trim();
+            _galeria = _galeria.filter((img) => {
+                const p = String(img?.storagePath || '').trim();
+                if (_cardPath && p === _cardPath) return false;
+                return img?.imageId !== _cardImg.imageId && img?.id !== _cardImg.imageId;
+            });
             _galeria.unshift(_cardImg);
         }
         if (_galeria.length === 0 && _cardImg) _galeria = [_cardImg];

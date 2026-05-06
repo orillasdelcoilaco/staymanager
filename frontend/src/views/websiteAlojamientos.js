@@ -257,11 +257,61 @@ function _mostrarPortadaPickerModal(propiedadId, fotos, currentPortadaId, onSucc
 }
 
 
+// ─── Wizard: al salir de Fotos → preparar imágenes SSR (misma lógica que repair web) y paso SEO ─
+async function prepareForSeoStepAndAdvance() {
+    const btn = document.getElementById('btn-guardar-paso2');
+    const prevHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Validando plan de fotos y sincronizando…';
+    }
+    try {
+        await fetchAPI(`/website/propiedad/${state.propiedadId}/prepare-for-seo-step`, {
+            method: 'POST',
+            body: {},
+        });
+        const wd = await fetchAPI(`/website/propiedad/${state.propiedadId}`);
+        state.propiedadData = { ...state.propiedadData, ...wd };
+    } catch (e) {
+        const msg = e.message || 'Error desconocido';
+        if (e.status === 409) {
+            alert(msg);
+            try {
+                const wd = await fetchAPI(`/website/propiedad/${state.propiedadId}`);
+                state.propiedadData = { ...state.propiedadData, ...wd };
+                await cargarPropiedades();
+            } catch (_) { /* ignore */ }
+        } else if (e.status === 503) {
+            alert('Esta acción requiere base de datos PostgreSQL. Contacta soporte o avanza a SEO y reintenta más tarde.');
+        } else if (e.status === 429) {
+            alert(msg);
+        } else {
+            alert('No se pudo preparar el sitio antes de SEO: ' + msg);
+        }
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = prevHtml;
+        }
+        return;
+    }
+    state.paso = 3;
+    renderRoot();
+}
+
 // ─── Wizard callbacks ─────────────────────────────────────────────────────────
 function bindWizardCallbacks() {
     bindWizard(state, {
         onBack:     () => { state.propiedadId = null; cargarPropiedades().then(() => renderRoot()); },
-        onNextStep: () => { if (state.paso < 3) { state.paso++; renderRoot(); } },
+        onNextStep: () => {
+            if (state.paso === 2) {
+                void prepareForSeoStepAndAdvance();
+                return;
+            }
+            if (state.paso < 3) {
+                state.paso++;
+                renderRoot();
+            }
+        },
         onPrevStep: () => { if (state.paso > 1) { state.paso--; renderRoot(); } },
         onGoToPaso: (n) => { state.paso = n; renderRoot(); },
         onFinish:   () => { state.propiedadId = null; cargarPropiedades().then(() => renderRoot()); },

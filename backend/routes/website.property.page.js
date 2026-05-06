@@ -78,7 +78,9 @@ function _toGalleryItem(raw, idx = 0) {
         altText: String(raw?.alt || raw?.altText || '').trim(),
         title: String(raw?.title || raw?.alt || raw?.altText || '').trim(),
         espacio: String(raw?.espacio || '').trim(),
+        espacioId: String(raw?.espacioId || raw?.espacio_id || '').trim(),
         orden: Number.isFinite(Number(raw?.orden)) ? Number(raw.orden) : idx + 1,
+        createdAt: raw?.createdAt || raw?.fechaImport || raw?.fecha || null,
     };
 }
 

@@ -34,6 +34,12 @@ export function renderPaso2(state) {
                     <strong><i class="fa-solid fa-camera"></i> Asistente IA</strong>,
                     <strong><i class="fa-solid fa-images"></i> Galería</strong> o
                     <strong><i class="fa-solid fa-upload"></i> Subir</strong>.
+                    <span class="block mt-1.5 text-primary-700 font-medium">
+                        Al pulsar <strong>Continuar con SEO</strong> debe estar cumplido el plan de fotos por espacio;
+                        las fotos que no cumplen calidad o datos mínimos (cualquier origen) se eliminan; luego se sincroniza la galería con el sitio público,
+                        se regeneran miniaturas WebP (PageSpeed), tarjeta y banner, y se invalida la caché SSR.
+                        Si falta alguna toma, verás el motivo en la tarjeta del alojamiento en la lista.
+                    </span>
                 </p>
             </div>
         </div>

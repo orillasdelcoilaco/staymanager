@@ -1,13 +1,13 @@
 # Reporte de Complejidad y Modularidad
-**Generado:** 2026-05-05 23:55
+**Generado:** 2026-05-06 21:00
 **Archivos analizados:** 403
-**Críticos:** 46 | **Warnings:** 0
+**Críticos:** 48 | **Warnings:** 0
 
 ---
 
 ## Resumen
 
-### 🔴 Críticos (46) — Requieren refactorización
+### 🔴 Críticos (48) — Requieren refactorización
 
 | Archivo | Problema | Detalle |
 |---------|---------|--------|
@@ -23,8 +23,9 @@
 | `frontend/src/views/comunicaciones.js` | function-size | función `afterRender` — 216 líneas (línea 503) |
 | `frontend/src/views/normasAlojamiento.js` | function-size | función `renderForm` — 153 líneas (línea 155) |
 | `frontend/src/views/resenas.js` | function-size | función `afterRender` — 125 líneas (línea 290) |
-| `frontend/src/views/websiteBlog.js` | function-size | función `afterRender` — 223 líneas (línea 91) |
-| `frontend/src/views/websiteBlog.js` | function-size | función `renderPosts` — 201 líneas (línea 102) |
+| `frontend/src/views/websiteAlojamientos.selector.js` | function-size | función `renderPropertyCardHtml` — 123 líneas (línea 77) |
+| `frontend/src/views/websiteBlog.js` | function-size | función `afterRender` — 247 líneas (línea 92) |
+| `frontend/src/views/websiteBlog.js` | function-size | función `renderPosts` — 225 líneas (línea 103) |
 | `backend/services/agentEmpresaLookupService.js` | function-size | función `lookupEmpresaForAgentQuery` — 152 líneas (línea 25) |
 | `backend/services/aiContentService.js` | file-size | 739 líneas (límite crítico: 700) |
 | `backend/services/aiContentService.js` | too-many-exports | 17 funciones exportadas (límite crítico: 15) |
@@ -51,12 +52,13 @@
 | `backend/services/transactionalEmailService.js` | function-size | función `enviarPorDisparador` — 124 líneas (línea 209) |
 | `backend/services/transactionalEmailService.js` | function-size | función `construirVariablesDesdeReserva` — 199 líneas (línea 412) |
 | `backend/services/transactionalEmailService.js` | too-many-exports | 17 funciones exportadas (límite crítico: 15) |
+| `backend/services/webImagesRepairService.js` | function-size | función `runWebImagesRepair` — 278 líneas (línea 64) |
 | `backend/routes/marketplace.js` | function-size | función `createMarketplaceRouter` — 126 líneas (línea 23) |
 | `backend/routes/website.booking.js` | function-size | función `registerBookingRoutes` — 156 líneas (línea 8) |
 | `backend/routes/website.property.js` | function-size | función `registerPropertyRoutes` — 220 líneas (línea 9) |
 | `backend/routes/website.property.page.js` | function-size | función `renderPropiedadPublica` — 182 líneas (línea 88) |
 | `backend/routes/website.seo.js` | function-size | función `registerSeoRoutes` — 212 líneas (línea 1) |
-| `backend/routes/websiteBlogApi.js` | function-size | función `mountOnRouter` — 178 líneas (línea 129) |
+| `backend/routes/websiteBlogApi.js` | function-size | función `mountOnRouter` — 185 líneas (línea 129) |
 
 ---
 

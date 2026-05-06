@@ -166,6 +166,16 @@ function renderPropertyCardHtml(p) {
 
                 </div>
 
+                ${wd.photoSeoBlocked?.summary
+
+        ? `<div class="rounded-lg bg-danger-50 border border-danger-100 px-2 py-1.5 text-[11px] text-danger-800 leading-snug">
+
+                    <i class="fa-solid fa-circle-exclamation mr-1"></i>${esc(wd.photoSeoBlocked.summary)}
+
+                </div>`
+
+        : ''}
+
                 <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
 
                     <div class="h-full rounded-full transition-all ${pct === 100 ? 'bg-success-400' : 'bg-primary-400'}" style="width:${pct}%"></div>

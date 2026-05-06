@@ -11,6 +11,31 @@ const {
 } = require('./imageUploadGuards');
 const { getCounts: getCountsImpl } = require('./galeriaService.counts');
 
+/**
+ * No pisar la foto de tarjeta que eligió el usuario: si sigue en galería, usar URLs
+ * actualizadas de esa fila; si es upload-only (id no está en galería), conservar metadata.
+ * Si no había elección, usar la primera foto del orden de sincronización.
+ */
+function resolveCardImageForWebsiteSync(rows, mapRow, prevCard) {
+    let autoFromOrder = null;
+    for (const f of rows) {
+        const obj = mapRow(f);
+        if (!autoFromOrder) autoFromOrder = obj;
+    }
+    if (!rows.length) {
+        return prevCard || null;
+    }
+    if (prevCard && typeof prevCard === 'object' && prevCard.imageId) {
+        const pid = String(prevCard.imageId);
+        const match = rows.find((r) => String(r.id) === pid || r.id === prevCard.imageId);
+        if (match) return mapRow(match);
+        // La portada apuntaba a una foto ya no en sync (p. ej. eliminada): si quedan fotos, primera del orden.
+        if (rows.length) return autoFromOrder;
+        return prevCard;
+    }
+    return autoFromOrder;
+}
+
 async function getGaleria(db, empresaId, propiedadId, filters = {}) {
     if (IS_POSTGRES) {
         let query = `SELECT id, original_url, storage_path, storage_url, thumbnail_url,
@@ -293,6 +318,12 @@ async function eliminarFoto(db, empresaId, propiedadId, fotoId) {
 
 async function syncToWebsite(db, empresaId, propiedadId) {
     if (IS_POSTGRES) {
+        const { rows: metaRows } = await pool.query(
+            `SELECT metadata->'websiteData'->'cardImage' AS prev_card FROM propiedades WHERE empresa_id=$1 AND id=$2`,
+            [empresaId, propiedadId]
+        );
+        const prevCard = metaRows[0]?.prev_card || null;
+
         const { rows } = await pool.query(
             `SELECT id, storage_url, thumbnail_url, alt_text, espacio, espacio_id, orden
              FROM galeria
@@ -310,21 +341,24 @@ async function syncToWebsite(db, empresaId, propiedadId) {
             console.log(`[DEBUG syncToWebsite] Estados: ${rows.map(r => r.estado).join(', ')}`);
         }
 
+        const mapPgRow = (f) => ({
+            imageId: f.id,
+            storagePath: f.storage_url,
+            thumbnailUrl: f.thumbnail_url,
+            altText: f.alt_text || '',
+            title: `${f.espacio || 'Vista'} - ${f.alt_text || ''}`,
+            description: f.alt_text || '', orden: f.orden || 0
+        });
+
         const images = {};
-        let cardImage = null;
         for (const f of rows) {
-            const imageObj = {
-                imageId: f.id,
-                storagePath: f.storage_url,
-                thumbnailUrl: f.thumbnail_url,
-                altText: f.alt_text || '',
-                title: `${f.espacio || 'Vista'} - ${f.alt_text || ''}`,
-                description: f.alt_text || '', orden: f.orden || 0
-            };
+            const imageObj = mapPgRow(f);
             if (!images[f.espacio_id]) images[f.espacio_id] = [];
             images[f.espacio_id].push(imageObj);
-            if (!cardImage) cardImage = imageObj;
         }
+
+        const cardImage = resolveCardImageForWebsiteSync(rows, mapPgRow, prevCard);
+
         await pool.query(
             `UPDATE propiedades
              SET metadata = metadata || jsonb_build_object('websiteData',
@@ -340,7 +374,11 @@ async function syncToWebsite(db, empresaId, propiedadId) {
     }
 
     // Modo Firestore
-    const fotosSnap = await db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId)
+    const propRef = db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId);
+    const propSnap = await propRef.get();
+    const prevCard = propSnap.exists ? (propSnap.data().websiteData?.cardImage || null) : null;
+
+    const fotosSnap = await propRef
         .collection('galeria').where('estado', 'in', ['auto', 'manual']).where('espacioId', '!=', null).get();
 
     // DEBUG: Log para diagnóstico del problema IMG-001
@@ -355,12 +393,13 @@ async function syncToWebsite(db, empresaId, propiedadId) {
     }
 
     const images = {};
-    let cardImage = null;
+    const syncRows = [];
     fotosSnap.docs.forEach(d => {
         const f = d.data();
         const fullU = f.storageUrl || f.storagePath;
         const thU = f.thumbnailUrl;
         if (!thU || !fullU || thU === fullU) return;
+        syncRows.push({ ...f, id: d.id, _fullU: fullU, _thU: thU });
         const imageObj = {
             imageId: d.id,
             storagePath: fullU,
@@ -371,11 +410,21 @@ async function syncToWebsite(db, empresaId, propiedadId) {
         };
         if (!images[f.espacioId]) images[f.espacioId] = [];
         images[f.espacioId].push(imageObj);
-        if (!cardImage) cardImage = imageObj;
     });
 
-    await db.collection('empresas').doc(empresaId).collection('propiedades').doc(propiedadId)
-        .update({ 'websiteData.images': images, 'websiteData.cardImage': cardImage });
+    const mapFsRow = (row) => ({
+        imageId: row.id,
+        storagePath: row._fullU,
+        thumbnailUrl: row._thU,
+        altText: row.altText || '',
+        title: `${row.espacio || 'Vista'} - ${row.altText || ''}`,
+        description: row.altText || '', orden: row.orden || 0
+    });
+
+    syncRows.sort((a, b) => (a.orden || 0) - (b.orden || 0));
+    const cardImage = resolveCardImageForWebsiteSync(syncRows, mapFsRow, prevCard);
+
+    await propRef.update({ 'websiteData.images': images, 'websiteData.cardImage': cardImage });
 
     // DEBUG: Log resultado final Firestore
     console.log(`[DEBUG syncToWebsite] Resultado Firestore: total=${fotosSnap.size}, componentes=${Object.keys(images).length}`);
