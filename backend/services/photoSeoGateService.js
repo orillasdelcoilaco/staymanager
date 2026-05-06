@@ -1,7 +1,10 @@
 /**
  * Validación previa al paso SEO en Contenido Web: plan de fotos cumplido y purga estricta.
- * Cualquier foto activa (manual o automática) que no cumpla umbral, carezca de confianza
- * o de datos mínimos para SSR se elimina en almacenamiento y referencias (multi-tenant PG).
+ * Cualquier foto activa que carezca de datos mínimos para SSR o de confianza aceptable
+ * (según el análisis ya persistido en BD al auditar/importar la foto) se elimina (multi-tenant PG).
+ *
+ * No usa variables de entorno ni configuración por empresa: el umbral es lógica de producto en código.
+ * El campo `confianza` refleja la decisión numérica del pipeline de IA/análisis previo, no un ajuste manual del usuario final.
  */
 const pool = require('../db/postgres');
 const { IS_POSTGRES } = require('../config/dbConfig');
@@ -10,11 +13,11 @@ const { eliminarFoto } = require('./galeriaService');
 const { obtenerPropiedadPorId, actualizarPropiedad } = require('./propiedadesService');
 const { ssrCache } = require('./cacheService');
 
-/** Umbral mínimo de confianza para todas las fotos que pasan el gate SEO (origen irrelevante). */
-const MIN_CONFIDENCE_SSR = Math.min(
-    0.95,
-    Math.max(0.35, Number(process.env.PHOTO_SEO_GATE_MIN_CONFIDENCE || '0.55'))
-);
+/**
+ * Límite fijo de producto sobre `galeria.confianza` (0–1), ya calculado por el análisis al subir o auditar la foto.
+ * Por debajo: se considera que el pipeline automático ya marcó la foto como insuficiente para publicación SSR.
+ */
+const MIN_CONFIDENCE_FROM_ANALYSIS_PIPELINE = 0.55;
 
 /**
  * @returns {string|null} código de rechazo o null si la fila es válida para SSR
@@ -30,7 +33,7 @@ function evaluatePhotoRowForStrictSSR(row) {
     if (raw === null || raw === undefined || raw === '') return 'MISSING_CONFIDENCE';
     const conf = typeof raw === 'number' ? raw : parseFloat(raw, 10);
     if (Number.isNaN(conf)) return 'MISSING_CONFIDENCE';
-    if (conf < MIN_CONFIDENCE_SSR) return 'LOW_CONFIDENCE';
+    if (conf < MIN_CONFIDENCE_FROM_ANALYSIS_PIPELINE) return 'LOW_CONFIDENCE';
     return null;
 }
 
@@ -162,7 +165,7 @@ function buildIncompleteMessage(slots, purgeSummary) {
     let msg = `Completa el plan de fotos antes de SEO (${slots.slotsCumplidos}/${slots.slotsTotal} tomas).`;
     if (gap > 0) msg += ` Faltan ${gap} toma(s).`;
     if (purgeSummary?.length) {
-        msg += ` Se eliminaron ${purgeSummary.length} foto(s) que no cumplen calidad o datos mínimos para el sitio público (umbral ${MIN_CONFIDENCE_SSR}). Sube nuevas fotos.`;
+        msg += ` Se eliminaron ${purgeSummary.length} foto(s) que no superan el análisis de calidad guardado, o carecen de datos mínimos para el sitio público. Sube nuevas fotos.`;
     }
     return msg;
 }
@@ -231,7 +234,8 @@ module.exports = {
     runPrepareSeoPipeline,
     computePhotoPlanSlots,
     evaluatePhotoRowForStrictSSR,
-    MIN_CONFIDENCE_SSR,
-    /** @deprecated usar MIN_CONFIDENCE_SSR */
-    MIN_AUTO_CONFIDENCE: MIN_CONFIDENCE_SSR,
+    MIN_CONFIDENCE_FROM_ANALYSIS_PIPELINE,
+    /** @deprecated mismo valor que MIN_CONFIDENCE_FROM_ANALYSIS_PIPELINE */
+    MIN_CONFIDENCE_SSR: MIN_CONFIDENCE_FROM_ANALYSIS_PIPELINE,
+    MIN_AUTO_CONFIDENCE: MIN_CONFIDENCE_FROM_ANALYSIS_PIPELINE,
 };
