@@ -257,7 +257,7 @@ async function runWebImagesRepair(opts) {
                 try {
                     if (heroTh) await deleteFileByPath(heroTh).catch(() => {});
                     const buf = await fetchImageBuffer(heroFull);
-                    const { buffer: thumbBuffer } = await optimizeImage(buf, { maxWidth: 900, quality: 64 });
+                    const { buffer: thumbBuffer } = await optimizeImage(buf, { maxWidth: 900, quality: 58 });
                     assertOptimizedBuffers([thumbBuffer]);
                     const newThumbUrl = await uploadFile(thumbBuffer, thumbPathHero, 'image/webp');
                     assertDistinctPublicUrls(heroFull, newThumbUrl);

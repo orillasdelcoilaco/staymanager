@@ -403,7 +403,7 @@ module.exports = (db) => {
             const storagePathThumb = `empresas/${empresaId}/website/hero-${imageId}-thumb.${outputFormat}`;
             const { buffer: thumbBuffer } = await optimizeImage(file.buffer, {
                 maxWidth: 900,
-                quality: 64
+                quality: 58
             });
             assertOptimizedBuffers([optimizedBuffer, thumbBuffer]);
 

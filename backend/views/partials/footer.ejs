@@ -77,10 +77,10 @@
                     <% if (_fWaUrl) { %>
                     <li>
                         <a href="<%= _fWaUrl %>" target="_blank" rel="noopener"
-                           aria-label="WhatsApp"
-                           class="inline-flex items-center gap-2 bg-success-600 hover:bg-success-700 text-white px-4 py-2 rounded-lg font-semibold transition text-sm mt-1">
+                           aria-label="<%= _fhl === 'en' ? 'WhatsApp — footer contact' : 'WhatsApp — pie de página' %>"
+                           class="inline-flex items-center gap-2 bg-success-700 hover:bg-success-800 text-white px-4 py-2 rounded-lg font-semibold transition text-sm mt-1">
                             <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
-                            WhatsApp
+                            <%= _fhl === 'en' ? 'WhatsApp chat' : 'WhatsApp (contacto)' %>
                         </a>
                     </li>
                     <% } %>
