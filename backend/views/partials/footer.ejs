@@ -21,7 +21,7 @@
             <div>
                 <% if (locals.brandIdentity?.logoUrl || empresa.websiteSettings?.theme?.logoUrl) { %>
                 <img src="<%= locals.brandIdentity?.logoUrl || empresa.websiteSettings.theme.logoUrl %>"
-                     alt="<%= empresa.nombre %>" width="200" height="184" class="h-10 mb-3 w-auto max-w-[200px] object-contain" decoding="async">
+                     alt="<%= empresa.nombre %>" width="160" height="40" class="h-10 mb-3 w-auto max-w-[160px] object-contain" decoding="async" loading="lazy" sizes="(max-width: 640px) 120px, 160px">
                 <% } %>
                 <p class="font-bold text-white text-lg mb-1"><%= empresa.nombre %></p>
                 <% if (_fCiudad || _fRegion) { %>
@@ -78,7 +78,7 @@
                     <li>
                         <a href="<%= _fWaUrl %>" target="_blank" rel="noopener"
                            aria-label="<%= _fhl === 'en' ? 'WhatsApp — footer contact' : 'WhatsApp — pie de página' %>"
-                           class="inline-flex items-center gap-2 bg-success-700 hover:bg-success-800 text-white px-4 py-2 rounded-lg font-semibold transition text-sm mt-1">
+                           class="inline-flex items-center gap-2 bg-success-800 hover:bg-success-900 text-white px-4 py-2 rounded-lg font-semibold transition text-sm mt-1">
                             <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
                             <%= _fhl === 'en' ? 'WhatsApp chat' : 'WhatsApp (contacto)' %>
                         </a>

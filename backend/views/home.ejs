@@ -130,6 +130,7 @@
     <% if (locals.schemaData) { %>
     <script type="application/ld+json"><%- JSON.stringify(schemaData) %></script>
     <% } %>
+    <%- include('partials/ssr-preload-website-css') %>
     <link rel="stylesheet" href="/public/css/website.css">
     <% if (locals.customCSS && locals.customCSS.trim().length > 0) { %><style><%= locals.customCSS %></style><% } %>
     <%- include('partials/web-fonts') %>
@@ -441,7 +442,7 @@
                             </a>
                             <% if (_waLink) { %>
                             <a href="<%= _waLink %>" target="_blank" rel="noopener noreferrer"
-                               class="flex items-center gap-2 bg-success-600 hover:bg-success-700 text-white font-bold text-sm px-6 py-3 rounded-xl transition-colors">
+                               class="flex items-center gap-2 bg-success-800 hover:bg-success-900 text-white font-bold text-sm px-6 py-3 rounded-xl transition-colors">
                                 <i class="fab fa-whatsapp text-lg" aria-hidden="true"></i>
                                 WhatsApp
                             </a>

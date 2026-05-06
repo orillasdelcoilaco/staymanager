@@ -7,7 +7,8 @@
     "start": "npm run build && node index.js",
     "build:css": "tailwindcss -i ../frontend/public/css/source.css -o ../frontend/public/css/style.css --minify && echo 'Admin CSS build completed.'",
     "build:website-css": "tailwindcss -i ./public/css/website-source.css -o ./public/css/website.css --minify && echo 'Website CSS build completed.'",
-    "build": "npm run build:css && npm run build:website-css"
+    "build": "npm run build:css && npm run build:website-css",
+    "firebase:deploy-storage": "firebase deploy --only storage --config firebase/firebase.json"
   },
   "author": "",
   "license": "ISC",
@@ -42,6 +43,7 @@
     "uuid": "^10.0.0"
   },
   "devDependencies": {
+    "firebase-tools": "^14.12.0",
     "tailwindcss": "^3.4.1"
   },
   "overrides": {

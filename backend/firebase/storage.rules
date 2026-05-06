@@ -1,0 +1,14 @@
+rules_version = '2';
+
+// Solo `empresas/**`: datos multi-tenant del producto (hero, logos, galería, etc.).
+// Todo lo demás queda implícitamente denegado.
+// Lectura: navegador + URLs con token (`firebaseStorageDownloadTokens` en metadata).
+// Escritura cliente: no (las subidas son por Admin SDK en backend; no usan estas reglas).
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /empresas/{path=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

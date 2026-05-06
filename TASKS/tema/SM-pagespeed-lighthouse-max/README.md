@@ -21,3 +21,15 @@ Acercar **todas** las URLs SSR tenant (`website.*`) y **suitemanagers.com** (mar
 ## Estado
 
 - **En curso** — thumbnails grid + FA modular (solid/brands) + preconnect unificado + **miniatura hero + srcset** + skip link / landmark principal + doc. **Thumbnails viejos en datos:** sync galería o nueva portada/card según `audit-causas-raiz.md`.
+
+### Firebase Storage (403 en imágenes públicas)
+
+- Reglas versionadas en el repo: **`backend/firebase/storage.rules`** + **`backend/firebase/firebase.json`** (lectura pública solo en `empresas/**`, una vez para todo el proyecto).
+- Despliegue (sesión `firebase login` al proyecto correcto):
+
+  ```bash
+  cd backend
+  npm run firebase:deploy-storage -- --project suite-manager-app
+  ```
+
+  Usa la CLI incluida en `devDependencies` (`firebase-tools`). Si el ID del proyecto es otro, cambiar `--project`.
