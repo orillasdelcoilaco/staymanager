@@ -1,0 +1,73 @@
+<%- /* Listado blog SSR */ %>
+<% const _hl = (typeof htmlLang !== 'undefined' && htmlLang === 'en') ? 'en' : 'es'; %>
+<!DOCTYPE html>
+<html lang="<%= _hl %>">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <%- include('partials/ssr-preconnect-cdnjs') %>
+    <%- include('partials/google-site-verification') %>
+    <%
+        const _pageTitle = typeof title !== 'undefined' ? title : (_hl === 'en' ? 'Blog' : 'Blog');
+        const _pageDesc = _hl === 'en'
+            ? `News and guides from ${empresa.nombre}`
+            : `Notas y guías de ${empresa.nombre}`;
+        const _pageUrl = (typeof baseUrl !== 'undefined' ? baseUrl : '') + '/blog';
+        const _heroImage = empresa.websiteSettings?.theme?.heroImageUrl || '';
+        const _logoUrl = locals.brandIdentity?.logoUrl || empresa.websiteSettings?.theme?.logoUrl || '';
+    %>
+    <title><%= _pageTitle %></title>
+    <meta name="description" content="<%= _pageDesc %>">
+    <link rel="canonical" href="<%= _pageUrl %>">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="<%= _pageTitle %>">
+    <meta property="og:description" content="<%= _pageDesc %>">
+    <meta property="og:url" content="<%= _pageUrl %>">
+    <% if (_heroImage) { %><meta property="og:image" content="<%= _heroImage %>"><% } %>
+    <link rel="stylesheet" href="/public/css/website.css">
+    <% if (locals.customCSS && locals.customCSS.trim().length > 0) { %>
+    <style><%= locals.customCSS %></style>
+    <% } %>
+    <%- include('partials/web-fonts', { brandFont: (locals.brandIdentity && locals.brandIdentity.typography && locals.brandIdentity.typography.fontFamily) || '' }) %>
+    <%- include('partials/ssr-fontawesome-deferred') %>
+    <% if (_logoUrl) { %><link rel="icon" href="<%= _logoUrl %>" type="image/png"><% } %>
+</head>
+<body class="bg-gray-50 flex flex-col min-h-screen">
+    <%- include('partials/header') %>
+    <main id="main-content" class="flex-grow">
+        <div class="bg-primary-700 text-white py-12 px-4 text-center">
+            <h1 class="text-3xl md:text-4xl font-bold"><%= _hl === 'en' ? 'Blog' : 'Blog' %></h1>
+            <p class="text-primary-100 mt-2 max-w-xl mx-auto"><%= _pageDesc %></p>
+        </div>
+        <div class="container mx-auto px-4 py-10 max-w-3xl">
+            <% if (!posts || posts.length === 0) { %>
+                <p class="text-gray-600 text-center py-12"><%= _hl === 'en' ? 'No articles yet.' : 'Aún no hay artículos publicados.' %></p>
+            <% } else { %>
+                <ul class="space-y-6">
+                    <% posts.forEach((p) => { %>
+                        <li class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                            <% if (p.featuredImageUrl) { %>
+                            <a href="<%= baseUrl %>/blog/<%= encodeURIComponent(p.slug) %>" class="block aspect-[21/9] bg-gray-100">
+                                <img src="<%= p.featuredImageUrl %>" alt="" class="w-full h-full object-cover" width="840" height="360" loading="lazy" decoding="async">
+                            </a>
+                            <% } %>
+                            <div class="p-6">
+                                <h2 class="text-xl font-semibold text-gray-900">
+                                    <a href="<%= baseUrl %>/blog/<%= encodeURIComponent(p.slug) %>" class="hover:text-primary-600"><%= p.title %></a>
+                                </h2>
+                                <% if (p.excerpt) { %>
+                                <p class="text-gray-600 mt-2 line-clamp-3"><%= p.excerpt %></p>
+                                <% } %>
+                                <a href="<%= baseUrl %>/blog/<%= encodeURIComponent(p.slug) %>" class="inline-block mt-4 text-primary-600 font-medium hover:underline">
+                                    <%= _hl === 'en' ? 'Read more' : 'Leer más' %>
+                                </a>
+                            </div>
+                        </li>
+                    <% }); %>
+                </ul>
+            <% } %>
+        </div>
+    </main>
+    <%- include('partials/footer') %>
+</body>
+</html>

@@ -39,6 +39,9 @@ const AI_TASK = {
 
     /** Generación de plantillas de mensaje (correo) con etiquetas [TAG] del motor */
     TEMPLATE_GENERATION: 'TEMPLATE_GENERATION',
+
+    /** Borrador de entrada de blog del sitio público (JSON: título, HTML, meta, reel opcional) */
+    BLOG_POST_DRAFT: 'BLOG_POST_DRAFT',
 };
 
 /**
@@ -57,6 +60,7 @@ const TASK_PROVIDER_MAP = {
     [AI_TASK.COMPANY_PROFILE]:     'groq',
     [AI_TASK.PHOTO_PLAN]:          'groq',
     [AI_TASK.TEMPLATE_GENERATION]: 'groq',
+    [AI_TASK.BLOG_POST_DRAFT]: 'groq',
 };
 
 /**
@@ -74,6 +78,7 @@ const TASK_INPUT_LIMITS = {
     [AI_TASK.COMPANY_PROFILE]:      3800,
     [AI_TASK.PHOTO_PLAN]:           6800,
     [AI_TASK.TEMPLATE_GENERATION]: 2400,
+    [AI_TASK.BLOG_POST_DRAFT]: 4200,
 };
 
 module.exports = { AI_TASK, TASK_PROVIDER_MAP, TASK_INPUT_LIMITS };

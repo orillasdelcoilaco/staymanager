@@ -17,7 +17,7 @@ const LIGHT_MAX = Math.max(1, Number(process.env.AI_PANEL_LIGHT_MAX || 45));
 
 /** Rutas que disparan muchos tokens / varios modelos seguidos */
 const HEAVY_PATH_RE =
-    /\/(generar-plan-fotos|generate-ai-text|generate-narrativa|generate-jsonld|optimize-profile|reclasificar-activos|generate-description)(\/|$)/;
+    /\/(generar-plan-fotos|generate-ai-text|generate-narrativa|generate-jsonld|optimize-profile|reclasificar-activos|generate-description|blog\/internal\/generate-draft)(\/|$)/;
 
 /** Subidas / auditoría con IA por archivo (más permisivo) */
 const LIGHT_PATH_RE = /\/(audit-slot|upload-image|upload-card-image|upload-hero-image)(\/|$)/;

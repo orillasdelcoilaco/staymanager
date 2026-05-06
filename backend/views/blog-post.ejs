@@ -1,0 +1,71 @@
+<%- /* Entrada blog SSR */ %>
+<% const _hl = (typeof htmlLang !== 'undefined' && htmlLang === 'en') ? 'en' : 'es'; %>
+<!DOCTYPE html>
+<html lang="<%= _hl %>">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <%- include('partials/ssr-preconnect-cdnjs') %>
+    <%- include('partials/google-site-verification') %>
+    <%
+        const _pageTitle = typeof title !== 'undefined' ? title : (post.title || 'Blog');
+        const _pageDesc = typeof metaDescription !== 'undefined' && metaDescription
+            ? metaDescription
+            : (post.excerpt || post.metaDescription || empresa.nombre);
+        const _pageUrl = (typeof baseUrl !== 'undefined' ? baseUrl : '') + '/blog/' + encodeURIComponent(post.slug);
+        const _heroImage = post.featuredImageUrl || empresa.websiteSettings?.theme?.heroImageUrl || '';
+        const _logoUrl = locals.brandIdentity?.logoUrl || empresa.websiteSettings?.theme?.logoUrl || '';
+        const _pub = post.publishedAt instanceof Date ? post.publishedAt.toISOString() : (post.publishedAt || new Date().toISOString());
+    %>
+    <title><%= _pageTitle %></title>
+    <meta name="description" content="<%= _pageDesc %>">
+    <link rel="canonical" href="<%= _pageUrl %>">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="<%= post.title %>">
+    <meta property="og:description" content="<%= _pageDesc %>">
+    <meta property="og:url" content="<%= _pageUrl %>">
+    <% if (_heroImage) { %><meta property="og:image" content="<%= _heroImage %>"><% } %>
+    <link rel="stylesheet" href="/public/css/website.css">
+    <% if (locals.customCSS && locals.customCSS.trim().length > 0) { %>
+    <style><%= locals.customCSS %></style>
+    <% } %>
+    <%- include('partials/web-fonts', { brandFont: (locals.brandIdentity && locals.brandIdentity.typography && locals.brandIdentity.typography.fontFamily) || '' }) %>
+    <%- include('partials/ssr-fontawesome-deferred') %>
+    <% if (_logoUrl) { %><link rel="icon" href="<%= _logoUrl %>" type="image/png"><% } %>
+    <script type="application/ld+json"><%- JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'BlogPosting',
+        headline: post.title,
+        datePublished: _pub,
+        dateModified: post.updatedAt instanceof Date ? post.updatedAt.toISOString() : _pub,
+        description: _pageDesc,
+        url: _pageUrl,
+        mainEntityOfPage: { '@type': 'WebPage', '@id': _pageUrl },
+        publisher: { '@type': 'Organization', name: empresa.nombre },
+        ...( _heroImage ? { image: [_heroImage] } : {} ),
+    }) %></script>
+</head>
+<body class="bg-gray-50 flex flex-col min-h-screen">
+    <%- include('partials/header') %>
+    <main id="main-content" class="flex-grow">
+        <article class="container mx-auto px-4 py-10 max-w-3xl">
+            <p class="text-sm text-gray-500 mb-4">
+                <a href="<%= baseUrl %>/blog" class="text-primary-600 hover:underline"><%= _hl === 'en' ? 'Blog' : 'Blog' %></a>
+            </p>
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900"><%= post.title %></h1>
+            <% if (post.excerpt) { %>
+            <p class="text-lg text-gray-600 mt-4"><%= post.excerpt %></p>
+            <% } %>
+            <% if (post.featuredImageUrl) { %>
+            <figure class="mt-8 rounded-xl overflow-hidden bg-gray-100">
+                <img src="<%= post.featuredImageUrl %>" alt="" class="w-full object-cover" width="960" height="540" loading="eager" decoding="async">
+            </figure>
+            <% } %>
+            <div class="prose prose-lg max-w-none mt-8 text-gray-800 blog-body">
+                <%- post.bodyHtml %>
+            </div>
+        </article>
+    </main>
+    <%- include('partials/footer') %>
+</body>
+</html>

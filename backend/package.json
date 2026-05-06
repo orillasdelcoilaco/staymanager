@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "npm run build && node index.js",
-    "build:css": "tailwindcss -i ../frontend/public/css/source.css -o ../frontend/public/css/style.css && echo 'Admin CSS build completed.'",
-    "build:website-css": "tailwindcss -i ./public/css/website-source.css -o ./public/css/website.css && echo 'Website CSS build completed.'",
+    "build:css": "tailwindcss -i ../frontend/public/css/source.css -o ../frontend/public/css/style.css --minify && echo 'Admin CSS build completed.'",
+    "build:website-css": "tailwindcss -i ./public/css/website-source.css -o ./public/css/website.css --minify && echo 'Website CSS build completed.'",
     "build": "npm run build:css && npm run build:website-css"
   },
   "author": "",
