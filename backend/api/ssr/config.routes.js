@@ -487,7 +487,7 @@ module.exports = (db) => {
     });
 
     // POST Optimizar Perfil Empresa (Estrategia Completa - Texto)
-    router.post('/optimize-profile', async (req, res, next) => {
+    router.post('/optimize-profile', async (req, res) => {
         try {
             const { empresaId } = req.user;
             const { historia } = req.body;
@@ -496,12 +496,29 @@ module.exports = (db) => {
             }
             const empresaContext = await getEmpresaContext(empresaId).catch(() => null);
             const strategy = await generarPerfilEmpresa(historia.trim(), empresaContext);
+            if (!strategy || typeof strategy !== 'object') {
+                return res.status(503).json({
+                    error:
+                        'La IA no devolvió un perfil válido. Revisa las claves API del panel (GROQ/GEMINI u otro proveedor en .env) o inténtalo más tarde.',
+                    code: 'OPTIMIZE_PROFILE_EMPTY',
+                });
+            }
             res.status(200).json(strategy);
         } catch (error) {
             if (error.message?.includes('patrones no permitidos')) {
                 return res.status(400).json({ error: 'El texto contiene contenido no permitido.' });
             }
-            next(error);
+            if (error.code === 'AI_QUOTA_EXCEEDED') {
+                return res.status(429).json({
+                    error: error.message || 'Cuota de IA excedida. Intenta más tarde.',
+                    code: 'AI_QUOTA_EXCEEDED',
+                });
+            }
+            console.error('[optimize-profile]', error);
+            return res.status(500).json({
+                error: error.message || 'No se pudo generar la estrategia.',
+                code: 'OPTIMIZE_PROFILE_FAILED',
+            });
         }
     });
 
