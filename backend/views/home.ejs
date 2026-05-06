@@ -4,7 +4,7 @@
 <html lang="<%= _hl %>">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
     <%- include('partials/google-site-verification') %>
     <%
         // Prioridad: lo editado en Configuración Web (SEO / contenido) gana sobre caché de IA (24h).
@@ -12,10 +12,21 @@
             || empresa.websiteSettings?.content?.homeH1
             || empresa.nombre
             || corporateContent?.hero?.title;
-        const _pageDesc     = empresa.websiteSettings?.seo?.homeDescription
+        let _pageDesc = empresa.websiteSettings?.seo?.homeDescription
             || empresa.websiteSettings?.content?.homeIntro
             || corporateContent?.hero?.subtitle
             || (_hl === 'en' ? `Direct bookings at ${empresa.nombre}` : `Reservas directas en ${empresa.nombre}`);
+        _pageDesc = String(_pageDesc || '').replace(/\s+/g, ' ').trim();
+        if (!_pageDesc) {
+            const _nom = String(empresa?.nombre || '').trim();
+            _pageDesc = _nom
+                ? (_hl === 'en'
+                    ? `Book your stay directly — ${_nom}`
+                    : `Reserva en ${_nom} — alojamientos y disponibilidad en línea.`)
+                : (_hl === 'en'
+                    ? 'Vacation rentals — book direct online.'
+                    : 'Alojamientos — reserva directa en línea.');
+        }
         const _pageUrl      = baseUrl || '';
         const _heroImage    = empresa.websiteSettings?.theme?.heroImageUrl || '';
         const _heroThumb    = empresa.websiteSettings?.theme?.heroImageThumbUrl || '';
