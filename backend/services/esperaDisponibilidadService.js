@@ -226,7 +226,7 @@ async function _resolveEmpresaPublicBaseUrl(empresaId) {
     if (domain) {
         baseUrl = /^https?:\/\//i.test(domain) ? domain : `https://${domain}`;
     } else if (subdomain) {
-        baseUrl = `https://${subdomain}.suitemanagers.com`;
+        baseUrl = `https://${subdomain}.${process.env.PLATFORM_DOMAIN || 'rezerva.cl'}`;
     }
     return { nombreEmpresa: empresa.nombre || 'SuiteManager', baseUrl };
 }

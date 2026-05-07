@@ -9,10 +9,10 @@
 
 | Campo | Valor |
 |-------|-------|
-| URL | `https://github.com/orillasdelcoilaco/staymanager` |
+| URL | `https://github.com/pmeza-rezerva/rezerva` |
 | Visibilidad | Privado |
 | Rama principal | `main` |
-| Owner | Pablo (orillasdelcoilaco) |
+| Owner | `pmeza-rezerva` (cuenta GitHub operación Rezerva) |
 
 ---
 

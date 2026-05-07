@@ -18,7 +18,7 @@ function _buildPublicBaseUrl(cfg) {
     const domain = String(general.domain || ws.domain || '').trim().toLowerCase();
     const sub = String(general.subdomain || ws.subdomain || '').trim().toLowerCase();
     if (domain && !domain.endsWith('.local')) return `https://${domain}`;
-    if (sub) return `https://${sub}.${process.env.PLATFORM_DOMAIN || 'suitemanagers.com'}`;
+    if (sub) return `https://${sub}.${process.env.PLATFORM_DOMAIN || 'rezerva.cl'}`;
     return null;
 }
 

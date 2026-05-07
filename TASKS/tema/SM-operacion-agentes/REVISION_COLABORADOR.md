@@ -100,7 +100,7 @@ SuiteManager es un **SaaS multi-tenant** para empresas que arriendan propiedades
 - Importación mágica: ingresa la URL del sitio web de la empresa → el sistema crea todo automáticamente con IA (fotos, espacios, descripciones)
 
 **URL de producción:** [https://suite-manager.onrender.com](https://suite-manager.onrender.com)
-**Repositorio:** [https://github.com/orillasdelcoilaco/staymanager](https://github.com/orillasdelcoilaco/staymanager)
+**Repositorio:** [https://github.com/pmeza-rezerva/rezerva](https://github.com/pmeza-rezerva/rezerva)
 **Deploy:** push a `main` → auto-deploy en Render
 
 ---

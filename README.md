@@ -62,7 +62,7 @@ Ejemplo de log: nueva empresa de prueba y usuario admin creados con éxito (los 
 
 Nombre del Proyecto: SuiteManager (anteriormente StayManager).
 
-Repositorio de Código: [https://github.com/orillasdelcoilaco/staymanager](https://github.com/orillasdelcoilaco/staymanager)
+Repositorio de Código: [https://github.com/pmeza-rezerva/rezerva](https://github.com/pmeza-rezerva/rezerva)
 
 Proyecto de Firebase:
 

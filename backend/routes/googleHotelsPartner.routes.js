@@ -9,18 +9,13 @@ const {
 } = require('../services/googleHotelsPartner/googleHotelsPartnerFeeds');
 
 function isPartnerFeedHostAllowed(req) {
-    const platform = (process.env.PLATFORM_DOMAIN || 'suitemanagers.com').toLowerCase();
+    const platform = (process.env.PLATFORM_DOMAIN || 'rezerva.cl').toLowerCase();
     const host = (req.hostname || '').toLowerCase();
     const allowed = new Set([
         `api.${platform}`,
         `feeds.${platform}`,
         'localhost',
         '127.0.0.1',
-        // Hostnames fijos acordados (venta-ia §1.2): feeds DNS en suitemanagers.com con tenants en suite-manager.com
-        'feeds.suitemanagers.com',
-        'api.suitemanagers.com',
-        'feeds.suite-manager.com',
-        'api.suite-manager.com',
     ]);
     String(process.env.GOOGLE_PARTNER_EXTRA_HOSTS || '')
         .split(',')

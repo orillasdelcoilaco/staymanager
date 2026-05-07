@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const controller = require("../services/suitemanagerApiController"); // Importar controlador
+const controller = require("../services/publicAiHttpController"); // Importar controlador
 const { lookupEmpresaForAgentQuery } = require("../services/agentEmpresaLookupService");
 const fs = require("fs");
 const path = require("path");

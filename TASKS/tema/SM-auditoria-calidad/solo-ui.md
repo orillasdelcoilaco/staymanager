@@ -1,4 +1,4 @@
-# Solo UI — Marketplace `suitemanagers.com` (capa plataforma)
+# Solo UI — Marketplace `rezerva.cl` (capa plataforma)
 
 **Propósito:** documento de trabajo **exclusivo para UI/UX** del sitio público de la **plataforma** (apex / `www`), no del panel SPA ni del SSR por tenant. Sirve para iterar hacia una experiencia tipo **referencia Airbnb** (patrón de conversión y jerarquía visual) sin confundir alcance con contratos de IA o feeds Google.
 
@@ -11,7 +11,7 @@
 | Incluye | No incluye (salvo tarea explícita aparte) |
 |---------|-------------------------------------------|
 | EJS marketplace: `backend/views/marketplace/*` | Lógica nueva de precios / disponibilidad / reserva |
-| Estilos del marketplace: `<style>` en EJS, clases, assets bajo `/public` usados solo por marketplace | Cambios a `backend/openapi/*.yaml`, `publicAiController`, `suitemanagerApiController` |
+| Estilos del marketplace: `<style>` en EJS, clases, assets bajo `/public` usados solo por marketplace | Cambios a `backend/openapi/*.yaml`, `publicAiController`, `publicAiHttpController` |
 | Copy i18n marketplace: `backend/services/marketplaceUiStrings.js` | Feeds XML partner (`/feeds/google/…`), `googleHotelsGlobalService.js` |
 | Orden visual, grid, hero, búsqueda, CTAs, tipografía, espaciado | Panel SPA **Canales IA** (`frontend/src/views/canalesIa.js`) — otro documento / tarea |
 | Accesibilidad básica (contraste, foco, labels) | Mezclar componentes o rutas SPA dentro del SSR marketplace |
@@ -40,7 +40,7 @@
 ## 3. Multi-tenant — qué significa en esta página
 
 - **Operaciones y datos privados** siguen **100 % aislados por `empresa_id`** en SPA y en SSR de cada subdominio.
-- **`suitemanagers.com` (marketplace) es una excepción deliberada de “solo una empresa”**: es **descubrimiento cruzado** (catálogo público). Solo expone lo que ya es público (propiedades activas, empresa con `subdominio`, etc.). **No** es mezcla de reservas, CRM ni datos sensibles entre tenants.
+- **El dominio plataforma (`rezerva.cl`, apex/`www`) es una excepción deliberada de “solo una empresa”**: es **descubrimiento cruzado** (catálogo público). Solo expone lo que ya es público (propiedades activas, empresa con `subdominio`, etc.). **No** es mezcla de reservas, CRM ni datos sensibles entre tenants.
 - El **cierre** (checkout, políticas, pago conceptual) ocurre en el **sitio del operador**: deep link a `https://<subdominio>.<PLATFORM_DOMAIN>/propiedad/...` (u dominio custom). La UI marketplace debe dejar eso **explícito** (confianza + “dónde reservas”).
 
 ---

@@ -93,12 +93,12 @@ PowerShell (Windows):
 cd "d:\pmeza\Desarrollos Render\staymanager"
 
 # Sin token en el tenant (feed 200 sin query):
-$env:GH_FEED_BASE_URL = "https://TU-SUBDOMINIO.suitemanagers.com"
+$env:GH_FEED_BASE_URL = "https://TU-SUBDOMINIO.rezerva.cl"
 Remove-Item Env:GH_FEED_TOKEN -ErrorAction SilentlyContinue
 node backend/scripts/verify-google-hotels-feed-checklist.js
 
 # Con token configurado en panel (mismo valor que pegaste en Canales IA):
-$env:GH_FEED_BASE_URL = "https://TU-SUBDOMINIO.suitemanagers.com"
+$env:GH_FEED_BASE_URL = "https://TU-SUBDOMINIO.rezerva.cl"
 $env:GH_FEED_TOKEN = "el-valor-exacto-del-panel"
 node backend/scripts/verify-google-hotels-feed-checklist.js
 ```

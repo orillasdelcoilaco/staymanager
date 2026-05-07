@@ -3,6 +3,8 @@
  * Datos desde GET /empresa y GET /auth/me — sin entrada manual salvo corrección del host.
  */
 
+import { getPlatformDomain } from '../../../platformConfig.js';
+
 export function buildPublicBaseUrl(empresa) {
     const g = empresa?.websiteSettings?.general || {};
     const custom = String(g.domain || empresa?.dominio || '').trim();
@@ -11,7 +13,7 @@ export function buildPublicBaseUrl(empresa) {
         const host = custom.replace(/^https?:\/\//i, '').split('/')[0].trim();
         if (host) return `https://${host}`;
     }
-    if (sub) return `https://${sub}.suitemanagers.com`;
+    if (sub) return `https://${sub}.${getPlatformDomain()}`;
     return '';
 }
 

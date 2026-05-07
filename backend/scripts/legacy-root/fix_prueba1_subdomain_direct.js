@@ -19,9 +19,9 @@ async function fixSubdomainDirect() {
         // Actualización directa usando notación de puntos para no sobrescribir todo el objeto websiteSettings
         await empresaRef.update({
             'websiteSettings.general.subdomain': 'prueba1',
-            'websiteSettings.general.domain': 'prueba1.suitemanager.com',
+            'websiteSettings.general.domain': 'prueba1.rezerva.cl',
             'websiteSettings.subdomain': 'prueba1', // Campo raíz para indexación rápida
-            'websiteSettings.domain': 'prueba1.suitemanager.com' // Campo raíz para indexación rápida
+            'websiteSettings.domain': 'prueba1.rezerva.cl' // Campo raíz para indexación rápida
         });
 
         console.log('✅ Subdominio actualizado a "prueba1" exitosamente (Método Directo).');

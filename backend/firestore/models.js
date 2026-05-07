@@ -17,7 +17,7 @@ const COLLECTIONS = {
 
 /**
  * @typedef {Object} SiteConfig
- * @property {string} domain - e.g., "myhotel.suitemanagers.com"
+ * @property {string} domain - e.g., "myhotel.rezerva.cl" (histórico: sufijo según `PLATFORM_DOMAIN`)
  * @property {string} primaryColor - Hex code
  * @property {string} secondaryColor - Hex code
  * @property {object} seo - Global SEO settings

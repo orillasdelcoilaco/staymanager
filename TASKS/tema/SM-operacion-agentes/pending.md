@@ -22,7 +22,7 @@ El informe describe componentes y rutas que **no existen en este proyecto**:
 - Favicon agregado — las iniciales "SM" en indigo-600, SVG inline en `index.html`.
 
 **Lo que sí necesito de OpenClaw para la próxima revisión:**
-1. Confirmar que accede a este repo: `https://github.com/orillasdelcoilaco/staymanager`
+1. Confirmar que accede a este repo: `https://github.com/pmeza-rezerva/rezerva`
 2. Probar la app en `http://[IP]:3001` con las credenciales reales (no una demo)
 3. Navegar: Login → Dashboard → Gestionar Alojamientos → Reservas → Galería de Fotos
 4. Reportar inconsistencias visuales REALES que vea en esas vistas (colores, botones, etc.)

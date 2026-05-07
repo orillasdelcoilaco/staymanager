@@ -1,3 +1,5 @@
+import { getPlatformDomain } from '../platformConfig.js';
+
 /**
  * URL base del feed ARI en el host público (sin query).
  * @param {object} emp Objeto empresa con websiteSettings.general, dominio, subdominio.
@@ -7,7 +9,7 @@ export function buildPublicAriFeedUrlFromEmp(emp) {
     let host = String(g.domain || emp?.dominio || '').trim().replace(/^https?:\/\//i, '');
     if (host) return `https://${host}/feed-ari.xml`;
     const sub = String(g.subdomain || emp?.subdominio || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
-    if (sub) return `https://${sub}.suitemanagers.com/feed-ari.xml`;
+    if (sub) return `https://${sub}.${getPlatformDomain()}/feed-ari.xml`;
     return '';
 }
 

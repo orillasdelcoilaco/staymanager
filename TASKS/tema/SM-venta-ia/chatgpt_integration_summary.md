@@ -1,5 +1,7 @@
 # Resumen de Integración SuiteManager <-> ChatGPT
 
+> **Importante (2026-05, rebrand):** el paquete npm del servidor MCP en `backend/ai/openai/mcp-server/package.json` se llama **`rezerva-mcp-server`**. Sustituye cualquier referencia desactualizada a **`suitemanager-mcp-server`** en Claude Desktop, Cursor u otros clientes MCP. Detalle: **`LEER-PRIMERO.md`** (tabla *Referencias de entorno*) y **`backend/ai/openai/mcp-server/README.md`**.
+
 Este documento detalla la arquitectura y los componentes implementados para conectar SuiteManager con el ecosistema de IA de OpenAI (ChatGPT) y el Protocolo de Contexto de Modelo (MCP).
 
 ## 1. Arquitectura General
@@ -21,6 +23,7 @@ Hemos transformado SuiteManager en una plataforma "AI-Native" que expone sus fun
 
 ### B. Servidor MCP (Model Context Protocol)
 *   **Ubicación:** `backend/ai/openai/mcp-server/`
+*   **Paquete npm:** `rezerva-mcp-server` (ver `package.json` y `README.md` en esa carpeta; nombre anterior `suitemanager-mcp-server` **obsoleto** para integradores).
 *   **Funcionalidad:**
     *   Actúa como un servidor de herramientas para la IA.
     *   **Herramienta `buscar_empresa`:** Permite al agente global identificar a qué empresa se refiere el usuario (ej: "Quiero ir a Hotel Los Andes") y cargar su contexto específico.

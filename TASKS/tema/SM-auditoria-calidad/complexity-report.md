@@ -1,20 +1,20 @@
 # Reporte de Complejidad y Modularidad
-**Generado:** 2026-05-06 21:00
-**Archivos analizados:** 403
-**Críticos:** 48 | **Warnings:** 0
+**Generado:** 2026-05-07 22:17
+**Archivos analizados:** 406
+**Críticos:** 50 | **Warnings:** 0
 
 ---
 
 ## Resumen
 
-### 🔴 Críticos (48) — Requieren refactorización
+### 🔴 Críticos (50) — Requieren refactorización
 
 | Archivo | Problema | Detalle |
 |---------|---------|--------|
 | `frontend/src/views/components/configurarWebPublica/webPublica.general.unified.handlers.js` | function-size | función `bindUnifiedSave` — 150 líneas (línea 92) |
 | `frontend/src/views/components/configurarWebPublica/webPublica.general.unified.handlers.js` | function-size | función `normalizeSubdomain` — 146 líneas (línea 95) |
 | `frontend/src/views/components/configurarWebPublica/webPublica.general.unified.lineasExtraRows.js` | function-size | función `_createRowElement` — 127 líneas (línea 73) |
-| `frontend/src/views/components/configurarWebPublica/webPublica.general.unified.markup.js` | function-size | función `unifyBasicSection` — 138 líneas (línea 18) |
+| `frontend/src/views/components/configurarWebPublica/webPublica.general.unified.markup.js` | function-size | función `unifyBasicSection` — 138 líneas (línea 19) |
 | `frontend/src/views/components/configurarWebPublica/webPublica.paso1.identidad.js` | file-size | 797 líneas (límite crítico: 700) |
 | `frontend/src/views/components/configurarWebPublica/webPublica.paso1.identidad.js` | function-size | función `bindPaso1` — 133 líneas (línea 115) |
 | `frontend/src/views/components/crm/crm.pipeline.js` | function-size | función `setupPipeline` — 126 líneas (línea 94) |
@@ -24,8 +24,8 @@
 | `frontend/src/views/normasAlojamiento.js` | function-size | función `renderForm` — 153 líneas (línea 155) |
 | `frontend/src/views/resenas.js` | function-size | función `afterRender` — 125 líneas (línea 290) |
 | `frontend/src/views/websiteAlojamientos.selector.js` | function-size | función `renderPropertyCardHtml` — 123 líneas (línea 77) |
-| `frontend/src/views/websiteBlog.js` | function-size | función `afterRender` — 247 líneas (línea 92) |
-| `frontend/src/views/websiteBlog.js` | function-size | función `renderPosts` — 225 líneas (línea 103) |
+| `frontend/src/views/websiteBlog.js` | function-size | función `afterRender` — 247 líneas (línea 93) |
+| `frontend/src/views/websiteBlog.js` | function-size | función `renderPosts` — 225 líneas (línea 104) |
 | `backend/services/agentEmpresaLookupService.js` | function-size | función `lookupEmpresaForAgentQuery` — 152 líneas (línea 25) |
 | `backend/services/aiContentService.js` | file-size | 739 líneas (límite crítico: 700) |
 | `backend/services/aiContentService.js` | too-many-exports | 17 funciones exportadas (límite crítico: 15) |
@@ -33,7 +33,7 @@
 | `backend/services/blogSuggestionsService.js` | function-size | función `buildBriefForEntry` — 141 líneas (línea 213) |
 | `backend/services/buildContextService.js` | function-size | función `getBuildContext` — 122 líneas (línea 123) |
 | `backend/services/comunicacionesRetryService.js` | function-size | función `reintentarComunicacionEmail` — 197 líneas (línea 220) |
-| `backend/services/empresaService.js` | function-size | función `actualizarDetallesEmpresa` — 145 líneas (línea 91) |
+| `backend/services/empresaService.js` | function-size | función `actualizarDetallesEmpresa` — 145 líneas (línea 93) |
 | `backend/services/googleHotelsService.js` | function-size | función `generateAriFeed` — 131 líneas (línea 132) |
 | `backend/services/marketplaceUiStrings.js` | function-size | función `getMarketplaceStrings` — 123 líneas (línea 14) |
 | `backend/services/plantillasService.js` | too-many-exports | 16 funciones exportadas (límite crítico: 15) |
@@ -52,11 +52,13 @@
 | `backend/services/transactionalEmailService.js` | function-size | función `enviarPorDisparador` — 124 líneas (línea 209) |
 | `backend/services/transactionalEmailService.js` | function-size | función `construirVariablesDesdeReserva` — 199 líneas (línea 412) |
 | `backend/services/transactionalEmailService.js` | too-many-exports | 17 funciones exportadas (límite crítico: 15) |
-| `backend/services/webImagesRepairService.js` | function-size | función `runWebImagesRepair` — 278 líneas (línea 64) |
+| `backend/services/webImagesRepairHero.js` | function-size | función `repairHeroTheme` — 124 líneas (línea 17) |
+| `backend/services/webImagesRepairService.js` | function-size | función `runWebImagesRepair` — 229 líneas (línea 46) |
+| `backend/routes/empresa.js` | function-size | función `_PLATFORM_DOMAIN` — 182 líneas (línea 13) |
 | `backend/routes/marketplace.js` | function-size | función `createMarketplaceRouter` — 126 líneas (línea 23) |
 | `backend/routes/website.booking.js` | function-size | función `registerBookingRoutes` — 156 líneas (línea 8) |
 | `backend/routes/website.property.js` | function-size | función `registerPropertyRoutes` — 220 líneas (línea 9) |
-| `backend/routes/website.property.page.js` | function-size | función `renderPropiedadPublica` — 182 líneas (línea 88) |
+| `backend/routes/website.property.page.js` | function-size | función `renderPropiedadPublica` — 182 líneas (línea 90) |
 | `backend/routes/website.seo.js` | function-size | función `registerSeoRoutes` — 212 líneas (línea 1) |
 | `backend/routes/websiteBlogApi.js` | function-size | función `mountOnRouter` — 185 líneas (línea 129) |
 
@@ -123,7 +125,7 @@
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
 
 ### 9. `frontend/src/views/components/configurarWebPublica/webPublica.general.unified.markup.js` 🔴
-- **función `unifyBasicSection` — 138 líneas (línea 18)**
+- **función `unifyBasicSection` — 138 líneas (línea 19)**
   - Extraer sub-funciones con nombres descriptivos. Máximo 60 líneas por función.
 
 ### 10. `frontend/src/views/components/crm/crm.pipeline.js` 🔴

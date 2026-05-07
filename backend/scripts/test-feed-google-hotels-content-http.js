@@ -9,7 +9,7 @@
  *
  * baseDelSitioTenant: origen del SSR del tenant, con query si hace falta (p. ej. force_host en local).
  *   Ej.: http://127.0.0.1:3001?force_host=miempresa.onrender.com
- *   Ej.: https://miempresa.suitemanagers.com
+ *   Ej.: https://miempresa.rezerva.cl
  *
  * Sin segundo argumento: espera 200 sin ?token= (empresa sin token de contenido).
  *   Si responde 401, asume token activo e indica re-ejecutar con el token.

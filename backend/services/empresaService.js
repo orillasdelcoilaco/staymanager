@@ -2,6 +2,8 @@
 const pool = require('../db/postgres');
 const { ssrCache } = require('./cacheService');
 
+const PLATFORM_DOMAIN = (process.env.PLATFORM_DOMAIN || 'rezerva.cl').toLowerCase();
+
 function normalizeSubdomain(rawValue) {
     return String(rawValue || '')
         .trim()
@@ -101,7 +103,7 @@ const actualizarDetallesEmpresa = async (_db, empresaId, datos) => {
         resto.websiteSettings.general.subdomain = sub;
         subdominioFinal = subdominioFinal || sub;
         if (sub && !resto.websiteSettings.general.domain) {
-            resto.websiteSettings.general.domain = `${sub}.suitemanagers.com`;
+            resto.websiteSettings.general.domain = `${sub}.${PLATFORM_DOMAIN}`;
         }
         dominioFinal = dominioFinal || resto.websiteSettings.general.domain;
         resto.websiteSettings.subdomain = sub;
@@ -247,8 +249,7 @@ const obtenerEmpresaPorDominio = async (_db, hostname) => {
 
     if (
         hostLower.endsWith('.onrender.com') ||
-        hostLower.endsWith('.suitemanager.com') ||
-        hostLower.endsWith('.suitemanagers.com')
+        hostLower.endsWith(`.${PLATFORM_DOMAIN}`)
     ) {
         const subdomain = normalizeSubdomain(hostLower.split('.')[0]);
         // LOWER() para comparación case-insensitive (por si el subdominio fue guardado con mayúsculas)

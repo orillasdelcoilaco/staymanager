@@ -16,6 +16,7 @@ import {
     renderGooglePartnerOperatorSection,
     setupGooglePartnerOperatorUi,
 } from './components/canalesIa/canalesIa.googlePartner.operator.js';
+import { getPlatformDomain } from '../platformConfig.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -23,7 +24,7 @@ const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 let checklistS0PlainSnapshot = '';
 
 /** Marketplace público — catálogo §7.6 (host apex producción). */
-const CATALOGO_GOOGLE_HOTELS_URL = 'https://suitemanagers.com/google-hotels';
+const getCatalogoGoogleHotelsUrl = () => `https://${getPlatformDomain()}/google-hotels`;
 
 function renderPropiedadesGoogleTable(propiedades) {
     if (!propiedades?.length) {
@@ -84,7 +85,7 @@ function renderGoogleTab(empresa, propiedades) {
                 <p class="text-sm text-gray-600 mb-3">
                     En la web de la plataforma: listado de alojamientos opt-in para Google Hotels (misma elegibilidad que el Property List global).
                 </p>
-                <a href="${esc(CATALOGO_GOOGLE_HOTELS_URL)}" target="_blank" rel="noopener noreferrer" class="btn-outline btn-sm gap-1 inline-flex items-center">
+                <a href="${esc(getCatalogoGoogleHotelsUrl())}" target="_blank" rel="noopener noreferrer" class="btn-outline btn-sm gap-1 inline-flex items-center">
                     <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     Abrir catálogo Google Hotels
                 </a>
@@ -165,7 +166,7 @@ export async function render() {
                 <p class="text-gray-500 text-sm mt-1">
                     Conectores externos (Google Travel, asistentes, OpenAPI): feeds, tokens y mapeo por alojamiento.
                     Host público:
-                    <span class="font-mono text-gray-700">${esc(general.subdomain || empresa.subdominio || '…')}.suitemanagers.com</span>
+                    <span class="font-mono text-gray-700">${esc(general.subdomain || empresa.subdominio || '…')}.${esc(getPlatformDomain())}</span>
                 </p>
                 <div class="mt-3 p-3 rounded-lg bg-primary-50 border border-primary-100 text-xs text-primary-900">
                     <strong class="font-semibold">Organización:</strong>

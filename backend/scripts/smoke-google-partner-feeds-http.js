@@ -52,7 +52,7 @@ async function main() {
     if (base.includes('/feeds/') || base.includes('?')) {
         console.error(
             'smoke-google-partner-feeds-http: GH_PARTNER_FEED_BASE_URL debe ser solo el origen, sin path ni query.',
-            'Ejemplo correcto: https://feeds.suitemanagers.com',
+            'Ejemplo correcto: https://feeds.rezerva.cl',
             'Incorrecto: .../feeds/google/properties.xml?auth=... (el script añade path y ?auth= solo).',
         );
         process.exit(1);

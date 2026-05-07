@@ -247,7 +247,7 @@ function _buildPublicPropertyUrl(empresaRow, propiedadId, protocol) {
     let dom = String(empresaRow.dominio || '').trim().replace(/^https?:\/\//i, '');
     if (dom && !/^localhost/i.test(dom)) return `${pro}://${dom}/propiedad/${propiedadId}`;
     const sub = String(empresaRow.subdominio || '').trim().toLowerCase();
-    const root = process.env.PUBLIC_SITES_ROOT_DOMAIN || 'suitemanagers.com';
+    const root = process.env.PUBLIC_SITES_ROOT_DOMAIN || 'rezerva.cl';
     if (sub) return `${pro}://${sub}.${root}/propiedad/${propiedadId}`;
     return '';
 }

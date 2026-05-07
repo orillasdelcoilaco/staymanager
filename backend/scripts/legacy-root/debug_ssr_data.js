@@ -13,7 +13,7 @@ const db = admin.firestore();
 
 async function debugSSR() {
     try {
-        const hostname = 'prueba1.suitemanagers.com';
+        const hostname = 'prueba1.rezerva.cl';
         console.log(`Resolving tenant for: ${hostname}`);
 
         const empresa = await obtenerEmpresaPorDominio(db, hostname);

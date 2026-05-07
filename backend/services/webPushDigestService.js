@@ -8,7 +8,7 @@ const { obtenerDetallesEmpresa, actualizarDetallesEmpresa } = require('./empresa
 function getVapidConfig() {
     const publicKey = (process.env.VAPID_PUBLIC_KEY || '').trim();
     const privateKey = (process.env.VAPID_PRIVATE_KEY || '').trim();
-    const subject = (process.env.VAPID_SUBJECT || 'mailto:support@suitemanagers.com').trim();
+    const subject = (process.env.VAPID_SUBJECT || `mailto:support@${process.env.PLATFORM_DOMAIN || 'localhost'}`).trim();
     if (!publicKey || !privateKey) return null;
     return { publicKey, privateKey, subject };
 }

@@ -33,13 +33,13 @@ function resolveSelftestBaseUrl() {
         || '',
     ).trim().replace(/\/$/, '');
     if (explicit) return explicit;
-    const platform = (process.env.PLATFORM_DOMAIN || 'suitemanagers.com').toLowerCase();
+    const platform = (process.env.PLATFORM_DOMAIN || 'rezerva.cl').toLowerCase();
     return `https://feeds.${platform}`;
 }
 
 function buildPartnerFeedUrlsForDisplay() {
     const base = resolveSelftestBaseUrl();
-    const platform = (process.env.PLATFORM_DOMAIN || 'suitemanagers.com').toLowerCase();
+    const platform = (process.env.PLATFORM_DOMAIN || 'rezerva.cl').toLowerCase();
     return {
         selftestBaseUrl: base,
         platformDomain: platform,

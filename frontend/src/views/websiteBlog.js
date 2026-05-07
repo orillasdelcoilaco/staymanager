@@ -1,5 +1,6 @@
 // Panel: blog del sitio público — prompt local + borrador vía IA externa (pegar JSON) o IA interna (generate-draft).
 import { fetchAPI } from '../api.js';
+import { getPlatformDomain } from '../platformConfig.js';
 
 function esc(s) {
     return String(s ?? '')
@@ -94,7 +95,7 @@ export async function afterRender() {
     const urlEl = document.getElementById('blog-public-url');
     const sub = await loadEmpresaSubdomain();
     if (urlEl && sub) {
-        urlEl.textContent = `URL pública del blog: https://${sub}.suitemanagers.com/blog`;
+        urlEl.textContent = `URL pública del blog: https://${sub}.${getPlatformDomain()}/blog`;
     }
 
     /** @type {Record<string, string>} */

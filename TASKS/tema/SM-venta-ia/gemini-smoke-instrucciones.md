@@ -4,7 +4,7 @@
 
 ### Aclaraciones (evitar falsos positivos)
 
-1. **Push a GitHub:** no hace falta **para probar** si `https://suitemanagers.com` ya apunta al backend en Render: los GET son al código **ya desplegado**. Hace falta **push + deploy** solo para **cambiar** el comportamiento del servidor (nuevo código). Los smoke HTTP los puede ejecutar Gemini / `curl` / navegador contra la URL pública mientras responda 200.
+1. **Push a GitHub:** no hace falta **para probar** si `https://rezerva.cl` ya apunta al backend en Render: los GET son al código **ya desplegado**. Hace falta **push + deploy** solo para **cambiar** el comportamiento del servidor (nuevo código). Los smoke HTTP los puede ejecutar Gemini / `curl` / navegador contra la URL pública mientras responda 200.
 2. **`GET /api/public/version`:** el campo `version` del JSON es la **versión de contrato API pública** (p. ej. alineada a `info.version` del OpenAPI, por defecto **1.4.7** vía `PUBLIC_API_CONTRACT_VERSION` o constante en código), **no** el número de build de la app. Tras un deploy reciente, debe ser coherente con el YAML.
 3. **`/ai/buscar-empresa` y `ready_for_sales`:** indica si la empresa está **lista para venta por canal/tarifas** en nuestro modelo; no es un campo oficial “apto Google Hotel Center” — el feed global partner tiene reglas adicionales (listado, geo, etc. en `TASKS/tema/SM-venta-ia/venta-ia.md` §7).
 4. **Rutas distintas:** detalle rico para agentes: **`GET /api/alojamientos/detalle`** (prefijo `/api/`, no `/api/public/`) con `alojamiento_id` y opcionalmente `checkin` / `checkout`. Los paths bajo **`/api/public/*`** son el router `publicRoutes.js` (otro prefijo).
@@ -25,7 +25,7 @@
 
 | Variable | Ejemplo producción | Notas |
 |----------|-------------------|--------|
-| `BASE_URL` | `https://suitemanagers.com` | Sin barra final. Si probáis staging Render: `https://xxxx.onrender.com`. |
+| `BASE_URL` | `https://rezerva.cl` | Sin barra final. Si probáis staging Render: `https://xxxx.onrender.com`. |
 | `AGENT_KEY` | *(valor en env servidor `AGENT_API_KEYS`)* | Solo para **POST** que llevan `requireAgentKey`. Header: **`X-Agent-API-Key`**. Opcional: **`X-Agent-Name: Gemini`**. Si en el servidor **no** hay claves configuradas, muchos POST pueden responder igualmente (modo abierto con rate limit); no asumirlo en prod. |
 
 ---
@@ -65,8 +65,8 @@
 
 ## 4. Marketplace y dominios (no son la misma API)
 
-- **Marketplace HTML:** `https://suitemanagers.com` — catálogo humano global, p. ej. `/google-hotels`.
-- **SSR por empresa:** `https://<subdominio>.suitemanagers.com` o dominio propio (p. ej. `.cl`) si está configurado en la empresa.
+- **Marketplace HTML:** `https://rezerva.cl` — catálogo humano global, p. ej. `/google-hotels`.
+- **SSR por empresa:** `https://<subdominio>.rezerva.cl` o dominio propio si está configurado en la empresa.
 
 Gemini puede **abrir URLs en navegador** si la herramienta lo permite; para **contrato estable** usar siempre **`BASE_URL` + rutas `/api/public/*` y `/ai/*`** según OpenAPI.
 
@@ -83,7 +83,7 @@ Texto sugerido (pegar después del contexto):
 ## 6. Feeds Google Partner (XML, otro host)
 
 Los feeds globales **no** van en `openapi-gemini.yaml`: son  
-`GET https://feeds.suitemanagers.com/feeds/google/properties.xml?auth=<TOKEN_PARTNER>`  
+`GET https://feeds.rezerva.cl/feeds/google/properties.xml?auth=<TOKEN_PARTNER>`  
 (mismo para `ari.xml`). Token: env servidor **`GOOGLE_PARTNER_FEED_AUTH_TOKEN`**. Host debe estar permitido (`feeds.<PLATFORM_DOMAIN>` o `GOOGLE_PARTNER_EXTRA_HOSTS`). Esto es **prueba operativa**, no extensión Gemini estándar.
 
 ### 6.1 Después de que `properties` + `ari` den 200 (qué falta para “Google Hotels” completo)
@@ -93,7 +93,7 @@ Los feeds globales **no** van en `openapi-gemini.yaml`: son
 | Partner **estricto** | Misma máquina: `GH_PARTNER_FEED_BASE_URL`, `GH_PARTNER_FEED_AUTH_TOKEN`, luego `GH_PARTNER_FEED_STRICT=1 npm run smoke:partner-feeds` | Falla si no hay `<Property>` en alguno de los dos XML (datos panel / geo / listado). |
 | Feed **contenido por tenant** | `GH_FEED_BASE_URL=https://<host-tenant>` y si aplica `GH_FEED_TOKEN=…` → `npm run smoke:google-hotels-tenant` | Script `verify-google-hotels-feed-checklist.js` — §9 de `TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md`. |
 | Ayuda SSR | `GET {host-tenant}/widget-reserva-ayuda.json` — bloque `googleHotelsContentFeed` | Lo comprueba el script anterior. |
-| Catálogo plataforma | Navegador: `https://suitemanagers.com/google-hotels` (y `?lang=en` si aplica) | §7.6 / marketplace. |
+| Catálogo plataforma | Navegador: `https://rezerva.cl/google-hotels` (y `?lang=en` si aplica) | §7.6 / marketplace. |
 | Hotel Center | Consola Google: URLs finales, mapeo, validación | Fuera del repo; orden **Secuencia B** en `TASKS/tema/SM-ghc-onboarding/google-hotels-partner-deploy-checklist.md`; onboarding §4–§8 en `checklist-onboarding-google-hotel-center.md`. |
 
 ---
@@ -144,10 +144,10 @@ En el **Property List global**, el `<DeepLink>` hoy es la **URL base** de la fic
 
 ### 8.3 Enlaces para compartir con Gemini (feeds partner en producción)
 
-Sustituir el host si usáis otro (`feeds.suitemanagers.com` o el que tengáis en `GOOGLE_PARTNER_EXTRA_HOSTS`) y el token del secret **`GOOGLE_PARTNER_FEED_AUTH_TOKEN`** (en la query va como `auth`, no confundir con tokens `token=` de rutas por tenant):
+Sustituir el host si usáis otro (`feeds.rezerva.cl`, hostname Render u otro en `GOOGLE_PARTNER_EXTRA_HOSTS`) y el token del secret **`GOOGLE_PARTNER_FEED_AUTH_TOKEN`** (en la query va como `auth`, no confundir con tokens `token=` de rutas por tenant):
 
-- **Hotel List:** `https://feeds.suitemanagers.com/feeds/google/properties.xml?auth=<TOKEN_PARTNER>`
-- **ARI:** `https://feeds.suitemanagers.com/feeds/google/ari.xml?auth=<TOKEN_PARTNER>`
+- **Hotel List:** `https://feeds.rezerva.cl/feeds/google/properties.xml?auth=<TOKEN_PARTNER>`
+- **ARI:** `https://feeds.rezerva.cl/feeds/google/ari.xml?auth=<TOKEN_PARTNER>`
 
 ---
 
@@ -155,4 +155,4 @@ Sustituir el host si usáis otro (`feeds.suitemanagers.com` o el que tengáis en
 
 ---
 
-*Última actualización: 2026-05-04 — §8 + estrategia post–Google partner; address/category/Transaction id/Content-Type; ARI tax-inclusive.*
+*Última actualización: 2026-05-07 — Hosts de ejemplo alineados a **`rezerva.cl`** (`LEER-PRIMERO.md` § Referencias de entorno). §8 + estrategia post–Google partner; address/category/Transaction id/Content-Type; ARI tax-inclusive.*

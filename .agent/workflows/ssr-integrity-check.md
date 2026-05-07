@@ -32,7 +32,7 @@ Run this workflow after making changes to:
 ## Configuration Rules (Guardian)
 Any changes to "Configuración Web" must adhere to:
 1.  **Domain Generation**:
-    - Default domain MUST be `[subdomain].suitemanagers.com` (Plural).
+    - Default domain MUST be `[subdomain].rezerva.cl` (aligned to `PLATFORM_DOMAIN`).
     - Logic located in `backend/services/empresaService.js`.
 2.  **Visual Identity**:
     - `propiedad.ejs` must define `--primary-color` and `--secondary-color`.

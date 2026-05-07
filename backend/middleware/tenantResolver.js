@@ -2,7 +2,7 @@
 
 const { obtenerEmpresaPorDominio } = require('../services/empresaService');
 
-const PLATFORM_DOMAIN = process.env.PLATFORM_DOMAIN || 'suitemanagers.com';
+const PLATFORM_DOMAIN = process.env.PLATFORM_DOMAIN || 'rezerva.cl';
 const MARKETPLACE_HOSTS = new Set([
     PLATFORM_DOMAIN,
     `www.${PLATFORM_DOMAIN}`,

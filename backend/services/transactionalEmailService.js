@@ -15,7 +15,7 @@ const { esEstadoPrincipalCancelacionSync } = require('./estadosService');
 const { generarTokenParaReserva } = require('./resenasService');
 const { resolveDepositoReservaWeb } = require('./depositoReservaWebService');
 
-const PLATFORM_DOMAIN = process.env.PLATFORM_DOMAIN || 'suitemanagers.com';
+const PLATFORM_DOMAIN = process.env.PLATFORM_DOMAIN || 'rezerva.cl';
 
 /** Mapa disparador plantilla → evento en tabla comunicaciones */
 /** Disparadores transaccionales típicos; `consulta_contacto` usa interruptor maestro + categoría opcional `consultasDesdeWeb`; se excluye `notificacion_interna`. */
@@ -118,7 +118,7 @@ async function obtenerBaseUrlPublica(empresaId) {
     const ws = ctx.configuracion.websiteSettings || {};
     const sub = ws.general?.subdomain || '';
     const domain = (ws.general?.domain || '').trim().toLowerCase();
-    const hostBase = PLATFORM_DOMAIN || 'suitemanagers.com';
+    const hostBase = PLATFORM_DOMAIN || 'rezerva.cl';
     if (domain && domain.length > 3 && !domain.endsWith('.local')) {
         return `https://${domain}`;
     }

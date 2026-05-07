@@ -1,3 +1,4 @@
+// Handlers HTTP para rutas /api usadas por ChatGPT y agentes (antes `suitemanagerApiController.js`).
 const pool = require('../db/postgres');
 const { parseISO, isValid } = require('date-fns');
 const { resolveEmpresaDbId } = require('./resolveEmpresaDbId');

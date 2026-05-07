@@ -167,6 +167,11 @@ try {
     const backendPublicPath = path.join(__dirname, 'public');
     app.use('/public', cors({ origin: '*' }), express.static(backendPublicPath));
 
+    // ── Config pública de plataforma (sin auth — la SPA la lee en arranque) ──
+    app.get('/api/config/platform', cors(), (_req, res) => {
+        res.json({ platformDomain: process.env.PLATFORM_DOMAIN || '' });
+    });
+
     // ── Marketplace search API pública (antes del apiRouter con auth) ─────
     const { sendMarketplaceSearchJson } = require('./routes/marketplaceSearchJson.handler');
     app.get('/api/search.json', cors(), sendMarketplaceSearchJson);

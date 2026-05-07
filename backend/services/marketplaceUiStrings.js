@@ -1,5 +1,5 @@
 /**
- * UI del marketplace global (suitemanagers.com): copys ES/EN.
+ * UI del marketplace global (rezerva.cl): copys ES/EN.
  * Idioma: ?lang=en | ?lang=es; si no, Accept-Language (en*) → en; defecto es.
  */
 

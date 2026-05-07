@@ -7,7 +7,7 @@
     },
     "servers": [
         {
-            "url": "https://suitemanagers.com",
+            "url": "https://rezerva.cl",
             "description": "Marketplace público"
         },
         {
@@ -21,7 +21,7 @@
                 "summary": "Busca alojamientos en el marketplace de SuiteManagers",
                 "description": "Endpoint público sin autenticación. Retorna propiedades activas con foto, precio, rating y disponibilidad filtrada por fechas.",
                 "operationId": "buscarAlojamientos",
-                "servers": [{ "url": "https://suitemanagers.com" }],
+                "servers": [{ "url": "https://rezerva.cl" }],
                 "parameters": [
                     {
                         "name": "q",

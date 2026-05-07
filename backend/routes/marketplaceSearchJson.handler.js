@@ -1,4 +1,4 @@
-// Respuesta JSON pública del listado marketplace (host principal o suitemanagers.com).
+// Respuesta JSON pública del listado marketplace (host principal o rezerva.cl).
 const {
     obtenerPropiedadesParaMarketplace,
     PLATFORM_DOMAIN,

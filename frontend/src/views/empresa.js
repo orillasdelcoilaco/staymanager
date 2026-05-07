@@ -2,6 +2,7 @@
 import { fetchAPI } from '../api.js';
 import { handleNavigation } from '../router.js';
 import { renderUbicacionWidget, setupUbicacionWidget, getUbicacionData } from './components/ubicacionWidget.js';
+import { getPlatformDomain } from '../platformConfig.js';
 
 let empresaInfo = {};
 
@@ -40,7 +41,7 @@ function renderSitioPublicoResumen() {
         empresaInfo.websiteSettings?.general?.domain ||
         ''
     ).trim();
-    const hostSuite = sub ? `${sub}.suitemanagers.com` : '';
+    const hostSuite = sub ? `${sub}.${getPlatformDomain()}` : '';
     return `
         <fieldset class="border p-4 rounded-md bg-gray-50 border-gray-200">
             <legend class="px-2 font-semibold text-gray-700">Sitio público (URL y título en el navegador)</legend>

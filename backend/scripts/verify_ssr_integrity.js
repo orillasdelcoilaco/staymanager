@@ -5,7 +5,7 @@
  * Variables (backend/.env o entorno), opcionales:
  *   SSR_VERIFY_BASE_URL       default http://localhost:3001
  *   SSR_VERIFY_PROPERTY_ID    UUID Firestore de la propiedad en ese tenant
- *   SSR_VERIFY_FORCE_HOST     host del tenant (ej. midominio.suitemanagers.com o *.onrender.com)
+ *   SSR_VERIFY_FORCE_HOST     host del tenant (ej. midominio.rezerva.cl o *.onrender.com)
  */
 const http = require('http');
 const path = require('path');
@@ -19,7 +19,8 @@ try {
 
 const BASE_URL = (process.env.SSR_VERIFY_BASE_URL || 'http://localhost:3001').replace(/\/$/, '');
 const TEST_PROPERTY_ID = process.env.SSR_VERIFY_PROPERTY_ID || '7lzqGKUxuQK0cttYeH0y';
-const FORCE_HOST = (process.env.SSR_VERIFY_FORCE_HOST || 'prueba1.suitemanagers.com').replace(/^https?:\/\//i, '').split('/')[0];
+const PLATFORM_DOMAIN = (process.env.PLATFORM_DOMAIN || 'rezerva.cl').toLowerCase();
+const FORCE_HOST = (process.env.SSR_VERIFY_FORCE_HOST || `prueba1.${PLATFORM_DOMAIN}`).replace(/^https?:\/\//i, '').split('/')[0];
 
 const RED = '\x1b[31m';
 const GREEN = '\x1b[32m';

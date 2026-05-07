@@ -56,7 +56,7 @@ Configuración de alto nivel y datos administrativos.
   "nombre": "Cabañas El Bosque",
   "plan": "premium",
   "siteConfig": {
-    "domain": "elbosque.suitemanagers.com",
+    "domain": "elbosque.rezerva.cl",
     "primaryColor": "#4F46E5",
     "secondaryColor": "#10B981"
   },

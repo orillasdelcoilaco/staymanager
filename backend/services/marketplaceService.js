@@ -1,8 +1,8 @@
 // backend/services/marketplaceService.js
-// Queries CROSS-TENANT para el marketplace público suitemanagers.com
+// Queries CROSS-TENANT para el marketplace público rezerva.cl
 const pool = require('../db/postgres');
 
-const PLATFORM_DOMAIN = process.env.PLATFORM_DOMAIN || 'suitemanagers.com';
+const PLATFORM_DOMAIN = process.env.PLATFORM_DOMAIN || 'rezerva.cl';
 
 function mapearPropiedad(row) {
     const titulo = row.website_h1 || row.home_h1 || row.nombre;

@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const controller = require("../services/suitemanagerApiController");
+const controller = require("../services/publicAiHttpController");
 
 // disponibilidad
 router.get("/disponibilidad", controller.disponibilidad);

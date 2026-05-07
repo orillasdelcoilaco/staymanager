@@ -10,11 +10,13 @@ const { syncDomain } = require('../services/renderDomainService');
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
+const _PLATFORM_DOMAIN = (process.env.PLATFORM_DOMAIN || '').toLowerCase();
+
 module.exports = (db) => {
     const router = express.Router();
     const _isManagedInternalDomain = (domainValue) => {
         const d = String(domainValue || '').trim().toLowerCase();
-        return d.endsWith('.onrender.com') || d.endsWith('.suitemanagers.com') || d.endsWith('.suitemanager.com');
+        return d.endsWith('.onrender.com') || (_PLATFORM_DOMAIN && d.endsWith(`.${_PLATFORM_DOMAIN}`));
     };
 
     // --- RUTA NUEVA PARA SUBIR EL LOGO ---
@@ -152,7 +154,7 @@ module.exports = (db) => {
                     const useOnRenderDomain = oldDomain.endsWith('.onrender.com');
                     const domainDerivado = useOnRenderDomain
                         ? `${subDerivado}.onrender.com`
-                        : `${subDerivado}.suitemanagers.com`;
+                        : `${subDerivado}.${process.env.PLATFORM_DOMAIN || 'rezerva.cl'}`;
 
                     datosActualizados.subdominio = subDerivado;
                     datosActualizados.dominio = domainDerivado;

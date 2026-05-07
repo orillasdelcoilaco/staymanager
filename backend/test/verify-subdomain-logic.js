@@ -1,3 +1,9 @@
+/**
+ * @deprecated 2026-05: `obtenerEmpresaPorDominio` en `empresaService.js` resuelve contra **PostgreSQL**
+ * (`DATABASE_URL`); escribe en **Firestore** pero el resolver no lee esta colección en modo PG.
+ * Para validar `*.rezerva.cl`, insertar fila de prueba en `empresas` (PG) o reescribir el test hacia SQL.
+ * Hosts `*.suitemanager.com` / `*.suitemanagers.com` dejaron de ser el sufijo canónico (`PLATFORM_DOMAIN`).
+ */
 const admin = require('firebase-admin');
 const serviceAccount = require('../serviceAccountKey.json');
 const { actualizarDetallesEmpresa, obtenerDetallesEmpresa, obtenerEmpresaPorDominio } = require('../services/empresaService');

@@ -35,7 +35,7 @@ async function testSSR() {
         console.log(`✅ Subdominio detectado: ${subdomain}`);
 
         // 2. Probar resolución de dominio
-        const mockHostname = `${subdomain}.suitemanager.com`;
+        const mockHostname = `${subdomain}.rezerva.cl`;
         console.log(`\n2. Probando obtenerEmpresaPorDominio con hostname: ${mockHostname}`);
         const empresaResuelta = await obtenerEmpresaPorDominio(db, mockHostname);
 

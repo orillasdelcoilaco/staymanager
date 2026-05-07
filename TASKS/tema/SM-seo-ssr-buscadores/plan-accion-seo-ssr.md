@@ -4,7 +4,7 @@
 
 Se necesita mejorar posicionamiento organico en buscadores para dos superficies distintas:
 
-- Sitio plataforma `suitemanagers.com` (marca, captacion y discovery).
+- Sitio plataforma `rezerva.cl` (marca, captación y discovery; `PLATFORM_DOMAIN` en env).
 - Sitios SSR por empresa (fichas y contenido publico por tenant).
 
 Riesgo actual: mezclar estrategia o tecnicos entre plataforma y tenant puede generar canibalizacion SEO, metadatos inconsistentes o indexacion incompleta.
@@ -38,20 +38,20 @@ Lograr una base SEO tecnica estable y medible para ambos mundos SSR, con foco en
 
 | Superficie | Quién la ve en el panel | Menú |
 |------------|-------------------------|------|
-| `suitemanagers.com` (indexación, marketplace, métricas agregadas de la plataforma) | Solo **superadministrador** / operador plataforma | **Apartado dedicado** (nombre TBD: p. ej. «SuiteManagers — buscadores» o «Plataforma SEO») |
+| Dominio plataforma (`rezerva.cl`) — indexación, marketplace, métricas agregadas | Solo **superadministrador** / operador plataforma | **Apartado dedicado** (p. ej. «Plataforma Rezerva — buscadores») |
 | Sitio SSR del tenant (subdominio/dominio de la empresa) | Cada **cliente** (admin de empresa) | Ítem o categoría en menú **del cliente** (sin datos de plataforma mezclados) |
 
 **Cuando exista menú configurable por cliente:** el bloque de plataforma **no** se ofrece en la plantilla de menú estándar; sigue condicionado a rol superadmin en código (p. ej. filtro en `frontend/src/router.js` al armar `menuConfig`, mismo criterio futuro que otras piezas §8).
 
 **Implementación (cuando se codifique):**
 
-- Nueva ruta SPA solo plataforma + vista dedicada (enlaces Search Console/Bing a propiedades del dominio `suitemanagers.com`, checklist técnico de rutas marketplace).
+- Nueva ruta SPA solo plataforma + vista dedicada (enlaces Search Console/Bing a propiedades del dominio plataforma `rezerva.cl`, checklist técnico de rutas marketplace).
 - Menú cliente: ruta distinta para «SEO de mi sitio» con `empresa_id` en todas las APIs.
 - No reutilizar un solo ítem que mezcle ambas superficies para el usuario tenant.
 
 ## 5. Superficies a cubrir
 
-### A. Plataforma (`suitemanagers.com`)
+### A. Plataforma (`rezerva.cl`)
 
 - Home marketplace.
 - Paginas de detalle publico de alojamientos (si aplica en dominio plataforma).
@@ -134,7 +134,8 @@ Entregable: `seguimiento-seo-ssr.md`.
 ## 11. Bitacora de planificacion
 
 - 2026-05-05 — Se crea plan inicial del tema `SM-seo-ssr-buscadores` para alinear plataforma + tenant SSR sin mezclar responsabilidades.
-- 2026-05-05 — Menú SPA: bloque `suitemanagers.com` como apartado solo plataforma; con menú configurable para clientes, fuera del menú tenant y visible solo superadmin. SSR SEO permanece en menú del cliente.
+- 2026-05-05 — Menú SPA: bloque plataforma (dominio `rezerva.cl`) como apartado solo superadmin; menú configurable para clientes sin mezclar. SSR SEO permanece en menú del cliente.
+- 2026-05-07 — Referencias de dominio alineadas a **`rezerva.cl`** (rebrand `SM-rebrand-dominio`).
 - 2026-05-05 — Implementación inicial: rutas SPA `/seo-tenant` y `/seo-plataforma`; menú por rol en `router.js`; API `GET /api/seo-monitor/tenant` y `GET /api/seo-monitor/platform` (403 si no superadmin).
 - 2026-05-05 — Respuesta API con `panelActions` y vistas con bloque «Corregir en el panel» + botones que navegan por SPA (`handleNavigation`) a `/website-general`, `/canales-ia`, `/website-alojamientos` según diagnóstico.
 - 2026-05-05 — Cierre MVP tema: `httpChecks` (sondeo `robots`/`sitemap`), `seoMonitorProbeService.js`, `audit-seo-ssr-baseline.md`; tablero en **Listo** para este alcance.

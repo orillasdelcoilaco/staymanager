@@ -1,5 +1,6 @@
 {
-    "name": "suitemanager-mcp-server",
+    "name": "rezerva-mcp-server",
+    "description": "MCP local StayManager/Rezerva — antes suitemanager-mcp-server (actualizar clientes MCP)",
     "version": "0.0.1",
     "main": "index.js",
     "scripts": {

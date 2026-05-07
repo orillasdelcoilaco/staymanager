@@ -18,7 +18,7 @@ module.exports = (db) => {
         try {
             const response = await fetch(url, {
                 headers: {
-                    'User-Agent': 'SuiteManager/1.0 (contact@suitemanager.cl)',
+                    'User-Agent': process.env.NOMINATIM_USER_AGENT || `Rezerva/1.0 (${process.env.PLATFORM_DOMAIN || 'localhost'})`,
                     'Accept-Language': 'es,en',
                     'Accept': 'application/json'
                 }
@@ -62,7 +62,7 @@ module.exports = (db) => {
         try {
             const response = await fetch(url, {
                 headers: {
-                    'User-Agent': 'SuiteManager/1.0 (contact@suitemanager.cl)',
+                    'User-Agent': process.env.NOMINATIM_USER_AGENT || `Rezerva/1.0 (${process.env.PLATFORM_DOMAIN || 'localhost'})`,
                     'Accept-Language': 'es,en',
                     'Accept': 'application/json'
                 }

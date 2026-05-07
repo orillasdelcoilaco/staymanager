@@ -2,16 +2,15 @@
  * Host canónico del sitio público (§3.3): solo aplica a dominio propio (no subdominio de plataforma).
  */
 
-const PLATFORM_DOMAIN = (process.env.PLATFORM_DOMAIN || 'suitemanagers.com').toLowerCase();
+const PLATFORM_DOMAIN = (process.env.PLATFORM_DOMAIN || 'rezerva.cl').toLowerCase();
 
 function isPlatformHostedHostname(host) {
     const h = String(host || '').toLowerCase().trim();
     if (!h) return true;
-    return (
-        h.endsWith('.onrender.com')
-        || h.endsWith('.suitemanagers.com')
-        || h.endsWith('.suitemanager.com')
-    );
+    if (h.endsWith('.onrender.com')) return true;
+    if (h.endsWith(`.${PLATFORM_DOMAIN}`)) return true;
+    const aliases = String(process.env.PLATFORM_DOMAIN_ALIASES || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    return aliases.some(d => h.endsWith(`.${d}`));
 }
 
 function getConfiguredPublicDomain(empresa) {

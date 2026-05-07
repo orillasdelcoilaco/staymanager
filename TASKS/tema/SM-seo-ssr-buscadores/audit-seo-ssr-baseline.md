@@ -10,7 +10,7 @@
 
 | Superficie | Host típico | Rutas SEO relevantes | Generación |
 |------------|-------------|----------------------|------------|
-| Marketplace plataforma | `suitemanagers.com` (o `PLATFORM_DOMAIN`) | `/`, `/sitemap.xml`, `/robots.txt`, `/google-hotels`, `/api/search.json`, `/llms.txt` | `marketplace.js`, `marketplace.seo.js`, `index.js` |
+| Marketplace plataforma | `rezerva.cl` (o `PLATFORM_DOMAIN` en env) | `/`, `/sitemap.xml`, `/robots.txt`, `/google-hotels`, `/api/search.json`, `/llms.txt` | `marketplace.js`, `marketplace.seo.js`, `index.js` |
 | Sitio público tenant | subdominio o dominio custom | `/`, `/propiedad/:id`, `/contacto`, `/sitemap.xml`, `/robots.txt`, feeds opcionales | `website.seo.js`, `website.js`, `tenantResolver` |
 
 **Aislamiento:** datos de diagnóstico por empresa salen solo de `empresa_id` del JWT; la vista plataforma superadmin usa agregados cross-tenant solo en endpoints explícitos (`/api/seo-monitor/platform`).

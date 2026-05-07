@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Acercar **todas** las URLs SSR tenant (`website.*`) y **suitemanagers.com** (marketplace / páginas públicas plataforma) al **máximo realista** en Lighthouse / PageSpeed Insights (rendimiento, accesibilidad, buenas prácticas, SEO), sin sacrificar multi-tenant ni seguridad.
+Acercar **todas** las URLs SSR tenant (`website.*`) y **rezerva.cl** (marketplace / páginas públicas plataforma) al **máximo realista** en Lighthouse / PageSpeed Insights (rendimiento, accesibilidad, buenas prácticas, SEO), sin sacrificar multi-tenant ni seguridad.
 
 ## Prioridad
 

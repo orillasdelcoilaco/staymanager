@@ -1,4 +1,5 @@
 // HTML del formulario unificado (extraído para límites de complejidad).
+import { getPlatformDomain } from '../../../platformConfig.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const clean = (v) => (v === undefined || v === null || v === 'undefined') ? '' : v;
@@ -53,7 +54,7 @@ function unifyBasicSection(empresa, general, booking) {
                     <div>
                         <label class="block text-xs font-medium text-gray-500 mb-1">Subdominio</label>
                         <input type="text" id="subdomain" class="form-input" value="${esc(clean(general.subdomain || empresa.subdominio || ''))}" placeholder="nombre-empresa">
-                        <p class="text-xs text-gray-400 mt-1">Ej: orillas-coilaco → orillas-coilaco.suitemanagers.com</p>
+                        <p class="text-xs text-gray-400 mt-1">Ej: orillas-coilaco → orillas-coilaco.rezerva.cl</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-500 mb-1">Dominio Personalizado (opcional)</label>
@@ -191,7 +192,7 @@ export function unifyIntegrationsFeedsSection(empresa, general) {
     const gh = clean(integ.googleHotelsContentToken || '');
     const subRaw = general.subdomain || empresa.subdominio || '';
     const subSan = String(subRaw).toLowerCase().replace(/[^a-z0-9-]/g, '') || 'tu-subdominio';
-    const baseDefault = `https://${subSan}.suitemanagers.com`;
+    const baseDefault = `https://${subSan}.${getPlatformDomain()}`;
     const customHost = String(general.domain || empresa.dominio || '').trim();
     const customLine = customHost
         ? `<p class="text-xs text-gray-500 mt-2">Con dominio propio verificado, mismos paths bajo <span class="font-mono">${esc(customHost)}</span>.</p>`
@@ -375,9 +376,9 @@ function unifyActionRow() {
 function unifyDomainPanel(empresa) {
     const subDisplay = empresa.websiteSettings?.general?.subdomain || empresa.subdominio
         || (empresa.nombre || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
-    const subDisplayText = subDisplay ? `${subDisplay}.suitemanagers.com` : 'Ingresa un subdominio arriba';
+    const subDisplayText = subDisplay ? `${subDisplay}.${getPlatformDomain()}` : 'Ingresa un subdominio arriba';
     const subForLink = empresa.websiteSettings?.general?.subdomain || empresa.subdominio || '';
-    const hrefSub = subForLink ? `https://${subForLink}.suitemanagers.com` : '#';
+    const hrefSub = subForLink ? `https://${subForLink}.${getPlatformDomain()}` : '#';
     const hasSub = !!(empresa.websiteSettings?.general?.subdomain || empresa.subdominio);
     const customDomain = empresa.websiteSettings?.general?.domain || empresa.dominio || '';
     const hasCustom = !!(empresa.websiteSettings?.general?.domain || empresa.dominio);

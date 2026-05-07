@@ -8,6 +8,7 @@ const { registrarCarga } = require('./historialCargasService');
 
 const _formatDateICal = (date) => new Date(date).toISOString().split('T')[0].replace(/-/g, '');
 const _dtstamp = () => new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+const _ICAL_UID_DOMAIN = process.env.PLATFORM_DOMAIN || 'rezerva.cl';
 
 async function getICalForProperty(_db, empresaId, propiedadId) {
     const threeMonthsAgo = new Date();
@@ -26,14 +27,14 @@ async function getICalForProperty(_db, empresaId, propiedadId) {
 
     const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//SuiteManager//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
     for (const r of reservasRes.rows) {
-        lines.push('BEGIN:VEVENT', `UID:${r.id}@suitemanager`, `DTSTAMP:${stamp}`,
+        lines.push('BEGIN:VEVENT', `UID:${r.id}@${_ICAL_UID_DOMAIN}`, `DTSTAMP:${stamp}`,
             `DTSTART;VALUE=DATE:${_formatDateICal(r.fecha_llegada)}`,
             `DTEND;VALUE=DATE:${_formatDateICal(r.fecha_salida)}`,
             `SUMMARY:Reservado - ${r.nombre_cliente || 'Ocupado'}`, 'END:VEVENT');
     }
     for (const b of bloqueos) {
         if (!b.todos && !(b.alojamientoIds || []).includes(propiedadId)) continue;
-        lines.push('BEGIN:VEVENT', `UID:bloqueo-${b.id}@suitemanager`, `DTSTAMP:${stamp}`,
+        lines.push('BEGIN:VEVENT', `UID:bloqueo-${b.id}@${_ICAL_UID_DOMAIN}`, `DTSTAMP:${stamp}`,
             `DTSTART;VALUE=DATE:${b.fechaInicio.replace(/-/g, '')}`,
             `DTEND;VALUE=DATE:${b.fechaFin.replace(/-/g, '')}`,
             `SUMMARY:Bloqueado${b.motivo ? ' - ' + b.motivo : ''}`, 'TRANSP:OPAQUE', 'END:VEVENT');

@@ -1,6 +1,7 @@
 // frontend/src/views/components/configurarWebPublica/webPublica.general.unified.js
 // Formulario único para configuración web pública - Reemplaza wizard + vista
 import { fetchAPI } from '../../../api.js';
+import { getPlatformDomain } from '../../../platformConfig.js';
 import { buildUnifiedMarkup } from './webPublica.general.unified.markup.js';
 import {
     bindUnifiedRegen,
@@ -75,10 +76,10 @@ function _updateDomainPanel(domainInfo, subdomain, customDomain) {
     const subEl = document.getElementById('subdomain-display');
     const subLink = document.getElementById('subdomain-link');
     if (subEl && subdomain) {
-        subEl.textContent = `${subdomain}.suitemanagers.com`;
+        subEl.textContent = `${subdomain}.${getPlatformDomain()}`;
     }
     if (subLink && subdomain) {
-        subLink.href = `https://${subdomain}.suitemanagers.com`;
+        subLink.href = `https://${subdomain}.${getPlatformDomain()}`;
         subLink.classList.remove('opacity-40', 'pointer-events-none');
     }
 

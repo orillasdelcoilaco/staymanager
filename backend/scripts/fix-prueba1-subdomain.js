@@ -27,7 +27,7 @@ async function fixPrueba1() {
             console.log('🛠️ Actualizando websiteSettings.subdomain a "prueba1"...');
             await db.collection('empresas').doc(doc.id).update({
                 'websiteSettings.subdomain': 'prueba1',
-                'websiteSettings.domain': 'prueba1.suitemanager.com' // También seteamos el dominio completo por si acaso
+                'websiteSettings.domain': 'prueba1.rezerva.cl' // Dominio completo; alinear con PLATFORM_DOMAIN en prod
             });
             console.log('✅ Actualización completada.');
         }
@@ -39,7 +39,7 @@ async function fixPrueba1() {
             nombre: 'prueba1',
             websiteSettings: {
                 subdomain: 'prueba1',
-                domain: 'prueba1.suitemanager.com'
+                domain: 'prueba1.rezerva.cl'
             },
             fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
         });

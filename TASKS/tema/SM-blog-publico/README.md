@@ -14,7 +14,7 @@ Publicar artículos por `empresa_id` en el SSR (`/blog`, `/blog/:slug`) con dato
 1. Aplicar migración en Supabase (o entorno PG):  
    `node backend/scripts/apply-sql-migration.js db/migrations/website-blog-posts.sql`
 2. Panel: **Sitio público → Blog público** — sugerencias / tema libre → **Generar prompt** → copiar a ChatGPT/Gemini → pegar JSON → **Crear borrador desde pegado**, o **Generar borrador (IA interna)** si el servidor tiene `BLOG_INTERNAL_*` configuradas → **Publicar**.
-3. URL viva: `https://{subdominio}.suitemanagers.com/blog`
+3. URL viva: `https://{subdominio}.rezerva.cl/blog`
 
 ## Render (producción / staging)
 

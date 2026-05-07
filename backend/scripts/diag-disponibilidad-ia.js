@@ -50,7 +50,7 @@ function buildAvailabilityResult(allProperties, allTarifas, allReservas, allBloq
     return { availableProperties, unavailableProperties, propiedadesConTarifa };
 }
 
-/** Igual que suitemanagerApiController + getAvailabilityData: comparación prop.id === t.alojamientoId (estricta) */
+/** Igual que publicAiHttpController + getAvailabilityData: comparación prop.id === t.alojamientoId (estricta) */
 function buildAvailabilityResultStrictIds(allProperties, allTarifas, allReservas, allBloqueos, startDate, endDate) {
     const propiedadesConTarifa = allProperties.filter((prop) =>
         allTarifas.some(

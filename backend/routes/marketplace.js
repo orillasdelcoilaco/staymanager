@@ -1,5 +1,5 @@
 // backend/routes/marketplace.js
-// Rutas del marketplace público suitemanagers.com — completamente aisladas del SSR empresa
+// Rutas del marketplace público rezerva.cl — completamente aisladas del SSR empresa
 const express = require('express');
 const cors = require('cors');
 const {

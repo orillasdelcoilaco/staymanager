@@ -19,6 +19,8 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const pool = require('../db/postgres');
 
+const PLATFORM_DOMAIN = (process.env.PLATFORM_DOMAIN || 'rezerva.cl').toLowerCase();
+
 const SUBDOMAIN = 'prueba1';
 
 function parseArgs() {
@@ -81,14 +83,14 @@ function warnTenantAlignment(emp) {
     const dom = (emp.ws_domain || '').trim();
     if (dom && !dom.includes('.')) {
         console.warn(
-            `  [aviso] websiteSettings.domain="${dom}" no parece FQDN (falta sufijo .suitemanager.com / .onrender.com). ` +
-                'Puede afectar resolución por dominio completo; el subdominio en columna sigue funcionando para *.suitemanager.com.'
+            `  [aviso] websiteSettings.domain="${dom}" no parece FQDN (falta sufijo .${PLATFORM_DOMAIN} / .onrender.com). ` +
+                `Puede afectar resolución por dominio completo; el subdominio en columna sigue funcionando para *.${PLATFORM_DOMAIN}.`
         );
     }
 }
 
 /**
- * @param {string|null} forceHost — hostname para force_host (ej. prueba1.suitemanagers.com)
+ * @param {string|null} forceHost — hostname para force_host (ej. prueba1.rezerva.cl)
  */
 function httpGet(url) {
     return new Promise((resolve, reject) => {
@@ -111,7 +113,7 @@ async function runHttpSmoke(empresaRow) {
         empresaRow.ws_domain
         || cfg.websiteSettings?.domain
         || cfg.websiteSettings?.general?.domain
-        || `${SUBDOMAIN}.suitemanagers.com`;
+        || `${SUBDOMAIN}.${PLATFORM_DOMAIN}`;
 
     console.log(`\n[HTTP] GET ${base}/?force_host=${forceHost}`);
     try {

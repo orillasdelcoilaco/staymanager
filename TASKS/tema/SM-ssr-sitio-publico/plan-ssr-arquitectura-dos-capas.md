@@ -11,7 +11,7 @@ SuiteManager tiene dos superficies SSR con audiencias y objetivos distintos:
 
 | | **Capa 1** | **Capa 2** |
 |---|---|---|
-| **Dominio** | `suitemanagers.com` | `empresa.suitemanagers.com` o dominio propio |
+| **Dominio** | `rezerva.cl` (apex plataforma) | `empresa.rezerva.cl` o dominio propio |
 | **Audiencia** | Huéspedes buscando alojamiento (todos los clientes) | Huéspedes de UNA empresa específica |
 | **Analogía** | Airbnb.com | Sitio web propio de un anfitrión |
 | **Estado** | ❌ No existe | ✅ Implementado (mejorar) |
@@ -101,10 +101,10 @@ GET /:subdomain/propiedad/:id/disponibilidad?from=YYYY-MM&months=3
 
 ---
 
-## CAPA 1 — Marketplace SuiteManagers.com (Prioridad Media)
+## CAPA 1 — Marketplace (apex `rezerva.cl`) (Prioridad Media)
 
 ### Concepto
-`suitemanagers.com` sin subdominio de empresa = plataforma pública donde cualquier persona puede buscar alojamientos en todas las empresas registradas que hayan activado visibilidad pública.
+**`rezerva.cl`** (apex / sin subdominio de empresa) = plataforma pública donde cualquier persona puede buscar alojamientos en empresas con visibilidad pública (`PLATFORM_DOMAIN` en env).
 
 **Modelo de negocio:** SuiteManager cobra comisión por reserva directa hecha desde la plataforma, o bien es el canal de marketing premium para los clientes.
 
@@ -112,9 +112,9 @@ GET /:subdomain/propiedad/:id/disponibilidad?from=YYYY-MM&months=3
 
 ```
 tenantResolver.js
-  ├── hostname = empresa.suitemanagers.com → Capa 2 (actual)
+  ├── hostname = empresa.rezerva.cl → Capa 2 (actual)
   ├── hostname = midominio.com → Capa 2 (custom domain)
-  └── hostname = suitemanagers.com → Capa 1 (nuevo)
+  └── hostname = rezerva.cl → Capa 1 (nuevo)
         ↓
   backend/routes/marketplace.js (nuevo)
         ↓

@@ -1,28 +1,30 @@
 /**
  * @fileoverview GPT Global Manifest (Marketplace Agent)
- * Final Configuration for SuiteManager IA — Buscador Global.
+ * Final Configuration for Rezerva IA — Buscador Global.
  */
+
+const _PLATFORM_DOMAIN = process.env.PLATFORM_DOMAIN || 'rezerva.cl';
 
 const GPT_GLOBAL_MANIFEST = {
     "schema_version": "v1",
-    "name_for_human": "SuiteManager IA — Buscador Global",
-    "name_for_model": "suite_manager_global",
-    "description_for_human": "Busca alojamientos disponibles en Chile en todo el ecosistema SuiteManager IA.",
-    "description_for_model": "Eres un asistente global conectado al backend de SuiteManager IA en suitemanagers.com. Usas Actions para detectar intención, filtrar disponibilidad y mostrar fotos optimizadas. Nunca procesas imágenes, nunca inventas. Mantienes las respuestas cortas y orientadas a la reserva.",
+    "name_for_human": "Rezerva IA — Buscador Global",
+    "name_for_model": "rezerva_global",
+    "description_for_human": "Busca alojamientos disponibles en Chile en todo el ecosistema Rezerva IA.",
+    "description_for_model": `Eres un asistente global conectado al backend de Rezerva IA en ${_PLATFORM_DOMAIN}. Usas Actions para detectar intención, filtrar disponibilidad y mostrar fotos optimizadas. Nunca procesas imágenes, nunca inventas. Mantienes las respuestas cortas y orientadas a la reserva.`,
     "auth": {
         "type": "none"
     },
     "api": {
         "type": "openapi",
-        "url": "https://suitemanagers.com/api/openapi-global.json"
+        "url": `https://${_PLATFORM_DOMAIN}/api/openapi-global.json`
     },
     "instructions": `
-"Eres el Asistente Global de Reservas de SuiteManager IA.
+"Eres el Asistente Global de Reservas de Rezerva IA.
 
 Tu objetivo: encontrar alojamiento disponible rápido, sin hacer preguntas innecesarias y siempre orientado a la reserva.
 
 Reglas:
-1. Usa siempre las Actions del backend (suitemanagers.com).
+1. Usa siempre las Actions del backend (${_PLATFORM_DOMAIN}).
 2. Antes de responder llama a 'detectar_intencion'.
 3. Si el usuario dice 'este fin de semana', calcula automáticamente:
    - viernes próximo (check-in)

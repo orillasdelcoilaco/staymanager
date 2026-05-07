@@ -10,7 +10,7 @@ Orden acordado para **no perder el hilo** entre agentes / sesiones (complementa 
 
 | Paso | Qué incluye | Estado / notas (2026-05) |
 |------|-------------|---------------------------|
-| **B1** | **Deploy prod** (`main` → Render) + **DNS** `api.<dominio>` y/o `feeds.<dominio>` + **env** partner (`GOOGLE_PARTNER_FEED_AUTH_TOKEN`, etc. §2) | **feeds.** y env en prod **hechos** en operación actual; **`api.`** según contrato con Google (mismo backend si comparten app). Apex **`suitemanagers.com` / `www`** para marketplace documentado en **`venta-ia.md` §1.2** (no sustituye `feeds.`). |
+| **B1** | **Deploy prod** (`main` → Render) + **DNS** `api.<dominio>` y/o `feeds.<dominio>` + **env** partner (`GOOGLE_PARTNER_FEED_AUTH_TOKEN`, etc. §2) | **feeds.** y env en prod **hechos** en operación actual; **`api.`** según contrato con Google (mismo backend si comparten app). Apex **`rezerva.cl` / `www`** para marketplace (**`venta-ia.md` §1.2**); histórico **`suitemanagers.com`** durante transición DNS. |
 | **B2** | **Smoke** feeds globales (`npm run smoke:partner-feeds`, opcional `GH_PARTNER_FEED_STRICT=1`) y/o panel **Canales IA → Probar feeds HTTP** | Hecho en flujo de verificación reciente; repetir tras cada cambio de token o DNS. |
 | **B3** | **Onboarding Google Hotel Center por tenant** (feeds en host del operador, tokens, `hotelId`, listado) + **`TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md`** §1–§8 a mano | **Pendiente** por empresa y por respuesta Google (connectivity). |
 | **B4** | **Checklist §9** — HTTP + forma XML: `GH_FEED_BASE_URL` / `GH_FEED_TOKEN` → `npm run smoke:google-hotels-tenant` o `node backend/scripts/verify-google-hotels-feed-checklist.js` | Hecho para tenant referencia; **repetir** por cada dominio nuevo o tras rotar token. |
@@ -21,12 +21,12 @@ Orden acordado para **no perder el hilo** entre agentes / sesiones (complementa 
 
 1. **Código ya en `main` desplegado** en Render (o la rama que uséis en prod).
 2. **Variables §2** en el servicio Render (mínimo `GOOGLE_PARTNER_FEED_AUTH_TOKEN` largo; **sin** `ALLOW_PARTNER_FEED_WITHOUT_AUTH` en prod).
-3. **Sin DNS aún:** añadir **`GOOGLE_PARTNER_EXTRA_HOSTS`** con el hostname público del servicio (p. ej. `tu-app.onrender.com`) para poder llamar feeds **antes** de tener `feeds.suitemanagers.com`.
+3. **Sin DNS aún:** añadir **`GOOGLE_PARTNER_EXTRA_HOSTS`** con el hostname público del servicio (p. ej. `tu-app.onrender.com`) para poder llamar feeds **antes** de tener `feeds.rezerva.cl` (u host dedicado equivalente).
 4. **Smoke HTTP §3** (PowerShell: `curl.exe -s -o NUL -w "%{http_code}" "https://HOST/feeds/google/properties.xml?auth=TOKEN"`).
 5. **DNS §1** cuando toque certificación final: `feeds.<dominio>` y/o `api.<dominio>` → mismo backend.
 6. **Quitar o reducir `EXTRA_HOSTS`** si ya no hace falta exponer `onrender.com` a Google.
 7. **Google Hotel Center §4** con URLs definitivas.
-8. **Catálogo humano:** `https://suitemanagers.com/google-hotels` (marketplace apex).
+8. **Catálogo humano:** `https://rezerva.cl/google-hotels` (marketplace apex; ver DNS/`PLATFORM_DOMAIN`).
 
 **Rutas feed (siempre bajo el mismo host permitido):**
 
@@ -46,7 +46,7 @@ Cuando **§3** del checklist ya da **200** y XML razonable en staging o prod: us
 
 ### 2. Trámite en Google (fuera de SuiteManager)
 
-- En **Hotel Center** / programa **connectivity** que Google haya habilitado, registrar las dos URLs definitivas (p. ej. `https://feeds.suitemanagers.com/feeds/google/...`).
+- En **Hotel Center** / programa **connectivity** que Google haya habilitado, registrar las dos URLs definitivas (p. ej. `https://feeds.rezerva.cl/feeds/google/...`).
 - Seguir el flujo del **asistente de integración** de Google (validación, mapeo de propiedades, etc.).
 - Checklist interno cruzado: este archivo (modo **partner** plataforma) + **`TASKS/tema/SM-ghc-onboarding/checklist-onboarding-google-hotel-center.md`** (modo **tenant** + transición).
 
@@ -74,7 +74,7 @@ Cuando **§3** del checklist ya da **200** y XML razonable en staging o prod: us
 - [ ] Propagar y verificar con `nslookup` / panel DNS.
 - [ ] Tras certificación estable, **subir TTL** a valor operativo habitual.
 
-`PLATFORM_DOMAIN` por defecto en código marketplace: `suitemanagers.com` (`backend/services/marketplaceService.js`).
+`PLATFORM_DOMAIN` por defecto en código marketplace: **`rezerva.cl`** (`backend/services/marketplaceService.js`), salvo override en env.
 
 ---
 

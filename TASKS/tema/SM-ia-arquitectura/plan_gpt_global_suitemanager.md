@@ -276,7 +276,7 @@ Asignar duenos, orden de ejecucion y fechas claras.
 
 ### Detalles Tecnicos de la API
 
-- **Base URL**: `https://suitemanagers.com`
+- **Base URL** (plataforma; producción): `https://rezerva.cl` — API pública y OpenAPI suelen servirse vía el host Render; ver `LEER-PRIMERO.md` § Referencias de entorno.
 - **Rate Limit**:
   - **Por Tenant**: 60 requests/min por `x-empresa-id`.
   - **Por IP**: 60 requests/min (proteccion base).

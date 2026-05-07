@@ -2,6 +2,7 @@
 import { fetchAPI } from './api.js';
 import { checkAuthAndRender } from './app.js';
 import { CATEGORY_HINTS, ITEM_HINTS } from './menuConfig.hints.js';
+import { ensurePlatformConfig } from './platformConfig.js';
 
 const escAttr = (s) => String(s ?? '')
     .replace(/&/g, '&amp;')
@@ -112,8 +113,8 @@ const menuConfig = [
         ]
     },
     {
-        icon: 'fa-solid fa-chart-simple', name: 'Plataforma SuiteManagers',
-        id: 'plataforma-suitemanagers',
+        icon: 'fa-solid fa-chart-simple', name: 'Plataforma Rezerva',
+        id: 'plataforma-principal',
         superadminOnly: true,
         children: [
             { icon: 'fa-solid fa-globe', name: 'Buscadores plataforma', path: '/seo-plataforma', id: 'seo-plataforma', superadminOnly: true },
@@ -332,4 +333,7 @@ function initialAppPath() {
 }
 
 window.addEventListener('popstate', () => loadView(initialAppPath()));
-document.addEventListener('DOMContentLoaded', () => loadView(initialAppPath()));
+document.addEventListener('DOMContentLoaded', async () => {
+    await ensurePlatformConfig();
+    loadView(initialAppPath());
+});

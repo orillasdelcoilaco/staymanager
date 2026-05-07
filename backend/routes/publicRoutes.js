@@ -94,7 +94,7 @@ module.exports = (db) => {
         requireAgentKey,
         async (req, res) => {
             try {
-                const controller = require('../services/suitemanagerApiController');
+                const controller = require('../services/publicAiHttpController');
                 return controller.resolveBookingUnit(req, res);
             } catch (e) {
                 console.error('[public reservas/resolve-booking-unit]', e.message);

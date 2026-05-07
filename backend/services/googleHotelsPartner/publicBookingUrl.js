@@ -8,7 +8,7 @@ function buildPublicBookingBaseUrl(empresaConfiguracion) {
     const general = ws.general && typeof ws.general === 'object' ? ws.general : {};
     const domain = String(general.domain || ws.domain || '').trim().toLowerCase();
     const sub = String(general.subdomain || ws.subdomain || '').trim().toLowerCase();
-    const platform = process.env.PLATFORM_DOMAIN || 'suitemanagers.com';
+    const platform = process.env.PLATFORM_DOMAIN || 'rezerva.cl';
     if (domain && !domain.endsWith('.local')) return `https://${domain}`;
     if (sub) return `https://${sub}.${platform}`;
     return null;
