@@ -203,17 +203,17 @@ Una vez validado en producción, Firestore `valoresDolar` queda en desuso.
 
 ### 4.1 Repositorio GitHub (cuenta operación Rezerva)
 
-**Canónico (2026-05):** `https://github.com/pmeza-rezerva/rezerva` — usuario GitHub `pmeza-rezerva`. Histórico: `orillasdelcoilaco/staymanager`.
+**Canónico (2026-05):** `https://github.com/admin-rezerva/rezerva` — usuario GitHub `admin-rezerva`. Histórico: `orillasdelcoilaco/staymanager`.
 
 **Si solo renombrás dentro del mismo owner:** Settings → renombrar repo; GitHub suele redirigir la URL antigua un tiempo.
 
 **Impacto inmediato al cambiar owner o URL:**
 - **Render pierde el webhook de GitHub** — reconectar en Render (Settings → Build & Deploy → repo).
-- Actualizar remote local: `git remote set-url origin https://github.com/pmeza-rezerva/rezerva.git` (o `git remote rename origin old-origin` + `git remote add origin …` si preservás el viejo como `old-origin`).
+- Actualizar remote local: `git remote set-url origin https://github.com/admin-rezerva/rezerva.git` (o `git remote rename origin old-origin` + `git remote add origin …` si preservás el viejo como `old-origin`).
 
 **Pasos típicos tras migración:**
 1. Repo vacío creado en la cuenta nueva → `git push -u origin main`
-2. En Render: conectar `pmeza-rezerva/rezerva` y verificar deploy automático
+2. En Render: conectar `admin-rezerva/rezerva` y verificar deploy automático
 
 **No cambia:**
 - URL de Render (`suite-manager.onrender.com`) — es independiente del repo

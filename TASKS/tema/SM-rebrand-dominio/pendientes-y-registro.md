@@ -69,7 +69,7 @@ Inventarios **`publicAiHttpController`** actualizados en: `venta-ia.md` §6, `so
 | 2026-05-07 | Scripts + TASKS masivos; deprecación `verify-subdomain-logic.js`. **No hecho:** Fase 1/3 ops, Fase 4 PG. |
 | 2026-05-07 | Rename **`publicAiHttpController.js`** + MCP **`rezerva-mcp-server`**; pendientes ops/Fase 4 sin cambio. |
 | 2026-05-07 | **MCP:** nota integradores reforzada en **`LEER-PRIMERO.md`**, **`mcp-server/README.md`**, **`chatgpt_integration_summary.md`**, bitácora **`coordinacion-cursor-claude-ia-venta.md`** §6. |
-| 2026-05-07 | **GitHub:** repo operación **`https://github.com/pmeza-rezerva/rezerva`** documentado; remote local `origin` → misma URL; **push** y **Render** reconectar → manual (credenciales / dashboard). |
+| 2026-05-07 | **GitHub:** repo operación **`https://github.com/admin-rezerva/rezerva`** documentado; remote local `origin` → misma URL; **push** y **Render** reconectar → manual (credenciales / dashboard). |
 
 ---
 

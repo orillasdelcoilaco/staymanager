@@ -9,10 +9,10 @@
 
 | Campo | Valor |
 |-------|-------|
-| URL | `https://github.com/pmeza-rezerva/rezerva` |
-| Visibilidad | Privado |
+| URL | `https://github.com/admin-rezerva/rezerva` |
+| Visibilidad | Público (ajustar si se pasa a privado) |
 | Rama principal | `main` |
-| Owner | `pmeza-rezerva` (cuenta GitHub operación Rezerva) |
+| Owner | `admin-rezerva` (cuenta GitHub operación Rezerva) |
 
 ---
 
