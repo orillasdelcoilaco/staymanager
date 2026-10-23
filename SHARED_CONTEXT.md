@@ -501,3 +501,99 @@ CREATE INDEX IF NOT EXISTS idx_cupones_cliente ON cupones(empresa_id, cliente_id
 | `operator does not exist: text = uuid` en resenas JOIN propiedades | `propiedades.id` es **TEXT slug** (ej: "cabana1"), no UUID. `resenas.propiedad_id` es UUID. Fix: `ON p.id = r.propiedad_id::text` | `propiedades.id` SIEMPRE es TEXT slug, NO UUID. El plan de migración dice UUID pero el código real usa slugify |
 
 
+
+---
+
+# [2026-10-23] Proyecto compartido con SODC: evaluar migración de orillasdelcoilaco.cl a sitio estático
+_Copia del documento de enganche publicado en orillasdelcoilaco/sodc: coordinacion/compartido-ia/grok/proyecto-migracion-estatica-sodc.md_
+
+# Nuevo proyecto: evaluar migración de orillasdelcoilaco.cl a sitio estático
+
+- Fecha: 2026-10-23
+- Autor: Web SODC (agente Grok), por encargo de Pablo
+- Estado: **evaluación — nada se ejecuta aún**
+
+## Regla permanente de comunicación
+TODA la conversación y el trabajo de análisis de este proyecto se hace DENTRO de la carpeta compartida, no en el chat con Pablo. Los agentes (Cursor SODC y Cursor Rezerva) NO deben avisar ni escribir en el chat de Pablo para nada; lo único permitido es dejar una nota en el compartido indicando que hay algo nuevo que leer. Pablo es quien avisa cuándo hay que leer el compartido. Si un agente necesita algo de Pablo, lo anota en el compartido y listo.
+
+## 1. Proyecto
+Evaluar la migración de orillasdelcoilaco.cl desde WordPress en hn.cl a un sitio estático en GitHub Pages, replicando el modelo de Rezerva.
+
+## 2. Integrantes
+- Web SODC (agente Grok)
+- Proyecto SODC en Cursor
+- Proyecto Rezerva en Cursor
+- Pablo
+
+## 3. Objetivo principal
+Mantener y mejorar el SEO y el GEO (posicionamiento en motores de IA).
+
+## 4. REGLA DURA: correos
+Los correos del hosting **reservas@orillasdelcoilaco.cl** y **administrador@orillasdelcoilaco.cl** NO se pueden perder. Deben migrarse a un proveedor externo antes de soltar hn.cl y, mientras tanto, seguir funcionando en el hosting.
+
+## 5. Parte dinámica
+Haría falta una cuenta nueva en Render y un repositorio nuevo en GitHub.
+
+## 6. Paso 1
+Cada integrante deja sus apreciaciones, complicaciones y dificultades, en especial sobre los correos.
+
+## 7. Contexto conocido
+- Las consultas a la API de Rezerva las hace el PHP del tema hijo `luviana-child` desde el servidor (no el navegador).
+- Fotos servidas desde Supabase Storage de Rezerva.
+- JS propios: `search-dates.js` (pre-calienta la búsqueda en `/search-results/`) y `analytics.js`.
+- Plugins activos: Trustindex (Booking.com Reviews y Google Reviews), Getwid (probable mapa), Joinchat (WhatsApp), Rank Math, Sucuri, Wordfence, WP Super Cache.
+- WordPress vive en `public_html/new`.
+- DNS en z133.net (no Cloudflare).
+- El contenido se edita muy poco.
+- La temporada alta empieza el próximo mes (noviembre 2026): no se debe arriesgar el sitio en producción en ese periodo.
+
+## Apreciaciones
+
+### Web SODC (agente Grok)
+- Preservar todas las URLs actuales y las redirecciones 301 de Rank Math, además de los sitemaps.
+- Mover con cuidado los registros MX/SPF/DKIM al cambiar DNS, para no cortar los correos.
+- Reemplazar Trustindex, Joinchat y los formularios por equivalentes estáticos.
+- No migrar en temporada alta.
+
+### Proyecto SODC (Cursor)
+_(pendiente)_
+
+### Proyecto Rezerva (Cursor)
+_(pendiente)_
+
+### Pablo
+_(pendiente)_
+
+## ⚠️ CONSULTA PRIORITARIA — Primera ronda — Para: equipo Rezerva (Cursor Rezerva)
+_Agregada el 2026-10-23 por Web SODC, por encargo de Pablo._
+
+**1. ¿Funcionan las llamadas desde un dominio externo (GitHub Pages)?**
+Hoy todas estas llamadas las hace el PHP del tema hijo `luviana-child` desde el servidor hn.cl. Confirmar si funcionarían igual llamadas desde el navegador del visitante con el sitio en GitHub Pages (orillasdelcoilaco.cl servido por Pages):
+- `GET https://orillasdelcoilaco.rezerva.cl/api/public/propiedades`
+- `POST /propiedad/{id}/calcular-precio` (fechaLlegada, fechaSalida)
+- `GET /propiedad/{id}/calendario-ocupacion?from=&to=`
+- `GET /?fechaLlegada=&fechaSalida=&personas=` (oferta de grupos; hoy se lee HTML)
+- `POST /crear-reserva-publica`
+- `POST https://gestor-reservas.onrender.com/api/puente-sodc/reservas` (cabecera `X-Puente-Secreto` = `PUENTE_SODC_SECRET`)
+- Reseñas: `GET /r/{token}`, `POST /api/resenas/submit/{token}`, `POST /api/resenas/google-click/{token}`
+- Mi reserva: `GET /confirmacion?reservaId=`, `GET /confirmacion/documento...`
+- Check-in: `POST /checkin-datos`, `POST /checkin-comprobante`, `POST /checkin-comprobante-saldo`
+- WhatsApp: `GET /` (se extrae wa.me del HTML)
+
+Revisar en concreto:
+- **CORS:** si los endpoints aceptan peticiones del navegador con origen orillasdelcoilaco.cl.
+- **Dominio autorizado:** si hay listas de dominios u orígenes permitidos.
+- **`PUENTE_SODC_SECRET`:** no puede ir en un frontend estático porque quedaría expuesto. ¿Cómo se reemplaza? (por ejemplo, que Rezerva haga el puente del lado del servidor al crear la reserva).
+- **Endpoints que devuelven HTML** en lugar de JSON (grupos, /r/{token}, confirmación, WhatsApp): si existe o haría falta una versión JSON.
+
+**2. Confirmar el flujo completo**
+Confirmar que Rezerva es quien:
+- genera la reserva,
+- envía los correos,
+- programa los plazos del abono,
+- recibe los comprobantes,
+- muestra las notificaciones de abono en su página.
+
+Y que la web estática solo replicaría esas mismas llamadas desde el navegador del visitante, sin lógica propia en el servidor.
+
+**Prioridad:** ALTA, primera ronda. Responder en este mismo documento, en la sección de apreciaciones de Rezerva.
