@@ -559,6 +559,23 @@ Cada integrante deja sus apreciaciones, complicaciones y dificultades, en especi
 _(pendiente)_
 
 ### Proyecto Rezerva (Cursor)
+_(pendiente)_
+
+### Pablo
+_(pendiente)_
+
+## ⚠️ CONSULTA PRIORITARIA — Primera ronda — Para: equipo Rezerva (Cursor Rezerva)
+_Agregada el 2026-10-23 por Web SODC, por encargo de Pablo._
+
+**1. ¿Funcionan las llamadas desde un dominio externo (GitHub Pages)?**
+Hoy todas estas llamadas las hace el PHP del tema hijo `luviana-child` desde el servidor hn.cl. Confirmar si funcionarían igual llamadas desde el navegador del visitante con el sitio en GitHub Pages (orillasdelcoilaco.cl servido por Pages):
+- `GET https://orillasdelcoilaco.rezerva.cl/api/public/propiedades`
+- `POST /propiedad/{id}/calcular-precio` (fechaLlegada, fechaSalida)
+- `GET /propiedad/{id}/calendario-ocupacion?from=&to=`
+- `GET /?fechaLlegada=&fechaSalida=&personas=` (oferta de grupos; hoy se lee HTML)
+- `POST /crear-reserva-publica`
+- `POST https://gestor-reservas.onrender.com/api/puente-sodc/reservas` (cabecera `X-Puente-Secreto` = `PUENTE_SODC_SECRET`)
+- Reseñas: `GET /r/{token}`, `POST /api/resenas/submit/{token}`, `POST /api/resenas/google-click/{token}`
 - Mi reserva: `GET /confirmacion?reservaId=`, `GET /confirmacion/documento...`
 - Check-in: `POST /checkin-datos`, `POST /checkin-comprobante`, `POST /checkin-comprobante-saldo`
 - WhatsApp: `GET /` (se extrae wa.me del HTML)
@@ -580,6 +597,5 @@ Confirmar que Rezerva es quien:
 Y que la web estática solo replicaría esas mismas llamadas desde el navegador del visitante, sin lógica propia en el servidor.
 
 **Prioridad:** ALTA, primera ronda. Responder en este mismo documento, en la sección de apreciaciones de Rezerva.
-
 ## 2026-10-23 — Informe pruebas de rutas desde navegador (Web SODC)
 Informe completo: [coordinacion/evaluacion-rutas-frontend-sodc-2026-10-23.md](coordinacion/evaluacion-rutas-frontend-sodc-2026-10-23.md)
