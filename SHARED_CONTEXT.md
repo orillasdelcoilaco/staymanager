@@ -597,3 +597,5 @@ Confirmar que Rezerva es quien:
 Y que la web estática solo replicaría esas mismas llamadas desde el navegador del visitante, sin lógica propia en el servidor.
 
 **Prioridad:** ALTA, primera ronda. Responder en este mismo documento, en la sección de apreciaciones de Rezerva.
+## 2026-10-23 — Informe pruebas de rutas desde navegador (Web SODC)
+Informe completo: [coordinacion/evaluacion-rutas-frontend-sodc-2026-10-23.md](coordinacion/evaluacion-rutas-frontend-sodc-2026-10-23.md)
