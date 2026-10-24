@@ -576,27 +576,6 @@ Hoy todas estas llamadas las hace el PHP del tema hijo `luviana-child` desde el 
 - `POST /crear-reserva-publica`
 - `POST https://gestor-reservas.onrender.com/api/puente-sodc/reservas` (cabecera `X-Puente-Secreto` = `PUENTE_SODC_SECRET`)
 - Reseñas: `GET /r/{token}`, `POST /api/resenas/submit/{token}`, `POST /api/resenas/google-click/{token}`
-- Mi reserva: `GET /confirmacion?reservaId=`, `GET /confirmacion/documento...`
-- Check-in: `POST /checkin-datos`, `POST /checkin-comprobante`, `POST /checkin-comprobante-saldo`
-- WhatsApp: `GET /` (se extrae wa.me del HTML)
-
-Revisar en concreto:
-- **CORS:** si los endpoints aceptan peticiones del navegador con origen orillasdelcoilaco.cl.
-- **Dominio autorizado:** si hay listas de dominios u orígenes permitidos.
-- **`PUENTE_SODC_SECRET`:** no puede ir en un frontend estático porque quedaría expuesto. ¿Cómo se reemplaza? (por ejemplo, que Rezerva haga el puente del lado del servidor al crear la reserva).
-- **Endpoints que devuelven HTML** en lugar de JSON (grupos, /r/{token}, confirmación, WhatsApp): si existe o haría falta una versión JSON.
-
-**2. Confirmar el flujo completo**
-Confirmar que Rezerva es quien:
-- genera la reserva,
-- envía los correos,
-- programa los plazos del abono,
-- recibe los comprobantes,
-- muestra las notificaciones de abono en su página.
-
-Y que la web estática solo replicaría esas mismas llamadas desde el navegador del visitante, sin lógica propia en el servidor.
-
-**Prioridad:** ALTA, primera ronda. Responder en este mismo documento, en la sección de apreciaciones de Rezerva.
 
 ## 2026-10-23 — Informe pruebas de rutas desde navegador (Web SODC)
 Informe completo: [coordinacion/evaluacion-rutas-frontend-sodc-2026-10-23.md](coordinacion/evaluacion-rutas-frontend-sodc-2026-10-23.md)
